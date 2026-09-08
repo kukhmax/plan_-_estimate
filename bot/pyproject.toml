@@ -1,0 +1,12 @@
+[project]
+name = "plan-estimate-bot"
+version = "0.1.0"
+description = "Telegram Bot bootstrap for Plan & Estimate Mini App"
+authors = [{ name = "Contractor" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiogram>=3.4.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+]

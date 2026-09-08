@@ -12,7 +12,7 @@
 | Stage | Title | Status | Primary Focus |
 | :--- | :--- | :--- | :--- |
 | **Stage 0** | **Engineering Workflow & Architecture Rules** | **Completed** | Foundation rules, `.gitignore`, `.agents/rules/`, `GEMINI.md`, progress tracker |
-| Stage 1 | Project Scaffolding & CI Foundation | Pending | Backend FastAPI boilerplate, Frontend Vite React setup, PostgreSQL connection |
+| **Stage 1** | **Project Scaffolding & CI Foundation** | **Completed** | Minimal working monorepo skeleton (FastAPI, React+Vite, aiogram 3, Docker Compose) |
 | Stage 2 | Core Domain Models & Database Migrations | Pending | User, Client, Obiekt, Room, Surface, Substrate, Quality models & Alembic |
 | Stage 3 | Price Book & Estimation Engine | Pending | Deterministic price book, unit calculations, material/labor breakdown |
 | Stage 4 | Substrate Inspection & Risk Engine | Pending | Moisture, adhesion, surface diagnostic rules & technical warnings |
@@ -58,6 +58,61 @@
 
 #### Deferred:
 - Application source code implementation deferred to subsequent stages.
+
+---
+
+### Stage 1: Bootstrap Application Infrastructure
+- **Status**: Completed
+- **Date**: 2026-09-08
+- **Commit**: `feat(stage-1): bootstrap application infrastructure`
+
+#### Added:
+- Backend:
+  - `backend/app/main.py` FastAPI entrypoint with CORS and `/api/health` router.
+  - `backend/app/api/v1/endpoints/health.py` returning `{"status": "ok"}`.
+  - `backend/app/core/config.py` with Pydantic v2 `BaseSettings`.
+  - `backend/app/core/database.py` with SQLAlchemy 2.x async engine and DeclarativeBase.
+  - `backend/alembic.ini`, `backend/alembic/env.py`, `backend/alembic/script.py.mako` for async migrations.
+  - `backend/Dockerfile` and `backend/.dockerignore` for containerized backend execution.
+  - `backend/tests/conftest.py` and `backend/tests/test_health.py` testing GET `/api/health`.
+  - `backend/pyproject.toml` and `backend/requirements.txt`.
+- Frontend:
+  - `frontend/src/App.tsx` displaying "Renovation App" / "Frontend is running".
+  - `frontend/src/App.test.tsx` Vitest testing DOM rendering.
+  - `frontend/src/main.tsx`, `frontend/src/index.css` with Tailwind CSS directives.
+  - `frontend/vite.config.ts`, `frontend/tailwind.config.js`, `frontend/postcss.config.js`, `frontend/tsconfig.json`.
+  - `frontend/package.json`.
+- Bot:
+  - `bot/main.py` aiogram 3.x async polling bootstrap (no business logic).
+  - `bot/bot/config.py` reading bot token from environment.
+  - `bot/bot/handlers.py` with minimal `/start` command router.
+  - `bot/pyproject.toml` and `bot/requirements.txt`.
+- Infrastructure & Docker:
+  - `docker-compose.yml` defining PostgreSQL 16 Alpine container with healthcheck and backend container (no Redis).
+  - `.env.example` defining database, bot, and app variables.
+
+#### Changed:
+- `README.md` updated with exact commands for DB startup, backend startup, backend tests, frontend startup, frontend tests, and production build.
+
+#### Database:
+- PostgreSQL 16 container definition in `docker-compose.yml`.
+
+#### Tests:
+- Backend: `pytest` passed (1 passed in 0.03s).
+- Frontend: `vitest --run` passed (1 passed in 3.33s).
+- Frontend Typecheck: `tsc -p frontend/tsconfig.json --noEmit` passed (0 errors).
+- Frontend Build: `tsc && vite build` passed (built in 3.83s).
+- Bot: syntax and import check passed.
+
+#### Verification:
+1. Backend tests: PASS (1 passed).
+2. Frontend tests: PASS (1 passed).
+3. Frontend typecheck: PASS (0 errors).
+4. Frontend build: PASS (production bundle built).
+5. Health endpoint manual check: PASS (`GET /api/health` returns HTTP 200 `{"status": "ok"}`).
+
+#### Deferred:
+- Domain entities (Clients, Projects, Obiekty, Rooms), Telegram authentication, estimate calculation, and PDF/storage deferred to subsequent stages.
 
 ---
 
