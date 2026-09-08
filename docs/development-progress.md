@@ -13,8 +13,8 @@
 | :--- | :--- | :--- | :--- |
 | **Stage 0** | **Engineering Workflow & Architecture Rules** | **Completed** | Foundation rules, `.gitignore`, `.agents/rules/`, `GEMINI.md`, progress tracker |
 | **Stage 1** | **Project Scaffolding & CI Foundation** | **Completed** | Minimal working monorepo skeleton (FastAPI, React+Vite, aiogram 3, Docker Compose) |
-| Stage 2 | Core Domain Models & Database Migrations | Pending | User, Client, Obiekt, Room, Surface, Substrate, Quality models & Alembic |
-| Stage 3 | Price Book & Estimation Engine | Pending | Deterministic price book, unit calculations, material/labor breakdown |
+| **Stage 2** | **Telegram Mini App Authentication** | **Completed** | Cryptographic HMAC-SHA256 initData validation, User model & migration, JWT session, dev mock mode |
+| Stage 3 | Core Domain Models & Database Migrations | Pending | Client, Obiekt, Room, Surface, Substrate, Quality models & Alembic |
 | Stage 4 | Substrate Inspection & Risk Engine | Pending | Moisture, adhesion, surface diagnostic rules & technical warnings |
 | Stage 5 | Telegram Mini App Shell & Auth | Pending | Telegram WebApp SDK, initData HMAC-SHA256 validation, theme adaptation |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
@@ -113,6 +113,62 @@
 
 #### Deferred:
 - Domain entities (Clients, Projects, Obiekty, Rooms), Telegram authentication, estimate calculation, and PDF/storage deferred to subsequent stages.
+
+---
+
+### Stage 2: Telegram Mini App Authentication
+- **Status**: Completed
+- **Date**: 2026-09-08
+- **Commit**: `feat(stage-2): implement Telegram Mini App authentication`
+
+#### Added:
+- Backend:
+  - `backend/app/domain/services/auth_service.py`: `TelegramAuthService` domain service implementing initData validation, user provisioning, re-login user reuse, and JWT token issuance.
+  - `backend/app/models/user.py`: `User` model with UUIDv4 primary key, unique BigInteger `telegram_user_id`, username, first/last names, language_code, UTC timestamps.
+  - `backend/alembic/versions/0001_create_users_table.py`: Database migration for `users` table and indexes.
+  - `backend/app/core/security.py`: HMAC-SHA256 signature verification of raw `initData`, `auth_date` freshness check, constant-time compare, and JWT session generation/decoding (`pyjwt`).
+  - `backend/app/schemas/auth.py`: Pydantic v2 schemas (`TelegramAuthRequest`, `TelegramAuthResponse`, `UserRead`).
+  - `backend/app/api/deps.py`: `get_current_user` and `get_auth_service` dependencies.
+  - `backend/app/api/v1/endpoints/auth.py`: Ultra-thin endpoints `POST /api/auth/telegram` and `GET /api/me`.
+  - `backend/tests/test_auth.py`: 8 automated tests covering valid signature, invalid signature, expired data, missing data, dev mock login, reload user reuse, production mock rejection, and protected `GET /api/me`.
+- Frontend:
+  - `frontend/src/types/telegram.ts` & `frontend/src/types/auth.ts`: Strict TypeScript definitions for Telegram WebApp and authentication models.
+  - `frontend/src/api/auth.ts`: Typed API client for `POST /api/auth/telegram` and `GET /api/me`.
+  - `frontend/src/hooks/useAuth.ts`: Custom hook extracting `window.Telegram.WebApp.initData`, providing dev mock fallback outside Telegram, managing authentication state.
+  - `frontend/src/App.tsx`: Displays verified user card with name, Telegram ID, username, language, and system UUID. In mock mode, displays prominent amber `DEV AUTH BANNER`.
+  - `frontend/src/App.test.tsx`: Vitest tests for dev mock mode banner, verified Telegram user display, and error handling.
+- Configuration:
+  - `.env.example`: added `MOCK_TELEGRAM_AUTH`, `TELEGRAM_AUTH_MAX_AGE_SECONDS`, `JWT_SECRET_KEY`, `VITE_DEV_MOCK_AUTH`.
+
+#### Changed:
+- `backend/app/main.py`: mounted auth router under `/api`.
+- `backend/alembic/env.py`: imported `app.models` to ensure schema reflection.
+- `backend/pyproject.toml` & `backend/requirements.txt`: added `pyjwt` and `aiosqlite`.
+
+#### Database:
+- Migrations: `backend/alembic/versions/0001_create_users_table.py` applied to PostgreSQL.
+- Tables: `users` (id UUID PK, telegram_user_id BIGINT UNIQUE, username, first_name, last_name, language_code, created_at, updated_at).
+
+#### Tests:
+- Backend: `pytest` passed (9 passed in 0.31s).
+- Frontend: `vitest --run` passed (3 passed in 2.88s).
+- Frontend Typecheck: `tsc -p frontend/tsconfig.json --noEmit` passed (0 errors).
+- Frontend Build: `tsc && vite build` passed (built in 3.48s).
+
+#### Verification:
+1. Valid Telegram signature creates/retrieves user and returns JWT: PASS.
+2. Tampered signature rejected with 401 `INVALID_TELEGRAM_SIGNATURE`: PASS.
+3. Expired initData rejected with 401 `TELEGRAM_AUTH_EXPIRED`: PASS.
+4. Missing initData/hash rejected with 400 `MISSING_TELEGRAM_DATA`: PASS.
+5. Dev mock mode functions when `APP_ENV=development` and `MOCK_TELEGRAM_AUTH=true`: PASS.
+6. Dev mock mode strictly rejected with 403 `MOCK_AUTH_DISALLOWED_IN_PRODUCTION` when `APP_ENV=production`: PASS.
+7. Reloading / re-authenticating reuses the same user record: PASS.
+8. `GET /api/me` returns authenticated user profile with Bearer token: PASS.
+9. Frontend renders prominent amber `DEV AUTH BANNER` in mock mode: PASS.
+10. Alembic migration applied to PostgreSQL database: PASS.
+
+#### Deferred:
+- Clients, Projects, Obiekty, Rooms, Estimates, Protocols deferred to subsequent stages.
 
 ---
 

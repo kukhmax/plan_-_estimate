@@ -1,17 +1,122 @@
 import React from 'react';
+import { useAuth } from './hooks/useAuth';
 
 export const App: React.FC = () => {
+  const { user, isDevAuth, isLoading, error, retry } = useAuth();
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-slate-900">
-      <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-sm border border-slate-100 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 mb-2">
-          Renovation App
-        </h1>
-        <p className="text-sm text-slate-500 font-medium">
-          Frontend is running
-        </p>
-      </div>
-    </main>
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-start">
+      {/* Dev Auth Warning Banner */}
+      {isDevAuth && (
+        <aside
+          role="alert"
+          aria-label="dev-auth-banner"
+          className="w-full bg-amber-500 text-slate-950 px-4 py-2.5 text-center font-bold text-xs sm:text-sm tracking-wide shadow-sm flex items-center justify-center gap-2"
+        >
+          <span className="text-base leading-none">⚠️</span>
+          <span>DEV AUTH MODE — MOCK USER (Running outside official Telegram client)</span>
+        </aside>
+      )}
+
+      <main className="w-full max-w-lg p-6 flex flex-col items-center">
+        <header className="text-center my-6">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Plan & Estimate
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Telegram Mini App — Wykończenia i Remonty
+          </p>
+        </header>
+
+        {isLoading && (
+          <div className="w-full bg-white rounded-2xl p-8 border border-slate-200 shadow-sm text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 border-t-blue-600 mb-4" />
+            <p className="text-slate-600 font-medium text-sm">
+              Trwa autoryzacja w Telegram Mini App...
+            </p>
+          </div>
+        )}
+
+        {!isLoading && error && (
+          <div className="w-full bg-white rounded-2xl p-6 border border-red-100 shadow-sm text-center">
+            <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
+              !
+            </div>
+            <h2 className="text-lg font-semibold text-red-600 mb-1">
+              Błąd autoryzacji
+            </h2>
+            <p className="text-sm text-slate-600 mb-4">{error}</p>
+            <button
+              onClick={retry}
+              className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition"
+            >
+              Ponów próbę
+            </button>
+          </div>
+        )}
+
+        {!isLoading && user && (
+          <section
+            aria-label="user-card"
+            className="w-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+          >
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Zalogowany użytkownik
+                </span>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {user.first_name || user.last_name
+                    ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                    : user.username || 'Wykonawca'}
+                </h2>
+              </div>
+              <span
+                className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
+                  isDevAuth
+                    ? 'bg-amber-100 text-amber-800'
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}
+              >
+                {isDevAuth ? 'Mock Auth' : 'Telegram Verified'}
+              </span>
+            </div>
+
+            <dl className="p-5 space-y-3 text-sm">
+              <div className="flex justify-between border-b border-slate-50 pb-2">
+                <dt className="text-slate-500">Telegram User ID</dt>
+                <dd className="font-mono font-medium text-slate-800">
+                  {user.telegram_user_id}
+                </dd>
+              </div>
+
+              {user.username && (
+                <div className="flex justify-between border-b border-slate-50 pb-2">
+                  <dt className="text-slate-500">Username</dt>
+                  <dd className="font-medium text-blue-600">
+                    @{user.username}
+                  </dd>
+                </div>
+              )}
+
+              <div className="flex justify-between border-b border-slate-50 pb-2">
+                <dt className="text-slate-500">Język interfejsu</dt>
+                <dd className="font-medium uppercase text-slate-800">
+                  {user.language_code || 'pl'}
+                </dd>
+              </div>
+
+              <div className="flex flex-col pt-1">
+                <dt className="text-xs text-slate-400 mb-1">UUID w systemie</dt>
+                <dd className="font-mono text-xs text-slate-600 break-all bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  {user.id}
+                </dd>
+              </div>
+            </dl>
+          </section>
+        )}
+      </main>
+    </div>
   );
 };
 
