@@ -17,7 +17,7 @@
 | **Stage 3** | **Client Management** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU) |
 | **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
 | **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
-| Stage 4 | Project / Room / Surface Foundation | In Progress | Stages 4A-4E Project hierarchy backend and frontend foundations completed; further Stage 4 work pending |
+| **Stage 4** | **Project / Room / Surface Foundation** | **Completed** | Owner-isolated Project, optional Client association, Room, Surface, frontend hierarchy, and final integration verification |
 | Stage 5 | Telegram Mini App Shell & Auth | Pending | Telegram WebApp SDK, initData HMAC-SHA256 validation, theme adaptation |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
 | Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
@@ -510,6 +510,56 @@
 
 #### Deferred:
 - Measurements, substrate inspections, estimates, and all Stage 4F functionality remain deferred pending explicit approval.
+
+---
+
+### Stage 4F: Project / Room / Surface Foundation Final Integration
+- **Status**: Completed
+- **Date**: 2026-09-09
+- **Commit**: `docs(stage-4f): complete Stage 4 integration verification`
+
+#### Added:
+- Final Stage 4 integration record covering the complete owner-scoped Project, optional Client association, Room, Surface, and frontend hierarchy.
+- Consolidated Stage 4A–4F commit ledger and final automated/manual verification totals.
+
+#### Changed:
+- Marked the Stage 4 roadmap entry completed after the full hierarchy passed integration, migration, architecture, regression, and browser verification.
+- No product source, tests, dependencies, schemas, or migrations changed during Stage 4F.
+
+#### Database:
+- Alembic revisions form one linear chain from `0003_create_projects` through `0006_create_surfaces`, with `0006_create_surfaces` as the sole applied head.
+- Git history confirms each Stage 4 migration was added once in its owning stage and no previous migration was rewritten.
+- `alembic check` reports no model/schema drift or pending upgrade operations.
+
+#### Tests:
+- Focused Stage 4 Project/Room/Surface backend suite: 47 passed, 0 failed.
+- Focused Stage 4 hierarchy frontend suite: 10 passed, 0 failed.
+- Complete backend suite: 74 passed, 0 failed.
+- Complete frontend suite: 18 passed, 0 failed.
+- TypeScript strict typecheck: PASS (0 errors).
+- Frontend production build: PASS (46 modules transformed).
+
+#### Verification:
+- Project CRUD, lifecycle status, archive/restore, owner isolation, and optional same-owner Client association: PASS.
+- Room CRUD, Project relationship, archive/restore, and owner isolation through Project: PASS.
+- Surface CRUD, Room relationship, all supported semantic types, archive/restore, and transitive owner isolation: PASS.
+- API routes remain thin; persistence, ownership checks, and lifecycle changes remain in domain services: PASS.
+- Project, Room, and Surface models use UUID identities and UTC-aware timestamp conventions: PASS.
+- Child entities store only direct hierarchy foreign keys; no Client, Project, or Room domain data is duplicated: PASS.
+- Mobile Chromium walkthrough of `Projects → Project → Rooms → Room → Surfaces` at 390×844, including Client assignment, edits, filters, archive/restore, and zero console errors: PASS.
+- Frontend runtime dependencies are unchanged; `git diff --check` and forbidden-file review: PASS.
+- Scope review found no measurement, inspection, substrate, estimate, pricing, legal, Stage 5, or later-stage functionality: PASS.
+
+#### Stage 4 Commits:
+- Stage 4A: `12fcdd0` — `feat(stage-4a): implement Project backend domain`.
+- Stage 4B: `39f389a` — `feat(stage-4b): link projects to clients`.
+- Stage 4C: `baa95e7` — `feat(stage-4c): implement Room backend domain`.
+- Stage 4D: `c56c767` — `feat(stage-4d): implement Surface backend domain`.
+- Stage 4E: `542ed15` — `feat(stage-4e): add Project hierarchy frontend`.
+- Stage 4F: `docs(stage-4f): complete Stage 4 integration verification` (this verification commit).
+
+#### Deferred:
+- Stage 5 and all measurement, inspection, risk, estimate, pricing, legal, protocol, storage, and later-stage functionality require separate explicit approval.
 
 ---
 
