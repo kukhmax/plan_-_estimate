@@ -50,15 +50,18 @@ describe('App authentication component', () => {
     expect(screen.getByText('Jan Kowalski')).toBeInTheDocument();
     expect(screen.getByText('@dev_contractor')).toBeInTheDocument();
     expect(screen.getByText('999999999')).toBeInTheDocument();
+    expect(api.loginWithTelegram).toHaveBeenCalledWith('mock');
     expect(localStorage.getItem('access_token')).toBe('mock-jwt-token');
   });
 
   it('displays verified user card without banner in standard Telegram mode', async () => {
+    const ready = vi.fn();
+    const expand = vi.fn();
     (window as any).Telegram = {
       WebApp: {
         initData: 'query_id=123&hash=valid_hash',
-        ready: vi.fn(),
-        expand: vi.fn(),
+        ready,
+        expand,
       },
     };
 
@@ -87,6 +90,9 @@ describe('App authentication component', () => {
     expect(screen.queryByRole('alert', { name: 'dev-auth-banner' })).not.toBeInTheDocument();
     expect(screen.getByText('Telegram Verified')).toBeInTheDocument();
     expect(screen.getByText('@real_contractor')).toBeInTheDocument();
+    expect(api.loginWithTelegram).toHaveBeenCalledWith('query_id=123&hash=valid_hash');
+    expect(ready).toHaveBeenCalledTimes(1);
+    expect(expand).toHaveBeenCalledTimes(1);
   });
 
   it('displays error state when authentication fails', async () => {

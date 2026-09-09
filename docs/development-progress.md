@@ -18,7 +18,7 @@
 | **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
 | **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
 | **Stage 4** | **Project / Room / Surface Foundation** | **Completed** | Owner-isolated Project, optional Client association, Room, Surface, frontend hierarchy, and final integration verification |
-| Stage 5 | Telegram Mini App Shell & Auth | Pending | Telegram WebApp SDK, initData HMAC-SHA256 validation, theme adaptation |
+| **Stage 5** | **Telegram Mini App Shell & Auth** | **In Progress (5A completed)** | Official WebApp runtime shell and browser fallback; later shell/auth integration remains deferred |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
 | Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
 | Stage 8 | Estimates & Quotation UI | Pending | Estimate generator, PDF export preparation, client approval flow |
@@ -560,6 +560,48 @@
 
 #### Deferred:
 - Stage 5 and all measurement, inspection, risk, estimate, pricing, legal, protocol, storage, and later-stage functionality require separate explicit approval.
+
+---
+
+### Stage 5A: README Refresh & Telegram Mini App Shell Foundation
+- **Status**: Completed
+- **Date**: 2026-09-09
+- **Commit**: `feat(stage-5a): add Telegram Mini App shell`
+
+#### Added:
+- Official Telegram WebApp runtime loading in the frontend HTML shell without adding a package dependency.
+- Reusable `useTelegramWebApp` hook that safely detects `window.Telegram?.WebApp`, exposes availability and `initData`, and calls `ready()` and `expand()` only when the runtime is available.
+- Focused hook coverage for browsers without Telegram and for runtime initialization when Telegram is available.
+
+#### Changed:
+- Refreshed `README.md` to describe the implemented application through Stage 4, its owner-scoped hierarchy, repository structure, stage workflow, verification commands, and local browser setup.
+- Documented real Telegram development prerequisites, required environment flags, the absence of a defined production topology, and the prohibition on production mock authentication and committed credentials.
+- Updated `useAuth` to consume centralized Telegram WebApp access while preserving real `initData`, browser mock authentication, token persistence, PL/RU localization, and the Stage 4 UI.
+- Strengthened authentication component tests to assert the browser mock payload and Telegram runtime initialization.
+
+#### Database:
+- None; no backend authentication, schema, model, or migration changes were required.
+
+#### Tests:
+- Focused Stage 5A frontend suite: 5 passed, 0 failed.
+- Backend authentication regression suite: 8 passed, 0 failed.
+- Focused Stage 4 hierarchy frontend regression suite: 10 passed, 0 failed.
+- Complete frontend suite: 20 passed, 0 failed.
+- TypeScript strict typecheck: PASS (0 errors).
+- Frontend production build: PASS (46 modules transformed).
+
+#### Verification:
+- Browser without the Telegram runtime returns an unavailable shell with empty `initData`: PASS.
+- Available Telegram runtime exposes `initData` and receives one `ready()` and one `expand()` call: PASS.
+- Existing browser mock authentication still submits `mock`, while Telegram mode submits the runtime `initData`: PASS.
+- Mobile Chromium walkthrough at 390×844 completed `Projects → Project → Rooms → Room → Surfaces` with mock authentication and zero console errors: PASS.
+- README commands, paths, environment flags, local URLs, and Telegram prerequisites match the repository: PASS.
+- README secret review found no real tokens, credentials, private keys, or invented deployment details: PASS.
+- Scope review found no backend rewrite, dependency change, Stage 4 UI redesign, BackButton, theme integration, or Stage 5B+ implementation: PASS.
+- `git diff --check` and forbidden-file review: PASS.
+
+#### Deferred:
+- Stage 5B authentication work, Telegram BackButton and theme integration, speculative WebApp APIs, and production deployment remain deferred pending explicit approval.
 
 ---
 

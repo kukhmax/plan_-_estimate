@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { User } from '../types/auth';
 import { loginWithTelegram } from '../api/auth';
-import '../types/telegram';
+import { useTelegramWebApp } from './useTelegramWebApp';
 
 interface AuthState {
   user: User | null;
@@ -12,6 +12,7 @@ interface AuthState {
 }
 
 export function useAuth() {
+  const { initData } = useTelegramWebApp();
   const [state, setState] = useState<AuthState>({
     user: null,
     token: null,
@@ -24,24 +25,18 @@ export function useAuth() {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const tg = window.Telegram?.WebApp;
-      if (tg) {
-        tg.ready();
-        tg.expand();
-      }
-
-      let initData = tg?.initData || '';
+      let authenticationData = initData;
 
       // Development fallback when running outside Telegram Mini App client
-      if (!initData && (import.meta.env.DEV || import.meta.env.VITE_DEV_MOCK_AUTH === 'true')) {
-        initData = 'mock';
+      if (!authenticationData && (import.meta.env.DEV || import.meta.env.VITE_DEV_MOCK_AUTH === 'true')) {
+        authenticationData = 'mock';
       }
 
-      if (!initData) {
+      if (!authenticationData) {
         throw new Error('Telegram Mini App initData is not available. Please open inside Telegram.');
       }
 
-      const response = await loginWithTelegram(initData);
+      const response = await loginWithTelegram(authenticationData);
       localStorage.setItem('access_token', response.access_token);
 
       setState({
@@ -59,7 +54,7 @@ export function useAuth() {
         error: errorMessage,
       }));
     }
-  }, []);
+  }, [initData]);
 
   useEffect(() => {
     authenticate();
