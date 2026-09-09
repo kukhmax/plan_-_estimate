@@ -17,7 +17,7 @@
 | **Stage 3** | **Client Management** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU) |
 | **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
 | **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
-| Stage 4 | Project / Room / Surface Foundation | In Progress | Stages 4A-4B Project backend and Client association completed; rooms, surfaces, and downstream `project_id` anchoring pending |
+| Stage 4 | Project / Room / Surface Foundation | In Progress | Stages 4A-4C Project, Client association, and Room backend completed; surfaces and downstream `project_id` anchoring pending |
 | Stage 5 | Telegram Mini App Shell & Auth | Pending | Telegram WebApp SDK, initData HMAC-SHA256 validation, theme adaptation |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
 | Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
@@ -376,6 +376,51 @@
 
 #### Deferred:
 - Rooms, Surfaces, Measurements, Inspections, Estimates, Project frontend, Telegram UI, and all Stage 4C functionality.
+
+---
+
+### Stage 4C: Room Backend Domain
+- **Status**: Completed
+- **Date**: 2026-09-09
+- **Commit**: `feat(stage-4c): implement Room backend domain`
+
+#### Added:
+- `backend/app/models/room.py`: minimal Room entity with UUID identity, required Project foreign key, name, optional description, archive state, and UTC timestamps.
+- `backend/app/schemas/room.py`: typed create, update, read, and list contracts without measurement or Surface fields.
+- `backend/app/domain/services/room_service.py`: Project-owned Room create, list, read, update, archive, and restore operations.
+- `backend/app/api/v1/endpoints/rooms.py`: authenticated Project-nested Room routes with strict 404 tenant isolation.
+- `backend/alembic/versions/0005_create_rooms_table.py`: reversible Room table migration with Project cascade deletion and Project/archive indexes.
+- `backend/tests/test_rooms.py`: 12 focused API, persistence, filtering, membership, validation, and owner-isolation tests.
+
+#### Changed:
+- Registered the Room model for SQLAlchemy metadata and Alembic discovery.
+- Added the Room service dependency and mounted Room routes under `/api/projects/{project_id}/rooms`.
+- Added `RoomNotFoundError` for Project-scoped missing-resource handling.
+
+#### Database:
+- Migration `0005_create_rooms_table.py` applied to PostgreSQL from `0004_add_project_client`.
+- Alembic revision chain has one head: `0005_create_rooms`; metadata drift check reports no pending operations.
+
+#### Tests:
+- Focused Room suite: 12 passed, 0 failed.
+- Complete Project suite: 20 passed, 0 failed.
+- Existing Client suite: 18 passed, 0 failed.
+- Full backend regression suite: 59 passed, 0 failed.
+
+#### Verification:
+- Room create, list, read, update, archive, restore, multiple-Room handling, Project membership, and active/archive filtering: PASS.
+- Parent Project ownership is validated before every Room operation: PASS.
+- Foreign and missing Projects return indistinguishable Project 404 responses: PASS.
+- Foreign, wrong-Project, and missing Rooms return indistinguishable Room 404 responses inside an owned Project: PASS.
+- Missing UUIDs return 404; malformed Project and Room UUIDs return 422: PASS.
+- Alembic upgrade from `0004_add_project_client` to `0005_create_rooms`: PASS.
+- Alembic applied-head and metadata consistency checks: PASS.
+- `git diff --check`: PASS.
+- Scope review found no Surfaces, measurements, Room frontend, inspections, estimates, or Stage 4D implementation: PASS.
+- Manual UI verification: not applicable to this backend-only stage; API behavior is covered by end-to-end ASGI tests.
+
+#### Deferred:
+- Surfaces, measurements and calculations, Room frontend, inspections, estimates, and all Stage 4D functionality.
 
 ---
 

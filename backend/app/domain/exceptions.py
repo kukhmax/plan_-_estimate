@@ -7,3 +7,7 @@ class ClientNotFoundError(Exception):
 
 class ProjectNotFoundError(Exception):
     """Raised when a project is not found for the requesting owner."""
+
+
+class RoomNotFoundError(Exception):
+    """Raised when a room is not found within an owned project."""
