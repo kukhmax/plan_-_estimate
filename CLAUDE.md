@@ -20,6 +20,14 @@ The imported files are the source of truth for project architecture, domain rule
 - Frontend API contracts mirror backend schemas; user-facing strings belong in PL/RU locale dictionaries.
 - `PROJECT / OBIEKT` is the central aggregate root. Rooms, surfaces, measurements, inspections, and downstream records must anchor to `project_id` as defined by the imported architecture rules.
 
+## ROADMAP IMMUTABILITY
+
+- `docs/development-progress.md` is the canonical product roadmap. Git history and committed functionality are authoritative for completed implementation.
+- Completed stage identifiers and numbers are immutable. Never rename or renumber them.
+- Never reorder, insert, remove, rename, merge, or split future product stages without explicit project-owner instruction.
+- Execution sub-stages such as 5A, 5B, and 5C are allowed only when they preserve the parent product stage's scope and ordering.
+- Completing or verifying a stage never authorizes starting the next stage. Stop and wait for explicit project-owner approval.
+
 ## Common commands
 
 Run commands from the repository root unless noted otherwise.

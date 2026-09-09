@@ -2,10 +2,13 @@
 
 Telegram Mini App for managing interior finishing and renovation work in Poland (*prace wykończeniowe i remontowe*).
 
-## Implemented through Stage 4
+## Implemented through Stage 5B
 
-- Telegram Mini App authentication backend with cryptographic `initData` validation.
-- Browser development mock authentication.
+- Official Telegram WebApp runtime shell with centralized runtime access, `ready()`, and `expand()` initialization.
+- Real Telegram WebApp authentication that forwards raw `initData` unchanged for backend-only validation.
+- Authentication backend with cryptographic HMAC-SHA256 signature and freshness validation, User persistence, and JWT sessions.
+- Explicit browser development mock authentication that cannot be enabled by the production frontend flow.
+- Localized Polish and Russian authentication failure states.
 - Client management.
 - Project / Obiekt management with an optional Project → Client association.
 - Room management nested under Projects.
@@ -111,4 +114,4 @@ Real Telegram testing requires:
 - real Telegram Mini App `initData` delivered by the official client;
 - `MOCK_TELEGRAM_AUTH=false` and `VITE_DEV_MOCK_AUTH=false`.
 
-The frontend shell loads the official Telegram WebApp runtime and falls back safely when that runtime is unavailable. No production hosting or deployment topology is defined yet, and real tokens or credentials must never be committed.
+The frontend shell loads the official Telegram WebApp runtime, calls `ready()` and `expand()`, and forwards raw real `initData` unchanged to the backend for validation. It fails safely when the runtime or authentication data is unavailable. No production hosting or deployment topology is defined yet, and real tokens or credentials must never be committed.

@@ -13,18 +13,21 @@
 | :--- | :--- | :--- | :--- |
 | **Stage 0** | **Engineering Workflow & Architecture Rules** | **Completed** | Foundation rules, `.gitignore`, `.agents/rules/`, `GEMINI.md`, progress tracker |
 | **Stage 1** | **Project Scaffolding & CI Foundation** | **Completed** | Minimal working monorepo skeleton (FastAPI, React+Vite, aiogram 3, Docker Compose) |
-| **Stage 2** | **Telegram Mini App Authentication** | **Completed** | Cryptographic HMAC-SHA256 initData validation, User model & migration, JWT session, dev mock mode |
+| **Stage 2** | **Telegram Mini App Authentication** | **Completed** | Backend authentication foundation: cryptographic HMAC-SHA256 `initData` validation, User model and migration, JWT session, development mock protection |
 | **Stage 3** | **Client Management** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU) |
 | **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
 | **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
 | **Stage 4** | **Project / Room / Surface Foundation** | **Completed** | Owner-isolated Project, optional Client association, Room, Surface, frontend hierarchy, and final integration verification |
-| **Stage 5** | **Telegram Mini App Shell & Auth** | **In Progress (5A–5B completed)** | Official WebApp shell and real initData authentication flow; theme and BackButton integration remain deferred |
-| Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
+| **Stage 5** | **Telegram Mini App Shell & Auth** | **In Progress** | Parent stage for official Telegram WebApp runtime, authentication, theme adaptation, and native navigation integration |
+| **Stage 5A** | **README Refresh & Telegram Mini App Shell Foundation** | **Completed** | Official WebApp runtime, centralized access, `ready()`, `expand()`, and preserved browser development flow |
+| **Stage 5B** | **Real Telegram WebApp Authentication Flow** | **Completed** | Raw real `initData` forwarding, backend-only validation, explicit development mock gating, JWT ordering, localized failures |
+| Stage 5C | Telegram Theme & BackButton Integration | Pending — not started | Remaining Stage 5 theme adaptation and native BackButton integration; requires explicit approval |
+| Stage 6 | Room Measurements & Surface Manager | Pending | Interactive room dimensions, openings subtraction, and surface totals |
 | Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
-| Stage 8 | Estimates & Quotation UI | Pending | Estimate generator, PDF export preparation, client approval flow |
+| Stage 8 | Estimates & Quotation | Pending | Estimate generator, PDF export preparation, and client approval flow |
 | Stage 9 | Technical Protocols & Handover | Pending | Acceptance protocols (stan zero, roboty zanikające, protokół końcowy) |
-| Stage 10 | Contracts & Legal Knowledge Modules | Pending | Contract generator, standard clauses, client communication phrases |
-| Stage 11 | Offline Drafts & S3 Photo Storage | Pending | IndexedDB offline drafts sync, S3 photo attachments |
+| Stage 10 | Contracts & Legal Knowledge | Pending | Contract generator, standard clauses, and client communication phrases |
+| Stage 11 | Offline Drafts & S3 Photo Storage | Pending | IndexedDB offline draft synchronization and S3 photo attachments |
 
 ---
 
@@ -645,6 +648,24 @@
 
 #### Deferred:
 - Telegram theme adaptation, BackButton integration, refresh tokens, speculative WebApp APIs, deployment, and all Stage 5C functionality remain deferred pending explicit approval.
+
+---
+
+### Stage 5C: Telegram Theme & BackButton Integration
+- **Status**: Pending — not started
+- **Date**: Not started
+- **Commit**: None
+
+#### Planned Scope:
+- Adapt the existing Telegram Mini App shell to Telegram theme parameters.
+- Integrate the native Telegram BackButton with the existing application hierarchy.
+
+#### Gate:
+- Stage 5C requires separate, explicit project-owner approval before implementation.
+- No Stage 5C application code, tests, dependencies, or configuration have been started.
+
+#### Deferred:
+- Stage 5C and every later product stage remain pending.
 
 ---
 
