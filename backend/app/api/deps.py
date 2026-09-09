@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.domain.services.auth_service import TelegramAuthService
+from app.domain.services.client_service import ClientService
 from app.models.user import User
 
 security_scheme = HTTPBearer(auto_error=False)
@@ -49,3 +50,9 @@ async def get_auth_service(
     db: AsyncSession = Depends(get_db),
 ) -> TelegramAuthService:
     return TelegramAuthService(db)
+
+
+async def get_client_service(
+    db: AsyncSession = Depends(get_db),
+) -> ClientService:
+    return ClientService(db)

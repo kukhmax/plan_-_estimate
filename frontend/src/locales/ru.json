@@ -1,0 +1,42 @@
+{
+  "app": {
+    "title": "Plan & Estimate",
+    "subtitle": "Telegram Mini App — Отделочные и ремонтные работы"
+  },
+  "auth": {
+    "loading": "Выполняется авторизация в Telegram Mini App...",
+    "error_title": "Ошибка авторизации",
+    "retry": "Повторить",
+    "dev_banner": "DEV AUTH MODE — MOCK USER (Running outside official Telegram client)",
+    "logged_in_as": "Вошедший пользователь",
+    "telegram_verified": "Telegram подтверждён",
+    "mock_auth": "Mock Auth"
+  },
+  "clients": {
+    "title": "Клиенты",
+    "add_client": "Добавить клиента",
+    "search_placeholder": "Поиск по имени, компании, телефону...",
+    "show_archived": "Показать архивные",
+    "no_clients": "Нет клиентов",
+    "private_person": "Частное лицо",
+    "company": "Компания",
+    "archived_badge": "В архиве",
+    "first_name": "Имя",
+    "last_name": "Фамилия",
+    "company_name": "Название компании",
+    "phone": "Телефон",
+    "email": "E-mail",
+    "nip": "NIP",
+    "notes": "Заметки",
+    "client_type": "Тип клиента",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "archive": "Архивировать",
+    "restore": "Восстановить",
+    "edit": "Редактировать",
+    "loading": "Загрузка клиентов...",
+    "error": "Ошибка при загрузке клиентов",
+    "validation_private_name": "Укажите имя или фамилию",
+    "validation_company_name": "Название компании обязательно"
+  }
+}

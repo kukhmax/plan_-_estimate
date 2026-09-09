@@ -209,3 +209,6 @@ Then push current branch to:
 - [Frontend Engineering](file:///home/m/Projects/plan_estimate/.agents/rules/frontend.md)
 - [Polish Construction Domain](file:///home/m/Projects/plan_estimate/.agents/rules/domain-construction.md)
 - [Git & Release Workflow](file:///home/m/Projects/plan_estimate/.agents/rules/git-workflow.md)
+
+
+# Do not request or introduce external API keys before the stage that actually requires the external service.

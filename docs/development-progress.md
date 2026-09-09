@@ -14,7 +14,7 @@
 | **Stage 0** | **Engineering Workflow & Architecture Rules** | **Completed** | Foundation rules, `.gitignore`, `.agents/rules/`, `GEMINI.md`, progress tracker |
 | **Stage 1** | **Project Scaffolding & CI Foundation** | **Completed** | Minimal working monorepo skeleton (FastAPI, React+Vite, aiogram 3, Docker Compose) |
 | **Stage 2** | **Telegram Mini App Authentication** | **Completed** | Cryptographic HMAC-SHA256 initData validation, User model & migration, JWT session, dev mock mode |
-| Stage 3 | Core Domain Models & Database Migrations | Pending | Client, Obiekt, Room, Surface, Substrate, Quality models & Alembic |
+| **Stage 3** | **Client Management** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU) |
 | Stage 4 | Substrate Inspection & Risk Engine | Pending | Moisture, adhesion, surface diagnostic rules & technical warnings |
 | Stage 5 | Telegram Mini App Shell & Auth | Pending | Telegram WebApp SDK, initData HMAC-SHA256 validation, theme adaptation |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
@@ -169,6 +169,66 @@
 
 #### Deferred:
 - Clients, Projects, Obiekty, Rooms, Estimates, Protocols deferred to subsequent stages.
+
+---
+
+---
+
+### Stage 3: Client Management
+- **Status**: Completed
+- **Date**: 2026-09-09
+- **Commit**: `feat(stage-3): implement client management with owner isolation and search`
+
+#### Added:
+- Backend:
+  - `backend/app/models/client.py`: `Client` model with `ClientType` enum (`PRIVATE_PERSON`, `COMPANY`), soft archive (`is_archived`), `owner_user_id` FK → `users.id`, search-optimized indexes.
+  - `backend/app/domain/exceptions.py`: `ClientNotFoundError` for strict 404 tenant isolation.
+  - `backend/app/domain/services/client_service.py`: `ClientService` with `list_clients` (search + archive filter), `get_client`, `create_client`, `update_client`, `archive_client`, `restore_client`. Owner isolation enforced on every query.
+  - `backend/app/schemas/client.py`: Pydantic v2 `ClientCreate`, `ClientUpdate`, `ClientRead`, `ClientListResponse` with `@model_validator` enforcing business rules (`PRIVATE_PERSON` needs name, `COMPANY` needs `company_name`).
+  - `backend/app/api/v1/endpoints/clients.py`: Thin routes for `GET /api/clients`, `POST /api/clients`, `GET /api/clients/{id}`, `PATCH /api/clients/{id}`, `POST /api/clients/{id}/archive`, `POST /api/clients/{id}/restore`.
+  - `backend/alembic/versions/0002_create_clients_table.py`: Migration for `clients` table with `clienttype` enum, indexes, and FK.
+  - `backend/tests/test_clients.py`: 10 tests — create private person, create company, company validation, private person validation, edit, archive, restore, search, owner isolation, unauthenticated access.
+- Frontend:
+  - `frontend/src/types/client.ts`: TypeScript interfaces for `ClientType`, `ClientListResponse`, `ClientCreatePayload`, `ClientUpdatePayload`.
+  - `frontend/src/api/clients.ts`: API module (`fetchClients`, `fetchClient`, `createClient`, `updateClient`, `archiveClient`, `restoreClient`).
+  - `frontend/src/locales/pl.json` & `frontend/src/locales/ru.json`: Full locale dictionaries for app, auth, and clients sections.
+  - `frontend/src/hooks/useI18n.tsx`: `I18nProvider` context + `useI18n` hook with `localStorage` locale persistence.
+  - `frontend/src/components/ClientList.tsx`: Mobile-first component with search input, archived filter toggle, add client form (with client-side validation), archive/restore actions per client.
+  - `frontend/src/ClientList.test.tsx`: 5 Vitest tests for empty state, list render, archived badge, form toggle, and validation.
+
+#### Changed:
+- `backend/app/models/__init__.py`: added `Client` export.
+- `backend/app/api/deps.py`: added `get_client_service` dependency factory.
+- `backend/app/main.py`: mounted clients router under `/api`.
+- `frontend/src/App.tsx`: wrapped in `I18nProvider`, uses `t.*` for all strings, exposes PL/RU language switcher, renders `ClientList` when authenticated, persists JWT to `localStorage`.
+- `frontend/src/App.test.tsx`: added clients API mock.
+
+#### Database:
+- Migration `0002_create_clients_table.py` applied to PostgreSQL.
+- Tables: `clients` (id UUID PK, owner_user_id FK, client_type enum, optional name/contact fields, is_archived, timestamps).
+- Enum: `clienttype` (PRIVATE_PERSON, COMPANY).
+
+#### Tests:
+- Backend: `pytest` passed (19 passed in 1.23s).
+- Frontend: `vitest --run` passed (8 passed).
+- Frontend Typecheck: `tsc --noEmit` passed (0 errors).
+- Frontend Build: `vite build` passed (built in 4.26s).
+
+#### Verification:
+1. Create PRIVATE_PERSON client: PASS.
+2. Create COMPANY client: PASS.
+3. COMPANY without company_name rejected (422): PASS.
+4. PRIVATE_PERSON without any name rejected (422): PASS.
+5. Edit client with PATCH: PASS.
+6. Archive client hidden from default list, visible with include_archived=true: PASS.
+7. Restore archived client returns to active list: PASS.
+8. Search by first name and company name: PASS.
+9. Cross-owner access returns 404 (not 403): PASS.
+10. Unauthenticated access returns 401: PASS.
+11. Alembic migration applied to PostgreSQL: PASS.
+
+#### Deferred:
+- Projects (Obiekty), Rooms, Surfaces, Measurements, Estimates, Protocols, Photos deferred to subsequent stages.
 
 ---
 

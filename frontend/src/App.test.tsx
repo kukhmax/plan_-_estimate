@@ -8,10 +8,19 @@ vi.mock('./api/auth', () => ({
   fetchCurrentUser: vi.fn(),
 }));
 
+// Mock clients API to prevent fetch errors in tests
+vi.mock('./api/clients', () => ({
+  fetchClients: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  createClient: vi.fn(),
+  archiveClient: vi.fn(),
+  restoreClient: vi.fn(),
+}));
+
 describe('App authentication component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete (window as any).Telegram;
+    localStorage.clear();
   });
 
   it('displays DEV AUTH banner when in dev mock mode', async () => {

@@ -1,0 +1,42 @@
+{
+  "app": {
+    "title": "Plan & Estimate",
+    "subtitle": "Telegram Mini App — Wykończenia i Remonty"
+  },
+  "auth": {
+    "loading": "Trwa autoryzacja w Telegram Mini App...",
+    "error_title": "Błąd autoryzacji",
+    "retry": "Ponów próbę",
+    "dev_banner": "DEV AUTH MODE — MOCK USER (Running outside official Telegram client)",
+    "logged_in_as": "Zalogowany użytkownik",
+    "telegram_verified": "Telegram Verified",
+    "mock_auth": "Mock Auth"
+  },
+  "clients": {
+    "title": "Klienci",
+    "add_client": "Dodaj klienta",
+    "search_placeholder": "Szukaj po nazwie, firmie, telefonie...",
+    "show_archived": "Pokaż zarchiwizowane",
+    "no_clients": "Brak klientów",
+    "private_person": "Osoba prywatna",
+    "company": "Firma",
+    "archived_badge": "Zarchiwizowany",
+    "first_name": "Imię",
+    "last_name": "Nazwisko",
+    "company_name": "Nazwa firmy",
+    "phone": "Telefon",
+    "email": "E-mail",
+    "nip": "NIP",
+    "notes": "Notatki",
+    "client_type": "Typ klienta",
+    "save": "Zapisz",
+    "cancel": "Anuluj",
+    "archive": "Archiwizuj",
+    "restore": "Przywróć",
+    "edit": "Edytuj",
+    "loading": "Ładowanie klientów...",
+    "error": "Błąd podczas ładowania klientów",
+    "validation_private_name": "Podaj imię lub nazwisko",
+    "validation_company_name": "Nazwa firmy jest wymagana"
+  }
+}
