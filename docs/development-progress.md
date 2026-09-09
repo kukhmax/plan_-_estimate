@@ -17,7 +17,7 @@
 | **Stage 3** | **Client Management** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU) |
 | **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
 | **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
-| Stage 4 | Project / Room / Surface Foundation | In Progress | Stages 4A-4C Project, Client association, and Room backend completed; surfaces and downstream `project_id` anchoring pending |
+| Stage 4 | Project / Room / Surface Foundation | In Progress | Stages 4A-4D Project, Client association, Room, and Surface backends completed; further Stage 4 work pending |
 | Stage 5 | Telegram Mini App Shell & Auth | Pending | Telegram WebApp SDK, initData HMAC-SHA256 validation, theme adaptation |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
 | Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
@@ -421,6 +421,53 @@
 
 #### Deferred:
 - Surfaces, measurements and calculations, Room frontend, inspections, estimates, and all Stage 4D functionality.
+
+---
+
+### Stage 4D: Surface Backend Domain
+- **Status**: Completed
+- **Date**: 2026-09-09
+- **Commit**: `feat(stage-4d): implement Surface backend domain`
+
+#### Added:
+- `backend/app/models/surface.py`: Room-owned Surface entity with UUID identity, semantic `WALL` / `CEILING` / `FLOOR` / `OTHER` type, optional description, archive state, and UTC timestamps.
+- `backend/app/schemas/surface.py`: typed create, update, read, and list contracts with constrained Surface type validation.
+- `backend/app/domain/services/surface_service.py`: transitive owner-scoped create, list, read, update, archive, and restore operations.
+- `backend/app/api/v1/endpoints/surfaces.py`: authenticated Project/Room-nested Surface routes with hierarchical 404 isolation.
+- `backend/alembic/versions/0006_create_surfaces_table.py`: reversible Surface table and enum migration with Room cascade deletion and Room/archive indexes.
+- `backend/tests/test_surfaces.py`: 15 focused API, persistence, filtering, enum, membership, and transitive owner-isolation tests.
+
+#### Changed:
+- Registered the Surface model for SQLAlchemy metadata and Alembic discovery.
+- Added the Surface service dependency and mounted Surface routes under `/api/projects/{project_id}/rooms/{room_id}/surfaces`.
+- Added `SurfaceNotFoundError` for Room-scoped missing-resource handling.
+
+#### Database:
+- Migration `0006_create_surfaces_table.py` applied to PostgreSQL from `0005_create_rooms`.
+- Alembic revision chain has one head: `0006_create_surfaces`; metadata drift check reports no pending operations.
+
+#### Tests:
+- Focused Surface suite: 15 passed, 0 failed.
+- Complete Room suite: 12 passed, 0 failed.
+- Complete Project suite: 20 passed, 0 failed.
+- Existing Client relationship suite: 18 passed, 0 failed.
+- Full backend regression suite: 74 passed, 0 failed.
+
+#### Verification:
+- Surface create for all four supported types, list, read, update, archive, restore, multiple-Surface handling, Room membership, relationship persistence, and active/archive filtering: PASS.
+- Access resolves in order through authenticated owner, Project, Room, and Surface membership: PASS.
+- Foreign and missing Projects return indistinguishable Project 404 responses: PASS.
+- Foreign and missing Rooms return indistinguishable Room 404 responses inside an owned Project: PASS.
+- Foreign, wrong-Room, and missing Surfaces return indistinguishable Surface 404 responses inside an owned Room: PASS.
+- Unsupported Surface types are rejected on create and update with 422: PASS.
+- Alembic upgrade from `0005_create_rooms` to `0006_create_surfaces`: PASS.
+- Alembic applied-head and metadata consistency checks: PASS.
+- `git diff --check`: PASS.
+- Scope review found no substrate/material state, measurements, areas, openings, deductions, frontend, or Stage 4E implementation: PASS.
+- Manual UI verification: not applicable to this backend-only stage; API behavior is covered by end-to-end ASGI tests.
+
+#### Deferred:
+- Substrate inspections and risks, measurements and calculations, Surface frontend, and all Stage 4E functionality.
 
 ---
 

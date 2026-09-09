@@ -9,6 +9,7 @@ from app.domain.services.auth_service import TelegramAuthService
 from app.domain.services.client_service import ClientService
 from app.domain.services.project_service import ProjectService
 from app.domain.services.room_service import RoomService
+from app.domain.services.surface_service import SurfaceService
 from app.models.user import User
 
 security_scheme = HTTPBearer(auto_error=False)
@@ -70,3 +71,9 @@ async def get_room_service(
     db: AsyncSession = Depends(get_db),
 ) -> RoomService:
     return RoomService(db)
+
+
+async def get_surface_service(
+    db: AsyncSession = Depends(get_db),
+) -> SurfaceService:
+    return SurfaceService(db)

@@ -11,3 +11,7 @@ class ProjectNotFoundError(Exception):
 
 class RoomNotFoundError(Exception):
     """Raised when a room is not found within an owned project."""
+
+
+class SurfaceNotFoundError(Exception):
+    """Raised when a surface is not found within an owned room."""
