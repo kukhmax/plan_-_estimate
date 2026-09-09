@@ -1,16 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { I18nProvider, useI18n } from './hooks/useI18n';
 import { ClientList } from './components/ClientList';
+import { ProjectWorkspace } from './components/ProjectWorkspace';
 
 const AppContent: React.FC = () => {
-  const { user, isDevAuth, isLoading, error, retry, token } = useAuth();
+  const { user, isDevAuth, isLoading, error, retry } = useAuth();
   const { t, locale, setLocale } = useI18n();
-
-  // Persist JWT so api/clients.ts can read it
-  useEffect(() => {
-    if (token) localStorage.setItem('access_token', token);
-  }, [token]);
+  const [activeSection, setActiveSection] = useState<'clients' | 'projects'>('clients');
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-start">
@@ -136,7 +133,34 @@ const AppContent: React.FC = () => {
               </dl>
             </section>
 
-            <ClientList />
+            <nav aria-label="main-navigation" className="w-full mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                aria-label="show-clients"
+                onClick={() => setActiveSection('clients')}
+                className={`px-3 py-2 text-sm font-semibold rounded-xl transition ${
+                  activeSection === 'clients'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-white border border-slate-200 text-slate-600'
+                }`}
+              >
+                {t.navigation.clients}
+              </button>
+              <button
+                type="button"
+                aria-label="show-projects"
+                onClick={() => setActiveSection('projects')}
+                className={`px-3 py-2 text-sm font-semibold rounded-xl transition ${
+                  activeSection === 'projects'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-white border border-slate-200 text-slate-600'
+                }`}
+              >
+                {t.navigation.projects}
+              </button>
+            </nav>
+
+            {activeSection === 'clients' ? <ClientList /> : <ProjectWorkspace />}
           </>
         )}
       </main>

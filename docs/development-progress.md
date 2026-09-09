@@ -17,7 +17,7 @@
 | **Stage 3** | **Client Management** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU) |
 | **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
 | **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
-| Stage 4 | Project / Room / Surface Foundation | In Progress | Stages 4A-4D Project, Client association, Room, and Surface backends completed; further Stage 4 work pending |
+| Stage 4 | Project / Room / Surface Foundation | In Progress | Stages 4A-4E Project hierarchy backend and frontend foundations completed; further Stage 4 work pending |
 | Stage 5 | Telegram Mini App Shell & Auth | Pending | Telegram WebApp SDK, initData HMAC-SHA256 validation, theme adaptation |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
 | Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
@@ -468,6 +468,48 @@
 
 #### Deferred:
 - Substrate inspections and risks, measurements and calculations, Surface frontend, and all Stage 4E functionality.
+
+---
+
+### Stage 4E: Project / Room / Surface Frontend Foundation
+- **Status**: Completed
+- **Date**: 2026-09-09
+- **Commit**: `feat(stage-4e): add Project hierarchy frontend`
+
+#### Added:
+- Typed frontend contracts and API modules for Project, Room, and Surface list, read, create, update, archive, and restore operations.
+- `ProjectWorkspace`, `RoomList`, and `SurfaceList` components implementing the mobile-first `Client → Project → Room → Surface` workflow.
+- Project assignment display for existing Clients, explicit Project lifecycle selection, and semantic `WALL` / `CEILING` / `FLOOR` / `OTHER` Surface type selection.
+- Focused React tests covering Project/Client display, create and hierarchy navigation, Room create/open/archive, Surface create/type/archive/restore, and archived filters.
+- Matching Polish and Russian locale entries for navigation, forms, hierarchy states, actions, validation, and feedback.
+
+#### Changed:
+- Added Clients/Projects navigation to the authenticated application shell while preserving the existing Client workflow.
+- Persisted the authentication token before rendering authenticated hierarchy components, preventing initial API requests from racing token storage.
+- Added regression coverage confirming successful authentication stores the access token.
+
+#### Database:
+- None; Stage 4E uses the existing Project, Room, Surface, and Client APIs without schema or migration changes.
+
+#### Tests:
+- Focused Stage 4E frontend suite: 10 passed, 0 failed.
+- Full frontend suite: 18 passed, 0 failed.
+- Relevant backend Client/Project/Room/Surface regression suite: 65 passed, 0 failed.
+- TypeScript strict typecheck: PASS (0 errors).
+- Frontend production build: PASS (46 modules transformed).
+
+#### Verification:
+- Project list/create/open/edit/archive/restore and assigned-Client display: PASS.
+- Nested Room list/create/open/edit/archive/restore and active/archive filtering: PASS.
+- Nested Surface list/create/edit/archive/restore, semantic type selection, and active/archive filtering: PASS.
+- `Projects → Project → Rooms → Room → Surfaces` hierarchy navigation and breadcrumbs: PASS.
+- Loading, empty, API error, create/update success, and archived states: PASS.
+- Mobile Chromium walkthrough at 390×844, including real frontend/backend requests and zero console errors: PASS.
+- `git diff --check`: PASS.
+- Scope review found no measurement, inspection, substrate, pricing, legal, estimate, or Stage 4F functionality: PASS.
+
+#### Deferred:
+- Measurements, substrate inspections, estimates, and all Stage 4F functionality remain deferred pending explicit approval.
 
 ---
 

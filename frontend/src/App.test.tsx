@@ -50,6 +50,7 @@ describe('App authentication component', () => {
     expect(screen.getByText('Jan Kowalski')).toBeInTheDocument();
     expect(screen.getByText('@dev_contractor')).toBeInTheDocument();
     expect(screen.getByText('999999999')).toBeInTheDocument();
+    expect(localStorage.getItem('access_token')).toBe('mock-jwt-token');
   });
 
   it('displays verified user card without banner in standard Telegram mode', async () => {

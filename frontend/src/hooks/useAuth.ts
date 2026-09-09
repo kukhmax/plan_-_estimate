@@ -42,6 +42,7 @@ export function useAuth() {
       }
 
       const response = await loginWithTelegram(initData);
+      localStorage.setItem('access_token', response.access_token);
 
       setState({
         user: response.user,

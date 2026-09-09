@@ -12,6 +12,22 @@
     "telegram_verified": "Telegram Verified",
     "mock_auth": "Mock Auth"
   },
+  "navigation": {
+    "clients": "Klienci",
+    "projects": "Obiekty"
+  },
+  "common": {
+    "open": "Otwórz",
+    "edit": "Edytuj",
+    "archive": "Archiwizuj",
+    "restore": "Przywróć",
+    "cancel": "Anuluj",
+    "save": "Zapisz",
+    "saving": "Zapisywanie...",
+    "show_archived": "Pokaż zarchiwizowane",
+    "archived_badge": "Zarchiwizowany",
+    "back": "Wstecz"
+  },
   "clients": {
     "title": "Klienci",
     "add_client": "Dodaj klienta",
@@ -38,5 +54,64 @@
     "error": "Błąd podczas ładowania klientów",
     "validation_private_name": "Podaj imię lub nazwisko",
     "validation_company_name": "Nazwa firmy jest wymagana"
+  },
+  "projects": {
+    "title": "Obiekty",
+    "add": "Dodaj obiekt",
+    "edit": "Edytuj obiekt",
+    "loading": "Ładowanie obiektów...",
+    "empty": "Brak obiektów",
+    "error": "Błąd podczas ładowania obiektów",
+    "name": "Nazwa obiektu",
+    "address": "Adres",
+    "city": "Miasto",
+    "postal_code": "Kod pocztowy",
+    "description": "Opis / notatki",
+    "status": "Status",
+    "client": "Klient",
+    "no_client": "Bez przypisanego klienta",
+    "client_unavailable": "Klient niedostępny",
+    "planning": "Planowanie",
+    "in_progress": "W realizacji",
+    "completed": "Zakończony",
+    "created": "Obiekt został utworzony",
+    "updated": "Obiekt został zaktualizowany",
+    "archived": "Obiekt został zarchiwizowany",
+    "restored": "Obiekt został przywrócony",
+    "rooms": "Pomieszczenia"
+  },
+  "rooms": {
+    "title": "Pomieszczenia",
+    "add": "Dodaj pomieszczenie",
+    "edit": "Edytuj pomieszczenie",
+    "loading": "Ładowanie pomieszczeń...",
+    "empty": "Brak pomieszczeń",
+    "error": "Błąd podczas ładowania pomieszczeń",
+    "name": "Nazwa pomieszczenia",
+    "description": "Opis / notatki",
+    "created": "Pomieszczenie zostało utworzone",
+    "updated": "Pomieszczenie zostało zaktualizowane",
+    "archived": "Pomieszczenie zostało zarchiwizowane",
+    "restored": "Pomieszczenie zostało przywrócone",
+    "surfaces": "Powierzchnie"
+  },
+  "surfaces": {
+    "title": "Powierzchnie",
+    "add": "Dodaj powierzchnię",
+    "edit": "Edytuj powierzchnię",
+    "loading": "Ładowanie powierzchni...",
+    "empty": "Brak powierzchni",
+    "error": "Błąd podczas ładowania powierzchni",
+    "name": "Nazwa powierzchni",
+    "description": "Opis / notatki",
+    "type": "Typ powierzchni",
+    "wall": "Ściana",
+    "ceiling": "Sufit",
+    "floor": "Podłoga",
+    "other": "Inna",
+    "created": "Powierzchnia została utworzona",
+    "updated": "Powierzchnia została zaktualizowana",
+    "archived": "Powierzchnia została zarchiwizowana",
+    "restored": "Powierzchnia została przywrócona"
   }
 }
