@@ -18,7 +18,7 @@
 | **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
 | **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
 | **Stage 4** | **Project / Room / Surface Foundation** | **Completed** | Owner-isolated Project, optional Client association, Room, Surface, frontend hierarchy, and final integration verification |
-| **Stage 5** | **Telegram Mini App Shell & Auth** | **In Progress (5A completed)** | Official WebApp runtime shell and browser fallback; later shell/auth integration remains deferred |
+| **Stage 5** | **Telegram Mini App Shell & Auth** | **In Progress (5A–5B completed)** | Official WebApp shell and real initData authentication flow; theme and BackButton integration remain deferred |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
 | Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
 | Stage 8 | Estimates & Quotation UI | Pending | Estimate generator, PDF export preparation, client approval flow |
@@ -602,6 +602,49 @@
 
 #### Deferred:
 - Stage 5B authentication work, Telegram BackButton and theme integration, speculative WebApp APIs, and production deployment remain deferred pending explicit approval.
+
+---
+
+### Stage 5B: Real Telegram WebApp Authentication Flow
+- **Status**: Completed
+- **Date**: 2026-09-10
+- **Commit**: `feat(stage-5b): connect Telegram WebApp authentication`
+
+#### Added:
+- Typed frontend authentication request failures that retain only the backend error code and status needed for safe UI decisions.
+- Focused API and component coverage for unchanged raw `initData`, explicit browser mock gating, empty Telegram data, localized failures, JWT persistence, and remount behavior.
+- Polish and Russian messages for unavailable Telegram, missing `initData`, invalid signatures, expired data, unavailable backend, and generic request failures.
+
+#### Changed:
+- Real Telegram `initData` now flows unchanged from the Stage 5A WebApp hook through the existing Stage 2 authentication endpoint.
+- Browser mock authentication now requires both Vite development mode and the explicit `VITE_DEV_MOCK_AUTH=true` flag; production builds cannot initiate the mock path.
+- Authentication failures now render stable localized messages instead of backend-provided text, preventing raw Telegram data or backend details from reaching the UI.
+- JWT persistence remains before authenticated application state is published, preserving protected-request ordering and the existing remount reauthentication behavior.
+
+#### Database:
+- None; Stage 2 backend validation, user provisioning, JWT issuance, models, schemas, and migrations are unchanged.
+
+#### Tests:
+- Focused Telegram frontend authentication suite: 14 passed, 0 failed.
+- Backend authentication suite: 8 passed, 0 failed.
+- Complete backend suite: 74 passed, 0 failed.
+- Complete frontend suite: 29 passed, 0 failed.
+- TypeScript strict typecheck: PASS (0 errors).
+- Frontend production build: PASS (46 modules transformed).
+
+#### Verification:
+- Raw `initData` remains unchanged in the frontend request and is parsed, HMAC-SHA256 verified, and freshness-checked only by the backend: PASS.
+- `initDataUnsafe` is not used as authentication proof or accessed by production authentication code: PASS.
+- Mock auth requires explicit frontend development configuration and remains rejected by the backend outside development: PASS.
+- No raw Telegram `initData` logging or user-facing disclosure was found: PASS.
+- Complete backend regressions preserve unauthenticated 401 responses and cross-owner 404 isolation for Client, Project, Room, and Surface access: PASS.
+- JWT storage occurs before authenticated child components can issue protected requests; `/api/me` succeeds with the issued JWT: PASS.
+- Mobile Chromium mock-auth walkthrough completed `Projects → Project → Rooms → Room → Surfaces` at 390×844 with zero console errors: PASS.
+- Mobile Chromium with a present Telegram runtime and empty `initData` issued zero auth requests, showed the localized error, and produced zero console errors: PASS.
+- `git diff --check`, forbidden-file review, and scope review: PASS.
+
+#### Deferred:
+- Telegram theme adaptation, BackButton integration, refresh tokens, speculative WebApp APIs, deployment, and all Stage 5C functionality remain deferred pending explicit approval.
 
 ---
 

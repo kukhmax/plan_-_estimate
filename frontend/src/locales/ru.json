@@ -10,7 +10,15 @@
     "dev_banner": "DEV AUTH MODE — MOCK USER (Running outside official Telegram client)",
     "logged_in_as": "Вошедший пользователь",
     "telegram_verified": "Telegram подтверждён",
-    "mock_auth": "Mock Auth"
+    "mock_auth": "Mock Auth",
+    "errors": {
+      "telegram_unavailable": "Откройте приложение в Telegram или явно включите режим разработки.",
+      "telegram_init_data_missing": "Telegram не передал данные для входа. Закройте и снова откройте приложение.",
+      "telegram_signature_invalid": "Не удалось подтвердить подлинность данных Telegram.",
+      "telegram_auth_expired": "Срок действия данных входа Telegram истёк. Откройте приложение снова.",
+      "backend_unavailable": "Сервер авторизации недоступен. Повторите попытку позже.",
+      "request_failed": "Не удалось выполнить вход. Повторите попытку."
+    }
   },
   "navigation": {
     "clients": "Клиенты",

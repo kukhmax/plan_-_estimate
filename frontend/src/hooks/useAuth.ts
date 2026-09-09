@@ -1,18 +1,45 @@
 import { useEffect, useState, useCallback } from 'react';
 import { User } from '../types/auth';
-import { loginWithTelegram } from '../api/auth';
+import { loginWithTelegram, TelegramAuthRequestError } from '../api/auth';
 import { useTelegramWebApp } from './useTelegramWebApp';
+
+export type AuthErrorCode =
+  | 'telegram_unavailable'
+  | 'telegram_init_data_missing'
+  | 'telegram_signature_invalid'
+  | 'telegram_auth_expired'
+  | 'backend_unavailable'
+  | 'request_failed';
 
 interface AuthState {
   user: User | null;
   token: string | null;
   isDevAuth: boolean;
   isLoading: boolean;
-  error: string | null;
+  error: AuthErrorCode | null;
+}
+
+class AuthFlowError extends Error {
+  constructor(public readonly code: AuthErrorCode) {
+    super(code);
+  }
+}
+
+function getAuthErrorCode(error: unknown): AuthErrorCode {
+  if (error instanceof AuthFlowError) return error.code;
+
+  if (error instanceof TelegramAuthRequestError) {
+    if (error.code === 'INVALID_TELEGRAM_SIGNATURE') return 'telegram_signature_invalid';
+    if (error.code === 'TELEGRAM_AUTH_EXPIRED') return 'telegram_auth_expired';
+    if (error.code === 'MISSING_TELEGRAM_DATA') return 'telegram_init_data_missing';
+    if (error.status === 0 || error.status >= 500) return 'backend_unavailable';
+  }
+
+  return 'request_failed';
 }
 
 export function useAuth() {
-  const { initData } = useTelegramWebApp();
+  const { isAvailable, initData } = useTelegramWebApp();
   const [state, setState] = useState<AuthState>({
     user: null,
     token: null,
@@ -26,14 +53,17 @@ export function useAuth() {
 
     try {
       let authenticationData = initData;
+      const isDevelopmentMockEnabled =
+        import.meta.env.DEV && import.meta.env.VITE_DEV_MOCK_AUTH === 'true';
 
-      // Development fallback when running outside Telegram Mini App client
-      if (!authenticationData && (import.meta.env.DEV || import.meta.env.VITE_DEV_MOCK_AUTH === 'true')) {
+      if (!authenticationData && isDevelopmentMockEnabled) {
         authenticationData = 'mock';
       }
 
       if (!authenticationData) {
-        throw new Error('Telegram Mini App initData is not available. Please open inside Telegram.');
+        throw new AuthFlowError(
+          isAvailable ? 'telegram_init_data_missing' : 'telegram_unavailable',
+        );
       }
 
       const response = await loginWithTelegram(authenticationData);
@@ -47,14 +77,13 @@ export function useAuth() {
         error: null,
       });
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown authentication error';
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: errorMessage,
+        error: getAuthErrorCode(err),
       }));
     }
-  }, [initData]);
+  }, [initData, isAvailable]);
 
   useEffect(() => {
     authenticate();

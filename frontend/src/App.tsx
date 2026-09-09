@@ -69,7 +69,7 @@ const AppContent: React.FC = () => {
             <h2 className="text-lg font-semibold text-red-600 mb-1">
               {t.auth.error_title}
             </h2>
-            <p className="text-sm text-slate-600 mb-4">{error}</p>
+            <p className="text-sm text-slate-600 mb-4">{t.auth.errors[error]}</p>
             <button
               onClick={retry}
               className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition"

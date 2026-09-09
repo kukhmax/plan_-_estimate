@@ -10,7 +10,15 @@
     "dev_banner": "DEV AUTH MODE — MOCK USER (Running outside official Telegram client)",
     "logged_in_as": "Zalogowany użytkownik",
     "telegram_verified": "Telegram Verified",
-    "mock_auth": "Mock Auth"
+    "mock_auth": "Mock Auth",
+    "errors": {
+      "telegram_unavailable": "Otwórz aplikację w Telegramie lub włącz jawnie tryb deweloperski.",
+      "telegram_init_data_missing": "Telegram nie przekazał danych logowania. Zamknij i otwórz aplikację ponownie.",
+      "telegram_signature_invalid": "Nie udało się potwierdzić autentyczności danych Telegram.",
+      "telegram_auth_expired": "Dane logowania Telegram wygasły. Otwórz aplikację ponownie.",
+      "backend_unavailable": "Serwer autoryzacji jest niedostępny. Spróbuj ponownie później.",
+      "request_failed": "Nie udało się zalogować. Spróbuj ponownie."
+    }
   },
   "navigation": {
     "clients": "Klienci",
