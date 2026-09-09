@@ -17,7 +17,7 @@
 | **Stage 3** | **Client Management** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU) |
 | **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
 | **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
-| Stage 4 | Project / Room / Surface Foundation | Pending | Obiekt aggregate, owner/client links, rooms, surfaces, and `project_id` anchoring |
+| Stage 4 | Project / Room / Surface Foundation | In Progress | Stage 4A Project backend completed; rooms, surfaces, and downstream `project_id` anchoring pending |
 | Stage 5 | Telegram Mini App Shell & Auth | Pending | Telegram WebApp SDK, initData HMAC-SHA256 validation, theme adaptation |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
 | Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
@@ -291,6 +291,48 @@
 
 #### Deferred:
 - Stage 4 Project / Room / Surface Foundation requires explicit user approval and was not started.
+
+---
+
+### Stage 4A: Project / Obiekt Backend Domain
+- **Status**: Completed
+- **Date**: 2026-09-09
+- **Commit**: `feat(stage-4a): implement Project backend domain`
+
+#### Added:
+- `backend/app/models/project.py`: owner-scoped `Project` aggregate root with UUID identity, UTC timestamps, practical address fields, description, lifecycle status, and independent archive state.
+- `backend/app/schemas/project.py`: typed create, update, read, and list contracts with minimal field validation.
+- `backend/app/domain/services/project_service.py`: owner-isolated create, list, read, update, archive, and restore operations.
+- `backend/app/api/v1/endpoints/projects.py`: thin authenticated Project CRUD routes with strict 404 tenant isolation.
+- `backend/alembic/versions/0003_create_projects_table.py`: reversible Project table and `projectstatus` enum migration.
+- `backend/tests/test_projects.py`: 12 focused API and persistence tests.
+
+#### Changed:
+- Registered the Project model for SQLAlchemy metadata and Alembic discovery.
+- Added the Project service dependency and mounted Project routes at `/api/projects`.
+- Added `ProjectNotFoundError` for owner-isolated missing-resource handling.
+
+#### Database:
+- Migration `0003_create_projects_table.py` applied to PostgreSQL.
+- Table: `projects` with owner FK, project details, `PLANNING` / `IN_PROGRESS` / `COMPLETED` lifecycle status, archive state, and timestamps.
+- Alembic revision chain has one head: `0003_create_projects`; metadata drift check reports no pending operations.
+
+#### Tests:
+- Focused Project tests: 12 passed, 0 failed.
+- Full backend regression suite: 39 passed, 0 failed.
+
+#### Verification:
+- Project create, list, read, update, archive, restore, active/archive filtering, and field persistence: PASS.
+- Owner list isolation and foreign-owner GET, PATCH, archive, and restore returning 404: PASS.
+- Missing UUID returns 404; malformed UUID and invalid lifecycle status return 422: PASS.
+- Alembic upgrade from `0002_create_clients` to `0003_create_projects`: PASS.
+- Alembic applied-head and metadata consistency checks: PASS.
+- `git diff --check`: PASS.
+- Scope review found no Client relationship, Room, Surface, frontend, Telegram UI, or future-stage implementation: PASS.
+- Manual UI verification: not applicable to this backend-only stage; API behavior is covered by end-to-end ASGI tests.
+
+#### Deferred:
+- Project-to-Client relationships, Rooms, Surfaces, Measurements, Inspections, Estimates, frontend Project UI, Telegram UI, and all Stage 4B functionality.
 
 ---
 

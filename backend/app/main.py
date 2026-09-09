@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.clients import router as clients_router
 from app.api.v1.endpoints.health import router as health_router
+from app.api.v1.endpoints.projects import router as projects_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -24,3 +25,4 @@ app.add_middleware(
 app.include_router(health_router, prefix="/api", tags=["health"])
 app.include_router(auth_router, prefix="/api", tags=["auth"])
 app.include_router(clients_router, prefix="/api", tags=["clients"])
+app.include_router(projects_router, prefix="/api", tags=["projects"])

@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.domain.services.auth_service import TelegramAuthService
 from app.domain.services.client_service import ClientService
+from app.domain.services.project_service import ProjectService
 from app.models.user import User
 
 security_scheme = HTTPBearer(auto_error=False)
@@ -56,3 +57,9 @@ async def get_client_service(
     db: AsyncSession = Depends(get_db),
 ) -> ClientService:
     return ClientService(db)
+
+
+async def get_project_service(
+    db: AsyncSession = Depends(get_db),
+) -> ProjectService:
+    return ProjectService(db)
