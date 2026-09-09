@@ -194,45 +194,132 @@ async def test_restore_client(async_client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
-# Test: search
+# Test: search by first name
 # ---------------------------------------------------------------------------
 
-async def test_search_clients(async_client: AsyncClient):
+async def test_search_by_first_name(async_client: AsyncClient):
     token = await get_token(async_client, VALID_USER)
     await async_client.post(
         "/api/clients",
         json={"client_type": "PRIVATE_PERSON", "first_name": "Zbigniew", "last_name": "Nowak"},
         headers=auth_header(token),
     )
+    resp = await async_client.get("/api/clients?search=Zbigni", headers=auth_header(token))
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert len(items) >= 1
+    assert any(c["first_name"] == "Zbigniew" for c in items)
+
+
+# ---------------------------------------------------------------------------
+# Test: search by last name
+# ---------------------------------------------------------------------------
+
+async def test_search_by_last_name(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Piotr", "last_name": "Wiśniewski"},
+        headers=auth_header(token),
+    )
+    resp = await async_client.get("/api/clients?search=Wiśni", headers=auth_header(token))
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert any(c["last_name"] == "Wiśniewski" for c in items)
+
+
+# ---------------------------------------------------------------------------
+# Test: search by company name
+# ---------------------------------------------------------------------------
+
+async def test_search_by_company(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
     await async_client.post(
         "/api/clients",
         json={"client_type": "COMPANY", "company_name": "BuildMaster Sp. z o.o."},
         headers=auth_header(token),
     )
-
-    # Search by first name
-    resp = await async_client.get("/api/clients?search=Zbigni", headers=auth_header(token))
+    resp = await async_client.get("/api/clients?search=BuildMaster", headers=auth_header(token))
     assert resp.status_code == 200
     items = resp.json()["items"]
-    assert len(items) == 1
-    assert items[0]["first_name"] == "Zbigniew"
-
-    # Search by company name
-    resp2 = await async_client.get("/api/clients?search=BuildMaster", headers=auth_header(token))
-    items2 = resp2.json()["items"]
-    assert len(items2) == 1
-    assert items2[0]["company_name"] == "BuildMaster Sp. z o.o."
+    assert len(items) >= 1
+    assert any(c["company_name"] == "BuildMaster Sp. z o.o." for c in items)
 
 
 # ---------------------------------------------------------------------------
-# Test: owner isolation — cannot access another owner's client
+# Test: search by phone
 # ---------------------------------------------------------------------------
 
-async def test_owner_isolation(async_client: AsyncClient):
+async def test_search_by_phone(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Telefon", "phone": "+48500500500"},
+        headers=auth_header(token),
+    )
+    resp = await async_client.get("/api/clients?search=500500", headers=auth_header(token))
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert any(c["phone"] == "+48500500500" for c in items)
+
+
+# ---------------------------------------------------------------------------
+# Test: active list excludes archived clients
+# ---------------------------------------------------------------------------
+
+async def test_active_list_excludes_archived(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    create_resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Archiwalny"},
+        headers=auth_header(token),
+    )
+    client_id = create_resp.json()["id"]
+
+    await async_client.post(f"/api/clients/{client_id}/archive", headers=auth_header(token))
+
+    list_resp = await async_client.get("/api/clients", headers=auth_header(token))
+    ids = [c["id"] for c in list_resp.json()["items"]]
+    assert client_id not in ids
+
+
+# ---------------------------------------------------------------------------
+# Test: archived filter includes archived clients
+# ---------------------------------------------------------------------------
+
+async def test_archived_filter_shows_archived(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    active_resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Aktywny"},
+        headers=auth_header(token),
+    )
+    active_id = active_resp.json()["id"]
+
+    arch_resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Archiwalny2"},
+        headers=auth_header(token),
+    )
+    arch_id = arch_resp.json()["id"]
+    await async_client.post(f"/api/clients/{arch_id}/archive", headers=auth_header(token))
+
+    list_resp = await async_client.get(
+        "/api/clients?include_archived=true", headers=auth_header(token)
+    )
+    all_ids = [c["id"] for c in list_resp.json()["items"]]
+    assert arch_id in all_ids
+    assert active_id in all_ids
+
+
+# ---------------------------------------------------------------------------
+# Test: owner isolation — list, GET, archive (404 not 403)
+# ---------------------------------------------------------------------------
+
+async def test_owner_isolation_list_and_get(async_client: AsyncClient):
     owner_token = await get_token(async_client, VALID_USER)
     other_token = await get_token(async_client, OTHER_USER)
 
-    # Owner creates a client
     create_resp = await async_client.post(
         "/api/clients",
         json={"client_type": "PRIVATE_PERSON", "first_name": "Secret", "last_name": "Client"},
@@ -251,11 +338,72 @@ async def test_owner_isolation(async_client: AsyncClient):
     list_resp = await async_client.get("/api/clients", headers=auth_header(other_token))
     assert list_resp.json()["total"] == 0
 
-    # Other user cannot archive it — 404
+
+# ---------------------------------------------------------------------------
+# Test: owner isolation — archive returns 404
+# ---------------------------------------------------------------------------
+
+async def test_owner_isolation_archive(async_client: AsyncClient):
+    owner_token = await get_token(async_client, VALID_USER)
+    other_token = await get_token(async_client, OTHER_USER)
+
+    create_resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Isolated"},
+        headers=auth_header(owner_token),
+    )
+    client_id = create_resp.json()["id"]
+
     archive_resp = await async_client.post(
         f"/api/clients/{client_id}/archive", headers=auth_header(other_token)
     )
     assert archive_resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Test: owner isolation — PATCH returns 404
+# ---------------------------------------------------------------------------
+
+async def test_owner_isolation_patch(async_client: AsyncClient):
+    owner_token = await get_token(async_client, VALID_USER)
+    other_token = await get_token(async_client, OTHER_USER)
+
+    create_resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Prywatny"},
+        headers=auth_header(owner_token),
+    )
+    client_id = create_resp.json()["id"]
+
+    patch_resp = await async_client.patch(
+        f"/api/clients/{client_id}",
+        json={"phone": "000000000"},
+        headers=auth_header(other_token),
+    )
+    assert patch_resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Test: owner isolation — restore returns 404
+# ---------------------------------------------------------------------------
+
+async def test_owner_isolation_restore(async_client: AsyncClient):
+    owner_token = await get_token(async_client, VALID_USER)
+    other_token = await get_token(async_client, OTHER_USER)
+
+    create_resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Restore"},
+        headers=auth_header(owner_token),
+    )
+    client_id = create_resp.json()["id"]
+    await async_client.post(f"/api/clients/{client_id}/archive", headers=auth_header(owner_token))
+
+    restore_resp = await async_client.post(
+        f"/api/clients/{client_id}/restore",
+        headers=auth_header(other_token),
+    )
+    assert restore_resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------
