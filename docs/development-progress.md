@@ -15,13 +15,16 @@
 | **Stage 1** | **Project Scaffolding & CI Foundation** | **Completed** | Minimal working monorepo skeleton (FastAPI, React+Vite, aiogram 3, Docker Compose) |
 | **Stage 2** | **Telegram Mini App Authentication** | **Completed** | Cryptographic HMAC-SHA256 initData validation, User model & migration, JWT session, dev mock mode |
 | **Stage 3** | **Client Management** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU) |
-| Stage 4 | Substrate Inspection & Risk Engine | Pending | Moisture, adhesion, surface diagnostic rules & technical warnings |
+| **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
+| **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
+| Stage 4 | Project / Room / Surface Foundation | Pending | Obiekt aggregate, owner/client links, rooms, surfaces, and `project_id` anchoring |
 | Stage 5 | Telegram Mini App Shell & Auth | Pending | Telegram WebApp SDK, initData HMAC-SHA256 validation, theme adaptation |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
-| Stage 7 | Estimates & Quotation UI | Pending | Estimate generator, PDF export preparation, client approval flow |
-| Stage 8 | Technical Protocols & Handover | Pending | Acceptance protocols (stan zero, roboty zanikające, protokół końcowy) |
-| Stage 9 | Contracts & Legal Knowledge Modules | Pending | Contract generator, standard clauses, client communication phrases |
-| Stage 10 | Offline Drafts & S3 Photo Storage | Pending | IndexedDB offline drafts sync, S3 photo attachments |
+| Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
+| Stage 8 | Estimates & Quotation UI | Pending | Estimate generator, PDF export preparation, client approval flow |
+| Stage 9 | Technical Protocols & Handover | Pending | Acceptance protocols (stan zero, roboty zanikające, protokół końcowy) |
+| Stage 10 | Contracts & Legal Knowledge Modules | Pending | Contract generator, standard clauses, client communication phrases |
+| Stage 11 | Offline Drafts & S3 Photo Storage | Pending | IndexedDB offline drafts sync, S3 photo attachments |
 
 ---
 
@@ -229,6 +232,65 @@
 
 #### Deferred:
 - Projects (Obiekty), Rooms, Surfaces, Measurements, Estimates, Protocols, Photos deferred to subsequent stages.
+
+---
+
+### Stage 3B: Client Module Verification
+- **Status**: Completed
+- **Date**: 2026-09-09
+- **Commit**: `22df7fe` — `test(stage-3b): complete client module verification`
+
+#### Changed:
+- `backend/tests/test_clients.py`: expanded client API coverage from 10 to 18 tests.
+- Split search verification across first name, last name, company name, and phone.
+- Added explicit active/archive filtering and strict 404 owner-isolation checks for GET, PATCH, archive, and restore operations.
+
+#### Database:
+- None.
+
+#### Tests:
+- Backend client tests: 18 passed.
+- Full backend suite: 27 passed.
+- Frontend tests: 8 passed.
+- TypeScript typecheck: PASS.
+- Frontend production build: PASS.
+
+#### Verification:
+- `git diff --check`: PASS.
+- Commit `22df7fe` pushed to `origin/main`.
+
+#### Deferred:
+- No new application functionality was introduced; subsequent domain modules remain deferred.
+
+---
+
+### Stage 3C: Claude Code Instructions and Roadmap Consistency
+- **Status**: Completed
+- **Date**: 2026-09-09
+- **Commit**: `docs(stage-3c): add Claude Code workflow guidance`
+
+#### Added:
+- Root `CLAUDE.md` importing the existing Gemini and Antigravity rules while defining Claude Code commands and stage safeguards.
+- Project-local `/stage-implementation` and `/stage-verification` workflow skills.
+
+#### Changed:
+- Recorded the completed Stage 3B verification results and commit.
+- Reordered future roadmap dependencies so Project / Obiekt, Room, and Surface foundations exist before Substrate Inspection and its risk engine.
+
+#### Database:
+- None.
+
+#### Tests:
+- No application tests required; Stage 3C changes only documentation and Claude Code configuration.
+
+#### Verification:
+- Imported instruction paths exist: PASS.
+- Skill frontmatter validation: PASS.
+- Application source unchanged: PASS.
+- `git diff --check`: PASS.
+
+#### Deferred:
+- Stage 4 Project / Room / Surface Foundation requires explicit user approval and was not started.
 
 ---
 
