@@ -28,6 +28,12 @@ class Project(Base):
         nullable=False,
         index=True,
     )
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("clients.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str] = mapped_column(String(512), nullable=False)
     city: Mapped[str] = mapped_column(String(255), nullable=False)

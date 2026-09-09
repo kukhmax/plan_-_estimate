@@ -3,7 +3,8 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.exceptions import ProjectNotFoundError
+from app.domain.exceptions import ClientNotFoundError, ProjectNotFoundError
+from app.models.client import Client
 from app.models.project import Project
 from app.schemas.project import ProjectCreate, ProjectUpdate
 
@@ -44,11 +45,26 @@ class ProjectService:
             raise ProjectNotFoundError(f"Project {project_id} not found")
         return project
 
+    async def _ensure_client_owned(
+        self, client_id: uuid.UUID, owner_id: uuid.UUID
+    ) -> None:
+        stmt = select(Client.id).where(
+            Client.id == client_id,
+            Client.owner_user_id == owner_id,
+        )
+        result = await self.db.execute(stmt)
+        if result.scalar_one_or_none() is None:
+            raise ClientNotFoundError(f"Client {client_id} not found")
+
     async def create_project(
         self, payload: ProjectCreate, owner_id: uuid.UUID
     ) -> Project:
+        if payload.client_id is not None:
+            await self._ensure_client_owned(payload.client_id, owner_id)
+
         project = Project(
             owner_id=owner_id,
+            client_id=payload.client_id,
             name=payload.name,
             address=payload.address,
             city=payload.city,
@@ -68,8 +84,13 @@ class ProjectService:
         owner_id: uuid.UUID,
     ) -> Project:
         project = await self.get_project(project_id, owner_id)
+        update_data = payload.model_dump(exclude_unset=True)
 
-        for field, value in payload.model_dump(exclude_unset=True).items():
+        client_id = update_data.get("client_id")
+        if client_id is not None:
+            await self._ensure_client_owned(client_id, owner_id)
+
+        for field, value in update_data.items():
             setattr(project, field, value)
 
         await self.db.commit()

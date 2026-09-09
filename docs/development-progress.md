@@ -17,7 +17,7 @@
 | **Stage 3** | **Client Management** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU) |
 | **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
 | **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
-| Stage 4 | Project / Room / Surface Foundation | In Progress | Stage 4A Project backend completed; rooms, surfaces, and downstream `project_id` anchoring pending |
+| Stage 4 | Project / Room / Surface Foundation | In Progress | Stages 4A-4B Project backend and Client association completed; rooms, surfaces, and downstream `project_id` anchoring pending |
 | Stage 5 | Telegram Mini App Shell & Auth | Pending | Telegram WebApp SDK, initData HMAC-SHA256 validation, theme adaptation |
 | Stage 6 | Room Measurements & Surface Manager UI | Pending | Interactive room dimension inputs, openings subtraction, surface totals |
 | Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
@@ -333,6 +333,49 @@
 
 #### Deferred:
 - Project-to-Client relationships, Rooms, Surfaces, Measurements, Inspections, Estimates, frontend Project UI, Telegram UI, and all Stage 4B functionality.
+
+---
+
+### Stage 4B: Project ↔ Client Relationship
+- **Status**: Completed
+- **Date**: 2026-09-09
+- **Commit**: `feat(stage-4b): link projects to clients`
+
+#### Added:
+- `backend/alembic/versions/0004_add_project_client_id.py`: nullable, indexed `projects.client_id` foreign key with `ON DELETE SET NULL`.
+- Optional `client_id` support in Project create, update, read, and list contracts without duplicating Client data.
+- Owner-scoped Client validation in `ProjectService` without a circular service dependency.
+- Focused coverage for unassigned Projects, create/assign/change/remove operations, persistence, archived Clients, and tenant non-disclosure.
+
+#### Changed:
+- Project creation and update validate that an assigned Client belongs to the authenticated Project owner.
+- Project API maps both missing and foreign Client references to the same 404 response.
+- Project test coverage expanded from 12 to 20 tests.
+
+#### Database:
+- Migration `0004_add_project_client_id.py` applied to PostgreSQL.
+- Alembic revision chain has one head: `0004_add_project_client`; metadata drift check reports no pending operations.
+
+#### Tests:
+- Focused Project ↔ Client relationship suite: 9 passed, 0 failed.
+- Existing Client suite: 18 passed, 0 failed.
+- Complete Project suite: 20 passed, 0 failed.
+- Full backend regression suite: 47 passed, 0 failed.
+
+#### Verification:
+- Project without Client and Project created with Client: PASS.
+- Assign, change, remove, and persisted Client association: PASS.
+- Missing and foreign Clients return indistinguishable 404 responses on relationship operations: PASS.
+- Foreign and missing Projects return indistinguishable 404 responses before Client validation: PASS.
+- Archived Clients remain assignable and existing associations persist, matching current soft-archive conventions: PASS.
+- Alembic upgrade from `0003_create_projects` to `0004_add_project_client`: PASS.
+- Alembic applied-head and metadata consistency checks: PASS.
+- `git diff --check`: PASS.
+- Scope review found no Rooms, Surfaces, frontend, Client redesign, or future-stage implementation: PASS.
+- Manual UI verification: not applicable to this backend-only stage; API behavior is covered by end-to-end ASGI tests.
+
+#### Deferred:
+- Rooms, Surfaces, Measurements, Inspections, Estimates, Project frontend, Telegram UI, and all Stage 4C functionality.
 
 ---
 

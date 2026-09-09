@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_current_user, get_project_service
-from app.domain.exceptions import ProjectNotFoundError
+from app.domain.exceptions import ClientNotFoundError, ProjectNotFoundError
 from app.domain.services.project_service import ProjectService
 from app.models.user import User
 from app.schemas.project import (
@@ -48,7 +48,10 @@ async def create_project(
     current_user: User = Depends(get_current_user),
     project_service: ProjectService = Depends(get_project_service),
 ) -> ProjectRead:
-    project = await project_service.create_project(payload, owner_id=current_user.id)
+    try:
+        project = await project_service.create_project(payload, owner_id=current_user.id)
+    except ClientNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
     return ProjectRead.model_validate(project)
 
 
@@ -90,6 +93,8 @@ async def update_project(
         )
     except ProjectNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    except ClientNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
     return ProjectRead.model_validate(project)
 
 

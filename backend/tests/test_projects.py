@@ -47,10 +47,33 @@ def project_payload(name: str = "Mieszkanie Mokotów") -> dict[str, str]:
     }
 
 
-async def create_project(async_client: AsyncClient, token: str, name: str = "Projekt") -> dict:
+async def create_client(
+    async_client: AsyncClient,
+    token: str,
+    first_name: str = "Klient",
+) -> dict:
+    response = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": first_name},
+        headers=auth_header(token),
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+async def create_project(
+    async_client: AsyncClient,
+    token: str,
+    name: str = "Projekt",
+    client_id: str | None = None,
+) -> dict:
+    payload = project_payload(name)
+    if client_id is not None:
+        payload["client_id"] = client_id
+
     response = await async_client.post(
         "/api/projects",
-        json=project_payload(name),
+        json=payload,
         headers=auth_header(token),
     )
     assert response.status_code == 201, response.text
@@ -80,6 +103,7 @@ async def test_create_project_persists_fields(
     assert data["description"] == payload["description"]
     assert data["status"] == "IN_PROGRESS"
     assert data["is_archived"] is False
+    assert data["client_id"] is None
     assert data["owner_id"]
     assert data["created_at"]
     assert data["updated_at"]
@@ -95,6 +119,7 @@ async def test_create_project_persists_fields(
     assert project.postal_code == payload["postal_code"]
     assert project.description == payload["description"]
     assert project.status == ProjectStatus.IN_PROGRESS
+    assert project.client_id is None
 
 
 async def test_create_project_defaults_to_planning(async_client: AsyncClient) -> None:
@@ -172,6 +197,221 @@ async def test_update_project(async_client: AsyncClient) -> None:
     assert data["address"] == created["address"]
     assert data["city"] == created["city"]
     assert data["postal_code"] == created["postal_code"]
+
+
+async def test_create_project_with_client_persists_relationship(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    token = await get_token(async_client, VALID_USER)
+    client = await create_client(async_client, token)
+
+    project = await create_project(
+        async_client,
+        token,
+        "Projekt z klientem",
+        client_id=client["id"],
+    )
+    read_response = await async_client.get(
+        f"/api/projects/{project['id']}",
+        headers=auth_header(token),
+    )
+    list_response = await async_client.get(
+        "/api/projects",
+        headers=auth_header(token),
+    )
+
+    assert project["client_id"] == client["id"]
+    assert read_response.json()["client_id"] == client["id"]
+    assert list_response.json()["items"][0]["client_id"] == client["id"]
+
+    result = await db_session.execute(
+        select(Project).where(Project.id == uuid.UUID(project["id"]))
+    )
+    assert result.scalar_one().client_id == uuid.UUID(client["id"])
+
+
+async def test_assign_client_to_existing_project(async_client: AsyncClient) -> None:
+    token = await get_token(async_client, VALID_USER)
+    client = await create_client(async_client, token)
+    project = await create_project(async_client, token)
+
+    response = await async_client.patch(
+        f"/api/projects/{project['id']}",
+        json={"client_id": client["id"]},
+        headers=auth_header(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["client_id"] == client["id"]
+
+
+async def test_change_assigned_client(async_client: AsyncClient) -> None:
+    token = await get_token(async_client, VALID_USER)
+    first_client = await create_client(async_client, token, "Pierwszy")
+    second_client = await create_client(async_client, token, "Drugi")
+    project = await create_project(
+        async_client,
+        token,
+        client_id=first_client["id"],
+    )
+
+    response = await async_client.patch(
+        f"/api/projects/{project['id']}",
+        json={"client_id": second_client["id"]},
+        headers=auth_header(token),
+    )
+    read_response = await async_client.get(
+        f"/api/projects/{project['id']}",
+        headers=auth_header(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["client_id"] == second_client["id"]
+    assert read_response.json()["client_id"] == second_client["id"]
+
+
+async def test_remove_client_association(async_client: AsyncClient) -> None:
+    token = await get_token(async_client, VALID_USER)
+    client = await create_client(async_client, token)
+    project = await create_project(
+        async_client,
+        token,
+        client_id=client["id"],
+    )
+
+    response = await async_client.patch(
+        f"/api/projects/{project['id']}",
+        json={"client_id": None},
+        headers=auth_header(token),
+    )
+    read_response = await async_client.get(
+        f"/api/projects/{project['id']}",
+        headers=auth_header(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["client_id"] is None
+    assert read_response.json()["client_id"] is None
+
+
+async def test_missing_client_returns_404(async_client: AsyncClient) -> None:
+    token = await get_token(async_client, VALID_USER)
+    missing_client_id = str(uuid.uuid4())
+    payload = project_payload("Nieprawidłowy klient")
+    payload["client_id"] = missing_client_id
+
+    create_response = await async_client.post(
+        "/api/projects",
+        json=payload,
+        headers=auth_header(token),
+    )
+    project = await create_project(async_client, token)
+    update_response = await async_client.patch(
+        f"/api/projects/{project['id']}",
+        json={"client_id": missing_client_id},
+        headers=auth_header(token),
+    )
+
+    assert create_response.status_code == 404
+    assert update_response.status_code == 404
+    assert create_response.json() == update_response.json() == {
+        "detail": "Client not found"
+    }
+
+
+async def test_foreign_client_is_indistinguishable_from_missing(
+    async_client: AsyncClient,
+) -> None:
+    owner_token = await get_token(async_client, VALID_USER)
+    other_token = await get_token(async_client, OTHER_USER)
+    foreign_client = await create_client(async_client, other_token, "Obcy")
+    project = await create_project(async_client, owner_token)
+    missing_client_id = str(uuid.uuid4())
+    foreign_payload = project_payload("Obcy klient")
+    foreign_payload["client_id"] = foreign_client["id"]
+
+    foreign_create_response = await async_client.post(
+        "/api/projects",
+        json=foreign_payload,
+        headers=auth_header(owner_token),
+    )
+    foreign_response = await async_client.patch(
+        f"/api/projects/{project['id']}",
+        json={"client_id": foreign_client["id"]},
+        headers=auth_header(owner_token),
+    )
+    missing_response = await async_client.patch(
+        f"/api/projects/{project['id']}",
+        json={"client_id": missing_client_id},
+        headers=auth_header(owner_token),
+    )
+
+    assert foreign_create_response.status_code == 404
+    assert foreign_response.status_code == 404
+    assert missing_response.status_code == 404
+    assert foreign_create_response.json() == foreign_response.json()
+    assert foreign_response.json() == missing_response.json() == {
+        "detail": "Client not found"
+    }
+
+
+async def test_foreign_project_relationship_update_returns_404(
+    async_client: AsyncClient,
+) -> None:
+    owner_token = await get_token(async_client, VALID_USER)
+    other_token = await get_token(async_client, OTHER_USER)
+    project = await create_project(async_client, owner_token)
+    other_client = await create_client(async_client, other_token)
+
+    foreign_project_response = await async_client.patch(
+        f"/api/projects/{project['id']}",
+        json={"client_id": other_client["id"]},
+        headers=auth_header(other_token),
+    )
+    missing_project_response = await async_client.patch(
+        f"/api/projects/{uuid.uuid4()}",
+        json={"client_id": other_client["id"]},
+        headers=auth_header(other_token),
+    )
+
+    assert foreign_project_response.status_code == 404
+    assert missing_project_response.status_code == 404
+    assert foreign_project_response.json() == missing_project_response.json() == {
+        "detail": "Project not found"
+    }
+
+
+async def test_archived_client_remains_assignable(
+    async_client: AsyncClient,
+) -> None:
+    token = await get_token(async_client, VALID_USER)
+    client = await create_client(async_client, token, "Archiwalny klient")
+    linked_project = await create_project(
+        async_client,
+        token,
+        "Powiązany przed archiwizacją",
+        client_id=client["id"],
+    )
+
+    archive_response = await async_client.post(
+        f"/api/clients/{client['id']}/archive",
+        headers=auth_header(token),
+    )
+    read_response = await async_client.get(
+        f"/api/projects/{linked_project['id']}",
+        headers=auth_header(token),
+    )
+    new_project = await create_project(
+        async_client,
+        token,
+        "Powiązany po archiwizacji",
+        client_id=client["id"],
+    )
+
+    assert archive_response.status_code == 200
+    assert read_response.json()["client_id"] == client["id"]
+    assert new_project["client_id"] == client["id"]
 
 
 async def test_archive_project(async_client: AsyncClient) -> None:

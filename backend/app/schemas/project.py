@@ -13,6 +13,7 @@ class ProjectCreate(BaseModel):
     postal_code: str = Field(min_length=1, max_length=20)
     description: str | None = Field(default=None, max_length=4096)
     status: ProjectStatus = ProjectStatus.PLANNING
+    client_id: uuid.UUID | None = None
 
 
 class ProjectUpdate(BaseModel):
@@ -22,6 +23,7 @@ class ProjectUpdate(BaseModel):
     postal_code: str | None = Field(default=None, min_length=1, max_length=20)
     description: str | None = Field(default=None, max_length=4096)
     status: ProjectStatus | None = None
+    client_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
     def validate_required_fields(self) -> "ProjectUpdate":
@@ -34,6 +36,7 @@ class ProjectUpdate(BaseModel):
 class ProjectRead(BaseModel):
     id: uuid.UUID
     owner_id: uuid.UUID
+    client_id: uuid.UUID | None = None
     name: str
     address: str
     city: str
