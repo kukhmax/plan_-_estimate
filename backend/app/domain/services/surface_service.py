@@ -9,6 +9,12 @@ from app.domain.exceptions import (
     ProjectNotFoundError,
     RoomNotFoundError,
     SurfaceNotFoundError,
+    WallGenerationConflictError,
+    WallGenerationDimensionsMissingError,
+)
+from app.domain.rules.room_geometry import (
+    generate_canonical_walls,
+    matches_canonical_wall_set,
 )
 from app.models.opening import Opening
 from app.models.project import Project
@@ -82,7 +88,10 @@ class SurfaceService:
         count_result = await self.db.execute(count_stmt)
         total = count_result.scalar_one()
 
-        stmt = stmt.order_by(Surface.created_at.desc())
+        stmt = stmt.order_by(
+            Surface.position.asc().nulls_last(),
+            Surface.created_at.desc(),
+        )
         result = await self.db.execute(stmt)
         rows = result.all()
 
@@ -93,6 +102,89 @@ class SurfaceService:
             items.append(surface)
 
         return items, total
+
+    async def generate_walls(
+        self,
+        project_id: uuid.UUID,
+        room_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> list[Surface]:
+        """Generate the 4 canonical rectangular walls for a room.
+
+        Rules (never destructive):
+        - Missing room dimensions -> WallGenerationDimensionsMissingError.
+        - No active WALLs -> create exactly the 4 canonical walls.
+        - Active WALLs exactly matching the canonical set -> idempotent no-op.
+        - Any other configuration -> WallGenerationConflictError, nothing changed.
+        """
+        await self._ensure_room_owned(project_id, room_id, owner_id)
+
+        room_stmt = select(Room).where(Room.id == room_id)
+        room_result = await self.db.execute(room_stmt)
+        room = room_result.scalar_one_or_none()
+        if room is None:
+            raise RoomNotFoundError(f"Room {room_id} not found")
+
+        if room.length is None or room.width is None or room.height is None:
+            raise WallGenerationDimensionsMissingError(
+                "Cannot generate walls for a room without length, width and height"
+            )
+
+        stmt = (
+            select(Surface)
+            .where(
+                Surface.room_id == room_id,
+                Surface.is_archived.is_(False),
+                Surface.surface_type == SurfaceType.WALL,
+            )
+            .order_by(
+                Surface.position.asc().nulls_last(),
+                Surface.created_at.desc(),
+            )
+        )
+        result = await self.db.execute(stmt)
+        existing_walls = list(result.scalars().all())
+
+        existing_snapshot = [
+            (wall.position, wall.surface_type, wall.width, wall.height)
+            for wall in existing_walls
+        ]
+
+        if matches_canonical_wall_set(
+            room.length,
+            room.width,
+            room.height,
+            existing_snapshot,
+        ):
+            return existing_walls
+
+        if existing_snapshot:
+            raise WallGenerationConflictError(
+                "Room already contains walls that do not match the 4-wall rectangle; no walls were changed"
+            )
+
+        created: list[Surface] = []
+        for position, name, width, height in generate_canonical_walls(
+            room.length,
+            room.width,
+            room.height,
+        ):
+            wall = Surface(
+                room_id=room_id,
+                name=name,
+                surface_type=SurfaceType.WALL,
+                description=None,
+                position=position,
+                width=width,
+                height=height,
+            )
+            wall.deduction_area = Decimal("0.000")
+            self.db.add(wall)
+            created.append(wall)
+        await self.db.commit()
+        for wall in created:
+            await self.db.refresh(wall)
+        return created
 
     async def create_surface(
         self,
@@ -108,6 +200,7 @@ class SurfaceService:
             name=payload.name,
             surface_type=payload.surface_type,
             description=payload.description,
+            position=payload.position,
             width=payload.width,
             height=payload.height,
         )

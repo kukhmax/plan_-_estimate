@@ -69,3 +69,12 @@ export function restoreSurface(
     method: 'POST',
   });
 }
+
+export function generateWalls(
+  projectId: string,
+  roomId: string,
+): Promise<SurfaceListResponse> {
+  return apiRequest(`${surfacesPath(projectId, roomId)}/generate`, {
+    method: 'POST',
+  });
+}

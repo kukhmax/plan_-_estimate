@@ -66,14 +66,15 @@ class RoomUpdate(BaseModel):
 
 
 class RoomCalculations(BaseModel):
-    floor_area: Decimal
-    ceiling_area: Decimal
-    total_wall_area: Decimal
-    wall_area_length: Decimal
-    wall_area_width: Decimal
-    perimeter: Decimal
+    floor_area: Decimal | None = None
+    ceiling_area: Decimal | None = None
+    total_wall_area: Decimal | None = None
+    wall_area_length: Decimal | None = None
+    wall_area_width: Decimal | None = None
+    perimeter: Decimal | None = None
     total_deduction_area: Decimal | None = None
     net_wall_area: Decimal | None = None
+    wall_count: int | None = None
 
 
 class RoomRead(BaseModel):

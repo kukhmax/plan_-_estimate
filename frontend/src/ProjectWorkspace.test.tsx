@@ -35,6 +35,7 @@ vi.mock('./api/surfaces', () => ({
   updateSurface: vi.fn(),
   archiveSurface: vi.fn(),
   restoreSurface: vi.fn(),
+  generateWalls: vi.fn(),
 }));
 vi.mock('./api/openings', () => ({
   fetchOpenings: vi.fn(),
@@ -735,5 +736,60 @@ describe('ProjectWorkspace', () => {
     expect(screen.getByLabelText('room-edit-length')).toHaveAttribute('inputMode', 'decimal');
     expect(screen.getByLabelText('room-edit-width')).toHaveAttribute('inputMode', 'decimal');
     expect(screen.getByLabelText('room-edit-height')).toHaveAttribute('inputMode', 'decimal');
+  });
+
+  it('generates 4 walls from room dimensions inside the room detail (Stage 5D.1A)', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(measuredRoom);
+    vi.mocked(surfacesApi.generateWalls).mockResolvedValue({ items: [], total: 0 });
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
+
+    await waitFor(() => expect(screen.getByLabelText('generate-walls')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('generate-walls'));
+
+    await waitFor(() => {
+      expect(surfacesApi.generateWalls).toHaveBeenCalledWith(project.id, measuredRoom.id);
+    });
+  });
+
+  it('shows wall_count and unavailable floor/ceiling for a custom irregular room (Stage 5D.1A)', async () => {
+    const customRoom: RoomType = {
+      ...room,
+      name: 'Salon ze skosami',
+      description: 'Poddasze',
+      calculations: {
+        floor_area: null,
+        ceiling_area: null,
+        wall_area_length: null,
+        wall_area_width: null,
+        perimeter: '21.000',
+        total_wall_area: '59.050',
+        total_deduction_area: '1.800',
+        net_wall_area: '57.250',
+        wall_count: 5,
+      },
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [customRoom], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(customRoom);
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${customRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${customRoom.id}`));
+
+    const summary = await screen.findByLabelText('room-calculations-summary');
+    expect(within(summary).getAllByText(/—/)).toHaveLength(2); // floor & ceiling unavailable
+    expect(within(summary).getByText('21.000 m')).toBeInTheDocument(); // perimeter from wall widths
+    expect(within(summary).getByText('59.050 m²')).toBeInTheDocument(); // total wall gross
+    expect(within(summary).getByText('1.800 m²')).toBeInTheDocument(); // deductions
+    expect(within(summary).getByText('57.250 m²')).toBeInTheDocument(); // net wall area
+    expect(within(summary).getByText('Ściany:')).toBeInTheDocument(); // wall_count label
+    expect(within(summary).getByText('5')).toBeInTheDocument(); // wall_count value
   });
 });

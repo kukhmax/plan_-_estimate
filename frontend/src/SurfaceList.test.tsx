@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as openingsApi from './api/openings';
 import * as surfacesApi from './api/surfaces';
 import { SurfaceList } from './components/SurfaceList';
 import { I18nProvider } from './hooks/useI18n';
@@ -11,6 +12,14 @@ vi.mock('./api/surfaces', () => ({
   updateSurface: vi.fn(),
   archiveSurface: vi.fn(),
   restoreSurface: vi.fn(),
+  generateWalls: vi.fn(),
+}));
+vi.mock('./api/openings', () => ({
+  fetchOpenings: vi.fn(),
+  createOpening: vi.fn(),
+  updateOpening: vi.fn(),
+  archiveOpening: vi.fn(),
+  restoreOpening: vi.fn(),
 }));
 
 const projectId = '11111111-1111-1111-1111-111111111111';
@@ -26,10 +35,17 @@ const surface: SurfaceType = {
   updated_at: '2026-09-09T10:00:00Z',
 };
 
-function renderSurfaces() {
+function renderSurfaces(
+  props: { roomHeight?: string | number | null; hasRoomDimensions?: boolean } = {},
+) {
   return render(
     <I18nProvider>
-      <SurfaceList projectId={projectId} roomId={roomId} />
+      <SurfaceList
+        projectId={projectId}
+        roomId={roomId}
+        roomHeight={props.roomHeight}
+        hasRoomDimensions={props.hasRoomDimensions}
+      />
     </I18nProvider>,
   );
 }
@@ -179,5 +195,218 @@ describe('SurfaceList', () => {
     fireEvent.click(screen.getByLabelText('add-surface'));
     expect(screen.getByLabelText('surface-width')).toHaveAttribute('inputMode', 'decimal');
     expect(screen.getByLabelText('surface-height')).toHaveAttribute('inputMode', 'decimal');
+  });
+});
+
+describe('SurfaceList wall generation (Stage 5D.1A)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('generates exactly 4 canonical walls from room dimensions and reloads without duplication', async () => {
+    const generated: SurfaceType[] = [0, 1, 2, 3].map((position, index) => ({
+      ...surface,
+      id: `44444444-4444-4444-4444-44444444444${index + 1}`,
+      name: `Wall ${position + 1}`,
+      position,
+      width: position % 2 === 0 ? 5 : 4,
+      height: 2.7,
+      gross_area: position % 2 === 0 ? '13.500' : '10.800',
+      deduction_area: '0.000',
+      net_area: position % 2 === 0 ? '13.500' : '10.800',
+    }));
+    vi.mocked(surfacesApi.fetchSurfaces)
+      .mockResolvedValueOnce({ items: [], total: 0 })
+      .mockResolvedValueOnce({ items: generated, total: 4 });
+    vi.mocked(surfacesApi.generateWalls).mockResolvedValue({ items: generated, total: 4 });
+    renderSurfaces({ hasRoomDimensions: true });
+
+    await waitFor(() => expect(screen.getByLabelText('generate-walls')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('generate-walls'));
+
+    await waitFor(() => {
+      expect(surfacesApi.generateWalls).toHaveBeenCalledWith(projectId, roomId);
+    });
+    expect(await screen.findByText('Wall 4')).toBeInTheDocument();
+    expect(screen.getByLabelText('surfaces-list').querySelectorAll('li')).toHaveLength(4);
+    expect(screen.getByText('Wygenerowano 4 ściany')).toBeInTheDocument();
+  });
+
+  it('surfaces a 409 conflict message and leaves the list unchanged', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [surface], total: 1 });
+    vi.mocked(surfacesApi.generateWalls).mockRejectedValue(
+      new Error('Room already contains walls that do not match the 4-wall rectangle; no walls were changed'),
+    );
+    renderSurfaces({ hasRoomDimensions: true });
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('generate-walls'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Room already contains walls that do not match/)).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText('surfaces-list').querySelectorAll('li')).toHaveLength(1);
+  });
+
+  it('adds a custom wall sequentially with localized name, next position, width, and room height', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(surfacesApi.createSurface).mockResolvedValue({
+      ...surface,
+      name: 'Ściana 1',
+      position: 0,
+      width: 2.5,
+      height: 2.7,
+    });
+    renderSurfaces({ roomHeight: 2.7 });
+
+    await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('mode-custom'));
+    expect(screen.getByLabelText('custom-wall-entry')).toBeInTheDocument();
+    expect(screen.getByText('Ściana 1')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '2.5' } });
+    fireEvent.submit(screen.getByLabelText('custom-wall-form'));
+
+    await waitFor(() => {
+      expect(surfacesApi.createSurface).toHaveBeenCalledWith(projectId, roomId, {
+        name: 'Ściana 1',
+        surface_type: 'WALL',
+        position: 0,
+        width: 2.5,
+        height: 2.7,
+        description: null,
+      });
+    });
+  });
+
+  it('does not persist the next empty wall row (no phantom request)', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
+    renderSurfaces({ roomHeight: 2.7 });
+
+    await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('mode-custom'));
+    expect(screen.getByLabelText('custom-wall-entry')).toBeInTheDocument();
+    expect(screen.getByLabelText('add-custom-wall')).toBeInTheDocument();
+    expect(surfacesApi.createSurface).not.toHaveBeenCalled();
+  });
+
+  it('defaults the custom wall height to the room height', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
+    renderSurfaces({ roomHeight: 2.7 });
+
+    await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('mode-custom'));
+
+    expect(screen.getByLabelText('custom-wall-height')).toHaveValue('2.700 m');
+
+    fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '1.8' } });
+    fireEvent.submit(screen.getByLabelText('custom-wall-form'));
+
+    await waitFor(() => {
+      expect(surfacesApi.createSurface).toHaveBeenCalledWith(
+        projectId,
+        roomId,
+        expect.objectContaining({ width: 1.8, height: 2.7 }),
+      );
+    });
+  });
+
+  it('uses the overridden height when "different height" is enabled', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
+    renderSurfaces({ roomHeight: 2.7 });
+
+    await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('mode-custom'));
+
+    fireEvent.click(screen.getByLabelText('custom-wall-different-height'));
+    fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '1.8' } });
+    fireEvent.change(screen.getByLabelText('custom-wall-height'), { target: { value: '3.1' } });
+    fireEvent.submit(screen.getByLabelText('custom-wall-form'));
+
+    await waitFor(() => {
+      expect(surfacesApi.createSurface).toHaveBeenCalledWith(
+        projectId,
+        roomId,
+        expect.objectContaining({ width: 1.8, height: 3.1 }),
+      );
+    });
+  });
+
+  it('opens the opening form preselected with the quick action type on a measured wall', async () => {
+    const wallWithDims: SurfaceType = {
+      ...surface,
+      width: 5,
+      height: 2.7,
+      gross_area: '13.500',
+      deduction_area: '0.000',
+      net_area: '13.500',
+    };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallWithDims], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surface.id}-DOOR`));
+
+    expect(await screen.findByLabelText(`opening-form-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText('opening-type')).toHaveValue('DOOR');
+  });
+
+  it('does not duplicate walls in the UI when generate is repeated idempotently', async () => {
+    const generated: SurfaceType[] = [0, 1, 2, 3].map((position, index) => ({
+      ...surface,
+      id: `44444444-4444-4444-4444-44444444444${index + 1}`,
+      name: `Wall ${position + 1}`,
+      position,
+      width: position % 2 === 0 ? 5 : 4,
+      height: 2.7,
+      gross_area: position % 2 === 0 ? '13.500' : '10.800',
+      deduction_area: '0.000',
+      net_area: position % 2 === 0 ? '13.500' : '10.800',
+    }));
+    const listResponse = { items: generated, total: 4 };
+    vi.mocked(surfacesApi.fetchSurfaces)
+      .mockResolvedValueOnce({ items: [], total: 0 })
+      .mockResolvedValue(listResponse);
+    vi.mocked(surfacesApi.generateWalls).mockResolvedValue(listResponse);
+    renderSurfaces({ hasRoomDimensions: true });
+
+    await waitFor(() => expect(screen.getByLabelText('generate-walls')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('generate-walls'));
+    await waitFor(() => expect(screen.getByText('Wall 4')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText('generate-walls'));
+    await waitFor(() => expect(surfacesApi.generateWalls).toHaveBeenCalledTimes(2));
+
+    expect(screen.getByLabelText('surfaces-list').querySelectorAll('li')).toHaveLength(4);
+    expect(screen.getAllByText('Wall 1')).toHaveLength(1);
+  });
+
+  it('switches quick action type between Door and Window without duplicate forms', async () => {
+    const wallWithDims: SurfaceType = {
+      ...surface,
+      width: 5,
+      height: 2.7,
+      gross_area: '13.500',
+      deduction_area: '0.000',
+      net_area: '13.500',
+    };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallWithDims], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText(`add-opening-${surface.id}-DOOR`));
+    await screen.findByLabelText(`opening-form-${surface.id}`);
+    expect(screen.getByLabelText('opening-type')).toHaveValue('DOOR');
+    expect(screen.getAllByLabelText(`opening-form-${surface.id}`)).toHaveLength(1);
+
+    fireEvent.click(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`));
+    const form = await screen.findByLabelText(`opening-form-${surface.id}`);
+    expect(form).toBeInTheDocument();
+    expect(screen.getByLabelText('opening-type')).toHaveValue('WINDOW');
+    expect(screen.getAllByLabelText(`opening-form-${surface.id}`)).toHaveLength(1);
   });
 });

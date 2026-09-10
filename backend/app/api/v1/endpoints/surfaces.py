@@ -8,6 +8,8 @@ from app.domain.exceptions import (
     ProjectNotFoundError,
     RoomNotFoundError,
     SurfaceNotFoundError,
+    WallGenerationConflictError,
+    WallGenerationDimensionsMissingError,
 )
 from app.domain.services.surface_service import SurfaceService
 from app.models.user import User
@@ -54,6 +56,50 @@ async def list_surfaces(
     return SurfaceListResponse(
         items=[SurfaceRead.model_validate(surface) for surface in items],
         total=total,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/rooms/{room_id}/surfaces/generate",
+    response_model=SurfaceListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate canonical rectangular walls for a room",
+)
+async def generate_walls(
+    project_id: uuid.UUID,
+    room_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    surface_service: SurfaceService = Depends(get_surface_service),
+) -> SurfaceListResponse:
+    try:
+        items = await surface_service.generate_walls(
+            project_id,
+            room_id,
+            owner_id=current_user.id,
+        )
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+    except RoomNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room not found",
+        )
+    except WallGenerationDimensionsMissingError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
+    except WallGenerationConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
+    return SurfaceListResponse(
+        items=[SurfaceRead.model_validate(surface) for surface in items],
+        total=len(items),
     )
 
 

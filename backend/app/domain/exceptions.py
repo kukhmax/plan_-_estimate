@@ -27,3 +27,11 @@ class InvalidSurfaceTypeError(Exception):
 
 class DeductionExceedsGrossAreaError(Exception):
     """Raised when total opening deductions exceed wall surface gross area."""
+
+
+class WallGenerationDimensionsMissingError(Exception):
+    """Raised when a room lacks length/width/height needed to generate canonical walls."""
+
+
+class WallGenerationConflictError(Exception):
+    """Raised when room walls already exist but do not match the canonical rectangle."""

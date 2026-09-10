@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -30,6 +31,32 @@ class RoomAggregateTotals:
     total_opening_deduction_area: Decimal
     total_wall_net_area: Decimal
     perimeter: Decimal
+
+
+@dataclass(frozen=True)
+class WallDerivedTotals:
+    """Totals aggregated from a room's measured WALL surfaces."""
+
+    wall_count: int
+    perimeter: Decimal
+    total_wall_area: Decimal
+    total_deduction_area: Decimal
+    net_wall_area: Decimal
+
+
+@dataclass(frozen=True)
+class ResolvedRoomTotals:
+    """Final room totals resolved from formula geometry and/or measured walls."""
+
+    floor_area: Decimal | None
+    ceiling_area: Decimal | None
+    total_wall_area: Decimal | None
+    wall_area_length: Decimal | None
+    wall_area_width: Decimal | None
+    perimeter: Decimal | None
+    total_deduction_area: Decimal | None
+    net_wall_area: Decimal | None
+    wall_count: int | None
 
 
 def calculate_room_geometry(
@@ -136,3 +163,148 @@ def calculate_room_aggregate_totals(
         total_wall_net_area=net_wall,
         perimeter=room_geometry.perimeter,
     )
+
+
+def generate_canonical_walls(
+    length: Decimal,
+    width: Decimal,
+    height: Decimal,
+) -> list[tuple[int, str, Decimal, Decimal]]:
+    """Return the 4 canonical rectangle walls as (position, name, width, height).
+
+    Wall1 pos 0 = length x height, Wall2 pos 1 = width x height,
+    Wall3 pos 2 = length x height, Wall4 pos 3 = width x height.
+    Names are language-neutral tokens; all surfaces are WALLs. Floor and
+    ceiling are never generated here.
+    """
+    return [
+        (0, "Wall 1", length, height),
+        (1, "Wall 2", width, height),
+        (2, "Wall 3", length, height),
+        (3, "Wall 4", width, height),
+    ]
+
+
+def matches_canonical_wall_set(
+    length: Decimal,
+    width: Decimal,
+    height: Decimal,
+    walls: Sequence[
+        tuple[int | None, SurfaceType | str, Decimal | None, Decimal | None]
+    ],
+) -> bool:
+    """Return True only when active WALLs exactly reproduce the canonical rectangle.
+
+    `walls` items are (position, surface_type, width, height). The set must
+    contain exactly four active WALLs at positions 0..3 with the exact canonical
+    dimensions for that room; otherwise the generation request must conflict.
+    """
+    if len(walls) != 4:
+        return False
+
+    by_position: dict[int, tuple[Decimal | None, Decimal | None]] = {}
+    for position, surface_type, wall_width, wall_height in walls:
+        st = (
+            SurfaceType(surface_type)
+            if isinstance(surface_type, str)
+            else surface_type
+        )
+        if st != SurfaceType.WALL or position is None or position in by_position:
+            return False
+        by_position[position] = (wall_width, wall_height)
+
+    if set(by_position) != {0, 1, 2, 3}:
+        return False
+
+    expected: dict[int, tuple[Decimal, Decimal]] = {
+        0: (length, height),
+        1: (width, height),
+        2: (length, height),
+        3: (width, height),
+    }
+    return all(
+        by_position[p][0] == expected[p][0] and by_position[p][1] == expected[p][1]
+        for p in (0, 1, 2, 3)
+    )
+
+
+def calculate_wall_derived_totals(
+    walls: Sequence[tuple[Decimal | None, Decimal | None]],
+    total_deduction_area: Decimal = Decimal("0.000"),
+) -> WallDerivedTotals | None:
+    """Aggregate wall totals from measured (width, height) pairs.
+
+    Only walls with positive width and height contribute to the totals. Returns
+    None when no measured walls exist. Perimeter equals the sum of wall widths.
+    """
+    measured = [
+        (w, h)
+        for w, h in walls
+        if w is not None and h is not None and w > 0 and h > 0
+    ]
+    if not measured:
+        return None
+
+    gross = sum((w * h for w, h in measured), Decimal("0.000")).quantize(AREA_PRECISION)
+    perimeter = sum((w for w, _ in measured), Decimal("0.000")).quantize(AREA_PRECISION)
+    deduction = total_deduction_area.quantize(AREA_PRECISION)
+    if deduction > gross:
+        raise ValueError(
+            f"Total opening deduction ({deduction}) cannot exceed measured wall area ({gross})"
+        )
+
+    net = (gross - deduction).quantize(AREA_PRECISION)
+    return WallDerivedTotals(
+        wall_count=len(measured),
+        perimeter=perimeter,
+        total_wall_area=gross,
+        total_deduction_area=deduction,
+        net_wall_area=net,
+    )
+
+
+def resolve_room_totals(
+    geometry: RoomGeometryResult | None,
+    wall_totals: WallDerivedTotals | None,
+    total_opening_deduction_area: Decimal = Decimal("0.000"),
+) -> ResolvedRoomTotals | None:
+    """Resolve final room totals from formula geometry and measured walls.
+
+    When measured walls exist, wall totals take precedence for every wall metric;
+    floor/ceiling come from the formula only when room length/width are known
+    (irregular rooms without dims report None). With no measured walls, the
+    formula-based geometry is reported unchanged for backward compatibility.
+    """
+    if wall_totals is not None:
+        return ResolvedRoomTotals(
+            floor_area=geometry.floor_area if geometry is not None else None,
+            ceiling_area=geometry.ceiling_area if geometry is not None else None,
+            total_wall_area=wall_totals.total_wall_area,
+            wall_area_length=geometry.wall_area_length if geometry is not None else None,
+            wall_area_width=geometry.wall_area_width if geometry is not None else None,
+            perimeter=wall_totals.perimeter,
+            total_deduction_area=wall_totals.total_deduction_area,
+            net_wall_area=wall_totals.net_wall_area,
+            wall_count=wall_totals.wall_count,
+        )
+
+    if geometry is not None:
+        deduction = total_opening_deduction_area.quantize(AREA_PRECISION)
+        if deduction > geometry.total_wall_area:
+            raise ValueError(
+                f"Total opening deduction ({deduction}) cannot exceed room total wall area ({geometry.total_wall_area})"
+            )
+        net = (geometry.total_wall_area - deduction).quantize(AREA_PRECISION)
+        return ResolvedRoomTotals(
+            floor_area=geometry.floor_area,
+            ceiling_area=geometry.ceiling_area,
+            total_wall_area=geometry.total_wall_area,
+            wall_area_length=geometry.wall_area_length,
+            wall_area_width=geometry.wall_area_width,
+            perimeter=geometry.perimeter,
+            total_deduction_area=deduction,
+            net_wall_area=net,
+            wall_count=0,
+        )
+
+    return None

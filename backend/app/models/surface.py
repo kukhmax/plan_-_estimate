@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Numeric, String, Uuid
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -36,6 +36,11 @@ class Surface(Base):
         nullable=False,
     )
     description: Mapped[str | None] = mapped_column(String(4096), nullable=True)
+    position: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Sequential order among surfaces of a room (null for legacy surfaces)",
+    )
     width: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 3),
         nullable=True,

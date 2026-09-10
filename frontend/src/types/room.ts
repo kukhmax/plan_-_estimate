@@ -1,12 +1,13 @@
 export interface RoomCalculations {
-  floor_area: string | number;
-  ceiling_area: string | number;
-  total_wall_area: string | number;
-  wall_area_length: string | number;
-  wall_area_width: string | number;
-  perimeter: string | number;
+  floor_area: string | number | null;
+  ceiling_area: string | number | null;
+  total_wall_area: string | number | null;
+  wall_area_length: string | number | null;
+  wall_area_width: string | number | null;
+  perimeter: string | number | null;
   total_deduction_area: string | number | null;
   net_wall_area: string | number | null;
+  wall_count?: number | null;
 }
 
 export interface RoomType {

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from decimal import Decimal
 import uuid
 
@@ -6,13 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import ProjectNotFoundError, RoomNotFoundError
 from app.domain.rules.room_geometry import (
-    calculate_room_aggregate_totals,
+    RoomGeometryResult,
+    WallDerivedTotals,
     calculate_room_geometry,
+    calculate_wall_derived_totals,
+    resolve_room_totals,
 )
 from app.models.opening import Opening
 from app.models.project import Project
 from app.models.room import Room
-from app.models.surface import Surface
+from app.models.surface import Surface, SurfaceType
 from app.schemas.room import RoomCalculations, RoomCreate, RoomUpdate
 
 
@@ -33,37 +37,65 @@ class RoomService:
         if result.scalar_one_or_none() is None:
             raise ProjectNotFoundError(f"Project {project_id} not found")
 
+    async def _load_wall_totals(
+        self,
+        room_id: uuid.UUID,
+        deduction: Decimal,
+    ) -> WallDerivedTotals | None:
+        wall_stmt = select(Surface.width, Surface.height).where(
+            Surface.room_id == room_id,
+            Surface.is_archived.is_(False),
+            Surface.surface_type == SurfaceType.WALL,
+            Surface.width.is_not(None),
+            Surface.height.is_not(None),
+        )
+        wall_result = await self.db.execute(wall_stmt)
+        wall_pairs = [
+            (Decimal(row[0]), Decimal(row[1])) for row in wall_result.all()
+        ]
+        return calculate_wall_derived_totals(wall_pairs, deduction)
+
+    @staticmethod
+    def _build_calculations(
+        geometry: RoomGeometryResult | None,
+        wall_totals: WallDerivedTotals | None,
+        deduction: Decimal,
+    ) -> RoomCalculations | None:
+        resolved = resolve_room_totals(geometry, wall_totals, deduction)
+        if resolved is None:
+            return None
+        return RoomCalculations(
+            floor_area=resolved.floor_area,
+            ceiling_area=resolved.ceiling_area,
+            total_wall_area=resolved.total_wall_area,
+            wall_area_length=resolved.wall_area_length,
+            wall_area_width=resolved.wall_area_width,
+            perimeter=resolved.perimeter,
+            total_deduction_area=resolved.total_deduction_area,
+            net_wall_area=resolved.net_wall_area,
+            wall_count=resolved.wall_count,
+        )
+
     async def _attach_calculations(self, room: Room) -> None:
-        if room.length is not None and room.width is not None and room.height is not None:
-            deduction_stmt = (
-                select(
-                    func.coalesce(
-                        func.sum(Opening.width * Opening.height * Opening.quantity), 0
-                    )
-                )
-                .join(Surface, Opening.surface_id == Surface.id)
-                .where(
-                    Surface.room_id == room.id,
-                    Surface.is_archived.is_(False),
-                    Opening.is_archived.is_(False),
+        deduction_stmt = (
+            select(
+                func.coalesce(
+                    func.sum(Opening.width * Opening.height * Opening.quantity), 0
                 )
             )
-            deduction_res = await self.db.execute(deduction_stmt)
-            deduction = Decimal(deduction_res.scalar_one()).quantize(Decimal("0.001"))
-            geom = calculate_room_geometry(room.length, room.width, room.height)
-            if geom is not None:
-                totals = calculate_room_aggregate_totals(geom, deduction)
-                if totals is not None:
-                    room.calculations = RoomCalculations(
-                        floor_area=totals.floor_gross_area,
-                        ceiling_area=totals.ceiling_gross_area,
-                        total_wall_area=totals.total_wall_gross_area,
-                        wall_area_length=geom.wall_area_length,
-                        wall_area_width=geom.wall_area_width,
-                        perimeter=totals.perimeter,
-                        total_deduction_area=totals.total_opening_deduction_area,
-                        net_wall_area=totals.total_wall_net_area,
-                    )
+            .join(Surface, Opening.surface_id == Surface.id)
+            .where(
+                Surface.room_id == room.id,
+                Surface.is_archived.is_(False),
+                Opening.is_archived.is_(False),
+            )
+        )
+        deduction_res = await self.db.execute(deduction_stmt)
+        deduction = Decimal(deduction_res.scalar_one()).quantize(Decimal("0.001"))
+
+        wall_totals = await self._load_wall_totals(room.id, deduction)
+        geometry = calculate_room_geometry(room.length, room.width, room.height)
+        room.calculations = self._build_calculations(geometry, wall_totals, deduction)
 
     async def list_rooms(
         self,
@@ -107,28 +139,38 @@ class RoomService:
         count_result = await self.db.execute(count_stmt)
         total = count_result.scalar_one()
 
+        wall_stmt = (
+            select(Surface.room_id, Surface.width, Surface.height)
+            .join(Room, Surface.room_id == Room.id)
+            .where(
+                Room.project_id == project_id,
+                Surface.is_archived.is_(False),
+                Surface.surface_type == SurfaceType.WALL,
+                Surface.width.is_not(None),
+                Surface.height.is_not(None),
+            )
+        )
+        if not include_archived:
+            wall_stmt = wall_stmt.where(Room.is_archived.is_(False))
+        wall_rows = (await self.db.execute(wall_stmt)).all()
+
+        wall_pairs_by_room: dict[uuid.UUID, list[tuple[Decimal, Decimal]]] = defaultdict(list)
+        for room_id, width, height in wall_rows:
+            wall_pairs_by_room[room_id].append((Decimal(width), Decimal(height)))
+
         stmt = stmt.order_by(Room.created_at.desc())
         result = await self.db.execute(stmt)
         rows = result.all()
 
         items = []
         for room, deduction_sum in rows:
-            if room.length is not None and room.width is not None and room.height is not None:
-                geom = calculate_room_geometry(room.length, room.width, room.height)
-                if geom is not None:
-                    deduction = Decimal(deduction_sum).quantize(Decimal("0.001"))
-                    totals = calculate_room_aggregate_totals(geom, deduction)
-                    if totals is not None:
-                        room.calculations = RoomCalculations(
-                            floor_area=totals.floor_gross_area,
-                            ceiling_area=totals.ceiling_gross_area,
-                            total_wall_area=totals.total_wall_gross_area,
-                            wall_area_length=geom.wall_area_length,
-                            wall_area_width=geom.wall_area_width,
-                            perimeter=totals.perimeter,
-                            total_deduction_area=totals.total_opening_deduction_area,
-                            net_wall_area=totals.total_wall_net_area,
-                        )
+            deduction = Decimal(deduction_sum).quantize(Decimal("0.001"))
+            geometry = calculate_room_geometry(room.length, room.width, room.height)
+            pairs = wall_pairs_by_room.get(room.id)
+            wall_totals: WallDerivedTotals | None = None
+            if pairs:
+                wall_totals = calculate_wall_derived_totals(pairs, deduction)
+            room.calculations = self._build_calculations(geometry, wall_totals, deduction)
             items.append(room)
 
         return items, total

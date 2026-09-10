@@ -120,7 +120,8 @@
     "updated": "Pomieszczenie zostało zaktualizowane",
     "archived": "Pomieszczenie zostało zarchiwizowane",
     "restored": "Pomieszczenie zostało przywrócone",
-    "surfaces": "Powierzchnie"
+    "surfaces": "Powierzchnie",
+    "wall_count": "Ściany"
   },
   "surfaces": {
     "title": "Powierzchnie",
@@ -148,7 +149,17 @@
     "created": "Powierzchnia została utworzona",
     "updated": "Powierzchnia została zaktualizowana",
     "archived": "Powierzchnia została zarchiwizowana",
-    "restored": "Powierzchnia została przywrócona"
+    "restored": "Powierzchnia została przywrócona",
+    "mode_rectangle": "Prostokąt",
+    "mode_custom": "Dowolny kształt",
+    "generate_walls": "Wygeneruj 4 ściany",
+    "generate_hint": "Tworzy 4 ściany na podstawie wymiarów pomieszczenia (długość × wysokość, szerokość × wysokość).",
+    "walls_generated": "Wygenerowano 4 ściany",
+    "custom_walls_title": "Dodawanie ścian",
+    "custom_walls_hint": "Podaj szerokość kolejnej ściany; wysokość domyślnie z wymiarów pomieszczenia.",
+    "use_different_height": "Inna wysokość",
+    "custom_wall_invalid": "Podaj poprawną szerokość i wysokość (m)",
+    "add_wall": "Dodaj ścianę"
   },
   "openings": {
     "title": "Otwory w ścianie",

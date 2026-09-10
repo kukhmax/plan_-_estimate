@@ -723,7 +723,8 @@
   - **Execution Sub-Stage 5B (Completed)**: First-class `Opening` entity attached to `WALL` surfaces, opening single/total area calculations, wall deduction and net area, over-deduction protection, aggregate surface totals via zero-N+1 subqueries, and transitive owner isolation.
   - **Execution Sub-Stage 5C (Completed)**: Room measurement, wall/surface measurement, and opening management frontend UI with ephemeral previews, dependent state reconciliation, and dual-language PL/RU localization.
   - **Execution Sub-Stage 5D (Completed)**: Practical mobile measurement workflow — decimal/numeric input modes, direct room dimension entry, prominent `Gross − Deductions = Net` totals hierarchy, streamlined opening entry, and PL/RU localization.
-  - **Remaining / Pending**: Full manual room acceptance scenario (execution sub-stage 5E).
+  - **Execution Sub-Stage 5D.1A (Completed)**: Surface positional ordering and wall generation — nullable `surfaces.position` (`ORDER BY position ASC NULLS LAST`), non-destructive `POST .../surfaces/generate` (422 / 409 / idempotent no-op), deterministic wall-derived room totals (`wall_count`, perimeter from wall widths, Σ gross, deductions, net) with zero N+1, rectangle vs custom sequential wall-entry frontend modes (frontend-only, not persisted), direct `+ Drzwi / + Okno / + Inny otwór` quick actions with type pre-selection, and custom/irregular rooms reporting `floor_area = None` / `ceiling_area = None`.
+  - **Remaining / Pending**: Composite floor/ceiling segments (execution sub-stage 5D.1B), then full manual room acceptance scenario (execution sub-stage 5E).
 - **Gate**: Canonical Stage 5 remains **IN PROGRESS** until real measurements, openings subtraction, and surface totals are implemented, tested, and manually verified.
 
 #### Execution Sub-Stage 5A: Room Measurement Domain & Backend Foundation
@@ -936,8 +937,53 @@
 - Backend regression and scope review (zero backend/domain changes): PASS.
 - Telegram BackButton / theme integration preserved (untouched by this sub-stage): PASS.
 
+#### Execution Sub-Stage 5D.1A: Wall Generation & Custom Shape Measurements
+- **Status**: Completed (implementation verified)
+- **Date**: 2026-09-10
+- **Scope**:
+  - **Surface positional ordering**: nullable `surfaces.position` column (reversible migration `0009_add_surface_position`) and surface listing ordered `position ASC NULLS LAST, created_at DESC`; legacy null-position surfaces remain valid and sort last; no uniqueness constraint (positions are a presentation hint).
+  - **Non-destructive canonical wall generation**: `POST /api/projects/{project_id}/rooms/{room_id}/surfaces/generate` returns the 4 canonical rectangle walls from room `length × width × height` — Wall1/Wall3 = `length × height`, Wall2/Wall4 = `width × height`, positions 0–3, all `surface_type=WALL`. Domain layer uses language-neutral names; floor/ceiling are never auto-generated. Generation rules:
+    - (A) room missing `length` / `width` / `height` → 422;
+    - (B) no active WALLs → create exactly 4 canonical walls;
+    - (C) active walls already equal the canonical set → idempotent no-op returning existing walls;
+    - (D) any other configuration → 409 Conflict, modifying nothing.
+  - **Wall-derived room totals**: pure-rule `calculate_wall_derived_totals` + `resolve_room_totals` aggregate measured WALL surfaces — `wall_count`, `perimeter = Σ widths`, `total_wall_area = Σ gross`, `total_deduction_area`, `net_wall_area` — with zero-N+1 queries in `RoomService`. Custom/irregular rooms report `floor_area = None` and `ceiling_area = None` (never fabricated); rectangles without walls keep formula geometry (`wall_count = 0`).
+  - **Canonical acceptance values**: surface-derived totals exactly match the formula — perimeter `18.000`, gross `48.600`, door `0.900 × 2.000 → 1.800` + window `1.500 × 1.400 → 2.100` deductions → net `44.700`.
+  - **Frontend wall input modes** (`PROSTOKĄT` / RECTANGLE vs `DOWOLNY KSZTAŁT` / CUSTOM — frontend state only, not persisted, no CAD/polygon editing):
+    - Rectangle mode exposes `Wygeneruj 4 ściany` (generate action) when the room has dimensions; a generation conflict (409) is surfaced without hiding existing walls.
+    - Custom mode provides sequential wall entry — the next empty row is UI state only and never persisted; submitting a row sends one real `WALL` with positional ordering, default height from `Room.height`, and an `Inna wysokość` override that sets `Surface.height`; no phantom/empty/zero-width requests.
+    - Direct `+ Drzwi / + Okno / + Inny otwór` quick actions on every measured wall card open the opening form with the type pre-selected (`OpeningList.initialType`); no room-level openings.
+  - **Room summary additions**: `wall_count` display; custom rooms render floor/ceiling as `—` (via `formatMetric`), with perimeter and totals derived from measured walls.
+  - **i18n**: 168 mirrored PL/RU keys (+11 new).
+
+#### Sub-Stage 5D.1A Database:
+- Migration: `backend/alembic/versions/0009_add_surface_position.py` (parent: `0008_create_openings_table`).
+- Column added: `surfaces.position` (`sa.Integer()`, nullable); downgrade drops the column (verified reversible on dev Postgres).
+
+#### Sub-Stage 5D.1A Tests:
+- Focused backend wall generation suite (`tests/test_wall_generation.py`): 20 passed, 0 failed (canonical generation, idempotent no-op, 422 missing dims, 409 conflict with nothing modified, archived walls ignored, legacy null-position walls, canonical door+window totals, custom irregular room `floor_area`/`ceiling_area` None, rectangle-without-walls, nulls-last ordering, response shapes, owner isolation). Added verification-time regression: negative `position` rejected (422) and null `position` accepted (`tests/test_surfaces.py`).
+- Full backend test suite (`pytest backend/tests`): 144 passed across 8 test files, 0 failed.
+- Focused frontend Stage 5D.1A tests: 11 new (generate action + no duplication, idempotent repeat keeps 4 walls, 409 surfaced, sequential create, no phantom request, default height, height override, quick-action type pre-selection and Door→Window switching without duplicate forms, room-detail generate, wall_count + custom floor/ceiling `—`).
+- Full frontend test suite (`vitest --run`): 70 passed across 8 test files, 0 failed.
+- TypeScript strict typecheck (`tsc -p frontend/tsconfig.json --noEmit`): PASS (0 errors).
+- Frontend production build (`vite build`): PASS (49 modules transformed).
+- Locale parity audit (PL/RU): 168/168 keys, 0 missing.
+- `git diff --check`: PASS (0 whitespace errors).
+
+#### Sub-Stage 5D.1A Verification:
+- Wall generation creates exactly 4 canonical walls (positions 0–3, dims matching the room) without touching existing work: PASS.
+- Actual verification totals (room 5 × 4 × 2.7): generated walls 13.500 / 10.800 / 13.500 / 10.800 m²; wall_count 4; perimeter 18.000; gross 48.600; door 1.800 + window 2.100 → deductions 3.900; net 44.700. Custom 5-wall room: widths 5.000/4.000/3.500/6.000/2.500, wall_count 5, perimeter 21.000, gross 59.050, deductions 1.800, net 57.250, floor/ceiling None.
+- Generation conflict (409) modifies nothing and is surfaced in the UI: PASS.
+- Custom sequential wall entry never persists empty rows (no phantom request): PASS.
+- Default wall height from room and `Inna wysokość` override: PASS.
+- Quick actions pre-select the opening type on the measured wall card: PASS.
+- Custom/irregular room floor & ceiling unavailable (`None` → `—`), perimeter from wall widths: PASS.
+- PL/RU mirrored keys (168/168): PASS.
+- Backend regression and scope review (no 5D.1B / 5E / Stage 6 work started): PASS.
+
 #### Remaining Canonical Stage 5 Work:
-- Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario)
+- Execution Sub-Stage 5D.1B: Composite floor/ceiling segments (scheduled after 5D.1A)
+- Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario); must follow 5D.1B
 
 ---
 

@@ -129,6 +129,7 @@ async def test_create_each_supported_surface_type(
         "name",
         "surface_type",
         "description",
+        "position",
         "width",
         "height",
         "gross_area",
@@ -647,3 +648,39 @@ async def test_invalid_surface_type_is_rejected(async_client: AsyncClient) -> No
 
     assert create_response.status_code == 422
     assert update_response.status_code == 422
+
+
+async def test_negative_position_is_rejected_and_null_position_is_valid(
+    async_client: AsyncClient,
+) -> None:
+    """Section 4: position must be >= 0 and nullable; null stays valid for legacy rows."""
+    token = await get_token(async_client, VALID_USER)
+    project = await create_project(async_client, token)
+    room = await create_room(async_client, token, project["id"])
+
+    negative = await async_client.post(
+        surfaces_url(project["id"], room["id"]),
+        json={
+            "name": "Ujemna pozycja",
+            "surface_type": "WALL",
+            "position": -1,
+            "width": "5.000",
+            "height": "2.700",
+        },
+        headers=auth_header(token),
+    )
+    assert negative.status_code == 422
+
+    null_pos = await async_client.post(
+        surfaces_url(project["id"], room["id"]),
+        json={
+            "name": "Bez pozycji",
+            "surface_type": "WALL",
+            "position": None,
+            "width": "5.000",
+            "height": "2.700",
+        },
+        headers=auth_header(token),
+    )
+    assert null_pos.status_code == 201
+    assert null_pos.json()["position"] is None

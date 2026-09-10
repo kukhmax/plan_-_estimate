@@ -19,6 +19,7 @@ interface OpeningListProps {
   projectId: string;
   roomId: string;
   surfaceId: string;
+  initialType?: OpeningTypeValue;
   onOpeningChanged?: () => void;
 }
 
@@ -44,6 +45,7 @@ export function OpeningList({
   projectId,
   roomId,
   surfaceId,
+  initialType,
   onOpeningChanged,
 }: OpeningListProps) {
   const { t } = useI18n();
@@ -82,13 +84,18 @@ export function OpeningList({
     setFormError(null);
   };
 
-  const startCreate = () => {
+  const startCreate = (type?: OpeningTypeValue) => {
     setSuccess(null);
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, opening_type: type ?? initialType ?? 'DOOR' });
     setFormError(null);
     setShowForm(true);
   };
+
+  useEffect(() => {
+    if (initialType) startCreate(initialType);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const startEdit = (opening: OpeningType) => {
     setSuccess(null);
@@ -202,7 +209,7 @@ export function OpeningList({
         <button
           type="button"
           aria-label={`add-opening-${surfaceId}`}
-          onClick={startCreate}
+          onClick={() => startCreate()}
           className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 font-semibold rounded-lg hover:bg-blue-100 transition"
         >
           + {t.openings.add}

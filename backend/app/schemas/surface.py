@@ -15,6 +15,11 @@ class SurfaceCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     surface_type: SurfaceType
     description: str | None = Field(default=None, max_length=4096)
+    position: int | None = Field(
+        default=None,
+        ge=0,
+        description="Sequential position of the surface within the room",
+    )
     width: Decimal | None = Field(
         default=None,
         gt=0,
@@ -35,6 +40,11 @@ class SurfaceUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     surface_type: SurfaceType | None = None
     description: str | None = Field(default=None, max_length=4096)
+    position: int | None = Field(
+        default=None,
+        ge=0,
+        description="Sequential position of the surface within the room",
+    )
     width: Decimal | None = Field(
         default=None,
         gt=0,
@@ -64,6 +74,7 @@ class SurfaceRead(BaseModel):
     name: str
     surface_type: SurfaceType
     description: str | None = None
+    position: int | None = None
     width: Decimal | None = None
     height: Decimal | None = None
     gross_area: Decimal | None = None

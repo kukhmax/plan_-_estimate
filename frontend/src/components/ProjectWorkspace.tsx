@@ -577,6 +577,13 @@ export function ProjectWorkspace() {
                       {t.rooms.total_deductions}: <strong className="text-slate-700 font-semibold">{formatMetric(selectedRoom.calculations.total_deduction_area ?? '0.000')} {t.common.unit_m2}</strong>
                     </span>
                   </div>
+                  {typeof selectedRoom.calculations.wall_count === 'number' && (
+                    <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500">
+                      <span>
+                        {t.rooms.wall_count}: <strong className="text-slate-800 font-semibold">{selectedRoom.calculations.wall_count}</strong>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Secondary Plane Metrics: Floor, Ceiling, Perimeter */}
@@ -713,6 +720,12 @@ export function ProjectWorkspace() {
           <SurfaceList
             projectId={selectedProject.id}
             roomId={selectedRoom.id}
+            roomHeight={selectedRoom.height}
+            hasRoomDimensions={
+              selectedRoom.length !== null && selectedRoom.length !== undefined &&
+              selectedRoom.width !== null && selectedRoom.width !== undefined &&
+              selectedRoom.height !== null && selectedRoom.height !== undefined
+            }
             onMeasurementChanged={refreshSelectedRoom}
           />
         </>

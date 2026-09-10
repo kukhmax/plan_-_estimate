@@ -6,6 +6,7 @@ export interface SurfaceType {
   name: string;
   surface_type: SurfaceTypeValue;
   description: string | null;
+  position?: number | null;
   width?: string | number | null;
   height?: string | number | null;
   gross_area?: string | number | null;
@@ -25,6 +26,7 @@ export interface SurfaceCreatePayload {
   name: string;
   surface_type: SurfaceTypeValue;
   description?: string | null;
+  position?: number | null;
   width?: number | string | null;
   height?: number | string | null;
 }
@@ -33,6 +35,7 @@ export interface SurfaceUpdatePayload {
   name?: string;
   surface_type?: SurfaceTypeValue;
   description?: string | null;
+  position?: number | null;
   width?: number | string | null;
   height?: number | string | null;
 }

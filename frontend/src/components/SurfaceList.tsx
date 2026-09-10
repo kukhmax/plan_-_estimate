@@ -1,12 +1,14 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import {
   archiveSurface,
   createSurface,
   fetchSurfaces,
+  generateWalls,
   restoreSurface,
   updateSurface,
 } from '../api/surfaces';
 import { useI18n } from '../hooks/useI18n';
+import { OpeningTypeValue } from '../types/opening';
 import {
   SurfaceCreatePayload,
   SurfaceType,
@@ -19,8 +21,12 @@ import { OpeningList } from './OpeningList';
 interface SurfaceListProps {
   projectId: string;
   roomId: string;
+  roomHeight?: string | number | null;
+  hasRoomDimensions?: boolean;
   onMeasurementChanged?: () => void;
 }
+
+type WallInputMode = 'RECTANGLE' | 'CUSTOM';
 
 interface SurfaceFormState {
   name: string;
@@ -28,6 +34,18 @@ interface SurfaceFormState {
   description: string;
   width: string;
   height: string;
+}
+
+interface CustomWallFormState {
+  width: string;
+  height: string;
+  differentHeight: boolean;
+}
+
+interface PendingQuickOpening {
+  surfaceId: string;
+  type: OpeningTypeValue;
+  key: number;
 }
 
 const EMPTY_FORM: SurfaceFormState = {
@@ -38,7 +56,13 @@ const EMPTY_FORM: SurfaceFormState = {
   height: '',
 };
 
-export function SurfaceList({ projectId, roomId, onMeasurementChanged }: SurfaceListProps) {
+export function SurfaceList({
+  projectId,
+  roomId,
+  roomHeight,
+  hasRoomDimensions = false,
+  onMeasurementChanged,
+}: SurfaceListProps) {
   const { t } = useI18n();
   const [surfaces, setSurfaces] = useState<SurfaceType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +75,31 @@ export function SurfaceList({ projectId, roomId, onMeasurementChanged }: Surface
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [expandedOpenings, setExpandedOpenings] = useState<Record<string, boolean>>({});
+  const [wallMode, setWallMode] = useState<WallInputMode>('RECTANGLE');
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [pendingQuickOpening, setPendingQuickOpening] = useState<PendingQuickOpening | null>(null);
+  const quickActionKeyRef = useRef(0);
+
+  const roomHeightNum =
+    roomHeight !== null && roomHeight !== undefined ? Number(roomHeight) : NaN;
+  const hasRoomHeight = !Number.isNaN(roomHeightNum) && roomHeightNum > 0;
+  const roomHeightStr = hasRoomHeight ? String(roomHeightNum) : '';
+
+  const [customWall, setCustomWall] = useState<CustomWallFormState>({
+    width: '',
+    height: roomHeightStr,
+    differentHeight: false,
+  });
+
+  const activeWallCount = surfaces.filter(
+    (s) => s.surface_type === 'WALL' && !s.is_archived,
+  ).length;
+  const nextWallNumber = activeWallCount + 1;
+  const nextWallPosition = surfaces.reduce(
+    (max, s) => (typeof s.position === 'number' && s.position > max ? s.position : max),
+    -1,
+  ) + 1;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,11 +123,83 @@ export function SurfaceList({ projectId, roomId, onMeasurementChanged }: Surface
       ...current,
       [surfaceId]: !current[surfaceId],
     }));
+    if (pendingQuickOpening?.surfaceId === surfaceId) {
+      setPendingQuickOpening(null);
+    }
+  };
+
+  const quickAddOpening = (surfaceId: string, type: OpeningTypeValue) => {
+    setExpandedOpenings((current) => ({ ...current, [surfaceId]: true }));
+    setPendingQuickOpening({
+      surfaceId,
+      type,
+      key: ++quickActionKeyRef.current,
+    });
   };
 
   const handleOpeningChanged = () => {
     void load();
     onMeasurementChanged?.();
+  };
+
+  const switchMode = (mode: WallInputMode) => {
+    setWallMode(mode);
+    setGenerateError(null);
+  };
+
+  const handleGenerateWalls = async () => {
+    setGenerating(true);
+    setGenerateError(null);
+    setSuccess(null);
+    try {
+      await generateWalls(projectId, roomId);
+      setSuccess(t.surfaces.walls_generated);
+      await load();
+      onMeasurementChanged?.();
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : t.surfaces.error);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleCustomWallSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setFormError(null);
+
+    const widthVal = parseFloat(customWall.width.trim());
+    const heightVal = customWall.differentHeight
+      ? parseFloat(customWall.height.trim())
+      : (hasRoomHeight ? roomHeightNum : NaN);
+
+    if (Number.isNaN(widthVal) || widthVal <= 0 ||
+        Number.isNaN(heightVal) || heightVal <= 0) {
+      setFormError(t.surfaces.custom_wall_invalid);
+      setSaving(false);
+      return;
+    }
+
+    const payload: SurfaceCreatePayload = {
+      name: `${t.surfaces.wall} ${nextWallNumber}`,
+      surface_type: 'WALL',
+      position: nextWallPosition,
+      width: widthVal,
+      height: heightVal,
+      description: null,
+    };
+
+    try {
+      await createSurface(projectId, roomId, payload);
+      setSuccess(t.surfaces.created);
+      setCustomWall({ width: '', height: roomHeightStr, differentHeight: false });
+      await load();
+      onMeasurementChanged?.();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : t.surfaces.error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const closeForm = () => {
@@ -194,15 +315,156 @@ export function SurfaceList({ projectId, roomId, onMeasurementChanged }: Surface
     <section aria-label="surfaces-section" className="w-full mt-5">
       <div className="flex items-center justify-between gap-3 mb-3">
         <h3 className="text-lg font-bold text-slate-900">{t.surfaces.title}</h3>
+        {wallMode === 'RECTANGLE' && (
+          <button
+            type="button"
+            aria-label="add-surface"
+            onClick={startCreate}
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
+          >
+            {t.surfaces.add}
+          </button>
+        )}
+      </div>
+
+      {/* Wall input mode: rectangle auto-generation vs custom sequential entry (frontend state only, not persisted) */}
+      <div
+        aria-label="wall-input-mode"
+        role="group"
+        className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 mb-3"
+      >
         <button
           type="button"
-          aria-label="add-surface"
-          onClick={startCreate}
-          className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
+          aria-label="mode-rectangle"
+          onClick={() => switchMode('RECTANGLE')}
+          className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
+            wallMode === 'RECTANGLE'
+              ? 'bg-white text-blue-700 shadow-sm'
+              : 'text-slate-600 hover:bg-slate-200'
+          }`}
         >
-          {t.surfaces.add}
+          {t.surfaces.mode_rectangle}
+        </button>
+        <button
+          type="button"
+          aria-label="mode-custom"
+          onClick={() => switchMode('CUSTOM')}
+          className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
+            wallMode === 'CUSTOM'
+              ? 'bg-white text-blue-700 shadow-sm'
+              : 'text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          {t.surfaces.mode_custom}
         </button>
       </div>
+
+      {wallMode === 'RECTANGLE' && hasRoomDimensions && (
+        <div className="mb-3">
+          <button
+            type="button"
+            aria-label="generate-walls"
+            onClick={() => void handleGenerateWalls()}
+            disabled={generating}
+            className="w-full px-3 py-2 text-sm bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition disabled:opacity-60"
+          >
+            {generating ? t.common.saving : t.surfaces.generate_walls}
+          </button>
+          <p className="text-[11px] text-slate-400 mt-1.5">{t.surfaces.generate_hint}</p>
+          {generateError && (
+            <p role="alert" className="text-xs text-red-600 font-medium bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5 mt-2">
+              {generateError}
+            </p>
+          )}
+        </div>
+      )}
+
+      {wallMode === 'CUSTOM' && (
+        <div
+          aria-label="custom-wall-entry"
+          className="bg-white border border-slate-200 rounded-2xl p-4 mb-3 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <h4 className="text-sm font-semibold text-slate-900">{t.surfaces.custom_walls_title}</h4>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
+              {t.surfaces.wall} {nextWallNumber}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">{t.surfaces.custom_walls_hint}</p>
+
+          <form
+            aria-label="custom-wall-form"
+            onSubmit={handleCustomWallSubmit}
+            className="space-y-2.5"
+          >
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">{t.surfaces.width}</label>
+                <input
+                  aria-label="custom-wall-width"
+                  type="number"
+                  inputMode="decimal"
+                  min="0.001"
+                  step="0.001"
+                  placeholder="2.000"
+                  value={customWall.width}
+                  onChange={(e) => setCustomWall((cur) => ({ ...cur, width: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">{t.surfaces.height}</label>
+                {customWall.differentHeight ? (
+                  <input
+                    aria-label="custom-wall-height"
+                    type="number"
+                    inputMode="decimal"
+                    min="0.001"
+                    step="0.001"
+                    placeholder="2.700"
+                    value={customWall.height}
+                    onChange={(e) => setCustomWall((cur) => ({ ...cur, height: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+                  />
+                ) : (
+                  <input
+                    aria-label="custom-wall-height"
+                    type="text"
+                    readOnly
+                    value={`${formatMetric(hasRoomHeight ? roomHeightNum : null)} ${t.common.unit_m}`}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-500"
+                  />
+                )}
+              </div>
+            </div>
+
+            <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
+              <input
+                aria-label="custom-wall-different-height"
+                type="checkbox"
+                checked={customWall.differentHeight}
+                onChange={(e) => setCustomWall((cur) => ({
+                  ...cur,
+                  differentHeight: e.target.checked,
+                  height: e.target.checked ? cur.height || roomHeightStr : roomHeightStr,
+                }))}
+              />
+              {t.surfaces.use_different_height}
+            </label>
+
+            {formError && <p role="alert" className="text-sm text-red-600 font-medium">{formError}</p>}
+
+            <button
+              type="submit"
+              aria-label="add-custom-wall"
+              disabled={saving}
+              className="w-full px-3 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {saving ? t.common.saving : t.surfaces.add_wall}
+            </button>
+          </form>
+        </div>
+      )}
 
       <label className="flex items-center gap-1.5 text-sm text-slate-600 mb-3 cursor-pointer">
         <input
@@ -397,18 +659,44 @@ export function SurfaceList({ projectId, roomId, onMeasurementChanged }: Surface
 
                   <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
                     {isWall && hasDimensions && (
-                      <button
-                        type="button"
-                        aria-label={`toggle-openings-${surface.id}`}
-                        onClick={() => toggleOpenings(surface.id)}
-                        className={`text-xs px-2.5 py-1 rounded-lg font-medium transition ${
-                          isOpeningsOpen
-                            ? 'bg-slate-200 text-slate-800'
-                            : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                        }`}
-                      >
-                        {isOpeningsOpen ? t.openings.close : t.surfaces.manage_openings}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          aria-label={`add-opening-${surface.id}-DOOR`}
+                          onClick={() => quickAddOpening(surface.id, 'DOOR')}
+                          className="text-xs px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-medium hover:bg-emerald-100 transition"
+                        >
+                          + {t.openings.door}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`add-opening-${surface.id}-WINDOW`}
+                          onClick={() => quickAddOpening(surface.id, 'WINDOW')}
+                          className="text-xs px-2 py-1 rounded-lg bg-sky-50 text-sky-800 font-medium hover:bg-sky-100 transition"
+                        >
+                          + {t.openings.window}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`add-opening-${surface.id}-OTHER`}
+                          onClick={() => quickAddOpening(surface.id, 'OTHER')}
+                          className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition"
+                        >
+                          + {t.openings.other}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`toggle-openings-${surface.id}`}
+                          onClick={() => toggleOpenings(surface.id)}
+                          className={`text-xs px-2.5 py-1 rounded-lg font-medium transition ${
+                            isOpeningsOpen
+                              ? 'bg-slate-200 text-slate-800'
+                              : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                          }`}
+                        >
+                          {isOpeningsOpen ? t.openings.close : t.surfaces.manage_openings}
+                        </button>
+                      </>
                     )}
                     <button
                       type="button"
@@ -431,9 +719,11 @@ export function SurfaceList({ projectId, roomId, onMeasurementChanged }: Surface
 
                 {isWall && hasDimensions && isOpeningsOpen && (
                   <OpeningList
+                    key={pendingQuickOpening?.surfaceId === surface.id ? `quick-${pendingQuickOpening.key}` : surface.id}
                     projectId={projectId}
                     roomId={roomId}
                     surfaceId={surface.id}
+                    initialType={pendingQuickOpening?.surfaceId === surface.id ? pendingQuickOpening.type : undefined}
                     onOpeningChanged={handleOpeningChanged}
                   />
                 )}
