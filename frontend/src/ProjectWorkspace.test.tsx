@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as clientsApi from './api/clients';
 import * as projectsApi from './api/projects';
@@ -156,5 +156,70 @@ describe('ProjectWorkspace', () => {
 
     expect(await screen.findByText('Zarchiwizowany')).toBeInTheDocument();
     expect(screen.getByLabelText(`restore-project-${project.id}`)).toBeInTheDocument();
+  });
+
+  it('integrates Telegram BackButton: hidden at top level, visible in project and room detail, and navigates hierarchy', async () => {
+    let clickHandler: (() => void) | undefined;
+    const backButton = {
+      isVisible: false,
+      show: vi.fn(),
+      hide: vi.fn(),
+      onClick: vi.fn((cb: () => void) => {
+        clickHandler = cb;
+      }),
+      offClick: vi.fn(),
+    };
+    window.Telegram = {
+      WebApp: {
+        initData: '',
+        initDataUnsafe: {},
+        version: '8.0',
+        platform: 'web',
+        colorScheme: 'light',
+        themeParams: {},
+        isExpanded: false,
+        viewportHeight: 800,
+        viewportStableHeight: 800,
+        ready: vi.fn(),
+        expand: vi.fn(),
+        close: vi.fn(),
+        BackButton: backButton,
+      },
+    };
+
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
+    const { unmount } = renderWorkspace();
+
+    // 1. Top level: BackButton is hidden
+    await waitFor(() => expect(screen.getByText('Mieszkanie Mokotów')).toBeInTheDocument());
+    expect(backButton.hide).toHaveBeenCalled();
+    expect(backButton.show).not.toHaveBeenCalled();
+
+    // 2. Open project detail: BackButton becomes visible
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
+    expect(backButton.show).toHaveBeenCalledTimes(1);
+    expect(backButton.onClick).toHaveBeenCalled();
+
+    // 3. Open room detail: BackButton remains active
+    fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
+    expect(await screen.findByLabelText('no-surfaces')).toBeInTheDocument();
+
+    // 4. Click native BackButton: returns to parent Project (rooms list)
+    act(() => {
+      clickHandler?.();
+    });
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
+
+    // 5. Click native BackButton again: returns to Projects list and hides BackButton
+    act(() => {
+      clickHandler?.();
+    });
+    await waitFor(() => expect(screen.getByText('Mieszkanie Mokotów')).toBeInTheDocument());
+    expect(backButton.hide).toHaveBeenCalled();
+
+    // 6. Unmount cleanly
+    unmount();
+    expect(backButton.offClick).toHaveBeenCalled();
   });
 });

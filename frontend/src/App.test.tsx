@@ -221,4 +221,58 @@ describe('App authentication component', () => {
     });
     expect(screen.getByRole('button', { name: /ponów próbę/i })).toBeInTheDocument();
   });
+
+  it('applies Telegram theme CSS properties and handles section switching', async () => {
+    (window as any).Telegram = {
+      WebApp: {
+        initData: 'query_id=theme_test&hash=valid',
+        colorScheme: 'dark',
+        themeParams: {
+          bg_color: '#1a1a1a',
+          secondary_bg_color: '#2a2a2a',
+          text_color: '#ffffff',
+          button_color: '#0088cc',
+          button_text_color: '#ffffff',
+        },
+        viewportHeight: 700,
+        viewportStableHeight: 700,
+        ready: vi.fn(),
+        expand: vi.fn(),
+      },
+    };
+
+    vi.mocked(api.loginWithTelegram).mockResolvedValueOnce({
+      access_token: 'valid-jwt-token',
+      token_type: 'bearer',
+      is_dev_auth: false,
+      user: {
+        id: '22222222-2222-2222-2222-222222222222',
+        telegram_user_id: 12345678,
+        username: 'theme_user',
+        first_name: 'Jan',
+        last_name: 'Kowalski',
+        language_code: 'pl',
+        created_at: '2026-09-10T00:00:00Z',
+        updated_at: '2026-09-10T00:00:00Z',
+      },
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jan Kowalski')).toBeInTheDocument();
+    });
+
+    expect(document.documentElement.style.getPropertyValue('--tg-theme-bg-color')).toBe('#1a1a1a');
+    expect(document.documentElement.style.getPropertyValue('--tg-theme-text-color')).toBe('#ffffff');
+    expect(document.documentElement.style.getPropertyValue('--tg-viewport-height')).toBe('700px');
+
+    // Section switching to projects
+    fireEvent.click(screen.getByRole('button', { name: 'show-projects' }));
+    expect(await screen.findByRole('region', { name: 'projects-workspace' })).toBeInTheDocument();
+
+    // Section switching back to clients
+    fireEvent.click(screen.getByRole('button', { name: 'show-clients' }));
+    expect(await screen.findByRole('region', { name: 'clients-section' })).toBeInTheDocument();
+  });
 });

@@ -10,7 +10,14 @@ const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<'clients' | 'projects'>('clients');
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-start">
+    <div
+      className="min-h-screen flex flex-col items-center justify-start w-full overflow-x-hidden transition-colors"
+      style={{
+        backgroundColor: 'var(--tg-theme-bg-color)',
+        color: 'var(--tg-theme-text-color)',
+        minHeight: 'var(--tg-viewport-stable-height, 100vh)',
+      }}
+    >
       {/* Dev Auth Warning Banner */}
       {isDevAuth && (
         <aside
@@ -23,10 +30,13 @@ const AppContent: React.FC = () => {
         </aside>
       )}
 
-      <main className="w-full max-w-lg p-6 flex flex-col items-center">
+      <main className="w-full max-w-lg p-4 sm:p-6 flex flex-col items-center">
         <header className="text-center my-6 w-full">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h1
+              className="text-2xl font-bold tracking-tight"
+              style={{ color: 'var(--tg-theme-text-color)' }}
+            >
               {t.app.title}
             </h1>
             {/* Language switcher */}
@@ -36,43 +46,70 @@ const AppContent: React.FC = () => {
                   key={lang}
                   aria-label={`lang-${lang}`}
                   onClick={() => setLocale(lang)}
-                  className={`text-xs px-2 py-1 rounded-lg font-semibold uppercase transition ${
+                  className="text-xs px-2 py-1 rounded-lg font-semibold uppercase transition"
+                  style={
                     locale === lang
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
+                      ? {
+                          backgroundColor: 'var(--tg-theme-button-color)',
+                          color: 'var(--tg-theme-button-text-color)',
+                        }
+                      : {
+                          backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+                          color: 'var(--tg-theme-hint-color)',
+                        }
+                  }
                 >
                   {lang}
                 </button>
               ))}
             </div>
           </div>
-          <p className="text-sm text-slate-500 mt-1 text-left">
+          <p
+            className="text-sm mt-1 text-left"
+            style={{ color: 'var(--tg-theme-hint-color)' }}
+          >
             {t.app.subtitle}
           </p>
         </header>
 
         {isLoading && (
-          <div className="w-full bg-white rounded-2xl p-8 border border-slate-200 shadow-sm text-center">
+          <div
+            className="w-full rounded-2xl p-8 border border-slate-200 shadow-sm text-center"
+            style={{
+              backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+              color: 'var(--tg-theme-text-color)',
+            }}
+          >
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 border-t-blue-600 mb-4" />
-            <p className="text-slate-600 font-medium text-sm">
+            <p className="font-medium text-sm" style={{ color: 'var(--tg-theme-hint-color)' }}>
               {t.auth.loading}
             </p>
           </div>
         )}
 
         {!isLoading && error && (
-          <div className="w-full bg-white rounded-2xl p-6 border border-red-100 shadow-sm text-center">
+          <div
+            className="w-full rounded-2xl p-6 border border-red-100 shadow-sm text-center"
+            style={{
+              backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+            }}
+          >
             <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
               !
             </div>
             <h2 className="text-lg font-semibold text-red-600 mb-1">
               {t.auth.error_title}
             </h2>
-            <p className="text-sm text-slate-600 mb-4">{t.auth.errors[error]}</p>
+            <p className="text-sm mb-4" style={{ color: 'var(--tg-theme-hint-color)' }}>
+              {t.auth.errors[error]}
+            </p>
             <button
               onClick={retry}
-              className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition"
+              className="px-4 py-2 text-sm font-medium rounded-xl transition"
+              style={{
+                backgroundColor: 'var(--tg-theme-button-color)',
+                color: 'var(--tg-theme-button-text-color)',
+              }}
             >
               {t.auth.retry}
             </button>
@@ -83,14 +120,23 @@ const AppContent: React.FC = () => {
           <>
             <section
               aria-label="user-card"
-              className="w-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+              className="w-full rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+              style={{
+                backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+              }}
             >
               <div className="p-5 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <span
+                    className="text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: 'var(--tg-theme-hint-color)' }}
+                  >
                     {t.auth.logged_in_as}
                   </span>
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2
+                    className="text-lg font-bold"
+                    style={{ color: 'var(--tg-theme-text-color)' }}
+                  >
                     {user.first_name || user.last_name
                       ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
                       : user.username || 'Wykonawca'}
@@ -109,24 +155,33 @@ const AppContent: React.FC = () => {
 
               <dl className="p-5 space-y-3 text-sm">
                 <div className="flex justify-between border-b border-slate-50 pb-2">
-                  <dt className="text-slate-500">Telegram User ID</dt>
-                  <dd className="font-mono font-medium text-slate-800">
+                  <dt style={{ color: 'var(--tg-theme-hint-color)' }}>Telegram User ID</dt>
+                  <dd
+                    className="font-mono font-medium"
+                    style={{ color: 'var(--tg-theme-text-color)' }}
+                  >
                     {user.telegram_user_id}
                   </dd>
                 </div>
 
                 {user.username && (
                   <div className="flex justify-between border-b border-slate-50 pb-2">
-                    <dt className="text-slate-500">Username</dt>
-                    <dd className="font-medium text-blue-600">
+                    <dt style={{ color: 'var(--tg-theme-hint-color)' }}>Username</dt>
+                    <dd
+                      className="font-medium"
+                      style={{ color: 'var(--tg-theme-link-color)' }}
+                    >
                       @{user.username}
                     </dd>
                   </div>
                 )}
 
                 <div className="flex justify-between border-b border-slate-50 pb-2">
-                  <dt className="text-slate-500">UUID</dt>
-                  <dd className="font-mono text-xs text-slate-600 break-all">
+                  <dt style={{ color: 'var(--tg-theme-hint-color)' }}>UUID</dt>
+                  <dd
+                    className="font-mono text-xs break-all"
+                    style={{ color: 'var(--tg-theme-hint-color)' }}
+                  >
                     {user.id}
                   </dd>
                 </div>
@@ -140,9 +195,20 @@ const AppContent: React.FC = () => {
                 onClick={() => setActiveSection('clients')}
                 className={`px-3 py-2 text-sm font-semibold rounded-xl transition ${
                   activeSection === 'clients'
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-white border border-slate-200 text-slate-600'
+                    ? ''
+                    : 'border border-slate-200'
                 }`}
+                style={
+                  activeSection === 'clients'
+                    ? {
+                        backgroundColor: 'var(--tg-theme-button-color)',
+                        color: 'var(--tg-theme-button-text-color)',
+                      }
+                    : {
+                        backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+                        color: 'var(--tg-theme-hint-color)',
+                      }
+                }
               >
                 {t.navigation.clients}
               </button>
@@ -152,9 +218,20 @@ const AppContent: React.FC = () => {
                 onClick={() => setActiveSection('projects')}
                 className={`px-3 py-2 text-sm font-semibold rounded-xl transition ${
                   activeSection === 'projects'
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-white border border-slate-200 text-slate-600'
+                    ? ''
+                    : 'border border-slate-200'
                 }`}
+                style={
+                  activeSection === 'projects'
+                    ? {
+                        backgroundColor: 'var(--tg-theme-button-color)',
+                        color: 'var(--tg-theme-button-text-color)',
+                      }
+                    : {
+                        backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+                        color: 'var(--tg-theme-hint-color)',
+                      }
+                }
               >
                 {t.navigation.projects}
               </button>

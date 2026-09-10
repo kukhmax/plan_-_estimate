@@ -8,6 +8,7 @@ import {
   updateProject,
 } from '../api/projects';
 import { useI18n } from '../hooks/useI18n';
+import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { ClientType } from '../types/client';
 import {
   ProjectCreatePayload,
@@ -192,6 +193,16 @@ export function ProjectWorkspace() {
     setSelectedRoom(null);
     setSuccess(null);
   };
+
+  const isBackButtonVisible = selectedProject !== null;
+
+  useTelegramBackButton(isBackButtonVisible, () => {
+    if (selectedRoom) {
+      setSelectedRoom(null);
+    } else if (selectedProject) {
+      backToProjects();
+    }
+  });
 
   return (
     <section aria-label="projects-workspace" className="w-full mt-4">

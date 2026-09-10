@@ -18,10 +18,10 @@
 | **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
 | **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
 | **Stage 4** | **Project / Room / Surface Foundation** | **Completed** | Owner-isolated Project, optional Client association, Room, Surface, frontend hierarchy, and final integration verification |
-| **Stage 5** | **Telegram Mini App Shell & Auth** | **In Progress** | Parent stage for official Telegram WebApp runtime, authentication, theme adaptation, and native navigation integration |
+| **Stage 5** | **Telegram Mini App Shell & Auth** | **Completed** | Parent execution stage for official Telegram WebApp runtime, authentication, theme adaptation, and native navigation integration (functional hardening for original Stage 2 Telegram integration) |
 | **Stage 5A** | **README Refresh & Telegram Mini App Shell Foundation** | **Completed** | Official WebApp runtime, centralized access, `ready()`, `expand()`, and preserved browser development flow |
 | **Stage 5B** | **Real Telegram WebApp Authentication Flow** | **Completed** | Raw real `initData` forwarding, backend-only validation, explicit development mock gating, JWT ordering, localized failures |
-| Stage 5C | Telegram Theme & BackButton Integration | Pending — not started | Remaining Stage 5 theme adaptation and native BackButton integration; requires explicit approval |
+| **Stage 5C** | **Telegram Theme, Viewport & BackButton Integration** | **Completed** | Telegram theme adaptation, viewport stability, and native BackButton hierarchy navigation (Stage 2 functional hardening) |
 | Stage 6 | Room Measurements & Surface Manager | Pending | Interactive room dimensions, openings subtraction, and surface totals |
 | Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
 | Stage 8 | Estimates & Quotation | Pending | Estimate generator, PDF export preparation, and client approval flow |
@@ -651,21 +651,48 @@
 
 ---
 
-### Stage 5C: Telegram Theme & BackButton Integration
-- **Status**: Pending — not started
-- **Date**: Not started
-- **Commit**: None
+### Stage 5C: Telegram Theme, Viewport & BackButton Integration
+- **Status**: Completed
+- **Date**: 2026-09-10
+- **Commit**: `feat(stage-5c): integrate Telegram theme, viewport, and BackButton`
 
-#### Planned Scope:
-- Adapt the existing Telegram Mini App shell to Telegram theme parameters.
-- Integrate the native Telegram BackButton with the existing application hierarchy.
+> Note: Historically tracked as Stage 5C execution sub-stage, functionally associated with original product Stage 2 Telegram integration hardening.
 
-#### Gate:
-- Stage 5C requires separate, explicit project-owner approval before implementation.
-- No Stage 5C application code, tests, dependencies, or configuration have been started.
+#### Added:
+- Typed Telegram WebApp interfaces in `frontend/src/types/telegram.ts`: `TelegramThemeParams`, `TelegramBackButton`, and WebApp event handlers (`onEvent`, `offEvent`).
+- CSS custom properties in `frontend/src/index.css` and `frontend/src/hooks/useTelegramWebApp.ts` with `--tg-theme-*` and `--tg-viewport-*` variables, with safe light and dark fallbacks for browser development and incomplete test mocks.
+- Dynamic `themeChanged` and `viewportChanged` event listeners in `useTelegramWebApp` that update custom properties in real-time without reloading the page, with guaranteed listener cleanup on unmount.
+- Reusable `useTelegramBackButton` hook abstraction in `frontend/src/hooks/useTelegramWebApp.ts` ensuring safe browser execution, prevention of duplicate click callbacks across rerenders, and cleanup upon hiding or unmounting.
+- Connected native Telegram `BackButton` to `ProjectWorkspace.tsx` navigation hierarchy (hidden at top-level clients and projects, visible on project detail, visible on room detail, navigating back up the aggregate root hierarchy).
+- Focused unit and integration tests in `useTelegramWebApp.test.ts`, `ProjectWorkspace.test.tsx`, and `App.test.tsx`.
+
+#### Changed:
+- `frontend/src/App.tsx`: applied `--tg-theme-*` and `--tg-viewport-stable-height` styling to the application shell, header, cards, navigation, and language switcher while preserving mobile and desktop responsiveness.
+- `frontend/src/hooks/useTelegramWebApp.ts`: exposed `colorScheme`, `themeParams`, `viewportHeight`, `viewportStableHeight`, and `isExpanded` state alongside `isAvailable` and `initData`.
+- `frontend/src/components/ProjectWorkspace.tsx`: connected `useTelegramBackButton` hook to `selectedProject` and `selectedRoom` navigation state.
+
+#### Database:
+- None; no backend models, schemas, or migrations were required.
+
+#### Tests:
+- Focused Telegram theme, viewport, and BackButton suite: 13 passed, 0 failed.
+- Backend authentication regression suite: 8 passed, 0 failed.
+- Complete frontend suite: 37 passed, 0 failed.
+- Complete backend suite: 74 passed, 0 failed.
+- TypeScript strict typecheck: PASS (0 errors).
+- Frontend production build: PASS (46 modules transformed).
+
+#### Verification:
+- Browser fallback verified: default theme custom properties apply without Telegram runtime, BackButton calls do not throw, breadcrumb navigation works: PASS.
+- Real `initData` forwarding, backend HMAC validation, and JWT session flow remain intact: PASS.
+- Developer mock authentication remains impossible in production builds and requires explicit flags: PASS.
+- Native BackButton hierarchy verified: hidden at top level (clients, projects), visible on project detail (returns to projects), visible on room detail (returns to parent project): PASS.
+- Lifecycle safety verified: no duplicate event listeners on rerenders, clean deregistration on hide and unmount: PASS.
+- Zero console logs, sensitive data leaks, or unhandled exceptions: PASS.
+- `git diff --check`: PASS.
 
 #### Deferred:
-- Stage 5C and every later product stage remain pending.
+- All Stage 6 (room measurements and surface manager) and subsequent product modules remain deferred pending explicit project-owner instruction.
 
 ---
 
