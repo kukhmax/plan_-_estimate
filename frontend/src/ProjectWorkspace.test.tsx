@@ -792,4 +792,27 @@ describe('ProjectWorkspace', () => {
     expect(within(summary).getByText('Ściany:')).toBeInTheDocument(); // wall_count label
     expect(within(summary).getByText('5')).toBeInTheDocument(); // wall_count value
   });
+
+  it('prefills new custom walls with the room default height captured at creation (Stage 5D.1A.1)', async () => {
+    // A custom-shape room created in 5D.1A.1 stores its default wall height as Room.height.
+    const customRoom: RoomType = {
+      ...room,
+      id: '88888888-8888-8888-8888-888888888888',
+      name: 'Poddasze',
+      height: 2.7,
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [customRoom], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(customRoom);
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${customRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${customRoom.id}`));
+
+    await waitFor(() => expect(screen.getByLabelText('mode-custom')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('mode-custom'));
+    const customEntry = await screen.findByLabelText('custom-wall-entry');
+    expect(within(customEntry).getByLabelText('custom-wall-height')).toHaveValue('2.700 m');
+  });
 });

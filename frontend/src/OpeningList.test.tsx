@@ -235,3 +235,98 @@ describe('OpeningList', () => {
     expect(screen.getByText('Opcjonalne szczegóły')).toBeInTheDocument();
   });
 });
+
+describe('OpeningList dimension defaults (Stage 5D.1A.1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  it('saves Door dimensions as default and prefills a subsequent new Door form', async () => {
+    vi.mocked(openingsApi.createOpening).mockResolvedValue(openingDoor);
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'DOOR' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.0' } });
+    fireEvent.click(screen.getByLabelText('set-opening-default'));
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+
+    await waitFor(() => expect(openingsApi.createOpening).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    expect(screen.getByLabelText('opening-type')).toHaveValue('DOOR');
+    expect(screen.getByLabelText('opening-width')).toHaveValue(0.9);
+    expect(screen.getByLabelText('opening-height')).toHaveValue(2.0);
+  });
+
+  it('keeps Window defaults independent from Door defaults', async () => {
+    vi.mocked(openingsApi.createOpening).mockResolvedValue(openingDoor);
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
+
+    // Save a Door default 0.9 x 2.0
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'DOOR' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.0' } });
+    fireEvent.click(screen.getByLabelText('set-opening-default'));
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+    await waitFor(() => expect(openingsApi.createOpening).toHaveBeenCalledTimes(1));
+
+    // Opening a Window form must NOT inherit the Door dimensions
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'WINDOW' } });
+    expect(screen.getByLabelText('opening-width')).toHaveValue(null);
+    expect(screen.getByLabelText('opening-height')).toHaveValue(null);
+
+    // Save a Window default 1.5 x 1.4
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '1.5' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '1.4' } });
+    fireEvent.click(screen.getByLabelText('set-opening-default'));
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+    await waitFor(() => expect(openingsApi.createOpening).toHaveBeenCalledTimes(2));
+
+    // Window form prefills its own default
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'WINDOW' } });
+    expect(screen.getByLabelText('opening-width')).toHaveValue(1.5);
+    expect(screen.getByLabelText('opening-height')).toHaveValue(1.4);
+
+    // Door form still prefills the Door default
+    fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'DOOR' } });
+    expect(screen.getByLabelText('opening-width')).toHaveValue(0.9);
+    expect(screen.getByLabelText('opening-height')).toHaveValue(2.0);
+  });
+
+  it('never modifies existing openings when defaults change', async () => {
+    vi.mocked(openingsApi.createOpening).mockResolvedValue(openingDoor);
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [openingDoor], total: 1 });
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`edit-opening-${openingDoor.id}`)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.8' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.05' } });
+    fireEvent.click(screen.getByLabelText('set-opening-default'));
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+
+    await waitFor(() => expect(openingsApi.createOpening).toHaveBeenCalledTimes(1));
+    expect(openingsApi.createOpening).toHaveBeenCalledWith(
+      projectId,
+      roomId,
+      surfaceId,
+      expect.objectContaining({ width: 0.8, height: 2.05 }),
+    );
+    expect(openingsApi.updateOpening).not.toHaveBeenCalled();
+    expect(openingsApi.archiveOpening).not.toHaveBeenCalled();
+    // The existing opening row is untouched
+    expect(screen.getByText(/0\.900 × 2\.000 m/)).toBeInTheDocument();
+  });
+});

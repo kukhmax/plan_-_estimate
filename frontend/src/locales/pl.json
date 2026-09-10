@@ -121,7 +121,11 @@
     "archived": "Pomieszczenie zostało zarchiwizowane",
     "restored": "Pomieszczenie zostało przywrócone",
     "surfaces": "Powierzchnie",
-    "wall_count": "Ściany"
+    "wall_count": "Ściany",
+    "rectangle": "Prostokąt",
+    "custom": "Dowolny kształt",
+    "default_wall_height": "Domyślna wysokość ścian (m)",
+    "custom_hint": "Nie wymaga wymiarów prostokąta — zmierz ściany po kolei."
   },
   "surfaces": {
     "title": "Powierzchnie",
@@ -185,6 +189,7 @@
     "updated": "Otwór został zaktualizowany",
     "archived": "Otwór został zarchiwizowany",
     "restored": "Otwór został przywrócony",
-    "close": "Ukryj otwory"
+    "close": "Ukryj otwory",
+    "set_as_default": "Ustaw jako domyślne"
   }
 }

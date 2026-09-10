@@ -149,3 +149,128 @@ describe('RoomList', () => {
     expect(roomsApi.fetchRooms).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('RoomList shape selector (Stage 5D.1A.1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  it('shows the shape selector immediately after the room name when creating', async () => {
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+
+    expect(screen.getByLabelText('room-name')).toBeInTheDocument();
+    expect(screen.getByLabelText('room-shape-rectangle')).toBeInTheDocument();
+    expect(screen.getByLabelText('room-shape-custom')).toBeInTheDocument();
+  });
+
+  it('rectangle mode (default) shows length, width and height inputs', async () => {
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+
+    expect(screen.getByLabelText('room-length')).toBeInTheDocument();
+    expect(screen.getByLabelText('room-width')).toBeInTheDocument();
+    expect(screen.getByLabelText('room-height')).toBeInTheDocument();
+    expect(screen.queryByLabelText('room-custom-height')).not.toBeInTheDocument();
+  });
+
+  it('custom mode hides length/width and exposes a default wall height prefilled with 2.7', async () => {
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.click(screen.getByLabelText('room-shape-custom'));
+
+    expect(screen.queryByLabelText('room-length')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('room-width')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('room-custom-height')).toHaveValue(2.7);
+  });
+
+  it('creates a custom-shape room without length/width using the default height', async () => {
+    vi.mocked(roomsApi.createRoom).mockResolvedValue(room);
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Poddasze' } });
+    fireEvent.click(screen.getByLabelText('room-shape-custom'));
+    fireEvent.submit(screen.getByLabelText('room-form'));
+
+    await waitFor(() => {
+      expect(roomsApi.createRoom).toHaveBeenCalledWith(projectId, {
+        name: 'Poddasze',
+        description: null,
+        length: null,
+        width: null,
+        height: 2.7,
+      });
+    });
+  });
+
+  it('persists a custom default wall height override into Room.height', async () => {
+    vi.mocked(roomsApi.createRoom).mockResolvedValue(room);
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Garaż' } });
+    fireEvent.click(screen.getByLabelText('room-shape-custom'));
+    fireEvent.change(screen.getByLabelText('room-custom-height'), { target: { value: '3.1' } });
+    fireEvent.submit(screen.getByLabelText('room-form'));
+
+    await waitFor(() => {
+      expect(roomsApi.createRoom).toHaveBeenCalledWith(projectId, {
+        name: 'Garaż',
+        description: null,
+        length: null,
+        width: null,
+        height: 3.1,
+      });
+    });
+  });
+
+  it('editing a custom room (no length/width) reopens in custom mode with its height', async () => {
+    const customRoom: RoomType = {
+      ...room,
+      id: '99999999-9999-9999-9999-999999999999',
+      name: 'Poddasze',
+      height: 2.7,
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [customRoom], total: 1 });
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText(`edit-room-${customRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`edit-room-${customRoom.id}`));
+
+    expect(screen.getByLabelText('room-custom-height')).toHaveValue(2.7);
+    expect(screen.queryByLabelText('room-length')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('room-width')).not.toBeInTheDocument();
+  });
+
+  it('editing a measured rectangle room reopens with length/width/height inputs', async () => {
+    const measuredRoom: RoomType = {
+      ...room,
+      id: '99999999-9999-9999-9999-999999999999',
+      name: 'Salon',
+      length: 5,
+      width: 4,
+      height: 2.7,
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText(`edit-room-${measuredRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`edit-room-${measuredRoom.id}`));
+
+    expect(screen.getByLabelText('room-length')).toHaveValue(5);
+    expect(screen.getByLabelText('room-width')).toHaveValue(4);
+    expect(screen.getByLabelText('room-height')).toHaveValue(2.7);
+    expect(screen.queryByLabelText('room-custom-height')).not.toBeInTheDocument();
+  });
+});

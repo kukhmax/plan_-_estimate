@@ -16,6 +16,8 @@ interface RoomListProps {
   onRoomChanged?: () => void;
 }
 
+type RoomShape = 'RECTANGLE' | 'CUSTOM';
+
 interface RoomFormState {
   name: string;
   description: string;
@@ -32,6 +34,8 @@ const EMPTY_FORM: RoomFormState = {
   height: '',
 };
 
+const DEFAULT_CUSTOM_HEIGHT = '2.7';
+
 export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps) {
   const { t } = useI18n();
   const [rooms, setRooms] = useState<RoomType[]>([]);
@@ -44,6 +48,8 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [roomShape, setRoomShape] = useState<RoomShape>('RECTANGLE');
+  const [customHeight, setCustomHeight] = useState<string>(DEFAULT_CUSTOM_HEIGHT);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,13 +79,22 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
     setSuccess(null);
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setRoomShape('RECTANGLE');
+    setCustomHeight(DEFAULT_CUSTOM_HEIGHT);
     setFormError(null);
     setShowForm(true);
   };
 
   const startEdit = (room: RoomType) => {
+    const hasRectangleDims =
+      room.length !== null && room.length !== undefined &&
+      room.width !== null && room.width !== undefined;
     setSuccess(null);
     setEditingId(room.id);
+    setRoomShape(hasRectangleDims ? 'RECTANGLE' : 'CUSTOM');
+    setCustomHeight(
+      room.height !== null && room.height !== undefined ? String(room.height) : DEFAULT_CUSTOM_HEIGHT,
+    );
     setForm({
       name: room.name,
       description: room.description ?? '',
@@ -96,9 +111,15 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
     setSaving(true);
     setFormError(null);
 
-    const lengthVal = form.length.trim() ? parseFloat(form.length.trim()) : null;
-    const widthVal = form.width.trim() ? parseFloat(form.width.trim()) : null;
-    const heightVal = form.height.trim() ? parseFloat(form.height.trim()) : null;
+    const lengthVal = roomShape === 'CUSTOM'
+      ? null
+      : (form.length.trim() ? parseFloat(form.length.trim()) : null);
+    const widthVal = roomShape === 'CUSTOM'
+      ? null
+      : (form.width.trim() ? parseFloat(form.width.trim()) : null);
+    const heightVal = roomShape === 'CUSTOM'
+      ? (customHeight.trim() ? parseFloat(customHeight.trim()) : null)
+      : (form.height.trim() ? parseFloat(form.height.trim()) : null);
 
     if (lengthVal !== null && (Number.isNaN(lengthVal) || lengthVal <= 0)) {
       setFormError(t.rooms.error);
@@ -210,50 +231,101 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
 
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">{t.rooms.length}</label>
-              <input
-                aria-label="room-length"
-                type="number"
-                inputMode="decimal"
-                min="0.001"
-                step="0.001"
-                placeholder="5.000"
-                value={form.length}
-                onChange={(event) => setForm((current) => ({ ...current, length: event.target.value }))}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">{t.rooms.width}</label>
-              <input
-                aria-label="room-width"
-                type="number"
-                inputMode="decimal"
-                min="0.001"
-                step="0.001"
-                placeholder="4.000"
-                value={form.width}
-                onChange={(event) => setForm((current) => ({ ...current, width: event.target.value }))}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">{t.rooms.height}</label>
-              <input
-                aria-label="room-height"
-                type="number"
-                inputMode="decimal"
-                min="0.001"
-                step="0.001"
-                placeholder="2.700"
-                value={form.height}
-                onChange={(event) => setForm((current) => ({ ...current, height: event.target.value }))}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
-              />
-            </div>
+          <div
+            aria-label="room-shape"
+            role="group"
+            className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1"
+          >
+            <button
+              type="button"
+              aria-label="room-shape-rectangle"
+              onClick={() => setRoomShape('RECTANGLE')}
+              className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
+                roomShape === 'RECTANGLE'
+                  ? 'bg-white text-blue-700 shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {t.rooms.rectangle}
+            </button>
+            <button
+              type="button"
+              aria-label="room-shape-custom"
+              onClick={() => setRoomShape('CUSTOM')}
+              className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
+                roomShape === 'CUSTOM'
+                  ? 'bg-white text-blue-700 shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {t.rooms.custom}
+            </button>
           </div>
+
+          {roomShape === 'RECTANGLE' ? (
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">{t.rooms.length}</label>
+                <input
+                  aria-label="room-length"
+                  type="number"
+                  inputMode="decimal"
+                  min="0.001"
+                  step="0.001"
+                  placeholder="5.000"
+                  value={form.length}
+                  onChange={(event) => setForm((current) => ({ ...current, length: event.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">{t.rooms.width}</label>
+                <input
+                  aria-label="room-width"
+                  type="number"
+                  inputMode="decimal"
+                  min="0.001"
+                  step="0.001"
+                  placeholder="4.000"
+                  value={form.width}
+                  onChange={(event) => setForm((current) => ({ ...current, width: event.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">{t.rooms.height}</label>
+                <input
+                  aria-label="room-height"
+                  type="number"
+                  inputMode="decimal"
+                  min="0.001"
+                  step="0.001"
+                  placeholder="2.700"
+                  value={form.height}
+                  onChange={(event) => setForm((current) => ({ ...current, height: event.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <p className="text-[11px] text-slate-400">{t.rooms.custom_hint}</p>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">{t.rooms.default_wall_height}</label>
+                <input
+                  aria-label="room-custom-height"
+                  type="number"
+                  inputMode="decimal"
+                  min="0.001"
+                  step="0.001"
+                  placeholder="2.700"
+                  value={customHeight}
+                  onChange={(event) => setCustomHeight(event.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                />
+              </div>
+            </div>
+          )}
 
           <textarea
             aria-label="room-description"

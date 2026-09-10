@@ -7,6 +7,7 @@ import {
   updateOpening,
 } from '../api/openings';
 import { useI18n } from '../hooks/useI18n';
+import { DefaultableOpeningType, useOpeningDefaults } from '../hooks/useOpeningDefaults';
 import {
   OpeningCreatePayload,
   OpeningType,
@@ -59,6 +60,11 @@ export function OpeningList({
   const [form, setForm] = useState<OpeningFormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [useAsDefault, setUseAsDefault] = useState(false);
+  const { defaults, setTypeDefault } = useOpeningDefaults(projectId);
+
+  const isDefaultable = (type: OpeningTypeValue): type is DefaultableOpeningType =>
+    type === 'DOOR' || type === 'WINDOW';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -81,13 +87,22 @@ export function OpeningList({
     setShowForm(false);
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setUseAsDefault(false);
     setFormError(null);
   };
 
   const startCreate = (type?: OpeningTypeValue) => {
     setSuccess(null);
     setEditingId(null);
-    setForm({ ...EMPTY_FORM, opening_type: type ?? initialType ?? 'DOOR' });
+    const resolvedType = type ?? initialType ?? 'DOOR';
+    const saved = isDefaultable(resolvedType) ? defaults[resolvedType] : undefined;
+    setForm({
+      ...EMPTY_FORM,
+      opening_type: resolvedType,
+      width: saved ? String(saved.width) : '',
+      height: saved ? String(saved.height) : '',
+    });
+    setUseAsDefault(false);
     setFormError(null);
     setShowForm(true);
   };
@@ -108,8 +123,21 @@ export function OpeningList({
       quantity: String(opening.quantity ?? 1),
       description: opening.description ?? '',
     });
+    setUseAsDefault(false);
     setFormError(null);
     setShowForm(true);
+  };
+
+  const handleTypeChange = (type: OpeningTypeValue) => {
+    setForm((current) => {
+      const saved = isDefaultable(type) ? defaults[type] : undefined;
+      return {
+        ...current,
+        opening_type: type,
+        width: saved ? String(saved.width) : '',
+        height: saved ? String(saved.height) : '',
+      };
+    });
   };
 
   // Preview calculations (UX-only while editing)
@@ -161,6 +189,9 @@ export function OpeningList({
         setSuccess(t.openings.updated);
       } else {
         await createOpening(projectId, roomId, surfaceId, payload);
+        if (useAsDefault && isDefaultable(payload.opening_type)) {
+          setTypeDefault(payload.opening_type, { width: widthNum, height: heightNum });
+        }
         setSuccess(t.openings.created);
       }
       closeForm();
@@ -244,9 +275,7 @@ export function OpeningList({
               <select
                 aria-label="opening-type"
                 value={form.opening_type}
-                onChange={(e) =>
-                  setForm((cur) => ({ ...cur, opening_type: e.target.value as OpeningTypeValue }))
-                }
+                onChange={(e) => handleTypeChange(e.target.value as OpeningTypeValue)}
                 className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
               >
                 {(['DOOR', 'WINDOW', 'OTHER'] as const).map((type) => (
@@ -305,6 +334,18 @@ export function OpeningList({
               />
             </div>
           </div>
+
+          {!editingId && isDefaultable(form.opening_type) && (
+            <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
+              <input
+                aria-label="set-opening-default"
+                type="checkbox"
+                checked={useAsDefault}
+                onChange={(e) => setUseAsDefault(e.target.checked)}
+              />
+              {t.openings.set_as_default}
+            </label>
+          )}
 
           {previewSingleArea !== null && (
             <div
