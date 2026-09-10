@@ -77,6 +77,8 @@ class SurfaceService:
             name=payload.name,
             surface_type=payload.surface_type,
             description=payload.description,
+            width=payload.width,
+            height=payload.height,
         )
         self.db.add(surface)
         await self.db.commit()

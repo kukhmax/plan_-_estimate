@@ -129,6 +129,9 @@ async def test_create_each_supported_surface_type(
         "name",
         "surface_type",
         "description",
+        "width",
+        "height",
+        "gross_area",
         "is_archived",
         "created_at",
         "updated_at",
@@ -136,6 +139,9 @@ async def test_create_each_supported_surface_type(
     assert data["room_id"] == room["id"]
     assert data["surface_type"] == surface_type
     assert data["description"] is None
+    assert data["width"] is None
+    assert data["height"] is None
+    assert data["gross_area"] is None
     assert data["is_archived"] is False
 
 

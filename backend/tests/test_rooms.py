@@ -97,6 +97,10 @@ async def test_create_room_persists_minimal_fields(
         "project_id",
         "name",
         "description",
+        "length",
+        "width",
+        "height",
+        "calculations",
         "is_archived",
         "created_at",
         "updated_at",
@@ -104,6 +108,10 @@ async def test_create_room_persists_minimal_fields(
     assert data["project_id"] == project["id"]
     assert data["name"] == "Łazienka"
     assert data["description"] == "Strefa mokra"
+    assert data["length"] is None
+    assert data["width"] is None
+    assert data["height"] is None
+    assert data["calculations"] is None
     assert data["is_archived"] is False
     assert data["created_at"]
     assert data["updated_at"]

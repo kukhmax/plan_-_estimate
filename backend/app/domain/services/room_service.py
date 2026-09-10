@@ -60,6 +60,9 @@ class RoomService:
             project_id=project_id,
             name=payload.name,
             description=payload.description,
+            length=payload.length,
+            width=payload.width,
+            height=payload.height,
         )
         self.db.add(room)
         await self.db.commit()

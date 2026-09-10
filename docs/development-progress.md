@@ -719,8 +719,56 @@
 - **Status**: In Progress
 - **Scope & Canonical Mapping**:
   - **Implemented (partial)**: Room and Surface backend domain entities, PostgreSQL migrations (`0005_create_rooms_table.py`, `0006_create_surfaces_table.py`), hierarchical API routes, semantic surface types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), owner isolation, active/archive filtering, and mobile-first `Projects → Project → Rooms → Room → Surfaces` frontend workspace (completed under historical commits `baa95e7`, `c56c767`, `542ed15`, `cfcbbcc`).
-  - **Remaining / Pending**: Interactive metric room dimensions (length, width, height), openings subtraction (windows, doors), net wall and ceiling area calculations, and aggregate surface totals.
+  - **Execution Sub-Stage 5A (Completed)**: Room physical dimensions (`length`, `width`, `height`), individual `WALL` surface dimensions (`width`, `height`), deterministic rectangular room gross geometry (`floor_area`, `ceiling_area`, `total_wall_area`, `wall_area_length`, `wall_area_width`, `perimeter`), surface gross area calculations, high-precision `sa.Numeric(10, 3)` / `Decimal` arithmetic, forward Alembic migration `0007_add_measurement_dimensions.py`, backward compatibility, and owner isolation.
+  - **Remaining / Pending**: Openings subtraction (windows, doors, recesses), deductions, net wall and ceiling area calculations, aggregate surface totals, measurement UI, and full manual room acceptance scenario.
 - **Gate**: Canonical Stage 5 remains **IN PROGRESS** until real measurements, openings subtraction, and surface totals are implemented, tested, and manually verified.
+
+#### Execution Sub-Stage 5A: Room Measurement Domain & Backend Foundation
+- **Status**: Completed
+- **Date**: 2026-09-10
+- **Scope**:
+  - Added physical room dimensions: `length`, `width`, `height` in meters using `sa.Numeric(10, 3)` / Python `Decimal` (millimeter precision).
+  - Added individual `WALL` surface dimensions: `width`, `height` in meters using `sa.Numeric(10, 3)` / Python `Decimal`.
+  - Implemented pure domain calculation rules in `app/domain/rules/room_geometry.py` without database or web dependencies:
+    - Floor gross area ($L \times W$) and ceiling gross area ($L \times W$)
+    - Total wall gross area ($2 \times (L + W) \times H$)
+    - Wall length area ($L \times H$) and wall width area ($W \times H$)
+    - Room perimeter ($2 \times (L + W)$)
+    - Surface gross area for individual `WALL` surfaces ($\text{width} \times \text{height}$)
+    - Mathematical identity verified: 4 individual walls ($5\times 2.7 = 13.5\text{ m}^2$, $4\times 2.7 = 10.8\text{ m}^2$, $5\times 2.7 = 13.5\text{ m}^2$, $4\times 2.7 = 10.8\text{ m}^2$) sum to $48.600\text{ m}^2$, matching calculated room `total_wall_area`.
+  - Zero redundant columns persisted; all geometric totals are computed dynamically in Pydantic read schemas.
+  - Reversible Alembic migration `0007_add_measurement_dimensions.py` adding nullable dimension columns to `rooms` and `surfaces`.
+  - Full backward compatibility: existing rooms and surfaces without dimensions remain valid; missing dimensions yield `None` calculations.
+  - Owner isolation preserved across Project → Room → Surface hierarchy (foreign access returns 404, unauthenticated returns 401).
+
+#### Sub-Stage 5A Database:
+- Migration: `backend/alembic/versions/0007_add_measurement_dimensions.py` (parent: `0006_create_surfaces`).
+- Columns added: `rooms.length`, `rooms.width`, `rooms.height`, `surfaces.width`, `surfaces.height` (all `sa.Numeric(10, 3)` nullable).
+
+#### Sub-Stage 5A Tests:
+- Focused measurement suite (`test_room_measurements.py`): 26 passed, 0 failed.
+- Room suite (`test_rooms.py`): 12 passed, 0 failed.
+- Surface suite (`test_surfaces.py`): 15 passed, 0 failed.
+- Full backend test suite: 100 passed, 0 failed.
+- Full frontend test suite: 37 passed, 0 failed.
+- TypeScript strict typecheck: PASS (0 errors).
+- Frontend production build: PASS (46 modules transformed).
+- `git diff --check`: PASS.
+
+#### Sub-Stage 5A Verification:
+- Dimension validation (zeros rejected, negatives rejected, precision > 3 rejected with 422): PASS.
+- Canonical room geometry ($5.000 \times 4.000 \times 2.700\text{ m}$): PASS.
+- 4-wall surface area sum identity ($48.600\text{ m}^2$): PASS.
+- Migration linear upgrade, downgrade -1, re-upgrade: PASS.
+- Owner isolation & 404 security: PASS.
+- Pre-existing room/surface backward compatibility: PASS.
+
+#### Remaining Canonical Stage 5 Work:
+- Openings (doors, windows, architectural niches)
+- Deductions rules & opening subtraction
+- Net wall and ceiling surface area calculations
+- Measurement UI in frontend Mini App
+- Full manual room acceptance scenario
 
 ---
 
