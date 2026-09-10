@@ -826,9 +826,74 @@
 - Backward compatibility: PASS.
 
 #### Remaining Canonical Stage 5 Work:
-- Measurement frontend UI
-- Practical room measurement workflow
-- Manual acceptance test: 5 × 4 × 2.7 + 4 walls + door + window
+- Execution Sub-Stage 5D: Practical measurement workflow / UX refinement
+- Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario)
+
+#### Execution Sub-Stage 5C: Measurement Frontend UI
+- **Status**: Completed
+- **Date**: 2026-09-10
+- **Scope**:
+  - Room measurement UI:
+    - Optional metric dimension inputs (`length`, `width`, `height` in meters with `0.001` step precision).
+    - Natural numerical inputs supported (`5`, `4`, `2.7`, `0.9`); blank values serialize to `null` instead of `0`.
+    - Responsive room calculations summary card rendering refreshed backend-authoritative metrics: floor area (`m²`), ceiling area (`m²`), perimeter (`m`), total gross wall area (`m²`), total deduction area (`m²`), and net wall area (`m²`).
+    - Unmeasured rooms render a clear placeholder badge without fabricating geometry.
+    - In-place room dimension editing directly inside room detail view with live update upon save.
+  - Wall / Surface measurement UI:
+    - Optional surface dimensions (`width`, `height` in meters).
+    - Gross area, deduction area, and net wall area display derived strictly from backend responses.
+    - Clear informative notice for `WALL` surfaces without dimensions prompting dimension entry before opening management is accessible.
+    - Opening management strictly restricted to measured `WALL` surfaces (`FLOOR`, `CEILING`, `OTHER` do not expose openings).
+  - Opening management UI (`OpeningList`):
+    - First-class opening management attached strictly to measured `WALL` surfaces (`DOOR`, `WINDOW`, `OTHER`).
+    - Inputs for dimensions (`width`, `height`), unit quantity (`quantity >= 1`), optional name, and description.
+    - Live client-side preview for single opening area and total area during form editing (ephemeral UX-only).
+    - Multi-unit badge indicator (`×N`) and distinct metric formatting (`formatMetric`).
+    - Non-destructive inline error banner capturing backend HTTP 422 over-deduction validation errors (`DeductionExceedsGrossAreaError`), preserving user form input intact for correction.
+    - Soft archive and restore support with include-archived toggle.
+  - Dependent state reconciliation without browser reload:
+    - Unidirectional callback chain: `OpeningList.onOpeningChanged` → `SurfaceList.load()` + `onMeasurementChanged` → `ProjectWorkspace.fetchRoom()`.
+    - Verified across Opening CREATE, UPDATE, ARCHIVE, RESTORE, WALL dimension updates, and ROOM dimension updates.
+  - Canonical Room UI scenario verified:
+    - Room 5.000 × 4.000 × 2.700 m (Floor: 20.000 m², Ceiling: 20.000 m², Perimeter: 18.000 m, Gross walls: 48.600 m²).
+    - Wall 1: 5.000 × 2.700 m (Gross: 13.500 m²), Door: 0.900 × 2.000 m (1.800 m²), Wall 1 Net: 11.700 m².
+    - Wall 2: 4.000 × 2.700 m (Gross: 10.800 m²), Window: 1.500 × 1.400 m (2.100 m²), Wall 2 Net: 8.700 m².
+    - Room aggregate totals: Deductions: 3.900 m², Net walls: 44.700 m².
+  - Full dual-language PL / RU localization:
+    - 155 translation keys perfectly mirrored between `pl.json` and `ru.json`.
+    - Zero hardcoded user-facing strings in component JSX.
+  - Mobile Telegram Mini App layout verification:
+    - Tested for mobile viewport (390×844): no horizontal overflow, multi-column metric cards adapt smoothly, touch-friendly buttons, Telegram `BackButton` hierarchical integration preserved.
+
+#### Sub-Stage 5C Database:
+- None; consumed existing Stage 5A and Stage 5B backend schemas and APIs without migration changes.
+
+#### Sub-Stage 5C Tests:
+- Focused Stage 5C measurement frontend tests: 29 passed, 0 failed.
+  - `OpeningList.test.tsx`: 8 passed.
+  - `SurfaceList.test.tsx`: 6 passed.
+  - `RoomList.test.tsx`: 5 passed.
+  - `ProjectWorkspace.test.tsx`: 10 passed.
+- Full frontend test suite (`vitest --run`): 56 passed across 8 test files, 0 failed.
+- Full backend regression suite (`pytest backend/tests`): 123 passed across 8 test files, 0 failed.
+- TypeScript strict typecheck (`tsc -p frontend/tsconfig.json --noEmit`): PASS (0 errors).
+- Frontend production build (`vite build`): PASS (49 modules transformed, 217.52 kB JS / 16.46 kB CSS).
+- `git diff --check`: PASS (0 whitespace errors).
+
+#### Sub-Stage 5C Verification:
+- Room measurement UX (optional inputs, blank to null, decimal precision, calculation summary card, in-place edit): PASS.
+- Surface measurement UX (dimensions, gross/deduction/net displays, dimension requirement gating): PASS.
+- Opening management UX (create, edit, archive, restore, multi-unit quantity, 422 over-deduction error preservation): PASS.
+- Ephemeral preview vs backend authoritative source of truth: PASS.
+- Multi-level dependent state refresh without page reload: PASS.
+- Dual-language PL/RU localization and mirrored key audit: PASS.
+- Canonical room geometry UI representation ($48.600 - 3.900 = 44.700\text{ m}^2$): PASS.
+- Mobile viewport layout analysis (390×844): PASS.
+- Scope review confirmed zero out-of-scope work: PASS.
+
+#### Remaining Canonical Stage 5 Work:
+- Execution Sub-Stage 5D: Practical measurement workflow / UX refinement
+- Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario)
 
 ---
 

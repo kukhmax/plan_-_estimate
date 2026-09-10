@@ -7,26 +7,38 @@ import {
   updateSurface,
 } from '../api/surfaces';
 import { useI18n } from '../hooks/useI18n';
-import { SurfaceCreatePayload, SurfaceType, SurfaceTypeValue } from '../types/surface';
+import {
+  SurfaceCreatePayload,
+  SurfaceType,
+  SurfaceTypeValue,
+  SurfaceUpdatePayload,
+} from '../types/surface';
+import { formatMetric } from '../utils/format';
+import { OpeningList } from './OpeningList';
 
 interface SurfaceListProps {
   projectId: string;
   roomId: string;
+  onMeasurementChanged?: () => void;
 }
 
 interface SurfaceFormState {
   name: string;
   surface_type: SurfaceTypeValue;
   description: string;
+  width: string;
+  height: string;
 }
 
 const EMPTY_FORM: SurfaceFormState = {
   name: '',
   surface_type: 'WALL',
   description: '',
+  width: '',
+  height: '',
 };
 
-export function SurfaceList({ projectId, roomId }: SurfaceListProps) {
+export function SurfaceList({ projectId, roomId, onMeasurementChanged }: SurfaceListProps) {
   const { t } = useI18n();
   const [surfaces, setSurfaces] = useState<SurfaceType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +50,7 @@ export function SurfaceList({ projectId, roomId }: SurfaceListProps) {
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [expandedOpenings, setExpandedOpenings] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +68,18 @@ export function SurfaceList({ projectId, roomId }: SurfaceListProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const toggleOpenings = (surfaceId: string) => {
+    setExpandedOpenings((current) => ({
+      ...current,
+      [surfaceId]: !current[surfaceId],
+    }));
+  };
+
+  const handleOpeningChanged = () => {
+    void load();
+    onMeasurementChanged?.();
+  };
 
   const closeForm = () => {
     setShowForm(false);
@@ -78,6 +103,8 @@ export function SurfaceList({ projectId, roomId }: SurfaceListProps) {
       name: surface.name,
       surface_type: surface.surface_type,
       description: surface.description ?? '',
+      width: surface.width !== null && surface.width !== undefined ? String(surface.width) : '',
+      height: surface.height !== null && surface.height !== undefined ? String(surface.height) : '',
     });
     setFormError(null);
     setShowForm(true);
@@ -87,15 +114,39 @@ export function SurfaceList({ projectId, roomId }: SurfaceListProps) {
     event.preventDefault();
     setSaving(true);
     setFormError(null);
+
+    const widthVal = form.width.trim() ? parseFloat(form.width.trim()) : null;
+    const heightVal = form.height.trim() ? parseFloat(form.height.trim()) : null;
+
+    if (widthVal !== null && (Number.isNaN(widthVal) || widthVal <= 0)) {
+      setFormError(t.surfaces.error);
+      setSaving(false);
+      return;
+    }
+    if (heightVal !== null && (Number.isNaN(heightVal) || heightVal <= 0)) {
+      setFormError(t.surfaces.error);
+      setSaving(false);
+      return;
+    }
+
     const payload: SurfaceCreatePayload = {
       name: form.name.trim(),
       surface_type: form.surface_type,
       description: form.description.trim() || null,
+      width: widthVal,
+      height: heightVal,
     };
 
     try {
       if (editingId) {
-        await updateSurface(projectId, roomId, editingId, payload);
+        const updatePayload: SurfaceUpdatePayload = {
+          name: payload.name,
+          surface_type: payload.surface_type,
+          description: payload.description,
+          width: payload.width,
+          height: payload.height,
+        };
+        await updateSurface(projectId, roomId, editingId, updatePayload);
         setSuccess(t.surfaces.updated);
       } else {
         await createSurface(projectId, roomId, payload);
@@ -103,6 +154,7 @@ export function SurfaceList({ projectId, roomId }: SurfaceListProps) {
       }
       closeForm();
       await load();
+      onMeasurementChanged?.();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : t.surfaces.error);
     } finally {
@@ -122,6 +174,7 @@ export function SurfaceList({ projectId, roomId }: SurfaceListProps) {
         setSuccess(t.surfaces.archived);
       }
       await load();
+      onMeasurementChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : t.surfaces.error);
     }
@@ -192,6 +245,36 @@ export function SurfaceList({ projectId, roomId }: SurfaceListProps) {
               <option key={value} value={value}>{typeLabel(value)}</option>
             ))}
           </select>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">{t.surfaces.width}</label>
+              <input
+                aria-label="surface-width"
+                type="number"
+                min="0.001"
+                step="0.001"
+                placeholder="5.000"
+                value={form.width}
+                onChange={(event) => setForm((current) => ({ ...current, width: event.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">{t.surfaces.height}</label>
+              <input
+                aria-label="surface-height"
+                type="number"
+                min="0.001"
+                step="0.001"
+                placeholder="2.700"
+                value={form.height}
+                onChange={(event) => setForm((current) => ({ ...current, height: event.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
           <textarea
             aria-label="surface-description"
             maxLength={4096}
@@ -229,49 +312,115 @@ export function SurfaceList({ projectId, roomId }: SurfaceListProps) {
         </p>
       )}
       {!loading && !error && surfaces.length > 0 && (
-        <ul aria-label="surfaces-list" className="space-y-2">
-          {surfaces.map((surface) => (
-            <li
-              key={surface.id}
-              aria-label={`surface-item-${surface.id}`}
-              className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-900 text-sm">{surface.name}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
-                      {typeLabel(surface.surface_type)}
-                    </span>
-                    {surface.is_archived && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                        {t.common.archived_badge}
+        <ul aria-label="surfaces-list" className="space-y-3">
+          {surfaces.map((surface) => {
+            const hasDimensions = surface.width !== null && surface.width !== undefined &&
+                                  surface.height !== null && surface.height !== undefined;
+            const isWall = surface.surface_type === 'WALL';
+            const isOpeningsOpen = !!expandedOpenings[surface.id];
+
+            return (
+              <li
+                key={surface.id}
+                aria-label={`surface-item-${surface.id}`}
+                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-slate-900 text-sm">{surface.name}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
+                        {typeLabel(surface.surface_type)}
                       </span>
+                      {surface.is_archived && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                          {t.common.archived_badge}
+                        </span>
+                      )}
+                    </div>
+
+                    {hasDimensions && (
+                      <p className="text-xs text-slate-600 mt-1.5 space-x-2">
+                        <span>
+                          {t.surfaces.dimensions}: <strong>{formatMetric(surface.width)} × {formatMetric(surface.height)} {t.common.unit_m}</strong>
+                        </span>
+                        {surface.gross_area && (
+                          <>
+                            <span>•</span>
+                            <span>
+                              {t.surfaces.gross_area}: <strong className="text-slate-800">{formatMetric(surface.gross_area)} {t.common.unit_m2}</strong>
+                            </span>
+                          </>
+                        )}
+                      </p>
                     )}
+
+                    {isWall && hasDimensions && (
+                      <div className="flex items-center gap-3 text-xs mt-1 text-slate-600 flex-wrap">
+                        <span>
+                          {t.surfaces.deduction_area}: <strong className="text-slate-700">{formatMetric(surface.deduction_area ?? '0.000')} {t.common.unit_m2}</strong>
+                        </span>
+                        <span>•</span>
+                        <span>
+                          {t.surfaces.net_area}: <strong className="text-emerald-700 font-bold">{formatMetric(surface.net_area ?? surface.gross_area)} {t.common.unit_m2}</strong>
+                        </span>
+                      </div>
+                    )}
+
+                    {isWall && !hasDimensions && (
+                      <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1 mt-1.5">
+                        {t.surfaces.requires_dimensions}
+                      </p>
+                    )}
+
+                    {surface.description && <p className="text-xs text-slate-500 mt-1.5">{surface.description}</p>}
                   </div>
-                  {surface.description && <p className="text-xs text-slate-500 mt-1">{surface.description}</p>}
+
+                  <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
+                    {isWall && hasDimensions && (
+                      <button
+                        type="button"
+                        aria-label={`toggle-openings-${surface.id}`}
+                        onClick={() => toggleOpenings(surface.id)}
+                        className={`text-xs px-2.5 py-1 rounded-lg font-medium transition ${
+                          isOpeningsOpen
+                            ? 'bg-slate-200 text-slate-800'
+                            : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                        }`}
+                      >
+                        {isOpeningsOpen ? t.openings.close : t.surfaces.manage_openings}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      aria-label={`edit-surface-${surface.id}`}
+                      onClick={() => startEdit(surface)}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                    >
+                      {t.common.edit}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
+                      onClick={() => void changeArchiveState(surface)}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                    >
+                      {surface.is_archived ? t.common.restore : t.common.archive}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-1.5 flex-wrap justify-end">
-                  <button
-                    type="button"
-                    aria-label={`edit-surface-${surface.id}`}
-                    onClick={() => startEdit(surface)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
-                  >
-                    {t.common.edit}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
-                    onClick={() => void changeArchiveState(surface)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
-                  >
-                    {surface.is_archived ? t.common.restore : t.common.archive}
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
+
+                {isWall && hasDimensions && isOpeningsOpen && (
+                  <OpeningList
+                    projectId={projectId}
+                    roomId={roomId}
+                    surfaceId={surface.id}
+                    onOpeningChanged={handleOpeningChanged}
+                  />
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

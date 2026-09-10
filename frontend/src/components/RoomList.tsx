@@ -7,21 +7,32 @@ import {
   updateRoom,
 } from '../api/rooms';
 import { useI18n } from '../hooks/useI18n';
-import { RoomCreatePayload, RoomType } from '../types/room';
+import { RoomCreatePayload, RoomType, RoomUpdatePayload } from '../types/room';
+import { formatMetric } from '../utils/format';
 
 interface RoomListProps {
   projectId: string;
   onOpenRoom: (room: RoomType) => void;
+  onRoomChanged?: () => void;
 }
 
 interface RoomFormState {
   name: string;
   description: string;
+  length: string;
+  width: string;
+  height: string;
 }
 
-const EMPTY_FORM: RoomFormState = { name: '', description: '' };
+const EMPTY_FORM: RoomFormState = {
+  name: '',
+  description: '',
+  length: '',
+  width: '',
+  height: '',
+};
 
-export function RoomList({ projectId, onOpenRoom }: RoomListProps) {
+export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps) {
   const { t } = useI18n();
   const [rooms, setRooms] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +80,13 @@ export function RoomList({ projectId, onOpenRoom }: RoomListProps) {
   const startEdit = (room: RoomType) => {
     setSuccess(null);
     setEditingId(room.id);
-    setForm({ name: room.name, description: room.description ?? '' });
+    setForm({
+      name: room.name,
+      description: room.description ?? '',
+      length: room.length !== null && room.length !== undefined ? String(room.length) : '',
+      width: room.width !== null && room.width !== undefined ? String(room.width) : '',
+      height: room.height !== null && room.height !== undefined ? String(room.height) : '',
+    });
     setFormError(null);
     setShowForm(true);
   };
@@ -78,14 +95,45 @@ export function RoomList({ projectId, onOpenRoom }: RoomListProps) {
     event.preventDefault();
     setSaving(true);
     setFormError(null);
+
+    const lengthVal = form.length.trim() ? parseFloat(form.length.trim()) : null;
+    const widthVal = form.width.trim() ? parseFloat(form.width.trim()) : null;
+    const heightVal = form.height.trim() ? parseFloat(form.height.trim()) : null;
+
+    if (lengthVal !== null && (Number.isNaN(lengthVal) || lengthVal <= 0)) {
+      setFormError(t.rooms.error);
+      setSaving(false);
+      return;
+    }
+    if (widthVal !== null && (Number.isNaN(widthVal) || widthVal <= 0)) {
+      setFormError(t.rooms.error);
+      setSaving(false);
+      return;
+    }
+    if (heightVal !== null && (Number.isNaN(heightVal) || heightVal <= 0)) {
+      setFormError(t.rooms.error);
+      setSaving(false);
+      return;
+    }
+
     const payload: RoomCreatePayload = {
       name: form.name.trim(),
       description: form.description.trim() || null,
+      length: lengthVal,
+      width: widthVal,
+      height: heightVal,
     };
 
     try {
       if (editingId) {
-        await updateRoom(projectId, editingId, payload);
+        const updatePayload: RoomUpdatePayload = {
+          name: payload.name,
+          description: payload.description,
+          length: payload.length,
+          width: payload.width,
+          height: payload.height,
+        };
+        await updateRoom(projectId, editingId, updatePayload);
         setSuccess(t.rooms.updated);
       } else {
         await createRoom(projectId, payload);
@@ -93,6 +141,7 @@ export function RoomList({ projectId, onOpenRoom }: RoomListProps) {
       }
       closeForm();
       await load();
+      onRoomChanged?.();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : t.rooms.error);
     } finally {
@@ -112,6 +161,7 @@ export function RoomList({ projectId, onOpenRoom }: RoomListProps) {
         setSuccess(t.rooms.archived);
       }
       await load();
+      onRoomChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : t.rooms.error);
     }
@@ -159,6 +209,49 @@ export function RoomList({ projectId, onOpenRoom }: RoomListProps) {
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
+
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">{t.rooms.length}</label>
+              <input
+                aria-label="room-length"
+                type="number"
+                min="0.001"
+                step="0.001"
+                placeholder="5.000"
+                value={form.length}
+                onChange={(event) => setForm((current) => ({ ...current, length: event.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">{t.rooms.width}</label>
+              <input
+                aria-label="room-width"
+                type="number"
+                min="0.001"
+                step="0.001"
+                placeholder="4.000"
+                value={form.width}
+                onChange={(event) => setForm((current) => ({ ...current, width: event.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">{t.rooms.height}</label>
+              <input
+                aria-label="room-height"
+                type="number"
+                min="0.001"
+                step="0.001"
+                placeholder="2.700"
+                value={form.height}
+                onChange={(event) => setForm((current) => ({ ...current, height: event.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+              />
+            </div>
+          </div>
+
           <textarea
             aria-label="room-description"
             maxLength={4096}
@@ -197,53 +290,81 @@ export function RoomList({ projectId, onOpenRoom }: RoomListProps) {
       )}
       {!loading && !error && rooms.length > 0 && (
         <ul aria-label="rooms-list" className="space-y-2">
-          {rooms.map((room) => (
-            <li
-              key={room.id}
-              aria-label={`room-item-${room.id}`}
-              className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-900 text-sm">{room.name}</span>
-                    {room.is_archived && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                        {t.common.archived_badge}
-                      </span>
+          {rooms.map((room) => {
+            const hasDimensions = room.length !== null && room.length !== undefined &&
+                                  room.width !== null && room.width !== undefined &&
+                                  room.height !== null && room.height !== undefined;
+
+            return (
+              <li
+                key={room.id}
+                aria-label={`room-item-${room.id}`}
+                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-slate-900 text-sm">{room.name}</span>
+                      {room.is_archived && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                          {t.common.archived_badge}
+                        </span>
+                      )}
+                    </div>
+
+                    {hasDimensions ? (
+                      <p className="text-xs text-slate-600 mt-1 space-x-1.5">
+                        <span>
+                          {t.rooms.dimensions}: <strong>{formatMetric(room.length)} × {formatMetric(room.width)} × {formatMetric(room.height)} {t.common.unit_m}</strong>
+                        </span>
+                        {room.calculations && (
+                          <>
+                            <span>•</span>
+                            <span>
+                              {t.rooms.total_wall_area}: <strong className="text-slate-800">{formatMetric(room.calculations.total_wall_area)} {t.common.unit_m2}</strong>
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-400 mt-1 italic">
+                        {t.rooms.not_measured}
+                      </p>
                     )}
+
+                    {room.description && <p className="text-xs text-slate-500 mt-1">{room.description}</p>}
                   </div>
-                  {room.description && <p className="text-xs text-slate-500 mt-1">{room.description}</p>}
+
+                  <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
+                    <button
+                      type="button"
+                      aria-label={`open-room-${room.id}`}
+                      onClick={() => onOpenRoom(room)}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
+                    >
+                      {t.common.open}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`edit-room-${room.id}`}
+                      onClick={() => startEdit(room)}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                    >
+                      {t.common.edit}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`${room.is_archived ? 'restore' : 'archive'}-room-${room.id}`}
+                      onClick={() => void changeArchiveState(room)}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                    >
+                      {room.is_archived ? t.common.restore : t.common.archive}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-1.5 flex-wrap justify-end">
-                  <button
-                    type="button"
-                    aria-label={`open-room-${room.id}`}
-                    onClick={() => onOpenRoom(room)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
-                  >
-                    {t.common.open}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`edit-room-${room.id}`}
-                    onClick={() => startEdit(room)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
-                  >
-                    {t.common.edit}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`${room.is_archived ? 'restore' : 'archive'}-room-${room.id}`}
-                    onClick={() => void changeArchiveState(room)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
-                  >
-                    {room.is_archived ? t.common.restore : t.common.archive}
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

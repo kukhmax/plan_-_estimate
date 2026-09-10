@@ -7,6 +7,7 @@ import {
   restoreProject,
   updateProject,
 } from '../api/projects';
+import { fetchRoom, updateRoom } from '../api/rooms';
 import { useI18n } from '../hooks/useI18n';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { ClientType } from '../types/client';
@@ -15,7 +16,8 @@ import {
   ProjectStatus,
   ProjectType,
 } from '../types/project';
-import { RoomType } from '../types/room';
+import { RoomType, RoomUpdatePayload } from '../types/room';
+import { formatMetric } from '../utils/format';
 import { RoomList } from './RoomList';
 import { SurfaceList } from './SurfaceList';
 
@@ -37,6 +39,22 @@ const EMPTY_FORM: ProjectFormState = {
   description: '',
   status: 'PLANNING',
   client_id: '',
+};
+
+interface RoomEditFormState {
+  name: string;
+  description: string;
+  length: string;
+  width: string;
+  height: string;
+}
+
+const EMPTY_ROOM_FORM: RoomEditFormState = {
+  name: '',
+  description: '',
+  length: '',
+  width: '',
+  height: '',
 };
 
 function clientName(client: ClientType): string {
@@ -72,6 +90,11 @@ export function ProjectWorkspace() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [showRoomForm, setShowRoomForm] = useState(false);
+  const [roomForm, setRoomForm] = useState<RoomEditFormState>(EMPTY_ROOM_FORM);
+  const [roomFormError, setRoomFormError] = useState<string | null>(null);
+  const [savingRoom, setSavingRoom] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -92,6 +115,16 @@ export function ProjectWorkspace() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const refreshSelectedRoom = useCallback(async () => {
+    if (!selectedProject || !selectedRoom) return;
+    try {
+      const refreshed = await fetchRoom(selectedProject.id, selectedRoom.id);
+      setSelectedRoom(refreshed);
+    } catch {
+      // keep current state if refresh fails
+    }
+  }, [selectedProject, selectedRoom]);
 
   const closeForm = () => {
     setShowForm(false);
@@ -114,6 +147,64 @@ export function ProjectWorkspace() {
     setForm(formFromProject(project));
     setFormError(null);
     setShowForm(true);
+  };
+
+  const startEditRoom = (room: RoomType) => {
+    setRoomForm({
+      name: room.name,
+      description: room.description ?? '',
+      length: room.length !== null && room.length !== undefined ? String(room.length) : '',
+      width: room.width !== null && room.width !== undefined ? String(room.width) : '',
+      height: room.height !== null && room.height !== undefined ? String(room.height) : '',
+    });
+    setRoomFormError(null);
+    setShowRoomForm(true);
+  };
+
+  const handleRoomSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selectedProject || !selectedRoom) return;
+    setSavingRoom(true);
+    setRoomFormError(null);
+
+    const lengthVal = roomForm.length.trim() ? parseFloat(roomForm.length.trim()) : null;
+    const widthVal = roomForm.width.trim() ? parseFloat(roomForm.width.trim()) : null;
+    const heightVal = roomForm.height.trim() ? parseFloat(roomForm.height.trim()) : null;
+
+    if (lengthVal !== null && (Number.isNaN(lengthVal) || lengthVal <= 0)) {
+      setRoomFormError(t.rooms.error);
+      setSavingRoom(false);
+      return;
+    }
+    if (widthVal !== null && (Number.isNaN(widthVal) || widthVal <= 0)) {
+      setRoomFormError(t.rooms.error);
+      setSavingRoom(false);
+      return;
+    }
+    if (heightVal !== null && (Number.isNaN(heightVal) || heightVal <= 0)) {
+      setRoomFormError(t.rooms.error);
+      setSavingRoom(false);
+      return;
+    }
+
+    const payload: RoomUpdatePayload = {
+      name: roomForm.name.trim(),
+      description: roomForm.description.trim() || null,
+      length: lengthVal,
+      width: widthVal,
+      height: heightVal,
+    };
+
+    try {
+      const updated = await updateRoom(selectedProject.id, selectedRoom.id, payload);
+      setSelectedRoom(updated);
+      setShowRoomForm(false);
+      setSuccess(t.rooms.updated);
+    } catch (err) {
+      setRoomFormError(err instanceof Error ? err.message : t.rooms.error);
+    } finally {
+      setSavingRoom(false);
+    }
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -182,13 +273,30 @@ export function ProjectWorkspace() {
 
   const openProject = (project: ProjectType) => {
     closeForm();
+    setShowRoomForm(false);
     setSelectedProject(project);
     setSelectedRoom(null);
     setSuccess(null);
   };
 
+  const openRoom = async (room: RoomType) => {
+    closeForm();
+    setShowRoomForm(false);
+    setSelectedRoom(room);
+    setSuccess(null);
+    if (selectedProject) {
+      try {
+        const fullRoom = await fetchRoom(selectedProject.id, room.id);
+        setSelectedRoom(fullRoom);
+      } catch {
+        // use room from list
+      }
+    }
+  };
+
   const backToProjects = () => {
     closeForm();
+    setShowRoomForm(false);
     setSelectedProject(null);
     setSelectedRoom(null);
     setSuccess(null);
@@ -197,7 +305,9 @@ export function ProjectWorkspace() {
   const isBackButtonVisible = selectedProject !== null;
 
   useTelegramBackButton(isBackButtonVisible, () => {
-    if (selectedRoom) {
+    if (showRoomForm) {
+      setShowRoomForm(false);
+    } else if (selectedRoom) {
       setSelectedRoom(null);
     } else if (selectedProject) {
       backToProjects();
@@ -224,7 +334,10 @@ export function ProjectWorkspace() {
               <button
                 type="button"
                 aria-label="back-to-rooms"
-                onClick={() => setSelectedRoom(null)}
+                onClick={() => {
+                  setShowRoomForm(false);
+                  setSelectedRoom(null);
+                }}
                 className="font-semibold text-blue-700 hover:underline"
               >
                 {t.rooms.title}
@@ -397,24 +510,198 @@ export function ProjectWorkspace() {
             </div>
             {selectedProject.description && <p className="text-sm text-slate-600 mt-3">{selectedProject.description}</p>}
           </article>
-          <RoomList projectId={selectedProject.id} onOpenRoom={setSelectedRoom} />
+          <RoomList
+            projectId={selectedProject.id}
+            onOpenRoom={openRoom}
+            onRoomChanged={load}
+          />
         </>
       )}
 
       {selectedProject && selectedRoom && (
         <>
-          <article aria-label="room-detail" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <article aria-label="room-detail" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="font-bold text-slate-900">{selectedRoom.name}</h2>
-              {selectedRoom.is_archived && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                  {t.common.archived_badge}
-                </span>
-              )}
+              <div>
+                <h2 className="font-bold text-slate-900 text-base">{selectedRoom.name}</h2>
+                {selectedRoom.description && (
+                  <p className="text-xs text-slate-500 mt-0.5">{selectedRoom.description}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                {selectedRoom.is_archived && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                    {t.common.archived_badge}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  aria-label="edit-room-detail"
+                  onClick={() => startEditRoom(selectedRoom)}
+                  className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                >
+                  {t.common.edit}
+                </button>
+              </div>
             </div>
-            {selectedRoom.description && <p className="text-sm text-slate-600 mt-2">{selectedRoom.description}</p>}
+
+            {/* Room Dimensions & Calculations Summary */}
+            {selectedRoom.calculations ? (
+              <div
+                aria-label="room-calculations-summary"
+                className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 text-xs"
+              >
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="font-semibold text-slate-700">{t.rooms.calculations}:</span>
+                  {selectedRoom.length && selectedRoom.width && selectedRoom.height && (
+                    <span className="font-bold text-slate-900">
+                      {formatMetric(selectedRoom.length)} × {formatMetric(selectedRoom.width)} × {formatMetric(selectedRoom.height)} {t.common.unit_m}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-slate-600">
+                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                    <span className="block text-slate-400 text-[11px]">{t.rooms.floor_area}</span>
+                    <strong className="text-slate-800 text-sm font-semibold">
+                      {formatMetric(selectedRoom.calculations.floor_area)} {t.common.unit_m2}
+                    </strong>
+                  </div>
+                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                    <span className="block text-slate-400 text-[11px]">{t.rooms.ceiling_area}</span>
+                    <strong className="text-slate-800 text-sm font-semibold">
+                      {formatMetric(selectedRoom.calculations.ceiling_area)} {t.common.unit_m2}
+                    </strong>
+                  </div>
+                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                    <span className="block text-slate-400 text-[11px]">{t.rooms.perimeter}</span>
+                    <strong className="text-slate-800 text-sm font-semibold">
+                      {formatMetric(selectedRoom.calculations.perimeter)} {t.common.unit_m}
+                    </strong>
+                  </div>
+                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                    <span className="block text-slate-400 text-[11px]">{t.rooms.total_wall_area}</span>
+                    <strong className="text-slate-800 text-sm font-semibold">
+                      {formatMetric(selectedRoom.calculations.total_wall_area)} {t.common.unit_m2}
+                    </strong>
+                  </div>
+                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                    <span className="block text-slate-400 text-[11px]">{t.rooms.total_deductions}</span>
+                    <strong className="text-slate-700 text-sm font-semibold">
+                      {formatMetric(selectedRoom.calculations.total_deduction_area ?? '0.000')} {t.common.unit_m2}
+                    </strong>
+                  </div>
+                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                    <span className="block text-slate-400 text-[11px]">{t.rooms.net_wall_area}</span>
+                    <strong className="text-emerald-700 text-sm font-bold">
+                      {formatMetric(selectedRoom.calculations.net_wall_area ?? selectedRoom.calculations.total_wall_area)} {t.common.unit_m2}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                aria-label="room-unmeasured-notice"
+                className="bg-slate-50 border border-dashed border-slate-200 rounded-xl p-3 text-center text-xs text-slate-400"
+              >
+                {t.rooms.not_measured}
+              </div>
+            )}
           </article>
-          <SurfaceList projectId={selectedProject.id} roomId={selectedRoom.id} />
+
+          {/* Edit Room Form inside Room Detail View */}
+          {showRoomForm && (
+            <form
+              aria-label="room-edit-form"
+              onSubmit={handleRoomSubmit}
+              className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3"
+            >
+              <h4 className="font-semibold text-slate-900 text-sm">{t.rooms.edit}</h4>
+              <input
+                aria-label="room-edit-name"
+                required
+                maxLength={255}
+                placeholder={t.rooms.name}
+                value={roomForm.name}
+                onChange={(e) => setRoomForm((cur) => ({ ...cur, name: e.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              />
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">{t.rooms.length}</label>
+                  <input
+                    aria-label="room-edit-length"
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    placeholder="5.000"
+                    value={roomForm.length}
+                    onChange={(e) => setRoomForm((cur) => ({ ...cur, length: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">{t.rooms.width}</label>
+                  <input
+                    aria-label="room-edit-width"
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    placeholder="4.000"
+                    value={roomForm.width}
+                    onChange={(e) => setRoomForm((cur) => ({ ...cur, width: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">{t.rooms.height}</label>
+                  <input
+                    aria-label="room-edit-height"
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    placeholder="2.700"
+                    value={roomForm.height}
+                    onChange={(e) => setRoomForm((cur) => ({ ...cur, height: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                  />
+                </div>
+              </div>
+              <textarea
+                aria-label="room-edit-description"
+                maxLength={4096}
+                placeholder={t.rooms.description}
+                value={roomForm.description}
+                onChange={(e) => setRoomForm((cur) => ({ ...cur, description: e.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm min-h-16"
+              />
+              {roomFormError && (
+                <p role="alert" className="text-sm text-red-600 font-medium">{roomFormError}</p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowRoomForm(false)}
+                  className="px-3 py-1.5 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  {t.common.cancel}
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingRoom}
+                  className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {savingRoom ? t.common.saving : t.common.save}
+                </button>
+              </div>
+            </form>
+          )}
+
+          <SurfaceList
+            projectId={selectedProject.id}
+            roomId={selectedRoom.id}
+            onMeasurementChanged={refreshSelectedRoom}
+          />
         </>
       )}
 

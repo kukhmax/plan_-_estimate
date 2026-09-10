@@ -49,7 +49,7 @@ describe('RoomList', () => {
     expect(onOpenRoom).toHaveBeenCalledWith(room);
   });
 
-  it('creates a room inside the current project', async () => {
+  it('creates a room inside the current project with optional dimensions as null', async () => {
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(roomsApi.createRoom).mockResolvedValue(room);
     renderRooms();
@@ -64,9 +64,77 @@ describe('RoomList', () => {
       expect(roomsApi.createRoom).toHaveBeenCalledWith(projectId, {
         name: 'Salon',
         description: 'Pomieszczenie dzienne',
+        length: null,
+        width: null,
+        height: null,
       });
     });
     expect(await screen.findByText('Pomieszczenie zostało utworzone')).toBeInTheDocument();
+  });
+
+  it('creates a room with metric dimensions', async () => {
+    const roomWithDims: RoomType = {
+      ...room,
+      length: 5,
+      width: 4,
+      height: 2.7,
+      calculations: {
+        floor_area: '20.000',
+        ceiling_area: '20.000',
+        total_wall_area: '48.600',
+        wall_area_length: '27.000',
+        wall_area_width: '21.600',
+        perimeter: '18.000',
+        total_deduction_area: null,
+        net_wall_area: null,
+      },
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(roomsApi.createRoom).mockResolvedValue(roomWithDims);
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Salon' } });
+    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '5' } });
+    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '2.7' } });
+    fireEvent.submit(screen.getByLabelText('room-form'));
+
+    await waitFor(() => {
+      expect(roomsApi.createRoom).toHaveBeenCalledWith(projectId, {
+        name: 'Salon',
+        description: null,
+        length: 5,
+        width: 4,
+        height: 2.7,
+      });
+    });
+  });
+
+  it('renders dimensions and total wall area when room is measured', async () => {
+    const measuredRoom: RoomType = {
+      ...room,
+      length: 5,
+      width: 4,
+      height: 2.7,
+      calculations: {
+        floor_area: '20.000',
+        ceiling_area: '20.000',
+        total_wall_area: '48.600',
+        wall_area_length: '27.000',
+        wall_area_width: '21.600',
+        perimeter: '18.000',
+        total_deduction_area: null,
+        net_wall_area: null,
+      },
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
+    expect(screen.getByText(/5\.000 × 4\.000 × 2\.700 m/)).toBeInTheDocument();
+    expect(screen.getByText(/48\.600 m²/)).toBeInTheDocument();
   });
 
   it('archives an active room and reloads the list', async () => {

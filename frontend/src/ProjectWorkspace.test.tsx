@@ -1,14 +1,17 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as clientsApi from './api/clients';
+import * as openingsApi from './api/openings';
 import * as projectsApi from './api/projects';
 import * as roomsApi from './api/rooms';
 import * as surfacesApi from './api/surfaces';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
 import { I18nProvider } from './hooks/useI18n';
 import { ClientType } from './types/client';
+import { OpeningType } from './types/opening';
 import { ProjectType } from './types/project';
 import { RoomType } from './types/room';
+import { SurfaceType } from './types/surface';
 
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
 vi.mock('./api/projects', () => ({
@@ -20,6 +23,7 @@ vi.mock('./api/projects', () => ({
 }));
 vi.mock('./api/rooms', () => ({
   fetchRooms: vi.fn(),
+  fetchRoom: vi.fn(),
   createRoom: vi.fn(),
   updateRoom: vi.fn(),
   archiveRoom: vi.fn(),
@@ -31,6 +35,13 @@ vi.mock('./api/surfaces', () => ({
   updateSurface: vi.fn(),
   archiveSurface: vi.fn(),
   restoreSurface: vi.fn(),
+}));
+vi.mock('./api/openings', () => ({
+  fetchOpenings: vi.fn(),
+  createOpening: vi.fn(),
+  updateOpening: vi.fn(),
+  archiveOpening: vi.fn(),
+  restoreOpening: vi.fn(),
 }));
 
 const project: ProjectType = {
@@ -74,6 +85,61 @@ const room: RoomType = {
   updated_at: '2026-09-09T10:00:00Z',
 };
 
+const measuredRoom: RoomType = {
+  id: '33333333-3333-3333-3333-333333333333',
+  project_id: project.id,
+  name: 'Salon',
+  description: 'Główne pomieszczenie',
+  length: 5,
+  width: 4,
+  height: 2.7,
+  is_archived: false,
+  created_at: '2026-09-09T10:00:00Z',
+  updated_at: '2026-09-09T10:00:00Z',
+  calculations: {
+    floor_area: '20.000',
+    ceiling_area: '20.000',
+    perimeter: '18.000',
+    total_wall_area: '48.600',
+    wall_area_length: '27.000',
+    wall_area_width: '21.600',
+    total_deduction_area: null,
+    net_wall_area: null,
+  },
+};
+
+const wallSurface: SurfaceType = {
+  id: '44444444-4444-4444-4444-444444444444',
+  room_id: measuredRoom.id,
+  name: 'Ściana północna',
+  surface_type: 'WALL',
+  width: 5,
+  height: 2.7,
+  gross_area: '13.500',
+  deduction_area: null,
+  net_area: '13.500',
+  description: null,
+  is_archived: false,
+  created_at: '2026-09-09T10:00:00Z',
+  updated_at: '2026-09-09T10:00:00Z',
+};
+
+const doorOpening: OpeningType = {
+  id: '55555555-5555-5555-5555-555555555555',
+  surface_id: wallSurface.id,
+  opening_type: 'DOOR',
+  name: 'Drzwi balkonowe',
+  width: 0.9,
+  height: 2.0,
+  quantity: 1,
+  single_area: '1.800',
+  total_area: '1.800',
+  description: null,
+  is_archived: false,
+  created_at: '2026-09-09T10:00:00Z',
+  updated_at: '2026-09-09T10:00:00Z',
+};
+
 function renderWorkspace() {
   return render(<I18nProvider><ProjectWorkspace /></I18nProvider>);
 }
@@ -85,7 +151,9 @@ describe('ProjectWorkspace', () => {
     vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [project], total: 1 });
     vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client], total: 1 });
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(room);
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
   });
 
   it('renders projects with their assigned clients', async () => {
@@ -221,5 +289,429 @@ describe('ProjectWorkspace', () => {
     // 6. Unmount cleanly
     unmount();
     expect(backButton.offClick).toHaveBeenCalled();
+  });
+
+  it('displays room calculations summary when opening a measured room', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(measuredRoom);
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
+
+    const summary = await screen.findByLabelText('room-calculations-summary');
+    expect(summary).toBeInTheDocument();
+    expect(within(summary).getByText(/5\.000 × 4\.000 × 2\.700 m/)).toBeInTheDocument();
+    expect(within(summary).getAllByText('20.000 m²')).toHaveLength(2); // floor & ceiling
+    expect(within(summary).getByText('18.000 m')).toBeInTheDocument(); // perimeter
+    expect(within(summary).getAllByText('48.600 m²')).toHaveLength(2); // total wall area & net wall area
+    expect(within(summary).getByText('0.000 m²')).toBeInTheDocument(); // total deductions
+  });
+
+  it('reconciles dependent state across Opening -> Surface -> Room on opening creation without page reload', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(measuredRoom);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallSurface], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+
+    renderWorkspace();
+
+    // 1. Open project and room
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
+
+    // Initial check: wall surface has 13.500 gross, 0 deduction, 13.500 net
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(screen.getByLabelText(`toggle-openings-${wallSurface.id}`)).toBeInTheDocument();
+
+    // 2. Open openings list for wallSurface
+    fireEvent.click(screen.getByLabelText(`toggle-openings-${wallSurface.id}`));
+    expect(await screen.findByLabelText(`no-openings-${wallSurface.id}`)).toBeInTheDocument();
+
+    // 3. Prepare mocked responses for after opening creation
+    const wallWithDeduction: SurfaceType = {
+      ...wallSurface,
+      deduction_area: '1.800',
+      net_area: '11.700',
+    };
+    const roomWithDeduction: RoomType = {
+      ...measuredRoom,
+      calculations: {
+        ...measuredRoom.calculations!,
+        total_deduction_area: '1.800',
+        net_wall_area: '46.800',
+      },
+    };
+
+    vi.mocked(openingsApi.createOpening).mockResolvedValue(doorOpening);
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [doorOpening], total: 1 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallWithDeduction], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(roomWithDeduction);
+
+    // 4. Click add opening and submit form
+    fireEvent.click(screen.getByLabelText(`add-opening-${wallSurface.id}`));
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.0' } });
+    fireEvent.submit(screen.getByLabelText(`opening-form-${wallSurface.id}`));
+
+    // 5. Verify Opening list refreshed
+    await waitFor(() => expect(screen.getByText('Drzwi')).toBeInTheDocument());
+    expect(screen.getByText(/0\.900 × 2\.000 m/)).toBeInTheDocument();
+
+    // 6. Verify Surface deduction & net area refreshed
+    const surfaceItem = screen.getByLabelText(`surface-item-${wallSurface.id}`);
+    expect(within(surfaceItem).getAllByText(/1\.800 m²/)).toHaveLength(2);
+    expect(within(surfaceItem).getByText(/11\.700 m²/)).toBeInTheDocument();
+
+    // 7. Verify Room aggregate calculations refreshed (total deductions and net wall area)
+    const roomSummary = screen.getByLabelText('room-calculations-summary');
+    expect(within(roomSummary).getByText('1.800 m²')).toBeInTheDocument();
+    expect(within(roomSummary).getByText('46.800 m²')).toBeInTheDocument();
+  });
+
+  it('reconciles dependent state across Opening -> Surface -> Room on opening archive and restore', async () => {
+    const wallWithDeduction: SurfaceType = {
+      ...wallSurface,
+      deduction_area: '1.800',
+      net_area: '11.700',
+    };
+    const roomWithDeduction: RoomType = {
+      ...measuredRoom,
+      calculations: {
+        ...measuredRoom.calculations!,
+        total_deduction_area: '1.800',
+        net_wall_area: '46.800',
+      },
+    };
+
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [roomWithDeduction], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(roomWithDeduction);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallWithDeduction], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [doorOpening], total: 1 });
+
+    renderWorkspace();
+
+    // Open project and room
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
+
+    // Open openings list
+    await waitFor(() => expect(screen.getByLabelText(`toggle-openings-${wallSurface.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`toggle-openings-${wallSurface.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`archive-opening-${doorOpening.id}`)).toBeInTheDocument());
+
+    // Prepare mock responses for after ARCHIVE
+    vi.mocked(openingsApi.archiveOpening).mockResolvedValue({ ...doorOpening, is_archived: true });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallSurface], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(measuredRoom);
+
+    // Click archive
+    fireEvent.click(screen.getByLabelText(`archive-opening-${doorOpening.id}`));
+
+    // Check Surface refreshed: deduction 0.000, net 13.500
+    await waitFor(() => {
+      const surfaceItem = screen.getByLabelText(`surface-item-${wallSurface.id}`);
+      expect(within(surfaceItem).getByText(/0\.000 m²/)).toBeInTheDocument();
+      expect(within(surfaceItem).getAllByText(/13\.500 m²/)).toHaveLength(2);
+    });
+
+    // Check Room summary refreshed: deductions 0.000, net 48.600
+    const roomSummaryAfterArchive = screen.getByLabelText('room-calculations-summary');
+    expect(within(roomSummaryAfterArchive).getByText('0.000 m²')).toBeInTheDocument();
+    expect(within(roomSummaryAfterArchive).getAllByText('48.600 m²')).toHaveLength(2);
+
+    // Now test RESTORE:
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [{ ...doorOpening, is_archived: true }],
+      total: 1,
+    });
+    // Show archived openings
+    fireEvent.click(screen.getByLabelText(`show-archived-openings-${wallSurface.id}`));
+
+    await waitFor(() => expect(screen.getByLabelText(`restore-opening-${doorOpening.id}`)).toBeInTheDocument());
+
+    // Prepare mock responses for after RESTORE
+    vi.mocked(openingsApi.restoreOpening).mockResolvedValue(doorOpening);
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [doorOpening], total: 1 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallWithDeduction], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(roomWithDeduction);
+
+    // Click restore
+    fireEvent.click(screen.getByLabelText(`restore-opening-${doorOpening.id}`));
+
+    // Check Surface deduction restored to 1.800, net back to 11.700
+    await waitFor(() => {
+      const surfaceItem = screen.getByLabelText(`surface-item-${wallSurface.id}`);
+      expect(within(surfaceItem).getAllByText(/1\.800 m²/)).toHaveLength(2);
+      expect(within(surfaceItem).getByText(/11\.700 m²/)).toBeInTheDocument();
+    });
+
+    // Check Room aggregate restored
+    const roomSummaryAfterRestore = screen.getByLabelText('room-calculations-summary');
+    expect(within(roomSummaryAfterRestore).getByText('1.800 m²')).toBeInTheDocument();
+    expect(within(roomSummaryAfterRestore).getByText('46.800 m²')).toBeInTheDocument();
+  });
+
+  it('reconciles dependent state on opening update', async () => {
+    const wallWithDeduction: SurfaceType = {
+      ...wallSurface,
+      deduction_area: '1.800',
+      net_area: '11.700',
+    };
+    const roomWithDeduction: RoomType = {
+      ...measuredRoom,
+      calculations: {
+        ...measuredRoom.calculations!,
+        total_deduction_area: '1.800',
+        net_wall_area: '46.800',
+      },
+    };
+
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [roomWithDeduction], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(roomWithDeduction);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallWithDeduction], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [doorOpening], total: 1 });
+
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
+
+    await waitFor(() => expect(screen.getByLabelText(`toggle-openings-${wallSurface.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`toggle-openings-${wallSurface.id}`));
+
+    await waitFor(() => expect(screen.getByLabelText(`edit-opening-${doorOpening.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`edit-opening-${doorOpening.id}`));
+
+    // Prepare mocks for updated opening (width 1.0 -> area 2.000)
+    const updatedOpening: OpeningType = {
+      ...doorOpening,
+      width: 1.0,
+      single_area: '2.000',
+      total_area: '2.000',
+    };
+    const updatedSurface: SurfaceType = {
+      ...wallSurface,
+      deduction_area: '2.000',
+      net_area: '11.500',
+    };
+    const updatedRoom: RoomType = {
+      ...measuredRoom,
+      calculations: {
+        ...measuredRoom.calculations!,
+        total_deduction_area: '2.000',
+        net_wall_area: '46.600',
+      },
+    };
+
+    vi.mocked(openingsApi.updateOpening).mockResolvedValue(updatedOpening);
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [updatedOpening], total: 1 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [updatedSurface], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(updatedRoom);
+
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '1.0' } });
+    fireEvent.submit(screen.getByLabelText(`opening-form-${wallSurface.id}`));
+
+    // Verify Opening updated
+    await waitFor(() => expect(screen.getByText(/1\.000 × 2\.000 m/)).toBeInTheDocument());
+
+    // Verify Surface deduction and net refreshed
+    const surfaceItem = screen.getByLabelText(`surface-item-${wallSurface.id}`);
+    expect(within(surfaceItem).getAllByText(/2\.000 m²/)).toHaveLength(2);
+    expect(within(surfaceItem).getByText(/11\.500 m²/)).toBeInTheDocument();
+
+    // Verify Room deductions and net wall area refreshed
+    const roomSummary = screen.getByLabelText('room-calculations-summary');
+    expect(within(roomSummary).getByText('2.000 m²')).toBeInTheDocument();
+    expect(within(roomSummary).getByText('46.600 m²')).toBeInTheDocument();
+  });
+
+  it('refreshes room measurements when editing room dimensions in-place', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(measuredRoom);
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
+
+    await waitFor(() => expect(screen.getByLabelText('edit-room-detail')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('edit-room-detail'));
+
+    expect(screen.getByLabelText('room-edit-form')).toBeInTheDocument();
+
+    const expandedRoom: RoomType = {
+      ...measuredRoom,
+      length: 6,
+      width: 4,
+      height: 2.7,
+      calculations: {
+        floor_area: '24.000',
+        ceiling_area: '24.000',
+        perimeter: '20.000',
+        total_wall_area: '54.000',
+        wall_area_length: '32.400',
+        wall_area_width: '21.600',
+        total_deduction_area: null,
+        net_wall_area: null,
+      },
+    };
+
+    vi.mocked(roomsApi.updateRoom).mockResolvedValue(expandedRoom);
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(expandedRoom);
+
+    fireEvent.change(screen.getByLabelText('room-edit-length'), { target: { value: '6' } });
+    fireEvent.submit(screen.getByLabelText('room-edit-form'));
+
+    await waitFor(() => expect(screen.queryByLabelText('room-edit-form')).not.toBeInTheDocument());
+
+    const summary = screen.getByLabelText('room-calculations-summary');
+    expect(within(summary).getByText(/6\.000 × 4\.000 × 2\.700 m/)).toBeInTheDocument();
+    expect(within(summary).getAllByText('24.000 m²')).toHaveLength(2); // floor & ceiling
+    expect(within(summary).getByText('20.000 m')).toBeInTheDocument();
+    expect(within(summary).getAllByText('54.000 m²')).toHaveLength(2); // total wall & net wall
+  });
+
+  it('represents the canonical room scenario with multiple walls, door, and window deductions', async () => {
+    const wall1: SurfaceType = {
+      id: '44444444-4444-4444-4444-444444444441',
+      room_id: measuredRoom.id,
+      name: 'Ściana 1',
+      surface_type: 'WALL',
+      width: 5,
+      height: 2.7,
+      gross_area: '13.500',
+      deduction_area: '1.800',
+      net_area: '11.700',
+      description: null,
+      is_archived: false,
+      created_at: '2026-09-09T10:00:00Z',
+      updated_at: '2026-09-09T10:00:00Z',
+    };
+
+    const wall2: SurfaceType = {
+      id: '44444444-4444-4444-4444-444444444442',
+      room_id: measuredRoom.id,
+      name: 'Ściana 2',
+      surface_type: 'WALL',
+      width: 4,
+      height: 2.7,
+      gross_area: '10.800',
+      deduction_area: '2.100',
+      net_area: '8.700',
+      description: null,
+      is_archived: false,
+      created_at: '2026-09-09T10:00:00Z',
+      updated_at: '2026-09-09T10:00:00Z',
+    };
+
+    const canonicalRoom: RoomType = {
+      ...measuredRoom,
+      calculations: {
+        floor_area: '20.000',
+        ceiling_area: '20.000',
+        perimeter: '18.000',
+        total_wall_area: '48.600',
+        wall_area_length: '27.000',
+        wall_area_width: '21.600',
+        total_deduction_area: '3.900',
+        net_wall_area: '44.700',
+      },
+    };
+
+    const door: OpeningType = {
+      id: '55555555-5555-5555-5555-555555555551',
+      surface_id: wall1.id,
+      opening_type: 'DOOR',
+      name: 'Drzwi',
+      width: 0.9,
+      height: 2.0,
+      quantity: 1,
+      single_area: '1.800',
+      total_area: '1.800',
+      description: null,
+      is_archived: false,
+      created_at: '2026-09-09T10:00:00Z',
+      updated_at: '2026-09-09T10:00:00Z',
+    };
+
+    const windowOpening: OpeningType = {
+      id: '55555555-5555-5555-5555-555555555552',
+      surface_id: wall2.id,
+      opening_type: 'WINDOW',
+      name: 'Okno',
+      width: 1.5,
+      height: 1.4,
+      quantity: 1,
+      single_area: '2.100',
+      total_area: '2.100',
+      description: null,
+      is_archived: false,
+      created_at: '2026-09-09T10:00:00Z',
+      updated_at: '2026-09-09T10:00:00Z',
+    };
+
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [canonicalRoom], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(canonicalRoom);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wall1, wall2], total: 2 });
+    vi.mocked(openingsApi.fetchOpenings).mockImplementation(async (_p, _r, surfaceId) => {
+      if (surfaceId === wall1.id) return { items: [door], total: 1 };
+      if (surfaceId === wall2.id) return { items: [windowOpening], total: 1 };
+      return { items: [], total: 0 };
+    });
+
+    renderWorkspace();
+
+    // Open project and room
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${canonicalRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${canonicalRoom.id}`));
+
+    // 1. Verify Room aggregate calculations:
+    const roomSummary = await screen.findByLabelText('room-calculations-summary');
+    expect(within(roomSummary).getByText(/5\.000 × 4\.000 × 2\.700 m/)).toBeInTheDocument();
+    expect(within(roomSummary).getAllByText('20.000 m²')).toHaveLength(2); // floor & ceiling
+    expect(within(roomSummary).getByText('18.000 m')).toBeInTheDocument(); // perimeter
+    expect(within(roomSummary).getByText('48.600 m²')).toBeInTheDocument(); // total gross wall area
+    expect(within(roomSummary).getByText('3.900 m²')).toBeInTheDocument(); // total deduction area
+    expect(within(roomSummary).getByText('44.700 m²')).toBeInTheDocument(); // net wall area
+
+    // 2. Verify Wall 1:
+    const wall1Item = screen.getByLabelText(`surface-item-${wall1.id}`);
+    expect(within(wall1Item).getByText('Ściana 1')).toBeInTheDocument();
+    expect(within(wall1Item).getByText(/5\.000 × 2\.700 m/)).toBeInTheDocument();
+    expect(within(wall1Item).getByText(/13\.500 m²/)).toBeInTheDocument();
+    expect(within(wall1Item).getByText(/1\.800 m²/)).toBeInTheDocument();
+    expect(within(wall1Item).getByText(/11\.700 m²/)).toBeInTheDocument();
+
+    // 3. Verify Wall 2:
+    const wall2Item = screen.getByLabelText(`surface-item-${wall2.id}`);
+    expect(within(wall2Item).getByText('Ściana 2')).toBeInTheDocument();
+    expect(within(wall2Item).getByText(/4\.000 × 2\.700 m/)).toBeInTheDocument();
+    expect(within(wall2Item).getByText(/10\.800 m²/)).toBeInTheDocument();
+    expect(within(wall2Item).getByText(/2\.100 m²/)).toBeInTheDocument();
+    expect(within(wall2Item).getByText(/8\.700 m²/)).toBeInTheDocument();
+
+    // 4. Open Wall 1 openings and verify Door:
+    fireEvent.click(screen.getByLabelText(`toggle-openings-${wall1.id}`));
+    await waitFor(() => expect(within(wall1Item).getByText('Drzwi')).toBeInTheDocument());
+    expect(within(wall1Item).getByText(/0\.900 × 2\.000 m/)).toBeInTheDocument();
+
+    // 5. Open Wall 2 openings and verify Window:
+    fireEvent.click(screen.getByLabelText(`toggle-openings-${wall2.id}`));
+    await waitFor(() => expect(within(wall2Item).getByText('Okno')).toBeInTheDocument());
+    expect(within(wall2Item).getByText(/1\.500 × 1\.400 m/)).toBeInTheDocument();
   });
 });
