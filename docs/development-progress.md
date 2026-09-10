@@ -11,23 +11,42 @@
 
 | Stage | Title | Status | Primary Focus |
 | :--- | :--- | :--- | :--- |
-| **Stage 0** | **Engineering Workflow & Architecture Rules** | **Completed** | Foundation rules, `.gitignore`, `.agents/rules/`, `GEMINI.md`, progress tracker |
-| **Stage 1** | **Project Scaffolding & CI Foundation** | **Completed** | Minimal working monorepo skeleton (FastAPI, React+Vite, aiogram 3, Docker Compose) |
-| **Stage 2** | **Telegram Mini App Authentication** | **Completed** | Backend authentication foundation: cryptographic HMAC-SHA256 `initData` validation, User model and migration, JWT session, development mock protection |
-| **Stage 3** | **Client Management** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU) |
-| **Stage 3B** | **Client Module Verification** | **Completed** | Expanded search, archive-filter, and owner-isolation regression coverage |
-| **Stage 3C** | **Claude Code Instructions & Roadmap Consistency** | **Completed** | Claude Code guidance, stage skills, dependency-safe roadmap |
-| **Stage 4** | **Project / Room / Surface Foundation** | **Completed** | Owner-isolated Project, optional Client association, Room, Surface, frontend hierarchy, and final integration verification |
-| **Stage 5** | **Telegram Mini App Shell & Auth** | **Completed** | Parent execution stage for official Telegram WebApp runtime, authentication, theme adaptation, and native navigation integration (functional hardening for original Stage 2 Telegram integration) |
-| **Stage 5A** | **README Refresh & Telegram Mini App Shell Foundation** | **Completed** | Official WebApp runtime, centralized access, `ready()`, `expand()`, and preserved browser development flow |
-| **Stage 5B** | **Real Telegram WebApp Authentication Flow** | **Completed** | Raw real `initData` forwarding, backend-only validation, explicit development mock gating, JWT ordering, localized failures |
-| **Stage 5C** | **Telegram Theme, Viewport & BackButton Integration** | **Completed** | Telegram theme adaptation, viewport stability, and native BackButton hierarchy navigation (Stage 2 functional hardening) |
-| Stage 6 | Room Measurements & Surface Manager | Pending | Interactive room dimensions, openings subtraction, and surface totals |
-| Stage 7 | Substrate Inspection & Risk Engine | Pending | Project/surface-anchored diagnostics, deterministic risks, and technical warnings |
-| Stage 8 | Estimates & Quotation | Pending | Estimate generator, PDF export preparation, and client approval flow |
-| Stage 9 | Technical Protocols & Handover | Pending | Acceptance protocols (stan zero, roboty zanikające, protokół końcowy) |
-| Stage 10 | Contracts & Legal Knowledge | Pending | Contract generator, standard clauses, and client communication phrases |
-| Stage 11 | Offline Drafts & S3 Photo Storage | Pending | IndexedDB offline draft synchronization and S3 photo attachments |
+| **Stage 0** | **Engineering/project rules** | **Completed** | Master rules (`GEMINI.md`, `.agents/rules/`), `.gitignore`, development progress tracker |
+| **Stage 1** | **Project skeleton/infrastructure** | **Completed** | Monorepo skeleton (FastAPI, React+Vite, aiogram 3, Docker Compose, PostgreSQL 16) |
+| **Stage 2** | **Telegram Mini App authentication/integration** | **Completed** | HMAC-SHA256 `initData` validation, User model, JWT sessions, mock gating, runtime shell, theme adaptation, viewport stability, and BackButton |
+| **Stage 3** | **Clients** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU), verification coverage |
+| **Stage 4** | **Projects / Obiekty** | **Completed** | Central aggregate root: Project model, address fields, status lifecycle, optional Client link, owner isolation |
+| **Stage 5** | **Rooms, surfaces and measurements** | **In Progress** | Room and Surface hierarchy implemented; room measurements, openings subtraction, and surface totals pending |
+| Stage 6 | Inspection Checklist Engine | Pending | Substrate diagnostics, checklist questions, inspection records anchored to surfaces |
+| Stage 7 | Risk Rules Engine | Pending | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
+| Stage 8 | "Co powiedzieć klientowi" | Pending | Ready-to-use professional explanations and client communication scripts (PL/RU) |
+| Stage 9 | Editable Price Book | Pending | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges |
+| Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
+| Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
+| Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
+| Stage 13 | Technological workflows | Pending | Work sequencing, technological breaks, drying times, stage tracking |
+| Stage 14 | Photo fixation / object storage | Pending | Visual documentation: before/after, defects, concealed works (S3-compatible storage) |
+| Stage 15 | Documents / PDF | Pending | Printable estimate, contract, and technical protocol generation (Jinja2 + WeasyPrint) |
+| Stage 16 | Contracts and protective protocols | Pending | Binding contract generator, site handover protocol, concealed works, final acceptance |
+| Stage 17 | Legal knowledge base + situation search | Pending | Polish Building Law, ITB conditions, PN-EN norms, legal situation lookup |
+| Stage 18 | Calendar and Telegram reminders | Pending | Schedule management, milestone reminders, technological break notifications |
+| Stage 19 | Offline drafts | Pending | IndexedDB offline draft storage for basements/no-signal areas, sync engine |
+| Stage 20 | Full MVP audit and end-to-end object scenario | Pending | End-to-end walkthrough: client → project → inspection → estimate → contract → handover |
+
+---
+
+## Historical Commit & Stage Identifier Mapping
+
+> **Important Historical Note**: During earlier development and iterative stage reconciliation, some completed Git commits and prompts used temporary execution sub-stage labels (such as Stage 3B, 3C, 4A–4F, 5A–5C). In accordance with the immutable repository governance rules, git history is never rewritten. The table below documents the authoritative mapping from historical Git commits to the canonical 21-stage product roadmap (Stages 0–20):
+
+| Historical Git Commits / Sub-Stages | Canonical Product Stage | Mapping Description |
+| :--- | :--- | :--- |
+| `6c05c99` (`chore(stage-0)`) | **Stage 0** — Engineering/project rules | Foundation workflow rules, architecture standards, directory layout |
+| `3165661` (`feat(stage-1)`) | **Stage 1** — Project skeleton/infrastructure | Backend, frontend, bot scaffolding, Docker Compose, PostgreSQL |
+| `d8127ce` (`feat(stage-2)`), `a2787fa` (`feat(stage-5a)`), `df91132` (`feat(stage-5b)`), `0208572` (`fix(dev)`), `4ff8e1b` (`feat(stage-5c)`) | **Stage 2** — Telegram Mini App authentication/integration | Core Telegram `initData` HMAC-SHA256 validation, User model, JWT auth, and subsequent Telegram WebApp runtime shell, theme adaptation, viewport stability, and BackButton integration hardening |
+| `45e4b99` (`feat(stage-3)`), `22df7fe` (`test(stage-3b)`), `07f4f1b` (`docs(stage-3c)`) | **Stage 3** — Clients | Client CRUD, soft archive, search, owner isolation, i18n PL/RU, verification coverage, Claude guidance |
+| `12fcdd0` (`feat(stage-4a)`), `39f389a` (`feat(stage-4b)`) | **Stage 4** — Projects / Obiekty | Project / Obiekt aggregate root domain model, status lifecycle, optional Client association, owner isolation |
+| `baa95e7` (`feat(stage-4c)`), `c56c767` (`feat(stage-4d)`), `542ed15` (`feat(stage-4e)`), `cfcbbcc` (`docs(stage-4f)`) | **Stage 5** — Rooms, surfaces and measurements (Partial) | Room and Surface domain models, semantic surface types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), hierarchy navigation UI (`Project → Room → Surface`). **Room metric measurements, openings subtraction, and surface totals are pending.** |
 
 ---
 
@@ -692,7 +711,16 @@
 - `git diff --check`: PASS.
 
 #### Deferred:
-- All Stage 6 (room measurements and surface manager) and subsequent product modules remain deferred pending explicit project-owner instruction.
+- Room metric measurements, openings subtraction, and surface area totals in Canonical Stage 5, followed by all subsequent canonical stages (Stages 6–20), remain deferred pending explicit project-owner approval.
+
+---
+
+### Canonical Stage 5: Rooms, Surfaces and Measurements
+- **Status**: In Progress
+- **Scope & Canonical Mapping**:
+  - **Implemented (partial)**: Room and Surface backend domain entities, PostgreSQL migrations (`0005_create_rooms_table.py`, `0006_create_surfaces_table.py`), hierarchical API routes, semantic surface types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), owner isolation, active/archive filtering, and mobile-first `Projects → Project → Rooms → Room → Surfaces` frontend workspace (completed under historical commits `baa95e7`, `c56c767`, `542ed15`, `cfcbbcc`).
+  - **Remaining / Pending**: Interactive metric room dimensions (length, width, height), openings subtraction (windows, doors), net wall and ceiling area calculations, and aggregate surface totals.
+- **Gate**: Canonical Stage 5 remains **IN PROGRESS** until real measurements, openings subtraction, and surface totals are implemented, tested, and manually verified.
 
 ---
 

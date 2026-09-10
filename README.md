@@ -2,20 +2,27 @@
 
 Telegram Mini App for managing interior finishing and renovation work in Poland (*prace wykończeniowe i remontowe*).
 
-## Implemented through Stage 5B
+## Implementation status
 
-- Official Telegram WebApp runtime shell with centralized runtime access, `ready()`, and `expand()` initialization.
-- Real Telegram WebApp authentication that forwards raw `initData` unchanged for backend-only validation.
-- Authentication backend with cryptographic HMAC-SHA256 signature and freshness validation, User persistence, and JWT sessions.
-- Explicit browser development mock authentication that cannot be enabled by the production frontend flow.
-- Localized Polish and Russian authentication failure states.
-- Client management.
-- Project / Obiekt management with an optional Project → Client association.
-- Room management nested under Projects.
-- Surface management nested under Rooms, including semantic surface types.
-- Polish and Russian UI localization.
-- Owner isolation across Client, Project, Room, and Surface access.
-- Active/archive filtering with archive and restore flows.
+### Canonical Stages 0–4 (Completed)
+
+- **Stage 0**: Engineering workflow, architectural invariants, and domain rules (`GEMINI.md`, `.agents/rules/`).
+- **Stage 1**: Application infrastructure, Docker PostgreSQL 16, FastAPI backend, React Vite frontend, aiogram bot skeleton.
+- **Stage 2**: Telegram Mini App authentication and integration hardening:
+  - Backend cryptographic HMAC-SHA256 signature and freshness validation of raw `initData`.
+  - User model, database migration, and JWT sessions.
+  - Official Telegram WebApp runtime shell (`ready()`, `expand()`).
+  - Real Telegram `initData` forwarded unchanged; browser mock authentication strictly gated to local dev.
+  - Telegram theme adaptation via dynamic CSS custom properties and viewport height tracking.
+  - Native Telegram `BackButton` integrated with application navigation hierarchy.
+  - Localized Polish and Russian authentication failure states.
+- **Stage 3**: Client management with owner isolation, search, active/archive filtering, and PL/RU localization.
+- **Stage 4**: Project / Obiekt central aggregate root with status lifecycle, optional Client association, and owner isolation.
+
+### Canonical Stage 5: Rooms, surfaces and measurements (In Progress)
+
+- **Implemented**: Room management nested under Projects, Surface management nested under Rooms with semantic types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), hierarchy navigation, active/archive filtering.
+- **Pending**: Room metric dimensions (length, width, height), opening subtractions (windows, doors), and calculated surface area totals.
 
 ## Domain hierarchy
 

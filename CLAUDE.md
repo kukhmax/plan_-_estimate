@@ -22,11 +22,11 @@ The imported files are the source of truth for project architecture, domain rule
 
 ## ROADMAP IMMUTABILITY
 
-- `docs/development-progress.md` is the canonical product roadmap. Git history and committed functionality are authoritative for completed implementation.
-- Completed stage identifiers and numbers are immutable. Never rename or renumber them.
-- Never reorder, insert, remove, rename, merge, or split future product stages without explicit project-owner instruction.
-- Execution sub-stages such as 5A, 5B, and 5C are allowed only when they preserve the parent product stage's scope and ordering.
-- Completing or verifying a stage never authorizes starting the next stage. Stop and wait for explicit project-owner approval.
+- The 21-stage sequence (Stage 0 to Stage 20) in `docs/development-progress.md` is the canonical product roadmap confirmed by the project owner.
+- Claude Code must never renumber, reorder, insert, remove, rename, merge, or split canonical product stages.
+- Implementation sub-stages (such as 5A, 5B, 5C) may be used only within the same canonical product stage and must strictly preserve the parent stage's scope and ordering.
+- Historical Git commit labels (such as `feat(stage-5a)`) reflect past development iterations and do not override or redefine the canonical stage mapping.
+- Explicit project-owner approval is strictly required to change this roadmap or to start any new stage.
 
 ## Common commands
 
