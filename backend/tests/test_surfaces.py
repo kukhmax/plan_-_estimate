@@ -132,6 +132,8 @@ async def test_create_each_supported_surface_type(
         "width",
         "height",
         "gross_area",
+        "deduction_area",
+        "net_area",
         "is_archived",
         "created_at",
         "updated_at",
@@ -142,6 +144,8 @@ async def test_create_each_supported_surface_type(
     assert data["width"] is None
     assert data["height"] is None
     assert data["gross_area"] is None
+    assert data["deduction_area"] is None
+    assert data["net_area"] is None
     assert data["is_archived"] is False
 
 

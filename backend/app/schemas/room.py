@@ -72,6 +72,8 @@ class RoomCalculations(BaseModel):
     wall_area_length: Decimal
     wall_area_width: Decimal
     perimeter: Decimal
+    total_deduction_area: Decimal | None = None
+    net_wall_area: Decimal | None = None
 
 
 class RoomRead(BaseModel):
@@ -106,6 +108,8 @@ class RoomRead(BaseModel):
                     wall_area_length=geom.wall_area_length,
                     wall_area_width=geom.wall_area_width,
                     perimeter=geom.perimeter,
+                    total_deduction_area=Decimal("0.000"),
+                    net_wall_area=geom.total_wall_area,
                 )
         return self
 

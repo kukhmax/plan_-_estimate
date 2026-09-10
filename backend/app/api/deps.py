@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.domain.services.auth_service import TelegramAuthService
 from app.domain.services.client_service import ClientService
+from app.domain.services.opening_service import OpeningService
 from app.domain.services.project_service import ProjectService
 from app.domain.services.room_service import RoomService
 from app.domain.services.surface_service import SurfaceService
@@ -77,3 +78,9 @@ async def get_surface_service(
     db: AsyncSession = Depends(get_db),
 ) -> SurfaceService:
     return SurfaceService(db)
+
+
+async def get_opening_service(
+    db: AsyncSession = Depends(get_db),
+) -> OpeningService:
+    return OpeningService(db)

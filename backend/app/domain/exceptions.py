@@ -15,3 +15,15 @@ class RoomNotFoundError(Exception):
 
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
+
+
+class OpeningNotFoundError(Exception):
+    """Raised when an opening is not found within an owned surface."""
+
+
+class InvalidSurfaceTypeError(Exception):
+    """Raised when an opening is attached to a surface that is not a WALL."""
+
+
+class DeductionExceedsGrossAreaError(Exception):
+    """Raised when total opening deductions exceed wall surface gross area."""

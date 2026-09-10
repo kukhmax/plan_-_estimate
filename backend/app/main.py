@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.clients import router as clients_router
 from app.api.v1.endpoints.health import router as health_router
+from app.api.v1.endpoints.openings import router as openings_router
 from app.api.v1.endpoints.projects import router as projects_router
 from app.api.v1.endpoints.rooms import router as rooms_router
 from app.api.v1.endpoints.surfaces import router as surfaces_router
@@ -30,3 +31,4 @@ app.include_router(clients_router, prefix="/api", tags=["clients"])
 app.include_router(projects_router, prefix="/api", tags=["projects"])
 app.include_router(rooms_router, prefix="/api", tags=["rooms"])
 app.include_router(surfaces_router, prefix="/api", tags=["surfaces"])
+app.include_router(openings_router, prefix="/api", tags=["openings"])

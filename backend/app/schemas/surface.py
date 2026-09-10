@@ -4,7 +4,10 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.domain.rules.room_geometry import calculate_surface_gross_area
+from app.domain.rules.room_geometry import (
+    calculate_surface_gross_area,
+    calculate_wall_net_area,
+)
 from app.models.surface import SurfaceType
 
 
@@ -64,6 +67,8 @@ class SurfaceRead(BaseModel):
     width: Decimal | None = None
     height: Decimal | None = None
     gross_area: Decimal | None = None
+    deduction_area: Decimal | None = None
+    net_area: Decimal | None = None
     is_archived: bool
     created_at: datetime
     updated_at: datetime
@@ -71,13 +76,27 @@ class SurfaceRead(BaseModel):
     model_config = {"from_attributes": True}
 
     @model_validator(mode="after")
-    def compute_gross_area(self) -> "SurfaceRead":
+    def compute_areas(self) -> "SurfaceRead":
         if self.gross_area is None and self.width is not None and self.height is not None:
             self.gross_area = calculate_surface_gross_area(
                 self.surface_type,
                 self.width,
                 self.height,
             )
+        if self.surface_type == SurfaceType.WALL:
+            if self.gross_area is not None:
+                if self.deduction_area is None:
+                    self.deduction_area = Decimal("0.000")
+                if self.net_area is None:
+                    self.net_area = calculate_wall_net_area(
+                        self.gross_area,
+                        self.deduction_area,
+                    )
+            else:
+                self.net_area = None
+        else:
+            self.deduction_area = None
+            self.net_area = None
         return self
 
 

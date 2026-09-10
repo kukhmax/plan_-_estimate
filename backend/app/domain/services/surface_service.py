@@ -1,16 +1,19 @@
+from decimal import Decimal
 import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import (
+    DeductionExceedsGrossAreaError,
     ProjectNotFoundError,
     RoomNotFoundError,
     SurfaceNotFoundError,
 )
+from app.models.opening import Opening
 from app.models.project import Project
 from app.models.room import Room
-from app.models.surface import Surface
+from app.models.surface import Surface, SurfaceType
 from app.schemas.surface import SurfaceCreate, SurfaceUpdate
 
 
@@ -50,17 +53,45 @@ class SurfaceService:
     ) -> tuple[list[Surface], int]:
         await self._ensure_room_owned(project_id, room_id, owner_id)
 
-        stmt = select(Surface).where(Surface.room_id == room_id)
+        deduction_subq = (
+            select(
+                Opening.surface_id,
+                func.coalesce(
+                    func.sum(Opening.width * Opening.height * Opening.quantity), 0
+                ).label("deduction_sum"),
+            )
+            .where(Opening.is_archived.is_(False))
+            .group_by(Opening.surface_id)
+            .subquery()
+        )
+
+        stmt = (
+            select(Surface, func.coalesce(deduction_subq.c.deduction_sum, 0))
+            .outerjoin(deduction_subq, Surface.id == deduction_subq.c.surface_id)
+            .where(Surface.room_id == room_id)
+        )
         if not include_archived:
             stmt = stmt.where(Surface.is_archived.is_(False))
 
-        count_stmt = select(func.count()).select_from(stmt.subquery())
+        count_stmt = select(func.count()).select_from(
+            select(Surface.id)
+            .where(Surface.room_id == room_id)
+            .where(Surface.is_archived.is_(False) if not include_archived else True)
+            .subquery()
+        )
         count_result = await self.db.execute(count_stmt)
         total = count_result.scalar_one()
 
         stmt = stmt.order_by(Surface.created_at.desc())
         result = await self.db.execute(stmt)
-        items = list(result.scalars().all())
+        rows = result.all()
+
+        items = []
+        for surface, deduction_sum in rows:
+            if surface.surface_type == SurfaceType.WALL and surface.width is not None and surface.height is not None:
+                surface.deduction_area = Decimal(deduction_sum).quantize(Decimal("0.001"))
+            items.append(surface)
+
         return items, total
 
     async def create_surface(
@@ -83,6 +114,8 @@ class SurfaceService:
         self.db.add(surface)
         await self.db.commit()
         await self.db.refresh(surface)
+        if surface.surface_type == SurfaceType.WALL and surface.width is not None and surface.height is not None:
+            surface.deduction_area = Decimal("0.000")
         return surface
 
     async def get_surface(
@@ -102,6 +135,19 @@ class SurfaceService:
         surface = result.scalar_one_or_none()
         if not surface:
             raise SurfaceNotFoundError(f"Surface {surface_id} not found")
+
+        if surface.surface_type == SurfaceType.WALL and surface.width is not None and surface.height is not None:
+            deduction_stmt = select(
+                func.coalesce(
+                    func.sum(Opening.width * Opening.height * Opening.quantity), 0
+                )
+            ).where(
+                Opening.surface_id == surface_id,
+                Opening.is_archived.is_(False),
+            )
+            deduction_res = await self.db.execute(deduction_stmt)
+            surface.deduction_area = Decimal(deduction_res.scalar_one()).quantize(Decimal("0.001"))
+
         return surface
 
     async def update_surface(
@@ -113,11 +159,45 @@ class SurfaceService:
         owner_id: uuid.UUID,
     ) -> Surface:
         surface = await self.get_surface(project_id, room_id, surface_id, owner_id)
+
+        target_width = payload.width if payload.width is not None else surface.width
+        target_height = payload.height if payload.height is not None else surface.height
+        target_type = payload.surface_type if payload.surface_type is not None else surface.surface_type
+
+        # Validate that new dimensions do not cause existing active deductions to exceed gross area
+        if target_type == SurfaceType.WALL and target_width is not None and target_height is not None:
+            new_gross = (target_width * target_height).quantize(Decimal("0.001"))
+            deduction_stmt = select(
+                func.coalesce(
+                    func.sum(Opening.width * Opening.height * Opening.quantity), 0
+                )
+            ).where(
+                Opening.surface_id == surface_id,
+                Opening.is_archived.is_(False),
+            )
+            deduction_res = await self.db.execute(deduction_stmt)
+            current_deductions = Decimal(deduction_res.scalar_one()).quantize(Decimal("0.001"))
+            if current_deductions > new_gross:
+                raise DeductionExceedsGrossAreaError(
+                    f"New gross area ({new_gross}) is smaller than current active opening deductions ({current_deductions})"
+                )
+
         for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(surface, field, value)
 
         await self.db.commit()
         await self.db.refresh(surface)
+        if surface.surface_type == SurfaceType.WALL and surface.width is not None and surface.height is not None:
+            deduction_stmt = select(
+                func.coalesce(
+                    func.sum(Opening.width * Opening.height * Opening.quantity), 0
+                )
+            ).where(
+                Opening.surface_id == surface_id,
+                Opening.is_archived.is_(False),
+            )
+            deduction_res = await self.db.execute(deduction_stmt)
+            surface.deduction_area = Decimal(deduction_res.scalar_one()).quantize(Decimal("0.001"))
         return surface
 
     async def archive_surface(

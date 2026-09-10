@@ -763,12 +763,72 @@
 - Owner isolation & 404 security: PASS.
 - Pre-existing room/surface backward compatibility: PASS.
 
+#### Execution Sub-Stage 5B: Openings, Deductions & Net Surface Area
+- **Status**: Completed
+- **Date**: 2026-09-10
+- **Scope**:
+  - Added first-class `Opening` entity attached strictly to `WALL` surfaces (`opening_type` in `DOOR`, `WINDOW`, `OTHER`).
+  - High-precision dimensions in meters using `sa.Numeric(10, 3)` and Python `Decimal` (`width`, `height`, integer `quantity >= 1`).
+  - Implemented pure domain opening area calculations in `app/domain/rules/room_geometry.py`:
+    - `single_area = (width * height).quantize(Decimal("0.001"))`
+    - `total_area = (width * height * quantity).quantize(Decimal("0.001"))`
+    - Wall deduction area = sum of active opening deductions
+    - Wall net area = `gross_area - deduction_area` (strictly non-negative; zero when deductions equal gross area)
+    - Non-WALL surfaces (`FLOOR`, `CEILING`, `OTHER`) return `None` for deductions and net area.
+  - Geometry integrity & over-deduction protection:
+    - Prevented creating, updating, or restoring openings where deductions would exceed gross wall area (`DeductionExceedsGrossAreaError` -> HTTP 422).
+    - Prevented shrinking wall surface dimensions smaller than existing active deductions (`DeductionExceedsGrossAreaError` -> HTTP 422).
+    - Persisted state remains completely unchanged on rejected write operations.
+  - Canonical acceptance room verified:
+    - Room: $5.000 \times 4.000 \times 2.700\text{ m}$
+    - Wall 1: $13.500\text{ m}^2$ gross, Door $0.900 \times 2.000\text{ m}$ ($1.800\text{ m}^2$), net $11.700\text{ m}^2$
+    - Wall 2: $10.800\text{ m}^2$ gross, Window $1.500 \times 1.400\text{ m}$ ($2.100\text{ m}^2$), net $8.700\text{ m}^2$
+    - Wall 3: $13.500\text{ m}^2$ gross, net $13.500\text{ m}^2$
+    - Wall 4: $10.800\text{ m}^2$ gross, net $10.800\text{ m}^2$
+    - Total gross wall area: $48.600\text{ m}^2$
+    - Total deductions: $3.900\text{ m}^2$
+    - Total net wall area: $44.700\text{ m}^2$ ($48.600 - 3.900 = 44.700\text{ m}^2$)
+  - Room aggregation architecture:
+    - Child-dependent totals calculated strictly in domain/service aggregation layer with zero N+1 queries.
+    - `SurfaceService.list_surfaces` and `RoomService.list_rooms` use aggregated PostgreSQL subqueries outer-joined in single roundtrips.
+    - Composite index `ix_openings_surface_archived(surface_id, is_archived)` for high query efficiency.
+  - Archive/restore behavior:
+    - Archiving opening excludes it from deductions and restores net wall area.
+    - Restoring opening re-includes it in deductions, blocked if wall shrunk in between.
+    - In multiple-opening setups, archiving one updates deductions accurately.
+  - Transitive owner isolation across 4 levels (`Owner → Project → Room → Surface → Opening`):
+    - Foreign/mismatched IDs return uniform 404 responses.
+    - Unauthenticated requests return 401.
+
+#### Sub-Stage 5B Database:
+- Migration: `backend/alembic/versions/0008_create_openings_table.py` (parent: `0007_add_measurement_dimensions`).
+- Table created: `openings` with enum `openingtype` (`DOOR`, `WINDOW`, `OTHER`), UUID PK, `surface_id` FK with `ON DELETE CASCADE`, `width`, `height`, `quantity`, `description`, `is_archived`, UTC timestamps, and index `ix_openings_surface_archived`.
+- Reversibility verified via `downgrade -1` and `upgrade head` cycle against PostgreSQL.
+
+#### Sub-Stage 5B Tests:
+- Focused opening suite (`test_openings.py`): 23 passed, 0 failed.
+- Targeted measurement & hierarchy suites (`test_openings.py`, `test_room_measurements.py`, `test_surfaces.py`, `test_rooms.py`): 76 passed, 0 failed.
+- Full backend test suite: 123 passed, 0 failed.
+- Full frontend test suite: 37 passed, 0 failed.
+- TypeScript strict typecheck: PASS (0 errors).
+- Frontend production build: PASS (46 modules transformed).
+- `git diff --check`: PASS (0 errors).
+
+#### Sub-Stage 5B Verification:
+- Opening domain rules & WALL-only restriction: PASS.
+- Decimal opening area & net surface calculations: PASS.
+- Geometry integrity & over-deduction protection on all write paths: PASS.
+- Canonical room verification ($48.600 - 3.900 = 44.700\text{ m}^2$): PASS.
+- Query performance & zero N+1 patterns: PASS.
+- Reversible migration `0008_create_openings_table.py`: PASS.
+- 4-level security and owner isolation: PASS.
+- Archive / restore edge cases (Scenarios A, B, C): PASS.
+- Backward compatibility: PASS.
+
 #### Remaining Canonical Stage 5 Work:
-- Openings (doors, windows, architectural niches)
-- Deductions rules & opening subtraction
-- Net wall and ceiling surface area calculations
-- Measurement UI in frontend Mini App
-- Full manual room acceptance scenario
+- Measurement frontend UI
+- Practical room measurement workflow
+- Manual acceptance test: 5 × 4 × 2.7 + 4 walls + door + window
 
 ---
 
