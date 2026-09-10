@@ -216,6 +216,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
               <input
                 aria-label="room-length"
                 type="number"
+                inputMode="decimal"
                 min="0.001"
                 step="0.001"
                 placeholder="5.000"
@@ -229,6 +230,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
               <input
                 aria-label="room-width"
                 type="number"
+                inputMode="decimal"
                 min="0.001"
                 step="0.001"
                 placeholder="4.000"
@@ -242,6 +244,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
               <input
                 aria-label="room-height"
                 type="number"
+                inputMode="decimal"
                 min="0.001"
                 step="0.001"
                 placeholder="2.700"

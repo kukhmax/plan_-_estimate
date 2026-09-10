@@ -714,4 +714,26 @@ describe('ProjectWorkspace', () => {
     await waitFor(() => expect(within(wall2Item).getByText('Okno')).toBeInTheDocument());
     expect(within(wall2Item).getByText(/1\.500 × 1\.400 m/)).toBeInTheDocument();
   });
+
+  it('opens room edit form when clicking measure-room-action in unmeasured notice', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(room);
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
+
+    const unmeasuredNotice = await screen.findByLabelText('room-unmeasured-notice');
+    expect(unmeasuredNotice).toBeInTheDocument();
+    const measureBtn = screen.getByLabelText('measure-room-action');
+    expect(measureBtn).toBeInTheDocument();
+
+    fireEvent.click(measureBtn);
+    expect(screen.getByLabelText('room-edit-form')).toBeInTheDocument();
+    expect(screen.getByLabelText('room-edit-length')).toHaveAttribute('inputMode', 'decimal');
+    expect(screen.getByLabelText('room-edit-width')).toHaveAttribute('inputMode', 'decimal');
+    expect(screen.getByLabelText('room-edit-height')).toHaveAttribute('inputMode', 'decimal');
+  });
 });

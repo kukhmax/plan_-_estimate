@@ -16,7 +16,7 @@
 | **Stage 2** | **Telegram Mini App authentication/integration** | **Completed** | HMAC-SHA256 `initData` validation, User model, JWT sessions, mock gating, runtime shell, theme adaptation, viewport stability, and BackButton |
 | **Stage 3** | **Clients** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU), verification coverage |
 | **Stage 4** | **Projects / Obiekty** | **Completed** | Central aggregate root: Project model, address fields, status lifecycle, optional Client link, owner isolation |
-| **Stage 5** | **Rooms, surfaces and measurements** | **In Progress** | Room and Surface hierarchy implemented; room measurements, openings subtraction, and surface totals pending |
+| **Stage 5** | **Rooms, surfaces and measurements** | **In Progress** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, and practical mobile measurement workflow implemented; final manual acceptance pending |
 | Stage 6 | Inspection Checklist Engine | Pending | Substrate diagnostics, checklist questions, inspection records anchored to surfaces |
 | Stage 7 | Risk Rules Engine | Pending | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
 | Stage 8 | "Co powiedzieć klientowi" | Pending | Ready-to-use professional explanations and client communication scripts (PL/RU) |
@@ -46,7 +46,7 @@
 | `d8127ce` (`feat(stage-2)`), `a2787fa` (`feat(stage-5a)`), `df91132` (`feat(stage-5b)`), `0208572` (`fix(dev)`), `4ff8e1b` (`feat(stage-5c)`) | **Stage 2** — Telegram Mini App authentication/integration | Core Telegram `initData` HMAC-SHA256 validation, User model, JWT auth, and subsequent Telegram WebApp runtime shell, theme adaptation, viewport stability, and BackButton integration hardening |
 | `45e4b99` (`feat(stage-3)`), `22df7fe` (`test(stage-3b)`), `07f4f1b` (`docs(stage-3c)`) | **Stage 3** — Clients | Client CRUD, soft archive, search, owner isolation, i18n PL/RU, verification coverage, Claude guidance |
 | `12fcdd0` (`feat(stage-4a)`), `39f389a` (`feat(stage-4b)`) | **Stage 4** — Projects / Obiekty | Project / Obiekt aggregate root domain model, status lifecycle, optional Client association, owner isolation |
-| `baa95e7` (`feat(stage-4c)`), `c56c767` (`feat(stage-4d)`), `542ed15` (`feat(stage-4e)`), `cfcbbcc` (`docs(stage-4f)`) | **Stage 5** — Rooms, surfaces and measurements (Partial) | Room and Surface domain models, semantic surface types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), hierarchy navigation UI (`Project → Room → Surface`). **Room metric measurements, openings subtraction, and surface totals are pending.** |
+| `baa95e7` (`feat(stage-4c)`), `c56c767` (`feat(stage-4d)`), `542ed15` (`feat(stage-4e)`), `cfcbbcc` (`docs(stage-4f)`) | **Stage 5** — Rooms, surfaces and measurements (Partial) | Room and Surface domain models, semantic surface types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), hierarchy navigation UI (`Project → Room → Surface`), metric room/surface measurements, openings subtraction, and net area totals (execution sub-stages 5A–5D). |
 
 ---
 
@@ -720,7 +720,10 @@
 - **Scope & Canonical Mapping**:
   - **Implemented (partial)**: Room and Surface backend domain entities, PostgreSQL migrations (`0005_create_rooms_table.py`, `0006_create_surfaces_table.py`), hierarchical API routes, semantic surface types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), owner isolation, active/archive filtering, and mobile-first `Projects → Project → Rooms → Room → Surfaces` frontend workspace (completed under historical commits `baa95e7`, `c56c767`, `542ed15`, `cfcbbcc`).
   - **Execution Sub-Stage 5A (Completed)**: Room physical dimensions (`length`, `width`, `height`), individual `WALL` surface dimensions (`width`, `height`), deterministic rectangular room gross geometry (`floor_area`, `ceiling_area`, `total_wall_area`, `wall_area_length`, `wall_area_width`, `perimeter`), surface gross area calculations, high-precision `sa.Numeric(10, 3)` / `Decimal` arithmetic, forward Alembic migration `0007_add_measurement_dimensions.py`, backward compatibility, and owner isolation.
-  - **Remaining / Pending**: Openings subtraction (windows, doors, recesses), deductions, net wall and ceiling area calculations, aggregate surface totals, measurement UI, and full manual room acceptance scenario.
+  - **Execution Sub-Stage 5B (Completed)**: First-class `Opening` entity attached to `WALL` surfaces, opening single/total area calculations, wall deduction and net area, over-deduction protection, aggregate surface totals via zero-N+1 subqueries, and transitive owner isolation.
+  - **Execution Sub-Stage 5C (Completed)**: Room measurement, wall/surface measurement, and opening management frontend UI with ephemeral previews, dependent state reconciliation, and dual-language PL/RU localization.
+  - **Execution Sub-Stage 5D (Completed)**: Practical mobile measurement workflow — decimal/numeric input modes, direct room dimension entry, prominent `Gross − Deductions = Net` totals hierarchy, streamlined opening entry, and PL/RU localization.
+  - **Remaining / Pending**: Full manual room acceptance scenario (execution sub-stage 5E).
 - **Gate**: Canonical Stage 5 remains **IN PROGRESS** until real measurements, openings subtraction, and surface totals are implemented, tested, and manually verified.
 
 #### Execution Sub-Stage 5A: Room Measurement Domain & Backend Foundation
@@ -826,7 +829,6 @@
 - Backward compatibility: PASS.
 
 #### Remaining Canonical Stage 5 Work:
-- Execution Sub-Stage 5D: Practical measurement workflow / UX refinement
 - Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario)
 
 #### Execution Sub-Stage 5C: Measurement Frontend UI
@@ -891,8 +893,50 @@
 - Mobile viewport layout analysis (390×844): PASS.
 - Scope review confirmed zero out-of-scope work: PASS.
 
+#### Execution Sub-Stage 5D: Practical Measurement Workflow / UX Refinement
+- **Status**: Completed
+- **Date**: 2026-09-10
+- **Scope**:
+  - Decimal mobile input modes:
+    - `inputMode="decimal"` on all metric dimension inputs — room `length`/`width`/`height` (both quick-create and in-place edit forms) and surface `width`/`height` — bringing up the numeric keypad on mobile.
+    - `inputMode="numeric"` on opening `quantity` for whole-number keypad entry.
+  - Direct "enter room dimensions" action:
+    - Unmeasured rooms now render a prominent `+ Wprowadź wymiary` (PL) / `+ Ввести размеры` (RU) call-to-action button (`measure-room-action`) that opens the in-place room dimension edit form directly, replacing the previous dead-end notice.
+  - Prominent net wall area hierarchy:
+    - Room calculations summary reorganized into a two-tier layout: a primary highlighted `Net wall area` card (emerald emphasis) with a `Gross − Deductions = Net` breakdown line, and a secondary compact three-card grid for floor area, ceiling area, and perimeter.
+  - Wall arithmetic hierarchy in SurfaceList:
+    - Measured `WALL` surfaces render a `Gross − Deductions = Net` three-column box with the net value emphasized on an emerald chip; non-WALL surfaces show a compact single gross area line.
+  - Streamlined opening entry:
+    - Optional name/description fields grouped under a clearly labeled `Opcjonalne szczegóły` (PL) / `Дополнительные данные` (RU) secondary section with a divider, keeping the primary dimension form focused and mobile-friendly.
+  - Dual-language PL / RU localization:
+    - 157 translation keys perfectly mirrored between `pl.json` and `ru.json` (added `enter_dimensions`, `optional_details`).
+  - No backend/domain changes: consumes existing Stage 5A/5B/5C schemas and APIs.
+
+#### Sub-Stage 5D Database:
+- None; consumed existing Stage 5A and Stage 5B backend schemas and APIs without migration changes.
+
+#### Sub-Stage 5D Tests:
+- Focused Stage 5D frontend tests: 28 passed, 0 failed.
+  - `ProjectWorkspace.test.tsx`: 12 passed (incl. `measure-room-action` opens edit form with `inputMode="decimal"`).
+  - `SurfaceList.test.tsx`: 7 passed (incl. gross − deduction = net hierarchy + `inputMode="decimal"`).
+  - `OpeningList.test.tsx`: 9 passed (incl. decimal/numeric inputMode + optional details section).
+- Full frontend test suite (`vitest --run`): 59 passed across 8 test files, 0 failed.
+- Full backend regression suite (`pytest backend/tests`): 123 passed across 8 test files, 0 failed.
+- TypeScript strict typecheck (`tsc -p frontend/tsconfig.json --noEmit`): PASS (0 errors).
+- Frontend production build (`vite build`): PASS (49 modules transformed).
+- `git diff --check`: PASS (0 whitespace errors).
+
+#### Sub-Stage 5D Verification:
+- Mobile decimal/numeric input modes (`inputMode` attributes): PASS.
+- Direct room dimension entry from unmeasured notice (`measure-room-action`): PASS.
+- Room totals hierarchy (Net wall area prominent, `Gross − Deductions = Net`): PASS.
+- Wall arithmetic hierarchy (`Gross − Deductions = Net`, non-wall compact gross): PASS.
+- Streamlined opening entry (optional details grouped secondary section): PASS.
+- PL/RU localization and mirrored key audit (157/157): PASS.
+- Backend regression and scope review (zero backend/domain changes): PASS.
+- Telegram BackButton / theme integration preserved (untouched by this sub-stage): PASS.
+
 #### Remaining Canonical Stage 5 Work:
-- Execution Sub-Stage 5D: Practical measurement workflow / UX refinement
 - Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario)
 
 ---

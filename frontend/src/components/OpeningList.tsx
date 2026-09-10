@@ -255,6 +255,7 @@ export function OpeningList({
               <input
                 aria-label="opening-quantity"
                 type="number"
+                inputMode="numeric"
                 min="1"
                 step="1"
                 required
@@ -271,6 +272,7 @@ export function OpeningList({
               <input
                 aria-label="opening-width"
                 type="number"
+                inputMode="decimal"
                 min="0.001"
                 step="0.001"
                 required
@@ -285,6 +287,7 @@ export function OpeningList({
               <input
                 aria-label="opening-height"
                 type="number"
+                inputMode="decimal"
                 min="0.001"
                 step="0.001"
                 required
@@ -314,23 +317,28 @@ export function OpeningList({
             </div>
           )}
 
-          <input
-            aria-label="opening-name"
-            maxLength={255}
-            placeholder={t.openings.name}
-            value={form.name}
-            onChange={(e) => setForm((cur) => ({ ...cur, name: e.target.value }))}
-            className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
-          />
-
-          <textarea
-            aria-label="opening-description"
-            maxLength={4096}
-            placeholder={t.openings.description}
-            value={form.description}
-            onChange={(e) => setForm((cur) => ({ ...cur, description: e.target.value }))}
-            className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white min-h-16"
-          />
+          {/* Secondary optional fields: Name & Description */}
+          <div className="pt-1 border-t border-slate-200/60 space-y-1.5">
+            <span className="block text-[11px] text-slate-400 font-medium">
+              {t.openings.optional_details}
+            </span>
+            <input
+              aria-label="opening-name"
+              maxLength={255}
+              placeholder={t.openings.name}
+              value={form.name}
+              onChange={(e) => setForm((cur) => ({ ...cur, name: e.target.value }))}
+              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+            />
+            <textarea
+              aria-label="opening-description"
+              maxLength={4096}
+              placeholder={t.openings.description}
+              value={form.description}
+              onChange={(e) => setForm((cur) => ({ ...cur, description: e.target.value }))}
+              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white min-h-12"
+            />
+          </div>
 
           {formError && (
             <p role="alert" className="text-xs text-red-600 font-medium bg-red-50 p-2 rounded-lg border border-red-100">

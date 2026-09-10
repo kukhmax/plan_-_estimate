@@ -252,6 +252,7 @@ export function SurfaceList({ projectId, roomId, onMeasurementChanged }: Surface
               <input
                 aria-label="surface-width"
                 type="number"
+                inputMode="decimal"
                 min="0.001"
                 step="0.001"
                 placeholder="5.000"
@@ -265,6 +266,7 @@ export function SurfaceList({ projectId, roomId, onMeasurementChanged }: Surface
               <input
                 aria-label="surface-height"
                 type="number"
+                inputMode="decimal"
                 min="0.001"
                 step="0.001"
                 placeholder="2.700"
@@ -340,30 +342,47 @@ export function SurfaceList({ projectId, roomId, onMeasurementChanged }: Surface
                     </div>
 
                     {hasDimensions && (
-                      <p className="text-xs text-slate-600 mt-1.5 space-x-2">
-                        <span>
-                          {t.surfaces.dimensions}: <strong>{formatMetric(surface.width)} × {formatMetric(surface.height)} {t.common.unit_m}</strong>
-                        </span>
-                        {surface.gross_area && (
-                          <>
-                            <span>•</span>
-                            <span>
-                              {t.surfaces.gross_area}: <strong className="text-slate-800">{formatMetric(surface.gross_area)} {t.common.unit_m2}</strong>
-                            </span>
-                          </>
-                        )}
-                      </p>
-                    )}
+                      <div className="mt-2 text-xs space-y-1.5">
+                        <div className="text-slate-600">
+                          <span>{t.surfaces.dimensions}: </span>
+                          <strong className="text-slate-900 font-semibold">
+                            {formatMetric(surface.width)} × {formatMetric(surface.height)} {t.common.unit_m}
+                          </strong>
+                        </div>
 
-                    {isWall && hasDimensions && (
-                      <div className="flex items-center gap-3 text-xs mt-1 text-slate-600 flex-wrap">
-                        <span>
-                          {t.surfaces.deduction_area}: <strong className="text-slate-700">{formatMetric(surface.deduction_area ?? '0.000')} {t.common.unit_m2}</strong>
-                        </span>
-                        <span>•</span>
-                        <span>
-                          {t.surfaces.net_area}: <strong className="text-emerald-700 font-bold">{formatMetric(surface.net_area ?? surface.gross_area)} {t.common.unit_m2}</strong>
-                        </span>
+                        {isWall ? (
+                          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-xs">
+                            <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                              <div className="space-y-0.5">
+                                <span className="text-[11px] text-slate-500 block">{t.surfaces.gross_area}</span>
+                                <strong className="text-slate-800 text-xs font-semibold">
+                                  {formatMetric(surface.gross_area)} {t.common.unit_m2}
+                                </strong>
+                              </div>
+                              <span className="text-slate-300 font-bold self-center">−</span>
+                              <div className="space-y-0.5">
+                                <span className="text-[11px] text-slate-500 block">{t.surfaces.deduction_area}</span>
+                                <strong className="text-slate-700 text-xs font-semibold">
+                                  {formatMetric(surface.deduction_area ?? '0.000')} {t.common.unit_m2}
+                                </strong>
+                              </div>
+                              <span className="text-slate-300 font-bold self-center">=</span>
+                              <div className="space-y-0.5 bg-emerald-50 border border-emerald-200/60 rounded-lg px-2 py-1">
+                                <span className="text-[11px] text-emerald-800 font-medium block">{t.surfaces.net_area}</span>
+                                <strong className="text-emerald-700 text-xs sm:text-sm font-bold">
+                                  {formatMetric(surface.net_area ?? surface.gross_area)} {t.common.unit_m2}
+                                </strong>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          surface.gross_area && (
+                            <p className="text-xs text-slate-600">
+                              <span>{t.surfaces.gross_area}: </span>
+                              <strong className="text-slate-800">{formatMetric(surface.gross_area)} {t.common.unit_m2}</strong>
+                            </p>
+                          )
+                        )}
                       </div>
                     )}
 

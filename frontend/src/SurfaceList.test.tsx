@@ -158,4 +158,26 @@ describe('SurfaceList', () => {
     expect(await screen.findByText('Powierzchnia została przywrócona')).toBeInTheDocument();
     expect(surfacesApi.fetchSurfaces).toHaveBeenCalledTimes(2);
   });
+
+  it('renders wall arithmetic hierarchy (gross - deduction = net) and inputMode="decimal"', async () => {
+    const wallWithDeduction: SurfaceType = {
+      ...surface,
+      width: 5,
+      height: 2.7,
+      gross_area: '13.500',
+      deduction_area: '1.800',
+      net_area: '11.700',
+    };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallWithDeduction], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(screen.getByText('−')).toBeInTheDocument();
+    expect(screen.getByText('=')).toBeInTheDocument();
+
+    // Verify form inputMode="decimal"
+    fireEvent.click(screen.getByLabelText('add-surface'));
+    expect(screen.getByLabelText('surface-width')).toHaveAttribute('inputMode', 'decimal');
+    expect(screen.getByLabelText('surface-height')).toHaveAttribute('inputMode', 'decimal');
+  });
 });

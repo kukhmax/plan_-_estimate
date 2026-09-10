@@ -221,4 +221,17 @@ describe('OpeningList', () => {
     expect(await screen.findByText('Otwór został przywrócony')).toBeInTheDocument();
     expect(onOpeningChanged).toHaveBeenCalledTimes(1);
   });
+
+  it('renders mobile-optimized inputs (inputMode="decimal" and "numeric") and optional details', async () => {
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+
+    expect(screen.getByLabelText('opening-quantity')).toHaveAttribute('inputMode', 'numeric');
+    expect(screen.getByLabelText('opening-width')).toHaveAttribute('inputMode', 'decimal');
+    expect(screen.getByLabelText('opening-height')).toHaveAttribute('inputMode', 'decimal');
+    expect(screen.getByText('Opcjonalne szczegóły')).toBeInTheDocument();
+  });
 });
