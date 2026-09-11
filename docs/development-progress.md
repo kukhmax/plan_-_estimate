@@ -1118,6 +1118,37 @@ Clarifications:
 - **Scope**: Final manual acceptance of the canonical `5 × 4 × 2.7` m room scenario — RECTANGLE room creation, 4-wall generation, opening subtraction (`gross − deductions = net`), composite floor/ceiling geometry, and mobile measurement navigation.
 - **Closure**: Owner decision recorded 2026-09-11 — Canonical Stage 5 (Rooms, Surfaces and Measurements) is **COMPLETED**. No remaining work in Stage 5.
 
+#### Stage 5 Follow-Up Backlog (Approved, Not Scheduled)
+- **Status**: Approved follow-up backlog — Canonical Stage 5 remains **COMPLETED**; these items are recorded for future scheduling only and do not reopen, renumber, merge, or alter the scope of Canonical Stage 5 (0–20 numbering unchanged).
+- **Date**: 2026-09-11
+
+##### 5F — Opening Reveals / Ościeża
+- **Purpose**: Measure and calculate window/door reveals for future preparation, painting, and estimate calculations.
+- **Planned scope**:
+  - Reveal calculation belongs to `Opening`, not a fake `Surface`.
+  - Supported reveal sides: `left`, `right`, `top`, `bottom`.
+  - User can enable only physically existing sides.
+  - Reveal depth/width entered in meters.
+  - Backend-authoritative derived totals: total reveal length `[m]` and total reveal area `[m²]`.
+  - Typical window default may use `left + right + top` when the bottom is a sill, but side selection must remain explicit/flexible.
+  - Door and window reveals aggregated separately.
+- **Future Room summary** (planned):
+  - `Ościeża`: `Okna` — total length m / total area m²; `Drzwi` — total length m / total area m²; `Razem` — total length m / total area m².
+- **Future Estimate integration** (planned): reveal totals may feed preparation, filling/plastering, painting, corner beads / `narożniki`, and other opening-related work.
+
+##### 5G — Compact Wall Card Actions
+- **Purpose**: Reduce visual clutter on mobile wall cards.
+- **Planned behavior**:
+  - Default wall card: dimensions, `Gross`, `Openings/Deductions`, `Net`, compact opening counters where useful, and a single `"Opcje"` / `"Опции"` button. Collapsed by default.
+  - On tap: `"Opcje"` → `"Ukryj opcje"` / `"Скрыть опции"`.
+  - Expanded actions may include: `+ Door`, `+ Window`, `+ Other opening`, Manage openings, Inspection (Stage 6), Edit, Archive. Stage 14 may later add a Photo/Documentation action.
+- **Requirements**: controls remain inside the wall card; mobile-first 390/412 px; touch-friendly actions; hide controls, not useful wall metrics; frontend-only expand/collapse state (no DB persistence required).
+
+##### Roadmap Relationships
+- **Stage 6C** should account for the future compact wall action menu so the Inspection entry point can later coexist with 5G without redesign.
+- **Stage 10/11** may consume reveal totals.
+- **Stage 14** may later add a photo action to the same compact wall actions.
+
 ---
 
 ### Canonical Stage 6: Inspection Checklist Engine
