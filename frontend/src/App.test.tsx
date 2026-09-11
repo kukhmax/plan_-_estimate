@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 import * as api from './api/auth';
+import * as openingsApi from './api/openings';
+import * as projectsApi from './api/projects';
+import * as roomsApi from './api/rooms';
+import * as surfacesApi from './api/surfaces';
 
 vi.mock('./api/auth', async () => {
   const actual = await vi.importActual<typeof import('./api/auth')>('./api/auth');
@@ -18,6 +22,36 @@ vi.mock('./api/clients', () => ({
   createClient: vi.fn(),
   archiveClient: vi.fn(),
   restoreClient: vi.fn(),
+}));
+vi.mock('./api/projects', () => ({
+  fetchProjects: vi.fn(),
+  createProject: vi.fn(),
+  updateProject: vi.fn(),
+  archiveProject: vi.fn(),
+  restoreProject: vi.fn(),
+}));
+vi.mock('./api/rooms', () => ({
+  fetchRooms: vi.fn(),
+  fetchRoom: vi.fn(),
+  createRoom: vi.fn(),
+  updateRoom: vi.fn(),
+  archiveRoom: vi.fn(),
+  restoreRoom: vi.fn(),
+}));
+vi.mock('./api/surfaces', () => ({
+  fetchSurfaces: vi.fn(),
+  createSurface: vi.fn(),
+  updateSurface: vi.fn(),
+  archiveSurface: vi.fn(),
+  restoreSurface: vi.fn(),
+  generateWalls: vi.fn(),
+}));
+vi.mock('./api/openings', () => ({
+  fetchOpenings: vi.fn(),
+  createOpening: vi.fn(),
+  updateOpening: vi.fn(),
+  archiveOpening: vi.fn(),
+  restoreOpening: vi.fn(),
 }));
 
 describe('App authentication component', () => {
@@ -274,5 +308,75 @@ describe('App authentication component', () => {
     // Section switching back to clients
     fireEvent.click(screen.getByRole('button', { name: 'show-clients' }));
     expect(await screen.findByRole('region', { name: 'clients-section' })).toBeInTheDocument();
+  });
+
+  it('Obiekty nav button always returns to the project list, even from a room detail view', async () => {
+    vi.mocked(api.loginWithTelegram).mockResolvedValueOnce({
+      access_token: 'mock-jwt-token',
+      token_type: 'bearer',
+      is_dev_auth: true,
+      user: {
+        id: '11111111-1111-1111-1111-111111111111',
+        telegram_user_id: 999999999,
+        username: 'dev_contractor',
+        first_name: 'Jan',
+        last_name: 'Kowalski',
+        language_code: 'pl',
+        created_at: '2026-09-08T12:00:00Z',
+        updated_at: '2026-09-08T12:00:00Z',
+      },
+    });
+
+    const project = {
+      id: 'aaaa1111-aaaa-1111-aaaa-111111111111',
+      owner_id: '11111111-1111-1111-1111-111111111111',
+      name: 'Osiedle Zielone',
+      address: 'ul. Kwiatowa 12',
+      city: 'Warszawa',
+      postal_code: '00-001',
+      client_id: null,
+      status: 'IN_PROGRESS' as const,
+      description: null,
+      is_archived: false,
+      created_at: '2026-09-10T08:00:00Z',
+      updated_at: '2026-09-10T08:00:00Z',
+    };
+    const room = {
+      id: 'bbbb2222-bbbb-2222-bbbb-222222222222',
+      project_id: project.id,
+      name: 'Salon',
+      description: null,
+      length: 5,
+      width: 4,
+      height: 2.7,
+      is_archived: false,
+      created_at: '2026-09-10T09:00:00Z',
+      updated_at: '2026-09-10T09:00:00Z',
+    };
+
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [project], total: 1 });
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(room);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Jan Kowalski')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'show-projects' }));
+    await screen.findByLabelText(`open-project-${project.id}`);
+
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await screen.findByLabelText(`open-room-${room.id}`);
+
+    fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
+    await screen.findByLabelText('room-detail');
+    expect(screen.getByLabelText('room-detail')).toBeInTheDocument();
+
+    // Pressing the top-level "Obiekty" nav while deep in Project -> Room -> Surface
+    // must collapse back to the project list, not remain a no-op.
+    fireEvent.click(screen.getByRole('button', { name: 'show-projects' }));
+    await screen.findByLabelText(`open-project-${project.id}`);
+    expect(screen.queryByLabelText('room-detail')).not.toBeInTheDocument();
   });
 });

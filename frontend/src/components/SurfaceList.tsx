@@ -24,7 +24,6 @@ interface SurfaceListProps {
   roomHeight?: string | number | null;
   hasRoomDimensions?: boolean;
   wallMode?: WallInputMode;
-  onWallModeChange?: (mode: WallInputMode) => void;
   onMeasurementChanged?: () => void;
 }
 
@@ -64,7 +63,6 @@ export function SurfaceList({
   roomHeight,
   hasRoomDimensions = false,
   wallMode,
-  onWallModeChange,
   onMeasurementChanged,
 }: SurfaceListProps) {
   const { t } = useI18n();
@@ -79,8 +77,7 @@ export function SurfaceList({
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [expandedOpenings, setExpandedOpenings] = useState<Record<string, boolean>>({});
-  const [internalWallMode, setInternalWallMode] = useState<WallInputMode>('RECTANGLE');
-  const effectiveWallMode = wallMode ?? internalWallMode;
+  const effectiveWallMode = wallMode ?? 'RECTANGLE';
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [pendingQuickOpening, setPendingQuickOpening] = useState<PendingQuickOpening | null>(null);
@@ -147,12 +144,6 @@ export function SurfaceList({
     onMeasurementChanged?.();
   };
 
-  const switchMode = (mode: WallInputMode) => {
-    onWallModeChange?.(mode);
-    setInternalWallMode(mode);
-    setGenerateError(null);
-  };
-
   const handleGenerateWalls = async () => {
     setGenerating(true);
     setGenerateError(null);
@@ -213,14 +204,6 @@ export function SurfaceList({
     setEditingId(null);
     setForm(EMPTY_FORM);
     setFormError(null);
-  };
-
-  const startCreate = () => {
-    setSuccess(null);
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setFormError(null);
-    setShowForm(true);
   };
 
   const startEdit = (surface: SurfaceType) => {
@@ -319,51 +302,7 @@ export function SurfaceList({
 
   return (
     <section aria-label="surfaces-section" className="w-full mt-5">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <h3 className="text-lg font-bold text-slate-900">{t.surfaces.title}</h3>
-        {effectiveWallMode === 'RECTANGLE' && (
-          <button
-            type="button"
-            aria-label="add-surface"
-            onClick={startCreate}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
-          >
-            {t.surfaces.add}
-          </button>
-        )}
-      </div>
-
-      {/* Wall input mode: rectangle auto-generation vs custom sequential entry (frontend state only, not persisted) */}
-      <div
-        aria-label="wall-input-mode"
-        role="group"
-        className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 mb-3"
-      >
-        <button
-          type="button"
-          aria-label="mode-rectangle"
-          onClick={() => switchMode('RECTANGLE')}
-          className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
-            effectiveWallMode === 'RECTANGLE'
-              ? 'bg-white text-blue-700 shadow-sm'
-              : 'text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          {t.surfaces.mode_rectangle}
-        </button>
-        <button
-          type="button"
-          aria-label="mode-custom"
-          onClick={() => switchMode('CUSTOM')}
-          className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
-            effectiveWallMode === 'CUSTOM'
-              ? 'bg-white text-blue-700 shadow-sm'
-              : 'text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          {t.surfaces.mode_custom}
-        </button>
-      </div>
+      <h3 className="text-lg font-bold text-slate-900 mb-3">{t.surfaces.title}</h3>
 
       {effectiveWallMode === 'RECTANGLE' && hasRoomDimensions && (
         <div className="mb-3">
@@ -594,145 +533,166 @@ export function SurfaceList({
               <li
                 key={surface.id}
                 aria-label={`surface-item-${surface.id}`}
-                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
+                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2.5"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-slate-900 text-sm">{surface.name}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
-                        {typeLabel(surface.surface_type)}
-                      </span>
-                      {surface.is_archived && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                          {t.common.archived_badge}
-                        </span>
-                      )}
-                    </div>
+                {/* Header: name + badges */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-slate-900 text-sm min-w-0 break-words">{surface.name}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
+                    {typeLabel(surface.surface_type)}
+                  </span>
+                  {surface.is_archived && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                      {t.common.archived_badge}
+                    </span>
+                  )}
+                </div>
 
-                    {hasDimensions && (
-                      <div className="mt-2 text-xs space-y-1.5">
-                        <div className="text-slate-600">
-                          <span>{t.surfaces.dimensions}: </span>
-                          <strong className="text-slate-900 font-semibold">
-                            {formatMetric(surface.width)} × {formatMetric(surface.height)} {t.common.unit_m}
+                {hasDimensions && (
+                  <p className="text-xs text-slate-600">
+                    <span>{t.surfaces.dimensions}: </span>
+                    <strong className="text-slate-900 font-semibold">
+                      {formatMetric(surface.width)} × {formatMetric(surface.height)} {t.common.unit_m}
+                    </strong>
+                  </p>
+                )}
+
+                {isWall ? (
+                  <>
+                    {hasDimensions ? (
+                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] text-slate-500">{t.surfaces.gross_area}</span>
+                          <strong className="text-slate-800 text-xs font-semibold">
+                            {formatMetric(surface.gross_area)} {t.common.unit_m2}
                           </strong>
                         </div>
-
-                        {isWall ? (
-                          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-xs">
-                            <div className="flex items-center justify-between gap-1.5 flex-wrap">
-                              <div className="space-y-0.5">
-                                <span className="text-[11px] text-slate-500 block">{t.surfaces.gross_area}</span>
-                                <strong className="text-slate-800 text-xs font-semibold">
-                                  {formatMetric(surface.gross_area)} {t.common.unit_m2}
-                                </strong>
-                              </div>
-                              <span className="text-slate-300 font-bold self-center">−</span>
-                              <div className="space-y-0.5">
-                                <span className="text-[11px] text-slate-500 block">{t.surfaces.deduction_area}</span>
-                                <strong className="text-slate-700 text-xs font-semibold">
-                                  {formatMetric(surface.deduction_area ?? '0.000')} {t.common.unit_m2}
-                                </strong>
-                              </div>
-                              <span className="text-slate-300 font-bold self-center">=</span>
-                              <div className="space-y-0.5 bg-emerald-50 border border-emerald-200/60 rounded-lg px-2 py-1">
-                                <span className="text-[11px] text-emerald-800 font-medium block">{t.surfaces.net_area}</span>
-                                <strong className="text-emerald-700 text-xs sm:text-sm font-bold">
-                                  {formatMetric(surface.net_area ?? surface.gross_area)} {t.common.unit_m2}
-                                </strong>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          surface.gross_area && (
-                            <p className="text-xs text-slate-600">
-                              <span>{t.surfaces.gross_area}: </span>
-                              <strong className="text-slate-800">{formatMetric(surface.gross_area)} {t.common.unit_m2}</strong>
-                            </p>
-                          )
-                        )}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                            <span aria-hidden="true">−</span>
+                            <span>{t.surfaces.deduction_area}</span>
+                          </span>
+                          <strong className="text-slate-700 text-xs font-semibold">
+                            {formatMetric(surface.deduction_area ?? '0.000')} {t.common.unit_m2}
+                          </strong>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-200/60 rounded-lg px-2 py-1.5">
+                          <span className="flex items-center gap-1 text-[11px] text-emerald-800 font-medium">
+                            <span aria-hidden="true">=</span>
+                            <span>{t.surfaces.net_area}</span>
+                          </span>
+                          <strong className="text-emerald-700 text-xs font-bold">
+                            {formatMetric(surface.net_area ?? surface.gross_area)} {t.common.unit_m2}
+                          </strong>
+                        </div>
                       </div>
-                    )}
-
-                    {isWall && !hasDimensions && (
-                      <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1 mt-1.5">
+                    ) : (
+                      <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1.5">
                         {t.surfaces.requires_dimensions}
                       </p>
                     )}
 
-                    {surface.description && <p className="text-xs text-slate-500 mt-1.5">{surface.description}</p>}
-                  </div>
+                    {surface.description && <p className="text-xs text-slate-500">{surface.description}</p>}
 
-                  <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
-                    {isWall && hasDimensions && (
-                      <>
-                        <button
-                          type="button"
-                          aria-label={`add-opening-${surface.id}-DOOR`}
-                          onClick={() => quickAddOpening(surface.id, 'DOOR')}
-                          className="text-xs px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-medium hover:bg-emerald-100 transition"
-                        >
-                          + {t.openings.door}
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`add-opening-${surface.id}-WINDOW`}
-                          onClick={() => quickAddOpening(surface.id, 'WINDOW')}
-                          className="text-xs px-2 py-1 rounded-lg bg-sky-50 text-sky-800 font-medium hover:bg-sky-100 transition"
-                        >
-                          + {t.openings.window}
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`add-opening-${surface.id}-OTHER`}
-                          onClick={() => quickAddOpening(surface.id, 'OTHER')}
-                          className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition"
-                        >
-                          + {t.openings.other}
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`toggle-openings-${surface.id}`}
-                          onClick={() => toggleOpenings(surface.id)}
-                          className={`text-xs px-2.5 py-1 rounded-lg font-medium transition ${
-                            isOpeningsOpen
-                              ? 'bg-slate-200 text-slate-800'
-                              : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                          }`}
-                        >
-                          {isOpeningsOpen ? t.openings.close : t.surfaces.manage_openings}
-                        </button>
-                      </>
+                    {/* Actions: 2-column grid with ~44px touch targets */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {hasDimensions && (
+                        <>
+                          <button
+                            type="button"
+                            aria-label={`add-opening-${surface.id}-DOOR`}
+                            onClick={() => quickAddOpening(surface.id, 'DOOR')}
+                            className="min-h-11 w-full text-xs px-2 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
+                          >
+                            + {t.openings.door}
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`add-opening-${surface.id}-WINDOW`}
+                            onClick={() => quickAddOpening(surface.id, 'WINDOW')}
+                            className="min-h-11 w-full text-xs px-2 rounded-lg bg-sky-50 text-sky-800 font-semibold hover:bg-sky-100 transition"
+                          >
+                            + {t.openings.window}
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`add-opening-${surface.id}-OTHER`}
+                            onClick={() => quickAddOpening(surface.id, 'OTHER')}
+                            className="min-h-11 w-full text-xs px-2 rounded-lg bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition"
+                          >
+                            + {t.openings.other}
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`toggle-openings-${surface.id}`}
+                            onClick={() => toggleOpenings(surface.id)}
+                            className={`min-h-11 w-full text-xs px-2 rounded-lg font-semibold transition ${
+                              isOpeningsOpen
+                                ? 'bg-slate-200 text-slate-800'
+                                : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                            }`}
+                          >
+                            {isOpeningsOpen ? t.openings.close : t.surfaces.manage_openings}
+                          </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        aria-label={`edit-surface-${surface.id}`}
+                        onClick={() => startEdit(surface)}
+                        className="min-h-11 w-full text-xs px-2 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                      >
+                        {t.common.edit}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
+                        onClick={() => void changeArchiveState(surface)}
+                        className="min-h-11 w-full text-xs px-2 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                      >
+                        {surface.is_archived ? t.common.restore : t.common.archive}
+                      </button>
+                    </div>
+
+                    {isOpeningsOpen && (
+                      <OpeningList
+                        key={pendingQuickOpening?.surfaceId === surface.id ? `quick-${pendingQuickOpening.key}` : surface.id}
+                        projectId={projectId}
+                        roomId={roomId}
+                        surfaceId={surface.id}
+                        initialType={pendingQuickOpening?.surfaceId === surface.id ? pendingQuickOpening.type : undefined}
+                        onOpeningChanged={handleOpeningChanged}
+                      />
                     )}
-                    <button
-                      type="button"
-                      aria-label={`edit-surface-${surface.id}`}
-                      onClick={() => startEdit(surface)}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
-                    >
-                      {t.common.edit}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
-                      onClick={() => void changeArchiveState(surface)}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
-                    >
-                      {surface.is_archived ? t.common.restore : t.common.archive}
-                    </button>
-                  </div>
-                </div>
-
-                {isWall && hasDimensions && isOpeningsOpen && (
-                  <OpeningList
-                    key={pendingQuickOpening?.surfaceId === surface.id ? `quick-${pendingQuickOpening.key}` : surface.id}
-                    projectId={projectId}
-                    roomId={roomId}
-                    surfaceId={surface.id}
-                    initialType={pendingQuickOpening?.surfaceId === surface.id ? pendingQuickOpening.type : undefined}
-                    onOpeningChanged={handleOpeningChanged}
-                  />
+                  </>
+                ) : (
+                  <>
+                    {surface.gross_area && (
+                      <p className="text-xs text-slate-600">
+                        <span>{t.surfaces.gross_area}: </span>
+                        <strong className="text-slate-800">{formatMetric(surface.gross_area)} {t.common.unit_m2}</strong>
+                      </p>
+                    )}
+                    {surface.description && <p className="text-xs text-slate-500">{surface.description}</p>}
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        aria-label={`edit-surface-${surface.id}`}
+                        onClick={() => startEdit(surface)}
+                        className="min-h-11 px-3 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                      >
+                        {t.common.edit}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
+                        onClick={() => void changeArchiveState(surface)}
+                        className="min-h-11 px-3 text-xs rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                      >
+                        {surface.is_archived ? t.common.restore : t.common.archive}
+                      </button>
+                    </div>
+                  </>
                 )}
               </li>
             );

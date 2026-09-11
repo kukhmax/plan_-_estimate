@@ -418,7 +418,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                       type="button"
                       aria-label={`open-room-${room.id}`}
                       onClick={() => onOpenRoom(room)}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
+                      className="text-xs px-2.5 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
                     >
                       {t.common.open}
                     </button>
@@ -426,7 +426,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                       type="button"
                       aria-label={`edit-room-${room.id}`}
                       onClick={() => startEdit(room)}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                      className="text-xs px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                     >
                       {t.common.edit}
                     </button>
@@ -434,7 +434,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                       type="button"
                       aria-label={`${room.is_archived ? 'restore' : 'archive'}-room-${room.id}`}
                       onClick={() => void changeArchiveState(room)}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                      className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
                     >
                       {room.is_archived ? t.common.restore : t.common.archive}
                     </button>

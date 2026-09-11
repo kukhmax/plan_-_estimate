@@ -373,12 +373,12 @@ export function AreaSegmentList({
                     </strong>
                   </p>
                 </div>
-                <div className="flex gap-1 flex-shrink-0">
+                <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
                   <button
                     type="button"
                     aria-label={`edit-segment-${segment.id}`}
                     onClick={() => startEdit(segment)}
-                    className="text-[11px] px-2 py-1 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                    className="text-xs px-2 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                   >
                     {t.common.edit}
                   </button>
@@ -386,7 +386,7 @@ export function AreaSegmentList({
                     type="button"
                     aria-label={`${segment.is_archived ? 'restore' : 'archive'}-segment-${segment.id}`}
                     onClick={() => void changeArchiveState(segment)}
-                    className="text-[11px] px-2 py-1 rounded bg-slate-100 text-slate-600 font-medium hover:bg-slate-200 transition"
+                    className="text-xs px-2 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-medium hover:bg-slate-200 transition"
                   >
                     {segment.is_archived ? t.common.restore : t.common.archive}
                   </button>

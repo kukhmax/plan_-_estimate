@@ -465,12 +465,12 @@ export function OpeningList({
                 )}
               </div>
 
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
                 <button
                   type="button"
                   aria-label={`edit-opening-${opening.id}`}
                   onClick={() => startEdit(opening)}
-                  className="text-[11px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100"
+                  className="text-xs px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                 >
                   {t.common.edit}
                 </button>
@@ -478,7 +478,7 @@ export function OpeningList({
                   type="button"
                   aria-label={`${opening.is_archived ? 'restore' : 'archive'}-opening-${opening.id}`}
                   onClick={() => void changeArchiveState(opening)}
-                  className="text-[11px] px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-medium hover:bg-slate-300"
+                  className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-200 text-slate-700 font-medium hover:bg-slate-300 transition"
                 >
                   {opening.is_archived ? t.common.restore : t.common.archive}
                 </button>

@@ -21,7 +21,7 @@ import { RoomType, RoomUpdatePayload } from '../types/room';
 import { formatMetric } from '../utils/format';
 import { AreaSegmentList } from './AreaSegmentList';
 import { RoomList } from './RoomList';
-import { SurfaceList, WallInputMode } from './SurfaceList';
+import { SurfaceList } from './SurfaceList';
 
 interface ProjectFormState {
   name: string;
@@ -76,7 +76,11 @@ function formFromProject(project: ProjectType): ProjectFormState {
   };
 }
 
-export function ProjectWorkspace() {
+interface ProjectWorkspaceProps {
+  resetSignal?: number;
+}
+
+export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   const { t } = useI18n();
   const [projects, setProjects] = useState<ProjectType[]>([]);
   const [clients, setClients] = useState<ClientType[]>([]);
@@ -96,7 +100,6 @@ export function ProjectWorkspace() {
   const [roomForm, setRoomForm] = useState<RoomEditFormState>(EMPTY_ROOM_FORM);
   const [roomFormError, setRoomFormError] = useState<string | null>(null);
   const [savingRoom, setSavingRoom] = useState(false);
-  const [wallMode, setWallMode] = useState<WallInputMode>('RECTANGLE');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -279,7 +282,6 @@ export function ProjectWorkspace() {
     setShowRoomForm(false);
     setSelectedProject(project);
     setSelectedRoom(null);
-    setWallMode('RECTANGLE');
     setSuccess(null);
   };
 
@@ -288,12 +290,10 @@ export function ProjectWorkspace() {
     setShowRoomForm(false);
     setSelectedRoom(room);
     setSuccess(null);
-    setWallMode(resolveRoomMeasurementMode(room.id, room));
     if (selectedProject) {
       try {
         const fullRoom = await fetchRoom(selectedProject.id, room.id);
         setSelectedRoom(fullRoom);
-        setWallMode(resolveRoomMeasurementMode(fullRoom.id, fullRoom));
       } catch {
         // use room from list
       }
@@ -305,7 +305,6 @@ export function ProjectWorkspace() {
     setShowRoomForm(false);
     setSelectedProject(null);
     setSelectedRoom(null);
-    setWallMode('RECTANGLE');
     setSuccess(null);
   };
 
@@ -313,6 +312,15 @@ export function ProjectWorkspace() {
 
   const roomMeasurementMode =
     selectedRoom ? resolveRoomMeasurementMode(selectedRoom.id, selectedRoom) : 'RECTANGLE';
+
+  useEffect(() => {
+    closeForm();
+    setShowRoomForm(false);
+    setSelectedProject(null);
+    setSelectedRoom(null);
+    setSuccess(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetSignal]);
 
   useTelegramBackButton(isBackButtonVisible, () => {
     if (showRoomForm) {
@@ -630,8 +638,10 @@ export function ProjectWorkspace() {
                   onClick={
                     roomMeasurementMode === 'CUSTOM'
                       ? () => {
-                          setShowRoomForm(false);
-                          setWallMode('CUSTOM');
+                          const target = document.getElementById('custom-wall-entry');
+                          if (target && typeof target.scrollIntoView === 'function') {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
                         }
                       : () => startEditRoom(selectedRoom)
                   }
@@ -751,8 +761,7 @@ export function ProjectWorkspace() {
               selectedRoom.width !== null && selectedRoom.width !== undefined &&
               selectedRoom.height !== null && selectedRoom.height !== undefined
             }
-            wallMode={wallMode}
-            onWallModeChange={setWallMode}
+            wallMode={roomMeasurementMode}
             onMeasurementChanged={refreshSelectedRoom}
           />
         </>

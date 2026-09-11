@@ -8,6 +8,7 @@ const AppContent: React.FC = () => {
   const { user, isDevAuth, isLoading, error, retry } = useAuth();
   const { t, locale, setLocale } = useI18n();
   const [activeSection, setActiveSection] = useState<'clients' | 'projects'>('clients');
+  const [projectsNavToken, setProjectsNavToken] = useState(0);
 
   return (
     <div
@@ -215,7 +216,10 @@ const AppContent: React.FC = () => {
               <button
                 type="button"
                 aria-label="show-projects"
-                onClick={() => setActiveSection('projects')}
+                onClick={() => {
+                  setActiveSection('projects');
+                  setProjectsNavToken((n) => n + 1);
+                }}
                 className={`px-3 py-2 text-sm font-semibold rounded-xl transition ${
                   activeSection === 'projects'
                     ? ''
@@ -237,7 +241,11 @@ const AppContent: React.FC = () => {
               </button>
             </nav>
 
-            {activeSection === 'clients' ? <ClientList /> : <ProjectWorkspace />}
+            {activeSection === 'clients' ? (
+              <ClientList />
+            ) : (
+              <ProjectWorkspace resetSignal={projectsNavToken} />
+            )}
           </>
         )}
       </main>

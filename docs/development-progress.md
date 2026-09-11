@@ -727,6 +727,7 @@
   - **Execution Sub-Stage 5D.1A.1 (Completed)**: Room creation measurement workflow refinement — shape decision (RECTANGLE / CUSTOM) moved to the moment of room creation, immediately after the room name; RECTANGLE keeps `length`/`width`/`height` (Decimal 0.001 behavior preserved); CUSTOM drops fake rectangular dims and stores only the default wall height into `Room.height` (prefilled 2.700 m, per-room override); new custom walls prefill that height and individual walls may still override; opening dimension defaults per type (DOOR / WINDOW) stored as per-project localStorage workflow state (never a DB column, never bulk-updating existing openings, OTHER never inherits); PL/RU parity maintained; composite floor/ceiling geometry still deferred to 5D.1B.
   - **Execution Sub-Stage 5D.1A.2 (Completed)**: Custom-room measurement-entry hotfix — the unmeasured-room CTA now routes by shape: RECTANGLE keeps "Wprowadź wymiary" (existing L/W/H room editor); CUSTOM shows "Rozpocznij pomiar ścian" and enters the sequential custom-wall workflow directly (never the L/W/H editor, first wall length autofocused), using `Room.height` as the default wall height with per-wall override, and keeping `Room.length`/`width` null. Per-room measurement mode is preserved as frontend-only workflow state (new `hooks/roomMeasurementMode.ts`, keyed per roomId in localStorage, written on room create/edit, read on room open, with guarded missing/corrupt-storage fallback to shape inference). No backend schema/domain change; composite floor/ceiling geometry deferred to 5D.1B.
   - **Execution Sub-Stage 5D.1B (Completed)**: Composite floor and ceiling geometry — one reusable `AreaSegment` entity (`areaplane` FLOOR/CEILING, `areaoperation` ADD/SUBTRACT, `Numeric(10,3)` width/height, position, label, archived flag) with per-plane effective `net = base_area + Σ ADD − Σ SUBTRACT` where `base_area = L × W` for a RECTANGLE room (zero for a CUSTOM room), negative rejected 422 on create/update/restore using the same effective total, archived excluded; room totals resolve each plane independently (active segments → base + adjustments, rectangle no-segments → L×W base, custom no-segments → None, segments-only irregular rooms still report planes); visible retroactive `Razem: X.XXX m²` floor/ceiling badges plus `Powierzchnia bazowa` / `Korekty` breakdown driven by backend-authoritative plane totals (no second calculation engine in the frontend); `add-{plane}-rectangle` / `add-{plane}-subtraction` presets, inline edit, archive/restore, and `onMeasurementChanged` room-total refresh without full reload; Alembic migration `0010_create_area_segments_table.py` (parent `0009_add_surface_position`, reversal verified); zero N+1 via a single grouped segment query per project in `list_rooms`; PL/RU parity maintained. **Hotfix 5D.1B.2**: rectangle plane totals now fold the room `L × W` base into the effective area and negative-net guard (a lone `SUBTRACT 0.700 × 0.800` against `3.700 × 3.300` yields `11.650`, never rejected as `0.000 − 0.560`); the area-segments list response exposes per-plane `{base_area, adjustment_area, net_area}` so the frontend displays backend-computed totals.
+  - **Execution Sub-Stage 5E.1 (Completed)**: Mobile/navigation cleanup hotfix — removed the redundant rectangle/custom wall-input mode toggle (mode now derived from the room's measured shape), rebuilt the wall surface card as a mobile action grid with 44 px touch targets, larger/wrapped action buttons across segment/opening/room lists, and a top-level **Obiekty** nav reset that always returns to the project list even from deep Room → Surface views (`resetSignal` prop on `ProjectWorkspace`); removed the now-unused `mode_rectangle` / `mode_custom` locale keys (PL/RU parity 198/198); frontend-only, no DB migration.
   - **Remaining / Pending**: Full manual room acceptance scenario (execution sub-stage 5E).
 - **Gate**: Canonical Stage 5 remains **IN PROGRESS** until real measurements, openings subtraction, and surface totals are implemented, tested, and manually verified.
 
@@ -1043,6 +1044,31 @@
   - **No DB migration** — pure calculation + response DTO; Alembic head remains `0010`.
 - **UI fix**: `AreaSegmentList` renders the backend-provided per-plane summary (`Powierzchnia bazowa` / `Korekty` / `Razem`) instead of computing totals; a rectangle never shows `0.000` for a known base, and a CUSTOM room shows no base row and no fabricated total. Added `base_area` / `adjustments` locale keys (PL/RU).
 - **Verified examples**: `3.700 × 3.300` → base `12.210`; SUBTRACT `0.700 × 0.800` → `11.650`; ADD `1.000 × 0.500` → `12.710`; SUBTRACT `4.000 × 4.000` (16 > 12.210) → 422; FLOOR adjustment leaves CEILING at `12.210`; archive/restore recalculates against base (`11.650 → 12.210 → 11.650`); CUSTOM unchanged (no base, no segments → `None`, segments → `ADD − SUBTRACT` only).
+
+#### Execution Sub-Stage 5E.1 (Hotfix): Mobile/Navigation Cleanup
+- **Status**: Completed
+- **Date**: 2026-09-11
+- **Scope** (owner-verified manually, safety checks re-run before commit):
+  - Removed the redundant rectangle/custom wall-input mode toggle from `SurfaceList` (`mode-rectangle` / `mode-custom`); wall mode is now derived per room from its measured shape via `resolveRoomMeasurementMode`, so a CUSTOM room lands directly in the sequential custom-wall entry workflow (no intermediate shape tap, no generic `add-surface` control).
+  - Rebuilt the wall surface card for mobile: header badges, dimensions, `Gross − Deductions = Net` summary panel, then a 2-column action grid with `min-h-11` (44 px) touch targets for quick openings (door/window/other), manage-openings toggle, edit, and archive/restore; non-wall surfaces keep a compact inline action row.
+  - Increased touch-target size and wrap behavior on action buttons across `AreaSegmentList`, `OpeningList`, and `RoomList` (`py-1.5`, `rounded-lg`, `flex-wrap`).
+  - Top-level **Obiekty** nav now always returns to the project list even from deep Project → Room → Surface views: `ProjectWorkspace` accepts a `resetSignal` prop (bumped on each "Obiekty" tap) that collapses selected project/room and closes forms; regression test locks the behavior.
+  - Removed now-unused `surfaces.mode_rectangle` / `surfaces.mode_custom` locale keys from both PL and RU; parity preserved (198/198).
+- **No backend / DB change** — frontend-only workflow and layout cleanup; Alembic head remains `0010`.
+
+#### Sub-Stage 5E.1 Tests:
+- Full frontend test suite: 112 passed, 0 failed.
+- TypeScript strict typecheck: PASS (0 errors).
+- Frontend production build: PASS.
+- Locale parity PL/RU: 198/198 keys mirrored.
+- `git diff --check`: PASS.
+
+#### Sub-Stage 5E.1 Verification:
+- Top-level Obiekty nav collapses deep room/surface views back to the project list: PASS.
+- Custom-room walls enter the sequential entry workflow directly, defaulting to `Room.height`, without the mode toggle: PASS.
+- Mobile wall card action grid renders with 44 px touch targets: PASS.
+- Removed locale keys absent from source and both dictionaries: PASS.
+- Regression (rectangle wall generation, custom walls, openings/deductions, area segments, room mode routing, Telegram BackButton): PASS.
 
 #### Remaining Canonical Stage 5 Work:
 - Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario)

@@ -155,8 +155,6 @@
     "updated": "Powierzchnia została zaktualizowana",
     "archived": "Powierzchnia została zarchiwizowana",
     "restored": "Powierzchnia została przywrócona",
-    "mode_rectangle": "Prostokąt",
-    "mode_custom": "Dowolny kształt",
     "generate_walls": "Wygeneruj 4 ściany",
     "generate_hint": "Tworzy 4 ściany na podstawie wymiarów pomieszczenia (długość × wysokość, szerokość × wysokość).",
     "walls_generated": "Wygenerowano 4 ściany",

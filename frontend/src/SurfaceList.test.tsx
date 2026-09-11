@@ -36,7 +36,11 @@ const surface: SurfaceType = {
 };
 
 function renderSurfaces(
-  props: { roomHeight?: string | number | null; hasRoomDimensions?: boolean } = {},
+  props: {
+    roomHeight?: string | number | null;
+    hasRoomDimensions?: boolean;
+    wallMode?: 'RECTANGLE' | 'CUSTOM';
+  } = {},
 ) {
   return render(
     <I18nProvider>
@@ -45,6 +49,7 @@ function renderSurfaces(
         roomId={roomId}
         roomHeight={props.roomHeight}
         hasRoomDimensions={props.hasRoomDimensions}
+        wallMode={props.wallMode}
       />
     </I18nProvider>,
   );
@@ -65,35 +70,39 @@ describe('SurfaceList', () => {
     expect(screen.getByText('Przy oknie')).toBeInTheDocument();
   });
 
-  it('creates a surface with the selected type and optional dimensions as null', async () => {
+  it('does not show a redundant generic add-surface control or shape-mode selector in rectangle mode', async () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
-    vi.mocked(surfacesApi.createSurface).mockResolvedValue({
-      ...surface,
-      name: 'Sufit główny',
-      surface_type: 'CEILING',
-      description: null,
-    });
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText('add-surface'));
-    fireEvent.change(screen.getByLabelText('surface-name'), { target: { value: 'Sufit główny' } });
-    fireEvent.change(screen.getByLabelText('surface-type'), { target: { value: 'CEILING' } });
+    expect(screen.queryByLabelText('add-surface')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('mode-custom')).not.toBeInTheDocument();
+  });
+
+  it('edits a surface through the surface form and calls updateSurface', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [surface], total: 1 });
+    vi.mocked(surfacesApi.updateSurface).mockResolvedValue({ ...surface, name: 'Ściana nowa' });
+    renderSurfaces();
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByLabelText(`edit-surface-${surface.id}`));
+    fireEvent.change(screen.getByLabelText('surface-name'), { target: { value: 'Ściana nowa' } });
     fireEvent.submit(screen.getByLabelText('surface-form'));
 
     await waitFor(() => {
-      expect(surfacesApi.createSurface).toHaveBeenCalledWith(projectId, roomId, {
-        name: 'Sufit główny',
-        surface_type: 'CEILING',
-        description: null,
-        width: null,
-        height: null,
-      });
+      expect(surfacesApi.updateSurface).toHaveBeenCalledWith(
+        projectId,
+        roomId,
+        surface.id,
+        expect.objectContaining({ name: 'Ściana nowa', surface_type: 'WALL' }),
+      );
     });
-    expect(await screen.findByText('Powierzchnia została utworzona')).toBeInTheDocument();
+    expect(await screen.findByText('Powierzchnia została zaktualizowana')).toBeInTheDocument();
   });
 
-  it('creates a wall surface with metric dimensions', async () => {
+  it('renders mobile wall action buttons with 44px touch targets in a compact grid', async () => {
     const wallWithDims: SurfaceType = {
       ...surface,
       width: 5,
@@ -102,27 +111,16 @@ describe('SurfaceList', () => {
       deduction_area: '0.000',
       net_area: '13.500',
     };
-    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
-    vi.mocked(surfacesApi.createSurface).mockResolvedValue(wallWithDims);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallWithDims], total: 1 });
     renderSurfaces();
 
-    await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText('add-surface'));
-    fireEvent.change(screen.getByLabelText('surface-name'), { target: { value: 'Ściana północna' } });
-    fireEvent.change(screen.getByLabelText('surface-type'), { target: { value: 'WALL' } });
-    fireEvent.change(screen.getByLabelText('surface-width'), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText('surface-height'), { target: { value: '2.7' } });
-    fireEvent.submit(screen.getByLabelText('surface-form'));
-
-    await waitFor(() => {
-      expect(surfacesApi.createSurface).toHaveBeenCalledWith(projectId, roomId, {
-        name: 'Ściana północna',
-        surface_type: 'WALL',
-        description: null,
-        width: 5,
-        height: 2.7,
-      });
-    });
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`add-opening-${surface.id}-OTHER`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toHaveClass('min-h-11');
   });
 
   it('renders wall dimensions, gross area, deduction area, and net area', async () => {
@@ -192,7 +190,7 @@ describe('SurfaceList', () => {
     expect(screen.getByText('=')).toBeInTheDocument();
 
     // Verify form inputMode="decimal"
-    fireEvent.click(screen.getByLabelText('add-surface'));
+    fireEvent.click(screen.getByLabelText(`edit-surface-${surface.id}`));
     expect(screen.getByLabelText('surface-width')).toHaveAttribute('inputMode', 'decimal');
     expect(screen.getByLabelText('surface-height')).toHaveAttribute('inputMode', 'decimal');
   });
@@ -258,12 +256,12 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
       width: 2.5,
       height: 2.7,
     });
-    renderSurfaces({ roomHeight: 2.7 });
+    renderSurfaces({ roomHeight: 2.7, wallMode: 'CUSTOM' });
 
     await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText('mode-custom'));
     expect(screen.getByLabelText('custom-wall-entry')).toBeInTheDocument();
     expect(screen.getByText('Ściana 1')).toBeInTheDocument();
+    expect(screen.queryByLabelText('mode-custom')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '2.5' } });
     fireEvent.submit(screen.getByLabelText('custom-wall-form'));
@@ -282,10 +280,9 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
 
   it('does not persist the next empty wall row (no phantom request)', async () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
-    renderSurfaces({ roomHeight: 2.7 });
+    renderSurfaces({ roomHeight: 2.7, wallMode: 'CUSTOM' });
 
     await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText('mode-custom'));
     expect(screen.getByLabelText('custom-wall-entry')).toBeInTheDocument();
     expect(screen.getByLabelText('add-custom-wall')).toBeInTheDocument();
     expect(surfacesApi.createSurface).not.toHaveBeenCalled();
@@ -293,10 +290,9 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
 
   it('defaults the custom wall height to the room height', async () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
-    renderSurfaces({ roomHeight: 2.7 });
+    renderSurfaces({ roomHeight: 2.7, wallMode: 'CUSTOM' });
 
     await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText('mode-custom'));
 
     expect(screen.getByLabelText('custom-wall-height')).toHaveValue('2.700 m');
 
@@ -314,10 +310,9 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
 
   it('uses the overridden height when "different height" is enabled', async () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
-    renderSurfaces({ roomHeight: 2.7 });
+    renderSurfaces({ roomHeight: 2.7, wallMode: 'CUSTOM' });
 
     await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText('mode-custom'));
 
     fireEvent.click(screen.getByLabelText('custom-wall-different-height'));
     fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '1.8' } });
