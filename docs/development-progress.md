@@ -17,7 +17,7 @@
 | **Stage 3** | **Clients** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU), verification coverage |
 | **Stage 4** | **Projects / Obiekty** | **Completed** | Central aggregate root: Project model, address fields, status lifecycle, optional Client link, owner isolation |
 | **Stage 5** | **Rooms, surfaces and measurements** | **Completed** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, practical mobile measurement workflow, composite floor/ceiling geometry, and owner-accepted final manual acceptance |
-| Stage 6 | Inspection Checklist Engine | In Progress | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation — backend engine (6B) and mobile inspection workflow (6C) complete; final acceptance (6D) pending |
+| **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
 | Stage 7 | Risk Rules Engine | Pending | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
 | Stage 8 | "Co powiedzieć klientowi" | Pending | Ready-to-use professional explanations and client communication scripts (PL/RU) |
 | Stage 9 | Editable Price Book | Pending | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges |
@@ -1152,12 +1152,14 @@ Clarifications:
 ---
 
 ### Canonical Stage 6: Inspection Checklist Engine
-- **Status**: In Progress
+- **Status**: Completed
+- **Date**: 2026-09-12
 - **Scope & Canonical Mapping**:
   - **Execution Sub-Stage 6A (Completed)**: Inspection Checklist Engine domain design — INSPECTION ONLY diagnostic engine (substrate inspection before finishing), 19-section design report; no photo storage, no price/work mapping (deferred to Stages 7/11/14).
   - **Execution Sub-Stage 6B (Completed)**: Inspection Checklist Engine — **backend** (versioned immutable checklist catalog + inspection records).
   - **Execution Sub-Stage 6C (Completed)**: Inspection Checklist Engine — **mobile frontend** (inspection entry points, list, dynamic checklist, draft/review/complete/reopen, backend-authoritative findings, N+1-free list, mobile PL/RU workflow).
-- **Gate**: Canonical Stage 6 is **IN PROGRESS** — backend engine (6B) and mobile inspection workflow frontend (6C) are complete and verified; remaining work is Execution Sub-Stage 6D final manual acceptance / integration verification before canonical Stage 6 is marked Completed.
+  - **Execution Sub-Stage 6D (Completed)**: Final manual acceptance / integration verification — owner manually accepted scenarios A–J on 2026-09-12 (WALL GYPSUM_BOARD Q3 with all five answer types, save-draft and reopen restore, Review/Complete with backend factual findings only, reopen/recomplete without duplicates; FLOOR CONCRETE S1–S4; CEILING separation from FLOOR; room-level inspection; PAINTED/OTHER optional quality; history/archive/restore; navigation and Telegram BackButton; mobile 390/844 + 412 px PL/RU).
+- **Closure**: Owner decision recorded 2026-09-12 — Canonical Stage 6 (Inspection Checklist Engine) is **COMPLETED**. No remaining work in Stage 6; all Stage 7+ work remains pending explicit project-owner approval.
 
 #### Execution Sub-Stage 6B: Inspection Checklist Engine — Backend
 - **Status**: Completed
@@ -1191,7 +1193,7 @@ Clarifications:
   - Migration 0011 parent 0010, single head, upgrade → downgrade -1 → upgrade clean on PostgreSQL, areaplane not duplicated, all seven tables restored: PASS.
   - Regression: focused + full backend suites green, `git diff --check` clean, no Stage 7 or preview of later stages: PASS.
 - **Deferred**:
-  - Execution Sub-Stage 6D (final Stage 6 manual acceptance / integration verification) and all Stage 7+ work remain pending explicit project-owner approval.
+  - Execution Sub-Stage 6D completed 2026-09-12 (owner manual acceptance PASS); all Stage 7+ work remains pending explicit project-owner approval.
 
 #### Execution Sub-Stage 6C: Inspection Checklist Engine — Mobile Frontend
 - **Status**: Completed
@@ -1221,7 +1223,31 @@ Clarifications:
   - BackButton hierarchy, Obiekty navigation, mobile single-column layout and ~44px targets regression-green: PASS.
   - PL/RU parity incl. new review/quality labels; template key resolution fails safely (falls back to the dotted key) when unavailable: PASS.
 - **Deferred**:
-  - Execution Sub-Stage 6D (final Stage 6 manual acceptance / integration verification) and all Stage 7+ work remain pending explicit project-owner approval.
+  - Execution Sub-Stage 6D completed 2026-09-12 (owner manual acceptance PASS); all Stage 7+ work remains pending explicit project-owner approval.
+
+#### Execution Sub-Stage 6D: Final Manual Acceptance / Integration Verification
+- **Status**: Completed
+- **Date**: 2026-09-12
+- **Scope**: Owner manual acceptance of the complete inspection checklist workflow (backend + mobile) across scenarios A–J before canonical Stage 6 closure.
+- **Manual acceptance scenarios**:
+  - **A — WALL inspection (GYPSUM_BOARD, Q3)**: only Q1–Q4 quality options offered, Q3 selected, drywall-specific questions (joints / board movement / fasteners) plus general-condition questions rendered, all five answer types (BOOLEAN / SINGLE_CHOICE / MULTI_CHOICE / NUMBER / TEXT) exercised, representative factual defects entered (crack = yes, board movement = yes, unevenness = 5 mm, notes text), Save Draft, leave and reopen — DRAFT listed, saved answers restored, substrate and Q3 restored, no answers lost: PASS.
+  - **B — Review / Complete**: review shows answers only (never claims frontend-generated findings), substrate and quality target shown, values readable; Complete → status COMPLETED, answers read-only, actual findings returned from backend appear, factual only; no risk severity, no risk score, no recommended work, no warranty language, no estimate/pricing: PASS.
+  - **C — Reopen / Recomplete**: reopened, crack yes → no changed, completed again — returns to COMPLETED, removed factual condition no longer active, remaining findings correct, no duplicated findings, UI no crash: PASS.
+  - **D — FLOOR inspection (CONCRETE)**: target is floor (not room/wall), quality offers S1–S4, checklist works, draft/save/complete works: PASS.
+  - **E — CEILING inspection**: target is ceiling, remains separate from FLOOR inspection, completing it does not modify the floor inspection: PASS.
+  - **F — Room-level inspection**: neither WALL/FLOOR/CEILING incorrectly selected, general inspection creatable, draft and completion work, appears only in room-level inspection list: PASS.
+  - **G — PAINTED / OTHER**: quality target clearly optional, user may skip, S1–S4 and Q1–Q4 both available if desired, no forced family validation appears in UI: PASS.
+  - **H — History / Archive**: inspection history/cards readable, DRAFT vs COMPLETED visually distinct, archive works, show-archived works, restore works, no unrelated-target inspections leak into the selected target list: PASS.
+  - **I — Navigation**: Room → inspection list → inspection flow → Back → inspection list → Back → room; Telegram BackButton hierarchy; top Obiekty navigation still returns to object list; Stage 5 Room/Surface measurement navigation still works: PASS.
+  - **J — Mobile (390×844, 412 px)**: no horizontal scroll, substrate buttons comfortably tappable, quality controls fit, multi-choice wraps, NUMBER input opens numeric/decimal keyboard hint, textarea usable, Save Draft / Review / Complete accessible, findings readable, wall measurement UI remains usable, PL/RU switch works, no visible console/runtime errors: PASS.
+- **Verification**:
+  - Owner manual acceptance PASS (2026-09-12) across scenarios A–J.
+  - Full backend suite: 235 passed, 0 failed (regression re-run).
+  - Full frontend suite: 142 passed, 0 failed (regression re-run).
+  - TypeScript strict: PASS; `vite build`: PASS; `git diff --check`: PASS.
+  - Migration head unchanged: `0011_create_inspection_engine`.
+- **Deferred**:
+  - All Stage 7+ work remains pending explicit project-owner approval.
 
 ---
 
