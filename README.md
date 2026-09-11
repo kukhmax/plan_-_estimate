@@ -20,7 +20,7 @@ Telegram Mini App for managing interior finishing and renovation work in Poland 
 - **Stage 4**: Project / Obiekt central aggregate root with status lifecycle, optional Client association, and owner isolation.
 - **Stage 5**: Rooms, surfaces and measurements — Room and Surface hierarchy with semantic types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), metric room/wall dimensions, opening subtraction with net area totals, rectangle wall generation and custom sequential wall entry, composite floor/ceiling geometry (base + adjustments), practical mobile measurement workflow, and PL/RU localization. Owner-accepted final manual acceptance (2026-09-11).
 
-Implementation is complete through **Canonical Stage 5**. Stages 6–20 are pending.
+Implementation is complete through **Canonical Stage 5**. **Stage 6** (Inspection Checklist Engine) is in progress — backend engine (6B) and mobile inspection workflow (6C) complete, final acceptance (6D) pending. Stages 7–20 are pending.
 
 ## Domain hierarchy
 
