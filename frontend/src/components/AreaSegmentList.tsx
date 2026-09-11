@@ -11,6 +11,7 @@ import {
   AreaOperation,
   AreaPlane,
   AreaSegmentType,
+  PlaneAreaSummary,
 } from '../types/areaSegment';
 import { formatMetric } from '../utils/format';
 
@@ -59,6 +60,7 @@ export function AreaSegmentList({
 }: AreaSegmentListProps) {
   const { t } = useI18n();
   const [segments, setSegments] = useState<AreaSegmentType[]>([]);
+  const [planes, setPlanes] = useState<Record<AreaPlane, PlaneAreaSummary> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -73,6 +75,7 @@ export function AreaSegmentList({
     try {
       const data = await fetchAreaSegments(projectId, roomId);
       setSegments(data.items);
+      setPlanes(data.planes ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t.area_segments.error);
     } finally {
@@ -185,7 +188,12 @@ export function AreaSegmentList({
   const renderPlaneSection = (plane: AreaPlane) => {
     const activeForm = form !== null && form.plane === plane ? form : null;
     const planeSegments = segments.filter((s) => s.plane === plane);
-    const totals = planeTotals(planeSegments);
+    const summary = planes?.[plane];
+    const totals = summary
+      ? { net: Number(summary.net_area) }
+      : planeTotals(planeSegments);
+    const rectangleBase = summary !== undefined && summary.base_area !== null;
+    const hasPlaneArea = rectangleBase || planeSegments.length > 0;
     const planeKey = plane === 'FLOOR' ? 'floor' : 'ceiling';
 
     return (
@@ -196,10 +204,31 @@ export function AreaSegmentList({
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h4 className="text-sm font-semibold text-slate-900">{planeLabel(plane)}</h4>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
-            {t.area_segments.total}: {formatMetric(totals.net)} {t.common.unit_m2}
-          </span>
+          {hasPlaneArea && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
+              {t.area_segments.total}: {formatMetric(totals.net)} {t.common.unit_m2}
+            </span>
+          )}
         </div>
+
+        {summary !== undefined && (
+          <div className="text-xs text-slate-500 space-y-0.5 border-t border-slate-100 pt-1.5">
+            {rectangleBase && (
+              <p className="flex items-center justify-between gap-2">
+                <span>{t.area_segments.base_area}</span>
+                <span className="font-medium text-slate-700">
+                  {formatMetric(summary.base_area)} {t.common.unit_m2}
+                </span>
+              </p>
+            )}
+            <p className="flex items-center justify-between gap-2">
+              <span>{t.area_segments.adjustments}</span>
+              <span className="font-medium text-slate-700">
+                {formatMetric(summary.adjustment_area)} {t.common.unit_m2}
+              </span>
+            </p>
+          </div>
+        )}
 
         <div className="flex gap-2 flex-wrap">
           <button

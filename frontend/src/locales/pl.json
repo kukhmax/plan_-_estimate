@@ -217,6 +217,8 @@
     "created": "Prostokąt został dodany",
     "updated": "Prostokąt został zaktualizowany",
     "archived": "Prostokąt został zarchiwizowany",
-    "restored": "Prostokąt został przywrócony"
+    "restored": "Prostokąt został przywrócony",
+    "base_area": "Powierzchnia bazowa",
+    "adjustments": "Korekty"
   }
 }

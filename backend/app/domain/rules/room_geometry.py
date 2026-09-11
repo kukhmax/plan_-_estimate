@@ -62,8 +62,14 @@ class ResolvedRoomTotals:
 
 @dataclass(frozen=True)
 class PlaneAreaTotals:
-    """Aggregated area of active segments for a single FLOOR/CEILING plane."""
+    """Effective area of a single FLOOR/CEILING plane.
 
+    ``net_area`` is the room's base plane area plus active segment adjustments:
+    ``base_area + additive_area - subtraction_area``. ``base_area`` is the
+    rectangle L x W base, or None for a custom room (no known dimensions).
+    """
+
+    base_area: Decimal | None
     additive_area: Decimal
     subtraction_area: Decimal
     net_area: Decimal
@@ -143,13 +149,27 @@ def calculate_segment_area(
     return (width * height).quantize(AREA_PRECISION)
 
 
+def calculate_plane_base_area(
+    length: Decimal | None,
+    width: Decimal | None,
+) -> Decimal | None:
+    """Base L x W plane area for a RECTANGLE room; None for a CUSTOM room."""
+    if length is not None and width is not None and length > 0 and width > 0:
+        return (length * width).quantize(AREA_PRECISION)
+    return None
+
+
 def calculate_plane_totals(
     segments: Sequence[tuple[AreaOperation | str, Decimal]],
+    base_area: Decimal | None = None,
 ) -> PlaneAreaTotals | None:
-    """Aggregate active segments for one plane into additive/subtraction/net areas.
+    """Aggregate one plane's active segments against the room base area.
 
-    `segments` items are (operation, segment_area). Returns None when there are
-    no segments. Raises ValueError when the resulting net area would be negative.
+    ``segments`` items are (operation, segment_area). Effective net =
+    ``base_area + sum(ADD) - sum(SUBTRACT)``; ``base_area`` is the rectangle L x
+    W base, or None for a custom room (treated as zero). Returns None only when
+    a custom room has no active segments. Raises ValueError when the resulting
+    net area would be negative.
     """
     additive = Decimal("0.000")
     subtraction = Decimal("0.000")
@@ -164,15 +184,24 @@ def calculate_plane_totals(
         elif op == AreaOperation.SUBTRACT:
             subtraction += area
 
-    net = (additive - subtraction).quantize(AREA_PRECISION)
+    effective_base = base_area if base_area is not None else Decimal("0.000")
+    additive = additive.quantize(AREA_PRECISION)
+    subtraction = subtraction.quantize(AREA_PRECISION)
+    net = (effective_base + additive - subtraction).quantize(AREA_PRECISION)
     if net < 0:
         raise ValueError(
             f"Net area ({net}) cannot be negative for a plane with "
-            f"additions {additive} and subtractions {subtraction}"
+            f"base area {effective_base}, additions {additive}, "
+            f"and subtractions {subtraction}"
         )
+
+    if base_area is None and additive == subtraction == Decimal("0.000"):
+        return None
+
     return PlaneAreaTotals(
-        additive_area=additive.quantize(AREA_PRECISION),
-        subtraction_area=subtraction.quantize(AREA_PRECISION),
+        base_area=base_area.quantize(AREA_PRECISION) if base_area is not None else None,
+        additive_area=additive,
+        subtraction_area=subtraction,
         net_area=net,
     )
 

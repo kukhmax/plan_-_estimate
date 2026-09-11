@@ -11,9 +11,9 @@ from app.domain.rules.room_geometry import (
     PlaneAreaTotals,
     RoomGeometryResult,
     WallDerivedTotals,
+    calculate_plane_base_area,
     calculate_plane_totals,
     calculate_room_geometry,
-    calculate_segment_area,
     calculate_wall_derived_totals,
     resolve_room_totals,
 )
@@ -61,20 +61,6 @@ class RoomService:
         return calculate_wall_derived_totals(wall_pairs, deduction)
 
     @staticmethod
-    def _plane_totals_from_segments(
-        segments_by_plane: dict[AreaPlane, list[AreaSegment]],
-        plane: AreaPlane,
-    ) -> PlaneAreaTotals | None:
-        segments = segments_by_plane.get(plane, [])
-        if not segments:
-            return None
-        pairs = [
-            (segment.operation, calculate_segment_area(segment.width, segment.height))
-            for segment in segments
-        ]
-        return calculate_plane_totals(pairs)
-
-    @staticmethod
     def _build_calculations(
         geometry: RoomGeometryResult | None,
         wall_totals: WallDerivedTotals | None,
@@ -106,6 +92,7 @@ class RoomService:
     async def _load_plane_segment_totals(
         self,
         room_id: uuid.UUID,
+        base_area: Decimal | None,
     ) -> dict[AreaPlane, PlaneAreaTotals]:
         segment_stmt = select(
             AreaSegment.plane,
@@ -116,31 +103,24 @@ class RoomService:
             AreaSegment.room_id == room_id,
             AreaSegment.is_archived.is_(False),
         )
-        total_by_plane: dict[AreaPlane, dict[AreaOperation, Decimal]] = {
-            AreaPlane.FLOOR: {AreaOperation.ADD: Decimal("0.000"), AreaOperation.SUBTRACT: Decimal("0.000")},
-            AreaPlane.CEILING: {AreaOperation.ADD: Decimal("0.000"), AreaOperation.SUBTRACT: Decimal("0.000")},
-        }
         result = await self.db.execute(segment_stmt)
+
+        pairs_by_plane: dict[AreaPlane, list[tuple[AreaOperation, Decimal]]] = defaultdict(list)
         for plane, operation, width, height in result.all():
             area = (Decimal(width) * Decimal(height)).quantize(AREA_PRECISION)
-            total_by_plane[plane][operation] += area
+            pairs_by_plane[plane].append((operation, area))
 
         totals: dict[AreaPlane, PlaneAreaTotals] = {}
-        for plane, operations in total_by_plane.items():
-            additive = operations[AreaOperation.ADD]
-            subtraction = operations[AreaOperation.SUBTRACT]
-            net = (additive - subtraction).quantize(AREA_PRECISION)
-            if net < 0:
-                raise RoomNotFoundError(
-                    f"Plane {plane.value} has negative net area {net}"
-                )
-            if additive == subtraction == Decimal("0.000"):
+        for plane in (AreaPlane.FLOOR, AreaPlane.CEILING):
+            pairs = pairs_by_plane.get(plane)
+            if not pairs:
                 continue
-            totals[plane] = PlaneAreaTotals(
-                additive_area=additive,
-                subtraction_area=subtraction,
-                net_area=net,
-            )
+            try:
+                totals[plane] = calculate_plane_totals(pairs, base_area)
+            except ValueError as exc:
+                raise RoomNotFoundError(
+                    f"Plane {plane.value} has negative net area: {exc}"
+                ) from exc
         return totals
 
     async def _attach_calculations(self, room: Room) -> None:
@@ -161,7 +141,9 @@ class RoomService:
         deduction = Decimal(deduction_res.scalar_one()).quantize(Decimal("0.001"))
 
         wall_totals = await self._load_wall_totals(room.id, deduction)
-        plane_totals = await self._load_plane_segment_totals(room.id)
+        plane_totals = await self._load_plane_segment_totals(
+            room.id, calculate_plane_base_area(room.length, room.width)
+        )
         geometry = calculate_room_geometry(room.length, room.width, room.height)
         room.calculations = self._build_calculations(
             geometry,
@@ -271,13 +253,14 @@ class RoomService:
                 wall_totals = calculate_wall_derived_totals(pairs, deduction)
 
             plane_segments = segment_pairs_by_room.get(room.id, {})
+            base_area = calculate_plane_base_area(room.length, room.width)
             floor_totals = (
-                calculate_plane_totals(plane_segments.get(AreaPlane.FLOOR, []))
+                calculate_plane_totals(plane_segments.get(AreaPlane.FLOOR, []), base_area)
                 if plane_segments.get(AreaPlane.FLOOR)
                 else None
             )
             ceiling_totals = (
-                calculate_plane_totals(plane_segments.get(AreaPlane.CEILING, []))
+                calculate_plane_totals(plane_segments.get(AreaPlane.CEILING, []), base_area)
                 if plane_segments.get(AreaPlane.CEILING)
                 else None
             )

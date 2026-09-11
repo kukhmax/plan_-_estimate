@@ -421,13 +421,13 @@ async def test_rectangle_room_keeps_formula_without_segments_and_planes_independ
     assert calcs_none["floor_area"] == "20.000"
     assert calcs_none["ceiling_area"] == "20.000"
 
-    # Add only a FLOOR segment -> floor becomes segment-derived, ceiling stays L x W
+    # Add only a FLOOR segment -> floor becomes base + segment, ceiling stays L x W
     await create_segment(
         async_client, token, project["id"], room["id"],
         plane="FLOOR", operation="ADD", width="3.000", height="2.000",
     )  # 6.000
     calcs_floor = await get_room_calcs(async_client, token, project["id"], room["id"])
-    assert calcs_floor["floor_area"] == "6.000"
+    assert calcs_floor["floor_area"] == "26.000"  # 20.000 base + 6.000 adjustment
     assert calcs_floor["ceiling_area"] == "20.000"
 
 
@@ -645,3 +645,199 @@ async def test_archived_segments_still_listed_with_include_archived(
     assert incl_res.status_code == 200
     assert incl_res.json()["total"] == 1
     assert incl_res.json()["items"][0]["is_archived"] is True
+
+
+# --- Hotfix 5D.1B.2: rectangle floor/ceiling base-area semantics ---
+#
+# For a RECTANGLE room the effective plane area is base (L x W) plus active
+# ADD segments minus active SUBTRACT segments. The negative-net guard uses the
+# same effective calculation, so subtractions may deduct from the room base.
+
+
+async def get_planes_summary(
+    async_client: AsyncClient, token: str, project_id: str, room_id: str
+) -> dict:
+    res = await async_client.get(
+        segments_url(project_id, room_id), headers=auth_header(token)
+    )
+    assert res.status_code == 200, res.text
+    return res.json()["planes"]
+
+
+@pytest.mark.asyncio
+async def test_rectangle_room_no_segments_keeps_base_12_210(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    project = await create_project(async_client, token)
+    room = await create_room(
+        async_client, token, project["id"],
+        length="3.700", width="3.300", height="2.700",
+    )
+
+    calcs = await get_room_calcs(async_client, token, project["id"], room["id"])
+    assert calcs is not None
+    assert calcs["floor_area"] == "12.210"
+    assert calcs["ceiling_area"] == "12.210"
+
+    # The segment list exposes an effective total even with zero segments.
+    planes = await get_planes_summary(async_client, token, project["id"], room["id"])
+    assert planes["FLOOR"]["base_area"] == "12.210"
+    assert planes["FLOOR"]["adjustment_area"] == "0.000"
+    assert planes["FLOOR"]["net_area"] == "12.210"
+
+
+@pytest.mark.asyncio
+async def test_rectangle_room_subtract_deducts_from_base(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    project = await create_project(async_client, token)
+    room = await create_room(
+        async_client, token, project["id"],
+        length="3.700", width="3.300", height="2.700",
+    )  # base 12.210
+
+    # SUBTRACT 0.700 x 0.800 = 0.560 is allowed against the room base.
+    await create_segment(
+        async_client, token, project["id"], room["id"],
+        plane="FLOOR", operation="SUBTRACT", width="0.700", height="0.800",
+    )
+
+    calcs = await get_room_calcs(async_client, token, project["id"], room["id"])
+    assert calcs["floor_area"] == "11.650"  # 12.210 - 0.560
+    assert calcs["ceiling_area"] == "12.210"
+
+    planes = await get_planes_summary(async_client, token, project["id"], room["id"])
+    assert planes["FLOOR"]["base_area"] == "12.210"
+    assert planes["FLOOR"]["adjustment_area"] == "-0.560"
+    assert planes["FLOOR"]["net_area"] == "11.650"
+
+
+@pytest.mark.asyncio
+async def test_rectangle_room_add_combines_with_base(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    project = await create_project(async_client, token)
+    room = await create_room(
+        async_client, token, project["id"],
+        length="3.700", width="3.300", height="2.700",
+    )  # base 12.210
+
+    await create_segment(
+        async_client, token, project["id"], room["id"],
+        plane="FLOOR", operation="ADD", width="1.000", height="0.500",
+    )  # +0.500
+
+    calcs = await get_room_calcs(async_client, token, project["id"], room["id"])
+    assert calcs["floor_area"] == "12.710"  # 12.210 + 0.500
+
+    planes = await get_planes_summary(async_client, token, project["id"], room["id"])
+    assert planes["FLOOR"]["adjustment_area"] == "0.500"
+    assert planes["FLOOR"]["net_area"] == "12.710"
+
+
+@pytest.mark.asyncio
+async def test_rectangle_negative_guard_uses_base_area(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    project = await create_project(async_client, token)
+    room = await create_room(
+        async_client, token, project["id"],
+        length="3.700", width="3.300", height="2.700",
+    )  # base 12.210
+
+    # SUBTRACT 4.000 x 4.000 = 16.000 exceeds the 12.210 base -> 422
+    res = await async_client.post(
+        segments_url(project["id"], room["id"]),
+        json={"plane": "FLOOR", "operation": "SUBTRACT", "width": "4.000", "height": "4.000"},
+        headers=auth_header(token),
+    )
+    assert res.status_code == 422
+    assert "cannot be negative" in res.text
+
+
+@pytest.mark.asyncio
+async def test_floor_adjustment_does_not_affect_ceiling(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    project = await create_project(async_client, token)
+    room = await create_room(
+        async_client, token, project["id"],
+        length="3.700", width="3.300", height="2.700",
+    )  # both planes base 12.210
+
+    await create_segment(
+        async_client, token, project["id"], room["id"],
+        plane="FLOOR", operation="SUBTRACT", width="0.700", height="0.800",
+    )  # floor -> 11.650
+
+    calcs = await get_room_calcs(async_client, token, project["id"], room["id"])
+    assert calcs["floor_area"] == "11.650"
+    assert calcs["ceiling_area"] == "12.210"
+
+    planes = await get_planes_summary(async_client, token, project["id"], room["id"])
+    assert planes["FLOOR"]["net_area"] == "11.650"
+    assert planes["CEILING"]["net_area"] == "12.210"
+
+
+@pytest.mark.asyncio
+async def test_custom_room_unchanged_no_base_no_fabricated_area(
+    async_client: AsyncClient,
+):
+    token = await get_token(async_client, VALID_USER)
+    project = await create_project(async_client, token)
+    room = await create_room(async_client, token, project["id"])
+
+    # No segments -> no L x W fabrication, list summary shows no base.
+    calcs = await get_room_calcs(async_client, token, project["id"], room["id"])
+    assert calcs is None
+    planes = await get_planes_summary(async_client, token, project["id"], room["id"])
+    assert planes["FLOOR"]["base_area"] is None
+    assert planes["FLOOR"]["net_area"] == "0.000"
+    assert planes["CEILING"]["base_area"] is None
+
+    # ADD 8.000 + SUBTRACT 1.000 -> segment-derived 7.000, no base involved.
+    await create_segment(
+        async_client, token, project["id"], room["id"],
+        plane="FLOOR", operation="ADD", width="4.000", height="2.000",
+    )  # 8.000
+    await create_segment(
+        async_client, token, project["id"], room["id"],
+        plane="FLOOR", operation="SUBTRACT", width="1.000", height="1.000",
+    )  # 1.000
+    calcs = await get_room_calcs(async_client, token, project["id"], room["id"])
+    assert calcs["floor_area"] == "7.000"
+    planes = await get_planes_summary(async_client, token, project["id"], room["id"])
+    assert planes["FLOOR"]["base_area"] is None
+    assert planes["FLOOR"]["adjustment_area"] == "7.000"
+    assert planes["FLOOR"]["net_area"] == "7.000"
+
+
+@pytest.mark.asyncio
+async def test_archive_and_restore_recalculate_against_base(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    project = await create_project(async_client, token)
+    room = await create_room(
+        async_client, token, project["id"],
+        length="3.700", width="3.300", height="2.700",
+    )  # base 12.210
+
+    sub = await create_segment(
+        async_client, token, project["id"], room["id"],
+        plane="FLOOR", operation="SUBTRACT", width="0.700", height="0.800",
+    )  # 0.560, floor 11.650
+
+    calcs = await get_room_calcs(async_client, token, project["id"], room["id"])
+    assert calcs["floor_area"] == "11.650"
+
+    # Archive -> base restored
+    arch = await async_client.post(
+        f"{segment_url(project['id'], room['id'], sub['id'])}/archive",
+        headers=auth_header(token),
+    )
+    assert arch.status_code == 200
+    calcs = await get_room_calcs(async_client, token, project["id"], room["id"])
+    assert calcs["floor_area"] == "12.210"
+
+    # Restore -> deduction reapplied
+    rest = await async_client.post(
+        f"{segment_url(project['id'], room['id'], sub['id'])}/restore",
+        headers=auth_header(token),
+    )
+    assert rest.status_code == 200
+    calcs = await get_room_calcs(async_client, token, project["id"], room["id"])
+    assert calcs["floor_area"] == "11.650"

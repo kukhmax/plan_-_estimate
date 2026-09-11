@@ -322,4 +322,56 @@ describe('AreaSegmentList', () => {
     expect(await screen.findByText('Prostokąt został przywrócony')).toBeInTheDocument();
     expect(onMeasurementChanged).toHaveBeenCalledTimes(1);
   });
+
+  it('shows backend effective total for a rectangle plane with zero segments', async () => {
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({
+      items: [],
+      total: 0,
+      planes: {
+        FLOOR: { base_area: '12.210', adjustment_area: '0.000', net_area: '12.210' },
+        CEILING: { base_area: '12.210', adjustment_area: '0.000', net_area: '12.210' },
+      },
+    });
+    renderAreaSegments();
+
+    await waitFor(() => expect(screen.getAllByText(/Razem: 12\.210 m²/)).toHaveLength(2));
+    expect(screen.getAllByText('Powierzchnia bazowa')).toHaveLength(2);
+    expect(screen.getAllByText('12.210 m²').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Korekty')).toHaveLength(2);
+    // Empty-state copy is still present for the no-segments list
+    expect(screen.getByText('Brak prostokątów podłogi')).toBeInTheDocument();
+  });
+
+  it('shows base, negative adjustment, and effective total from the backend summary', async () => {
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({
+      items: [],
+      total: 0,
+      planes: {
+        FLOOR: { base_area: '12.210', adjustment_area: '-0.560', net_area: '11.650' },
+        CEILING: { base_area: '12.210', adjustment_area: '0.000', net_area: '12.210' },
+      },
+    });
+    renderAreaSegments();
+
+    await waitFor(() => expect(screen.getByText(/Razem: 11\.650 m²/)).toBeInTheDocument());
+    expect(screen.getByText('-0.560 m²')).toBeInTheDocument();
+    expect(screen.getByText(/Razem: 12\.210 m²/)).toBeInTheDocument();
+  });
+
+  it('does not fabricate a base total for a custom room without segments', async () => {
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({
+      items: [],
+      total: 0,
+      planes: {
+        FLOOR: { base_area: null, adjustment_area: '0.000', net_area: '0.000' },
+        CEILING: { base_area: null, adjustment_area: '0.000', net_area: '0.000' },
+      },
+    });
+    renderAreaSegments();
+
+    await waitFor(() => expect(screen.getByText('Brak prostokątów podłogi')).toBeInTheDocument());
+    // No base-area row and no fabricated 0.000 total badge
+    expect(screen.queryByText('Powierzchnia bazowa')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Razem: 0\.000 m²/)).not.toBeInTheDocument();
+  });
 });

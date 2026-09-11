@@ -85,6 +85,15 @@ class AreaSegmentRead(BaseModel):
         return self
 
 
+class PlaneAreaSummary(BaseModel):
+    """Effective per-plane area: room base plus active segment adjustments."""
+
+    base_area: Decimal | None = None
+    adjustment_area: Decimal = Decimal("0.000")
+    net_area: Decimal = Decimal("0.000")
+
+
 class AreaSegmentListResponse(BaseModel):
     items: list[AreaSegmentRead]
     total: int
+    planes: dict[AreaPlane, PlaneAreaSummary] = {}

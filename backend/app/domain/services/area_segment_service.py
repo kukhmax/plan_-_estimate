@@ -11,8 +11,8 @@ from app.domain.exceptions import (
     RoomNotFoundError,
 )
 from app.domain.rules.room_geometry import (
-    AREA_PRECISION,
     PlaneAreaTotals,
+    calculate_plane_base_area,
     calculate_plane_totals,
     calculate_segment_area,
 )
@@ -64,6 +64,11 @@ class AreaSegmentService:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    async def _room_base_area(self, room_id: uuid.UUID) -> Decimal | None:
+        stmt = select(Room.length, Room.width).where(Room.id == room_id)
+        row = (await self.db.execute(stmt)).one()
+        return calculate_plane_base_area(row.length, row.width)
+
     async def _assert_plane_net_non_negative(
         self,
         room_id: uuid.UUID,
@@ -77,10 +82,27 @@ class AreaSegmentService:
         ]
         if extra is not None:
             pairs.append(extra)
+        base_area = await self._room_base_area(room_id)
         try:
-            calculate_plane_totals(pairs)
+            calculate_plane_totals(pairs, base_area)
         except ValueError as exc:
             raise NegativeNetAreaError(str(exc)) from exc
+
+    async def _plane_summaries(
+        self,
+        room_id: uuid.UUID,
+        base_area: Decimal | None,
+    ) -> dict[AreaPlane, PlaneAreaTotals | None]:
+        """Effective totals per plane for the list response (base + adjustments)."""
+        summaries: dict[AreaPlane, PlaneAreaTotals | None] = {}
+        for plane in (AreaPlane.FLOOR, AreaPlane.CEILING):
+            active = await self._get_active_segments(room_id, plane)
+            pairs = [
+                (segment.operation, calculate_segment_area(segment.width, segment.height))
+                for segment in active
+            ]
+            summaries[plane] = calculate_plane_totals(pairs, base_area)
+        return summaries
 
     async def list_area_segments(
         self,
@@ -90,7 +112,7 @@ class AreaSegmentService:
         *,
         plane: AreaPlane | None = None,
         include_archived: bool = False,
-    ) -> tuple[list[AreaSegment], int]:
+    ) -> tuple[list[AreaSegment], int, dict[AreaPlane, PlaneAreaTotals | None]]:
         await self._ensure_room_owned(project_id, room_id, owner_id)
 
         stmt = select(AreaSegment).where(AreaSegment.room_id == room_id)
@@ -110,7 +132,11 @@ class AreaSegmentService:
         )
         result = await self.db.execute(stmt)
         items = list(result.scalars().all())
-        return items, total
+
+        summaries = await self._plane_summaries(
+            room_id, await self._room_base_area(room_id)
+        )
+        return items, total, summaries
 
     async def create_area_segment(
         self,

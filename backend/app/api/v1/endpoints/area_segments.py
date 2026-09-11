@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -17,6 +18,7 @@ from app.schemas.area_segment import (
     AreaSegmentListResponse,
     AreaSegmentRead,
     AreaSegmentUpdate,
+    PlaneAreaSummary,
 )
 
 router = APIRouter()
@@ -37,7 +39,7 @@ async def list_area_segments(
     area_segment_service: AreaSegmentService = Depends(get_area_segment_service),
 ) -> AreaSegmentListResponse:
     try:
-        items, total = await area_segment_service.list_area_segments(
+        items, total, plane_totals = await area_segment_service.list_area_segments(
             project_id,
             room_id,
             owner_id=current_user.id,
@@ -57,6 +59,18 @@ async def list_area_segments(
     return AreaSegmentListResponse(
         items=[AreaSegmentRead.model_validate(segment) for segment in items],
         total=total,
+        planes={
+            plane: PlaneAreaSummary(
+                base_area=totals.base_area if totals is not None else None,
+                adjustment_area=(
+                    totals.additive_area - totals.subtraction_area
+                    if totals is not None
+                    else Decimal("0.000")
+                ),
+                net_area=totals.net_area if totals is not None else Decimal("0.000"),
+            )
+            for plane, totals in plane_totals.items()
+        },
     )
 
 

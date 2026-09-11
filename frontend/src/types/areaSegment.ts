@@ -16,9 +16,16 @@ export interface AreaSegmentType {
   updated_at: string;
 }
 
+export interface PlaneAreaSummary {
+  base_area: string | number | null;
+  adjustment_area: string | number;
+  net_area: string | number;
+}
+
 export interface AreaSegmentListResponse {
   items: AreaSegmentType[];
   total: number;
+  planes?: Record<AreaPlane, PlaneAreaSummary>;
 }
 
 export interface AreaSegmentCreatePayload {
