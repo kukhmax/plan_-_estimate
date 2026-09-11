@@ -16,7 +16,7 @@
 | **Stage 2** | **Telegram Mini App authentication/integration** | **Completed** | HMAC-SHA256 `initData` validation, User model, JWT sessions, mock gating, runtime shell, theme adaptation, viewport stability, and BackButton |
 | **Stage 3** | **Clients** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU), verification coverage |
 | **Stage 4** | **Projects / Obiekty** | **Completed** | Central aggregate root: Project model, address fields, status lifecycle, optional Client link, owner isolation |
-| **Stage 5** | **Rooms, surfaces and measurements** | **In Progress** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, practical mobile measurement workflow, and composite floor/ceiling geometry implemented; final manual acceptance pending |
+| **Stage 5** | **Rooms, surfaces and measurements** | **Completed** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, practical mobile measurement workflow, composite floor/ceiling geometry, and owner-accepted final manual acceptance |
 | Stage 6 | Inspection Checklist Engine | Pending | Substrate diagnostics, checklist questions, inspection records anchored to surfaces |
 | Stage 7 | Risk Rules Engine | Pending | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
 | Stage 8 | "Co powiedzieć klientowi" | Pending | Ready-to-use professional explanations and client communication scripts (PL/RU) |
@@ -25,13 +25,55 @@
 | Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
 | Stage 13 | Technological workflows | Pending | Work sequencing, technological breaks, drying times, stage tracking |
-| Stage 14 | Photo fixation / object storage | Pending | Visual documentation: before/after, defects, concealed works (S3-compatible storage) |
+| Stage 14 | Photo Fixation & Defect Annotations | Pending | Photo attachments (Project/Room, WALL/FLOOR/CEILING, camera/gallery, multiple per target, notes, thumbnails, S3 abstraction, metadata separate from binaries) and tap-to-annotate defects (normalized x/y, category, comment, severity, status) — see "Roadmap Detail — Stage 14" |
 | Stage 15 | Documents / PDF | Pending | Printable estimate, contract, and technical protocol generation (Jinja2 + WeasyPrint) |
 | Stage 16 | Contracts and protective protocols | Pending | Binding contract generator, site handover protocol, concealed works, final acceptance |
 | Stage 17 | Legal knowledge base + situation search | Pending | Polish Building Law, ITB conditions, PN-EN norms, legal situation lookup |
 | Stage 18 | Calendar and Telegram reminders | Pending | Schedule management, milestone reminders, technological break notifications |
 | Stage 19 | Offline drafts | Pending | IndexedDB offline draft storage for basements/no-signal areas, sync engine |
 | Stage 20 | Full MVP audit and end-to-end object scenario | Pending | End-to-end walkthrough: client → project → inspection → estimate → contract → handover |
+
+---
+
+## Roadmap Detail — Stage 14: Photo Fixation & Defect Annotations (Planned Scope)
+
+> Planned scope for the existing canonical **Stage 14**. No new canonical stage number is created and the canonical Stage 0–20 order is unchanged. This is future roadmap intent, **not** functionality implemented during Stage 5.
+
+### Photo attachments
+- Attachment context: Project / Room, `WALL` surface, `FLOOR`, `CEILING`.
+- Capture methods: camera capture and gallery/file upload.
+- Multiple photos per target.
+- Description / notes and timestamps.
+- Thumbnails.
+- S3-compatible object-storage abstraction.
+- Metadata stored separately from binary image data.
+
+### Defect annotations
+- User taps a point on the photo to place an annotation.
+- Normalized `x` / `y` coordinates (resolution-independent).
+- Multiple annotations per photo.
+- Defect category, comment, severity, status.
+
+Candidate defect categories may later include: crack, detachment, moisture, unevenness, mechanical damage, other. This candidate enum must **not** be frozen prematurely in implementation documentation.
+
+### Future integration chain (documented intent, not implemented in Stage 5)
+
+```
+Photo / PhotoAnnotation
+→ Inspection Checklist Finding
+→ Risk Rules Engine
+→ Recommended Work
+→ Estimate
+→ PDF / protective protocol
+```
+
+Clarifications:
+- This dependency chain is forward integration intent recorded at Stage 5 closure. No element of it is implemented today.
+- **Stage 6** (Inspection Checklist Engine) should design inspection findings so they can later reference photos/annotations, but Stage 6 must **not** implement photo storage.
+- **Stage 7** (Risk Rules Engine) may later consume annotated defects as risk inputs.
+- **Stage 11** (Inspection → recommended work → estimate) may later convert annotated/checklist findings into recommended work.
+- **Stage 15** (Documents / PDF) may later embed selected photos/annotations into generated documents.
+- **Stage 20** (Full MVP audit) should include the photo/defect workflow in its end-to-end audit scenario.
 
 ---
 
@@ -716,7 +758,7 @@
 ---
 
 ### Canonical Stage 5: Rooms, Surfaces and Measurements
-- **Status**: In Progress
+- **Status**: Completed
 - **Scope & Canonical Mapping**:
   - **Implemented (partial)**: Room and Surface backend domain entities, PostgreSQL migrations (`0005_create_rooms_table.py`, `0006_create_surfaces_table.py`), hierarchical API routes, semantic surface types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), owner isolation, active/archive filtering, and mobile-first `Projects → Project → Rooms → Room → Surfaces` frontend workspace (completed under historical commits `baa95e7`, `c56c767`, `542ed15`, `cfcbbcc`).
   - **Execution Sub-Stage 5A (Completed)**: Room physical dimensions (`length`, `width`, `height`), individual `WALL` surface dimensions (`width`, `height`), deterministic rectangular room gross geometry (`floor_area`, `ceiling_area`, `total_wall_area`, `wall_area_length`, `wall_area_width`, `perimeter`), surface gross area calculations, high-precision `sa.Numeric(10, 3)` / `Decimal` arithmetic, forward Alembic migration `0007_add_measurement_dimensions.py`, backward compatibility, and owner isolation.
@@ -728,8 +770,8 @@
   - **Execution Sub-Stage 5D.1A.2 (Completed)**: Custom-room measurement-entry hotfix — the unmeasured-room CTA now routes by shape: RECTANGLE keeps "Wprowadź wymiary" (existing L/W/H room editor); CUSTOM shows "Rozpocznij pomiar ścian" and enters the sequential custom-wall workflow directly (never the L/W/H editor, first wall length autofocused), using `Room.height` as the default wall height with per-wall override, and keeping `Room.length`/`width` null. Per-room measurement mode is preserved as frontend-only workflow state (new `hooks/roomMeasurementMode.ts`, keyed per roomId in localStorage, written on room create/edit, read on room open, with guarded missing/corrupt-storage fallback to shape inference). No backend schema/domain change; composite floor/ceiling geometry deferred to 5D.1B.
   - **Execution Sub-Stage 5D.1B (Completed)**: Composite floor and ceiling geometry — one reusable `AreaSegment` entity (`areaplane` FLOOR/CEILING, `areaoperation` ADD/SUBTRACT, `Numeric(10,3)` width/height, position, label, archived flag) with per-plane effective `net = base_area + Σ ADD − Σ SUBTRACT` where `base_area = L × W` for a RECTANGLE room (zero for a CUSTOM room), negative rejected 422 on create/update/restore using the same effective total, archived excluded; room totals resolve each plane independently (active segments → base + adjustments, rectangle no-segments → L×W base, custom no-segments → None, segments-only irregular rooms still report planes); visible retroactive `Razem: X.XXX m²` floor/ceiling badges plus `Powierzchnia bazowa` / `Korekty` breakdown driven by backend-authoritative plane totals (no second calculation engine in the frontend); `add-{plane}-rectangle` / `add-{plane}-subtraction` presets, inline edit, archive/restore, and `onMeasurementChanged` room-total refresh without full reload; Alembic migration `0010_create_area_segments_table.py` (parent `0009_add_surface_position`, reversal verified); zero N+1 via a single grouped segment query per project in `list_rooms`; PL/RU parity maintained. **Hotfix 5D.1B.2**: rectangle plane totals now fold the room `L × W` base into the effective area and negative-net guard (a lone `SUBTRACT 0.700 × 0.800` against `3.700 × 3.300` yields `11.650`, never rejected as `0.000 − 0.560`); the area-segments list response exposes per-plane `{base_area, adjustment_area, net_area}` so the frontend displays backend-computed totals.
   - **Execution Sub-Stage 5E.1 (Completed)**: Mobile/navigation cleanup hotfix — removed the redundant rectangle/custom wall-input mode toggle (mode now derived from the room's measured shape), rebuilt the wall surface card as a mobile action grid with 44 px touch targets, larger/wrapped action buttons across segment/opening/room lists, and a top-level **Obiekty** nav reset that always returns to the project list even from deep Room → Surface views (`resetSignal` prop on `ProjectWorkspace`); removed the now-unused `mode_rectangle` / `mode_custom` locale keys (PL/RU parity 198/198); frontend-only, no DB migration.
-  - **Remaining / Pending**: Full manual room acceptance scenario (execution sub-stage 5E).
-- **Gate**: Canonical Stage 5 remains **IN PROGRESS** until real measurements, openings subtraction, and surface totals are implemented, tested, and manually verified.
+  - **Execution Sub-Stage 5E (Completed / Owner Acceptance)**: Final manual acceptance of the canonical `5 × 4 × 2.7` m room scenario — room creation (RECTANGLE), wall generation, opening subtraction, net totals, and composite floor/ceiling geometry — accepted by the project owner on 2026-09-11.
+- **Gate**: Canonical Stage 5 is **COMPLETED** — real measurements, openings subtraction, surface totals, mobile workflow, and the owner-accepted final manual acceptance are all delivered. No remaining work in Stage 5.
 
 #### Execution Sub-Stage 5A: Room Measurement Domain & Backend Foundation
 - **Status**: Completed
@@ -833,8 +875,8 @@
 - Archive / restore edge cases (Scenarios A, B, C): PASS.
 - Backward compatibility: PASS.
 
-#### Remaining Canonical Stage 5 Work:
-- Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario)
+#### Remaining Canonical Stage 5 Work (as recorded after Sub-Stage 5B):
+- Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario) — resolved 2026-09-11 by owner acceptance; Canonical Stage 5 is **Completed**.
 
 #### Execution Sub-Stage 5C: Measurement Frontend UI
 - **Status**: Completed
@@ -1070,8 +1112,11 @@
 - Removed locale keys absent from source and both dictionaries: PASS.
 - Regression (rectangle wall generation, custom walls, openings/deductions, area segments, room mode routing, Telegram BackButton): PASS.
 
-#### Remaining Canonical Stage 5 Work:
-- Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario)
+#### Execution Sub-Stage 5E (Owner Acceptance): Final Manual Acceptance
+- **Status**: Completed
+- **Date**: 2026-09-11
+- **Scope**: Final manual acceptance of the canonical `5 × 4 × 2.7` m room scenario — RECTANGLE room creation, 4-wall generation, opening subtraction (`gross − deductions = net`), composite floor/ceiling geometry, and mobile measurement navigation.
+- **Closure**: Owner decision recorded 2026-09-11 — Canonical Stage 5 (Rooms, Surfaces and Measurements) is **COMPLETED**. No remaining work in Stage 5.
 
 ---
 
