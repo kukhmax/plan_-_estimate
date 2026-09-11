@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
+from app.models.area_segment import AreaOperation
 from app.models.surface import SurfaceType
 
 AREA_PRECISION = Decimal("0.001")
@@ -57,6 +58,15 @@ class ResolvedRoomTotals:
     total_deduction_area: Decimal | None
     net_wall_area: Decimal | None
     wall_count: int | None
+
+
+@dataclass(frozen=True)
+class PlaneAreaTotals:
+    """Aggregated area of active segments for a single FLOOR/CEILING plane."""
+
+    additive_area: Decimal
+    subtraction_area: Decimal
+    net_area: Decimal
 
 
 def calculate_room_geometry(
@@ -119,6 +129,52 @@ def calculate_opening_area(
     single = (width * height).quantize(AREA_PRECISION)
     total = (width * height * Decimal(quantity)).quantize(AREA_PRECISION)
     return OpeningAreaResult(single_area=single, total_area=total)
+
+
+def calculate_segment_area(
+    width: Decimal | None,
+    height: Decimal | None,
+) -> Decimal | None:
+    """Area of a single ADD/SUBTRACT rectangle segment (width x height)."""
+    if width is None or height is None:
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    return (width * height).quantize(AREA_PRECISION)
+
+
+def calculate_plane_totals(
+    segments: Sequence[tuple[AreaOperation | str, Decimal]],
+) -> PlaneAreaTotals | None:
+    """Aggregate active segments for one plane into additive/subtraction/net areas.
+
+    `segments` items are (operation, segment_area). Returns None when there are
+    no segments. Raises ValueError when the resulting net area would be negative.
+    """
+    additive = Decimal("0.000")
+    subtraction = Decimal("0.000")
+    for operation, area in segments:
+        op = (
+            AreaOperation(operation)
+            if isinstance(operation, str)
+            else operation
+        )
+        if op == AreaOperation.ADD:
+            additive += area
+        elif op == AreaOperation.SUBTRACT:
+            subtraction += area
+
+    net = (additive - subtraction).quantize(AREA_PRECISION)
+    if net < 0:
+        raise ValueError(
+            f"Net area ({net}) cannot be negative for a plane with "
+            f"additions {additive} and subtractions {subtraction}"
+        )
+    return PlaneAreaTotals(
+        additive_area=additive.quantize(AREA_PRECISION),
+        subtraction_area=subtraction.quantize(AREA_PRECISION),
+        net_area=net,
+    )
 
 
 def calculate_wall_net_area(
@@ -267,18 +323,31 @@ def resolve_room_totals(
     geometry: RoomGeometryResult | None,
     wall_totals: WallDerivedTotals | None,
     total_opening_deduction_area: Decimal = Decimal("0.000"),
+    floor_segments: PlaneAreaTotals | None = None,
+    ceiling_segments: PlaneAreaTotals | None = None,
 ) -> ResolvedRoomTotals | None:
-    """Resolve final room totals from formula geometry and measured walls.
+    """Resolve final room totals from formula geometry, measured walls, and segments.
 
-    When measured walls exist, wall totals take precedence for every wall metric;
-    floor/ceiling come from the formula only when room length/width are known
-    (irregular rooms without dims report None). With no measured walls, the
-    formula-based geometry is reported unchanged for backward compatibility.
+    When measured walls exist, wall totals take precedence for every wall metric.
+    When a plane has active area segments, the segment-derived net area takes
+    precedence for that plane; otherwise the formula L x W is used when room
+    length/width are known (irregular rooms without dims report None). With no
+    measured walls, the formula-based geometry is reported unchanged for backward
+    compatibility.
     """
+    resolved_floor = (
+        floor_segments.net_area if floor_segments is not None
+        else (geometry.floor_area if geometry is not None else None)
+    )
+    resolved_ceiling = (
+        ceiling_segments.net_area if ceiling_segments is not None
+        else (geometry.ceiling_area if geometry is not None else None)
+    )
+
     if wall_totals is not None:
         return ResolvedRoomTotals(
-            floor_area=geometry.floor_area if geometry is not None else None,
-            ceiling_area=geometry.ceiling_area if geometry is not None else None,
+            floor_area=resolved_floor,
+            ceiling_area=resolved_ceiling,
             total_wall_area=wall_totals.total_wall_area,
             wall_area_length=geometry.wall_area_length if geometry is not None else None,
             wall_area_width=geometry.wall_area_width if geometry is not None else None,
@@ -296,8 +365,8 @@ def resolve_room_totals(
             )
         net = (geometry.total_wall_area - deduction).quantize(AREA_PRECISION)
         return ResolvedRoomTotals(
-            floor_area=geometry.floor_area,
-            ceiling_area=geometry.ceiling_area,
+            floor_area=resolved_floor,
+            ceiling_area=resolved_ceiling,
             total_wall_area=geometry.total_wall_area,
             wall_area_length=geometry.wall_area_length,
             wall_area_width=geometry.wall_area_width,
@@ -305,6 +374,21 @@ def resolve_room_totals(
             total_deduction_area=deduction,
             net_wall_area=net,
             wall_count=0,
+        )
+
+    # No measured walls and no formula geometry, but segment-derived planes exist
+    # (e.g. an irregular/custom room measured as composite FLOOR/CEILING segments).
+    if floor_segments is not None or ceiling_segments is not None:
+        return ResolvedRoomTotals(
+            floor_area=resolved_floor,
+            ceiling_area=resolved_ceiling,
+            total_wall_area=None,
+            wall_area_length=None,
+            wall_area_width=None,
+            perimeter=None,
+            total_deduction_area=None,
+            net_wall_area=None,
+            wall_count=None,
         )
 
     return None

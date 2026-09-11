@@ -35,3 +35,11 @@ class WallGenerationDimensionsMissingError(Exception):
 
 class WallGenerationConflictError(Exception):
     """Raised when room walls already exist but do not match the canonical rectangle."""
+
+
+class AreaSegmentNotFoundError(Exception):
+    """Raised when an area segment is not found within an owned room."""
+
+
+class NegativeNetAreaError(Exception):
+    """Raised when a plane's net area (additions minus subtractions) would be negative."""

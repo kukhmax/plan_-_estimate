@@ -16,7 +16,7 @@
 | **Stage 2** | **Telegram Mini App authentication/integration** | **Completed** | HMAC-SHA256 `initData` validation, User model, JWT sessions, mock gating, runtime shell, theme adaptation, viewport stability, and BackButton |
 | **Stage 3** | **Clients** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU), verification coverage |
 | **Stage 4** | **Projects / Obiekty** | **Completed** | Central aggregate root: Project model, address fields, status lifecycle, optional Client link, owner isolation |
-| **Stage 5** | **Rooms, surfaces and measurements** | **In Progress** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, and practical mobile measurement workflow implemented; final manual acceptance pending |
+| **Stage 5** | **Rooms, surfaces and measurements** | **In Progress** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, practical mobile measurement workflow, and composite floor/ceiling geometry implemented; final manual acceptance pending |
 | Stage 6 | Inspection Checklist Engine | Pending | Substrate diagnostics, checklist questions, inspection records anchored to surfaces |
 | Stage 7 | Risk Rules Engine | Pending | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
 | Stage 8 | "Co powiedzieć klientowi" | Pending | Ready-to-use professional explanations and client communication scripts (PL/RU) |
@@ -725,8 +725,9 @@
   - **Execution Sub-Stage 5D (Completed)**: Practical mobile measurement workflow — decimal/numeric input modes, direct room dimension entry, prominent `Gross − Deductions = Net` totals hierarchy, streamlined opening entry, and PL/RU localization.
   - **Execution Sub-Stage 5D.1A (Completed)**: Surface positional ordering and wall generation — nullable `surfaces.position` (`ORDER BY position ASC NULLS LAST`), non-destructive `POST .../surfaces/generate` (422 / 409 / idempotent no-op), deterministic wall-derived room totals (`wall_count`, perimeter from wall widths, Σ gross, deductions, net) with zero N+1, rectangle vs custom sequential wall-entry frontend modes (frontend-only, not persisted), direct `+ Drzwi / + Okno / + Inny otwór` quick actions with type pre-selection, and custom/irregular rooms reporting `floor_area = None` / `ceiling_area = None`.
   - **Execution Sub-Stage 5D.1A.1 (Completed)**: Room creation measurement workflow refinement — shape decision (RECTANGLE / CUSTOM) moved to the moment of room creation, immediately after the room name; RECTANGLE keeps `length`/`width`/`height` (Decimal 0.001 behavior preserved); CUSTOM drops fake rectangular dims and stores only the default wall height into `Room.height` (prefilled 2.700 m, per-room override); new custom walls prefill that height and individual walls may still override; opening dimension defaults per type (DOOR / WINDOW) stored as per-project localStorage workflow state (never a DB column, never bulk-updating existing openings, OTHER never inherits); PL/RU parity maintained; composite floor/ceiling geometry still deferred to 5D.1B.
-  - **Execution Sub-Stage 5D.1A.2 (Completed)**: Custom-room measurement-entry hotfix — the unmeasured-room CTA now routes by shape: RECTANGLE keeps "Wprowadź wymiary" (existing L/W/H room editor); CUSTOM shows "Rozpocznij pomiar ścian" and enters the sequential custom-wall workflow directly (never the L/W/H editor, first wall length autofocused), using `Room.height` as the default wall height with per-wall override, and keeping `Room.length`/`width` null. Per-room measurement mode is preserved as frontend-only workflow state (new `hooks/roomMeasurementMode.ts`, keyed per roomId in localStorage, written on room create/edit, read on room open, with guarded missing/corrupt-storage fallback to shape inference). No backend schema/domain change; composite floor/ceiling geometry still deferred to 5D.1B.
-  - **Remaining / Pending**: Composite floor/ceiling segments (execution sub-stage 5D.1B), then full manual room acceptance scenario (execution sub-stage 5E).
+  - **Execution Sub-Stage 5D.1A.2 (Completed)**: Custom-room measurement-entry hotfix — the unmeasured-room CTA now routes by shape: RECTANGLE keeps "Wprowadź wymiary" (existing L/W/H room editor); CUSTOM shows "Rozpocznij pomiar ścian" and enters the sequential custom-wall workflow directly (never the L/W/H editor, first wall length autofocused), using `Room.height` as the default wall height with per-wall override, and keeping `Room.length`/`width` null. Per-room measurement mode is preserved as frontend-only workflow state (new `hooks/roomMeasurementMode.ts`, keyed per roomId in localStorage, written on room create/edit, read on room open, with guarded missing/corrupt-storage fallback to shape inference). No backend schema/domain change; composite floor/ceiling geometry deferred to 5D.1B.
+  - **Execution Sub-Stage 5D.1B (Completed)**: Composite floor and ceiling geometry — one reusable `AreaSegment` entity (`areaplane` FLOOR/CEILING, `areaoperation` ADD/SUBTRACT, `Numeric(10,3)` width/height, position, label, archived flag) with per-plane `net = Σ ADD − Σ SUBTRACT` (zero allowed, negative rejected 422 on create/update/restore, archived excluded); room totals resolve each plane independently (active segments → segment value, rectangle no-segments → L×W formula, custom no-segments → None, segments-only irregular rooms still report planes); visible retroactive `Razem: X.XXX m²` floor/ceiling badges with additive/subtractive composition; `add-{plane}-rectangle` / `add-{plane}-subtraction` presets, inline edit, archive/restore, and `onMeasurementChanged` room-total refresh without full reload; Alembic migration `0010_create_area_segments_table.py` (parent `0009_add_surface_position`, reversal verified); zero N+1 via a single grouped segment query per project in `list_rooms`; PL/RU parity maintained.
+  - **Remaining / Pending**: Full manual room acceptance scenario (execution sub-stage 5E).
 - **Gate**: Canonical Stage 5 remains **IN PROGRESS** until real measurements, openings subtraction, and surface totals are implemented, tested, and manually verified.
 
 #### Execution Sub-Stage 5A: Room Measurement Domain & Backend Foundation
@@ -983,9 +984,53 @@
 - PL/RU mirrored keys (168/168): PASS.
 - Backend regression and scope review (no 5D.1B / 5E / Stage 6 work started): PASS.
 
+#### Execution Sub-Stage 5D.1B: Composite Floor & Ceiling Geometry
+- **Status**: Completed
+- **Date**: 2026-09-11
+- **Scope**:
+  - Added one reusable `AreaSegment` entity (no separate FloorSegment/CeilingSegment models): `room_id` FK (ON DELETE CASCADE), `plane` enum `areaplane` (`FLOOR` / `CEILING`), `operation` enum `areaoperation` (`ADD` / `SUBTRACT`), `width` / `height` as `sa.Numeric(10, 3)` (`Decimal`), nullable `position` and `label`, `is_archived`, UTC timestamps, composite index `ix_area_segments_room_plane_archived (room_id, plane, is_archived)`.
+  - Pure domain rules in `app/domain/rules/room_geometry.py`:
+    - `segment_area = width × height` quantized to `0.001 m²`
+    - Per plane: `additive_area = Σ active ADD`, `subtraction_area = Σ active SUBTRACT`, `net_area = additive − subtraction`
+    - Zero net allowed; negative net rejected (`NegativeNetAreaError` → HTTP 422 on create/update/restore); archived segments always excluded.
+  - Room total resolution (`resolve_room_totals`):
+    - A plane with active segments → segment-derived `net_area`.
+    - A RECTANGLE plane with no segments → existing formula `L × W` fallback.
+    - A CUSTOM (no dims) plane with no segments → `None`.
+    - FLOOR and CEILING resolved independently; a segments-only branch lets an irregular room measured purely as composite planes still yield calculations (never fabricates rectangular `L × W`).
+  - `RoomService.list_rooms` aggregates active segments in a single grouped query per project (zero N+1, constant query count); `get_room` loads both planes in one query.
+  - API `/api/projects/{project}/rooms/{room}/area-segments`: list (with `?plane=` filter, `?include_archived=`), create, get, patch, archive, restore. Pydantic v2 DTOs validate `Decimal gt=0`, `decimal_places=3`, `max_digits=10`; owner isolation intact (foreign → 404, unauthenticated → 401).
+  - Frontend `AreaSegmentList`: independent PODŁOGA and SUFIT sections, each with `[+ Dodaj prostokąt]` (presets `ADD`) and `[+ Dodaj odjęcie]` (presets `SUBTRACT`), inline add/edit form (`inputMode="decimal"` width/length + optional label), rows with operation badge / label / `width × height = area`, `Razem: X.XXX m²` badge, archive/restore, and `onMeasurementChanged` refresh of room totals without a full reload. Mobile-friendly (no horizontal scroll, no CAD).
+  - PL/RU locale parity preserved (198/198 keys).
+
+#### Sub-Stage 5D.1B Database:
+- Migration: `backend/alembic/versions/0010_create_area_segments_table.py` (parent: `0009_add_surface_position`).
+- Table created: `area_segments` with enums `areaplane` / `areaoperation` (inline `sa.Enum` columns, `DROP TYPE IF EXISTS` on downgrade), UUID PK, `room_id` FK with `ON DELETE CASCADE`, `width`/`height` `Numeric(10,3)`, `is_archived` default `false`, UTC timestamps, and indexes `ix_area_segments_room_id` + `ix_area_segments_room_plane_archived`.
+- Single Alembic head (`0010_create_area_segments_table`); linear upgrade / downgrade -1 / re-upgrade cycle verified against PostgreSQL.
+
+#### Sub-Stage 5D.1B Tests:
+- Focused area-segment backend suite (`test_area_segments.py`): 21 passed, 0 failed.
+- Full backend test suite: 165 passed, 0 failed.
+- Focused frontend area-segment suite (`AreaSegmentList.test.tsx`): 13 passed, 0 failed.
+- Full frontend test suite: 101 passed, 0 failed.
+- TypeScript strict typecheck: PASS (0 errors).
+- Frontend production build: PASS.
+- Locale parity PL/RU: 198/198 keys mirrored.
+- `git diff --check`: PASS.
+
+#### Sub-Stage 5D.1B Verification:
+- AreaSegment model (one entity, plane/operation enums, Numeric(10,3), archived excluded, owner isolation): PASS.
+- ADD / SUBTRACT / net = ADD − SUBTRACT calculations, zero allowed, negative rejected on create/update/restore, DB unchanged on rejected writes: PASS.
+- Plane independence (FLOOR mutations never affect CEILING total and vice versa): PASS.
+- Room rules (rectangle → L×W fallback, custom no-segments → None, active segments → segment value, one plane segments + other plane independent fallback/None, no fabricated rectangle for irregular rooms): PASS.
+- Archive removes from totals / restore re-adds / restore fails safely on negative net: PASS.
+- Migration 0010 (follows 0009, clean upgrade/downgrade -1/re-upgrade, enums removed/recreated, single head): PASS.
+- Performance (zero N+1, constant-query list_rooms aggregation): PASS.
+- Frontend (independent sections, operation presets, add/edit/archive/restore, totals refresh without full reload, mobile layout, PL/RU parity): PASS.
+- Regression (rectangle wall generation, custom walls, openings/deductions, room mode routing, Telegram BackButton, 5A–5D.1A.2 suites green): PASS.
+
 #### Remaining Canonical Stage 5 Work:
-- Execution Sub-Stage 5D.1B: Composite floor/ceiling segments (scheduled after 5D.1A)
-- Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario); must follow 5D.1B
+- Execution Sub-Stage 5E: Final manual acceptance test (original 5 × 4 × 2.7 room scenario)
 
 ---
 

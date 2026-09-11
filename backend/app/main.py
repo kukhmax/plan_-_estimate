@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1.endpoints.area_segments import router as area_segments_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.clients import router as clients_router
 from app.api.v1.endpoints.health import router as health_router
@@ -32,3 +33,4 @@ app.include_router(projects_router, prefix="/api", tags=["projects"])
 app.include_router(rooms_router, prefix="/api", tags=["rooms"])
 app.include_router(surfaces_router, prefix="/api", tags=["surfaces"])
 app.include_router(openings_router, prefix="/api", tags=["openings"])
+app.include_router(area_segments_router, prefix="/api", tags=["area-segments"])

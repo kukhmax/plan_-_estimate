@@ -192,5 +192,31 @@
     "restored": "Otwór został przywrócony",
     "close": "Ukryj otwory",
     "set_as_default": "Ustaw jako domyślne"
+  },
+  "area_segments": {
+    "title": "Podłoga i sufit",
+    "floor": "Podłoga",
+    "ceiling": "Sufit",
+    "add_rectangle": "Dodaj prostokąt",
+    "add_subtraction": "Dodaj odjęcie",
+    "add": "Dodaj prostokąt",
+    "edit": "Edytuj prostokąt",
+    "loading": "Ładowanie segmentów...",
+    "empty_floor": "Brak prostokątów podłogi",
+    "empty_ceiling": "Brak prostokątów sufitu",
+    "operation_add": "Dodanie",
+    "operation_subtract": "Odjęcie",
+    "width": "Szerokość (m)",
+    "length": "Długość (m)",
+    "label": "Etykieta (opcjonalnie)",
+    "total": "Razem",
+    "additions": "Dodano",
+    "subtractions": "Odjęto",
+    "error": "Błąd podczas ładowania segmentów",
+    "invalid": "Podaj poprawną szerokość i długość (m)",
+    "created": "Prostokąt został dodany",
+    "updated": "Prostokąt został zaktualizowany",
+    "archived": "Prostokąt został zarchiwizowany",
+    "restored": "Prostokąt został przywrócony"
   }
 }

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
+from app.domain.services.area_segment_service import AreaSegmentService
 from app.domain.services.auth_service import TelegramAuthService
 from app.domain.services.client_service import ClientService
 from app.domain.services.opening_service import OpeningService
@@ -84,3 +85,9 @@ async def get_opening_service(
     db: AsyncSession = Depends(get_db),
 ) -> OpeningService:
     return OpeningService(db)
+
+
+async def get_area_segment_service(
+    db: AsyncSession = Depends(get_db),
+) -> AreaSegmentService:
+    return AreaSegmentService(db)

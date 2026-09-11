@@ -19,6 +19,7 @@ import {
 } from '../types/project';
 import { RoomType, RoomUpdatePayload } from '../types/room';
 import { formatMetric } from '../utils/format';
+import { AreaSegmentList } from './AreaSegmentList';
 import { RoomList } from './RoomList';
 import { SurfaceList, WallInputMode } from './SurfaceList';
 
@@ -734,6 +735,12 @@ export function ProjectWorkspace() {
               </div>
             </form>
           )}
+
+          <AreaSegmentList
+            projectId={selectedProject.id}
+            roomId={selectedRoom.id}
+            onMeasurementChanged={refreshSelectedRoom}
+          />
 
           <SurfaceList
             projectId={selectedProject.id}
