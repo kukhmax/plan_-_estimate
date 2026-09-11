@@ -1,13 +1,17 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as checklistsApi from './api/checklists';
 import * as clientsApi from './api/clients';
+import * as inspectionsApi from './api/inspections';
 import * as openingsApi from './api/openings';
 import * as projectsApi from './api/projects';
 import * as roomsApi from './api/rooms';
 import * as surfacesApi from './api/surfaces';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
 import { I18nProvider } from './hooks/useI18n';
+import { ChecklistTemplate } from './types/checklist';
 import { ClientType } from './types/client';
+import { Inspection } from './types/inspection';
 import { OpeningType } from './types/opening';
 import { ProjectType } from './types/project';
 import { RoomType } from './types/room';
@@ -43,6 +47,23 @@ vi.mock('./api/openings', () => ({
   updateOpening: vi.fn(),
   archiveOpening: vi.fn(),
   restoreOpening: vi.fn(),
+}));
+vi.mock('./api/checklists', () => ({
+  fetchChecklistTemplates: vi.fn(),
+  fetchChecklistTemplate: vi.fn(),
+}));
+vi.mock('./api/inspections', () => ({
+  fetchInspections: vi.fn(),
+  createInspection: vi.fn(),
+  fetchInspection: vi.fn(),
+  updateInspection: vi.fn(),
+  fetchInspectionAnswers: vi.fn(),
+  putInspectionAnswers: vi.fn(),
+  completeInspection: vi.fn(),
+  reopenInspection: vi.fn(),
+  archiveInspection: vi.fn(),
+  restoreInspection: vi.fn(),
+  fetchInspectionFindings: vi.fn(),
 }));
 
 const project: ProjectType = {
@@ -141,6 +162,55 @@ const doorOpening: OpeningType = {
   updated_at: '2026-09-09T10:00:00Z',
 };
 
+const concreteTemplate: ChecklistTemplate = {
+  id: 'tpl-1',
+  code: 'substrate-concrete',
+  version: 1,
+  substrate: 'CONCRETE',
+  title_key: 'checklist.template.concrete.title',
+  active: true,
+  sections: [
+    {
+      id: 'sec-1',
+      key: 'general_conditions',
+      position: 0,
+      title_key: 'checklist.section.general_conditions',
+      description_key: null,
+      questions: [
+        {
+          id: 'q-bool',
+          position: 0,
+          key: 'cracks_present',
+          text_key: 'checklist.question.cracks_present',
+          hint_key: null,
+          unit_key: null,
+          answer_type: 'BOOLEAN',
+          finding_key: 'CRACK',
+          options: [],
+        },
+      ],
+    },
+  ],
+  created_at: '2026-09-09T10:00:00Z',
+  updated_at: '2026-09-09T10:00:00Z',
+};
+
+const inspection: Inspection = {
+  id: 'ins-1',
+  room_id: measuredRoom.id,
+  surface_id: null,
+  plane: null,
+  template_id: concreteTemplate.id,
+  substrate: 'CONCRETE',
+  quality_target: 'S2',
+  status: 'DRAFT',
+  notes: null,
+  completed_at: null,
+  is_archived: false,
+  created_at: '2026-09-09T10:00:00Z',
+  updated_at: '2026-09-09T10:00:00Z',
+};
+
 function renderWorkspace() {
   return render(<I18nProvider><ProjectWorkspace /></I18nProvider>);
 }
@@ -155,6 +225,17 @@ describe('ProjectWorkspace', () => {
     vi.mocked(roomsApi.fetchRoom).mockResolvedValue(room);
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(checklistsApi.fetchChecklistTemplates).mockResolvedValue({
+      items: [concreteTemplate],
+      total: 1,
+    });
+    vi.mocked(checklistsApi.fetchChecklistTemplate).mockResolvedValue(concreteTemplate);
+    vi.mocked(inspectionsApi.fetchInspections).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(inspectionsApi.fetchInspectionFindings).mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+    vi.mocked(inspectionsApi.createInspection).mockResolvedValue(inspection);
   });
 
   it('renders projects with their assigned clients', async () => {
@@ -927,5 +1008,134 @@ describe('Room measurement CTA routing (Stage 5D.1A.2)', () => {
     await screen.findByLabelText('room-unmeasured-notice');
     expect(screen.queryByLabelText('custom-wall-entry')).not.toBeInTheDocument();
     expect(screen.getByLabelText('measure-room-action')).toHaveTextContent('Wprowadź wymiary');
+  });
+});
+
+describe('Inspection entry points and navigation (Stage 6C)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [project], total: 1 });
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client], total: 1 });
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(measuredRoom);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallSurface], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(checklistsApi.fetchChecklistTemplates).mockResolvedValue({
+      items: [concreteTemplate],
+      total: 1,
+    });
+    vi.mocked(checklistsApi.fetchChecklistTemplate).mockResolvedValue(concreteTemplate);
+    vi.mocked(inspectionsApi.fetchInspections).mockResolvedValue({ items: [inspection], total: 1 });
+    vi.mocked(inspectionsApi.fetchInspectionFindings).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(inspectionsApi.createInspection).mockResolvedValue(inspection);
+  });
+
+  const openRoomView = async () => {
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
+    await screen.findByLabelText('room-inspection-entry');
+  };
+
+  it('exposes room, floor, ceiling, and wall inspection entry points (ENTRY)', async () => {
+    await openRoomView();
+    expect(screen.getByLabelText('inspect-room')).toBeInTheDocument();
+    expect(screen.getByLabelText('inspect-floor')).toBeInTheDocument();
+    expect(screen.getByLabelText('inspect-ceiling')).toBeInTheDocument();
+    expect(screen.getByLabelText(`inspect-surface-${wallSurface.id}`)).toBeInTheDocument();
+  });
+
+  it('opens a room-level inspection list filtered to room inspections (ENTRY)', async () => {
+    await openRoomView();
+    fireEvent.click(screen.getByLabelText('inspect-room'));
+    await screen.findByText('Badanie pomieszczenia');
+    expect(await screen.findByText('Beton')).toBeInTheDocument();
+  });
+
+  it('opens a wall-targeted inspection list from the wall card (ENTRY)', async () => {
+    await openRoomView();
+    fireEvent.click(screen.getByLabelText(`inspect-surface-${wallSurface.id}`));
+    expect(await screen.findByText('Ściana północna')).toBeInTheDocument();
+  });
+
+  it('starts a new wall inspection and creates a DRAFT via the flow (ENTRY)', async () => {
+    await openRoomView();
+    fireEvent.click(screen.getByLabelText(`inspect-surface-${wallSurface.id}`));
+    fireEvent.click(await screen.findByLabelText('Nowe badanie'));
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await waitFor(() =>
+      expect(inspectionsApi.createInspection).toHaveBeenCalledWith(
+        project.id,
+        measuredRoom.id,
+        expect.objectContaining({
+          surface_id: wallSurface.id,
+          substrate: 'CONCRETE',
+          quality_target: null,
+        }),
+      ),
+    );
+  });
+
+  it('respects BackButton hierarchy flow -> list -> room -> rooms (NAVIGATION)', async () => {
+    let clickHandler: (() => void) | undefined;
+    const backButton = {
+      isVisible: false,
+      show: vi.fn(),
+      hide: vi.fn(),
+      onClick: vi.fn((cb: () => void) => {
+        clickHandler = cb;
+      }),
+      offClick: vi.fn(),
+    };
+    window.Telegram = {
+      WebApp: {
+        initData: '',
+        initDataUnsafe: {},
+        version: '8.0',
+        platform: 'web',
+        colorScheme: 'light',
+        themeParams: {},
+        isExpanded: false,
+        viewportHeight: 800,
+        viewportStableHeight: 800,
+        ready: vi.fn(),
+        expand: vi.fn(),
+        close: vi.fn(),
+        BackButton: backButton,
+      },
+    };
+
+    await openRoomView();
+
+    // Open the room-level inspection list
+    fireEvent.click(screen.getByLabelText('inspect-room'));
+    await screen.findByText('Badanie pomieszczenia');
+    // Start a new inspection -> flow (substrate step)
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await screen.findByLabelText('Beton');
+
+    // Back from flow -> inspection list
+    act(() => {
+      clickHandler?.();
+    });
+    expect(await screen.findByText('Badanie pomieszczenia')).toBeInTheDocument();
+
+    // Back from list -> room detail
+    act(() => {
+      clickHandler?.();
+    });
+    expect(await screen.findByLabelText('room-inspection-entry')).toBeInTheDocument();
+
+    // Back from room -> rooms list
+    act(() => {
+      clickHandler?.();
+    });
+    expect(await screen.findByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument();
   });
 });

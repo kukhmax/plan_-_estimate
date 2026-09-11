@@ -4,7 +4,7 @@ Telegram Mini App for managing interior finishing and renovation work in Poland 
 
 ## Implementation status
 
-### Canonical Stages 0–5 (Completed)
+### Canonical Stages 0–6 (Completed)
 
 - **Stage 0**: Engineering workflow, architectural invariants, and domain rules (`GEMINI.md`, `.agents/rules/`).
 - **Stage 1**: Application infrastructure, Docker PostgreSQL 16, FastAPI backend, React Vite frontend, aiogram bot skeleton.
@@ -19,8 +19,9 @@ Telegram Mini App for managing interior finishing and renovation work in Poland 
 - **Stage 3**: Client management with owner isolation, search, active/archive filtering, and PL/RU localization.
 - **Stage 4**: Project / Obiekt central aggregate root with status lifecycle, optional Client association, and owner isolation.
 - **Stage 5**: Rooms, surfaces and measurements — Room and Surface hierarchy with semantic types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), metric room/wall dimensions, opening subtraction with net area totals, rectangle wall generation and custom sequential wall entry, composite floor/ceiling geometry (base + adjustments), practical mobile measurement workflow, and PL/RU localization. Owner-accepted final manual acceptance (2026-09-11).
+- **Stage 6**: Inspection Checklist Engine — substrate diagnostics with versioned immutable checklist templates (concrete, gypsum plaster, cement-lime plaster, gypsum board, painted, other), room-scoped inspections with four targets (WALL surface, FLOOR, CEILING, room-level), typed answers (BOOLEAN / NUMBER / TEXT / SINGLE_CHOICE / MULTI_CHOICE), quality-scale validation (S1–S4, Q1–Q4, optional for painted/other), factual backend findings only (no risk/price/warranty), mobile PL/RU workflow, and owner-accepted final manual acceptance (2026-09-12).
 
-Implementation is complete through **Canonical Stage 5**. Stages 6–20 are pending.
+Implementation is complete through **Canonical Stage 6**. Stages 7–20 are pending.
 
 ## Domain hierarchy
 
