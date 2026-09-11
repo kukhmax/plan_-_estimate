@@ -816,3 +816,112 @@ describe('ProjectWorkspace', () => {
     expect(within(customEntry).getByLabelText('custom-wall-height')).toHaveValue('2.700 m');
   });
 });
+
+describe('Room measurement CTA routing (Stage 5D.1A.2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [project], total: 1 });
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client], total: 1 });
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(room);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  // A CUSTOM-shape room created in 5D.1A.1: default wall height in Room.height, no L/W.
+  const customMeasurementRoom: RoomType = {
+    id: '77777777-7777-7777-7777-777777777777',
+    project_id: project.id,
+    name: 'Poddasze',
+    description: 'Skosy',
+    height: 2.7,
+    is_archived: false,
+    created_at: '2026-09-09T10:00:00Z',
+    updated_at: '2026-09-09T10:00:00Z',
+  };
+
+  const openRoomView = async (roomToOpen: RoomType, roomsList: RoomType[]) => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: roomsList, total: roomsList.length });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(roomToOpen);
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${roomToOpen.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${roomToOpen.id}`));
+  };
+
+  it('RECTANGLE room CTA opens the L/W/H room editor', async () => {
+    await openRoomView(room, [room]);
+    await screen.findByLabelText('room-unmeasured-notice');
+    const measureBtn = screen.getByLabelText('measure-room-action');
+    expect(measureBtn).toHaveTextContent('Wprowadź wymiary');
+
+    fireEvent.click(measureBtn);
+    expect(screen.getByLabelText('room-edit-form')).toBeInTheDocument();
+    expect(screen.getByLabelText('room-edit-length')).toBeInTheDocument();
+    expect(screen.getByLabelText('room-edit-width')).toBeInTheDocument();
+    expect(screen.getByLabelText('room-edit-height')).toBeInTheDocument();
+  });
+
+  it('CUSTOM room CTA launches sequential wall entry and never shows L/W', async () => {
+    await openRoomView(customMeasurementRoom, [customMeasurementRoom]);
+    await screen.findByLabelText('room-unmeasured-notice');
+    const measureBtn = screen.getByLabelText('measure-room-action');
+    expect(measureBtn).toHaveTextContent('Rozpocznij pomiar ścian');
+
+    fireEvent.click(measureBtn);
+    // The rectangular Room editor must never appear; Room.length/width stay null.
+    expect(screen.queryByLabelText('room-edit-form')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('room-edit-length')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('room-edit-width')).not.toBeInTheDocument();
+    // Sequential wall entry is immediately active with focus on Wall 1 length.
+    const entry = await screen.findByLabelText('custom-wall-entry');
+    expect(within(entry).getByLabelText('custom-wall-width')).toHaveFocus();
+  });
+
+  it('CUSTOM room defaults to wall entry on open using Room.height as wall height', async () => {
+    await openRoomView(customMeasurementRoom, [customMeasurementRoom]);
+    const entry = await screen.findByLabelText('custom-wall-entry');
+    expect(within(entry).getByLabelText('custom-wall-height')).toHaveValue('2.700 m');
+  });
+
+  it('preserves CUSTOM mode across navigation/reload via per-room storage', async () => {
+    // Seed the same storage a browser reload would leave behind, even for a room whose
+    // inferred shape alone would be RECTANGLE — storage is the source of truth.
+    localStorage.setItem(`plan-estimate:room-measurement-mode:${room.id}`, 'CUSTOM');
+    await openRoomView(room, [room]);
+
+    expect(await screen.findByLabelText('custom-wall-entry')).toBeInTheDocument();
+
+    // Navigate away and back — mode must be re-read from storage, not reset to default.
+    fireEvent.click(screen.getByLabelText('back-to-rooms'));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
+    expect(await screen.findByLabelText('custom-wall-entry')).toBeInTheDocument();
+  });
+
+  it('does not leak CUSTOM mode between rooms', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [customMeasurementRoom, room], total: 2 });
+    vi.mocked(roomsApi.fetchRoom).mockImplementation(async (_projId, id) =>
+      id === customMeasurementRoom.id ? customMeasurementRoom : room,
+    );
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${customMeasurementRoom.id}`)).toBeInTheDocument());
+
+    // Custom room enters wall entry directly.
+    fireEvent.click(screen.getByLabelText(`open-room-${customMeasurementRoom.id}`));
+    expect(await screen.findByLabelText('custom-wall-entry')).toBeInTheDocument();
+
+    // Switching to the rectangle room must not inherit custom mode.
+    fireEvent.click(screen.getByLabelText('back-to-rooms'));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
+    await screen.findByLabelText('room-unmeasured-notice');
+    expect(screen.queryByLabelText('custom-wall-entry')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('measure-room-action')).toHaveTextContent('Wprowadź wymiary');
+  });
+});

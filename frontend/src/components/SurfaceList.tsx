@@ -23,10 +23,12 @@ interface SurfaceListProps {
   roomId: string;
   roomHeight?: string | number | null;
   hasRoomDimensions?: boolean;
+  wallMode?: WallInputMode;
+  onWallModeChange?: (mode: WallInputMode) => void;
   onMeasurementChanged?: () => void;
 }
 
-type WallInputMode = 'RECTANGLE' | 'CUSTOM';
+export type WallInputMode = 'RECTANGLE' | 'CUSTOM';
 
 interface SurfaceFormState {
   name: string;
@@ -61,6 +63,8 @@ export function SurfaceList({
   roomId,
   roomHeight,
   hasRoomDimensions = false,
+  wallMode,
+  onWallModeChange,
   onMeasurementChanged,
 }: SurfaceListProps) {
   const { t } = useI18n();
@@ -75,7 +79,8 @@ export function SurfaceList({
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [expandedOpenings, setExpandedOpenings] = useState<Record<string, boolean>>({});
-  const [wallMode, setWallMode] = useState<WallInputMode>('RECTANGLE');
+  const [internalWallMode, setInternalWallMode] = useState<WallInputMode>('RECTANGLE');
+  const effectiveWallMode = wallMode ?? internalWallMode;
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [pendingQuickOpening, setPendingQuickOpening] = useState<PendingQuickOpening | null>(null);
@@ -143,7 +148,8 @@ export function SurfaceList({
   };
 
   const switchMode = (mode: WallInputMode) => {
-    setWallMode(mode);
+    onWallModeChange?.(mode);
+    setInternalWallMode(mode);
     setGenerateError(null);
   };
 
@@ -315,7 +321,7 @@ export function SurfaceList({
     <section aria-label="surfaces-section" className="w-full mt-5">
       <div className="flex items-center justify-between gap-3 mb-3">
         <h3 className="text-lg font-bold text-slate-900">{t.surfaces.title}</h3>
-        {wallMode === 'RECTANGLE' && (
+        {effectiveWallMode === 'RECTANGLE' && (
           <button
             type="button"
             aria-label="add-surface"
@@ -338,7 +344,7 @@ export function SurfaceList({
           aria-label="mode-rectangle"
           onClick={() => switchMode('RECTANGLE')}
           className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
-            wallMode === 'RECTANGLE'
+            effectiveWallMode === 'RECTANGLE'
               ? 'bg-white text-blue-700 shadow-sm'
               : 'text-slate-600 hover:bg-slate-200'
           }`}
@@ -350,7 +356,7 @@ export function SurfaceList({
           aria-label="mode-custom"
           onClick={() => switchMode('CUSTOM')}
           className={`rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
-            wallMode === 'CUSTOM'
+            effectiveWallMode === 'CUSTOM'
               ? 'bg-white text-blue-700 shadow-sm'
               : 'text-slate-600 hover:bg-slate-200'
           }`}
@@ -359,7 +365,7 @@ export function SurfaceList({
         </button>
       </div>
 
-      {wallMode === 'RECTANGLE' && hasRoomDimensions && (
+      {effectiveWallMode === 'RECTANGLE' && hasRoomDimensions && (
         <div className="mb-3">
           <button
             type="button"
@@ -379,7 +385,7 @@ export function SurfaceList({
         </div>
       )}
 
-      {wallMode === 'CUSTOM' && (
+      {effectiveWallMode === 'CUSTOM' && (
         <div
           aria-label="custom-wall-entry"
           className="bg-white border border-slate-200 rounded-2xl p-4 mb-3 shadow-sm"
@@ -407,6 +413,7 @@ export function SurfaceList({
                   min="0.001"
                   step="0.001"
                   placeholder="2.000"
+                  autoFocus
                   value={customWall.width}
                   onChange={(e) => setCustomWall((cur) => ({ ...cur, width: e.target.value }))}
                   className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"

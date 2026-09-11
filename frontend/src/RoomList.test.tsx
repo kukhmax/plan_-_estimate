@@ -273,4 +273,31 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
     expect(screen.getByLabelText('room-height')).toHaveValue(2.7);
     expect(screen.queryByLabelText('room-custom-height')).not.toBeInTheDocument();
   });
+
+  it('persists CUSTOM shape as per-room measurement mode on creation (Stage 5D.1A.2)', async () => {
+    vi.mocked(roomsApi.createRoom).mockResolvedValue(room);
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Poddasze' } });
+    fireEvent.click(screen.getByLabelText('room-shape-custom'));
+    fireEvent.submit(screen.getByLabelText('room-form'));
+
+    await waitFor(() => expect(roomsApi.createRoom).toHaveBeenCalledTimes(1));
+    expect(localStorage.getItem(`plan-estimate:room-measurement-mode:${room.id}`)).toBe('CUSTOM');
+  });
+
+  it('persists RECTANGLE shape as per-room measurement mode on creation (Stage 5D.1A.2)', async () => {
+    vi.mocked(roomsApi.createRoom).mockResolvedValue(room);
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Salon' } });
+    fireEvent.submit(screen.getByLabelText('room-form'));
+
+    await waitFor(() => expect(roomsApi.createRoom).toHaveBeenCalledTimes(1));
+    expect(localStorage.getItem(`plan-estimate:room-measurement-mode:${room.id}`)).toBe('RECTANGLE');
+  });
 });

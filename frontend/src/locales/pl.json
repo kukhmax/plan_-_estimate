@@ -125,7 +125,8 @@
     "rectangle": "Prostokąt",
     "custom": "Dowolny kształt",
     "default_wall_height": "Domyślna wysokość ścian (m)",
-    "custom_hint": "Nie wymaga wymiarów prostokąta — zmierz ściany po kolei."
+    "custom_hint": "Nie wymaga wymiarów prostokąta — zmierz ściany po kolei.",
+    "start_wall_measurement": "Rozpocznij pomiar ścian"
   },
   "surfaces": {
     "title": "Powierzchnie",

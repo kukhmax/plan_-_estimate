@@ -7,6 +7,7 @@ import {
   updateRoom,
 } from '../api/rooms';
 import { useI18n } from '../hooks/useI18n';
+import { saveRoomMeasurementMode } from '../hooks/roomMeasurementMode';
 import { RoomCreatePayload, RoomType, RoomUpdatePayload } from '../types/room';
 import { formatMetric } from '../utils/format';
 
@@ -155,9 +156,11 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
           height: payload.height,
         };
         await updateRoom(projectId, editingId, updatePayload);
+        saveRoomMeasurementMode(editingId, roomShape);
         setSuccess(t.rooms.updated);
       } else {
-        await createRoom(projectId, payload);
+        const created = await createRoom(projectId, payload);
+        saveRoomMeasurementMode(created.id, roomShape);
         setSuccess(t.rooms.created);
       }
       closeForm();

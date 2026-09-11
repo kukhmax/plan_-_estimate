@@ -9,6 +9,7 @@ import {
 } from '../api/projects';
 import { fetchRoom, updateRoom } from '../api/rooms';
 import { useI18n } from '../hooks/useI18n';
+import { resolveRoomMeasurementMode } from '../hooks/roomMeasurementMode';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { ClientType } from '../types/client';
 import {
@@ -19,7 +20,7 @@ import {
 import { RoomType, RoomUpdatePayload } from '../types/room';
 import { formatMetric } from '../utils/format';
 import { RoomList } from './RoomList';
-import { SurfaceList } from './SurfaceList';
+import { SurfaceList, WallInputMode } from './SurfaceList';
 
 interface ProjectFormState {
   name: string;
@@ -94,6 +95,7 @@ export function ProjectWorkspace() {
   const [roomForm, setRoomForm] = useState<RoomEditFormState>(EMPTY_ROOM_FORM);
   const [roomFormError, setRoomFormError] = useState<string | null>(null);
   const [savingRoom, setSavingRoom] = useState(false);
+  const [wallMode, setWallMode] = useState<WallInputMode>('RECTANGLE');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -276,6 +278,7 @@ export function ProjectWorkspace() {
     setShowRoomForm(false);
     setSelectedProject(project);
     setSelectedRoom(null);
+    setWallMode('RECTANGLE');
     setSuccess(null);
   };
 
@@ -284,10 +287,12 @@ export function ProjectWorkspace() {
     setShowRoomForm(false);
     setSelectedRoom(room);
     setSuccess(null);
+    setWallMode(resolveRoomMeasurementMode(room.id, room));
     if (selectedProject) {
       try {
         const fullRoom = await fetchRoom(selectedProject.id, room.id);
         setSelectedRoom(fullRoom);
+        setWallMode(resolveRoomMeasurementMode(fullRoom.id, fullRoom));
       } catch {
         // use room from list
       }
@@ -299,10 +304,14 @@ export function ProjectWorkspace() {
     setShowRoomForm(false);
     setSelectedProject(null);
     setSelectedRoom(null);
+    setWallMode('RECTANGLE');
     setSuccess(null);
   };
 
   const isBackButtonVisible = selectedProject !== null;
+
+  const roomMeasurementMode =
+    selectedRoom ? resolveRoomMeasurementMode(selectedRoom.id, selectedRoom) : 'RECTANGLE';
 
   useTelegramBackButton(isBackButtonVisible, () => {
     if (showRoomForm) {
@@ -617,10 +626,19 @@ export function ProjectWorkspace() {
                 <button
                   type="button"
                   aria-label="measure-room-action"
-                  onClick={() => startEditRoom(selectedRoom)}
+                  onClick={
+                    roomMeasurementMode === 'CUSTOM'
+                      ? () => {
+                          setShowRoomForm(false);
+                          setWallMode('CUSTOM');
+                        }
+                      : () => startEditRoom(selectedRoom)
+                  }
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 font-semibold rounded-xl hover:bg-blue-100 transition"
                 >
-                  + {t.rooms.enter_dimensions}
+                  + {roomMeasurementMode === 'CUSTOM'
+                    ? t.rooms.start_wall_measurement
+                    : t.rooms.enter_dimensions}
                 </button>
               </div>
             )}
@@ -726,6 +744,8 @@ export function ProjectWorkspace() {
               selectedRoom.width !== null && selectedRoom.width !== undefined &&
               selectedRoom.height !== null && selectedRoom.height !== undefined
             }
+            wallMode={wallMode}
+            onWallModeChange={setWallMode}
             onMeasurementChanged={refreshSelectedRoom}
           />
         </>
