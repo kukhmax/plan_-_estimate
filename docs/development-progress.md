@@ -17,7 +17,7 @@
 | **Stage 3** | **Clients** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU), verification coverage |
 | **Stage 4** | **Projects / Obiekty** | **Completed** | Central aggregate root: Project model, address fields, status lifecycle, optional Client link, owner isolation |
 | **Stage 5** | **Rooms, surfaces and measurements** | **Completed** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, practical mobile measurement workflow, composite floor/ceiling geometry, and owner-accepted final manual acceptance |
-| Stage 6 | Inspection Checklist Engine | In Progress | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation — backend engine complete (6B), mobile inspection workflow (6C) + final acceptance pending |
+| Stage 6 | Inspection Checklist Engine | In Progress | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation — backend engine (6B) and mobile inspection workflow (6C) complete; final acceptance (6D) pending |
 | Stage 7 | Risk Rules Engine | Pending | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
 | Stage 8 | "Co powiedzieć klientowi" | Pending | Ready-to-use professional explanations and client communication scripts (PL/RU) |
 | Stage 9 | Editable Price Book | Pending | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges |
@@ -1156,7 +1156,8 @@ Clarifications:
 - **Scope & Canonical Mapping**:
   - **Execution Sub-Stage 6A (Completed)**: Inspection Checklist Engine domain design — INSPECTION ONLY diagnostic engine (substrate inspection before finishing), 19-section design report; no photo storage, no price/work mapping (deferred to Stages 7/11/14).
   - **Execution Sub-Stage 6B (Completed)**: Inspection Checklist Engine — **backend** (versioned immutable checklist catalog + inspection records).
-- **Gate**: Canonical Stage 6 is **IN PROGRESS** — the backend engine is complete and verified; remaining work is Execution Sub-Stage 6C (frontend/mobile inspection workflow) followed by final Stage 6 verification/manual acceptance.
+  - **Execution Sub-Stage 6C (Completed)**: Inspection Checklist Engine — **mobile frontend** (inspection entry points, list, dynamic checklist, draft/review/complete/reopen, backend-authoritative findings, N+1-free list, mobile PL/RU workflow).
+- **Gate**: Canonical Stage 6 is **IN PROGRESS** — backend engine (6B) and mobile inspection workflow frontend (6C) are complete and verified; remaining work is Execution Sub-Stage 6D final manual acceptance / integration verification before canonical Stage 6 is marked Completed.
 
 #### Execution Sub-Stage 6B: Inspection Checklist Engine — Backend
 - **Status**: Completed
@@ -1190,7 +1191,37 @@ Clarifications:
   - Migration 0011 parent 0010, single head, upgrade → downgrade -1 → upgrade clean on PostgreSQL, areaplane not duplicated, all seven tables restored: PASS.
   - Regression: focused + full backend suites green, `git diff --check` clean, no Stage 7 or preview of later stages: PASS.
 - **Deferred**:
-  - Execution Sub-Stage 6C (mobile inspection workflow frontend), final Stage 6 verification / manual acceptance, and all Stage 7+ work remain pending explicit project-owner approval.
+  - Execution Sub-Stage 6D (final Stage 6 manual acceptance / integration verification) and all Stage 7+ work remain pending explicit project-owner approval.
+
+#### Execution Sub-Stage 6C: Inspection Checklist Engine — Mobile Frontend
+- **Status**: Completed
+- **Date**: 2026-09-11
+- **Scope**:
+  - **Inspection entry points** (four targets): WALL surface (per-wall `Badanie ściany` in `SurfaceList`), FLOOR plane, CEILING plane, and room-level — all routed through `ProjectWorkspace` room inspection panel with a single modular entry; no duplicate/conflicting controls; Stage 5 measurement workflows untouched.
+  - **Inspection list** (`InspectionList`): cards render only data already present in the list response (substrate, status badge, quality target, completed date); **no per-card findings fetches** — N cards render with zero extra findings requests; findings are fetched only when opening/viewing an inspection.
+  - **Backend finding authority**: the frontend has **no mirror** of backend `build_finding_specs`; before completion the Review step is a factual answer summary (`Podsumowanie odpowiedzi` / `Сводка ответов`) showing substrate, quality target, questions and current answers — it never claims persisted findings; after `POST .../complete` the frontend fetches and renders the actual backend `InspectionFinding` records; completion failure preserves local review state.
+  - **Start flow** (substrate → quality → create): `GYPSUM_BOARD` → Q1–Q4; `CONCRETE`/`GYPSUM_PLASTER`/`CEMENT_LIME_PLASTER` → S1–S4; `PAINTED`/`OTHER` → quality optional with S1–S4 and Q1–Q4 both allowed, skip made explicit via an optional-quality hint; API always sends canonical `Q1`–`Q4` (PSG aliases never sent).
+  - **Dynamic checklist** (`InspectionFlow`): questions/options render from backend template data + i18n dotted keys (no hardcoded domain questions in JSX); all five answer types round-trip — BOOLEAN, SINGLE_CHOICE, MULTI_CHOICE, NUMBER (`inputMode="decimal"`, comma→dot normalization), TEXT; unanswered questions never create findings.
+  - **Draft / review / complete / reopen lifecycle**: create DRAFT → answer → explicit Save Draft (`PUT .../answers` replace-set) → resume/open DRAFT prefilled from backend → Review Answers → Complete (PUT answers then `POST .../complete` → backend materializes findings → fetch findings → completed read-only view) → completed answers read-only → reopen restores editable DRAFT.
+  - **Findings UI**: completed inspection shows only factual backend findings (label + value snapshot); no severity, risk score, mitigation, warranty exclusions, recommended work, or price/estimate actions (Stage 7+).
+  - **Navigation / mobile**: Telegram BackButton hierarchy (form → flow → list → room → rooms → project) preserved and regression-tested; top-level Obiekty navigation valid; single-column ~390px layout with wrapping controls and ~44px touch targets.
+- **Tests**:
+  - Focused 6C suites: InspectionFlow 14, InspectionList 9, locale parity 2 — all passed (entry targets, quality scale routing incl. canonical Q1–Q4 payload, all five answer types, save-draft payload, resume prefill, review-shows-answers-not-findings, complete → backend findings, completion-failure preserves state, reopen, completed read-only, N+1 regression, PL/RU parity).
+  - Full frontend suite: 142 passed, 0 failed (13 files).
+  - Full backend suite: 235 passed, 0 failed (unchanged by 6C).
+  - TypeScript strict: PASS; `vite build`: PASS; `git diff --check`: PASS.
+- **Verification**:
+  - Four entry targets send correct payloads (surface_id / plane FLOOR|CEILING / both null), no duplicate controls, Stage 5 workflows regression-green: PASS.
+  - Inspection list renders multiple cards with zero per-card findings requests; findings fetched only on open/view: PASS.
+  - No frontend finding-materialization mirror remains (grep-clean); review wording is answer review, not persisted findings: PASS.
+  - Quality family routing per substrate; PAINTED/OTHER optional with explicit skip; canonical Q1–Q4 sent to API: PASS.
+  - All five answer types render from template + i18n and round-trip; no hardcoded questions in JSX: PASS.
+  - Draft → save → resume → review → complete → backend findings → read-only → reopen lifecycle, completion-failure state preserved: PASS.
+  - Completed view displays only factual backend findings; no Stage 7 severity/risk/mitigation/warranty/price: PASS.
+  - BackButton hierarchy, Obiekty navigation, mobile single-column layout and ~44px targets regression-green: PASS.
+  - PL/RU parity incl. new review/quality labels; template key resolution fails safely (falls back to the dotted key) when unavailable: PASS.
+- **Deferred**:
+  - Execution Sub-Stage 6D (final Stage 6 manual acceptance / integration verification) and all Stage 7+ work remain pending explicit project-owner approval.
 
 ---
 

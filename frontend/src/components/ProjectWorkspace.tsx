@@ -18,8 +18,11 @@ import {
   ProjectType,
 } from '../types/project';
 import { RoomType, RoomUpdatePayload } from '../types/room';
+import { InspectionTarget } from '../types/inspection';
 import { formatMetric } from '../utils/format';
 import { AreaSegmentList } from './AreaSegmentList';
+import { InspectionFlow } from './InspectionFlow';
+import { InspectionList } from './InspectionList';
 import { RoomList } from './RoomList';
 import { SurfaceList } from './SurfaceList';
 
@@ -100,6 +103,13 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   const [roomForm, setRoomForm] = useState<RoomEditFormState>(EMPTY_ROOM_FORM);
   const [roomFormError, setRoomFormError] = useState<string | null>(null);
   const [savingRoom, setSavingRoom] = useState(false);
+
+  const [inspectionTarget, setInspectionTarget] = useState<InspectionTarget | null>(null);
+  const [activeInspection, setActiveInspection] = useState<{
+    target: InspectionTarget;
+    inspectionId: string | null;
+  } | null>(null);
+  const [listVersion, setListVersion] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -277,9 +287,35 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
     return client ? clientName(client) : t.projects.client_unavailable;
   };
 
+  const closeInspections = () => {
+    setInspectionTarget(null);
+    setActiveInspection(null);
+  };
+
+  const inspectionTargetKey = (target: InspectionTarget): string => {
+    if (target.kind === 'surface') return `surface-${target.surfaceId}`;
+    if (target.kind === 'plane') return `plane-${target.plane}`;
+    return 'room';
+  };
+
+  const openInspectionList = (target: InspectionTarget) => {
+    setActiveInspection(null);
+    setInspectionTarget(target);
+  };
+
+  const openInspection = (target: InspectionTarget, inspectionId: string | null) => {
+    setActiveInspection({ target, inspectionId });
+  };
+
+  const closeInspectionFlow = () => {
+    setActiveInspection(null);
+    setListVersion((version) => version + 1);
+  };
+
   const openProject = (project: ProjectType) => {
     closeForm();
     setShowRoomForm(false);
+    closeInspections();
     setSelectedProject(project);
     setSelectedRoom(null);
     setSuccess(null);
@@ -288,6 +324,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   const openRoom = async (room: RoomType) => {
     closeForm();
     setShowRoomForm(false);
+    closeInspections();
     setSelectedRoom(room);
     setSuccess(null);
     if (selectedProject) {
@@ -303,6 +340,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   const backToProjects = () => {
     closeForm();
     setShowRoomForm(false);
+    closeInspections();
     setSelectedProject(null);
     setSelectedRoom(null);
     setSuccess(null);
@@ -316,6 +354,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   useEffect(() => {
     closeForm();
     setShowRoomForm(false);
+    closeInspections();
     setSelectedProject(null);
     setSelectedRoom(null);
     setSuccess(null);
@@ -325,6 +364,11 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   useTelegramBackButton(isBackButtonVisible, () => {
     if (showRoomForm) {
       setShowRoomForm(false);
+    } else if (activeInspection) {
+      setActiveInspection(null);
+      setListVersion((version) => version + 1);
+    } else if (inspectionTarget) {
+      setInspectionTarget(null);
     } else if (selectedRoom) {
       setSelectedRoom(null);
     } else if (selectedProject) {
@@ -354,6 +398,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
                 aria-label="back-to-rooms"
                 onClick={() => {
                   setShowRoomForm(false);
+                  closeInspections();
                   setSelectedRoom(null);
                 }}
                 className="font-semibold text-blue-700 hover:underline"
@@ -537,6 +582,28 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
       )}
 
       {selectedProject && selectedRoom && (
+        activeInspection ? (
+          <InspectionFlow
+            key={inspectionTargetKey(activeInspection.target)}
+            projectId={selectedProject.id}
+            roomId={selectedRoom.id}
+            target={activeInspection.target}
+            inspectionId={activeInspection.inspectionId}
+            onExit={closeInspectionFlow}
+            onCreated={(inspectionId) =>
+              setActiveInspection({ target: activeInspection.target, inspectionId })
+            }
+          />
+        ) : inspectionTarget ? (
+          <InspectionList
+            key={listVersion}
+            projectId={selectedProject.id}
+            roomId={selectedRoom.id}
+            target={inspectionTarget}
+            onStart={(target) => openInspection(target, null)}
+            onOpen={(inspectionId) => openInspection(inspectionTarget, inspectionId)}
+          />
+        ) : (
         <>
           <article aria-label="room-detail" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -746,6 +813,39 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
             </form>
           )}
 
+          <section
+            aria-label="room-inspection-entry"
+            className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2.5"
+          >
+            <h4 className="text-sm font-semibold text-slate-900">{t.inspections.title}</h4>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                aria-label="inspect-room"
+                onClick={() => openInspectionList({ kind: 'room' })}
+                className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
+              >
+                {t.inspections.inspect_room}
+              </button>
+              <button
+                type="button"
+                aria-label="inspect-floor"
+                onClick={() => openInspectionList({ kind: 'plane', plane: 'FLOOR' })}
+                className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
+              >
+                {t.inspections.inspect_floor}
+              </button>
+              <button
+                type="button"
+                aria-label="inspect-ceiling"
+                onClick={() => openInspectionList({ kind: 'plane', plane: 'CEILING' })}
+                className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
+              >
+                {t.inspections.inspect_ceiling}
+              </button>
+            </div>
+          </section>
+
           <AreaSegmentList
             projectId={selectedProject.id}
             roomId={selectedRoom.id}
@@ -763,8 +863,12 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
             }
             wallMode={roomMeasurementMode}
             onMeasurementChanged={refreshSelectedRoom}
+            onInspectSurface={(surfaceId, surfaceName) =>
+              openInspectionList({ kind: 'surface', surfaceId, surfaceName })
+            }
           />
         </>
+        )
       )}
 
       {!selectedProject && loading && (

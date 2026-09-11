@@ -25,6 +25,8 @@ interface SurfaceListProps {
   hasRoomDimensions?: boolean;
   wallMode?: WallInputMode;
   onMeasurementChanged?: () => void;
+  /** Open the inspection checklist for a wall surface (Stage 6C entry point). */
+  onInspectSurface?: (surfaceId: string, surfaceName: string) => void;
 }
 
 export type WallInputMode = 'RECTANGLE' | 'CUSTOM';
@@ -64,6 +66,7 @@ export function SurfaceList({
   hasRoomDimensions = false,
   wallMode,
   onMeasurementChanged,
+  onInspectSurface,
 }: SurfaceListProps) {
   const { t } = useI18n();
   const [surfaces, setSurfaces] = useState<SurfaceType[]>([]);
@@ -596,6 +599,16 @@ export function SurfaceList({
 
                     {/* Actions: 2-column grid with ~44px touch targets */}
                     <div className="grid grid-cols-2 gap-2">
+                      {onInspectSurface && (
+                        <button
+                          type="button"
+                          aria-label={`inspect-surface-${surface.id}`}
+                          onClick={() => onInspectSurface(surface.id, surface.name)}
+                          className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
+                        >
+                          {t.inspections.inspect_wall}
+                        </button>
+                      )}
                       {hasDimensions && (
                         <>
                           <button
