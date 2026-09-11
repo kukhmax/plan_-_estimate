@@ -7,7 +7,9 @@ from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.domain.services.area_segment_service import AreaSegmentService
 from app.domain.services.auth_service import TelegramAuthService
+from app.domain.services.checklist_service import ChecklistService
 from app.domain.services.client_service import ClientService
+from app.domain.services.inspection_service import InspectionService
 from app.domain.services.opening_service import OpeningService
 from app.domain.services.project_service import ProjectService
 from app.domain.services.room_service import RoomService
@@ -91,3 +93,15 @@ async def get_area_segment_service(
     db: AsyncSession = Depends(get_db),
 ) -> AreaSegmentService:
     return AreaSegmentService(db)
+
+
+async def get_checklist_service(
+    db: AsyncSession = Depends(get_db),
+) -> ChecklistService:
+    return ChecklistService(db)
+
+
+async def get_inspection_service(
+    db: AsyncSession = Depends(get_db),
+) -> InspectionService:
+    return InspectionService(db)

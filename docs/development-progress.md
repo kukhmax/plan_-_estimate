@@ -17,7 +17,7 @@
 | **Stage 3** | **Clients** | **Completed** | Client CRUD with soft archive, search, owner isolation, i18n (PL/RU), verification coverage |
 | **Stage 4** | **Projects / Obiekty** | **Completed** | Central aggregate root: Project model, address fields, status lifecycle, optional Client link, owner isolation |
 | **Stage 5** | **Rooms, surfaces and measurements** | **Completed** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, practical mobile measurement workflow, composite floor/ceiling geometry, and owner-accepted final manual acceptance |
-| Stage 6 | Inspection Checklist Engine | Pending | Substrate diagnostics, checklist questions, inspection records anchored to surfaces |
+| Stage 6 | Inspection Checklist Engine | In Progress | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation — backend engine complete (6B), mobile inspection workflow (6C) + final acceptance pending |
 | Stage 7 | Risk Rules Engine | Pending | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
 | Stage 8 | "Co powiedzieć klientowi" | Pending | Ready-to-use professional explanations and client communication scripts (PL/RU) |
 | Stage 9 | Editable Price Book | Pending | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges |
@@ -1117,6 +1117,49 @@ Clarifications:
 - **Date**: 2026-09-11
 - **Scope**: Final manual acceptance of the canonical `5 × 4 × 2.7` m room scenario — RECTANGLE room creation, 4-wall generation, opening subtraction (`gross − deductions = net`), composite floor/ceiling geometry, and mobile measurement navigation.
 - **Closure**: Owner decision recorded 2026-09-11 — Canonical Stage 5 (Rooms, Surfaces and Measurements) is **COMPLETED**. No remaining work in Stage 5.
+
+---
+
+### Canonical Stage 6: Inspection Checklist Engine
+- **Status**: In Progress
+- **Scope & Canonical Mapping**:
+  - **Execution Sub-Stage 6A (Completed)**: Inspection Checklist Engine domain design — INSPECTION ONLY diagnostic engine (substrate inspection before finishing), 19-section design report; no photo storage, no price/work mapping (deferred to Stages 7/11/14).
+  - **Execution Sub-Stage 6B (Completed)**: Inspection Checklist Engine — **backend** (versioned immutable checklist catalog + inspection records).
+- **Gate**: Canonical Stage 6 is **IN PROGRESS** — the backend engine is complete and verified; remaining work is Execution Sub-Stage 6C (frontend/mobile inspection workflow) followed by final Stage 6 verification/manual acceptance.
+
+#### Execution Sub-Stage 6B: Inspection Checklist Engine — Backend
+- **Status**: Completed
+- **Date**: 2026-09-11
+- **Scope**:
+  - **Versioned immutable checklist catalog** (`ChecklistTemplate` / `ChecklistSection` / `ChecklistQuestion` / `ChecklistOption`): named `(code, version)` unique constraint, copy-on-write versioning, idempotent DB-reset-safe Python bootstrap (`ChecklistService._ensure_bootstrapped` — one existence query per access, inserts only missing versions, `asyncio.Lock`-serialized), read-only API (no mutation routes) so released template snapshots and their translation keys are immutable; `Inspection.template_id` stays bound to the exact version chosen at inspection start.
+  - **Inspection engine** (`Inspection` / `InspectionAnswer` / `InspectionFinding`): room-scoped inspections under `/api/projects/{project_id}/rooms/{room_id}/inspections` with four valid targets — (A) a specific `WALL` surface, (B) `FLOOR` plane, (C) `CEILING` plane, (D) room-level (both `surface_id` and `plane` null); the only rejected combination is both set; non-WALL surface targets rejected 422; owner isolation uniform (foreign → 404, unauthenticated → 401).
+  - **Typed answers** (`AnswerType` BOOLEAN / NUMBER / TEXT / SINGLE_CHOICE / MULTI_CHOICE) stored in exact typed columns (`value_bool`, `value_number` Numeric(10,3), `value_text` String(4096), `option_key`, `option_keys` JSON); replace-set PUT semantics (previous answers dropped, incoming set becomes whole state, atomic via DELETE+flush+INSERT); unknown question / wrong option / wrong value shape / duplicate question rejected 422; edits frozen once COMPLETED.
+  - **Factual findings** (`InspectionFinding`): materialize ONLY from explicit `finding_key` on a question or option (BOOL true / NUMBER present / non-empty TEXT / selected SINGLE_CHOICE option / each selected keyed MULTI_CHOICE option); a positive NUMBER alone is never a generic finding; `value_snapshot` JSON captures the factual value at materialization.
+  - **Finding lifecycle**: reconciliation identity `(question_id, finding_key)` — same source reuses a stable UUID (refreshed snapshot/source), two distinct questions sharing a finding_key stay distinct findings, disappeared sources become `is_active = False` with `resolved_at` set and are never physically deleted; `answer_id`/`question_id` use `ON DELETE SET NULL` for downstream `PhotoAnnotation.finding_id` compatibility (Stage 14).
+  - **Quality-scale validation** (`assert_quality_scale_valid`): `GYPSUM_BOARD` → `Q1`–`Q4`; `CONCRETE` / `GYPSUM_PLASTER` / `CEMENT_LIME_PLASTER` → `S1`–`S4`; `PAINTED` / `OTHER` unrestricted (quality target optional); PSG aliases are not stored as separate DB values.
+  - **State lifecycle**: `DRAFT → COMPLETED → reopen → DRAFT`; `completed_at` set/cleared; re-completion re-reconciles findings; archive/restore convention (soft `is_archived`, default listing excludes archived).
+  - **Initial templates**: 6 baseline templates (substrate-concrete, substrate-gypsum-plaster, substrate-cement-lime-plaster, substrate-gypsum-board with extra `drywall_joints` section, substrate-painted, substrate-other) covering general condition, cracking (CRACK), unevenness (UNEVENNESS), loose/dusty/oily substrate, delamination/blow-holes/efflorescence/mold, high moisture, weak adhesion, and notes.
+- **Database**:
+  - Migration: `backend/alembic/versions/0011_create_inspection_engine.py` (parent `0010_create_area_segments_table`; sole Alembic head).
+  - Tables created: `checklist_templates`, `checklist_sections`, `checklist_questions`, `checklist_options`, `inspections`, `inspection_answers`, `inspection_findings`; enums `substrate`, `qualitylevel`, `answertype`, `inspectionstatus`; `inspections.plane` reuses the `areaplane` type owned by migration 0010 (`create_type=False`, never duplicated); `inspections.status` server default quoted `'DRAFT'`.
+  - Reversibility: `downgrade -1` then `upgrade head` verified on real PostgreSQL; downgrade drops tables child-first + recreatable enum types and leaves `areaplane` to 0010; all seven tables restored after the cycle.
+- **Tests**:
+  - Focused Stage 6B suites: 60 passed, 0 failed (`test_inspection_rules.py` — quality scale + finding materialization; `test_inspection_routes.py` — OpenAPI contract: checklist family GET-only + 8-path inspection family + security; `test_inspections.py` — template catalog/idempotency, all four target modes, both-set rejection, non-WALL rejection, cross-room surface rejection, substrate/template mismatch, quality-scale enforcement, typed answers, replace-set atomicity, complete → findings, stable-UUID reconcile, duplicate-source distinct findings, archive/restore, state transitions, owner isolation).
+  - Full backend suite: 235 passed, 0 failed.
+  - `git diff --check`: PASS; all changed source lines ≤ 100 chars; single Alembic head confirmed; DB at head `0011`.
+  - Frontend untouched by 6B (no frontend changes; Stage 6 frontend is 6C).
+- **Verification**:
+  - Target model A–D inspectable and reject-only-both-set: PASS.
+  - Template bootstrap idempotent, no duplicate rows, unique `(code, version)`, old `Inspection.template_id` keeps its version, no mutation API, immutable translation keys: PASS.
+  - All five answer types persisted in exact typed columns, MULTI_CHOICE as JSON, invalid/unknown/duplicate answers rejected 422, replace-set atomic, COMPLETED blocks edits: PASS.
+  - Finding semantics explicit-only, `(question_id, finding_key)` identity, stable UUID reuse, distinct sources distinct, inactive + resolved_at, never deleted, PhotoAnnotation FK compat: PASS.
+  - Quality validation per substrate family, PSG not stored separately: PASS.
+  - State lifecycle transitions, completed_at, re-complete reconcile, archive/restore: PASS.
+  - Route family matches OpenAPI contract tests; every route requires auth: PASS.
+  - Migration 0011 parent 0010, single head, upgrade → downgrade -1 → upgrade clean on PostgreSQL, areaplane not duplicated, all seven tables restored: PASS.
+  - Regression: focused + full backend suites green, `git diff --check` clean, no Stage 7 or preview of later stages: PASS.
+- **Deferred**:
+  - Execution Sub-Stage 6C (mobile inspection workflow frontend), final Stage 6 verification / manual acceptance, and all Stage 7+ work remain pending explicit project-owner approval.
 
 ---
 
