@@ -18,7 +18,7 @@
 | **Stage 4** | **Projects / Obiekty** | **Completed** | Central aggregate root: Project model, address fields, status lifecycle, optional Client link, owner isolation |
 | **Stage 5** | **Rooms, surfaces and measurements** | **Completed** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, practical mobile measurement workflow, composite floor/ceiling geometry, and owner-accepted final manual acceptance |
 | **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
-| Stage 7 | Risk Rules Engine | Pending | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
+| Stage 7 | Risk Rules Engine | In Progress | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
 | Stage 8 | "Co powiedzieć klientowi" | Pending | Ready-to-use professional explanations and client communication scripts (PL/RU) |
 | Stage 9 | Editable Price Book | Pending | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges |
 | Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
@@ -1248,6 +1248,48 @@ Clarifications:
   - Migration head unchanged: `0011_create_inspection_engine`.
 - **Deferred**:
   - All Stage 7+ work remains pending explicit project-owner approval.
+
+---
+
+### Canonical Stage 7: Risk Rules Engine
+- **Status**: In Progress
+- **Date**: 2026-09-12
+- **Scope & Canonical Mapping**:
+  - **Execution Sub-Stage 7A (Completed)**: Risk Rules Engine design inspection report — deterministic risk derivation from materialized inspection findings, severity (LOW/MEDIUM/HIGH/CRITICAL), source-finding traceability, mitigation/warranty semantics, and recommended 7B backend scope.
+  - **Execution Sub-Stage 7B (Completed)**: Risk Rules Engine — **backend**, owner-verified 2026-09-12. Stage 7 is NOT yet marked Completed (7C/7D remain).
+- **Closure**: Not yet — pending Execution Sub-Stage 7C (frontend/mobile Risk UI) and 7D (final manual acceptance).
+
+#### Execution Sub-Stage 7B: Risk Rules Engine — Backend (Completed)
+- **Status**: Completed (owner-verified 2026-09-12)
+- **Date**: 2026-09-12
+- **Scope**:
+  - **Versioned immutable rule catalog** (`RiskRule` / `RiskRuleCondition`): named `(code, version)` unique constraint, 15 initial deterministic rules (CRACK_RECURRENCE, BOARD_MOVEMENT_CRACK, MOISTURE_BLOCK_FINISHING, WEAK_ADHESION_PREP, LOOSE_SUBSTRATE_REMOVAL, DUSTY_SUBSTRATE_PRIME, OILY_SUBSTRATE_DEGREASE, MOLD_TREATMENT_BEFORE_FINISH, DELAMINATION_REPAIR, UNEVENNESS_PREP_INCREASED, JOINT_TAPE_MISSING_REWORK, FASTENER_CORROSION_FIX, JOINT_GAP_FILLING, EFFLORESCENCE_CAUSE_CHECK, BLOW_HOLES_FILLING) with severity, `blocks_finishing`, `warranty_exclusion_candidate`, optional substrate restriction, and 5 i18n keys each; idempotent DB-reset-safe bootstrap (`RiskService._ensure_bootstrapped`, `asyncio.Lock`-serialized); no CRUD API (catalog is reference data).
+  - **8 condition operators** (all-AND within a rule): `FINDING_PRESENT`, `FINDING_ABSENT`, `NUMBER_AT_LEAST`, `NUMBER_AT_MOST`, `SUBSTRATE_IN`, `SUBSTRATE_NOT_IN`, `TARGET_IN`, `QUALITY_IN`; numeric thresholds (e.g. UNEVENNESS ≥ 3 mm, JOINT_GAP ≥ 2 mm) are **initial domain defaults** stored in condition `value_json`, tunable as reference data; malformed/missing numeric snapshots fail safely (rule does not fire).
+  - **Deterministic evaluation** (`domain/rules/risk_rules.py`): pure engine over inspection substrate/quality/target + active findings; overlapping rules may all fire (no hidden suppression); source signature = SHA-256 over sorted source finding UUIDs (order-independent, part of the stable risk identity).
+  - **Risk materialization** (`Risk` / `RiskFinding`): room- and inspection-scoped rows under `/api/projects/{project_id}/rooms/{room_id}/risks`; identity `(inspection_id, rule_code, source_signature)` enforced by a unique constraint — identical inspection state always yields the same row with a stable UUID; risk rows carry `risk_code`/`rule_code`/`rule_version`, severity, 5 i18n key snapshots, `blocks_finishing`, `warranty_exclusion_candidate`, `is_active`/`resolved_at`, and ordered `source_findings` links that snapshot finding key + value even if the source finding FK later goes NULL.
+  - **Reconciliation on evaluate**: `POST .../risks/evaluate` is idempotent; a reused identity keeps its UUID and its original `rule_version`/text-key snapshot (version preservation), only refreshing activity state and source-finding links; previously confirmed risks absent from the new evaluation become `is_active = False` with `resolved_at` set and are never deleted; evaluation rejected 409 unless the inspection is COMPLETED (no DB writes on rejection).
+  - **API contract**: `GET .../risks` (filters: `inspection_id`, `surface_id`, `plane`, `status=active|resolved|all`), `GET .../risks/{risk_id}` (detail with source findings), `POST .../risks/evaluate` (idempotent, returns active risks with source findings); owner isolation uniform (foreign → 404, unauthenticated → 401); grouped source-finding loading (no N+1 on batch evaluate).
+- **Database**:
+  - Migration: `backend/alembic/versions/0012_create_risk_engine.py` (parent `0011_create_inspection_engine`; sole Alembic head).
+  - Tables created: `risk_rules`, `risk_rule_conditions`, `risks`, `risk_findings`; enums `riskseverity`, `riskconditionoperator`; `risk_rules.substrate` reuses the `substrate` type owned by migration 0011 (`create_type=False`); unique `(code, version)` on rules, unique `(inspection_id, rule_code, source_signature)` on risks, unique `(risk_id, finding_id)` on links.
+  - Reversibility: `downgrade -1` then `upgrade head` verified on real PostgreSQL; downgrade drops tables child-first + enum types and leaves `substrate` to 0011; all four tables restored after the cycle.
+- **Tests**:
+  - Focused Stage 7B suites: `test_risk_rules.py` (23 unit — signature order-independence, target derivation, all 8 operators, AND semantics, numeric thresholds, malformed-snapshot fail-safe, overlapping-rule independence), `test_risk_routes.py` (3 — OpenAPI route family + methods + auth), `test_risks.py` (14 — expected-risk set for a full answer set, moisture CRITICAL/blocking, drywall JOINT_TAPE_MISSING_REWORK, DRAFT 409, unknown 404, evaluate idempotency + stable UUIDs, reopen/recomplete reuse + resolution never-deleted, later-rule-version immutability of materialized risks, rejected DRAFT evaluation leaves risk state unchanged, active/resolved/all filters, traceable source findings, owner isolation, 401).
+  - Full backend suite: 275 passed, 0 failed (40 new Stage 7B tests).
+  - Full frontend suite: 142 passed, 0 failed (unchanged by 7B); TypeScript strict: PASS; `vite build`: PASS.
+  - `git diff --check`: PASS; single Alembic head `0012_create_risk_engine`; migration upgrade → downgrade -1 → upgrade cycle verified on real PostgreSQL.
+- **Verification**:
+  - 15-rule catalog bootstraps idempotently; conditions stored as reference data; thresholds are initial domain defaults: PASS.
+  - Deterministic evaluation: identical state → identical risk set + stable UUIDs; overlapping rules independent; malformed numeric snapshot fails safe: PASS.
+  - COMPLETED-only gate (DRAFT → 409, rejected evaluation creates/mutates nothing), idempotent evaluate, stable-identity reuse, version preservation (a later `(code, version)` rule release does not silently mutate an existing historical Risk row or its `rule_version`/severity snapshot), resolved-never-deleted history: PASS.
+  - Source-finding traceability via `risk_findings` snapshots (key + value, finding FK SET NULL-safe): PASS.
+  - Route family matches OpenAPI contract tests; every route requires auth; foreign owner → 404: PASS.
+  - Migration 0012 parent 0011, single head, reversible on PostgreSQL, `substrate` not duplicated: PASS.
+  - Regression: full backend + frontend suites green, `git diff --check` clean, no Stage 8 work: PASS.
+  - Live runtime: backend dev container on :8000 rebuilt and restarted with the Stage 7B code; the three risk routes confirmed in live OpenAPI and HTTP (unauthenticated access → 401, route mounted). Full authenticated live evaluation is `DEFERRED_ENVIRONMENT`: the dev compose `backend` service passes no `TELEGRAM_BOT_TOKEN`, so `/api/auth/telegram` refuses even with `MOCK_TELEGRAM_AUTH=true` (the auth service requires a configured bot token). No infra/compose change was made for Stage 7B; end-to-end evaluation is covered by the integration suite running the same app over ASGI transport.
+- **Deferred**:
+  - Stage 7 frontend (risk display / warnings UI) — not started (requires owner approval after 7B verification).
+  - Downstream consumption of risks (recommended work, estimates, warranty protocol clauses) — Stages 10/11+.
 
 ---
 

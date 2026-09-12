@@ -12,6 +12,7 @@ from app.domain.services.client_service import ClientService
 from app.domain.services.inspection_service import InspectionService
 from app.domain.services.opening_service import OpeningService
 from app.domain.services.project_service import ProjectService
+from app.domain.services.risk_service import RiskService
 from app.domain.services.room_service import RoomService
 from app.domain.services.surface_service import SurfaceService
 from app.models.user import User
@@ -105,3 +106,9 @@ async def get_inspection_service(
     db: AsyncSession = Depends(get_db),
 ) -> InspectionService:
     return InspectionService(db)
+
+
+async def get_risk_service(
+    db: AsyncSession = Depends(get_db),
+) -> RiskService:
+    return RiskService(db)

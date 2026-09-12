@@ -17,6 +17,14 @@ from app.models.inspection import (
 )
 from app.models.opening import Opening, OpeningType
 from app.models.project import Project
+from app.models.risk import (
+    Risk,
+    RiskConditionOperator,
+    RiskFinding,
+    RiskRule,
+    RiskRuleCondition,
+    RiskSeverity,
+)
 from app.models.room import Room
 from app.models.surface import Surface
 from app.models.user import User
@@ -39,6 +47,12 @@ __all__ = [
     "OpeningType",
     "Project",
     "QualityLevel",
+    "Risk",
+    "RiskConditionOperator",
+    "RiskFinding",
+    "RiskRule",
+    "RiskRuleCondition",
+    "RiskSeverity",
     "Room",
     "Substrate",
     "Surface",
