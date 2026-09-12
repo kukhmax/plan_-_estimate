@@ -47,7 +47,7 @@ Project / Obiekt is the central aggregate root. Room access resolves through its
 ├── .claude/skills/      # Repository stage workflow skills
 ├── CLAUDE.md            # Claude Code repository instructions
 ├── GEMINI.md             # Permanent engineering and domain rules
-└── docker-compose.yml   # Local PostgreSQL and backend services
+└── docker-compose.yml   # Local PostgreSQL, backend, and frontend services
 ```
 
 ## Development workflow
@@ -67,7 +67,7 @@ See [`docs/development-progress.md`](docs/development-progress.md) for the detai
 
 ## Local browser development
 
-Browser development uses PostgreSQL and the backend in Docker, plus the Vite frontend locally.
+One command starts the complete local development stack in Docker: PostgreSQL 16, the FastAPI backend, and the React/Vite frontend.
 
 1. Create a local environment file from the committed example. Keep all real credentials in the untracked `.env` file only.
 
@@ -75,28 +75,30 @@ Browser development uses PostgreSQL and the backend in Docker, plus the Vite fro
    cp .env.example .env
    ```
 
-2. Start PostgreSQL and the backend with backend mock authentication explicitly enabled.
+2. Build and start the stack. The backend waits for PostgreSQL to be healthy, applies any pending Alembic migrations automatically (`alembic upgrade head`), then starts uvicorn. The frontend starts only after the backend is healthy.
 
    ```bash
-   MOCK_TELEGRAM_AUTH=true docker compose up -d postgres backend
+   docker compose up -d --build
    ```
 
-3. Apply migrations when the database is new or the migration head changes.
+3. Open the frontend at [`http://localhost:5173`](http://localhost:5173) and sign in with browser mock authentication. The backend [OpenAPI](http://localhost:8000/docs) and health endpoint are at [`http://localhost:8000`](http://localhost:8000) / [`http://localhost:8000/api/health`](http://localhost:8000/api/health).
 
-   ```bash
-   docker compose exec backend alembic upgrade head
-   ```
+Ports: `5173` frontend (Vite dev server), `8000` backend (FastAPI/uvicorn), `5432` PostgreSQL.
 
-4. Install frontend dependencies and start Vite with browser mock authentication and the local backend URL.
+Useful commands:
 
-   ```bash
-   npm --prefix frontend install
-   VITE_DEV_MOCK_AUTH=true VITE_API_URL=http://localhost:8000 npm --prefix frontend run dev
-   ```
+```bash
+docker compose ps                 # service status and health
+docker compose logs -f backend    # follow backend logs
+docker compose logs -f frontend   # follow frontend logs
+docker compose restart            # restart the stack
+docker compose down               # stop containers (database volume is kept)
+docker compose up -d              # start again with the same data
+```
 
-5. Open [`http://localhost:5173`](http://localhost:5173). The backend health endpoint is available at [`http://localhost:8000/api/health`](http://localhost:8000/api/health).
+`MOCK_TELEGRAM_AUTH=true` (the development default in compose) allows the backend development-only mock identity, so the browser mock-auth flow works without a Telegram bot token. `VITE_DEV_MOCK_AUTH=true` allows the frontend to request that identity when real Telegram `initData` is unavailable. Mock authentication must never be enabled in production.
 
-`MOCK_TELEGRAM_AUTH=true` allows the backend development-only mock identity. `VITE_DEV_MOCK_AUTH=true` allows the frontend to request that identity when real Telegram `initData` is unavailable. Mock authentication must never be enabled in production.
+The PostgreSQL data lives in the named `postgres_data` volume and survives `docker compose down` and `docker compose up -d`. `docker compose down -v` permanently deletes the volume and all database data — never run it when you want to keep local data.
 
 ## Verification commands
 
