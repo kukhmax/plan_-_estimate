@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as checklistsApi from '../api/checklists';
 import * as inspectionsApi from '../api/inspections';
+import * as risksApi from '../api/risks';
 import { I18nProvider } from '../hooks/useI18n';
 import { ChecklistTemplate } from '../types/checklist';
 import {
@@ -23,6 +24,11 @@ vi.mock('../api/inspections', () => ({
   completeInspection: vi.fn(),
   reopenInspection: vi.fn(),
   fetchInspectionFindings: vi.fn(),
+}));
+vi.mock('../api/risks', () => ({
+  evaluateRisks: vi.fn(),
+  fetchRisks: vi.fn(),
+  fetchRiskDetail: vi.fn(),
 }));
 
 const template: ChecklistTemplate = {
@@ -191,6 +197,33 @@ describe('InspectionFlow substrate step', () => {
       items: [],
       total: 0,
     });
+    vi.mocked(risksApi.fetchRisks).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(risksApi.evaluateRisks).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(risksApi.fetchRiskDetail).mockRejectedValue(new Error('not found'));
+  });
+
+  it('shows the risk evaluation action only for COMPLETED inspections (ENTRY)', async () => {
+    const completed: InspectionDetail = {
+      ...draftInspection,
+      status: 'COMPLETED',
+      completed_at: '2026-09-09T12:00:00Z',
+      answers: [],
+    };
+    vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue(completed);
+    renderFlow({ inspectionId: 'ins-1' });
+    expect(await screen.findByLabelText('Oceń ryzyka')).toBeInTheDocument();
+    expect(inspectionsApi.fetchInspection).toHaveBeenCalled();
+  });
+
+  it('hides the risk evaluation action while the inspection stays a DRAFT (ENTRY)', async () => {
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(await screen.findByLabelText('Przejrzyj i zakończ'));
+    await screen.findByText('Podsumowanie odpowiedzi');
+    expect(screen.queryByLabelText('Oceń ryzyka')).not.toBeInTheDocument();
   });
 
   it('renders all six substrate options (ENTRY/SUBSTRATE)', async () => {

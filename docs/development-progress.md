@@ -1256,8 +1256,9 @@ Clarifications:
 - **Date**: 2026-09-12
 - **Scope & Canonical Mapping**:
   - **Execution Sub-Stage 7A (Completed)**: Risk Rules Engine design inspection report — deterministic risk derivation from materialized inspection findings, severity (LOW/MEDIUM/HIGH/CRITICAL), source-finding traceability, mitigation/warranty semantics, and recommended 7B backend scope.
-  - **Execution Sub-Stage 7B (Completed)**: Risk Rules Engine — **backend**, owner-verified 2026-09-12. Stage 7 is NOT yet marked Completed (7C/7D remain).
-- **Closure**: Not yet — pending Execution Sub-Stage 7C (frontend/mobile Risk UI) and 7D (final manual acceptance).
+  - **Execution Sub-Stage 7B (Completed)**: Risk Rules Engine — **backend**, owner-verified 2026-09-12.
+  - **Execution Sub-Stage 7C (Completed)**: Mobile Risk Evaluation and Risk Cards — **frontend/mobile PL/RU workflow**, owner-verified 2026-09-12. Stage 7 is NOT yet marked Completed (7D final manual acceptance remains).
+- **Closure**: Not yet — pending Execution Sub-Stage 7D (final manual acceptance) and the deferred Docker Compose hotfix.
 
 #### Execution Sub-Stage 7B: Risk Rules Engine — Backend (Completed)
 - **Status**: Completed (owner-verified 2026-09-12)
@@ -1288,8 +1289,41 @@ Clarifications:
   - Regression: full backend + frontend suites green, `git diff --check` clean, no Stage 8 work: PASS.
   - Live runtime: backend dev container on :8000 rebuilt and restarted with the Stage 7B code; the three risk routes confirmed in live OpenAPI and HTTP (unauthenticated access → 401, route mounted). Full authenticated live evaluation is `DEFERRED_ENVIRONMENT`: the dev compose `backend` service passes no `TELEGRAM_BOT_TOKEN`, so `/api/auth/telegram` refuses even with `MOCK_TELEGRAM_AUTH=true` (the auth service requires a configured bot token). No infra/compose change was made for Stage 7B; end-to-end evaluation is covered by the integration suite running the same app over ASGI transport.
 - **Deferred**:
-  - Stage 7 frontend (risk display / warnings UI) — not started (requires owner approval after 7B verification).
   - Downstream consumption of risks (recommended work, estimates, warranty protocol clauses) — Stages 10/11+.
+
+#### Execution Sub-Stage 7C: Mobile Risk Evaluation and Risk Cards (Completed)
+- **Status**: Completed (owner-verified 2026-09-12)
+- **Date**: 2026-09-12
+- **Scope**:
+  - **Explicit risk evaluation UI**: `RiskPanel` embedded in the COMPLETED inspection review step of `InspectionFlow`; "Oceń ryzyka" / "Оценить риски" action invokes `POST /api/projects/{project_id}/rooms/{room_id}/risks/evaluate` with `{inspection_id}` and is **not rendered for DRAFT inspections**; a 409 maps to a localized not-completed message.
+  - **Backend-authoritative Risk rendering**: `frontend/src/types/risk.ts` (typed DTO mirror of the Stage 7B schemas — severity, flags, 5 i18n key snapshots, source findings), `frontend/src/api/risks.ts` (`evaluateRisks`, `fetchRisks`, `fetchRiskDetail`). The frontend renders backend-returned risks only — it never determines which risks exist, suppresses overlapping rules, computes severity, or derives `blocks_finishing` / `warranty_exclusion_candidate`.
+  - **Risk cards**: severity chip (LOW neutral / MEDIUM amber / HIGH orange / CRITICAL solid red), title via `risk.{slug}.title` dotted key, active/resolved status + `resolved_at`, collapsible "Szczegóły" with explanation / consequence / mitigation, `blocks_finishing` operational warning box ("Nie rozpoczynać / wstrzymać prace do usunienia przyczyny"), `warranty_exclusion_candidate` badge ("Możliwe ograniczenie odpowiedzialności"); no machine keys are exposed (unresolved dotted keys fail safe to empty).
+  - **Source traceability ("Dlaczego?")**: renders backend source findings with localized `risk.finding.*` labels and safe value snapshots (bool → Tak/Nie, number → e.g. "3.500 mm", text as-is); evaluate responses carry grouped source findings; a reloaded active list lazy-fetches exactly one `GET .../risks/{risk_id}` per expanded card — no per-risk N+1 on initial load.
+  - **Lifecycle & overlap**: Active/Resolved/All filters; resolved risks remain readable and visually de-emphasized (grayed, `resolved_at` shown) with no frontend manual resolution; overlapping risks (CRACK_RECURRENCE + BOARD_MOVEMENT_CRACK) render independently without suppression.
+  - **Mobile PL/RU workflow**: single 390px column, wrapping chips, `min-h-11` primary touch targets, wrapping text; PL/RU parity for severity/status/flag/finding labels and the 15 rule text sets (75 keys × 2 locales), verified by locale-parity tests.
+- **Files**:
+  - Added: `frontend/src/types/risk.ts`, `frontend/src/api/risks.ts`, `frontend/src/components/RiskPanel.tsx`, `frontend/src/components/RiskPanel.test.tsx`.
+  - Changed: `frontend/src/components/InspectionFlow.tsx` (embed `RiskPanel` in completed review step), `frontend/src/components/InspectionFlow.test.tsx` (risk API mock + 2 ENTRY tests), `frontend/src/locales/pl.json` + `ru.json` (new `risk` section: UI strings, finding labels, 15 rule objects × 5 fields), `frontend/src/locales/parity.test.ts` (risk-section parity + backend dotted-key coverage).
+- **Tests**:
+  - Focused: `RiskPanel.test.tsx` (11 — ENTRY, EVALUATION payload/success/localized 409 preserving the view, SEVERITY ×4 distinct with CRITICAL tone, FLAGS, TRACEABILITY one/multi-source + numeric snapshot + no per-card fetch after evaluate + lazy detail on expand, OVERLAP, LIFECYCLE active/resolved/all + re-evaluate refresh, MOBILE touch targets + single column, LOCALIZATION RU + no machine-key leak), `InspectionFlow.test.tsx` (+2 ENTRY — evaluate action only for COMPLETED, hidden for DRAFT), `parity.test.ts` (risk-section PL/RU parity + all 15 rule slugs + 15 finding labels).
+  - Full frontend suite: **156 passed, 0 failed** (14 new Stage 7C tests).
+  - Full backend suite: **275 passed, 0 failed** (unchanged by 7C).
+  - TypeScript strict (`tsc --noEmit`): PASS; `vite build`: PASS; `git diff --check`: PASS.
+- **Verification**:
+  - ENTRY flow: risk UI only for COMPLETED inspections, DRAFT exposes no evaluation flow, evaluate sends the correct `inspection_id`: PASS.
+  - Backend authority: no second risk engine in frontend — only evaluate call, render, and source-finding display: PASS.
+  - Evaluation flow: completed → evaluate → backend response → risk list renders; 401/404/409/422/network errors localized, view preserved, retry available: PASS.
+  - Risk cards: severity, active/resolved + `resolved_at`, title/explanation/consequence/mitigation, `blocks_finishing`, `warranty_exclusion_candidate`, source findings; no machine keys exposed: PASS.
+  - Source traceability: one-source and multi-source risks render, numeric snapshots display safely, no frontend recomputation: PASS.
+  - Overlapping risks render independently: PASS.
+  - Resolved history: Active/Resolved/All filters, resolved risks readable + de-emphasized, no frontend manual resolution: PASS.
+  - Query behavior: initial list is a single `GET /risks` with no per-risk source N+1; detail/source fetch is lazy per expanded card: PASS.
+  - Navigation: Telegram BackButton, top Obiekty navigation, Stage 6 inspection and Stage 5 measurement navigation — full frontend regression suite (ProjectWorkspace 25, App 11, RoomList 14, SurfaceList 17, useTelegramWebApp 8, etc.) green: PASS.
+  - Mobile: single-column, row wrap, text wrap, ~44 px touch targets, resolved history visually subordinate: PASS.
+  - Localization: PL/RU parity, severity/status/flag labels localized, no unintended hardcoded user-facing strings, missing dotted keys fail safe: PASS.
+- **Remaining**:
+  - Infrastructure Docker Compose hotfix (dev `backend` service passes no `TELEGRAM_BOT_TOKEN`, blocking live authenticated evaluation) — deferred, not started.
+  - 7D final manual acceptance — not started (requires owner approval).
 
 ---
 

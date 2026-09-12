@@ -28,6 +28,7 @@ import {
   InspectionFinding,
   InspectionTarget,
 } from '../types/inspection';
+import { RiskPanel } from './RiskPanel';
 
 export interface InspectionFlowProps {
   projectId: string;
@@ -544,15 +545,22 @@ export function InspectionFlow({
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              aria-label={t.inspections.reopen}
-              className="min-h-11 rounded-lg border border-blue-600 px-3 font-medium text-blue-700 disabled:opacity-50"
-              disabled={saving}
-              onClick={() => void handleReopen()}
-            >
-              {t.inspections.reopen}
-            </button>
+            <>
+              <RiskPanel
+                projectId={projectId}
+                roomId={roomId}
+                inspectionId={inspection.id}
+              />
+              <button
+                type="button"
+                aria-label={t.inspections.reopen}
+                className="min-h-11 rounded-lg border border-blue-600 px-3 font-medium text-blue-700 disabled:opacity-50"
+                disabled={saving}
+                onClick={() => void handleReopen()}
+              >
+                {t.inspections.reopen}
+              </button>
+            </>
           )}
         </div>
       ) : null}

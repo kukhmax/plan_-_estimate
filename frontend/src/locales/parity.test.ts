@@ -27,6 +27,56 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
     const plChecklist = keySet(pl.checklist);
     const ruChecklist = keySet(ru.checklist);
     expect(plChecklist).toEqual(ruChecklist);
+
+    const plRisk = keySet(pl.risk);
+    const ruRisk = keySet(ru.risk);
+    expect(plRisk).toEqual(ruRisk);
+  });
+
+  it('contains every backend risk dotted key and source-finding label', () => {
+    const plRisk = keySet(pl.risk);
+    const ruleSlugs = [
+      'crack_recurrence',
+      'board_movement_crack',
+      'moisture_block_finishing',
+      'weak_adhesion_prep',
+      'loose_substrate_removal',
+      'dusty_substrate_prime',
+      'oily_substrate_degrease',
+      'mold_treatment_before_finish',
+      'delamination_repair',
+      'unevenness_prep_increased',
+      'joint_tape_missing_rework',
+      'fastener_corrosion_fix',
+      'joint_gap_filling',
+      'efflorescence_cause_check',
+      'blow_holes_filling',
+    ];
+    for (const slug of ruleSlugs) {
+      for (const field of ['title', 'explanation', 'consequence', 'mitigation', 'communication']) {
+        expect(plRisk.has(`${slug}.${field}`)).toBe(true);
+      }
+    }
+    const findingKeys = [
+      'crack',
+      'board_movement',
+      'high_moisture',
+      'weak_adhesion',
+      'loose_substrate',
+      'dusty_substrate',
+      'oily_substrate',
+      'mold',
+      'delamination',
+      'unevenness',
+      'joint_tape_missing',
+      'fastener_corrosion',
+      'joint_gap',
+      'efflorescence',
+      'blow_holes',
+    ];
+    for (const key of findingKeys) {
+      expect(plRisk.has(`finding.${key}`)).toBe(true);
+    }
   });
 
   it('contains every backend checklist dotted key used by templates', () => {
