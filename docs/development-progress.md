@@ -1258,6 +1258,7 @@ Clarifications:
   - **Execution Sub-Stage 7A (Completed)**: Risk Rules Engine design inspection report — deterministic risk derivation from materialized inspection findings, severity (LOW/MEDIUM/HIGH/CRITICAL), source-finding traceability, mitigation/warranty semantics, and recommended 7B backend scope.
   - **Execution Sub-Stage 7B (Completed)**: Risk Rules Engine — **backend**, owner-verified 2026-09-12.
   - **Execution Sub-Stage 7C (Completed)**: Mobile Risk Evaluation and Risk Cards — **frontend/mobile PL/RU workflow**, owner-verified 2026-09-12. Stage 7 is NOT yet marked Completed (7D final manual acceptance remains).
+  - **Execution Sub-Stage 7D.1 (Owner-retest fixes)**: Manual-acceptance defects corrected — mobile room-card overlap, Risk "All" filter semantics, rectangle-room measured-state regression, and reopen MULTI_CHOICE hydration/empty-option_keys regression. See the 7D.1 section below; final 7D manual acceptance remains ongoing.
 - **Closure**: Not yet — pending Execution Sub-Stage 7D (final manual acceptance) and the deferred Docker Compose hotfix.
 
 #### Execution Sub-Stage 7B: Risk Rules Engine — Backend (Completed)
@@ -1325,7 +1326,30 @@ Clarifications:
   - Infrastructure Docker Compose hotfix (dev `backend` service passes no `TELEGRAM_BOT_TOKEN`, blocking live authenticated evaluation) — deferred, not started.
   - 7D final manual acceptance — not started (requires owner approval).
 
----
+#### Execution Sub-Stage 7D.1: Manual Acceptance Defects Corrected and Owner-Retested
+- **Status**: Corrections implemented and covered by regression tests; final 7D manual acceptance still ongoing — Canonical Stage 7 remains **In Progress** (not marked Completed).
+- **Date**: 2026-09-12
+- **Scope** — four manual-acceptance defect groups corrected:
+  1. **Mobile room-card overlap**: `RoomList` card layout restructured to a stacked single column (`flex flex-col`) so name, dimensions and the 3-across action grid can never crowd each other; name gets a wrapping `min-w-0 break-words` row, actions live in a dedicated container (`grid grid-cols-3 min-h-11` collapsing to an inline wrapping `sm:flex` row), and every action button keeps a practical `min-h-11` (~44 px) touch target. Regression: `RoomList.test.tsx` stacks/wraps/mobile-target test.
+  2. **Risk "All" filter semantics**: `api/risks.ts` now sends `status=all` explicitly (backend defaults to `active`, so dropping the param would silently hide resolved risks); active/resolved/all tabs map to their own list query and filter switching never triggers a re-evaluation. Regression: `RiskPanel.test.tsx` status=all contract test.
+  3. **Rectangle-room measured-state regression**: a RECTANGLE room with dimensions but **zero generated walls** (L=4.900 × W=5.000 × H=2.700) is recognized as measured — dimensions and floor/ceiling/wall totals (`24.500 m²` floor, `53.460 m²` walls, `19.800 m` perimeter) render from draft-dimensions, the "not measured / measure" notices do not appear, and wall generation produces exactly 4 walls; CUSTOM-shape rooms are unchanged. Regression: `ProjectWorkspace.test.tsx` Stage 7D.1 D3 test.
+  4. **Reopen MULTI_CHOICE hydration / empty-option_keys regression**: after reopening a COMPLETED inspection the editable DRAFT answer state is rebuilt from the backend with the same canonical API→form mapper as a normal Draft load (BOOLEAN→`value_bool`, NUMBER→`value_number`, TEXT→`value_text`, SINGLE_CHOICE→`option_key`, MULTI_CHOICE→`option_keys[]`) — no stale COMPLETED representation leaks into the resumed form and no duplicate mapper exists (`seedAnswersFromDetail` is the single canonical API→form path used by both `loadExisting` and `handleReopen`). Deselecting the last defect chip never emits an empty `option_keys` (the last selected option stays), so the backend's `Question {key} requires option_keys` 422 can no longer be triggered from the resumed review flow; changed selections save the updated `option_keys`. Regression: 3 `InspectionFlow.test.tsx` Stage 7D.1 tests (hydration keeps option_keys, selection change persists updated option_keys, last-chip guard never sends empty option_keys).
+- **Files**:
+  - Changed: `frontend/src/components/InspectionFlow.tsx` (canonical `seedAnswersFromDetail` mapper; `handleReopen` refetches the inspection and rebuilds answer state; MULTI_CHOICE toggle last-chip guard), `frontend/src/components/InspectionFlow.test.tsx` (+3 regression tests), `frontend/src/components/RoomList.tsx` (D1 mobile card layout), `frontend/src/RoomList.test.tsx` (D1 test), `frontend/src/api/risks.ts` (D2 explicit `status=all`), `frontend/src/components/RiskPanel.test.tsx` (D2 test), `frontend/src/components/ProjectWorkspace.tsx` (D3 measured-state summary from draft dimensions), `frontend/src/ProjectWorkspace.test.tsx` (D3 test).
+  - No backend schema/API change; backend MULTI_CHOICE contract verified live (empty `option_keys` is rejected; a correct reopen→full-answer PUT→complete round-trip succeeds).
+- **Tests**:
+  - Focused: `InspectionFlow.test.tsx` + `RiskPanel.test.tsx` + `RoomList.test.tsx` + `ProjectWorkspace.test.tsx` — **73 passed, 0 failed**.
+  - Full frontend suite: **163 passed, 0 failed** (incl. locale-parity).
+  - Full backend suite: **275 passed, 0 failed**.
+  - TypeScript strict (`tsc --noEmit`): PASS; `vite build`: PASS; `git diff --check`: PASS; no migration changes.
+- **Verification**:
+  - Mobile room card: stacked layout, wrapped name, 3-col action grid on narrow viewport, ~44 px touch targets: PASS.
+  - Risk filters: active→active, resolved→resolved, all→active+resolved with explicit `status=all`; filter switching never re-evaluates: PASS.
+  - RECTANGLE room 4.900 × 5.000 × 2.700 with zero walls renders as measured (24.500 m² floor, 53.460 m² walls, 19.800 m perimeter); generation yields exactly 4 walls; CUSTOM unchanged: PASS.
+  - Reopen flow: no `requires option_keys` error, answer state rebuilt from backend, last chip cannot produce empty `option_keys`, changed selection persists updated `option_keys`, no fetch loop / no stale COMPLETED / no navigation workaround: PASS.
+- **Remaining**:
+  - Final 7D manual acceptance walkthrough and owner sign-off — ongoing.
+  - Infrastructure Docker Compose hotfix — still deferred, not started.
 
 ## Stage Log Template for Future Stages
 

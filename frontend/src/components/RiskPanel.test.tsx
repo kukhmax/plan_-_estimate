@@ -301,4 +301,47 @@ describe('RiskPanel (Stage 7C)', () => {
     expect(await screen.findByText('Pęknięcia podłoża')).toBeInTheDocument();
     expect(screen.queryByText(/risk\./)).not.toBeInTheDocument();
   });
+
+  it('sends status=all explicitly and lists active and resolved together; filter switching never re-evaluates (Stage 7D.1 D2)', async () => {
+    const activeRisk = risk({ id: 'r-act', title_key: 'risk.crack_recurrence.title' });
+    const resolvedRisk = risk({
+      id: 'r-res',
+      risk_code: 'MOLD_TREATMENT_BEFORE_FINISH',
+      severity: 'HIGH',
+      title_key: 'risk.mold_treatment_before_finish.title',
+      is_active: false,
+      resolved_at: '2026-09-12T10:00:00Z',
+    });
+    vi.mocked(risksApi.fetchRisks).mockImplementation(async (_p, _r, opts) => {
+      if (opts?.status === 'active') return { items: [activeRisk], total: 1 };
+      if (opts?.status === 'resolved') return { items: [resolvedRisk], total: 1 };
+      if (opts?.status === 'all') return { items: [activeRisk, resolvedRisk], total: 2 };
+      return { items: [], total: 0 };
+    });
+    renderPanel();
+
+    // Initial tab is active: exactly the one active risk.
+    expect(await screen.findByText('Pęknięcia podłoża')).toBeInTheDocument();
+    expect(screen.queryByText('Pleśń / grzyb')).not.toBeInTheDocument();
+
+    // Resolved tab shows the resolved risk only.
+    fireEvent.click(screen.getByRole('button', { name: 'Rozwiązane' }));
+    expect(await screen.findByText('Pleśń / grzyb')).toBeInTheDocument();
+    expect(screen.queryByText('Pęknięcia podłoża')).not.toBeInTheDocument();
+
+    // All tab lists both. Critically the request carries status=all; dropping it would make
+    // the backend default to active and hide the resolved risk.
+    fireEvent.click(screen.getByRole('button', { name: 'Wszystkie' }));
+    expect(await screen.findByText('Pęknięcia podłoża')).toBeInTheDocument();
+    expect(screen.getByText('Pleśń / grzyb')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(risksApi.fetchRisks).toHaveBeenCalledWith('proj-1', 'room-1', {
+        inspectionId: 'ins-1',
+        status: 'all',
+      }),
+    );
+
+    // Filter switching is a pure list query; it must never trigger a re-evaluation.
+    expect(risksApi.evaluateRisks).not.toHaveBeenCalled();
+  });
 });

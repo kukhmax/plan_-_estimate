@@ -37,7 +37,9 @@ export function fetchRisks(
 ): Promise<RiskListResponse> {
   const params = new URLSearchParams();
   if (inspectionId) params.set('inspection_id', inspectionId);
-  if (status && status !== 'all') params.set('status', status);
+  // "all" must be sent explicitly, not dropped: the backend defaults to active when the
+  // status parameter is absent.
+  if (status) params.set('status', status);
   const query = params.toString();
   return apiRequest(`${risksPath(projectId, roomId)}${query ? `?${query}` : ''}`);
 }

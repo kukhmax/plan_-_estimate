@@ -569,7 +569,15 @@ describe('InspectionFlow substrate step', () => {
         },
       ],
     };
-    vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue(detail);
+    const reopened: InspectionDetail = {
+      ...draftInspection,
+      status: 'DRAFT',
+      completed_at: null,
+      answers: detail.answers,
+    };
+    vi.mocked(inspectionsApi.fetchInspection)
+      .mockResolvedValueOnce(detail)
+      .mockResolvedValueOnce(reopened);
     renderFlow({ inspectionId: 'ins-1' });
 
     await screen.findByLabelText('Wznów');
@@ -581,9 +589,192 @@ describe('InspectionFlow substrate step', () => {
         'ins-1',
       ),
     );
+    // Reopen re-hydrates the DRAFT answer state from the backend (fresh fetch).
+    await waitFor(() => expect(inspectionsApi.fetchInspection).toHaveBeenCalledTimes(2));
     // Back to editable draft
     expect(await screen.findByLabelText('Zapisz szkic')).toBeInTheDocument();
     expect(screen.getByLabelText('Przejrzyj i zakończ')).toBeInTheDocument();
+  });
+
+  it('rebuilds the DRAFT answer state from the backend after reopen, keeping MULTI_CHOICE option_keys intact (Stage 7D.1)', async () => {
+    const completedDetail: InspectionDetail = {
+      ...draftInspection,
+      status: 'COMPLETED',
+      completed_at: '2026-09-09T12:00:00Z',
+      answers: [
+        {
+          id: 'a-bool',
+          question_id: 'q-bool',
+          value_bool: true,
+          value_number: null,
+          value_text: null,
+          option_key: null,
+          option_keys: null,
+          updated_at: '2026-09-09T10:00:00Z',
+        },
+        {
+          id: 'a-multi',
+          question_id: 'q-multi',
+          value_bool: null,
+          value_number: null,
+          value_text: null,
+          option_key: null,
+          option_keys: ['DELAMINATION', 'BLOW_HOLES'],
+          updated_at: '2026-09-09T10:00:00Z',
+        },
+      ],
+    };
+    const reopenedDetail: InspectionDetail = {
+      ...draftInspection,
+      status: 'DRAFT',
+      completed_at: null,
+      answers: completedDetail.answers,
+    };
+    vi.mocked(inspectionsApi.fetchInspection)
+      .mockResolvedValueOnce(completedDetail)
+      .mockResolvedValueOnce(reopenedDetail);
+    renderFlow({ inspectionId: 'ins-1' });
+
+    await screen.findByLabelText('Wznów');
+    fireEvent.click(screen.getByLabelText('Wznów'));
+    await waitFor(() =>
+      expect(inspectionsApi.reopenInspection).toHaveBeenCalledWith('proj-1', 'room-1', 'ins-1'),
+    );
+    // Reopen re-hydrates answers from the backend instead of trusting stale state.
+    await waitFor(() => expect(inspectionsApi.fetchInspection).toHaveBeenCalledTimes(2));
+    // Back to editable draft WITHOUT leaving the flow.
+    await screen.findByLabelText('Zapisz szkic');
+
+    // Edit a different answer (BOOLEAN: cracks_present true -> false).
+    fireEvent.click(screen.getByLabelText('Nie'));
+    fireEvent.click(screen.getByLabelText('Przejrzyj i zakończ'));
+    await screen.findByText('Podsumowanie odpowiedzi');
+
+    fireEvent.click(screen.getByLabelText('Zakończ badanie'));
+    await waitFor(() =>
+      expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalled(),
+    );
+    const [, , , payload] = vi.mocked(inspectionsApi.putInspectionAnswers).mock.calls[0];
+    const multi = (payload.answers as {
+      question_id: string;
+      option_keys?: string[] | null;
+      option_key?: string | null;
+      value_text?: string | null;
+    }[]).find((a) => a.question_id === 'q-multi');
+    // The outgoing present_defects answer keeps its typed option_keys and is never
+    // degraded to a missing/empty option_keys, a wrong option_key, or value_text.
+    expect(multi).toBeDefined();
+    expect(multi?.option_keys).toEqual(['DELAMINATION', 'BLOW_HOLES']);
+    expect(multi?.option_key).toBeNull();
+    expect(multi?.value_text).toBeNull();
+  });
+
+  it('reopen: changing the MULTI_CHOICE selection saves the updated option_keys (Stage 7D.1)', async () => {
+    const completedDetail: InspectionDetail = {
+      ...draftInspection,
+      status: 'COMPLETED',
+      completed_at: '2026-09-09T12:00:00Z',
+      answers: [
+        {
+          id: 'a-bool',
+          question_id: 'q-bool',
+          value_bool: true,
+          value_number: null,
+          value_text: null,
+          option_key: null,
+          option_keys: null,
+          updated_at: '2026-09-09T10:00:00Z',
+        },
+        {
+          id: 'a-multi',
+          question_id: 'q-multi',
+          value_bool: null,
+          value_number: null,
+          value_text: null,
+          option_key: null,
+          option_keys: ['DELAMINATION', 'BLOW_HOLES'],
+          updated_at: '2026-09-09T10:00:00Z',
+        },
+      ],
+    };
+    vi.mocked(inspectionsApi.fetchInspection)
+      .mockResolvedValueOnce(completedDetail)
+      .mockResolvedValueOnce({
+        ...draftInspection,
+        status: 'DRAFT',
+        completed_at: null,
+        answers: completedDetail.answers,
+      });
+    renderFlow({ inspectionId: 'ins-1' });
+
+    await screen.findByLabelText('Wznów');
+    fireEvent.click(screen.getByLabelText('Wznów'));
+    await screen.findByLabelText('Zapisz szkic');
+
+    // Change the selection: drop DELAMINATION, keep BLOW_HOLES.
+    fireEvent.click(screen.getByLabelText('Odpryski'));
+    fireEvent.click(screen.getByLabelText('Przejrzyj i zakończ'));
+    await screen.findByText('Podsumowanie odpowiedzi');
+    fireEvent.click(screen.getByLabelText('Zakończ badanie'));
+    await waitFor(() =>
+      expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalled(),
+    );
+    const [, , , payload] = vi.mocked(inspectionsApi.putInspectionAnswers).mock.calls[0];
+    const multi = (payload.answers as {
+      question_id: string;
+      option_keys?: string[] | null;
+    }[]).find((a) => a.question_id === 'q-multi');
+    expect(multi?.option_keys).toEqual(['BLOW_HOLES']);
+  });
+
+  it('reopen: deselecting the last defect never sends an empty option_keys (Stage 7D.1)', async () => {
+    const completedDetail: InspectionDetail = {
+      ...draftInspection,
+      status: 'COMPLETED',
+      completed_at: '2026-09-09T12:00:00Z',
+      answers: [
+        {
+          id: 'a-multi',
+          question_id: 'q-multi',
+          value_bool: null,
+          value_number: null,
+          value_text: null,
+          option_key: null,
+          option_keys: ['BLOW_HOLES'],
+          updated_at: '2026-09-09T10:00:00Z',
+        },
+      ],
+    };
+    vi.mocked(inspectionsApi.fetchInspection)
+      .mockResolvedValueOnce(completedDetail)
+      .mockResolvedValueOnce({
+        ...draftInspection,
+        status: 'DRAFT',
+        completed_at: null,
+        answers: completedDetail.answers,
+      });
+    renderFlow({ inspectionId: 'ins-1' });
+
+    await screen.findByLabelText('Wznów');
+    fireEvent.click(screen.getByLabelText('Wznów'));
+    await screen.findByLabelText('Zapisz szkic');
+
+    // Tap the only selected chip: it stays selected (MULTI_CHOICE keeps >= 1).
+    fireEvent.click(screen.getByLabelText('Raki / pęcherze'));
+    expect(screen.getByLabelText('Raki / pęcherze')).toHaveClass('border-blue-600');
+
+    fireEvent.click(screen.getByLabelText('Przejrzyj i zakończ'));
+    await screen.findByText('Podsumowanie odpowiedzi');
+    fireEvent.click(screen.getByLabelText('Zakończ badanie'));
+    await waitFor(() =>
+      expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalled(),
+    );
+    const [, , , payload] = vi.mocked(inspectionsApi.putInspectionAnswers).mock.calls[0];
+    const multi = (payload.answers as {
+      question_id: string;
+      option_keys?: string[] | null;
+    }[]).find((a) => a.question_id === 'q-multi');
+    expect(multi?.option_keys).toEqual(['BLOW_HOLES']);
   });
 
   it('uses ~44px touch targets and single-column layout (MOBILE)', async () => {

@@ -148,6 +148,50 @@ describe('RoomList', () => {
     expect(await screen.findByText('Pomieszczenie zostało zarchiwizowane')).toBeInTheDocument();
     expect(roomsApi.fetchRooms).toHaveBeenCalledTimes(2);
   });
+
+  it('stacks the room card on mobile with a full-width 3-column action grid, wrapping name, and touch targets (Stage 7D.1 D1)', async () => {
+    const measuredRoom: RoomType = {
+      ...room,
+      name: 'Salon z bardzo długą nazwą, która nie może uciskać przycisków akcji',
+      length: 5,
+      width: 4,
+      height: 2.7,
+      calculations: {
+        floor_area: '20.000',
+        ceiling_area: '20.000',
+        total_wall_area: '48.600',
+        wall_area_length: '27.000',
+        wall_area_width: '21.600',
+        perimeter: '18.000',
+        total_deduction_area: null,
+        net_wall_area: null,
+      },
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
+    renderRooms();
+
+    const item = await screen.findByLabelText(`room-item-${room.id}`);
+    // Card lays its content out as stacked rows instead of a squeezed side-by-side row.
+    expect(item).toHaveClass('flex-col');
+
+    // The name owns a wrapping row of its own — it can never crowd the action buttons.
+    expect(screen.getByText(/Salon z bardzo długą nazwą/)).toHaveClass('break-words');
+
+    // Actions live in a dedicated container: 3 equal columns on narrow mobile…
+    const actions = screen.getByLabelText(`room-actions-${room.id}`);
+    expect(actions).toHaveClass('grid');
+    expect(actions).toHaveClass('grid-cols-3');
+    // …and an inline flex row from the sm breakpoint up.
+    expect(actions).toHaveClass('sm:flex');
+
+    // Every action keeps a practical ~44px touch target.
+    expect(screen.getByLabelText(`open-room-${room.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`edit-room-${room.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`archive-room-${room.id}`)).toHaveClass('min-h-11');
+
+    // The measurements line wraps instead of overflowing the viewport.
+    expect(screen.getByText(/5\.000 × 4\.000 × 2\.700 m/)).toBeInTheDocument();
+  });
 });
 
 describe('RoomList shape selector (Stage 5D.1A.1)', () => {

@@ -351,6 +351,13 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   const roomMeasurementMode =
     selectedRoom ? resolveRoomMeasurementMode(selectedRoom.id, selectedRoom) : 'RECTANGLE';
 
+  // A RECTANGLE room is measured as soon as L × W × H are known; wall generation is not
+  // required. The measurements summary must not depend on the optional calculations payload.
+  const roomHasDraftDimensions =
+    selectedRoom?.length !== null && selectedRoom?.length !== undefined &&
+    selectedRoom?.width !== null && selectedRoom?.width !== undefined &&
+    selectedRoom?.height !== null && selectedRoom?.height !== undefined;
+
   useEffect(() => {
     closeForm();
     setShowRoomForm(false);
@@ -631,7 +638,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
             </div>
 
             {/* Room Dimensions & Calculations Summary */}
-            {selectedRoom.calculations ? (
+            {roomHasDraftDimensions || selectedRoom.calculations ? (
               <div
                 aria-label="room-calculations-summary"
                 className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5 text-xs"
@@ -650,19 +657,19 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
                   <div className="flex items-baseline justify-between flex-wrap gap-1">
                     <span className="text-slate-600 font-medium text-xs">{t.rooms.net_wall_area}</span>
                     <strong className="text-emerald-700 text-base sm:text-lg font-extrabold tracking-tight">
-                      {formatMetric(selectedRoom.calculations.net_wall_area ?? selectedRoom.calculations.total_wall_area)} {t.common.unit_m2}
+                      {formatMetric(selectedRoom.calculations?.net_wall_area ?? selectedRoom.calculations?.total_wall_area)} {t.common.unit_m2}
                     </strong>
                   </div>
                   <div className="flex items-center gap-2 pt-1 border-t border-slate-100 text-[11px] text-slate-500 flex-wrap">
                     <span>
-                      {t.rooms.total_wall_area}: <strong className="text-slate-800 font-semibold">{formatMetric(selectedRoom.calculations.total_wall_area)} {t.common.unit_m2}</strong>
+                      {t.rooms.total_wall_area}: <strong className="text-slate-800 font-semibold">{formatMetric(selectedRoom.calculations?.total_wall_area)} {t.common.unit_m2}</strong>
                     </span>
                     <span className="text-slate-300 font-bold">−</span>
                     <span>
-                      {t.rooms.total_deductions}: <strong className="text-slate-700 font-semibold">{formatMetric(selectedRoom.calculations.total_deduction_area ?? '0.000')} {t.common.unit_m2}</strong>
+                      {t.rooms.total_deductions}: <strong className="text-slate-700 font-semibold">{formatMetric(selectedRoom.calculations?.total_deduction_area ?? '0.000')} {t.common.unit_m2}</strong>
                     </span>
                   </div>
-                  {typeof selectedRoom.calculations.wall_count === 'number' && (
+                  {typeof selectedRoom.calculations?.wall_count === 'number' && (
                     <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500">
                       <span>
                         {t.rooms.wall_count}: <strong className="text-slate-800 font-semibold">{selectedRoom.calculations.wall_count}</strong>
@@ -676,19 +683,19 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
                   <div className="bg-white p-2 rounded-lg border border-slate-100">
                     <span className="block text-slate-400 text-[11px]">{t.rooms.floor_area}</span>
                     <strong className="text-slate-800 text-xs sm:text-sm font-semibold">
-                      {formatMetric(selectedRoom.calculations.floor_area)} {t.common.unit_m2}
+                      {formatMetric(selectedRoom.calculations?.floor_area)} {t.common.unit_m2}
                     </strong>
                   </div>
                   <div className="bg-white p-2 rounded-lg border border-slate-100">
                     <span className="block text-slate-400 text-[11px]">{t.rooms.ceiling_area}</span>
                     <strong className="text-slate-800 text-xs sm:text-sm font-semibold">
-                      {formatMetric(selectedRoom.calculations.ceiling_area)} {t.common.unit_m2}
+                      {formatMetric(selectedRoom.calculations?.ceiling_area)} {t.common.unit_m2}
                     </strong>
                   </div>
                   <div className="bg-white p-2 rounded-lg border border-slate-100">
                     <span className="block text-slate-400 text-[11px]">{t.rooms.perimeter}</span>
                     <strong className="text-slate-800 text-xs sm:text-sm font-semibold">
-                      {formatMetric(selectedRoom.calculations.perimeter)} {t.common.unit_m}
+                      {formatMetric(selectedRoom.calculations?.perimeter)} {t.common.unit_m}
                     </strong>
                   </div>
                 </div>

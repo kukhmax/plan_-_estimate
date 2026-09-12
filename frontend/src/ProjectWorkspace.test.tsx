@@ -900,6 +900,119 @@ describe('ProjectWorkspace', () => {
     expect(within(customEntry).getByLabelText('custom-wall-height')).toHaveValue('2.700 m');
     expect(screen.queryByLabelText('mode-custom')).not.toBeInTheDocument();
   });
+
+  it('RECTANGLE room 4.900 × 5.000 × 2.700 with zero walls is measured: summary, no enter-dimensions CTA, generate 4 walls (Stage 7D.1 D3)', async () => {
+    const rectRoom: RoomType = {
+      id: '99999999-9999-9999-9999-999999999999',
+      project_id: project.id,
+      name: 'Nowa łazienka',
+      description: null,
+      length: 4.9,
+      width: 5.0,
+      height: 2.7,
+      is_archived: false,
+      created_at: '2026-09-12T00:00:00Z',
+      updated_at: '2026-09-12T00:00:00Z',
+      calculations: {
+        floor_area: '24.500',
+        ceiling_area: '24.500',
+        perimeter: '19.800',
+        total_wall_area: '53.460',
+        wall_area_length: '26.460',
+        wall_area_width: '27.000',
+        total_deduction_area: null,
+        net_wall_area: null,
+        wall_count: 0,
+      },
+    };
+
+    vi.mocked(roomsApi.createRoom).mockResolvedValue(rectRoom);
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(rectRoom);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
+
+    // Backend list: empty before the room is created, then the new room appears.
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+
+    // Create the RECTANGLE room exactly as the owner did: 4.900 × 5.000 × 2.700, zero walls.
+    await waitFor(() => expect(screen.getByLabelText('add-room')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Nowa łazienka' } });
+    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '4.9' } });
+    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '5.0' } });
+    fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '2.7' } });
+    fireEvent.submit(screen.getByLabelText('room-form'));
+
+    // New room appears in the list; open it.
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [rectRoom], total: 1 });
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${rectRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${rectRoom.id}`));
+
+    // Measured state: summary with dims + floor/ceiling/perimeter, never the unmeasured notice.
+    const summary = await screen.findByLabelText('room-calculations-summary');
+    expect(screen.queryByLabelText('room-unmeasured-notice')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('measure-room-action')).not.toBeInTheDocument();
+    expect(within(summary).getByText(/4\.900 × 5\.000 × 2\.700 m/)).toBeInTheDocument();
+    expect(within(summary).getAllByText('24.500 m²')).toHaveLength(2); // floor & ceiling
+    expect(within(summary).getByText('19.800 m')).toBeInTheDocument(); // perimeter
+    // net falls back to total for zero-deduction rooms, so 53.460 appears twice (net & gross).
+    expect(within(summary).getAllByText('53.460 m²')).toHaveLength(2); // wall gross (0 walls)
+
+    // Wall generation is available for the dimensioned RECTANGLE room.
+    await waitFor(() => expect(screen.getByLabelText('generate-walls')).toBeInTheDocument());
+
+    // Generation produces exactly 4 walls.
+    const generatedWalls: SurfaceType[] = [0, 1, 2, 3].map((i) => ({
+      ...wallSurface,
+      id: `aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaa${i}`, // aaaaaaa1-...-aaaaaaa3
+      name: `Ściana ${i + 1}`,
+    }));
+    vi.mocked(surfacesApi.generateWalls).mockResolvedValue({ items: generatedWalls, total: 4 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: generatedWalls, total: 4 });
+
+    fireEvent.click(screen.getByLabelText('generate-walls'));
+
+    await waitFor(() =>
+      expect(surfacesApi.generateWalls).toHaveBeenCalledWith(project.id, rectRoom.id),
+    );
+    await waitFor(() => expect(screen.getAllByLabelText(/surface-item-/)).toHaveLength(4));
+  });
+
+  it('regards a dimensioned RECTANGLE room as measured even when calculations payload is absent (Stage 7D.1 D3)', async () => {
+    // The backend always serializes calculations for L×W×H rooms, but the measured state must
+    // not depend on that object: domain semantics say RECTANGLE is measured iff L && W && H.
+    const rectRoomWithoutCalculations: RoomType = {
+      id: '99999999-9999-9999-9999-999999999999',
+      project_id: project.id,
+      name: 'Kuchnia',
+      description: null,
+      length: 4.9,
+      width: 5.0,
+      height: 2.7,
+      is_archived: false,
+      created_at: '2026-09-12T00:00:00Z',
+      updated_at: '2026-09-12T00:00:00Z',
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [rectRoomWithoutCalculations], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(rectRoomWithoutCalculations);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${rectRoomWithoutCalculations.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${rectRoomWithoutCalculations.id}`));
+
+    // The unmeasured notice and its "+ Enter dimensions" CTA must never appear for this room.
+    await screen.findByLabelText('room-calculations-summary');
+    expect(screen.queryByLabelText('room-unmeasured-notice')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('measure-room-action')).not.toBeInTheDocument();
+    // Generate-walls stays available.
+    expect(screen.getByLabelText('generate-walls')).toBeInTheDocument();
+  });
 });
 
 describe('Room measurement CTA routing (Stage 5D.1A.2)', () => {
