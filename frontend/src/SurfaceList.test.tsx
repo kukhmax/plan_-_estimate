@@ -136,11 +136,28 @@ describe('SurfaceList', () => {
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
-    expect(screen.getByText(/5\.000 × 2\.700 m/)).toBeInTheDocument();
-    expect(screen.getByText(/13\.500 m²/)).toBeInTheDocument();
-    expect(screen.getByText(/1\.800 m²/)).toBeInTheDocument();
-    expect(screen.getByText(/11\.700 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/5\.00 × 2\.70 m/)).toBeInTheDocument();
+    expect(screen.getByText(/13\.50 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/1\.80 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/11\.70 m²/)).toBeInTheDocument();
     expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toBeInTheDocument();
+  });
+
+  it('rounds a backend wall gross area of 13.515 m² to 13.52 m² on display (two-decimal policy)', async () => {
+    const roundingWall: SurfaceType = {
+      ...surface,
+      width: 5.1,
+      height: 2.65,
+      gross_area: '13.515',
+      deduction_area: '0.000',
+      net_area: '13.515',
+    };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [roundingWall], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(screen.getByText(/5\.10 × 2\.65 m/)).toBeInTheDocument();
+    expect(screen.getAllByText(/13\.52 m²/)).toHaveLength(2); // gross & net
   });
 
   it('shows requires_dimensions notice when wall lacks dimensions', async () => {
@@ -294,7 +311,7 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
 
     await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
 
-    expect(screen.getByLabelText('custom-wall-height')).toHaveValue('2.700 m');
+    expect(screen.getByLabelText('custom-wall-height')).toHaveValue('2.70 m');
 
     fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '1.8' } });
     fireEvent.submit(screen.getByLabelText('custom-wall-form'));

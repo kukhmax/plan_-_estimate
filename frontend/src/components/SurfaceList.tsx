@@ -353,7 +353,7 @@ export function SurfaceList({
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="2.000"
                   autoFocus
                   value={customWall.width}
@@ -369,7 +369,7 @@ export function SurfaceList({
                     type="number"
                     inputMode="decimal"
                     min="0.001"
-                    step="0.001"
+                    step="0.01"
                     placeholder="2.700"
                     value={customWall.height}
                     onChange={(e) => setCustomWall((cur) => ({ ...cur, height: e.target.value }))}
@@ -465,7 +465,7 @@ export function SurfaceList({
                 type="number"
                 inputMode="decimal"
                 min="0.001"
-                step="0.001"
+                step="0.01"
                 placeholder="5.000"
                 value={form.width}
                 onChange={(event) => setForm((current) => ({ ...current, width: event.target.value }))}
@@ -479,7 +479,7 @@ export function SurfaceList({
                 type="number"
                 inputMode="decimal"
                 min="0.001"
-                step="0.001"
+                step="0.01"
                 placeholder="2.700"
                 value={form.height}
                 onChange={(event) => setForm((current) => ({ ...current, height: event.target.value }))}

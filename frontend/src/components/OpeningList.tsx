@@ -146,9 +146,9 @@ export function OpeningList({
   const parsedQuantity = parseInt(form.quantity.trim(), 10) || 1;
   const hasValidDimensions = !Number.isNaN(parsedWidth) && parsedWidth > 0 &&
                              !Number.isNaN(parsedHeight) && parsedHeight > 0;
-  const previewSingleArea = hasValidDimensions ? (parsedWidth * parsedHeight).toFixed(3) : null;
+  const previewSingleArea = hasValidDimensions ? (parsedWidth * parsedHeight).toFixed(2) : null;
   const previewTotalArea = hasValidDimensions && parsedQuantity >= 1
-    ? (parsedWidth * parsedHeight * parsedQuantity).toFixed(3)
+    ? (parsedWidth * parsedHeight * parsedQuantity).toFixed(2)
     : null;
 
   const handleSubmit = async (event: FormEvent) => {
@@ -310,7 +310,7 @@ export function OpeningList({
                 type="number"
                 inputMode="decimal"
                 min="0.001"
-                step="0.001"
+                step="0.01"
                 required
                 placeholder="0.900"
                 value={form.width}
@@ -325,7 +325,7 @@ export function OpeningList({
                 type="number"
                 inputMode="decimal"
                 min="0.001"
-                step="0.001"
+                step="0.01"
                 required
                 placeholder="2.000"
                 value={form.height}

@@ -777,6 +777,145 @@ describe('InspectionFlow substrate step', () => {
     expect(multi?.option_keys).toEqual(['BLOW_HOLES']);
   });
 
+  it('hydrates the exact template after create so the checklist renders immediately without reload (Stage 7D.2)', async () => {
+    // The list endpoint serves bare templates WITHOUT sections — exactly like the running
+    // backend (checklist_service.list_templates does not load sections). The create response
+    // carries only the canonical template id. After Start the flow must hydrate the full
+    // template through the detail endpoint, not trust the bare list object.
+    const bareListTemplate: ChecklistTemplate = { ...template, sections: [] };
+    vi.mocked(checklistsApi.fetchChecklistTemplates).mockResolvedValue({
+      items: [bareListTemplate],
+      total: 1,
+    });
+    vi.mocked(checklistsApi.fetchChecklistTemplate).mockResolvedValue(template);
+
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+
+    // Questions appear immediately (0/0 with the empty note must never show): the flow
+    // fetched the exact template by id and rendered it without leaving or re-entering.
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+    expect(screen.queryByText('Brak badań podłoża')).not.toBeInTheDocument();
+    expect(checklistsApi.fetchChecklistTemplate).toHaveBeenCalledWith('tpl-1');
+
+    // BOOLEAN and NUMBER controls are available right after Start.
+    expect(screen.getByLabelText('Tak')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nie')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nierówności podłoża')).toHaveAttribute('inputMode', 'decimal');
+
+    // Answer one question and Save Draft within the same visit: a valid typed PUT payload.
+    fireEvent.click(screen.getByLabelText('Tak'));
+    fireEvent.click(screen.getByLabelText('Zapisz szkic'));
+    await waitFor(() =>
+      expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalledWith(
+        'proj-1',
+        'room-1',
+        'ins-1',
+        expect.objectContaining({
+          answers: expect.arrayContaining([
+            expect.objectContaining({ question_id: 'q-bool', value_bool: true }),
+          ]),
+        }),
+      ) as unknown,
+    );
+  });
+
+  it('renders GYPSUM_BOARD questions immediately after Start and saves a typed draft (Stage 7D.2)', async () => {
+    const gypsumTemplate: ChecklistTemplate = {
+      ...template,
+      id: 'tpl-2',
+      code: 'substrate-gypsum-board',
+      substrate: 'GYPSUM_BOARD',
+      title_key: 'checklist.template.gypsum_board.title',
+      sections: [
+        {
+          id: 'sec-gb-1',
+          key: 'board_state',
+          position: 0,
+          title_key: 'checklist.section.board_state',
+          description_key: null,
+          questions: [
+            {
+              id: 'q-crack-gb',
+              position: 0,
+              key: 'cracks_present',
+              text_key: 'checklist.question.cracks_present',
+              hint_key: null,
+              unit_key: null,
+              answer_type: 'BOOLEAN',
+              finding_key: 'CRACK',
+              options: [],
+            },
+            {
+              id: 'q-move-gb',
+              position: 1,
+              key: 'board_movement',
+              text_key: 'checklist.question.board_movement',
+              hint_key: null,
+              unit_key: null,
+              answer_type: 'BOOLEAN',
+              finding_key: 'BOARD_MOVEMENT',
+              options: [],
+            },
+          ],
+        },
+      ],
+    };
+    const boardInspection: Inspection = {
+      ...draftInspection,
+      id: 'ins-2',
+      template_id: gypsumTemplate.id,
+      substrate: 'GYPSUM_BOARD',
+      quality_target: 'Q2',
+    };
+    const bareGypsumList: ChecklistTemplate = { ...gypsumTemplate, sections: [] };
+    vi.mocked(checklistsApi.fetchChecklistTemplates).mockResolvedValue({
+      items: [bareGypsumList],
+      total: 1,
+    });
+    vi.mocked(checklistsApi.fetchChecklistTemplate).mockResolvedValue(gypsumTemplate);
+    vi.mocked(inspectionsApi.createInspection).mockResolvedValue(boardInspection);
+    vi.mocked(inspectionsApi.putInspectionAnswers).mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Płyta g-k'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Q2'));
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+
+    // Both board questions are present right after Start — not "0 / 0".
+    await screen.findByText(/Odpowiedzi: 0 \/ 2/);
+    expect(screen.queryByText('Brak badań podłoża')).not.toBeInTheDocument();
+    expect(checklistsApi.fetchChecklistTemplate).toHaveBeenCalledWith('tpl-2');
+
+    // Answer both and Save Draft: typed boolean payload for each question.
+    const allYes = screen.getAllByLabelText('Tak');
+    expect(allYes).toHaveLength(2);
+    fireEvent.click(allYes[0]);
+    fireEvent.click(allYes[1]);
+    fireEvent.click(screen.getByLabelText('Zapisz szkic'));
+    await waitFor(() =>
+      expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalledWith(
+        'proj-1',
+        'room-1',
+        'ins-2',
+        expect.objectContaining({
+          answers: expect.arrayContaining([
+            expect.objectContaining({ question_id: 'q-crack-gb', value_bool: true }),
+            expect.objectContaining({ question_id: 'q-move-gb', value_bool: true }),
+          ]),
+        }),
+      ) as unknown,
+    );
+  });
+
   it('uses ~44px touch targets and single-column layout (MOBILE)', async () => {
     renderFlow();
     const concrete = await screen.findByLabelText('Beton');

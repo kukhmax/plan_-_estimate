@@ -133,8 +133,33 @@ describe('RoomList', () => {
     renderRooms();
 
     await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
-    expect(screen.getByText(/5\.000 × 4\.000 × 2\.700 m/)).toBeInTheDocument();
-    expect(screen.getByText(/48\.600 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/5\.00 × 4\.00 × 2\.70 m/)).toBeInTheDocument();
+    expect(screen.getByText(/48\.60 m²/)).toBeInTheDocument();
+  });
+
+  it('renders representative room dimensions 5.000 × 4.900 × 2.700 to exactly two decimals (two-decimal policy)', async () => {
+    const measuredRoom: RoomType = {
+      ...room,
+      length: 5,
+      width: 4.9,
+      height: 2.7,
+      calculations: {
+        floor_area: '30.090',
+        ceiling_area: '30.090',
+        total_wall_area: '53.460',
+        wall_area_length: '27.000',
+        wall_area_width: '26.460',
+        perimeter: '19.800',
+        total_deduction_area: null,
+        net_wall_area: null,
+      },
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
+    expect(screen.getByText(/5\.00 × 4\.90 × 2\.70 m/)).toBeInTheDocument();
+    expect(screen.getByText(/53\.46 m²/)).toBeInTheDocument();
   });
 
   it('archives an active room and reloads the list', async () => {
@@ -190,7 +215,7 @@ describe('RoomList', () => {
     expect(screen.getByLabelText(`archive-room-${room.id}`)).toHaveClass('min-h-11');
 
     // The measurements line wraps instead of overflowing the viewport.
-    expect(screen.getByText(/5\.000 × 4\.000 × 2\.700 m/)).toBeInTheDocument();
+    expect(screen.getByText(/5\.00 × 4\.00 × 2\.70 m/)).toBeInTheDocument();
   });
 });
 
@@ -343,5 +368,54 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
 
     await waitFor(() => expect(roomsApi.createRoom).toHaveBeenCalledTimes(1));
     expect(localStorage.getItem(`plan-estimate:room-measurement-mode:${room.id}`)).toBe('RECTANGLE');
+  });
+
+  it('blocks partial RECTANGLE dimensions (length only) with a localized error — no silent partial capture (Stage 7D.2)', async () => {
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Salon' } });
+    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '5' } });
+    fireEvent.submit(screen.getByLabelText('room-form'));
+
+    expect(await screen.findByText(/Podaj wszystkie trzy wymiary/)).toBeInTheDocument();
+    expect(roomsApi.createRoom).not.toHaveBeenCalled();
+  });
+
+  it('blocks partial RECTANGLE dimensions (length + width, missing height) (Stage 7D.2)', async () => {
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Salon' } });
+    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '5' } });
+    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '4' } });
+    fireEvent.submit(screen.getByLabelText('room-form'));
+
+    expect(await screen.findByText(/Podaj wszystkie trzy wymiary/)).toBeInTheDocument();
+    expect(roomsApi.createRoom).not.toHaveBeenCalled();
+  });
+
+  it('CUSTOM creation with only a custom wall height bypasses the RECTANGLE all-or-none rule (Stage 7D.2)', async () => {
+    vi.mocked(roomsApi.createRoom).mockResolvedValue(room);
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Poddasze' } });
+    fireEvent.click(screen.getByLabelText('room-shape-custom'));
+    fireEvent.change(screen.getByLabelText('room-custom-height'), { target: { value: '3.1' } });
+    fireEvent.submit(screen.getByLabelText('room-form'));
+
+    await waitFor(() => {
+      expect(roomsApi.createRoom).toHaveBeenCalledWith(projectId, {
+        name: 'Poddasze',
+        description: null,
+        length: null,
+        width: null,
+        height: 3.1,
+      });
+    });
   });
 });

@@ -112,6 +112,18 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
     setSaving(true);
     setFormError(null);
 
+    if (roomShape === 'RECTANGLE') {
+      const filled = [form.length, form.width, form.height].filter((v) => v.trim() !== '').length;
+      // RECTANGLE must be captured all-or-none: a partial L/W/H submission produces
+      // a room that is not measured but is indistinguishable from one that simply
+      // skipped dimensions, silently losing the entered values on every later view.
+      if (filled > 0 && filled < 3) {
+        setFormError(t.rooms.dimensions_required);
+        setSaving(false);
+        return;
+      }
+    }
+
     const lengthVal = roomShape === 'CUSTOM'
       ? null
       : (form.length.trim() ? parseFloat(form.length.trim()) : null);
@@ -274,7 +286,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="5.000"
                   value={form.length}
                   onChange={(event) => setForm((current) => ({ ...current, length: event.target.value }))}
@@ -288,7 +300,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="4.000"
                   value={form.width}
                   onChange={(event) => setForm((current) => ({ ...current, width: event.target.value }))}
@@ -302,7 +314,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="2.700"
                   value={form.height}
                   onChange={(event) => setForm((current) => ({ ...current, height: event.target.value }))}
@@ -320,7 +332,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="2.700"
                   value={customHeight}
                   onChange={(event) => setCustomHeight(event.target.value)}

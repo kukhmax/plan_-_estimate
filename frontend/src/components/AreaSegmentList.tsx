@@ -273,7 +273,7 @@ export function AreaSegmentList({
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="2.000"
                   autoFocus
                   value={activeForm.width}
@@ -292,7 +292,7 @@ export function AreaSegmentList({
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="2.000"
                   value={activeForm.height}
                   onChange={(e) =>

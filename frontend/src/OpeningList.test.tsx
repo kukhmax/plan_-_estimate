@@ -74,8 +74,8 @@ describe('OpeningList', () => {
 
     await waitFor(() => expect(screen.getByText('Drzwi')).toBeInTheDocument());
     expect(screen.getByText('(Drzwi pokojowe)')).toBeInTheDocument();
-    expect(screen.getByText(/0\.900 × 2\.000 m/)).toBeInTheDocument();
-    expect(screen.getByText(/1\.800 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/0\.90 × 2\.00 m/)).toBeInTheDocument();
+    expect(screen.getByText(/1\.80 m²/)).toBeInTheDocument();
     expect(screen.getByText('Standardowe drzwi')).toBeInTheDocument();
   });
 
@@ -85,8 +85,8 @@ describe('OpeningList', () => {
 
     await waitFor(() => expect(screen.getByText('Okno')).toBeInTheDocument());
     expect(screen.getByText('×2')).toBeInTheDocument();
-    expect(screen.getByText(/1\.500 × 1\.400 m/)).toBeInTheDocument();
-    expect(screen.getByText(/4\.200 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/1\.50 × 1\.40 m/)).toBeInTheDocument();
+    expect(screen.getByText(/4\.20 m²/)).toBeInTheDocument();
   });
 
   it('calculates live area preview when filling opening dimensions and quantity', async () => {
@@ -101,11 +101,11 @@ describe('OpeningList', () => {
 
     const preview = screen.getByLabelText('opening-preview-area');
     expect(preview).toBeInTheDocument();
-    expect(preview).toHaveTextContent('1.800 m²');
+    expect(preview).toHaveTextContent('1.80 m²');
 
     // Change quantity to 2 -> shows total preview
     fireEvent.change(screen.getByLabelText('opening-quantity'), { target: { value: '2' } });
-    expect(preview).toHaveTextContent('3.600 m²');
+    expect(preview).toHaveTextContent('3.60 m²');
   });
 
   it('creates an opening and notifies parent via onOpeningChanged', async () => {
@@ -327,6 +327,6 @@ describe('OpeningList dimension defaults (Stage 5D.1A.1)', () => {
     expect(openingsApi.updateOpening).not.toHaveBeenCalled();
     expect(openingsApi.archiveOpening).not.toHaveBeenCalled();
     // The existing opening row is untouched
-    expect(screen.getByText(/0\.900 × 2\.000 m/)).toBeInTheDocument();
+    expect(screen.getByText(/0\.90 × 2\.00 m/)).toBeInTheDocument();
   });
 });

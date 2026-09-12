@@ -192,9 +192,9 @@ describe('RiskPanel (Stage 7C)', () => {
     expect(screen.getByText('Pęknięcia — Tak')).toBeInTheDocument();
     expect(screen.getByText('Ruchliwość płyt — Tak')).toBeInTheDocument();
 
-    // Numeric snapshot is rendered as-is with the mm unit, never recomputed.
+    // Numeric snapshot is formatted to two decimals with the mm unit.
     fireEvent.click(screen.getByLabelText(/Zwiększone nierówności.*Szczegóły/));
-    expect(await screen.findByText('Nierówności — 3.500 mm')).toBeInTheDocument();
+    expect(await screen.findByText('Nierówności — 3.50 mm')).toBeInTheDocument();
     // Sources arrived with the evaluate response; no per-card detail fetch.
     expect(risksApi.fetchRiskDetail).not.toHaveBeenCalled();
   });

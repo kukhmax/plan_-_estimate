@@ -126,7 +126,8 @@
     "custom": "Dowolny kształt",
     "default_wall_height": "Domyślna wysokość ścian (m)",
     "custom_hint": "Nie wymaga wymiarów prostokąta — zmierz ściany po kolei.",
-    "start_wall_measurement": "Rozpocznij pomiar ścian"
+    "start_wall_measurement": "Rozpocznij pomiar ścian",
+    "dimensions_required": "Podaj wszystkie trzy wymiary (długość, szerokość, wysokość) lub zostaw je puste, aby utworzyć pomieszczenie bez wymiarów."
   },
   "surfaces": {
     "title": "Powierzchnie",

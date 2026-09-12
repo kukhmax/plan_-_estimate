@@ -754,7 +754,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
                     type="number"
                     inputMode="decimal"
                     min="0.001"
-                    step="0.001"
+                    step="0.01"
                     placeholder="5.000"
                     value={roomForm.length}
                     onChange={(e) => setRoomForm((cur) => ({ ...cur, length: e.target.value }))}
@@ -768,7 +768,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
                     type="number"
                     inputMode="decimal"
                     min="0.001"
-                    step="0.001"
+                    step="0.01"
                     placeholder="4.000"
                     value={roomForm.width}
                     onChange={(e) => setRoomForm((cur) => ({ ...cur, width: e.target.value }))}
@@ -782,7 +782,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
                     type="number"
                     inputMode="decimal"
                     min="0.001"
-                    step="0.001"
+                    step="0.01"
                     placeholder="2.700"
                     value={roomForm.height}
                     onChange={(e) => setRoomForm((cur) => ({ ...cur, height: e.target.value }))}

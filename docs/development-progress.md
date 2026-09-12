@@ -49,7 +49,7 @@
 | **Stage 4** | **Projects / Obiekty** | **Completed** | Central aggregate root: Project model, address fields, status lifecycle, optional Client link, owner isolation |
 | **Stage 5** | **Rooms, surfaces and measurements** | **Completed** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, practical mobile measurement workflow, composite floor/ceiling geometry, and owner-accepted final manual acceptance |
 | **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
-| Stage 7 | Risk Rules Engine | In Progress | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
+| Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | Stage 8 | "Co powiedzieć klientowi" | Pending | Ready-to-use professional explanations and client communication scripts (PL/RU) |
 | Stage 9 | Editable Price Book | Pending | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges |
 | Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
@@ -1283,14 +1283,16 @@ Clarifications:
 ---
 
 ### Canonical Stage 7: Risk Rules Engine
-- **Status**: In Progress
-- **Date**: 2026-09-12
+- **Status**: **Completed** (owner-verified 2026-09-13)
+- **Date**: 2026-09-12 → 2026-09-13
 - **Scope & Canonical Mapping**:
   - **Execution Sub-Stage 7A (Completed)**: Risk Rules Engine design inspection report — deterministic risk derivation from materialized inspection findings, severity (LOW/MEDIUM/HIGH/CRITICAL), source-finding traceability, mitigation/warranty semantics, and recommended 7B backend scope.
   - **Execution Sub-Stage 7B (Completed)**: Risk Rules Engine — **backend**, owner-verified 2026-09-12.
-  - **Execution Sub-Stage 7C (Completed)**: Mobile Risk Evaluation and Risk Cards — **frontend/mobile PL/RU workflow**, owner-verified 2026-09-12. Stage 7 is NOT yet marked Completed (7D final manual acceptance remains).
-  - **Execution Sub-Stage 7D.1 (Owner-retest fixes)**: Manual-acceptance defects corrected — mobile room-card overlap, Risk "All" filter semantics, rectangle-room measured-state regression, and reopen MULTI_CHOICE hydration/empty-option_keys regression. See the 7D.1 section below; final 7D manual acceptance remains ongoing.
-- **Closure**: Not yet — pending Execution Sub-Stage 7D (final manual acceptance) and the deferred Docker Compose hotfix.
+  - **Execution Sub-Stage 7C (Completed)**: Mobile Risk Evaluation and Risk Cards — **frontend/mobile PL/RU workflow**, owner-verified 2026-09-12.
+  - **Execution Sub-Stage 7D.1 (Owner-retest fixes)**: Manual-acceptance defects corrected — mobile room-card overlap, Risk "All" filter semantics, rectangle-room measured-state regression, and reopen MULTI_CHOICE hydration/empty-option_keys regression. See the 7D.1 section below.
+  - **Execution Sub-Stage 7D.2 (Final acceptance fixes)**: State-synchronization fixes from owner manual acceptance — rectangle-room measured-state capture (all-or-none L/W/H), immediate inspection question hydration, compound-risk verification (CRACK_RECURRENCE + BOARD_MOVEMENT_CRACK), plus the permanent **two-decimal metric display policy**. See the 7D.2 section below.
+  - **Infrastructure hotfix (Completed)**: Docker Compose dev `backend` service now defaults `MOCK_TELEGRAM_AUTH=true` without requiring a `TELEGRAM_BOT_TOKEN`, unblocking live authenticated evaluation in the local stack.
+- **Closure**: Owner decision recorded 2026-09-13 — Canonical Stage 7 (Risk Rules Engine) is **COMPLETED**. No remaining work in Stage 7; all Stage 8+ work remains pending explicit project-owner approval.
 
 #### Execution Sub-Stage 7B: Risk Rules Engine — Backend (Completed)
 - **Status**: Completed (owner-verified 2026-09-12)
@@ -1381,6 +1383,37 @@ Clarifications:
 - **Remaining**:
   - Final 7D manual acceptance walkthrough and owner sign-off — ongoing.
   - Infrastructure Docker Compose hotfix — still deferred, not started.
+
+#### Execution Sub-Stage 7D.2: Final Manual-Acceptance Fixes and Two-Decimal Metric Policy (Completed)
+- **Status**: Completed (owner-verified 2026-09-13) — Canonical Stage 7 is **COMPLETED**.
+- **Date**: 2026-09-13
+- **Scope** — the two manual-acceptance defects plus the final metric presentation policy:
+  1. **Rectangle-room measured-state capture (Defect 1)**: partial RECTANGLE L/W/H submission (root cause of rooms silently losing their measured state) is now blocked with the localized message `rooms.dimensions_required` — a RECTANGLE room must be captured all-or-none; entering L/W/H immediately yields the measured state, the Generate 4 walls action produces exactly 4 walls, and a down-level GET refresh preserves dimensions. Regression: `RoomList.test.tsx` (partial-dimension blocks) + `ProjectWorkspace.test.tsx` `create→open→generate` end-to-end Stage 7D.2 test.
+  2. **Immediate inspection question hydration (Defect 2)**: `beginInspection` fetches the exact checklist template via `fetchChecklistTemplate(created.template_id)` right after create — the list endpoint returns bare templates (`sections: []`), so a fresh inspection previously rendered 0/0 until leave-and-re-enter. Questions now render immediately with no reload. Regression: 2 `InspectionFlow.test.tsx` tests where the list mock returns a bare template.
+  3. **Compound risk verification (Check C)**: `CRACK_RECURRENCE` + `BOARD_MOVEMENT_CRACK` both render independently for a GYPSUM_BOARD completed inspection with `cracks_present` + `board_movement`; compound severity HIGH, `blocks_finishing`, `warranty_exclusion_candidate`, source findings `{CRACK, BOARD_MOVEMENT}`. No risk-engine change was required. Regression: 2 new `backend/tests/test_risks.py` tests.
+  4. **Permanent two-decimal metric display policy**: all user-facing construction measurements display exactly 2 decimals (5.000 → 5.00, 4.900 → 4.90, 2.700 → 2.70, 48.600 m² → 48.60 m², 3.000 mm → 3.00 mm, 13.515 m² → 13.52 m²). Implemented centrally in `formatMetric` (`frontend/src/utils/format.ts`, default `decimals = 2`) covering rooms, walls, openings, opening/segment/gross/deduction/net areas, floor/ceiling/perimeter, and area segments; two numeric-snapshot renderers that bypassed the formatter were wrapped (`RiskPanel.tsx` risk source numbers, `InspectionFlow.tsx` finding details); OpeningList live area preview `.toFixed(3)` → `.toFixed(2)`; all numeric inputs moved from `step="0.001"` to `step="0.01"` with existing `inputMode="decimal"` (RoomList ×4, ProjectWorkspace room-edit ×3, SurfaceList ×4, AreaSegmentList ×2, OpeningList ×2).
+  - **Storage rule honored**: **no DB migration, no stored-value rewrite** — the backend retains its mm-compatible `Numeric(10,3)` precision and remains Decimal-authoritative (13.515 m² backend → 13.52 m² display only); domain calculations are unchanged.
+- **Files**:
+  - Changed (7D.2): `frontend/src/components/RoomList.tsx` (all-or-none RECTANGLE validation), `frontend/src/components/InspectionFlow.tsx` (template hydration after create), `frontend/src/locales/pl.json` + `ru.json` (`rooms.dimensions_required`), `backend/tests/test_risks.py` (2 compound-risk tests), `frontend/src/components/InspectionFlow.test.tsx` (2 hydration tests), `frontend/src/RoomList.test.tsx` (3 partial/block tests), `frontend/src/ProjectWorkspace.test.tsx` (end-to-end 7D.2 test).
+  - Changed (metric policy): `frontend/src/utils/format.ts`, `frontend/src/components/RiskPanel.tsx`, `frontend/src/components/InspectionFlow.tsx`, `frontend/src/components/OpeningList.tsx`, `frontend/src/components/RoomList.tsx`, `frontend/src/components/ProjectWorkspace.tsx`, `frontend/src/components/SurfaceList.tsx`, `frontend/src/components/AreaSegmentList.tsx`.
+  - Added: `frontend/src/utils/format.test.ts` (central two-decimal policy — 4 tests).
+  - Updated tests to two-decimal expectations: `RoomList.test.tsx`, `SurfaceList.test.tsx`, `OpeningList.test.tsx`, `AreaSegmentList.test.tsx`, `RiskPanel.test.tsx`, `ProjectWorkspace.test.tsx`; added representative component tests (room 5.000 × 4.900 × 2.700 → 5.00 × 4.90 × 2.70; wall gross 13.515 m² → 13.52 m²). Mock fixtures keep backend 3-decimal values (storage unchanged).
+  - No backend source/schema/API change; no migration.
+- **Tests**:
+  - Full frontend suite (`vitest`): **175 passed, 0 failed** (incl. locale-parity; +6 vs Stage 7D.1's 163).
+  - Full backend suite (`pytest`): **277 passed, 0 failed** (+2 Stage 7D.2 compound-risk tests).
+  - TypeScript strict (`tsc --noEmit`): PASS; `vite build`: PASS; `git diff --check`: PASS; single Alembic head `0012_create_risk_engine`.
+- **Verification**:
+  - Measured room displays exactly two decimals (room 5.000 × 4.900 × 2.700 → 5.00 × 4.90 × 2.70): PASS.
+  - RECTANGLE create/edit uses `step="0.01"` inputs; partial dims blocked with a localized message; full L/W/H → measured → Generate 4 walls → exactly 4 walls: PASS.
+  - Wall 13.515 m² → 13.52 m²; opening 1.800 m² → 1.80 m²; floor 30.090 m² → 30.09 m²; area segment 12.210 m² → 12.21 m²; risk numeric source 3.000 mm → 3.00 mm: PASS.
+  - New inspection → Start → questions render immediately (no 0/0, no leave/re-enter): PASS.
+  - Complete + evaluate risks; compound CRACK + BOARD_MOVEMENT both visible; HIGH_MOISTURE → CRITICAL → blocks_finishing; UNEVENNESS 2 mm no risk / 3 mm MEDIUM / 4 mm MEDIUM; Active/Resolved/All filters correct: PASS (unchanged domain rules).
+  - Mobile PL/RU: single 390px column, wrapping, no new overflow; locale parity green: PASS.
+  - Live stack: `docker compose up -d --build` → postgres/backend healthy, frontend running; `/api/health` 200; Alembic single head `0012_create_risk_engine`; `http://localhost:5173` 200 and renders without JS errors in headless Chromium. Infrastructure hotfix live: backend now runs with the `MOCK_TELEGRAM_AUTH=true` dev default (no bot token required) — no `docker compose down -v`, no data loss.
+- **Deferred**:
+  - Interactive authenticated click-through of the live Telegram flow remains a `DEFERRED_ENVIRONMENT` item (requires the owner's Telegram device / bot token); functional coverage is provided by the integration suites over the same source.
+  - Stage 8 ("Co powiedzieć klientowi") — not started; requires explicit owner approval.
 
 ## Stage Log Template for Future Stages
 

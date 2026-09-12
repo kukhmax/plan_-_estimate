@@ -29,6 +29,7 @@ import {
   InspectionFinding,
   InspectionTarget,
 } from '../types/inspection';
+import { formatMetric } from '../utils/format';
 import { RiskPanel } from './RiskPanel';
 
 export interface InspectionFlowProps {
@@ -224,7 +225,11 @@ export function InspectionFlow({
         plane: target.kind === 'plane' ? target.plane : null,
       };
       const created = await createInspection(projectId, roomId, payload);
-      setTemplate(tpl);
+      // The list endpoint returns bare templates without sections. Hydrate the exact
+      // template by id so the checklist renders immediately — a reload/re-enter must
+      // not be required for the questions to appear after Start.
+      const tplDetail = await fetchChecklistTemplate(created.template_id);
+      setTemplate(tplDetail);
       setInspection(created);
       setAnswers({});
       setStep('active');
@@ -779,7 +784,7 @@ export function FindingRow({
   let detail = '';
   if (value) {
     if ('number' in value && typeof value.number === 'string') {
-      detail = `${value.number} ${t.inspections.unit_mm}`;
+      detail = `${formatMetric(value.number)} ${t.inspections.unit_mm}`;
     } else if ('text' in value && typeof value.text === 'string') {
       detail = value.text;
     } else if ('bool' in value) {

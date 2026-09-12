@@ -318,6 +318,64 @@ class TestRiskEvaluation:
         codes = {item["risk_code"] for item in response.json()["items"]}
         assert codes == {"JOINT_TAPE_MISSING_REWORK"}
 
+    async def test_compound_crack_plus_board_movement_yields_both_risks(
+        self, async_client: AsyncClient
+    ) -> None:
+        # Check C (Stage 7D.2): a GYPSUM_BOARD inspection with CRACK + BOARD_MOVEMENT
+        # findings must fire BOTH the single CRACK rule and the compounded
+        # BOARD_MOVEMENT_CRACK rule (which requires both findings present).
+        token, project, room, inspection, template = await _scaffold_inspection(
+            async_client, substrate="GYPSUM_BOARD"
+        )
+        await _put_answers(
+            async_client,
+            token,
+            project,
+            room,
+            inspection,
+            template,
+            {
+                "cracks_present": {"value_bool": True},
+                "board_movement": {"value_bool": True},
+            },
+        )
+        await _complete(async_client, token, project, room, inspection)
+        response = await _evaluate(async_client, token, project, room, inspection)
+        assert response.status_code == 200, response.text
+        items = response.json()["items"]
+        codes = {item["risk_code"] for item in items}
+        assert codes == {"CRACK_RECURRENCE", "BOARD_MOVEMENT_CRACK"}
+        compound = next(item for item in items if item["risk_code"] == "BOARD_MOVEMENT_CRACK")
+        assert compound["severity"] == "HIGH"
+        assert compound["blocks_finishing"] is True
+        assert compound["warranty_exclusion_candidate"] is True
+        source_keys = {
+            finding["finding_key_snapshot"] for finding in compound["source_findings"]
+        }
+        assert source_keys == {"CRACK", "BOARD_MOVEMENT"}
+
+    async def test_board_movement_alone_produces_no_compound_risk(
+        self, async_client: AsyncClient
+    ) -> None:
+        # Check C (Stage 7D.2): BOARD_MOVEMENT alone must NOT fire the compounded rule —
+        # it requires BOTH findings — and CRACK_RECURRENCE stays silent without CRACK.
+        token, project, room, inspection, template = await _scaffold_inspection(
+            async_client, substrate="GYPSUM_BOARD"
+        )
+        await _put_answers(
+            async_client,
+            token,
+            project,
+            room,
+            inspection,
+            template,
+            {"board_movement": {"value_bool": True}},
+        )
+        await _complete(async_client, token, project, room, inspection)
+        response = await _evaluate(async_client, token, project, room, inspection)
+        assert response.status_code == 200, response.text
+        assert response.json()["items"] == []
+
     async def test_evaluate_on_draft_inspection_is_rejected(
         self, async_client: AsyncClient
     ) -> None:

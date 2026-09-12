@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import { resolveKey } from '../utils/i18nKeys';
+import { formatMetric } from '../utils/format';
 import { evaluateRisks, fetchRiskDetail, fetchRisks } from '../api/risks';
 import {
   RiskRead,
@@ -73,7 +74,7 @@ function sourceFindingValue(
   const value = finding.value_snapshot;
   if (!value) return '';
   if ('number' in value && typeof value.number === 'string') {
-    return `${value.number} ${t.inspections.unit_mm}`;
+    return `${formatMetric(value.number)} ${t.inspections.unit_mm}`;
   }
   if ('text' in value && typeof value.text === 'string' && value.text !== '') {
     return value.text;
