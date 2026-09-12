@@ -112,10 +112,10 @@ describe('AreaSegmentList', () => {
 
     await waitFor(() => expect(screen.getByText('Parkiet wejście')).toBeInTheDocument());
     expect(screen.getAllByText('Dodanie')).toHaveLength(2);
-    expect(screen.getByText(/3\.000 × 2\.000 m/)).toBeInTheDocument();
-    expect(screen.getByText('6.000 m²')).toBeInTheDocument();
+    expect(screen.getByText(/3\.00 × 2\.00 m/)).toBeInTheDocument();
+    expect(screen.getByText('6.00 m²')).toBeInTheDocument();
     expect(screen.getByText('Sufit salon')).toBeInTheDocument();
-    expect(screen.getByText('10.000 m²')).toBeInTheDocument();
+    expect(screen.getByText('10.00 m²')).toBeInTheDocument();
   });
 
   it('computes "Razem" plane totals as additions minus subtractions', async () => {
@@ -126,7 +126,7 @@ describe('AreaSegmentList', () => {
     renderAreaSegments();
 
     // Floor net = 6.000 - 1.000 = 5.000
-    await waitFor(() => expect(screen.getByText(/Razem: 5\.000 m²/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Razem: 5\.00 m²/)).toBeInTheDocument());
   });
 
   it('renders mobile-optimized decimal inputs in the segment form', async () => {
@@ -334,9 +334,9 @@ describe('AreaSegmentList', () => {
     });
     renderAreaSegments();
 
-    await waitFor(() => expect(screen.getAllByText(/Razem: 12\.210 m²/)).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText(/Razem: 12\.21 m²/)).toHaveLength(2));
     expect(screen.getAllByText('Powierzchnia bazowa')).toHaveLength(2);
-    expect(screen.getAllByText('12.210 m²').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('12.21 m²').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Korekty')).toHaveLength(2);
     // Empty-state copy is still present for the no-segments list
     expect(screen.getByText('Brak prostokątów podłogi')).toBeInTheDocument();
@@ -353,9 +353,9 @@ describe('AreaSegmentList', () => {
     });
     renderAreaSegments();
 
-    await waitFor(() => expect(screen.getByText(/Razem: 11\.650 m²/)).toBeInTheDocument());
-    expect(screen.getByText('-0.560 m²')).toBeInTheDocument();
-    expect(screen.getByText(/Razem: 12\.210 m²/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/Razem: 11\.65 m²/)).toBeInTheDocument());
+    expect(screen.getByText('-0.56 m²')).toBeInTheDocument();
+    expect(screen.getByText(/Razem: 12\.21 m²/)).toBeInTheDocument();
   });
 
   it('does not fabricate a base total for a custom room without segments', async () => {

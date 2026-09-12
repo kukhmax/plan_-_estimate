@@ -112,6 +112,18 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
     setSaving(true);
     setFormError(null);
 
+    if (roomShape === 'RECTANGLE') {
+      const filled = [form.length, form.width, form.height].filter((v) => v.trim() !== '').length;
+      // RECTANGLE must be captured all-or-none: a partial L/W/H submission produces
+      // a room that is not measured but is indistinguishable from one that simply
+      // skipped dimensions, silently losing the entered values on every later view.
+      if (filled > 0 && filled < 3) {
+        setFormError(t.rooms.dimensions_required);
+        setSaving(false);
+        return;
+      }
+    }
+
     const lengthVal = roomShape === 'CUSTOM'
       ? null
       : (form.length.trim() ? parseFloat(form.length.trim()) : null);
@@ -274,7 +286,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="5.000"
                   value={form.length}
                   onChange={(event) => setForm((current) => ({ ...current, length: event.target.value }))}
@@ -288,7 +300,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="4.000"
                   value={form.width}
                   onChange={(event) => setForm((current) => ({ ...current, width: event.target.value }))}
@@ -302,7 +314,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="2.700"
                   value={form.height}
                   onChange={(event) => setForm((current) => ({ ...current, height: event.target.value }))}
@@ -320,7 +332,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="0.01"
                   placeholder="2.700"
                   value={customHeight}
                   onChange={(event) => setCustomHeight(event.target.value)}
@@ -377,68 +389,67 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
               <li
                 key={room.id}
                 aria-label={`room-item-${room.id}`}
-                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
+                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2.5"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-slate-900 text-sm">{room.name}</span>
-                      {room.is_archived && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                          {t.common.archived_badge}
-                        </span>
-                      )}
-                    </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                  <span className="font-semibold text-slate-900 text-sm min-w-0 break-words">{room.name}</span>
+                  {room.is_archived && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                      {t.common.archived_badge}
+                    </span>
+                  )}
+                </div>
 
-                    {hasDimensions ? (
-                      <p className="text-xs text-slate-600 mt-1 space-x-1.5">
+                {hasDimensions ? (
+                  <p className="text-xs text-slate-600 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
+                    <span className="min-w-0">
+                      {t.rooms.dimensions}: <strong>{formatMetric(room.length)} × {formatMetric(room.width)} × {formatMetric(room.height)} {t.common.unit_m}</strong>
+                    </span>
+                    {room.calculations && (
+                      <>
+                        <span>•</span>
                         <span>
-                          {t.rooms.dimensions}: <strong>{formatMetric(room.length)} × {formatMetric(room.width)} × {formatMetric(room.height)} {t.common.unit_m}</strong>
+                          {t.rooms.total_wall_area}: <strong className="text-slate-800">{formatMetric(room.calculations.total_wall_area)} {t.common.unit_m2}</strong>
                         </span>
-                        {room.calculations && (
-                          <>
-                            <span>•</span>
-                            <span>
-                              {t.rooms.total_wall_area}: <strong className="text-slate-800">{formatMetric(room.calculations.total_wall_area)} {t.common.unit_m2}</strong>
-                            </span>
-                          </>
-                        )}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-slate-400 mt-1 italic">
-                        {t.rooms.not_measured}
-                      </p>
+                      </>
                     )}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">
+                    {t.rooms.not_measured}
+                  </p>
+                )}
 
-                    {room.description && <p className="text-xs text-slate-500 mt-1">{room.description}</p>}
-                  </div>
+                {room.description && <p className="text-xs text-slate-500">{room.description}</p>}
 
-                  <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
-                    <button
-                      type="button"
-                      aria-label={`open-room-${room.id}`}
-                      onClick={() => onOpenRoom(room)}
-                      className="text-xs px-2.5 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
-                    >
-                      {t.common.open}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`edit-room-${room.id}`}
-                      onClick={() => startEdit(room)}
-                      className="text-xs px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
-                    >
-                      {t.common.edit}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`${room.is_archived ? 'restore' : 'archive'}-room-${room.id}`}
-                      onClick={() => void changeArchiveState(room)}
-                      className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
-                    >
-                      {room.is_archived ? t.common.restore : t.common.archive}
-                    </button>
-                  </div>
+                <div
+                  aria-label={`room-actions-${room.id}`}
+                  className="mt-auto grid grid-cols-3 gap-1.5 min-h-11 sm:flex sm:flex-wrap sm:justify-end sm:gap-2"
+                >
+                  <button
+                    type="button"
+                    aria-label={`open-room-${room.id}`}
+                    onClick={() => onOpenRoom(room)}
+                    className="min-h-11 min-w-0 text-xs px-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
+                  >
+                    {t.common.open}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`edit-room-${room.id}`}
+                    onClick={() => startEdit(room)}
+                    className="min-h-11 min-w-0 text-xs px-2.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                  >
+                    {t.common.edit}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`${room.is_archived ? 'restore' : 'archive'}-room-${room.id}`}
+                    onClick={() => void changeArchiveState(room)}
+                    className="min-h-11 min-w-0 text-xs px-2.5 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                  >
+                    {room.is_archived ? t.common.restore : t.common.archive}
+                  </button>
                 </div>
               </li>
             );

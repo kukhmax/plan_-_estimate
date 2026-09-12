@@ -75,3 +75,11 @@ class InspectionAnswerValidationError(Exception):
 
 class InspectionStateError(Exception):
     """Raised when an operation is invalid for the current inspection status."""
+
+
+class InspectionNotCompletedError(Exception):
+    """Raised when risk evaluation is requested for a non-COMPLETED inspection."""
+
+
+class RiskNotFoundError(Exception):
+    """Raised when a risk is not found within an owned room."""

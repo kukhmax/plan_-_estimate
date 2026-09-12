@@ -25,9 +25,12 @@ import {
   Inspection,
   InspectionAnswerPayload,
   InspectionCreatePayload,
+  InspectionDetail,
   InspectionFinding,
   InspectionTarget,
 } from '../types/inspection';
+import { formatMetric } from '../utils/format';
+import { RiskPanel } from './RiskPanel';
 
 export interface InspectionFlowProps {
   projectId: string;
@@ -76,6 +79,28 @@ function normalizeNumber(raw: string): string {
   return raw.trim().replace(',', '.');
 }
 
+// Single canonical API->form mapper: every answer list (normal Draft load and
+// reopen-after-COMPLETED) becomes the editable answer state with this shape.
+function seedAnswersFromDetail(
+  detail: InspectionDetail,
+): Record<string, InspectionAnswerPayload> {
+  const seeded: Record<string, InspectionAnswerPayload> = {};
+  for (const answer of detail.answers) {
+    seeded[answer.question_id] = {
+      question_id: answer.question_id,
+      value_bool: answer.value_bool,
+      value_number:
+        answer.value_number === null || answer.value_number === undefined
+          ? null
+          : String(answer.value_number),
+      value_text: answer.value_text,
+      option_key: answer.option_key,
+      option_keys: answer.option_keys,
+    };
+  }
+  return seeded;
+}
+
 export function InspectionFlow({
   projectId,
   roomId,
@@ -116,20 +141,7 @@ export function InspectionFlow({
         const detail = await fetchInspection(projectId, roomId, targetId);
         const tpl = await fetchChecklistTemplate(detail.template_id);
         if (cancelled) return;
-        const seeded: Record<string, InspectionAnswerPayload> = {};
-        for (const answer of detail.answers) {
-          seeded[answer.question_id] = {
-            question_id: answer.question_id,
-            value_bool: answer.value_bool,
-            value_number:
-              answer.value_number === null || answer.value_number === undefined
-                ? null
-                : String(answer.value_number),
-            value_text: answer.value_text,
-            option_key: answer.option_key,
-            option_keys: answer.option_keys,
-          };
-        }
+        const seeded = seedAnswersFromDetail(detail);
         setInspection(detail);
         setTemplate(tpl);
         setSubstrate(detail.substrate);
@@ -213,7 +225,11 @@ export function InspectionFlow({
         plane: target.kind === 'plane' ? target.plane : null,
       };
       const created = await createInspection(projectId, roomId, payload);
-      setTemplate(tpl);
+      // The list endpoint returns bare templates without sections. Hydrate the exact
+      // template by id so the checklist renders immediately — a reload/re-enter must
+      // not be required for the questions to appear after Start.
+      const tplDetail = await fetchChecklistTemplate(created.template_id);
+      setTemplate(tplDetail);
       setInspection(created);
       setAnswers({});
       setStep('active');
@@ -286,7 +302,12 @@ export function InspectionFlow({
     setError(null);
     try {
       const reopened = await reopenInspection(projectId, roomId, inspection.id);
+      // The reopen response carries no answers. Rebuild the editable DRAFT answer
+      // state from the backend with the same canonical mapper as a normal load so
+      // no stale COMPLETED representation leaks into the resumed form.
+      const detail = await fetchInspection(projectId, roomId, inspection.id);
       setInspection(reopened);
+      setAnswers(seedAnswersFromDetail(detail));
       setFindings([]);
       setStep('active');
     } catch (err) {
@@ -544,15 +565,22 @@ export function InspectionFlow({
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              aria-label={t.inspections.reopen}
-              className="min-h-11 rounded-lg border border-blue-600 px-3 font-medium text-blue-700 disabled:opacity-50"
-              disabled={saving}
-              onClick={() => void handleReopen()}
-            >
-              {t.inspections.reopen}
-            </button>
+            <>
+              <RiskPanel
+                projectId={projectId}
+                roomId={roomId}
+                inspectionId={inspection.id}
+              />
+              <button
+                type="button"
+                aria-label={t.inspections.reopen}
+                className="min-h-11 rounded-lg border border-blue-600 px-3 font-medium text-blue-700 disabled:opacity-50"
+                disabled={saving}
+                onClick={() => void handleReopen()}
+              >
+                {t.inspections.reopen}
+              </button>
+            </>
           )}
         </div>
       ) : null}
@@ -666,8 +694,12 @@ function QuestionField({
                   }`}
                   onClick={() => {
                     const current = answer?.option_keys ?? [];
+                    // MULTI_CHOICE must keep >= 1 option: the backend rejects an
+                    // empty option_keys, so the last selected chip stays put.
                     const next = selected
-                      ? current.filter((key) => key !== option.key)
+                      ? (current.length > 1
+                          ? current.filter((key) => key !== option.key)
+                          : current)
                       : [...current, option.key];
                     onChange({ option_keys: next });
                   }}
@@ -752,7 +784,7 @@ export function FindingRow({
   let detail = '';
   if (value) {
     if ('number' in value && typeof value.number === 'string') {
-      detail = `${value.number} ${t.inspections.unit_mm}`;
+      detail = `${formatMetric(value.number)} ${t.inspections.unit_mm}`;
     } else if ('text' in value && typeof value.text === 'string') {
       detail = value.text;
     } else if ('bool' in value) {

@@ -20,6 +20,37 @@ The imported files are the source of truth for project architecture, domain rule
 - Frontend API contracts mirror backend schemas; user-facing strings belong in PL/RU locale dictionaries.
 - `PROJECT / OBIEKT` is the central aggregate root. Rooms, surfaces, measurements, inspections, and downstream records must anchor to `project_id` as defined by the imported architecture rules.
 
+## Mobile-First UI (permanent product rule)
+
+Plan & Estimate is a Telegram Mini App intended primarily for on-site use from a smartphone. The frontend remains a web application because Telegram Mini Apps run inside Telegram WebView, but there is **no separate desktop-oriented UI**: the canonical UI target is **MOBILE FIRST**.
+
+- **Primary working viewport**: 320–480 px width.
+- **Primary manual acceptance viewports**: 390 px and 412 px.
+- Localhost desktop browser usage is primarily a development and debugging environment.
+
+Rules:
+
+1. Mobile layout is authoritative.
+2. New UI must be designed first for approximately 390–412 px.
+3. Every primary action must remain usable at 320 px minimum width unless a component has an explicitly documented exception.
+4. No horizontal page scrolling.
+5. Text, badges, and labels must wrap safely.
+6. Long names must never collide with action buttons.
+7. Prefer vertical stacking over squeezing controls horizontally.
+8. Primary actions should normally use full available width where appropriate.
+9. Touch targets should be approximately >=44 px for important interactive controls.
+10. Avoid tiny icon-only controls for important actions unless their meaning is unambiguous.
+11. Forms must use mobile-appropriate input behavior: `inputMode="decimal"` for decimal measurements, `inputMode="numeric"` where appropriate, and correct textarea/select/button sizing.
+12. Telegram WebView navigation is authoritative: Telegram BackButton, application breadcrumbs/back hierarchy, and no desktop-only navigation dependency.
+13. Do NOT spend development effort creating desktop-specific layouts unless explicitly requested by the project owner.
+14. Responsive desktop behavior may remain functional, but desktop visual optimization is NOT an acceptance criterion.
+15. Avoid adding `sm:`/`md:`/`lg:` layout changes merely to make the desktop version prettier when they complicate the mobile layout.
+16. Every frontend execution sub-stage must include mobile regression verification.
+17. For UI-heavy stages, acceptance must explicitly check: 390 px, 412 px, wrapping, overflow, touch targets, and long PL/RU translations.
+18. Polish and Russian localization must be tested because Russian labels may be materially longer than Polish labels.
+
+**Field-usage principle**: optimize workflows for a contractor standing at a construction site and using the phone with minimal taps — prefer short workflows, large controls, progressive disclosure, secondary actions hidden behind "Opcje" where appropriate, sensible defaults, reuse of previous/default dimensions where safe, and avoiding unnecessary screens and repeated data entry. This principle should guide later Stage 5F/5G follow-up work, inspection workflows, photos, defect annotations, estimates, checklists, and reports.
+
 ## ROADMAP IMMUTABILITY
 
 - The 21-stage sequence (Stage 0 to Stage 20) in `docs/development-progress.md` is the canonical product roadmap confirmed by the project owner.

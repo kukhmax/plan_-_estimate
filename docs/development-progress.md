@@ -7,6 +7,37 @@
 
 ---
 
+## Permanent Product Rule: Mobile-First UI
+
+**Canonical UI target is MOBILE FIRST** — Plan & Estimate is a Telegram Mini App intended primarily for on-site use from a smartphone. The frontend remains a web application because Telegram Mini Apps run inside Telegram WebView; there is **no separate desktop-oriented UI**. This rule is permanent and binds every future frontend execution sub-stage. Also codified in `CLAUDE.md`.
+
+- **Primary working viewport**: 320–480 px width.
+- **Primary manual acceptance viewports**: 390 px, 412 px.
+- Localhost desktop browser usage is primarily a development and debugging environment.
+
+1. Mobile layout is authoritative.
+2. New UI must be designed first for approximately 390–412 px.
+3. Every primary action must remain usable at 320 px minimum width unless a component has an explicitly documented exception.
+4. No horizontal page scrolling.
+5. Text, badges, and labels must wrap safely.
+6. Long names must never collide with action buttons.
+7. Prefer vertical stacking over squeezing controls horizontally.
+8. Primary actions should normally use full available width where appropriate.
+9. Touch targets should be approximately >=44 px for important interactive controls.
+10. Avoid tiny icon-only controls for important actions unless their meaning is unambiguous.
+11. Forms must use mobile-appropriate input behavior: `inputMode="decimal"` for decimal measurements, `inputMode="numeric"` where appropriate, and correct textarea/select/button sizing.
+12. Telegram WebView navigation is authoritative: Telegram BackButton, application breadcrumbs/back hierarchy, and no desktop-only navigation dependency.
+13. Do NOT spend development effort creating desktop-specific layouts unless explicitly requested by the project owner.
+14. Responsive desktop behavior may remain functional, but desktop visual optimization is NOT an acceptance criterion.
+15. Avoid adding `sm:`/`md:`/`lg:` layout changes merely to make the desktop version prettier when they complicate the mobile layout.
+16. Every frontend execution sub-stage must include mobile regression verification.
+17. For UI-heavy stages, acceptance must explicitly check: 390 px, 412 px, wrapping, overflow, touch targets, and long PL/RU translations.
+18. Polish and Russian localization must be tested because Russian labels may be materially longer than Polish labels.
+
+**Field-usage principle**: optimize workflows for a contractor standing at a construction site and using the phone with minimal taps — prefer short workflows, large controls, progressive disclosure, secondary actions hidden behind "Opcje" where appropriate, sensible defaults, reuse of previous/default dimensions where safe, and avoiding unnecessary screens and repeated data entry. This principle guides later Stage 5F/5G follow-up work, inspection workflows, photos, defect annotations, estimates, checklists, and reports. The rule is permanently documented; no screens are redesigned in this task.
+
+---
+
 ## Roadmap Overview
 
 | Stage | Title | Status | Primary Focus |
@@ -18,7 +49,7 @@
 | **Stage 4** | **Projects / Obiekty** | **Completed** | Central aggregate root: Project model, address fields, status lifecycle, optional Client link, owner isolation |
 | **Stage 5** | **Rooms, surfaces and measurements** | **Completed** | Room and Surface hierarchy, room measurements, openings subtraction, net area totals, practical mobile measurement workflow, composite floor/ceiling geometry, and owner-accepted final manual acceptance |
 | **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
-| Stage 7 | Risk Rules Engine | Pending | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions |
+| Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | Stage 8 | "Co powiedzieć klientowi" | Pending | Ready-to-use professional explanations and client communication scripts (PL/RU) |
 | Stage 9 | Editable Price Book | Pending | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges |
 | Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
@@ -1250,6 +1281,139 @@ Clarifications:
   - All Stage 7+ work remains pending explicit project-owner approval.
 
 ---
+
+### Canonical Stage 7: Risk Rules Engine
+- **Status**: **Completed** (owner-verified 2026-09-13)
+- **Date**: 2026-09-12 → 2026-09-13
+- **Scope & Canonical Mapping**:
+  - **Execution Sub-Stage 7A (Completed)**: Risk Rules Engine design inspection report — deterministic risk derivation from materialized inspection findings, severity (LOW/MEDIUM/HIGH/CRITICAL), source-finding traceability, mitigation/warranty semantics, and recommended 7B backend scope.
+  - **Execution Sub-Stage 7B (Completed)**: Risk Rules Engine — **backend**, owner-verified 2026-09-12.
+  - **Execution Sub-Stage 7C (Completed)**: Mobile Risk Evaluation and Risk Cards — **frontend/mobile PL/RU workflow**, owner-verified 2026-09-12.
+  - **Execution Sub-Stage 7D.1 (Owner-retest fixes)**: Manual-acceptance defects corrected — mobile room-card overlap, Risk "All" filter semantics, rectangle-room measured-state regression, and reopen MULTI_CHOICE hydration/empty-option_keys regression. See the 7D.1 section below.
+  - **Execution Sub-Stage 7D.2 (Final acceptance fixes)**: State-synchronization fixes from owner manual acceptance — rectangle-room measured-state capture (all-or-none L/W/H), immediate inspection question hydration, compound-risk verification (CRACK_RECURRENCE + BOARD_MOVEMENT_CRACK), plus the permanent **two-decimal metric display policy**. See the 7D.2 section below.
+  - **Infrastructure hotfix (Completed)**: Docker Compose dev `backend` service now defaults `MOCK_TELEGRAM_AUTH=true` without requiring a `TELEGRAM_BOT_TOKEN`, unblocking live authenticated evaluation in the local stack.
+- **Closure**: Owner decision recorded 2026-09-13 — Canonical Stage 7 (Risk Rules Engine) is **COMPLETED**. No remaining work in Stage 7; all Stage 8+ work remains pending explicit project-owner approval.
+
+#### Execution Sub-Stage 7B: Risk Rules Engine — Backend (Completed)
+- **Status**: Completed (owner-verified 2026-09-12)
+- **Date**: 2026-09-12
+- **Scope**:
+  - **Versioned immutable rule catalog** (`RiskRule` / `RiskRuleCondition`): named `(code, version)` unique constraint, 15 initial deterministic rules (CRACK_RECURRENCE, BOARD_MOVEMENT_CRACK, MOISTURE_BLOCK_FINISHING, WEAK_ADHESION_PREP, LOOSE_SUBSTRATE_REMOVAL, DUSTY_SUBSTRATE_PRIME, OILY_SUBSTRATE_DEGREASE, MOLD_TREATMENT_BEFORE_FINISH, DELAMINATION_REPAIR, UNEVENNESS_PREP_INCREASED, JOINT_TAPE_MISSING_REWORK, FASTENER_CORROSION_FIX, JOINT_GAP_FILLING, EFFLORESCENCE_CAUSE_CHECK, BLOW_HOLES_FILLING) with severity, `blocks_finishing`, `warranty_exclusion_candidate`, optional substrate restriction, and 5 i18n keys each; idempotent DB-reset-safe bootstrap (`RiskService._ensure_bootstrapped`, `asyncio.Lock`-serialized); no CRUD API (catalog is reference data).
+  - **8 condition operators** (all-AND within a rule): `FINDING_PRESENT`, `FINDING_ABSENT`, `NUMBER_AT_LEAST`, `NUMBER_AT_MOST`, `SUBSTRATE_IN`, `SUBSTRATE_NOT_IN`, `TARGET_IN`, `QUALITY_IN`; numeric thresholds (e.g. UNEVENNESS ≥ 3 mm, JOINT_GAP ≥ 2 mm) are **initial domain defaults** stored in condition `value_json`, tunable as reference data; malformed/missing numeric snapshots fail safely (rule does not fire).
+  - **Deterministic evaluation** (`domain/rules/risk_rules.py`): pure engine over inspection substrate/quality/target + active findings; overlapping rules may all fire (no hidden suppression); source signature = SHA-256 over sorted source finding UUIDs (order-independent, part of the stable risk identity).
+  - **Risk materialization** (`Risk` / `RiskFinding`): room- and inspection-scoped rows under `/api/projects/{project_id}/rooms/{room_id}/risks`; identity `(inspection_id, rule_code, source_signature)` enforced by a unique constraint — identical inspection state always yields the same row with a stable UUID; risk rows carry `risk_code`/`rule_code`/`rule_version`, severity, 5 i18n key snapshots, `blocks_finishing`, `warranty_exclusion_candidate`, `is_active`/`resolved_at`, and ordered `source_findings` links that snapshot finding key + value even if the source finding FK later goes NULL.
+  - **Reconciliation on evaluate**: `POST .../risks/evaluate` is idempotent; a reused identity keeps its UUID and its original `rule_version`/text-key snapshot (version preservation), only refreshing activity state and source-finding links; previously confirmed risks absent from the new evaluation become `is_active = False` with `resolved_at` set and are never deleted; evaluation rejected 409 unless the inspection is COMPLETED (no DB writes on rejection).
+  - **API contract**: `GET .../risks` (filters: `inspection_id`, `surface_id`, `plane`, `status=active|resolved|all`), `GET .../risks/{risk_id}` (detail with source findings), `POST .../risks/evaluate` (idempotent, returns active risks with source findings); owner isolation uniform (foreign → 404, unauthenticated → 401); grouped source-finding loading (no N+1 on batch evaluate).
+- **Database**:
+  - Migration: `backend/alembic/versions/0012_create_risk_engine.py` (parent `0011_create_inspection_engine`; sole Alembic head).
+  - Tables created: `risk_rules`, `risk_rule_conditions`, `risks`, `risk_findings`; enums `riskseverity`, `riskconditionoperator`; `risk_rules.substrate` reuses the `substrate` type owned by migration 0011 (`create_type=False`); unique `(code, version)` on rules, unique `(inspection_id, rule_code, source_signature)` on risks, unique `(risk_id, finding_id)` on links.
+  - Reversibility: `downgrade -1` then `upgrade head` verified on real PostgreSQL; downgrade drops tables child-first + enum types and leaves `substrate` to 0011; all four tables restored after the cycle.
+- **Tests**:
+  - Focused Stage 7B suites: `test_risk_rules.py` (23 unit — signature order-independence, target derivation, all 8 operators, AND semantics, numeric thresholds, malformed-snapshot fail-safe, overlapping-rule independence), `test_risk_routes.py` (3 — OpenAPI route family + methods + auth), `test_risks.py` (14 — expected-risk set for a full answer set, moisture CRITICAL/blocking, drywall JOINT_TAPE_MISSING_REWORK, DRAFT 409, unknown 404, evaluate idempotency + stable UUIDs, reopen/recomplete reuse + resolution never-deleted, later-rule-version immutability of materialized risks, rejected DRAFT evaluation leaves risk state unchanged, active/resolved/all filters, traceable source findings, owner isolation, 401).
+  - Full backend suite: 275 passed, 0 failed (40 new Stage 7B tests).
+  - Full frontend suite: 142 passed, 0 failed (unchanged by 7B); TypeScript strict: PASS; `vite build`: PASS.
+  - `git diff --check`: PASS; single Alembic head `0012_create_risk_engine`; migration upgrade → downgrade -1 → upgrade cycle verified on real PostgreSQL.
+- **Verification**:
+  - 15-rule catalog bootstraps idempotently; conditions stored as reference data; thresholds are initial domain defaults: PASS.
+  - Deterministic evaluation: identical state → identical risk set + stable UUIDs; overlapping rules independent; malformed numeric snapshot fails safe: PASS.
+  - COMPLETED-only gate (DRAFT → 409, rejected evaluation creates/mutates nothing), idempotent evaluate, stable-identity reuse, version preservation (a later `(code, version)` rule release does not silently mutate an existing historical Risk row or its `rule_version`/severity snapshot), resolved-never-deleted history: PASS.
+  - Source-finding traceability via `risk_findings` snapshots (key + value, finding FK SET NULL-safe): PASS.
+  - Route family matches OpenAPI contract tests; every route requires auth; foreign owner → 404: PASS.
+  - Migration 0012 parent 0011, single head, reversible on PostgreSQL, `substrate` not duplicated: PASS.
+  - Regression: full backend + frontend suites green, `git diff --check` clean, no Stage 8 work: PASS.
+  - Live runtime: backend dev container on :8000 rebuilt and restarted with the Stage 7B code; the three risk routes confirmed in live OpenAPI and HTTP (unauthenticated access → 401, route mounted). Full authenticated live evaluation is `DEFERRED_ENVIRONMENT`: the dev compose `backend` service passes no `TELEGRAM_BOT_TOKEN`, so `/api/auth/telegram` refuses even with `MOCK_TELEGRAM_AUTH=true` (the auth service requires a configured bot token). No infra/compose change was made for Stage 7B; end-to-end evaluation is covered by the integration suite running the same app over ASGI transport.
+- **Deferred**:
+  - Downstream consumption of risks (recommended work, estimates, warranty protocol clauses) — Stages 10/11+.
+
+#### Execution Sub-Stage 7C: Mobile Risk Evaluation and Risk Cards (Completed)
+- **Status**: Completed (owner-verified 2026-09-12)
+- **Date**: 2026-09-12
+- **Scope**:
+  - **Explicit risk evaluation UI**: `RiskPanel` embedded in the COMPLETED inspection review step of `InspectionFlow`; "Oceń ryzyka" / "Оценить риски" action invokes `POST /api/projects/{project_id}/rooms/{room_id}/risks/evaluate` with `{inspection_id}` and is **not rendered for DRAFT inspections**; a 409 maps to a localized not-completed message.
+  - **Backend-authoritative Risk rendering**: `frontend/src/types/risk.ts` (typed DTO mirror of the Stage 7B schemas — severity, flags, 5 i18n key snapshots, source findings), `frontend/src/api/risks.ts` (`evaluateRisks`, `fetchRisks`, `fetchRiskDetail`). The frontend renders backend-returned risks only — it never determines which risks exist, suppresses overlapping rules, computes severity, or derives `blocks_finishing` / `warranty_exclusion_candidate`.
+  - **Risk cards**: severity chip (LOW neutral / MEDIUM amber / HIGH orange / CRITICAL solid red), title via `risk.{slug}.title` dotted key, active/resolved status + `resolved_at`, collapsible "Szczegóły" with explanation / consequence / mitigation, `blocks_finishing` operational warning box ("Nie rozpoczynać / wstrzymać prace do usunienia przyczyny"), `warranty_exclusion_candidate` badge ("Możliwe ograniczenie odpowiedzialności"); no machine keys are exposed (unresolved dotted keys fail safe to empty).
+  - **Source traceability ("Dlaczego?")**: renders backend source findings with localized `risk.finding.*` labels and safe value snapshots (bool → Tak/Nie, number → e.g. "3.500 mm", text as-is); evaluate responses carry grouped source findings; a reloaded active list lazy-fetches exactly one `GET .../risks/{risk_id}` per expanded card — no per-risk N+1 on initial load.
+  - **Lifecycle & overlap**: Active/Resolved/All filters; resolved risks remain readable and visually de-emphasized (grayed, `resolved_at` shown) with no frontend manual resolution; overlapping risks (CRACK_RECURRENCE + BOARD_MOVEMENT_CRACK) render independently without suppression.
+  - **Mobile PL/RU workflow**: single 390px column, wrapping chips, `min-h-11` primary touch targets, wrapping text; PL/RU parity for severity/status/flag/finding labels and the 15 rule text sets (75 keys × 2 locales), verified by locale-parity tests.
+- **Files**:
+  - Added: `frontend/src/types/risk.ts`, `frontend/src/api/risks.ts`, `frontend/src/components/RiskPanel.tsx`, `frontend/src/components/RiskPanel.test.tsx`.
+  - Changed: `frontend/src/components/InspectionFlow.tsx` (embed `RiskPanel` in completed review step), `frontend/src/components/InspectionFlow.test.tsx` (risk API mock + 2 ENTRY tests), `frontend/src/locales/pl.json` + `ru.json` (new `risk` section: UI strings, finding labels, 15 rule objects × 5 fields), `frontend/src/locales/parity.test.ts` (risk-section parity + backend dotted-key coverage).
+- **Tests**:
+  - Focused: `RiskPanel.test.tsx` (11 — ENTRY, EVALUATION payload/success/localized 409 preserving the view, SEVERITY ×4 distinct with CRITICAL tone, FLAGS, TRACEABILITY one/multi-source + numeric snapshot + no per-card fetch after evaluate + lazy detail on expand, OVERLAP, LIFECYCLE active/resolved/all + re-evaluate refresh, MOBILE touch targets + single column, LOCALIZATION RU + no machine-key leak), `InspectionFlow.test.tsx` (+2 ENTRY — evaluate action only for COMPLETED, hidden for DRAFT), `parity.test.ts` (risk-section PL/RU parity + all 15 rule slugs + 15 finding labels).
+  - Full frontend suite: **156 passed, 0 failed** (14 new Stage 7C tests).
+  - Full backend suite: **275 passed, 0 failed** (unchanged by 7C).
+  - TypeScript strict (`tsc --noEmit`): PASS; `vite build`: PASS; `git diff --check`: PASS.
+- **Verification**:
+  - ENTRY flow: risk UI only for COMPLETED inspections, DRAFT exposes no evaluation flow, evaluate sends the correct `inspection_id`: PASS.
+  - Backend authority: no second risk engine in frontend — only evaluate call, render, and source-finding display: PASS.
+  - Evaluation flow: completed → evaluate → backend response → risk list renders; 401/404/409/422/network errors localized, view preserved, retry available: PASS.
+  - Risk cards: severity, active/resolved + `resolved_at`, title/explanation/consequence/mitigation, `blocks_finishing`, `warranty_exclusion_candidate`, source findings; no machine keys exposed: PASS.
+  - Source traceability: one-source and multi-source risks render, numeric snapshots display safely, no frontend recomputation: PASS.
+  - Overlapping risks render independently: PASS.
+  - Resolved history: Active/Resolved/All filters, resolved risks readable + de-emphasized, no frontend manual resolution: PASS.
+  - Query behavior: initial list is a single `GET /risks` with no per-risk source N+1; detail/source fetch is lazy per expanded card: PASS.
+  - Navigation: Telegram BackButton, top Obiekty navigation, Stage 6 inspection and Stage 5 measurement navigation — full frontend regression suite (ProjectWorkspace 25, App 11, RoomList 14, SurfaceList 17, useTelegramWebApp 8, etc.) green: PASS.
+  - Mobile: single-column, row wrap, text wrap, ~44 px touch targets, resolved history visually subordinate: PASS.
+  - Localization: PL/RU parity, severity/status/flag labels localized, no unintended hardcoded user-facing strings, missing dotted keys fail safe: PASS.
+- **Remaining**:
+  - Infrastructure Docker Compose hotfix (dev `backend` service passes no `TELEGRAM_BOT_TOKEN`, blocking live authenticated evaluation) — deferred, not started.
+  - 7D final manual acceptance — not started (requires owner approval).
+
+#### Execution Sub-Stage 7D.1: Manual Acceptance Defects Corrected and Owner-Retested
+- **Status**: Corrections implemented and covered by regression tests; final 7D manual acceptance still ongoing — Canonical Stage 7 remains **In Progress** (not marked Completed).
+- **Date**: 2026-09-12
+- **Scope** — four manual-acceptance defect groups corrected:
+  1. **Mobile room-card overlap**: `RoomList` card layout restructured to a stacked single column (`flex flex-col`) so name, dimensions and the 3-across action grid can never crowd each other; name gets a wrapping `min-w-0 break-words` row, actions live in a dedicated container (`grid grid-cols-3 min-h-11` collapsing to an inline wrapping `sm:flex` row), and every action button keeps a practical `min-h-11` (~44 px) touch target. Regression: `RoomList.test.tsx` stacks/wraps/mobile-target test.
+  2. **Risk "All" filter semantics**: `api/risks.ts` now sends `status=all` explicitly (backend defaults to `active`, so dropping the param would silently hide resolved risks); active/resolved/all tabs map to their own list query and filter switching never triggers a re-evaluation. Regression: `RiskPanel.test.tsx` status=all contract test.
+  3. **Rectangle-room measured-state regression**: a RECTANGLE room with dimensions but **zero generated walls** (L=4.900 × W=5.000 × H=2.700) is recognized as measured — dimensions and floor/ceiling/wall totals (`24.500 m²` floor, `53.460 m²` walls, `19.800 m` perimeter) render from draft-dimensions, the "not measured / measure" notices do not appear, and wall generation produces exactly 4 walls; CUSTOM-shape rooms are unchanged. Regression: `ProjectWorkspace.test.tsx` Stage 7D.1 D3 test.
+  4. **Reopen MULTI_CHOICE hydration / empty-option_keys regression**: after reopening a COMPLETED inspection the editable DRAFT answer state is rebuilt from the backend with the same canonical API→form mapper as a normal Draft load (BOOLEAN→`value_bool`, NUMBER→`value_number`, TEXT→`value_text`, SINGLE_CHOICE→`option_key`, MULTI_CHOICE→`option_keys[]`) — no stale COMPLETED representation leaks into the resumed form and no duplicate mapper exists (`seedAnswersFromDetail` is the single canonical API→form path used by both `loadExisting` and `handleReopen`). Deselecting the last defect chip never emits an empty `option_keys` (the last selected option stays), so the backend's `Question {key} requires option_keys` 422 can no longer be triggered from the resumed review flow; changed selections save the updated `option_keys`. Regression: 3 `InspectionFlow.test.tsx` Stage 7D.1 tests (hydration keeps option_keys, selection change persists updated option_keys, last-chip guard never sends empty option_keys).
+- **Files**:
+  - Changed: `frontend/src/components/InspectionFlow.tsx` (canonical `seedAnswersFromDetail` mapper; `handleReopen` refetches the inspection and rebuilds answer state; MULTI_CHOICE toggle last-chip guard), `frontend/src/components/InspectionFlow.test.tsx` (+3 regression tests), `frontend/src/components/RoomList.tsx` (D1 mobile card layout), `frontend/src/RoomList.test.tsx` (D1 test), `frontend/src/api/risks.ts` (D2 explicit `status=all`), `frontend/src/components/RiskPanel.test.tsx` (D2 test), `frontend/src/components/ProjectWorkspace.tsx` (D3 measured-state summary from draft dimensions), `frontend/src/ProjectWorkspace.test.tsx` (D3 test).
+  - No backend schema/API change; backend MULTI_CHOICE contract verified live (empty `option_keys` is rejected; a correct reopen→full-answer PUT→complete round-trip succeeds).
+- **Tests**:
+  - Focused: `InspectionFlow.test.tsx` + `RiskPanel.test.tsx` + `RoomList.test.tsx` + `ProjectWorkspace.test.tsx` — **73 passed, 0 failed**.
+  - Full frontend suite: **163 passed, 0 failed** (incl. locale-parity).
+  - Full backend suite: **275 passed, 0 failed**.
+  - TypeScript strict (`tsc --noEmit`): PASS; `vite build`: PASS; `git diff --check`: PASS; no migration changes.
+- **Verification**:
+  - Mobile room card: stacked layout, wrapped name, 3-col action grid on narrow viewport, ~44 px touch targets: PASS.
+  - Risk filters: active→active, resolved→resolved, all→active+resolved with explicit `status=all`; filter switching never re-evaluates: PASS.
+  - RECTANGLE room 4.900 × 5.000 × 2.700 with zero walls renders as measured (24.500 m² floor, 53.460 m² walls, 19.800 m perimeter); generation yields exactly 4 walls; CUSTOM unchanged: PASS.
+  - Reopen flow: no `requires option_keys` error, answer state rebuilt from backend, last chip cannot produce empty `option_keys`, changed selection persists updated `option_keys`, no fetch loop / no stale COMPLETED / no navigation workaround: PASS.
+- **Remaining**:
+  - Final 7D manual acceptance walkthrough and owner sign-off — ongoing.
+  - Infrastructure Docker Compose hotfix — still deferred, not started.
+
+#### Execution Sub-Stage 7D.2: Final Manual-Acceptance Fixes and Two-Decimal Metric Policy (Completed)
+- **Status**: Completed (owner-verified 2026-09-13) — Canonical Stage 7 is **COMPLETED**.
+- **Date**: 2026-09-13
+- **Scope** — the two manual-acceptance defects plus the final metric presentation policy:
+  1. **Rectangle-room measured-state capture (Defect 1)**: partial RECTANGLE L/W/H submission (root cause of rooms silently losing their measured state) is now blocked with the localized message `rooms.dimensions_required` — a RECTANGLE room must be captured all-or-none; entering L/W/H immediately yields the measured state, the Generate 4 walls action produces exactly 4 walls, and a down-level GET refresh preserves dimensions. Regression: `RoomList.test.tsx` (partial-dimension blocks) + `ProjectWorkspace.test.tsx` `create→open→generate` end-to-end Stage 7D.2 test.
+  2. **Immediate inspection question hydration (Defect 2)**: `beginInspection` fetches the exact checklist template via `fetchChecklistTemplate(created.template_id)` right after create — the list endpoint returns bare templates (`sections: []`), so a fresh inspection previously rendered 0/0 until leave-and-re-enter. Questions now render immediately with no reload. Regression: 2 `InspectionFlow.test.tsx` tests where the list mock returns a bare template.
+  3. **Compound risk verification (Check C)**: `CRACK_RECURRENCE` + `BOARD_MOVEMENT_CRACK` both render independently for a GYPSUM_BOARD completed inspection with `cracks_present` + `board_movement`; compound severity HIGH, `blocks_finishing`, `warranty_exclusion_candidate`, source findings `{CRACK, BOARD_MOVEMENT}`. No risk-engine change was required. Regression: 2 new `backend/tests/test_risks.py` tests.
+  4. **Permanent two-decimal metric display policy**: all user-facing construction measurements display exactly 2 decimals (5.000 → 5.00, 4.900 → 4.90, 2.700 → 2.70, 48.600 m² → 48.60 m², 3.000 mm → 3.00 mm, 13.515 m² → 13.52 m²). Implemented centrally in `formatMetric` (`frontend/src/utils/format.ts`, default `decimals = 2`) covering rooms, walls, openings, opening/segment/gross/deduction/net areas, floor/ceiling/perimeter, and area segments; two numeric-snapshot renderers that bypassed the formatter were wrapped (`RiskPanel.tsx` risk source numbers, `InspectionFlow.tsx` finding details); OpeningList live area preview `.toFixed(3)` → `.toFixed(2)`; all numeric inputs moved from `step="0.001"` to `step="0.01"` with existing `inputMode="decimal"` (RoomList ×4, ProjectWorkspace room-edit ×3, SurfaceList ×4, AreaSegmentList ×2, OpeningList ×2).
+  - **Storage rule honored**: **no DB migration, no stored-value rewrite** — the backend retains its mm-compatible `Numeric(10,3)` precision and remains Decimal-authoritative (13.515 m² backend → 13.52 m² display only); domain calculations are unchanged.
+- **Files**:
+  - Changed (7D.2): `frontend/src/components/RoomList.tsx` (all-or-none RECTANGLE validation), `frontend/src/components/InspectionFlow.tsx` (template hydration after create), `frontend/src/locales/pl.json` + `ru.json` (`rooms.dimensions_required`), `backend/tests/test_risks.py` (2 compound-risk tests), `frontend/src/components/InspectionFlow.test.tsx` (2 hydration tests), `frontend/src/RoomList.test.tsx` (3 partial/block tests), `frontend/src/ProjectWorkspace.test.tsx` (end-to-end 7D.2 test).
+  - Changed (metric policy): `frontend/src/utils/format.ts`, `frontend/src/components/RiskPanel.tsx`, `frontend/src/components/InspectionFlow.tsx`, `frontend/src/components/OpeningList.tsx`, `frontend/src/components/RoomList.tsx`, `frontend/src/components/ProjectWorkspace.tsx`, `frontend/src/components/SurfaceList.tsx`, `frontend/src/components/AreaSegmentList.tsx`.
+  - Added: `frontend/src/utils/format.test.ts` (central two-decimal policy — 4 tests).
+  - Updated tests to two-decimal expectations: `RoomList.test.tsx`, `SurfaceList.test.tsx`, `OpeningList.test.tsx`, `AreaSegmentList.test.tsx`, `RiskPanel.test.tsx`, `ProjectWorkspace.test.tsx`; added representative component tests (room 5.000 × 4.900 × 2.700 → 5.00 × 4.90 × 2.70; wall gross 13.515 m² → 13.52 m²). Mock fixtures keep backend 3-decimal values (storage unchanged).
+  - No backend source/schema/API change; no migration.
+- **Tests**:
+  - Full frontend suite (`vitest`): **175 passed, 0 failed** (incl. locale-parity; +6 vs Stage 7D.1's 163).
+  - Full backend suite (`pytest`): **277 passed, 0 failed** (+2 Stage 7D.2 compound-risk tests).
+  - TypeScript strict (`tsc --noEmit`): PASS; `vite build`: PASS; `git diff --check`: PASS; single Alembic head `0012_create_risk_engine`.
+- **Verification**:
+  - Measured room displays exactly two decimals (room 5.000 × 4.900 × 2.700 → 5.00 × 4.90 × 2.70): PASS.
+  - RECTANGLE create/edit uses `step="0.01"` inputs; partial dims blocked with a localized message; full L/W/H → measured → Generate 4 walls → exactly 4 walls: PASS.
+  - Wall 13.515 m² → 13.52 m²; opening 1.800 m² → 1.80 m²; floor 30.090 m² → 30.09 m²; area segment 12.210 m² → 12.21 m²; risk numeric source 3.000 mm → 3.00 mm: PASS.
+  - New inspection → Start → questions render immediately (no 0/0, no leave/re-enter): PASS.
+  - Complete + evaluate risks; compound CRACK + BOARD_MOVEMENT both visible; HIGH_MOISTURE → CRITICAL → blocks_finishing; UNEVENNESS 2 mm no risk / 3 mm MEDIUM / 4 mm MEDIUM; Active/Resolved/All filters correct: PASS (unchanged domain rules).
+  - Mobile PL/RU: single 390px column, wrapping, no new overflow; locale parity green: PASS.
+  - Live stack: `docker compose up -d --build` → postgres/backend healthy, frontend running; `/api/health` 200; Alembic single head `0012_create_risk_engine`; `http://localhost:5173` 200 and renders without JS errors in headless Chromium. Infrastructure hotfix live: backend now runs with the `MOCK_TELEGRAM_AUTH=true` dev default (no bot token required) — no `docker compose down -v`, no data loss.
+- **Deferred**:
+  - Interactive authenticated click-through of the live Telegram flow remains a `DEFERRED_ENVIRONMENT` item (requires the owner's Telegram device / bot token); functional coverage is provided by the integration suites over the same source.
+  - Stage 8 ("Co powiedzieć klientowi") — not started; requires explicit owner approval.
 
 ## Stage Log Template for Future Stages
 

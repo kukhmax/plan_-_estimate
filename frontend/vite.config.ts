@@ -7,6 +7,8 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // Never silently fall back to 5174/5175 when 5173 is busy.
+    strictPort: true,
   },
   test: {
     globals: true,

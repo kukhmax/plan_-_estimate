@@ -126,7 +126,8 @@
     "custom": "Dowolny kształt",
     "default_wall_height": "Domyślna wysokość ścian (m)",
     "custom_hint": "Nie wymaga wymiarów prostokąta — zmierz ściany po kolei.",
-    "start_wall_measurement": "Rozpocznij pomiar ścian"
+    "start_wall_measurement": "Rozpocznij pomiar ścian",
+    "dimensions_required": "Podaj wszystkie trzy wymiary (długość, szerokość, wysokość) lub zostaw je puste, aby utworzyć pomieszczenie bez wymiarów."
   },
   "surfaces": {
     "title": "Powierzchnie",
@@ -275,6 +276,157 @@
     "error_unauthorized": "Sesja wygasła. Zaloguj się ponownie.",
     "error_not_found": "Badanie nie istnieje.",
     "unanswered_note": "Bez odpowiedzi — pytania bez odpowiedzi nie utworzą ustaleń."
+  },
+  "risk": {
+    "section_title": "Ryzyka",
+    "evaluate": "Oceń ryzyka",
+    "evaluating": "Ocenianie ryzyka…",
+    "reevaluate": "Oceń ponownie",
+    "evaluate_hint": "Oceń ryzyka techniczne na podstawie zakończonego badania.",
+    "no_risks": "Brak zarejestrowanych ryzyk.",
+    "loading": "Wczytywanie ryzyk…",
+    "error_load": "Nie udało się wczytać ryzyk. Spróbuj ponownie.",
+    "error_evaluate": "Nie udało się ocenić ryzyk. Spróbuj ponownie.",
+    "error_not_completed": "Badanie nie zostało ukończone. Ukończ je przed oceną ryzyk.",
+    "error_not_found": "Nie znaleziono badania do oceny ryzyk.",
+    "status_active": "Aktywne",
+    "status_resolved": "Rozwiązane",
+    "status_all": "Wszystkie",
+    "severity_low": "Niskie",
+    "severity_medium": "Średnie",
+    "severity_high": "Wysokie",
+    "severity_critical": "Krytyczne",
+    "resolved_at": "Rozwiązano {date}",
+    "blocks_finishing": "Nie rozpoczynać / wstrzymać prace do usunięcia przyczyny",
+    "warranty_candidate": "Możliwe ograniczenie odpowiedzialności",
+    "why": "Dlaczego?",
+    "details": "Szczegóły",
+    "hide_details": "Ukryj szczegóły",
+    "explanation": "Wyjaśnienie",
+    "consequence": "Konsekwencja",
+    "mitigation": "Zalecenie",
+    "finding": {
+      "crack": "Pęknięcia",
+      "board_movement": "Ruchliwość płyt",
+      "high_moisture": "Podwyższona wilgotność",
+      "weak_adhesion": "Słaba przyczepność",
+      "loose_substrate": "Luźne podłoże",
+      "dusty_substrate": "Zakurzone podłoże",
+      "oily_substrate": "Zatłuszczone podłoże",
+      "mold": "Pleśń / grzyb",
+      "delamination": "Odpryski / rozwarstwienie",
+      "unevenness": "Nierówności",
+      "joint_tape_missing": "Brak taśmy na łączeniach",
+      "fastener_corrosion": "Korozja łączników",
+      "joint_gap": "Szczeliny na łączeniach",
+      "efflorescence": "Wykwity",
+      "blow_holes": "Raki / pęcherze"
+    },
+    "crack_recurrence": {
+      "title": "Pęknięcia podłoża",
+      "explanation": "Na podłożu stwierdzono pęknięcia.",
+      "consequence": "Pęknięcia mogą przebić się przez nowe warstwy wykończeniowe.",
+      "mitigation": "Wzmocnij podłoże włókniną szklaną lub siatką przeciwspękaniową na łączeniach.",
+      "communication": "Wykonam wzmocnienie przeciwspękaniowe, aby pęknięcia nie ujawniły się po zakończeniu prac."
+    },
+    "board_movement_crack": {
+      "title": "Spękania na łączeniach płyt g-k",
+      "explanation": "Występuje ruchliwość zabudowy z płyt g-k oraz pęknięcia na łączeniach.",
+      "consequence": "Dalsze ruchy konstrukcji mogą wywoływać ponowne spękania nowych warstw.",
+      "mitigation": "Sprawdź i ustabilizuj konstrukcję, wzmocnij łączenia taśmą i włókniną szklaną, przewidź dylatacje.",
+      "communication": "Po ustabilizowaniu konstrukcji wzmocnię łączenia, aby spękania nie wróciły."
+    },
+    "moisture_block_finishing": {
+      "title": "Podwyższona wilgotność podłoża",
+      "explanation": "Zmierzona wilgotność przekracza dopuszczalny poziom dla tego podłoża.",
+      "consequence": "Wykończenie na wilgotnym podłożu może się odspajać, pleśnieć lub blaknąć.",
+      "mitigation": "Wstrzymaj wykańczanie do czasu wyschnięcia podłoża, a następnie powtórz pomiar wilgotności.",
+      "communication": "Wstrzymuję prace do czasu osuszenia podłoża — na wilgotnym podłożu wykończenie traci trwałość."
+    },
+    "weak_adhesion_prep": {
+      "title": "Słaba przyczepność powłok",
+      "explanation": "Stwierdzono słabą przyczepność istniejących powłok do podłoża.",
+      "consequence": "Nowe warstwy mogą nie związać się trwale; możliwe odspajanie powłok.",
+      "mitigation": "Usuń lub zeskrob niestabilne powłoki i zagruntuj podłoże preparatem wzmacniającym.",
+      "communication": "Usunę słabo związane warstwy i wzmocnię podłoże gruntem przed dalszymi pracami."
+    },
+    "loose_substrate_removal": {
+      "title": "Luźne fragmenty podłoża",
+      "explanation": "Podłoże ma luźne, sypkie fragmenty o niepewnej nośności.",
+      "consequence": "Na luźnym podłożu szpachlowanie i malowanie nie będą trwałe.",
+      "mitigation": "Usuń luźne fragmenty, uzupełnij ubytki i zagruntuj podłoże.",
+      "communication": "Trwale usunięte zostaną luźne fragmenty podłoża, aby nowe warstwy miały stabilny podkład."
+    },
+    "dusty_substrate_prime": {
+      "title": "Zakurzone podłoże",
+      "explanation": "Na podłożu zalega kurz, który osłabia przyczepność.",
+      "consequence": "Kurz może ograniczać przyczepność kolejnych warstw.",
+      "mitigation": "Odpyl podłoże i zagruntuj przed rozpoczęciem prac.",
+      "communication": "Miejsce zostanie odpylone i zagruntowane, aby zapewnić dobrą przyczepność."
+    },
+    "oily_substrate_degrease": {
+      "title": "Zatłuszczone podłoże",
+      "explanation": "Na podłożu widoczne są plamy olejowe lub tłuste.",
+      "consequence": "Tłuszcz ogranicza przyczepność i może powodować plamy na nowych powłokach.",
+      "mitigation": "Odtłuść podłoże, a następnie zagruntuj odpowiednim gruntem.",
+      "communication": "Podłoże zostanie odtłuszczone przed rozpoczęciem prac."
+    },
+    "mold_treatment_before_finish": {
+      "title": "Pleśń / grzyb",
+      "explanation": "Stwierdzono ślady pleśni lub grzyba na podłożu.",
+      "consequence": "Rozwój pleśni może przenikać przez nowe warstwy i stanowić zagrożenie dla zdrowia.",
+      "mitigation": "Usuń przyczynę zawilgocenia, zastosuj preparat biobójczy i przygotuj podłoże przeciwgrzybiczo.",
+      "communication": "Przed wykończeniem usuniemy pleśń i jej przyczynę, aby problem nie powrócił."
+    },
+    "delamination_repair": {
+      "title": "Odpryski / rozwarstwienie podłoża",
+      "explanation": "Występują odpryski lub rozwarstwienia powierzchni podłoża.",
+      "consequence": "Odpryski powodują nierówności i niestabilność nowych warstw.",
+      "mitigation": "Usuń odpryski, uzupełnij ubytki i wzmocnij podłoże gruntem.",
+      "communication": "Odpryski podłoża zostaną naprawione przed kontynuacją prac."
+    },
+    "unevenness_prep_increased": {
+      "title": "Zwiększone nierówności",
+      "explanation": "Odchylenia od płaszczyzny przekraczają 3 mm.",
+      "consequence": "Przy wyższych klasach jakości wymagane jest wyrównanie całopowierzchniowe.",
+      "mitigation": "Przewidź szpachlowanie wyrównawcze lub dodatkowe przygotowanie podłoża.",
+      "communication": "Podłoże zostanie wyrównane przed nałożeniem kolejnych warstw."
+    },
+    "joint_tape_missing_rework": {
+      "title": "Brak taśmy na łączeniach płyt",
+      "explanation": "Na łączeniach płyt g-k nie wykonano zbrojenia taśmą.",
+      "consequence": "Złącza mogą pękać na krawędziach bez zbrojenia taśmą.",
+      "mitigation": "Wykonaj spoinowanie z taśmą zbrojącą na wszystkich łączeniach.",
+      "communication": "Zbrojenie łączeń taśmą zostanie uzupełnione, aby spoiny pozostały stabilne."
+    },
+    "fastener_corrosion_fix": {
+      "title": "Korozja łączników",
+      "explanation": "Widoczne są ślady korozji na łącznikach zabudowy g-k.",
+      "consequence": "Korozja może przebić się na powierzchnię w postaci plam.",
+      "mitigation": "Zabezpiecz łączniki odpowiednim preparatem, aby nie ujawniły się na powłoce.",
+      "communication": "Łączniki zostaną zabezpieczone przed korozją, aby plamy nie przebiły się na powierzchnię."
+    },
+    "joint_gap_filling": {
+      "title": "Szczeliny na łączeniach",
+      "explanation": "Szerokość szczelin na łączeniach przekracza 2 mm.",
+      "consequence": "Szerokie szczeliny wymagają wypełnienia przed szpachlowaniem.",
+      "mitigation": "Wypełnij szczeliny odpowiednią masą i wzmocnij je taśmą.",
+      "communication": "Szerokie szczeliny zostaną wypełnione, aby spoiny pozostały trwałe."
+    },
+    "efflorescence_cause_check": {
+      "title": "Wykwity solne",
+      "explanation": "Na podłożu widoczne są wykwity solne.",
+      "consequence": "Sole mogą powodować wtórne wykwity i osłabiać przyczepność powłok.",
+      "mitigation": "Usuń źródło wilgoci, mechanicznie usuń wykwity i zastosuj preparat blokujący sole.",
+      "communication": "Wykwity zostaną usunięte, a podłoże zabezpieczone, aby nie wracały."
+    },
+    "blow_holes_filling": {
+      "title": "Raki / pęcherze",
+      "explanation": "Na powierzchni widoczne są drobne raki (pęcherze).",
+      "consequence": "Raki mogą być widoczne pod nowymi powłokami, zwłaszcza malarskimi.",
+      "mitigation": "Wypełnij raki gładzią i przeszlifuj przed malowaniem.",
+      "communication": "Drobne raki zostaną wypełnione przed malowaniem, aby powierzchnia była gładka."
+    }
   },
   "checklist": {
     "template": {

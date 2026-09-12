@@ -9,6 +9,7 @@ from app.api.v1.endpoints.inspections import router as inspections_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.openings import router as openings_router
 from app.api.v1.endpoints.projects import router as projects_router
+from app.api.v1.endpoints.risks import router as risks_router
 from app.api.v1.endpoints.rooms import router as rooms_router
 from app.api.v1.endpoints.surfaces import router as surfaces_router
 from app.core.config import settings
@@ -38,3 +39,4 @@ app.include_router(openings_router, prefix="/api", tags=["openings"])
 app.include_router(area_segments_router, prefix="/api", tags=["area-segments"])
 app.include_router(checklists_router, prefix="/api", tags=["checklists"])
 app.include_router(inspections_router, prefix="/api", tags=["inspections"])
+app.include_router(risks_router, prefix="/api", tags=["risks"])
