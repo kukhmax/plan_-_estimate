@@ -169,10 +169,27 @@ def build_baseline_communication_phrases() -> list[CommunicationPhraseData]:
             why_key="communication.comm_find_joint_gap.why",
             finding_key="JOINT_GAP",
         ),
-        # Quality expectations: explicit substrate + quality_target mappings only.
-        _quality(Substrate.GYPSUM_PLASTER, QualityLevel.S3),
-        _quality(Substrate.GYPSUM_BOARD, QualityLevel.Q2),
+        # Quality expectations: the COMPLETE Stage 6 substrate/quality scale
+        # matrix (S scale for concrete and plasters, Q scale for drywall) as
+        # explicit substrate -> quality_target mappings only. PAINTED/OTHER have
+        # no Stage 6 family restriction, so no scale is manufactured: a single
+        # released PAINTED S2 phrase remains and OTHER stays phrase-less.
+        _quality(Substrate.CONCRETE, QualityLevel.S1),
+        _quality(Substrate.CONCRETE, QualityLevel.S2),
+        _quality(Substrate.CONCRETE, QualityLevel.S3),
         _quality(Substrate.CONCRETE, QualityLevel.S4),
+        _quality(Substrate.GYPSUM_PLASTER, QualityLevel.S1),
+        _quality(Substrate.GYPSUM_PLASTER, QualityLevel.S2),
+        _quality(Substrate.GYPSUM_PLASTER, QualityLevel.S3),
+        _quality(Substrate.GYPSUM_PLASTER, QualityLevel.S4),
+        _quality(Substrate.CEMENT_LIME_PLASTER, QualityLevel.S1),
+        _quality(Substrate.CEMENT_LIME_PLASTER, QualityLevel.S2),
+        _quality(Substrate.CEMENT_LIME_PLASTER, QualityLevel.S3),
+        _quality(Substrate.CEMENT_LIME_PLASTER, QualityLevel.S4),
+        _quality(Substrate.GYPSUM_BOARD, QualityLevel.Q1),
+        _quality(Substrate.GYPSUM_BOARD, QualityLevel.Q2),
+        _quality(Substrate.GYPSUM_BOARD, QualityLevel.Q3),
+        _quality(Substrate.GYPSUM_BOARD, QualityLevel.Q4),
         _quality(Substrate.PAINTED, QualityLevel.S2),
     ]
     return phrases

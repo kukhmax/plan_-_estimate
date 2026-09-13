@@ -502,6 +502,58 @@
     "comm_quality_painted_s2": {
       "phrase": "Podłoże: powierzchnia malowana, poziom S2 — przygotuję ją do standardowego wykończenia.",
       "why": "Oczekiwany poziom jakości S2 dla powierzchni malowanej."
+    },
+    "comm_quality_cement_lime_plaster_s1": {
+      "phrase": "Podłoże: tynk cementowo-wapienny, poziom S1 — przygotuję powierzchnię zgrubną pod okładziny ceramiczne lub tapety strukturalne.",
+      "why": "Oczekiwany poziom jakości S1 dla tynku cementowo-wapiennego."
+    },
+    "comm_quality_cement_lime_plaster_s2": {
+      "phrase": "Podłoże: tynk cementowo-wapienny, poziom S2 — przygotuję powierzchnię standardową, wygładzoną pod wykończenie.",
+      "why": "Oczekiwany poziom jakości S2 dla tynku cementowo-wapiennego."
+    },
+    "comm_quality_cement_lime_plaster_s3": {
+      "phrase": "Podłoże: tynk cementowo-wapienny, poziom S3 — przygotuję powierzchnię gładką pod malowanie matowe.",
+      "why": "Oczekiwany poziom jakości S3 dla tynku cementowo-wapiennego."
+    },
+    "comm_quality_cement_lime_plaster_s4": {
+      "phrase": "Podłoże: tynk cementowo-wapienny, poziom S4 — wykonam idealnie gładką powierzchnię, sprawdzaną lampą smugową.",
+      "why": "Oczekiwany poziom jakości S4 dla tynku cementowo-wapiennego."
+    },
+    "comm_quality_concrete_s1": {
+      "phrase": "Podłoże: beton, poziom S1 — przygotuję powierzchnię zgrubną pod okładziny ceramiczne lub tapety strukturalne.",
+      "why": "Oczekiwany poziom jakości S1 dla powierzchni betonowej."
+    },
+    "comm_quality_concrete_s2": {
+      "phrase": "Podłoże: beton, poziom S2 — przygotuję powierzchnię standardową, wygładzoną pod wykończenie.",
+      "why": "Oczekiwany poziom jakości S2 dla powierzchni betonowej."
+    },
+    "comm_quality_concrete_s3": {
+      "phrase": "Podłoże: beton, poziom S3 — przygotuję powierzchnię gładką pod malowanie matowe.",
+      "why": "Oczekiwany poziom jakości S3 dla powierzchni betonowej."
+    },
+    "comm_quality_gypsum_board_q1": {
+      "phrase": "Podłoże: płyty g-k, poziom Q1 — zaszpachluję łączenia płyt z taśmą zbrojącą i przygotuję powierzchnię pod wykończenie podstawowe.",
+      "why": "Oczekiwany poziom jakości Q1 dla zabudowy g-k."
+    },
+    "comm_quality_gypsum_board_q3": {
+      "phrase": "Podłoże: płyty g-k, poziom Q3 — zaszpachluję łączenia i wyrównam całą powierzchnię ujednoliconą gładzią pod malowanie.",
+      "why": "Oczekiwany poziom jakości Q3 dla zabudowy g-k."
+    },
+    "comm_quality_gypsum_board_q4": {
+      "phrase": "Podłoże: płyty g-k, poziom Q4 — wygładzę całą powierzchnię szpachlą pod oświetlenie smugowe i farby satynowe.",
+      "why": "Oczekiwany poziom jakości Q4 dla zabudowy g-k."
+    },
+    "comm_quality_gypsum_plaster_s1": {
+      "phrase": "Podłoże: tynk gipsowy, poziom S1 — przygotuję powierzchnię zgrubną pod okładziny ceramiczne lub tapety strukturalne.",
+      "why": "Oczekiwany poziom jakości S1 dla tynku gipsowego."
+    },
+    "comm_quality_gypsum_plaster_s2": {
+      "phrase": "Podłoże: tynk gipsowy, poziom S2 — przygotuję powierzchnię standardową, szpachlowaną pod wykończenie.",
+      "why": "Oczekiwany poziom jakości S2 dla tynku gipsowego."
+    },
+    "comm_quality_gypsum_plaster_s4": {
+      "phrase": "Podłoże: tynk gipsowy, poziom S4 — wykonam idealnie gładką powierzchnię, sprawdzaną lampą smugową.",
+      "why": "Oczekiwany poziom jakości S4 dla tynku gipsowego."
     }
   },
   "checklist": {

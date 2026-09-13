@@ -2,6 +2,7 @@
 
 import uuid
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -704,10 +705,13 @@ class TestQualityPhrases:
     async def test_no_automatic_generic_quality_fallback(
         self, async_client: AsyncClient
     ) -> None:
-        # CONCRETE S4 exists in the catalog, but S3 does not — the engine must
-        # stay silent rather than invent a generic expectation phrase.
+        # Since 8D.1 the full Stage 6 matrix is covered (CONCRETE S3 is now a
+        # first-class phrase), so the absent-combination case is PAINTED S1: the
+        # substrate passes Stage 6 validation (PAINTED has no scale family), but
+        # the catalog ships no PAINTED phrase beyond the released S2 — the engine
+        # must stay fully silent rather than invent a generic expectation phrase.
         token, project, room, inspection, template = await _scaffold_inspection(
-            async_client, substrate="CONCRETE", quality_target="S3"
+            async_client, substrate="PAINTED", quality_target="S1"
         )
         await _put_answers(
             async_client,
@@ -722,9 +726,7 @@ class TestQualityPhrases:
         response = await _evaluate_communications(
             async_client, token, project, room, inspection
         )
-        codes = {item["phrase_code"] for item in response.json()["items"]}
-        assert "COMM_QUALITY_CONCRETE_S3" not in codes
-        assert not any(item["source_kind"] == "QUALITY" for item in response.json()["items"])
+        assert response.json()["items"] == []
 
     async def test_quality_coexists_with_risk_and_finding_phrases(
         self, async_client: AsyncClient
@@ -751,6 +753,103 @@ class TestQualityPhrases:
             "COMM_RISK_JOINT_TAPE_MISSING_REWORK",
             "COMM_QUALITY_GYPSUM_BOARD_Q2",
         }
+
+
+class TestCompleteQualityMatrix:
+    """8D.1: every Stage 6 (substrate, quality_target) pairing has a QUALITY
+    expectation phrase; invalid cross-scale pairings never produce one."""
+
+    QUALITY_MATRIX = [
+        ("GYPSUM_BOARD", "Q1"),
+        ("GYPSUM_BOARD", "Q2"),
+        ("GYPSUM_BOARD", "Q3"),
+        ("GYPSUM_BOARD", "Q4"),
+        ("CONCRETE", "S1"),
+        ("CONCRETE", "S2"),
+        ("CONCRETE", "S3"),
+        ("CONCRETE", "S4"),
+        ("GYPSUM_PLASTER", "S1"),
+        ("GYPSUM_PLASTER", "S2"),
+        ("GYPSUM_PLASTER", "S3"),
+        ("GYPSUM_PLASTER", "S4"),
+        ("CEMENT_LIME_PLASTER", "S1"),
+        ("CEMENT_LIME_PLASTER", "S2"),
+        ("CEMENT_LIME_PLASTER", "S3"),
+        ("CEMENT_LIME_PLASTER", "S4"),
+    ]
+
+    @pytest.mark.parametrize("substrate,quality_target", QUALITY_MATRIX)
+    async def test_every_valid_combination_yields_exactly_one_quality_card(
+        self, async_client: AsyncClient, substrate: str, quality_target: str
+    ) -> None:
+        token, project, room, inspection, template = await _scaffold_inspection(
+            async_client, substrate=substrate, quality_target=quality_target
+        )
+        await _put_answers(
+            async_client,
+            token,
+            project,
+            room,
+            inspection,
+            template,
+            {"moisture_high": {"value_bool": False}},
+        )
+        await _complete(async_client, token, project, room, inspection)
+
+        response = await _evaluate_communications(
+            async_client, token, project, room, inspection
+        )
+        items = response.json()["items"]
+        quality = [item for item in items if item["source_kind"] == "QUALITY"]
+        assert len(quality) == 1
+        app = quality[0]
+        assert app["phrase_code"] == f"COMM_QUALITY_{substrate}_{quality_target}"
+        assert app["category"] == "QUALITY_EXPECTATION"
+        assert app["source_kind"] == "QUALITY"
+        # No duplicate quality card and no duplicated phrase across the list.
+        assert len(items) == len({item["phrase_code"] for item in items})
+
+        # Re-evaluation is idempotent: identical list, stable quality UUID.
+        again = (await _evaluate_communications(
+            async_client, token, project, room, inspection
+        )).json()["items"]
+        assert [item["phrase_code"] for item in again] == [
+            item["phrase_code"] for item in items
+        ]
+        again_quality = [item for item in again if item["source_kind"] == "QUALITY"]
+        assert len(again_quality) == 1
+        assert again_quality[0]["id"] == app["id"]
+
+    @pytest.mark.parametrize(
+        "substrate,quality_target",
+        [
+            ("GYPSUM_BOARD", "S3"),
+            ("GYPSUM_PLASTER", "Q3"),
+            ("CONCRETE", "Q2"),
+            ("CEMENT_LIME_PLASTER", "Q1"),
+        ],
+    )
+    async def test_cross_scale_combinations_are_rejected_and_never_materialize(
+        self, async_client: AsyncClient, substrate: str, quality_target: str
+    ) -> None:
+        # Stage 6 scales are the contract: S for concrete/plasters, Q for drywall.
+        # The cross-scale target is rejected at creation (422) — validation is
+        # NOT weakened — so no inspection exists to evaluate and no
+        # QUALITY_EXPECTATION application can ever materialize.
+        token, project, room = await _scaffold(async_client)
+        template = await full_template(async_client, token, substrate)
+        response = await async_client.post(
+            inspections_url(project["id"], room["id"]),
+            json={
+                "template_id": template["id"],
+                "substrate": substrate,
+                "plane": "CEILING",
+                "quality_target": quality_target,
+            },
+            headers=auth_header(token),
+        )
+        assert response.status_code == 422, response.text
+        assert "scale" in response.json()["detail"].lower()
 
 
 class TestIdentityReconciliation:

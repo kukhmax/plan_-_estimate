@@ -63,6 +63,19 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
       'comm_quality_gypsum_board_q2',
       'comm_quality_concrete_s4',
       'comm_quality_painted_s2',
+      'comm_quality_cement_lime_plaster_s1',
+      'comm_quality_cement_lime_plaster_s2',
+      'comm_quality_cement_lime_plaster_s3',
+      'comm_quality_cement_lime_plaster_s4',
+      'comm_quality_concrete_s1',
+      'comm_quality_concrete_s2',
+      'comm_quality_concrete_s3',
+      'comm_quality_gypsum_board_q1',
+      'comm_quality_gypsum_board_q3',
+      'comm_quality_gypsum_board_q4',
+      'comm_quality_gypsum_plaster_s1',
+      'comm_quality_gypsum_plaster_s2',
+      'comm_quality_gypsum_plaster_s4',
     ]) {
       expect(plComm.has(`${slug}.phrase`)).toBe(true);
       expect(plComm.has(`${slug}.why`)).toBe(true);
