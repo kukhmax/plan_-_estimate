@@ -51,7 +51,7 @@
 | **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
 | Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | **Stage 8** | **"Co powiedzieć klientowi" (Client Communication Assistant)** | **Completed 2026-09-13** | Deterministic, rule-driven client communication recommendations (PL/RU) from completed-inspection facts — versioned immutable phrase catalog, exact-key selection over materialized Stage 6/7 facts, complete quality matrix, mobile communication cards with evaluate / "Why?" traceability / copy / active-resolved-all history |
-| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D (mobile-first price book UI) Completed 2026-09-13 (owner accepted); 9E real catalog Pending** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
+| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9E.1 (market reference & sources architecture) Completed 2026-09-13; 9E.2–9E.7 & 9F Pending** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
 | Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
 | Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
@@ -1495,7 +1495,7 @@ Audit-only closure (no new functionality, no refactors, no migrations). All gate
 **Verification**: focused communication + integration **60 passed**; full backend pytest **340 passed**; full frontend Vitest **213 passed (19 files)**; `tsc --noEmit` PASS; `vite build` PASS; `git diff --check` clean; Alembic single head + running `current` = `0013_create_communication_engine (head)` (no migration created in 8E; upgrade/downgrade cycle proven in 8B remains documented); Docker runtime healthy — postgres/backend healthy, `/api/health` `{"status":"ok"}`, frontend :5173 HTTP 200. Documentation finalized: **Stage 8 → Completed 2026-09-13** (owner verified), all sub-stages 8A–8E Completed, roadmap notes A–D preserved, Stage 9 remains **Pending**; README updated to the repo convention (Stages 0–8 Completed, Stages 9–20 pending). Committed as **`docs(stage-8): complete client communication stage`** (docs + README only) and pushed to `stage-8`. NOT merged into `main` — the owner-authorized merge command is reserved for owner approval.
 
 ### Stage 9: Editable Price Book / Cennik
-- **Status**: **In Progress — execution sub-stages 9A (architecture & domain contract), 9B (backend domain, migration & seed infrastructure), 9C (public API + ownership tests) Completed 2026-09-13; 9D (mobile-first price book UI) Completed 2026-09-13 (owner accepted); 9E–9F pending owner approval**. Stage 9 answers the product question **"What is our current unit price?"** with an owner-editable contractor price catalog (Cennik). **Stage 9 is not an estimate**: canonical Stage 10 (Kosztorys) consumes Price Book prices and is out of Stage 9 scope; no Project/room/inspection/estimate entities are created in Stage 9. `main` untouched; Stages 10–20 remain Pending.
+- **Status**: **In Progress — execution sub-stages 9A (architecture & domain contract), 9B (backend domain, migration & seed infrastructure), 9C (public API + ownership tests) Completed 2026-09-13; 9D (mobile-first price book UI) Completed 2026-09-13 (owner accepted); 9E.1 (market price reference & sources architecture) Completed 2026-09-13 (docs-only); 9E.2–9E.7, 9F pending owner approval**. Stage 9 answers the product question **"What is our current unit price?"** with an owner-editable contractor price catalog (Cennik). **Stage 9 is not an estimate**: canonical Stage 10 (Kosztorys) consumes Price Book prices and is out of Stage 9 scope; no Project/room/inspection/estimate entities are created in Stage 9. `main` untouched; Stages 10–20 remain Pending.
 - **Date**: 2026-09-13 (9A)
 
 #### 9A — architecture & domain contract (decision record)
@@ -1563,7 +1563,7 @@ A substrate is a property of the work item (expressed through the item name and 
 - **9B — backend domain**: `backend/app/models/price_item.py` (`PriceItem` + `PriceUnit` / `PriceCategory` / `PriceScope` enums only; `currency` as ISO 4217-style `String(3)`, PLN-only in MVP; `qualitylevel` reused), Alembic `0014_create_price_book` (three enums + `price_items`, reversible, single head 0014), base starter seed (deterministic per-owner materialization, idempotent), `backend/app/schemas/price.py`, domain service. Gate: enum/model contracts; migration cycle on real PostgreSQL (`upgrade 0013→0014`, `downgrade -1`, re-`upgrade head`); focused tests; full backend suite.
 - **9C — API + tests**: `backend/app/api/v1/endpoints/pricebook.py` — `GET /api/v1/pricebook` (list; category / archived / search filters), `POST` (create), `GET /{id}`, `PATCH /{id}` (fields and `is_archived` toggle); uniform 401/404. Gate: focused + full backend suites; precision contract (2 dp ok, 3 dp → 422, negative → 422, `0.00` ok); idempotent materialization; archive/restore.
 - **9D — mobile-first catalog UI**: `frontend/src/features/pricebook/` (list, filters, search, item edit, add, archive under "Opcje"), `frontend/src/api/pricebook.ts`, `frontend/src/types/price.ts`, `price.*` locale keys PL/RU parity. Gate: Vitest + `tsc --noEmit` + `vite build`; mobile regression 320/390/412 px; locale parity.
-- **9E — Kraków-sourced catalog content**: sourced / dated / editable / non-official regional rows with localized names (strategy per §11) as additional deterministic seed data. Gate: deterministic + idempotent; no invented prices; parity green.
+- **9E — Kraków-sourced catalog content** (refined 9E.1 plan, §14 below: 9E.1 architecture → 9E.2 research catalog → 9E.3 web research Kraków/Małopolskie → 9E.4 normalization review → 9E.5 owner approval → 9E.6 implementation → 9E.7 load; 9F final audit): sourced / dated / editable / non-official regional rows with localized names (strategy per §11) as additional deterministic seed data. Gate: deterministic + idempotent; no invented prices; parity green.
 - **9F — integration & final audit**: stage-wide regressions; scope audit (no estimate/Project coupling); docs → Stage 9 **Completed only on owner acceptance**; README; one logical commit; push; merge readiness reserved for owner approval. **Never** merge into `main` without explicit owner approval.
 
 #### 9A — Contract scope guardrails
@@ -1600,6 +1600,97 @@ A substrate is a property of the work item (expressed through the item name and 
 - **`frontend/src/App.tsx`** (+ `App.test.tsx`) — third main-nav entry `show-pricebook` in the `grid grid-cols-3` nav ("Cennik"/"Прайс"; **no desktop-only nav**), app section `'pricebook'` renders `<PriceBook />`; App tests gain the `./api/priceItems` mock and a "opens the price book section from the main navigation" case (region `price-book-section`, fetch hit, no crash).
 **Spec-compliant verification of §6/§8/§9/§10/§12/§13/§15/§16**: all above covered by `PriceBook.test.tsx` (34 cases) + `priceFormat.test.ts` (20) + `parity.test.ts` + `App.test.tsx` — list/filters/create/edit/money input/archive/restore/error-state UI/mobile (390/412 px core, no horizontal scroll, ≥44 px targets, full-width primaries, long PL/RU wrap safety), PL/RU via locale switch, typed contracts without `any`.
 **Verification**: focused 9D frontend **66 passed** (20 priceFormat + 12 App + 34 PriceBook); full frontend vitest **269 passed (21 files)** (was 213; +56 = 20+34 price/PriceBook minus 0, App 12 incl. 1 new); `tsc --noEmit` PASS; `vite build` PASS; full backend pytest **412 passed** (unchanged — 9D touches no backend source); `git diff --check` clean; **no new migration** — single Alembic head `0014_create_price_book`; Docker `docker compose up -d --build` healthy (postgres/backend healthy, `/api/health` `{"status":"ok"}`, frontend :5173 HTTP 200, container `alembic current` = `0014_create_price_book (head)`); **authenticated live smoke PASS on docker** — mock auth → `GET /api/price-items?archived=active` returns the 4 owner seed rows with `name_key` = `pricebook.seed.prep_generic_m2` etc., exactly the dotted keys the UI resolves from the PL/RU dictionaries. `docker compose down -v` never run. **Deliberately NOT implemented in 9D**: real Kraków market catalog (9E), any Stage 10 estimate or Stage 11 mapping, any redesign of unrelated UI. **9D OWNER ACCEPTANCE 2026-09-13**: the owner manually tested the A–O checklist and accepted the implementation — visual/mobile acceptance **PASS**, current Price Book behavior works as expected in the manual workflow; technical seed prices remain intentional placeholders and the real Kraków market catalog remains deferred to 9E. On approval the owner authorized the commit and push; the full 9D change set was committed as **`feat(stage-9): add mobile editable price book`** and pushed to `origin/stage-9`; working tree clean; `main` untouched at 8997d11. **Canonical Stage 9 remains In Progress** (9E real catalog, 9F final gate pending); Stage 10 remains **Pending**.
+
+#### 9E.1 execution status 2026-09-13 — market price reference & sources architecture (COMPLETE; architecture/documentation only — committed + pushed to `stage-9`)
+**Scope**: architecture contract for attaching researched **Kraków / Małopolskie** market references and source URLs to Price Book items. **No code, no migration, no frontend, no real Kraków prices.** Real web research is explicitly deferred to 9E.3; this record settles the data model, provenance policy, and the Stage 10/15 compatibility contract.
+
+**Core product invariant — owner price ≠ market evidence.** `PriceItem.price` = the owner's current **editable working/commercial price**. Market research never automatically overwrites `PriceItem.price`; a market reference exists only as supporting context/evidence. The three concepts are kept strictly separate:
+`OWNER PRICE != MARKET RANGE != SOURCE QUOTED PRICE`.
+A later 9E load / Stage 10 estimate / Stage 15 PDF may *display* market data, but only `PriceItem.price` is authoritative for quoting, estimating, and contracting. Owner edits to `PriceItem.price` remain fully independent of any attached references; refreshing or deleting market references never mutates `PriceItem.price`.
+
+**Relationship model (minimal, two-level).**
+`PriceItem 1 → 0..N PriceMarketReference 1 → 1..N PriceSource`.
+One market reference summarizes multiple external sources for one regional/unit view; one source belongs to exactly one reference. Owner price stays independent at the root; the estimate/PDF layers can read a compact "reference + its sources" bundle. **PriceSource never mutates PriceItem directly** — all linkage flows through the reference row. Neither table is a root aggregate: ownership is enforced transitively through `PriceItem.owner_id` on every access path (no denormalized `owner_id` on references/sources); a future direct reference endpoint must join through `PriceItem` for the 9C-style uniform-404 owner isolation.
+
+**Entity 1 — `PriceMarketReference`** (`price_market_references`). Genuinely required fields:
+- `id` — UUID pk
+- `price_item_id` — FK → `price_items.id` ON DELETE CASCADE (isolation via parent)
+- `region` — **controlled text**, MVP exact values `"Kraków"` / `"Małopolskie"` / `"Kraków / Małopolskie"` (plain `String`, **no geo tables** — region is a label, not a query dimension in MVP; a future multi-region expansion may normalize proper region entities then, not before)
+- `market_min` / `market_max` — `Numeric(12,2)`, **Decimal-only, never float**; research outputs over the observed numeric source contributions, never authoritative tariffs
+- `currency` — `String(3)`, PLN-only in MVP, **must be compatible with the linked `PriceItem.currency`**
+- `unit` — reuse the Stage 9B `PriceUnit` enum; **must equal the linked `PriceItem.unit`** (the reference range is expressed in the same unit as the owner price; compatibility enforced in service validation)
+- `checked_at` — required research date (the "Sprawdzono: YYYY-MM-DD" the UI must surface); market prices age quickly, never shown as current without its date
+- `created_at` / `updated_at`
+
+Optional (kept because they carry real meaning): `reference_price` (nullable single "punkt odniesienia" figure when the research legitimately yields a middle value; **not auto-computed** from min/max), `methodology_note` (nullable text — how the range was derived; where quality assumptions and qualitative-only source context are recorded). **Deliberately excluded**: revision/version columns — MVP policy is **re-check in place** (re-run research, update values + refresh `checked_at`); historical research preservation stays a documented future option and is introduced only if clearly justified, not in 9E.
+
+**Entity 2 — `PriceSource`** (`price_sources`, one row per cited evidence item). Genuinely required fields:
+- `id` — UUID pk
+- `market_reference_id` — FK → `price_market_references.id` ON DELETE CASCADE
+- `source_name` — String display text (e.g. "Cennik wykończeniowy Firma X", "Allegro Usługi", "store-wykonczeniowy-krakow.pl")
+- `source_type` — controlled `SourceType` DB enum
+- `checked_at` — required (each source ages too)
+- `created_at`
+
+Optional numeric + provenance fields (the "quoted evidence" set): `source_url` (nullable; **never forced — OWN_PRICE sources carry no URL**), `source_region` (nullable controlled text; may differ from the reference region when an out-of-region source is used for qualitative context), `quoted_price_min` / `quoted_price_max` / `quoted_price_single` (nullable `Numeric(12,2)`; **a source supports exactly one quoting mode** — a single quoted price, OR a quoted range, OR qualitative-context-only with all three null), `quoted_unit` (nullable; the unit the source itself quoted — must be **compatible** with the reference's unit per the normalization rule below, otherwise the source contributes qualitative context only, never numbers), `note` (nullable).
+
+**`SourceType` controlled values (normalized, seven)**:
+`CONTRACTOR_PRICE_LIST` (preferred labor evidence), `MARKETPLACE` (services/goods marketplaces), `MANUFACTURER` (system/material manufacturer lists), `MATERIAL_STORE` (distributor/retail material pricing), `INDUSTRY_ARTICLE` (press/industry commentary — qualitative context by default), `OWN_PRICE` (the owner's own internal price rationale/history — **never presented as external market evidence**), `OTHER`.
+
+**Region contract (MVP).** Exact resolved values `"Kraków"`, `"Małopolskie"`, `"Kraków / Małopolskie"` as plain controlled text; region appears on the reference (the researched area) and optionally per source; no normalization tables and no geo FK — deferred unless a future stage adds true multi-region support.
+
+**Date policy.** `checked_at` is required on every market reference **and** every source. Future UI must render "Sprawdzono: YYYY-MM-DD" wherever a reference is shown; stale references are never treated as current without date visibility (an explicit staleness hint is a later UX concern, out of 9E.1 scope).
+
+**Evidence / source-count policy.**
+- Every market-derived `PriceMarketReference` requires **≥ 1 source** (enforced at creation).
+- For important / high-impact items prefer **3+ independent sources** before the range is treated as representative.
+- A **single contractor page is a data point, never a "market average"**; single-source references must say so in a methodology note.
+- `MANUFACTURER` / `MATERIAL_STORE` sources support **material/system costs, not labor rates** (labor evidence comes from `CONTRACTOR_PRICE_LIST` / `MARKETPLACE` / local company offers).
+- Own/internal values are marked `OWN_PRICE`, distinct from external evidence.
+- The source list size is visible with the reference — evidence breadth is never hidden.
+
+**Quoted price / range handling.** Each source contributes in exactly one mode: single quoted price, quoted range, or qualitative context. The reference `market_min`/`market_max` aggregate the numeric contributions of its compatible-unit sources; qualitative-only sources are reflected in `methodology_note` and never inject invented numbers.
+
+**Labor / material separation (critical).**
+- `LABOR` items — evidence from contractor price lists, service marketplaces, local company offers.
+- `MATERIAL` items — manufacturer/distributor/store prices acceptable.
+- `LABOR_AND_MATERIAL` items — a source **must clearly state the combined scope** or it cannot contribute numbers (`methodology_note` records the mismatch otherwise).
+- **Never mix labor-only and labor+material values into one market range** — a labor-only source and a labor+material source for the same item are incompatible evidence and must not be averaged together.
+
+**Unit normalization (strict, no auto-conversion).**
+- Compare source values only with compatible units: `M2 ↔ m² ↔ m2`; `LM ↔ mb / metr bieżący`; `PCS ↔ szt.`; `HOUR ↔ godz.`; `DAY ↔ dzień`; `FLAT ↔ ryczałt` **only when the scope semantics are sufficiently comparable**.
+- **No automatic conversion between FLAT and M2**; no combining of incomparable units; a source quoting an incompatible unit contributes qualitative context only.
+
+**Quality-specific references.** If the linked `PriceItem.quality_level` is set (Q1–Q4 / S1–S4), market evidence should match that quality expectation **when the source wording supports it**. Never infer a Q/S level from vague marketing text; a source that does not specify quality attaches to generic items only or is recorded in `methodology_note` as quality-unspecified.
+
+**Future owner-price vs market UX contract (design only — NOT implemented).** Primary = owner price; secondary = market context:
+```
+Szpachlowanie 2 warstwy
+52,00 zł / m²          ← owner price (authoritative)
+
+Rynek Kraków:
+40–55 zł / m²
+Punkt odniesienia: 47,50 zł
+Sprawdzono: 2026-09-12
+Źródła (5)              ← tap → source rows
+```
+Tapping "Źródła" / "Источники" reveals per source: `source_name`, source type, `checked_at`, quoted price/range if present, external link if `source_url` exists. **No raw DB ids, no codes, no owner_id leaked** (consistent with the 9D card policy).
+
+**Stage 10 compatibility (recorded obligation).** A Stage 10 estimate line **must snapshot the owner price used** at line-creation time. Later market-reference changes must **never silently recalculate** an existing estimate line — the snapshot is the contractual number, exactly as Stage 9A §10 recorded for price-history policy.
+
+**Stage 15 PDF compatibility (supporting evidence only).** An estimate/protocol PDF **may optionally include** the market range, checked date, and a source list/links. Market references are supporting context — **never the contract price authority** and never a substitute for the snapshot owner price in a legal document.
+
+**Refined Stage 9E execution plan (architecture → research → review → implementation).**
+- **9E.1** (this record) — market reference / source architecture (docs)
+- **9E.2** — research catalog structure: final work-item list to research
+- **9E.3** — web research Kraków / Małopolskie: collect dated source evidence
+- **9E.4** — normalize and review: unit / scope / quality / labor-material consistency
+- **9E.5** — owner review: approve seed values / ranges
+- **9E.6** — implementation: migration / model / API / UI / source display as actually needed
+- **9E.7** — load approved researched catalog
+- **9F** — Stage 9 integration / final audit
+
+**Stage 9E.1 acceptance criteria met**: owner-price-vs-market separation (§1), market-reference entity & required-field decision (§2), source entity & quoting-mode rule (§3), seven controlled `SourceType` values (§3), region contract (§5), checked-date policy (§6), evidence-count policy (§7), quoted price/range handling (§7), labor/material separation (§11), unit compatibility (§12), quality-evidence handling (§13), future source UI (§8–9), Stage 10 estimate snapshot behavior (§10), Stage 15 PDF compatibility (§10), and the real-research execution plan (§14) — all explicitly settled in this record. No code, no migration, no frontend, no real prices. Committed as **`docs(stage-9): define market price source architecture`** and pushed to `origin/stage-9`; working tree clean; `main` untouched at 8997d11. **Deliberately NOT implemented**: real Kraków research (9E.3), research catalog list (9E.2), any Stage 10/11/13 entity, any frontend. **Canonical Stage 9 remains In Progress** (9E.2–9E.7, 9F pending); Stage 10 remains **Pending**.
 
 ## Stage Log Template for Future Stages
 
