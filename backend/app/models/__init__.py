@@ -16,6 +16,7 @@ from app.models.inspection import (
     InspectionStatus,
 )
 from app.models.opening import Opening, OpeningType
+from app.models.price_item import PriceCategory, PriceItem, PriceScope, PriceUnit
 from app.models.project import Project
 from app.models.risk import (
     Risk,
@@ -45,6 +46,10 @@ __all__ = [
     "InspectionStatus",
     "Opening",
     "OpeningType",
+    "PriceCategory",
+    "PriceItem",
+    "PriceScope",
+    "PriceUnit",
     "Project",
     "QualityLevel",
     "Risk",
