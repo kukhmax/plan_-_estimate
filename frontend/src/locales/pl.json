@@ -22,7 +22,8 @@
   },
   "navigation": {
     "clients": "Klienci",
-    "projects": "Obiekty"
+    "projects": "Obiekty",
+    "pricebook": "Cennik"
   },
   "common": {
     "open": "Otwórz",
@@ -603,6 +604,87 @@
     },
     "unit": {
       "mm": "mm"
+    }
+  },
+  "pricebook": {
+    "title": "Cennik",
+    "add_item": "Dodaj pozycję",
+    "edit_item": "Edytuj pozycję",
+    "search_placeholder": "Szukaj w cenniku...",
+    "all_categories": "Wszystkie kategorie",
+    "active_tab": "Aktywne",
+    "archived_tab": "Zarchiwizowane",
+    "options": "Opcje",
+    "display_name": "Nazwa",
+    "category": "Kategoria",
+    "unit": "Jednostka",
+    "price": "Cena (PLN)",
+    "price_placeholder": "0,00",
+    "price_scope": "Zakres ceny",
+    "quality_level": "Poziom jakości",
+    "quality_none": "Bez poziomu",
+    "currency": "Waluta",
+    "currency_symbol": "zł",
+    "currency_note": "Waluta: PLN (tylko PLN w MVP)",
+    "seed_identity": "Nazwa bazowa",
+    "name_required_hint": "Pozycja własna wymaga nazwy",
+    "archived_badge": "Zarchiwizowana",
+    "loading": "Ładowanie cennika...",
+    "empty": "Brak pozycji",
+    "empty_archived": "Brak zarchiwizowanych pozycji",
+    "empty_search": "Brak wyników wyszukiwania",
+    "error_load": "Nie udało się wczytać cennika.",
+    "error_save": "Nie udało się zapisać pozycji.",
+    "error_archive": "Nie udało się zarchiwizować pozycji.",
+    "error_restore": "Nie udało się przywrócić pozycji.",
+    "archived_notice": "Pozycja została zarchiwizowana.",
+    "restored_notice": "Pozycja została przywrócona.",
+    "validation_name_required": "Pozycja własna wymaga nazwy.",
+    "validation_price_required": "Podaj cenę.",
+    "validation_price_format": "Wpisz poprawną cenę.",
+    "validation_price_negative": "Cena nie może być ujemna.",
+    "validation_price_precision": "Maksymalnie 2 miejsca po przecinku.",
+    "units": {
+      "M2": "m²",
+      "LM": "mb",
+      "PCS": "szt.",
+      "HOUR": "godz.",
+      "DAY": "dzień",
+      "FLAT": "ryczałt"
+    },
+    "scopes": {
+      "LABOR": "Robocizna",
+      "MATERIAL": "Materiał",
+      "LABOR_AND_MATERIAL": "Robocizna i materiał"
+    },
+    "categories": {
+      "PREPARATION": "Przygotowanie podłoża",
+      "SKIM_COAT": "Gładź",
+      "PLASTER": "Tynki",
+      "DRYWALL": "Płyty g-k",
+      "PAINTING": "Malowanie",
+      "GLASS_FIBER": "Welon szklany",
+      "MICROCEMENT": "Mikrocement",
+      "DECORATIVE": "Tynki dekoracyjne",
+      "REVEAL": "Ościeża / obróbki",
+      "MATERIAL": "Materiały",
+      "OTHER": "Inne"
+    },
+    "quality": {
+      "S1": "Klasa S1",
+      "S2": "Klasa S2",
+      "S3": "Klasa S3",
+      "S4": "Klasa S4",
+      "Q1": "Klasa Q1",
+      "Q2": "Klasa Q2",
+      "Q3": "Klasa Q3",
+      "Q4": "Klasa Q4"
+    },
+    "seed": {
+      "prep_generic_m2": "Przygotowanie podłoża – ogólne",
+      "paint_generic_m2": "Malowanie – ogólne",
+      "reveal_generic_m2": "Ościeża – ogólne (m²)",
+      "reveal_generic_lm": "Ościeża – ogólne (mb)"
     }
   }
 }

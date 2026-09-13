@@ -22,7 +22,8 @@
   },
   "navigation": {
     "clients": "Клиенты",
-    "projects": "Объекты"
+    "projects": "Объекты",
+    "pricebook": "Прайс"
   },
   "common": {
     "open": "Открыть",
@@ -603,6 +604,87 @@
     },
     "unit": {
       "mm": "мм"
+    }
+  },
+  "pricebook": {
+    "title": "Прайс",
+    "add_item": "Добавить позицию",
+    "edit_item": "Изменить позицию",
+    "search_placeholder": "Поиск по прайсу...",
+    "all_categories": "Все категории",
+    "active_tab": "Активные",
+    "archived_tab": "Архив",
+    "options": "Опции",
+    "display_name": "Название",
+    "category": "Категория",
+    "unit": "Единица",
+    "price": "Цена (PLN)",
+    "price_placeholder": "0,00",
+    "price_scope": "Вид цены",
+    "quality_level": "Класс качества",
+    "quality_none": "Без класса",
+    "currency": "Валюта",
+    "currency_symbol": "zł",
+    "currency_note": "Валюта: PLN (в MVP только PLN)",
+    "seed_identity": "Базовая позиция",
+    "name_required_hint": "Для своей позиции название обязательно",
+    "archived_badge": "В архиве",
+    "loading": "Загрузка прайса...",
+    "empty": "Нет позиций",
+    "empty_archived": "Нет архивных позиций",
+    "empty_search": "Ничего не найдено",
+    "error_load": "Не удалось загрузить прайс.",
+    "error_save": "Не удалось сохранить позицию.",
+    "error_archive": "Не удалось архивировать позицию.",
+    "error_restore": "Не удалось восстановить позицию.",
+    "archived_notice": "Позиция архивирована.",
+    "restored_notice": "Позиция восстановлена.",
+    "validation_name_required": "Для своей позиции название обязательно.",
+    "validation_price_required": "Укажите цену.",
+    "validation_price_format": "Введите корректную цену.",
+    "validation_price_negative": "Цена не может быть отрицательной.",
+    "validation_price_precision": "Максимум 2 знака после запятой.",
+    "units": {
+      "M2": "м²",
+      "LM": "пог. м",
+      "PCS": "шт.",
+      "HOUR": "час",
+      "DAY": "день",
+      "FLAT": "фикс."
+    },
+    "scopes": {
+      "LABOR": "Работа",
+      "MATERIAL": "Материал",
+      "LABOR_AND_MATERIAL": "Работа и материал"
+    },
+    "categories": {
+      "PREPARATION": "Подготовка основания",
+      "SKIM_COAT": "Шпаклевка",
+      "PLASTER": "Штукатурка",
+      "DRYWALL": "Гипсокартон",
+      "PAINTING": "Покраска",
+      "GLASS_FIBER": "Стеклохолст",
+      "MICROCEMENT": "Микроцемент",
+      "DECORATIVE": "Декоративные покрытия",
+      "REVEAL": "Откосы / обделки",
+      "MATERIAL": "Материалы",
+      "OTHER": "Другое"
+    },
+    "quality": {
+      "S1": "Класс S1",
+      "S2": "Класс S2",
+      "S3": "Класс S3",
+      "S4": "Класс S4",
+      "Q1": "Класс Q1",
+      "Q2": "Класс Q2",
+      "Q3": "Класс Q3",
+      "Q4": "Класс Q4"
+    },
+    "seed": {
+      "prep_generic_m2": "Подготовка основания — общая",
+      "paint_generic_m2": "Покраска — общая",
+      "reveal_generic_m2": "Откосы — общие (м²)",
+      "reveal_generic_lm": "Откосы — общие (пог. м)"
     }
   }
 }

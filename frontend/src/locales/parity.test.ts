@@ -128,6 +128,47 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
     }
   });
 
+  it('has identical pricebook key structure in PL and RU (Stage 9D)', () => {
+    const plPricebook = keySet(pl.pricebook);
+    const ruPricebook = keySet(ru.pricebook);
+    expect(plPricebook).toEqual(ruPricebook);
+
+    // Every backend machine enum member that the UI must be able to label.
+    for (const category of [
+      'PREPARATION',
+      'SKIM_COAT',
+      'PLASTER',
+      'DRYWALL',
+      'PAINTING',
+      'GLASS_FIBER',
+      'MICROCEMENT',
+      'DECORATIVE',
+      'REVEAL',
+      'MATERIAL',
+      'OTHER',
+    ]) {
+      expect(plPricebook.has(`categories.${category}`)).toBe(true);
+    }
+    for (const unit of ['M2', 'LM', 'PCS', 'HOUR', 'DAY', 'FLAT']) {
+      expect(plPricebook.has(`units.${unit}`)).toBe(true);
+    }
+    for (const scope of ['LABOR', 'MATERIAL', 'LABOR_AND_MATERIAL']) {
+      expect(plPricebook.has(`scopes.${scope}`)).toBe(true);
+    }
+    for (const quality of ['S1', 'S2', 'S3', 'S4', 'Q1', 'Q2', 'Q3', 'Q4']) {
+      expect(plPricebook.has(`quality.${quality}`)).toBe(true);
+    }
+    // The four technical seed name_keys emitted by the 9B baseline seed set.
+    for (const seedKey of [
+      'prep_generic_m2',
+      'paint_generic_m2',
+      'reveal_generic_m2',
+      'reveal_generic_lm',
+    ]) {
+      expect(plPricebook.has(`seed.${seedKey}`)).toBe(true);
+    }
+  });
+
   it('contains every backend checklist dotted key used by templates', () => {
     const plChecklist = keySet(pl.checklist);
     const backendKeys = [

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 import * as api from './api/auth';
 import * as openingsApi from './api/openings';
+import * as priceItemsApi from './api/priceItems';
 import * as projectsApi from './api/projects';
 import * as roomsApi from './api/rooms';
 import * as surfacesApi from './api/surfaces';
@@ -52,6 +53,13 @@ vi.mock('./api/openings', () => ({
   updateOpening: vi.fn(),
   archiveOpening: vi.fn(),
   restoreOpening: vi.fn(),
+}));
+vi.mock('./api/priceItems', () => ({
+  fetchPriceItems: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  createPriceItem: vi.fn(),
+  updatePriceItem: vi.fn(),
+  archivePriceItem: vi.fn(),
+  restorePriceItem: vi.fn(),
 }));
 
 describe('App authentication component', () => {
@@ -378,5 +386,36 @@ describe('App authentication component', () => {
     fireEvent.click(screen.getByRole('button', { name: 'show-projects' }));
     await screen.findByLabelText(`open-project-${project.id}`);
     expect(screen.queryByLabelText('room-detail')).not.toBeInTheDocument();
+  });
+
+  it('opens the price book section from the main navigation', async () => {
+    vi.mocked(api.loginWithTelegram).mockResolvedValueOnce({
+      access_token: 'mock-jwt-token',
+      token_type: 'bearer',
+      is_dev_auth: true,
+      user: {
+        id: '11111111-1111-1111-1111-111111111111',
+        telegram_user_id: 999999999,
+        username: 'dev_contractor',
+        first_name: 'Jan',
+        last_name: 'Kowalski',
+        language_code: 'pl',
+        created_at: '2026-09-08T12:00:00Z',
+        updated_at: '2026-09-08T12:00:00Z',
+      },
+    });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Jan Kowalski')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'show-pricebook' }));
+    expect(await screen.findByRole('region', { name: 'price-book-section' })).toBeInTheDocument();
+
+    // The section loads via the mocked price items API and stays local.
+    await waitFor(() => {
+      expect(priceItemsApi.fetchPriceItems).toHaveBeenCalled();
+    });
+    expect(screen.queryByLabelText('clients-section')).not.toBeInTheDocument();
   });
 });

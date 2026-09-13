@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { I18nProvider, useI18n } from './hooks/useI18n';
 import { ClientList } from './components/ClientList';
+import { PriceBook } from './components/PriceBook';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
 
 const AppContent: React.FC = () => {
   const { user, isDevAuth, isLoading, error, retry } = useAuth();
   const { t, locale, setLocale } = useI18n();
-  const [activeSection, setActiveSection] = useState<'clients' | 'projects'>('clients');
+  const [activeSection, setActiveSection] = useState<'clients' | 'projects' | 'pricebook'>('clients');
   const [projectsNavToken, setProjectsNavToken] = useState(0);
 
   return (
@@ -189,7 +190,7 @@ const AppContent: React.FC = () => {
               </dl>
             </section>
 
-            <nav aria-label="main-navigation" className="w-full mt-4 grid grid-cols-2 gap-2">
+            <nav aria-label="main-navigation" className="w-full mt-4 grid grid-cols-3 gap-2">
               <button
                 type="button"
                 aria-label="show-clients"
@@ -239,12 +240,37 @@ const AppContent: React.FC = () => {
               >
                 {t.navigation.projects}
               </button>
+              <button
+                type="button"
+                aria-label="show-pricebook"
+                onClick={() => setActiveSection('pricebook')}
+                className={`px-3 py-2 text-sm font-semibold rounded-xl transition ${
+                  activeSection === 'pricebook'
+                    ? ''
+                    : 'border border-slate-200'
+                }`}
+                style={
+                  activeSection === 'pricebook'
+                    ? {
+                        backgroundColor: 'var(--tg-theme-button-color)',
+                        color: 'var(--tg-theme-button-text-color)',
+                      }
+                    : {
+                        backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+                        color: 'var(--tg-theme-hint-color)',
+                      }
+                }
+              >
+                {t.navigation.pricebook}
+              </button>
             </nav>
 
             {activeSection === 'clients' ? (
               <ClientList />
-            ) : (
+            ) : activeSection === 'projects' ? (
               <ProjectWorkspace resetSignal={projectsNavToken} />
+            ) : (
+              <PriceBook />
             )}
           </>
         )}
