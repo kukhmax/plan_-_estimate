@@ -504,6 +504,42 @@ class TestInspectionAnswers:
         )
         assert response.status_code == 409
 
+    async def test_multi_choice_explicit_empty_is_accepted_and_persisted(
+        self, async_client: AsyncClient
+    ) -> None:
+        """An answered MULTI_CHOICE question with zero selected options
+        ('none selected') is a legitimate answer and persists as option_keys=[]."""
+        token, project, room, inspection = await _scaffold_inspection(async_client)
+        template = await full_template(async_client, token, inspection["template_id"])
+        defects = question_by_key(template, "present_defects")
+        response = await async_client.put(
+            action_url(project["id"], room["id"], inspection["id"], "answers"),
+            json={"answers": [{"question_id": defects["id"], "option_keys": []}]},
+            headers=auth_header(token),
+        )
+        assert response.status_code == 200, response.text
+        persisted = next(
+            answer
+            for answer in response.json()["items"]
+            if answer["question_id"] == defects["id"]
+        )
+        assert persisted["option_keys"] == []
+
+    async def test_multi_choice_null_option_keys_is_rejected(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Sending option_keys=null still means 'not answered' and is rejected:
+        unanswered questions carry no answer row at all, never a null payload."""
+        token, project, room, inspection = await _scaffold_inspection(async_client)
+        template = await full_template(async_client, token, inspection["template_id"])
+        defects = question_by_key(template, "present_defects")
+        response = await async_client.put(
+            action_url(project["id"], room["id"], inspection["id"], "answers"),
+            json={"answers": [{"question_id": defects["id"], "option_keys": None}]},
+            headers=auth_header(token),
+        )
+        assert response.status_code == 422
+
 
 class TestInspectionLifecycle:
     async def test_list_inspections_for_room(self, async_client: AsyncClient) -> None:
@@ -563,6 +599,64 @@ class TestInspectionLifecycle:
             headers=auth_header(token),
         )
         assert response.status_code == 200
+
+    async def test_reopen_deselect_all_multi_choice_and_recomplete(
+        self, async_client: AsyncClient
+    ) -> None:
+        """Owner regression: complete -> reopen -> deselect every MULTI_CHOICE
+        option -> complete again must never 422 and must reconcile findings."""
+        token, project, room, inspection = await _scaffold_inspection(async_client)
+        template = await full_template(async_client, token, inspection["template_id"])
+        await _put_full_answers(async_client, token, project, room, inspection, template)
+        response = await _complete(async_client, token, project, room, inspection)
+        assert response.status_code == 200
+
+        response = await async_client.post(
+            action_url(project["id"], room["id"], inspection["id"], "reopen"),
+            headers=auth_header(token),
+        )
+        assert response.status_code == 200
+
+        # Rebuild the answer set from the backend and deselect all defects.
+        response = await async_client.get(
+            action_url(project["id"], room["id"], inspection["id"], "answers"),
+            headers=auth_header(token),
+        )
+        assert response.status_code == 200
+        defects = question_by_key(template, "present_defects")
+        payload = []
+        for answer in response.json()["items"]:
+            entry = {"question_id": answer["question_id"]}
+            for field in (
+                "value_bool",
+                "value_number",
+                "value_text",
+                "option_key",
+                "option_keys",
+            ):
+                entry[field] = answer[field]
+            if answer["question_id"] == defects["id"]:
+                entry["option_keys"] = []
+            payload.append(entry)
+
+        response = await async_client.put(
+            action_url(project["id"], room["id"], inspection["id"], "answers"),
+            json={"answers": payload},
+            headers=auth_header(token),
+        )
+        assert response.status_code == 200, response.text
+
+        response = await _complete(async_client, token, project, room, inspection)
+        assert response.status_code == 200
+
+        # The zero-selection materializes no defect findings; unrelated findings
+        # (CRACK, UNEVENNESS) remain active.
+        findings = await _findings(async_client, token, project, room, inspection)
+        keys = {f["finding_key"] for f in findings}
+        assert "DELAMINATION" not in keys
+        assert "BLOW_HOLES" not in keys
+        assert "CRACK" in keys
+        assert "UNEVENNESS" in keys
 
     async def test_complete_reconciles_findings_and_keeps_stable_ids(
         self, async_client: AsyncClient

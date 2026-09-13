@@ -5,6 +5,7 @@ from app.api.v1.endpoints.area_segments import router as area_segments_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.checklists import router as checklists_router
 from app.api.v1.endpoints.clients import router as clients_router
+from app.api.v1.endpoints.communications import router as communications_router
 from app.api.v1.endpoints.inspections import router as inspections_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.openings import router as openings_router
@@ -40,3 +41,4 @@ app.include_router(area_segments_router, prefix="/api", tags=["area-segments"])
 app.include_router(checklists_router, prefix="/api", tags=["checklists"])
 app.include_router(inspections_router, prefix="/api", tags=["inspections"])
 app.include_router(risks_router, prefix="/api", tags=["risks"])
+app.include_router(communications_router, prefix="/api", tags=["communications"])

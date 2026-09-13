@@ -5,6 +5,7 @@ import {
   answeredQuestionCount,
   qualityLevelsForSubstrate,
 } from '../utils/inspectionFindings';
+import { ApiError } from '../api/http';
 import { fetchChecklistTemplate, fetchChecklistTemplates } from '../api/checklists';
 import {
   completeInspection,
@@ -31,6 +32,7 @@ import {
 } from '../types/inspection';
 import { formatMetric } from '../utils/format';
 import { RiskPanel } from './RiskPanel';
+import { CommunicationPanel } from './CommunicationPanel';
 
 export interface InspectionFlowProps {
   projectId: string;
@@ -75,8 +77,38 @@ function targetLabel(
   return t.inspections.inspect_room;
 }
 
-function normalizeNumber(raw: string): string {
-  return raw.trim().replace(',', '.');
+/** Normalize a raw NUMBER answer string for the backend Decimal contract:
+ * trim whitespace and accept a comma as the decimal separator (PL/RU input
+ * habit). Returns null when the field was cleared (an unanswered question).
+ * This NEVER truncates or rounds — an over-precision value is the user's
+ * responsibility to correct, never silently changed by the app. */
+function normalizeNumberInput(raw: string): string | null {
+  const cleaned = raw.trim().replace(',', '.');
+  return cleaned === '' ? null : cleaned;
+}
+
+/** A normalized NUMBER value is submittable when it parses to a finite number
+ * AND has at most 3 decimal places (backend decimal_places=3 / Numeric(10,3)).
+ * Values with 4+ fractional digits are INVALID: silently capping them would
+ * corrupt the user's measurement, so they block save/complete instead. */
+function isValidNumberInput(cleaned: string): boolean {
+  if (!Number.isFinite(Number(cleaned))) return false;
+  const dot = cleaned.indexOf('.');
+  return dot === -1 || cleaned.length - dot - 1 <= 3;
+}
+
+/** An answer row whose only fields are null is an unanswered question. The
+ * backend contract represents "unanswered" as an ABSENT row (a NUMBER row with
+ * value_number null 422s), so such rows must not be sent. An explicit
+ * option_keys: [] remains a legitimate "none selected" answer and is kept. */
+function isAnswered(answer: InspectionAnswerPayload): boolean {
+  return (
+    answer.value_bool != null ||
+    answer.value_number != null ||
+    (answer.value_text != null && answer.value_text !== '') ||
+    answer.option_key != null ||
+    answer.option_keys != null
+  );
 }
 
 // Single canonical API->form mapper: every answer list (normal Draft load and
@@ -121,6 +153,7 @@ export function InspectionFlow({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [numberErrors, setNumberErrors] = useState<Record<string, string>>({});
 
   const isCompleted = inspection?.status === 'COMPLETED';
 
@@ -203,7 +236,95 @@ export function InspectionFlow({
       const current = prev[questionId] ?? { question_id: questionId };
       return { ...prev, [questionId]: { ...current, ...patch, question_id: questionId } };
     });
+    // Editing a question clears its precision error; the corrected value is
+    // re-validated on blur and again at submission.
+    setNumberErrors((prev) => {
+      if (!(questionId in prev)) return prev;
+      const next = { ...prev };
+      delete next[questionId];
+      return next;
+    });
     setNotice(null);
+  }
+
+  /** Normalize a NUMBER answer when its field loses focus: comma → dot, then
+   * flag it invalid (localized inline error) if it exceeds the 3-decimal-place
+   * contract. The typed value is always preserved — never rewritten to fit. */
+  function handleBlurNumber(questionId: string, raw: string): void {
+    const normalized = normalizeNumberInput(raw);
+    const message =
+      normalized !== null && !isValidNumberInput(normalized)
+        ? t.inspections.error_number_precision
+        : null;
+    setAnswers((prev) => {
+      const current = prev[questionId] ?? { question_id: questionId };
+      return {
+        ...prev,
+        [questionId]: { ...current, value_number: normalized, question_id: questionId },
+      };
+    });
+    setNumberErrors((prev) => {
+      if (message === null) {
+        if (!(questionId in prev)) return prev;
+        const next = { ...prev };
+        delete next[questionId];
+        return next;
+      }
+      return { ...prev, [questionId]: message };
+    });
+    if (message === null) {
+      // Resolving the field clears the precision banner immediately, so the
+      // user gets positive feedback while fixing — not only on the next save.
+      setError((prev) =>
+        prev === t.inspections.error_number_precision ? null : prev,
+      );
+    }
+  }
+
+  /** Build the outgoing answers payload. Every NUMBER answer is normalized
+   * (comma→dot) and precision-checked against the backend Decimal(10,3)
+   * contract; over-precision values are reported per-field and BLOCK
+   * submission instead of being truncated. Cleared NUMBER fields stay
+   * unanswered (absent rows), per the 8C.1 contract. */
+  function prepareAnswersForSubmit(): {
+    payload: InspectionAnswerPayload[];
+    errors: Record<string, string>;
+  } {
+    const payload: InspectionAnswerPayload[] = [];
+    const errors: Record<string, string> = {};
+    for (const { question } of questions) {
+      const answer = answers[question.id];
+      if (!answer) continue;
+      if (question.answer_type === 'NUMBER') {
+        const normalized = normalizeNumberInput(String(answer.value_number ?? ''));
+        if (normalized === null) continue; // cleared → unanswered → absent row
+        if (!isValidNumberInput(normalized)) {
+          errors[question.id] = t.inspections.error_number_precision;
+          continue;
+        }
+        payload.push({ ...answer, value_number: normalized });
+      } else if (isAnswered(answer)) {
+        payload.push(answer);
+      }
+    }
+    return { payload, errors };
+  }
+
+  /** Shared save/complete validation gate. Runs SYNCHRONOUSLY — before the
+   * saving spinner toggles — so an over-precision NUMBER answer blocks the
+   * submission with its localized per-field error WITHOUT leaving the save
+   * button stuck disabled. Returns the normalized payload when valid. */
+  function prepareForSubmit():
+    | { ok: false }
+    | { ok: true; payload: InspectionAnswerPayload[] } {
+    const { payload, errors } = prepareAnswersForSubmit();
+    if (Object.keys(errors).length > 0) {
+      setNumberErrors(errors);
+      setError(t.inspections.error_number_precision);
+      return { ok: false };
+    }
+    setNumberErrors({});
+    return { ok: true, payload };
   }
 
   async function beginInspection(): Promise<void> {
@@ -243,22 +364,28 @@ export function InspectionFlow({
 
   async function saveDraft(): Promise<void> {
     if (!inspection) return;
-    setSaving(true);
     setError(null);
+    const prepared = prepareForSubmit();
+    if (!prepared.ok) return;
+    setAnswers((prev) => {
+      const merged = { ...prev };
+      for (const answer of prepared.payload) merged[answer.question_id] = answer;
+      return merged;
+    });
+    setSaving(true);
     try {
-      await putInspectionAnswers(
-        projectId,
-        roomId,
-        inspection.id,
-        {
-          answers: questions
-            .map(({ question }) => answers[question.id])
-            .filter((answer): answer is InspectionAnswerPayload => Boolean(answer)),
-        },
-      );
+      await putInspectionAnswers(projectId, roomId, inspection.id, {
+        answers: prepared.payload,
+      });
       setNotice(t.inspections.saved);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t.inspections.error_validation);
+      setError(
+        err instanceof ApiError && err.status === 422
+          ? t.inspections.error_validation
+          : err instanceof Error
+            ? err.message
+            : t.inspections.error_validation,
+      );
     } finally {
       setSaving(false);
     }
@@ -266,19 +393,19 @@ export function InspectionFlow({
 
   async function handleComplete(): Promise<void> {
     if (!inspection) return;
-    setSaving(true);
     setError(null);
+    const prepared = prepareForSubmit();
+    if (!prepared.ok) return;
+    setAnswers((prev) => {
+      const merged = { ...prev };
+      for (const answer of prepared.payload) merged[answer.question_id] = answer;
+      return merged;
+    });
+    setSaving(true);
     try {
-      await putInspectionAnswers(
-        projectId,
-        roomId,
-        inspection.id,
-        {
-          answers: questions
-            .map(({ question }) => answers[question.id])
-            .filter((answer): answer is InspectionAnswerPayload => Boolean(answer)),
-        },
-      );
+      await putInspectionAnswers(projectId, roomId, inspection.id, {
+        answers: prepared.payload,
+      });
       const completed = await completeInspection(projectId, roomId, inspection.id);
       const findingsResult = await fetchInspectionFindings(
         projectId,
@@ -290,7 +417,13 @@ export function InspectionFlow({
       setFindings(findingsResult.items);
       setStep('review');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t.inspections.error_state);
+      setError(
+        err instanceof ApiError && err.status === 422
+          ? t.inspections.error_validation
+          : err instanceof Error
+            ? err.message
+            : t.inspections.error_validation,
+      );
     } finally {
       setSaving(false);
     }
@@ -481,6 +614,8 @@ export function InspectionFlow({
                 options={options}
                 answer={answers[question.id]}
                 readOnly={false}
+                error={numberErrors[question.id]}
+                onNumberBlur={handleBlurNumber}
                 onChange={(patch) => setAnswer(question.id, patch)}
                 t={t}
               />
@@ -571,6 +706,11 @@ export function InspectionFlow({
                 roomId={roomId}
                 inspectionId={inspection.id}
               />
+              <CommunicationPanel
+                projectId={projectId}
+                roomId={roomId}
+                inspectionId={inspection.id}
+              />
               <button
                 type="button"
                 aria-label={t.inspections.reopen}
@@ -594,6 +734,8 @@ function QuestionField({
   answer,
   readOnly,
   onChange,
+  onNumberBlur,
+  error,
   t,
 }: {
   question: ChecklistQuestion;
@@ -601,6 +743,8 @@ function QuestionField({
   answer: InspectionAnswerPayload | undefined;
   readOnly: boolean;
   onChange: (patch: Partial<InspectionAnswerPayload>) => void;
+  onNumberBlur?: (questionId: string, raw: string) => void;
+  error?: string;
   t: ReturnType<typeof useI18n>['t'];
 }) {
   const label = resolveKey(t, question.text_key);
@@ -694,12 +838,14 @@ function QuestionField({
                   }`}
                   onClick={() => {
                     const current = answer?.option_keys ?? [];
-                    // MULTI_CHOICE must keep >= 1 option: the backend rejects an
-                    // empty option_keys, so the last selected chip stays put.
+                    // Tapping a chip inverts it: selecting adds, deselecting
+                    // removes. Deselecting the last chip yields an explicit
+                    // option_keys: [] ("none selected") which the backend
+                    // persists as a legitimate zero-choice answer. It is never
+                    // degraded to null, so the question stays answerable and
+                    // all chips remain hydrated on reopen.
                     const next = selected
-                      ? (current.length > 1
-                          ? current.filter((key) => key !== option.key)
-                          : current)
+                      ? current.filter((key) => key !== option.key)
                       : [...current, option.key];
                     onChange({ option_keys: next });
                   }}
@@ -720,20 +866,27 @@ function QuestionField({
               : '—'}
           </p>
         ) : (
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              inputMode="decimal"
-              aria-label={label}
-              className="min-h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
-              placeholder="0,0"
-              value={answer?.value_number != null ? String(answer.value_number) : ''}
-              onChange={(event) =>
-                onChange({ value_number: event.target.value })
-              }
-              onBlur={(event) => onChange({ value_number: normalizeNumber(event.target.value) })}
-            />
-            {unit ? <span className="shrink-0 text-sm text-neutral-600">{unit}</span> : null}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                inputMode="decimal"
+                aria-label={label}
+                className={`min-h-11 w-full rounded-lg border px-3 text-sm ${
+                  error ? 'border-red-500' : 'border-neutral-300'
+                }`}
+                placeholder="0,0"
+                value={answer?.value_number != null ? String(answer.value_number) : ''}
+                onChange={(event) => onChange({ value_number: event.target.value })}
+                onBlur={(event) => onNumberBlur?.(question.id, event.target.value)}
+              />
+              {unit ? <span className="shrink-0 text-sm text-neutral-600">{unit}</span> : null}
+            </div>
+            {error ? (
+              <p className="text-xs text-red-600" role="alert">
+                {error}
+              </p>
+            ) : null}
           </div>
         )
       ) : null}

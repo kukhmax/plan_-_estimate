@@ -13,6 +13,9 @@ INSPECTIONS_PATH = "/api/projects/{project_id}/rooms/{room_id}/inspections"
 INSPECTION_PATH = (
     "/api/projects/{project_id}/rooms/{room_id}/inspections/{inspection_id}"
 )
+COMMUNICATIONS_PATH = f"{INSPECTION_PATH}/communications"
+COMMUNICATION_PATH = f"{COMMUNICATIONS_PATH}/{{communication_id}}"
+COMMUNICATIONS_EVALUATE_PATH = f"{COMMUNICATIONS_PATH}/evaluate"
 TEMPLATES_PATH = "/api/checklist-templates"
 TEMPLATE_PATH = "/api/checklist-templates/{template_id}"
 
@@ -58,12 +61,16 @@ def test_inspection_route_family_registered_under_api_prefix() -> None:
         f"{INSPECTION_PATH}/findings",
         f"{INSPECTION_PATH}/reopen",
         f"{INSPECTION_PATH}/restore",
+        # Stage 8 communication engine subfamily, nested under the inspection.
+        COMMUNICATIONS_PATH,
+        COMMUNICATION_PATH,
+        COMMUNICATIONS_EVALUATE_PATH,
     }
     assert {p for p in _paths() if "/inspections" in p} == expected
 
 
 def test_inspection_route_family_has_no_duplicate_endpoints() -> None:
-    assert len([p for p in _paths() if "/inspections" in p]) == 8
+    assert len([p for p in _paths() if "/inspections" in p]) == 11
 
 
 def test_inspection_methods_match_frontend_contract() -> None:

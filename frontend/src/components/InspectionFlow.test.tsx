@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as checklistsApi from '../api/checklists';
+import * as communicationsApi from '../api/communications';
 import * as inspectionsApi from '../api/inspections';
+import { ApiError } from '../api/http';
 import * as risksApi from '../api/risks';
 import { I18nProvider } from '../hooks/useI18n';
 import { ChecklistTemplate } from '../types/checklist';
@@ -29,6 +31,11 @@ vi.mock('../api/risks', () => ({
   evaluateRisks: vi.fn(),
   fetchRisks: vi.fn(),
   fetchRiskDetail: vi.fn(),
+}));
+vi.mock('../api/communications', () => ({
+  fetchCommunications: vi.fn(),
+  evaluateCommunications: vi.fn(),
+  fetchCommunicationDetail: vi.fn(),
 }));
 
 const template: ChecklistTemplate = {
@@ -200,6 +207,17 @@ describe('InspectionFlow substrate step', () => {
     vi.mocked(risksApi.fetchRisks).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(risksApi.evaluateRisks).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(risksApi.fetchRiskDetail).mockRejectedValue(new Error('not found'));
+    vi.mocked(communicationsApi.fetchCommunications).mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+    vi.mocked(communicationsApi.evaluateCommunications).mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+    vi.mocked(communicationsApi.fetchCommunicationDetail).mockRejectedValue(
+      new Error('not found'),
+    );
   });
 
   it('shows the risk evaluation action only for COMPLETED inspections (ENTRY)', async () => {
@@ -212,6 +230,8 @@ describe('InspectionFlow substrate step', () => {
     vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue(completed);
     renderFlow({ inspectionId: 'ins-1' });
     expect(await screen.findByLabelText('Oceń ryzyka')).toBeInTheDocument();
+    // The communication section joins the completed vertical flow after risks.
+    expect(screen.getByText('Co powiedzieć klientowi')).toBeInTheDocument();
     expect(inspectionsApi.fetchInspection).toHaveBeenCalled();
   });
 
@@ -224,6 +244,8 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Przejrzyj i zakończ'));
     await screen.findByText('Podsumowanie odpowiedzi');
     expect(screen.queryByLabelText('Oceń ryzyka')).not.toBeInTheDocument();
+    // The communication section must never render while the inspection is a DRAFT.
+    expect(screen.queryByText('Co powiedzieć klientowi')).not.toBeInTheDocument();
   });
 
   it('renders all six substrate options (ENTRY/SUBSTRATE)', async () => {
@@ -400,6 +422,188 @@ describe('InspectionFlow substrate step', () => {
         }),
       ),
     );
+  });
+
+  it.each(['4', '4.9', '4.76', '3.125'])(
+    'sends the valid NUMBER value %s to the backend untouched (8C.2)',
+    async (raw) => {
+      renderFlow();
+      fireEvent.click(await screen.findByLabelText('Beton'));
+      fireEvent.click(screen.getByLabelText('Dalej'));
+      await screen.findByText('Klasa jakości');
+      fireEvent.click(screen.getByLabelText('Nowe badanie'));
+      await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+
+      const number = screen.getByLabelText('Nierówności podłoża');
+      fireEvent.change(number, { target: { value: raw } });
+      fireEvent.blur(number);
+      // Contract-conforming precision never raises the localized error.
+      expect(screen.queryByText('Maksymalnie 3 miejsca po przecinku.')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByLabelText('Zapisz szkic'));
+      await waitFor(() => expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalled());
+      const [, , , payload] = vi.mocked(inspectionsApi.putInspectionAnswers).mock.calls[0];
+      const num = (payload.answers as { question_id: string; value_number: string | null }[])
+        .find((a) => a.question_id === 'q-number');
+      // Value travels unchanged — nothing rounded, nothing truncated.
+      expect(num?.value_number).toBe(raw);
+    },
+  );
+
+  it('normalizes a comma decimal separator to a dot on blur and sends the dot form (8C.2)', async () => {
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+
+    const number = screen.getByLabelText('Nierówności podłoża');
+    fireEvent.change(number, { target: { value: '4,9' } });
+    // While editing, the typed value is preserved verbatim.
+    expect(screen.getByLabelText('Nierówności podłoża')).toHaveValue('4,9');
+    fireEvent.blur(number);
+    // Comma → dot is the only normalization a valid value ever undergoes.
+    expect(screen.getByLabelText('Nierówności podłoża')).toHaveValue('4.9');
+    expect(screen.queryByText('Maksymalnie 3 miejsca po przecinku.')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Zapisz szkic'));
+    await waitFor(() => expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalled());
+    const [, , , payload] = vi.mocked(inspectionsApi.putInspectionAnswers).mock.calls[0];
+    const num = (payload.answers as { question_id: string; value_number: string | null }[])
+      .find((a) => a.question_id === 'q-number');
+    expect(num?.value_number).toBe('4.9');
+  });
+
+  it('blocks save of an over-precision NUMBER value: preserved as typed, localized error, no PUT (8C.2)', async () => {
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+
+    const number = screen.getByLabelText('Nierówności podłoża');
+    fireEvent.change(number, { target: { value: '4.7612' } });
+    fireEvent.blur(number);
+
+    // Entered value is preserved EXACTLY — 4.7612, never rewritten to 4.761.
+    expect(screen.getByLabelText('Nierówności podłoża')).toHaveValue('4.7612');
+    expect(screen.getByText('Maksymalnie 3 miejsca po przecinku.')).toBeInTheDocument();
+    expect(screen.queryByText('4.761')).not.toBeInTheDocument();
+
+    // Save Draft is blocked by local precision validation: no API call at all.
+    fireEvent.click(screen.getByLabelText('Zapisz szkic'));
+    expect(inspectionsApi.putInspectionAnswers).not.toHaveBeenCalled();
+    // Error is shown inline under the field AND in the alert banner.
+    expect(screen.getAllByText('Maksymalnie 3 miejsca po przecinku.')).toHaveLength(2);
+    expect(screen.getByLabelText('Nierówności podłoża')).toHaveValue('4.7612');
+
+    // Correcting the value to the contract precision clears the error and
+    // unblocks submission with the user's own (now conforming) number.
+    fireEvent.change(number, { target: { value: '4.761' } });
+    fireEvent.blur(number);
+    expect(screen.queryByText('Maksymalnie 3 miejsca po przecinku.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Zapisz szkic'));
+    await waitFor(() => expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalled());
+    const [, , , payload] = vi.mocked(inspectionsApi.putInspectionAnswers).mock.calls[0];
+    const num = (payload.answers as { question_id: string; value_number: string | null }[])
+      .find((a) => a.question_id === 'q-number');
+    expect(num?.value_number).toBe('4.761');
+  });
+
+  it('blocks completion with an over-precision NUMBER value and keeps the review value untransformed (8C.2)', async () => {
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+
+    fireEvent.change(screen.getByLabelText('Nierówności podłoża'), {
+      target: { value: '4.7612' },
+    });
+    fireEvent.click(screen.getByLabelText('Przejrzyj i zakończ'));
+    await screen.findByText('Podsumowanie odpowiedzi');
+
+    fireEvent.click(screen.getByLabelText('Zakończ badanie'));
+    // No payload was PUT and no completion ran — over-precision blocked it.
+    expect(inspectionsApi.putInspectionAnswers).not.toHaveBeenCalled();
+    expect(inspectionsApi.completeInspection).not.toHaveBeenCalled();
+    // Localized precision error surfaced; the review value is the typed 4.7612 —
+    // it was never truncated to 4.761 (string equality proves the untruncated form).
+    expect(await screen.findByText('Maksymalnie 3 miejsca po przecinku.')).toBeInTheDocument();
+    expect(screen.getByText(/4\.7612/)).toBeInTheDocument();
+    expect(screen.queryByText('4.761')).not.toBeInTheDocument();
+  });
+
+  it('sends a natural 3-decimal NUMBER value untouched (8C.1)', async () => {
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+
+    fireEvent.change(screen.getByLabelText('Nierówności podłoża'), {
+      target: { value: '3.125' },
+    });
+    fireEvent.blur(screen.getByLabelText('Nierówności podłoża'));
+
+    fireEvent.click(screen.getByLabelText('Zapisz szkic'));
+    await waitFor(() => expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalled());
+    const [, , , payload] = vi.mocked(inspectionsApi.putInspectionAnswers).mock.calls[0];
+    const num = (payload.answers as { question_id: string; value_number: string | null }[])
+      .find((a) => a.question_id === 'q-number');
+    expect(num?.value_number).toBe('3.125');
+  });
+
+  it('drops a cleared NUMBER answer instead of sending value_number: null (8C.1)', async () => {
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+
+    const number = screen.getByLabelText('Nierówności podłoża');
+    fireEvent.change(number, { target: { value: '5' } });
+    fireEvent.change(number, { target: { value: '' } });
+    fireEvent.blur(number);
+
+    fireEvent.click(screen.getByLabelText('Przejrzyj i zakończ'));
+    await screen.findByText('Podsumowanie odpowiedzi');
+    fireEvent.click(screen.getByLabelText('Zakończ badanie'));
+    await waitFor(() => expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalled());
+    const [, , , payload] = vi.mocked(inspectionsApi.putInspectionAnswers).mock.calls[0];
+    // An empty number is an unanswered question: no value_number: null row may
+    // be sent (the backend contract rejects it with a 422).
+    expect(
+      (payload.answers as { question_id: string }[]).some(
+        (a) => a.question_id === 'q-number',
+      ),
+    ).toBe(false);
+  });
+
+  it('surfaces a localized validation message on a 422 from the answers API (8C.1)', async () => {
+    vi.mocked(inspectionsApi.putInspectionAnswers).mockRejectedValue(
+      new ApiError('boom', 422),
+    );
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+
+    fireEvent.click(screen.getByLabelText('Tak'));
+    fireEvent.click(screen.getByLabelText('Zapisz szkic'));
+
+    // A 422 surfaces the localized validation string, never the raw English
+    // message or the generic "Request failed (422)".
+    expect(await screen.findByText('Niepoprawne dane. Sprawdź odpowiedzi.')).toBeInTheDocument();
+    expect(screen.queryByText('boom')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Request failed/)).not.toBeInTheDocument();
   });
 
   it('resumes an existing DRAFT inspection prefilled from the backend (DRAFT)', async () => {
@@ -727,7 +931,7 @@ describe('InspectionFlow substrate step', () => {
     expect(multi?.option_keys).toEqual(['BLOW_HOLES']);
   });
 
-  it('reopen: deselecting the last defect never sends an empty option_keys (Stage 7D.1)', async () => {
+  it('reopen: deselecting the last defect sends an explicit empty option_keys (8C.1)', async () => {
     const completedDetail: InspectionDetail = {
       ...draftInspection,
       status: 'COMPLETED',
@@ -759,9 +963,9 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(screen.getByLabelText('Wznów'));
     await screen.findByLabelText('Zapisz szkic');
 
-    // Tap the only selected chip: it stays selected (MULTI_CHOICE keeps >= 1).
+    // Tap the only selected chip: it deselects to an explicit "none selected".
     fireEvent.click(screen.getByLabelText('Raki / pęcherze'));
-    expect(screen.getByLabelText('Raki / pęcherze')).toHaveClass('border-blue-600');
+    expect(screen.getByLabelText('Raki / pęcherze')).toHaveClass('border-neutral-300');
 
     fireEvent.click(screen.getByLabelText('Przejrzyj i zakończ'));
     await screen.findByText('Podsumowanie odpowiedzi');
@@ -774,7 +978,105 @@ describe('InspectionFlow substrate step', () => {
       question_id: string;
       option_keys?: string[] | null;
     }[]).find((a) => a.question_id === 'q-multi');
-    expect(multi?.option_keys).toEqual(['BLOW_HOLES']);
+    expect(multi?.option_keys).toEqual([]);
+  });
+
+  it('toogles MULTI_CHOICE chips independently: [] -> [A] -> [] and [A] -> [A,B] -> [B] -> [] (8C.1)', async () => {
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+
+    const delam = screen.getByLabelText('Odpryski');
+    const blow = screen.getByLabelText('Raki / pęcherze');
+
+    // [] -> [DELAMINATION]
+    fireEvent.click(delam);
+    expect(delam).toHaveClass('border-blue-600');
+    // [DELAMINATION] -> []
+    fireEvent.click(delam);
+    expect(delam).toHaveClass('border-neutral-300');
+
+    // [] -> [DELAMINATION, BLOW_HOLES]
+    fireEvent.click(blow);
+    fireEvent.click(delam);
+    expect(delam).toHaveClass('border-blue-600');
+    expect(blow).toHaveClass('border-blue-600');
+    // [A,B] -> [B]: only A is removed
+    fireEvent.click(delam);
+    expect(delam).toHaveClass('border-neutral-300');
+    expect(blow).toHaveClass('border-blue-600');
+    // [B] -> []
+    fireEvent.click(blow);
+    expect(blow).toHaveClass('border-neutral-300');
+
+    fireEvent.click(screen.getByLabelText('Przejrzyj i zakończ'));
+    await screen.findByText('Podsumowanie odpowiedzi');
+    fireEvent.click(screen.getByLabelText('Zakończ badanie'));
+    await waitFor(() =>
+      expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalled(),
+    );
+    const [, , , payload] = vi.mocked(inspectionsApi.putInspectionAnswers).mock.calls[0];
+    const multi = (payload.answers as {
+      question_id: string;
+      option_keys?: string[] | null;
+    }[]).find((a) => a.question_id === 'q-multi');
+    // The user deliberately ended with zero selections: an EXPLICIT empty list
+    // is sent (never null, never a dropped row) and the answer persists.
+    expect(multi?.option_keys).toEqual([]);
+    expect(multi?.option_keys).not.toBeNull();
+  });
+
+  it('reopen hydration: existing MULTI_CHOICE selections stay selected when re-saving (8C.1)', async () => {
+    const completedDetail: InspectionDetail = {
+      ...draftInspection,
+      status: 'COMPLETED',
+      completed_at: '2026-09-09T12:00:00Z',
+      answers: [
+        {
+          id: 'a-multi',
+          question_id: 'q-multi',
+          value_bool: null,
+          value_number: null,
+          value_text: null,
+          option_key: null,
+          option_keys: ['DELAMINATION'],
+          updated_at: '2026-09-09T10:00:00Z',
+        },
+      ],
+    };
+    vi.mocked(inspectionsApi.fetchInspection)
+      .mockResolvedValueOnce(completedDetail)
+      .mockResolvedValueOnce({
+        ...draftInspection,
+        status: 'DRAFT',
+        completed_at: null,
+        answers: completedDetail.answers,
+      });
+    renderFlow({ inspectionId: 'ins-1' });
+
+    await screen.findByLabelText('Wznów');
+    fireEvent.click(screen.getByLabelText('Wznów'));
+    await screen.findByLabelText('Zapisz szkic');
+
+    // Selections hydrate from the backend: only DELAMINATION is selected.
+    expect(screen.getByLabelText('Odpryski')).toHaveClass('border-blue-600');
+    expect(screen.getByLabelText('Raki / pęcherze')).toHaveClass('border-neutral-300');
+
+    fireEvent.click(screen.getByLabelText('Przejrzyj i zakończ'));
+    await screen.findByText('Podsumowanie odpowiedzi');
+    fireEvent.click(screen.getByLabelText('Zakończ badanie'));
+    await waitFor(() =>
+      expect(inspectionsApi.putInspectionAnswers).toHaveBeenCalled(),
+    );
+    const [, , , payload] = vi.mocked(inspectionsApi.putInspectionAnswers).mock.calls[0];
+    const multi = (payload.answers as {
+      question_id: string;
+      option_keys?: string[] | null;
+    }[]).find((a) => a.question_id === 'q-multi');
+    expect(multi?.option_keys).toEqual(['DELAMINATION']);
   });
 
   it('hydrates the exact template after create so the checklist renders immediately without reload (Stage 7D.2)', async () => {

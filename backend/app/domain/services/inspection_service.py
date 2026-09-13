@@ -118,7 +118,11 @@ def _validate_answer_payload(
                 f"Question {question.key} accepts only option_key"
             )
     elif answer_type is AnswerType.MULTI_CHOICE:
-        if not payload.option_keys:
+        # None means the question is simply not answered (no row should be
+        # sent). An EXPLICIT empty list is a legitimate "none selected" answer
+        # (e.g. no defects found) and must be persisted as such; it materializes
+        # no findings because build_finding_specs iterates only selected keys.
+        if payload.option_keys is None:
             raise InspectionAnswerValidationError(
                 f"Question {question.key} requires option_keys"
             )

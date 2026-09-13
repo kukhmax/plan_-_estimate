@@ -31,6 +31,55 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
     const plRisk = keySet(pl.risk);
     const ruRisk = keySet(ru.risk);
     expect(plRisk).toEqual(ruRisk);
+
+    const plComm = keySet(pl.communication);
+    const ruComm = keySet(ru.communication);
+    expect(plComm).toEqual(ruComm);
+  });
+
+  it('contains every backend communication phrase and category key (Stage 8)', () => {
+    const plComm = keySet(pl.communication);
+    // Every category the backend CommunicationCategory enum can emit.
+    for (const category of [
+      'explain_condition',
+      'explain_consequence',
+      'recommend_preparation',
+      'require_client_decision',
+      'scope_clarification',
+      'quality_expectation',
+      'document_agreement',
+      'general',
+    ]) {
+      expect(plComm.has(`category.${category}`)).toBe(true);
+    }
+    // Every finding-only / quality phrase slug materialized by the backend catalog.
+    for (const slug of [
+      'comm_find_unevenness',
+      'comm_find_unevenness_gypsum_plaster',
+      'comm_find_unevenness_gypsum_plaster_s3',
+      'comm_find_board_movement',
+      'comm_find_joint_gap',
+      'comm_quality_gypsum_plaster_s3',
+      'comm_quality_gypsum_board_q2',
+      'comm_quality_concrete_s4',
+      'comm_quality_painted_s2',
+      'comm_quality_cement_lime_plaster_s1',
+      'comm_quality_cement_lime_plaster_s2',
+      'comm_quality_cement_lime_plaster_s3',
+      'comm_quality_cement_lime_plaster_s4',
+      'comm_quality_concrete_s1',
+      'comm_quality_concrete_s2',
+      'comm_quality_concrete_s3',
+      'comm_quality_gypsum_board_q1',
+      'comm_quality_gypsum_board_q3',
+      'comm_quality_gypsum_board_q4',
+      'comm_quality_gypsum_plaster_s1',
+      'comm_quality_gypsum_plaster_s2',
+      'comm_quality_gypsum_plaster_s4',
+    ]) {
+      expect(plComm.has(`${slug}.phrase`)).toBe(true);
+      expect(plComm.has(`${slug}.why`)).toBe(true);
+    }
   });
 
   it('contains every backend risk dotted key and source-finding label', () => {

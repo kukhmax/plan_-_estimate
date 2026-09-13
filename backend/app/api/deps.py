@@ -9,6 +9,7 @@ from app.domain.services.area_segment_service import AreaSegmentService
 from app.domain.services.auth_service import TelegramAuthService
 from app.domain.services.checklist_service import ChecklistService
 from app.domain.services.client_service import ClientService
+from app.domain.services.communication_service import CommunicationService
 from app.domain.services.inspection_service import InspectionService
 from app.domain.services.opening_service import OpeningService
 from app.domain.services.project_service import ProjectService
@@ -112,3 +113,9 @@ async def get_risk_service(
     db: AsyncSession = Depends(get_db),
 ) -> RiskService:
     return RiskService(db)
+
+
+async def get_communication_service(
+    db: AsyncSession = Depends(get_db),
+) -> CommunicationService:
+    return CommunicationService(db)
