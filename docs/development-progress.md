@@ -51,7 +51,7 @@
 | **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
 | Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | **Stage 8** | **"Co powiedzieć klientowi" (Client Communication Assistant)** | **Completed 2026-09-13** | Deterministic, rule-driven client communication recommendations (PL/RU) from completed-inspection facts — versioned immutable phrase catalog, exact-key selection over materialized Stage 6/7 facts, complete quality matrix, mobile communication cards with evaluate / "Why?" traceability / copy / active-resolved-all history |
-| Stage 9 | Editable Price Book | Pending | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges |
+| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9A (architecture & domain contract)** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
 | Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
 | Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
@@ -1493,6 +1493,82 @@ Audit-only closure (no new functionality, no refactors, no migrations). All gate
 9. **Performance**: risk list grouped, communication list flat (bounded queries), detail fetched lazily, no per-card source fetch on initial render, evaluate bounded — no N+1.
 10. **Roadmap consistency**: canonical Stage 0–20 order intact (no numbering drift); preserved notes confirmed — 5F reveals/ościeża, 5G "Opcje" progressive disclosure, per-surface inspection entry (NOTE A), Stage 14 photos + defect annotation (NOTE C), full chain `Photo → PhotoAnnotation → Inspection Finding → Risk → Communication → Recommended Work → Estimate → PDF / protocol` (already includes Communication — no normalization needed), quality-level technical reference (NOTE D).
 **Verification**: focused communication + integration **60 passed**; full backend pytest **340 passed**; full frontend Vitest **213 passed (19 files)**; `tsc --noEmit` PASS; `vite build` PASS; `git diff --check` clean; Alembic single head + running `current` = `0013_create_communication_engine (head)` (no migration created in 8E; upgrade/downgrade cycle proven in 8B remains documented); Docker runtime healthy — postgres/backend healthy, `/api/health` `{"status":"ok"}`, frontend :5173 HTTP 200. Documentation finalized: **Stage 8 → Completed 2026-09-13** (owner verified), all sub-stages 8A–8E Completed, roadmap notes A–D preserved, Stage 9 remains **Pending**; README updated to the repo convention (Stages 0–8 Completed, Stages 9–20 pending). Committed as **`docs(stage-8): complete client communication stage`** (docs + README only) and pushed to `stage-8`. NOT merged into `main` — the owner-authorized merge command is reserved for owner approval.
+
+### Stage 9: Editable Price Book / Cennik
+- **Status**: **In Progress — execution sub-stage 9A (architecture & domain contract) Completed 2026-09-13; implementation not started (9B–9F pending owner approval)**. Stage 9 answers the product question **"What is our current unit price?"** with an owner-editable contractor price catalog (Cennik). **Stage 9 is not an estimate**: canonical Stage 10 (Kosztorys) consumes Price Book prices and is out of Stage 9 scope; no Project/room/inspection/estimate entities are created in Stage 9. `main` untouched; Stages 10–20 remain Pending.
+- **Date**: 2026-09-13 (9A)
+
+#### 9A — architecture & domain contract (decision record)
+
+**1. PriceItem responsibility.** A `PriceItem` is one reference-price row: stable semantic `code`, name (`name_key` for seeded / `display_name` for user-created), `category`, `unit`, `price` (Decimal PLN), `currency` (PLN), optional `quality_level`, `price_scope` (LABOR default), `is_archived`, `created_at` / `updated_at`. It answers "what do we charge per unit for this line of work?" It computes nothing, belongs to no Project, and models no scope-of-work.
+
+**2. Price Book vs Estimate boundary.** Price Book = owner-editable reference data. Stage 10 Estimate computes lines (unit × quantity by surface/substrate/quality tier) and consumes Price Book rows; it must persist a price snapshot at line-creation time (see §9). Stage 9 owns only catalog management; no estimate line items, no recommended-work entities, no contracts.
+
+**3. Units — `PriceUnit` enum M2 / LM / PCS / HOUR / DAY / FLA.**
+- `M2` — metr kwadratowy (m²) — surface work (painting, skimming, preparation).
+- `LM` — metr bieżący (mb) — edge / reveal-work lines, friezes.
+- `PCS` — sztuka (szt.) — discrete items.
+- `HOUR` — roboczogodzina (r-g).
+- `DAY` — dniówka (r-d).
+- `FLA` — fliz (tile piece) for per-piece ceramic-tile pricing where applicable.
+**M³ (M3) is explicitly NOT in the enum** — no finishing-trade line needs volumetric pricing; adding it for theoretical completeness would widen the enum without a real line item. Unit validation is enum-level on the backend; unit↔category pairing is deliberately **not** restricted (a hard matrix would block legitimate combinations).
+
+**4. Categories — `PriceCategory` enum, 11 members, substrate-free.** Normalized canonical set covering concrete / gypsum / cement-lime / G-K / painting / glass-fiber / microcement / venetian / preparation / reveals without encoding any substrate into a category name:
+- `PREPARATION` — przygotowanie podłoża (gruntowanie, czyszczenie, naprawy).
+- `SKIM_COAT` — szpachlowanie / gładź.
+- `PLASTER` — tynki (gipsowe, cementowo-wapienne, maszynowe).
+- `DRYWALL` — sucha zabudowa / płyty G-K.
+- `PAINTING` — malowanie / gruntowanie powłok.
+- `GLASS_FIBER` — welon szklany / tkaniny przeciwspękaniowe.
+- `MICROCEMENT` — mikrocement (ściany, posadzki, strefy mokre).
+- `DECORATIVE` — stiuk wenecki / tynki dekoracyjne.
+- `REVEAL` — ościeża / otwory okienne i drzwiowe.
+- `MATERIAL` — materiał sprzedawany wg ceny zakupu (wyszczególnienie materiałowe).
+- `OTHER` — inna praca.
+A substrate is a property of the work item (expressed through the item name and an optional `quality_level`), never a category.
+
+**5. Money precision — INPUT ≠ STORAGE ≠ DISPLAY; DECIMAL only, never float.**
+- **STORAGE**: `Numeric(12, 2)` — exactly two decimal places, PLN range. Nothing is rounded before storage and nothing is truncated.
+- **API**: price serialized as a string always in the fixed 2-dp wire form (`"45.00"`); Pydantic `Decimal(decimal_places=2)` validates; input with more than 2 decimal places → **422**; a negative value → **422**; `0.00` is valid (a "to jeszcze ustalić" placeholder price). An invalid input is rejected, **never silently rounded/truncated** — the user's typed value is preserved until corrected (mirrors the 8C.2 policy).
+- **INPUT UX**: free-form text (`45`, `45,5`, `45,50`), `,`→`.` normalization only, ≤2 dp enforced pre-submit with a localized inline error.
+- **DISPLAY**: Polish format `45,00 zł` (comma decimal separator, non-breaking space, zł suffix) — the permanent two-decimals display precedent.
+
+**6. Currency strategy — Option B (controlled code, PLN-only).** Backend enum `PriceCurrency {PLN}`; UI exposes and renders PLN only. A single enum type in the single 9B migration; future multi-currency extends the enum (documented intent, not implemented).
+
+**7. Seed / edit strategy — chosen: lazy per-owner materialization.** The seed catalog is defined in code (deterministic bootstrap, the ChecklistTemplate/Risk/communication pattern). On first Price Book access a user's rows materialize as **their own editable copies** (`owner_id` = the accessing owner, one copy per seed row). The user edits their own copy freely; the seed definition is never mutated; re-bootstrap after edits materializes only rows not yet present (idempotent) and never overwrites user data. **Rejected**: multi-tenant shared rows with a per-user override table (second table + a resolution layer with no MVP benefit), and an empty user catalog filled from scratch (the contractor expects a starter list to edit). Seed prices are starter values — editable suggestions, not enforced rates.
+
+**8. Ownership.** Every `PriceItem` carries `owner_id` FK → `users.id` ON DELETE CASCADE (the Project pattern) with index `(owner_id, is_archived)`. Uniform 401 unauthenticated / 404 nonexistent-or-foreign-owner on every route — no existence leaks (established multi-tenant isolation pattern).
+
+**9. Price-history policy — no revision table; Stage 10 snapshot contract recorded.** Stage 9 persists only `created_at` / `updated_at` for catalog changes; **no `price_history` table** is built. **Stage 10 obligation (recorded now)**: every estimate line must persist the consumed price and a full item snapshot at line-creation time, so later Price Book edits never rewrite historical estimate lines. No Stage 10/13 entities exist in Stage 9.
+
+**10. Archiving.** `is_archived` boolean soft-archive (Client/Project/AreaSegment convention), default `false`; the default catalog view filters archived rows out; archived rows remain readable by id and restorable (`PATCH` toggles `is_archived`); future refs remain valid; **archive over hard delete**.
+
+**11. Kraków pricing — strategy (9A) → content (9E).** 9E ships a sourced regional catalog: every row carries a traced source (public price list or the contractor's own current rates) and a date; rows are editable reference suggestions, explicitly non-official (no warranty/legal wording), and never authoritative for an estimate without the owner's confirmation. **No prices are invented in 9A.**
+
+**12. Labor / material scope — `PriceScope` enum, LABOR default.** `LABOR` (robocizna — default; the contractor's primary use case), `MATERIAL` (materials only), `LABOR_AND_MATERIAL` (combined). `price_scope` is a per-item flag; the plain unit price is the primary display value and scope appears as a localized chip when not LABOR. Equipment/difficulty surcharges are canonical Stage 12 and are **not** expressed in Stage 9.
+
+**13. Localization.** Every item carries a stable machine `code` that is **never rendered** (established policy). Seeded names via `name_key` → PL/RU locale dictionaries; user-created rows via `display_name` (user text, no key). Display precedence `display_name` > `name_key`; unresolved → neutral localized fallback — never a raw key, never the code. Category chips and unit labels are localized.
+
+**14. Q/S quality compatibility.** Optional nullable `quality_level` column **reusing** the Stage 6 `qualitylevel` enum (`create_type=False`; the enum remains owned by migration 0011). Semantically optional — a PriceItem may be tier-specific (e.g. Q4-grade skim-coat premium); `PriceCategory` stays quality-neutral. Because one reused enum carries both scales, cross-scale invalid combinations are impossible by construction; no new enum, no new validation layer.
+
+**15. Reveals (ościeża) compatibility.** Explicit `REVEAL` category and starter items follow the 5F ościeża work scale: reveal preparation m², reveal skimming m², reveal painting m² — each priced per m² (`M2`); the outer reveal cosmetic edge / reveal-work line priced per mb (`LM`). Per-unit rows cover both m² and mb reveal lines.
+
+**16. Future Stage 11/13 mapping.** Every item carries a stable semantic `code` — seeded e.g. `CENNIK_MALOWANIE_M2`; user-created items get an auto-generated unique code e.g. `CUSTOM_<short>`. Codes suit Stage 11 resolution (recommended work → PriceItem → estimate line) and Stage 13 work-tracking reuse. No Stage 11/13 entities appear in Stage 9.
+
+**17. Mobile-first UX — design (9A) → implementation (9D).** Navigation entry "Cennik" → catalog list (category filter chips row, search box, Active / Archived tabs — all wrapping) → item row (display name, category chip, compact `12,50 zł / m²`) → edit (price, unit, category, optional quality / scope / archived) → save. Primary "Add item" control is full-width / `min-h-11`; row touch targets `min-h-11` (~44 px); search+filters never squeeze rows; no horizontal scroll at 320 / 390 / 412 px; "Opcje" progressive disclosure hosts Archive / Restore; PL long-label regressions; **no desktop-specific layout** (permanent mobile-first rule).
+
+#### 9A — Execution plan 9A → 9F
+- **9A (this record)** — architecture & domain contract, documentation-only. Gate: `git diff --check` clean; docs + README consistent; commit `docs(stage-9): define editable price book architecture`; push `-u origin stage-9`; `main` untouched; **no 9B without owner approval**.
+- **9B — backend domain**: `backend/app/models/price_item.py` (`PriceItem` + `PriceUnit` / `PriceCategory` / `PriceCurrency` / `PriceScope`; `qualitylevel` reused), Alembic `0014_create_price_book` (four enums + `price_items`, reversible, single head 0014), base starter seed (deterministic per-owner materialization, idempotent), `backend/app/schemas/price.py`, domain service. Gate: enum/model contracts; migration cycle on real PostgreSQL (`upgrade 0013→0014`, `downgrade -1`, re-`upgrade head`); focused tests; full backend suite.
+- **9C — API + tests**: `backend/app/api/v1/endpoints/pricebook.py` — `GET /api/v1/pricebook` (list; category / archived / search filters), `POST` (create), `GET /{id}`, `PATCH /{id}` (fields and `is_archived` toggle); uniform 401/404. Gate: focused + full backend suites; precision contract (2 dp ok, 3 dp → 422, negative → 422, `0.00` ok); idempotent materialization; archive/restore.
+- **9D — mobile-first catalog UI**: `frontend/src/features/pricebook/` (list, filters, search, item edit, add, archive under "Opcje"), `frontend/src/api/pricebook.ts`, `frontend/src/types/price.ts`, `price.*` locale keys PL/RU parity. Gate: Vitest + `tsc --noEmit` + `vite build`; mobile regression 320/390/412 px; locale parity.
+- **9E — Kraków-sourced catalog content**: sourced / dated / editable / non-official regional rows with localized names (strategy per §11) as additional deterministic seed data. Gate: deterministic + idempotent; no invented prices; parity green.
+- **9F — integration & final audit**: stage-wide regressions; scope audit (no estimate/Project coupling); docs → Stage 9 **Completed only on owner acceptance**; README; one logical commit; push; merge readiness reserved for owner approval. **Never** merge into `main` without explicit owner approval.
+
+#### 9A — Contract scope guardrails
+- 9A is documentation-only: **no** backend models, **no** migration (0014 is 9B), **no** API, **no** front-end, **no** seed data.
+- **No change** to Stage 6/7/8 behavior; no rewrite of communication/risk/checklist modules; `main` stays at the 8997d11 merge.
+- Stage 9 status: **In Progress** until owner acceptance after 9F; Stage 10 remains **Pending**.
 
 ## Stage Log Template for Future Stages
 
