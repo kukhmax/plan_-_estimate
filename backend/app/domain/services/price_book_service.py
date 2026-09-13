@@ -10,7 +10,7 @@ import asyncio
 from decimal import Decimal
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.data.price_book_seed import (
@@ -27,6 +27,9 @@ _bootstrap_lock = asyncio.Lock()
 
 # MVP currency contract: a future currency widens this set, not the schema.
 _ALLOWED_CURRENCIES = frozenset({"PLN"})
+
+# Distinguishes "field omitted" from an explicit clear-to-null in a PATCH.
+_UNSET = object()
 
 
 def validate_price(value: Decimal) -> Decimal:
@@ -163,11 +166,17 @@ class PriceBookService:
         category: PriceCategory | None = None,
         unit: PriceUnit | None = None,
         price_scope: PriceScope | None = None,
-        quality_level: QualityLevel | None = None,
+        quality_level: QualityLevel | None = _UNSET,
         currency: str | None = None,
         is_archived: bool | None = None,
     ) -> PriceItem:
-        """Update an owned item; the semantic ``code`` is immutable on this path."""
+        """Update an owned item; the semantic ``code`` is immutable on this path.
+
+        ``display_name`` blank clears a seeded row's override (reverting to its
+        ``name_key`` identity) but is rejected for custom rows, which require a
+        name. ``quality_level`` distinguishes omitted (sentinel) from an explicit
+        clear-to-null.
+        """
         item = (
             await self.db.execute(
                 select(PriceItem).where(
@@ -185,17 +194,42 @@ class PriceBookService:
             validate_currency(currency)
             item.currency = currency
         if display_name is not None:
-            item.display_name = validate_custom_name(display_name)
+            item.display_name = self._resolve_display_name(item, display_name)
         if category is not None:
             item.category = category
         if unit is not None:
             item.unit = unit
         if price_scope is not None:
             item.price_scope = price_scope
-        if quality_level is not None:
+        if quality_level is not _UNSET:
             item.quality_level = quality_level
         if is_archived is not None:
             item.is_archived = is_archived
+        await self.db.commit()
+        return item
+
+    def _resolve_display_name(
+        self, item: PriceItem, display_name: str | None
+    ) -> str | None:
+        name = (display_name or "").strip()
+        if not name:
+            if item.name_key is not None:
+                # Seeded identity: clearing the override reverts to name_key.
+                return None
+            raise PriceBookValidationError("custom price items require a display_name")
+        return name
+
+    async def archive_item(self, owner_id: uuid.UUID, item_id: uuid.UUID) -> PriceItem:
+        """Soft-archive an owned item (idempotent); never a hard delete."""
+        item = await self.get_owned_item(owner_id, item_id)
+        item.is_archived = True
+        await self.db.commit()
+        return item
+
+    async def restore_item(self, owner_id: uuid.UUID, item_id: uuid.UUID) -> PriceItem:
+        """Restore an archived owned item (idempotent)."""
+        item = await self.get_owned_item(owner_id, item_id)
+        item.is_archived = False
         await self.db.commit()
         return item
 
@@ -203,13 +237,52 @@ class PriceBookService:
         self,
         owner_id: uuid.UUID,
         *,
-        include_archived: bool = False,
+        archived: str = "active",
+        category: PriceCategory | None = None,
+        unit: PriceUnit | None = None,
+        price_scope: PriceScope | None = None,
+        quality_level: QualityLevel | None = None,
+        search: str | None = None,
     ) -> list[PriceItem]:
-        """Return the owner's catalog; archived rows are hidden by default."""
+        """Return the owner's catalog with filters; ``archived`` is one of
+        ``"active"`` (default) / ``"archived"`` / ``"all"``.
+
+        Search matches the stable identity fields (code / name_key /
+        display_name); localized labels are resolved client-side in 9D. The
+        catalog has no pagination, so the full filtered set is returned with
+        stable ordering: is_archived, category, display identity, code.
+        """
         stmt = select(PriceItem).where(PriceItem.owner_id == owner_id)
-        if not include_archived:
+        if archived == "active":
             stmt = stmt.where(PriceItem.is_archived.is_(False))
-        stmt = stmt.order_by(PriceItem.code)
+        elif archived == "archived":
+            stmt = stmt.where(PriceItem.is_archived.is_(True))
+
+        if category is not None:
+            stmt = stmt.where(PriceItem.category == category)
+        if unit is not None:
+            stmt = stmt.where(PriceItem.unit == unit)
+        if price_scope is not None:
+            stmt = stmt.where(PriceItem.price_scope == price_scope)
+        if quality_level is not None:
+            stmt = stmt.where(PriceItem.quality_level == quality_level)
+        if search:
+            pattern = f"%{search.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    PriceItem.code.ilike(pattern),
+                    PriceItem.name_key.ilike(pattern),
+                    PriceItem.display_name.ilike(pattern),
+                )
+            )
+
+        sort_label = func.coalesce(PriceItem.display_name, PriceItem.name_key)
+        stmt = stmt.order_by(
+            PriceItem.is_archived,
+            PriceItem.category,
+            sort_label,
+            PriceItem.code,
+        )
         return list((await self.db.execute(stmt)).scalars())
 
     async def get_owned_item(

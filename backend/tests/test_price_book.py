@@ -149,7 +149,7 @@ class TestDbInvariants:
         await service.update_item(user.id, item.id, is_archived=True)
 
         assert item.id not in {i.id for i in await service.list_owner_items(user.id)}
-        archived = await service.list_owner_items(user.id, include_archived=True)
+        archived = await service.list_owner_items(user.id, archived="archived")
         assert item.id in {i.id for i in archived}
 
         fetched = (
