@@ -1477,6 +1477,9 @@ The deferred Stage 5G progressive-disclosure surface-card cleanup must eventuall
 #### ROADMAP NOTE C — STAGE 14 PHOTO FIXATION
 Stage 14 must attach photos to the exact physical target: Project / Room / WALL / FLOOR / CEILING. Surface photo workflow must support: camera/gallery; multiple photos; note/caption; timestamp; thumbnail; defect annotation directly on photo; normalized x/y annotation coordinates; category; comment; severity/status where Stage 14 design defines them. Future chain: Photo → PhotoAnnotation → Inspection Finding → Risk → Communication → Recommended Work → Estimate → PDF / protocol. **No photo storage or annotation is implemented in Stage 8.**
 
+#### ROADMAP NOTE D — QUALITY LEVEL TECHNICAL REFERENCE (future technical / knowledge base)
+Future technical / knowledge-base work must provide detailed reference content for **GYPSUM_BOARD: Q1 / Q2 / Q3 / Q4** and **CONCRETE / GYPSUM_PLASTER / CEMENT_LIME_PLASTER: S1 / S2 / S3 / S4**. For each level record: intended / expected finish result; typical preparation scope; visual expectations; acceptable / unacceptable defects; inspection / acceptance conditions; contractor-facing client explanation; limitations / what the level does **NOT** guarantee; applicable Polish / European technical references where available. Stage 8 communication phrases remain concise client-facing summaries and **must not be treated as the full technical definition**. This future reference content should be reusable by: Inspection; Communication; Estimate; Contracts / protocols; Legal / technical knowledge base; PDF reports. **No technical reference content is implemented in Stage 8.**
+
 ## Stage Log Template for Future Stages
 
 ```markdown
