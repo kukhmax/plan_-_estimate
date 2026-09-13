@@ -4,7 +4,7 @@ Telegram Mini App for managing interior finishing and renovation work in Poland 
 
 ## Implementation status
 
-### Canonical Stages 0–7 (Completed)
+### Canonical Stages 0–8 (Completed)
 
 - **Stage 0**: Engineering workflow, architectural invariants, and domain rules (`GEMINI.md`, `.agents/rules/`).
 - **Stage 1**: Application infrastructure, Docker PostgreSQL 16, FastAPI backend, React Vite frontend, aiogram bot skeleton.
@@ -21,8 +21,9 @@ Telegram Mini App for managing interior finishing and renovation work in Poland 
 - **Stage 5**: Rooms, surfaces and measurements — Room and Surface hierarchy with semantic types (`WALL`, `CEILING`, `FLOOR`, `OTHER`), metric room/wall dimensions, opening subtraction with net area totals, rectangle wall generation and custom sequential wall entry, composite floor/ceiling geometry (base + adjustments), practical mobile measurement workflow, and PL/RU localization. Owner-accepted final manual acceptance (2026-09-11).
 - **Stage 6**: Inspection Checklist Engine — substrate diagnostics with versioned immutable checklist templates (concrete, gypsum plaster, cement-lime plaster, gypsum board, painted, other), room-scoped inspections with four targets (WALL surface, FLOOR, CEILING, room-level), typed answers (BOOLEAN / NUMBER / TEXT / SINGLE_CHOICE / MULTI_CHOICE), quality-scale validation (S1–S4, Q1–Q4, optional for painted/other), factual backend findings only (no risk/price/warranty), mobile PL/RU workflow, and owner-accepted final manual acceptance (2026-09-12).
 - **Stage 7**: Risk Rules Engine — deterministic, rule-driven technical risk evaluation over completed-inspection findings with a versioned immutable rule catalog (15 rules, 8 condition operators), severity (LOW/MEDIUM/HIGH/CRITICAL), `blocks_finishing` and `warranty_exclusion_candidate` flags, source-finding traceability, resolved risk history, mobile PL/RU risk cards with Active/Resolved/All filters, and a permanent **two-decimal metric display policy** (5.000 → 5.00, 13.515 m² → 13.52 m² display only — backend retains full precision). Owner-accepted final manual acceptance (2026-09-13).
+- **Stage 8**: Client Communication Assistant ("Co powiedzieć klientowi") — deterministic, rule-driven communication recommendations consumed from completed-inspection facts with a versioned immutable phrase catalog (no second rules engine). Three exact-key sources: RISK-derived (reusing Stage 7 seeds), FINDING-only, and a complete QUALITY substrate/quality-target matrix (GYPSUM_BOARD Q1–Q4, CONCRETE/GYPSUM_PLASTER/CEMENT_LIME_PLASTER S1–S4). Stable application identity (inspection, phrase code, source signature) with resolved history preserved, active/resolved/all filters, mobile PL/RU communication cards with explicit evaluate, lazy "Why?" traceability, copy-to-clipboard, and script-verified Stage 6→7→8 lifecycle. Owner-accepted final manual acceptance (2026-09-13).
 
-Implementation is complete through **Canonical Stage 7**. Stages 8–20 are pending.
+Implementation is complete through **Canonical Stage 8**. Stages 9–20 are pending.
 
 ## Domain hierarchy
 
