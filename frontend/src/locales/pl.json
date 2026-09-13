@@ -273,6 +273,7 @@
     "error_start": "Nie udało się rozpocząć badania",
     "error_state": "Nieprawidłowy stan badania. Odśwież dane.",
     "error_validation": "Niepoprawne dane. Sprawdź odpowiedzi.",
+    "error_number_precision": "Maksymalnie 3 miejsca po przecinku.",
     "error_unauthorized": "Sesja wygasła. Zaloguj się ponownie.",
     "error_not_found": "Badanie nie istnieje.",
     "unanswered_note": "Bez odpowiedzi — pytania bez odpowiedzi nie utworzą ustaleń."
@@ -426,6 +427,81 @@
       "consequence": "Raki mogą być widoczne pod nowymi powłokami, zwłaszcza malarskimi.",
       "mitigation": "Wypełnij raki gładzią i przeszlifuj przed malowaniem.",
       "communication": "Drobne raki zostaną wypełnione przed malowaniem, aby powierzchnia była gładka."
+    }
+  },
+  "communication": {
+    "section_title": "Co powiedzieć klientowi",
+    "evaluate_hint": "Gotowe zwroty do rozmowy z klientem na podstawie wyników badania.",
+    "evaluate": "Przygotuj komunikację",
+    "evaluating": "Przygotowywanie komunikacji…",
+    "reevaluate": "Odśwież komunikację",
+    "empty_active": "Brak aktywnej komunikacji dla tego badania.",
+    "empty_resolved": "Brak zakończonych komunikatów.",
+    "empty_all": "Brak przygotowanych komunikatów.",
+    "loading": "Wczytywanie komunikacji…",
+    "error_load": "Nie udało się wczytać komunikacji. Spróbuj ponownie.",
+    "error_evaluate": "Nie udało się przygotować komunikacji. Spróbuj ponownie.",
+    "error_detail": "Nie udało się wczytać szczegółów. Spróbuj ponownie.",
+    "error_not_completed": "Badanie nie zostało ukończone. Ukończ je przed przygotowaniem komunikacji.",
+    "status_active": "Aktywne",
+    "status_resolved": "Zakończone",
+    "status_all": "Wszystkie",
+    "why": "Dlaczego?",
+    "hide_why": "Ukryj wyjaśnienie",
+    "copy": "Kopiuj",
+    "copied": "Skopiowano",
+    "copy_failed": "Nie udało się skopiować.",
+    "resolved_at": "Zakończono {date}",
+    "fallback_phrase": "Treść komunikacji jest niedostępna.",
+    "source_risk_title": "Ryzyko techniczne",
+    "source_findings": "Podstawy z badania",
+    "source_finding_title": "Ustalenie z badania",
+    "source_quality_title": "Poziom jakości",
+    "category": {
+      "explain_condition": "Wyjaśnienie stanu",
+      "explain_consequence": "Konsekwencja",
+      "recommend_preparation": "Zalecenie przygotowania",
+      "require_client_decision": "Wymagana decyzja",
+      "scope_clarification": "Ustalenie zakresu",
+      "quality_expectation": "Oczekiwany poziom jakości",
+      "document_agreement": "Potwierdzenie ustaleń",
+      "general": "Ogólne"
+    },
+    "comm_find_unevenness": {
+      "phrase": "Na podłożu stwierdziłem nierówności. W razie potrzeby wyrównam je przed pracami wykończeniowymi.",
+      "why": "Na podstawie pomiaru nierówności z badania podłoża."
+    },
+    "comm_find_unevenness_gypsum_plaster": {
+      "phrase": "Na tynku gipsowym stwierdziłem nierówności. Wyrównam je przed malowaniem.",
+      "why": "Podłoże: tynk gipsowy; pomiar nierówności z badania."
+    },
+    "comm_find_unevenness_gypsum_plaster_s3": {
+      "phrase": "Przy poziomie S3 dokładnie wyrównam tynk gipsowy i wyszlifuję powierzchnię pod malowanie matowe.",
+      "why": "Poziom jakości S3 wymaga gładkiej powierzchni; pomiar nierówności z badania."
+    },
+    "comm_find_board_movement": {
+      "phrase": "Stwierdziłem ruchliwość płyt g-k. Ustabilizuję mocowania i wzmocnię łączenia przed szpachlowaniem.",
+      "why": "Wskazanie ruchliwości płyt z badania podłoża."
+    },
+    "comm_find_joint_gap": {
+      "phrase": "Na łączeniach płyt widoczne są niewielkie szczeliny. Wypełnię je masą przed szpachlowaniem.",
+      "why": "Pomiar szczeliny łączenia z badania."
+    },
+    "comm_quality_gypsum_plaster_s3": {
+      "phrase": "Podłoże: tynk gipsowy, poziom S3 — przygotuję powierzchnię gładką, szlifowaną pod malowanie matowe.",
+      "why": "Oczekiwany poziom jakości S3 dla tynku gipsowego."
+    },
+    "comm_quality_gypsum_board_q2": {
+      "phrase": "Podłoże: płyty g-k, poziom Q2 — wyszpachluję łączenia i wygładzę powierzchnię pod tapetę lub tynki strukturalne.",
+      "why": "Oczekiwany poziom jakości Q2 dla zabudowy g-k."
+    },
+    "comm_quality_concrete_s4": {
+      "phrase": "Podłoże: beton, poziom S4 — wykonam idealnie gładką powierzchnię, sprawdzaną lampą smugową.",
+      "why": "Oczekiwany poziom jakości S4 dla powierzchni betonowej."
+    },
+    "comm_quality_painted_s2": {
+      "phrase": "Podłoże: powierzchnia malowana, poziom S2 — przygotuję ją do standardowego wykończenia.",
+      "why": "Oczekiwany poziom jakości S2 dla powierzchni malowanej."
     }
   },
   "checklist": {

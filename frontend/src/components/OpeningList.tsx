@@ -310,7 +310,7 @@ export function OpeningList({
                 type="number"
                 inputMode="decimal"
                 min="0.001"
-                step="0.01"
+                step="any"
                 required
                 placeholder="0.900"
                 value={form.width}
@@ -325,7 +325,7 @@ export function OpeningList({
                 type="number"
                 inputMode="decimal"
                 min="0.001"
-                step="0.01"
+                step="any"
                 required
                 placeholder="2.000"
                 value={form.height}

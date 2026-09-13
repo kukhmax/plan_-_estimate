@@ -286,7 +286,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.01"
+                  step="any"
                   placeholder="5.000"
                   value={form.length}
                   onChange={(event) => setForm((current) => ({ ...current, length: event.target.value }))}
@@ -300,7 +300,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.01"
+                  step="any"
                   placeholder="4.000"
                   value={form.width}
                   onChange={(event) => setForm((current) => ({ ...current, width: event.target.value }))}
@@ -314,7 +314,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.01"
+                  step="any"
                   placeholder="2.700"
                   value={form.height}
                   onChange={(event) => setForm((current) => ({ ...current, height: event.target.value }))}
@@ -332,7 +332,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.01"
+                  step="any"
                   placeholder="2.700"
                   value={customHeight}
                   onChange={(event) => setCustomHeight(event.target.value)}

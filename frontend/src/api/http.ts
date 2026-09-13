@@ -1,5 +1,16 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
+/** Error carrying the HTTP status so callers can branch on it (e.g. a Pydantic
+ * validation failure 422 vs a domain conflict 409) without parsing internals. */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 function errorMessage(payload: unknown, status: number): string {
   if (payload && typeof payload === 'object' && 'detail' in payload) {
     const detail = payload.detail;
@@ -21,7 +32,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!response.ok) {
     const payload: unknown = await response.json().catch(() => null);
-    throw new Error(errorMessage(payload, response.status));
+    throw new ApiError(errorMessage(payload, response.status), response.status);
   }
   return response.json() as Promise<T>;
 }

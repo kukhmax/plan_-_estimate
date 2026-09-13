@@ -29,7 +29,9 @@ export function answeredQuestionCount(answers: InspectionAnswerPayload[]): numbe
     if (a.value_number !== undefined && a.value_number !== null) return true;
     if (a.value_text) return true;
     if (a.option_key) return true;
-    if (a.option_keys && a.option_keys.length > 0) return true;
+    // For MULTI_CHOICE the key's presence — including an explicit [] "none
+    // selected" — counts as answered; absence (untouched) does not.
+    if (a.option_keys !== undefined && a.option_keys !== null) return true;
     return false;
   }).length;
 }
