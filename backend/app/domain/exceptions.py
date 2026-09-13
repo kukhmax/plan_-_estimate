@@ -83,3 +83,7 @@ class InspectionNotCompletedError(Exception):
 
 class RiskNotFoundError(Exception):
     """Raised when a risk is not found within an owned room."""
+
+
+class CommunicationNotFoundError(Exception):
+    """Raised when a communication application is not found within an owned room."""
