@@ -51,7 +51,7 @@
 | **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
 | Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | **Stage 8** | **"Co powiedzieć klientowi" (Client Communication Assistant)** | **Completed 2026-09-13** | Deterministic, rule-driven client communication recommendations (PL/RU) from completed-inspection facts — versioned immutable phrase catalog, exact-key selection over materialized Stage 6/7 facts, complete quality matrix, mobile communication cards with evaluate / "Why?" traceability / copy / active-resolved-all history |
-| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; 9E.6 (implementation) & 9E.7 (load) & 9F (final gate) Pending — 9E.6 NOT STARTED** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
+| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; **9E.6A (price market evidence backend foundation) Implemented 2026-09-14 (models + migration 0015 + read-only evidence endpoint; uncommitted, awaiting owner acceptance)**; 9E.6B (load 44 approved catalogs rows) & 9E.7 (load) & 9F (final gate) Pending — 9E.6B NOT STARTED / 9E.7 NOT STARTED** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
 | Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
 | Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
@@ -1889,6 +1889,47 @@ must honor.
   `CENNIK_PAINT_GENERIC_M2` / `CENNIK_REVEAL_GENERIC_M2` / `CENNIK_REVEAL_GENERIC_LM`) remain
   untouched through 9E.5. **STAGE_9E.6: NOT STARTED** — next sub-stage requires explicit owner
   approval. Canonical Stage 9 remains **In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.6A execution status 2026-09-14 — price market evidence backend foundation (IMPLEMENTED; uncommitted — awaiting owner acceptance)
+
+**Deliverable**: backend foundation for the market-evidence layer designed in 9E.1 — the
+`PriceMarketReference → PriceSource[]` models, the reversible Alembic migration `0015_create_market_evidence`,
+owner-scoped domain-service operations, and a read-only evidence endpoint. Per the task contract the 44
+approved PriceItem catalog rows were **NOT** loaded here (that is 9E.6B); the four 9B technical placeholder
+seeds remain untouched.
+
+- **Models** (`app/models/market_evidence.py`): `SourceType` (7 controlled values), `PriceMarketReference`,
+  `PriceSource`. FK chain `price_items` (CASCADE) → `price_market_references` (CASCADE) → `price_sources`;
+  money stays `Numeric(12,2)` Decimal end-to-end; unit/currency reuse the Stage 9B contracts; no currency DB
+  enum (ISO-style `String(3)`, PLN-only MVP), no revision/version columns (re-check-in-place).
+- **Migration** `0015_create_market_evidence` (parent `0014_create_price_book`): creates both tables, the
+  `sourcetype` enum, and the FK indexes; reuses the existing `priceunit` enum via `create_type=False`; single
+  head; downgrade removes **only** the 9E.6A objects. **Migration cycle PASS** (local dev Postgres):
+  upgrade → `0015`; downgrade `0015→0014` (all 6 pre-existing `price_items` rows and the `priceunit` /
+  `qualitylevel` / `pricecategory` / `pricescope` enums survive); re-upgrade → `0015`; single head.
+- **Service** (`app/domain/services/price_book_service.py`): `validate_amount` (same finite / >=0 / at-most-2dp
+  rule set as `validate_price`, never silently rounding), MVP region contract (`Kraków` / `Małopolskie` /
+  `Kraków / Małopolskie`), per-source quoting-mode validation (exactly one of SINGLE / RANGE / QUALITATIVE;
+  QUALITATIVE requires a non-blank note), `create_market_reference_with_sources` (>=1 source; reference
+  unit/currency must equal the parent PriceItem), `get_market_references` (0..N, newest research first),
+  `update_market_reference` (re-check-in-place; never touches `PriceItem.price`); `MarketReferenceNotFoundError`
+  added to `app/domain/exceptions.py`.
+- **API** (`app/api/v1/endpoints/pricebook.py`): `GET /api/price-items/{price_item_id}/market-reference` →
+  `{items, total}` with nested sources; Decimal money serialized as JSON strings (never binary floats); missing
+  evidence returns `200` + empty list; foreign/unknown items return the uniform `404`; unauthenticated → `401`.
+  No public evidence write API in 9E.6A; `PATCH /api/price-items` cannot mutate evidence.
+- **Tests** (`tests/test_market_evidence.py`, 46 new focused tests, all PASS): model/DB invariants, Decimal
+  exactness, quoting modes, ownership isolation (foreign `404`, unauthenticated `401`, no source leak), API
+  serialization, archived-evidence readability, DB-level cascade on hard-deleted items while soft
+  archive/restore preserves evidence, and the invariant regression that every evidence create/update leaves
+  `PriceItem.price` untouched. Full backend suite: **458 passed, 0 failed**.
+- **Also**: `tests/conftest.py` enables `PRAGMA foreign_keys=ON` on the in-memory SQLite engine so the
+  documented ON DELETE CASCADE behavior is exercised against a Postgres-shaped constraint set.
+- **Deferred**: loading the 44 approved catalog rows (9E.6B); owner-price/evidence load, seed wiring (9E.7);
+  CI/deploy. **Verification**: `git diff --check` PASS; only the 9E.6A backend implementation and this record
+  changed — **no commit, no push** (per the stage gate). **STAGE_9E.6B: NOT STARTED; STAGE_9E.7: NOT STARTED**
+  — next sub-stages require explicit owner approval. Canonical Stage 9 remains **In Progress**; Stage 10
+  remains **Pending**.
 
 ## Stage Log Template for Future Stages
 

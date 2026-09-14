@@ -13,6 +13,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.checklist import QualityLevel
+from app.models.market_evidence import SourceType
 from app.models.price_item import PriceCategory, PriceScope, PriceUnit
 
 
@@ -64,4 +65,40 @@ class PriceItemRead(BaseModel):
 
 class PriceItemListResponse(BaseModel):
     items: list[PriceItemRead]
+    total: int
+
+
+class PriceSourceRead(BaseModel):
+    id: uuid.UUID
+    source_name: str
+    source_type: SourceType
+    source_url: str | None = None
+    source_region: str | None = None
+    quoted_price_min: Decimal | None = None
+    quoted_price_max: Decimal | None = None
+    quoted_price_single: Decimal | None = None
+    quoted_unit: PriceUnit | None = None
+    note: str | None = None
+    checked_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PriceMarketReferenceRead(BaseModel):
+    id: uuid.UUID
+    region: str
+    unit: PriceUnit
+    currency: str
+    market_min: Decimal
+    market_max: Decimal
+    reference_price: Decimal | None = None
+    methodology_note: str | None = None
+    checked_at: datetime
+    sources: list[PriceSourceRead]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PriceMarketReferenceListResponse(BaseModel):
+    items: list[PriceMarketReferenceRead]
     total: int

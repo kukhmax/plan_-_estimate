@@ -93,5 +93,9 @@ class PriceItemNotFoundError(Exception):
     """Raised when a price item is not found for the requesting owner."""
 
 
+class MarketReferenceNotFoundError(Exception):
+    """Raised when a market reference is not found for the requesting owner."""
+
+
 class PriceBookValidationError(Exception):
     """Raised when price book input violates a Stage 9 domain rule."""

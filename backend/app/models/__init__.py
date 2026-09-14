@@ -15,6 +15,7 @@ from app.models.inspection import (
     InspectionFinding,
     InspectionStatus,
 )
+from app.models.market_evidence import PriceMarketReference, PriceSource, SourceType
 from app.models.opening import Opening, OpeningType
 from app.models.price_item import PriceCategory, PriceItem, PriceScope, PriceUnit
 from app.models.project import Project
@@ -48,7 +49,9 @@ __all__ = [
     "OpeningType",
     "PriceCategory",
     "PriceItem",
+    "PriceMarketReference",
     "PriceScope",
+    "PriceSource",
     "PriceUnit",
     "Project",
     "QualityLevel",
@@ -59,6 +62,7 @@ __all__ = [
     "RiskRuleCondition",
     "RiskSeverity",
     "Room",
+    "SourceType",
     "Substrate",
     "Surface",
     "User",

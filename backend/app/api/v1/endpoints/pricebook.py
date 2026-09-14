@@ -21,6 +21,8 @@ from app.schemas.price import (
     PriceItemListResponse,
     PriceItemRead,
     PriceItemUpdate,
+    PriceMarketReferenceListResponse,
+    PriceMarketReferenceRead,
 )
 
 router = APIRouter()
@@ -180,3 +182,28 @@ async def restore_price_item(
             status_code=status.HTTP_404_NOT_FOUND, detail="Price item not found"
         )
     return PriceItemRead.model_validate(item)
+
+
+@router.get(
+    "/price-items/{price_item_id}/market-reference",
+    response_model=PriceMarketReferenceListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List market evidence for an owned price item (read-only, 0..N)",
+)
+async def list_price_item_market_reference(
+    price_item_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    price_book_service: PriceBookService = Depends(get_price_book_service),
+) -> PriceMarketReferenceListResponse:
+    try:
+        references = await price_book_service.get_market_references(
+            current_user.id, price_item_id
+        )
+    except PriceItemNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Price item not found"
+        )
+    return PriceMarketReferenceListResponse(
+        items=[PriceMarketReferenceRead.model_validate(r) for r in references],
+        total=len(references),
+    )

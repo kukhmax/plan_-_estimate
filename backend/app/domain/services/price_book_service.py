@@ -7,18 +7,29 @@ set, bootstrap is idempotent, and owner-edited rows are never overwritten.
 Currency is an ISO 4217-style string (PLN-only for MVP), not a DB enum.
 """
 import asyncio
+from datetime import datetime, timezone
 from decimal import Decimal
 import uuid
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.domain.data.price_book_seed import (
     PriceItemSeed,
     build_technical_baseline_price_items,
 )
-from app.domain.exceptions import PriceBookValidationError, PriceItemNotFoundError
+from app.domain.exceptions import (
+    MarketReferenceNotFoundError,
+    PriceBookValidationError,
+    PriceItemNotFoundError,
+)
 from app.models.checklist import QualityLevel
+from app.models.market_evidence import (
+    PriceMarketReference,
+    PriceSource,
+    SourceType,
+)
 from app.models.price_item import PriceCategory, PriceItem, PriceScope, PriceUnit
 
 # Serializes concurrent first-call materializations within the process; the
@@ -61,6 +72,155 @@ def validate_custom_name(display_name: str | None) -> str:
     if not name:
         raise PriceBookValidationError("custom price items require a display_name")
     return name
+
+
+# MVP region contract (9E.1): the researched area is one of three exact labels.
+_ALLOWED_REGIONS = frozenset({"Kraków", "Małopolskie", "Kraków / Małopolskie"})
+
+
+def validate_amount(value: Decimal, *, label: str) -> Decimal:
+    """Like validate_price but label-aware for market-evidence fields.
+
+    Market amounts obey the same money contract as the owner price: finite,
+    >= 0, at most 2 decimal places, never silently rounded or truncated.
+    """
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
+    if not value.is_finite():
+        raise PriceBookValidationError(f"{label} must be a finite decimal number")
+    if value < 0:
+        raise PriceBookValidationError(f"{label} must be greater than or equal to 0")
+    if value.as_tuple().exponent < -2:
+        raise PriceBookValidationError(
+            f"{label} may have at most 2 decimal places (no silent rounding)"
+        )
+    return value
+
+
+def validate_region(region: str) -> str:
+    label = (region or "").strip()
+    if label not in _ALLOWED_REGIONS:
+        raise PriceBookValidationError(
+            "region must be one of: Kraków, Małopolskie, Kraków / Małopolskie"
+        )
+    return label
+
+
+def validate_optional_label(value: str | None) -> str | None:
+    """Controlled free text that may differ from the reference region."""
+    if value is None:
+        return None
+    label = value.strip()
+    if not label:
+        raise PriceBookValidationError("label must be non-blank when provided")
+    return label
+
+
+def normalize_checked_at(value: datetime) -> datetime:
+    if not isinstance(value, datetime):
+        raise PriceBookValidationError("checked_at is required")
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _coerce_source_type(value: object) -> SourceType:
+    if isinstance(value, SourceType):
+        return value
+    try:
+        return SourceType(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        raise PriceBookValidationError(
+            "source_type must be a valid source type"
+        ) from None
+
+
+def _coerce_quoted_unit(value: object) -> PriceUnit | None:
+    if value is None:
+        return None
+    if isinstance(value, PriceUnit):
+        return value
+    try:
+        return PriceUnit(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        raise PriceBookValidationError(
+            "quoted_unit must be a valid price unit"
+        ) from None
+
+
+def validate_source_payload(source: dict) -> dict:
+    """Validate one evidence source and derive its quoting mode.
+
+    Exactly one of SINGLE / RANGE / QUALITATIVE is allowed:
+    - SINGLE: quoted_price_single set, quoted_price_min/max null
+    - RANGE: quoted_price_min and quoted_price_max both set, min <= max
+    - QUALITATIVE: all numeric quotes null, note carries the evidence
+    """
+    if not isinstance(source, dict):
+        raise PriceBookValidationError("each source must be a mapping")
+
+    source_name = (source.get("source_name") or "").strip()
+    if not source_name:
+        raise PriceBookValidationError("sources require a non-blank source_name")
+    source_type = _coerce_source_type(source.get("source_type"))
+    source_url = source.get("source_url") or None
+    source_region = validate_optional_label(source.get("source_region"))
+    quoted_unit = _coerce_quoted_unit(source.get("quoted_unit"))
+    checked_at = normalize_checked_at(source.get("checked_at"))
+
+    raw_min = source.get("quoted_price_min")
+    raw_max = source.get("quoted_price_max")
+    raw_single = source.get("quoted_price_single")
+    note = (source.get("note") or "").strip() or None
+
+    quoted_price_min: Decimal | None = None
+    quoted_price_max: Decimal | None = None
+    quoted_price_single: Decimal | None = None
+
+    if raw_single is not None:
+        quoted_price_single = validate_amount(raw_single, label="quoted_price_single")
+        if raw_min is not None or raw_max is not None:
+            raise PriceBookValidationError(
+                "a source supports exactly one quoting mode: SINGLE or RANGE"
+            )
+    elif raw_min is not None or raw_max is not None:
+        if raw_min is None or raw_max is None:
+            raise PriceBookValidationError(
+                "a RANGE source requires both quoted_price_min and quoted_price_max"
+            )
+        quoted_price_min = validate_amount(raw_min, label="quoted_price_min")
+        quoted_price_max = validate_amount(raw_max, label="quoted_price_max")
+        if quoted_price_min > quoted_price_max:
+            raise PriceBookValidationError(
+                "quoted_price_min must not exceed quoted_price_max"
+            )
+    elif not note:
+        raise PriceBookValidationError(
+            "a QUALITATIVE source requires a non-blank note"
+        )
+
+    return {
+        "source_name": source_name,
+        "source_type": source_type,
+        "source_url": source_url,
+        "source_region": source_region,
+        "quoted_price_min": quoted_price_min,
+        "quoted_price_max": quoted_price_max,
+        "quoted_price_single": quoted_price_single,
+        "quoted_unit": quoted_unit,
+        "note": note,
+        "checked_at": checked_at,
+    }
+
+
+def market_source_is_comparable(reference_unit: PriceUnit, source: dict) -> bool:
+    """Whether a source's numeric quotes may feed the reference range.
+
+    No automatic unit conversion exists: a source quoting a different unit
+    keeps its numbers untouched but contributes qualitative context only.
+    """
+    quoted = source.get("quoted_unit")
+    return quoted is None or quoted == reference_unit
 
 
 class PriceBookService:
@@ -301,3 +461,144 @@ class PriceBookService:
         if item is None:
             raise PriceItemNotFoundError(f"Price item {item_id} not found")
         return item
+
+    async def create_market_reference_with_sources(
+        self,
+        owner_id: uuid.UUID,
+        price_item_id: uuid.UUID,
+        *,
+        region: str,
+        unit: PriceUnit,
+        market_min: Decimal,
+        market_max: Decimal,
+        reference_price: Decimal | None = None,
+        currency: str = "PLN",
+        methodology_note: str | None = None,
+        checked_at: datetime | None = None,
+        sources: list[dict],
+    ) -> PriceMarketReference:
+        """Create one market reference (with its sources) for an owned item.
+
+        The reference range is expressed in the linked item's own unit and
+        currency; neither may deviate, and the item's working ``price`` stays
+        untouched on this path (evidence is application-maintained).
+        """
+        item = await self.get_owned_item(owner_id, price_item_id)
+        if unit != item.unit:
+            raise PriceBookValidationError(
+                "market reference unit must match the price item unit"
+            )
+        validate_currency(currency)
+        if currency != item.currency:
+            raise PriceBookValidationError(
+                "market reference currency must match the price item currency"
+            )
+        region_label = validate_region(region)
+        min_value = validate_amount(market_min, label="market_min")
+        max_value = validate_amount(market_max, label="market_max")
+        if min_value > max_value:
+            raise PriceBookValidationError("market_min must not exceed market_max")
+        reference_value = (
+            validate_amount(reference_price, label="reference_price")
+            if reference_price is not None
+            else None
+        )
+        checked = normalize_checked_at(checked_at)
+        if not sources:
+            raise PriceBookValidationError(
+                "a market reference requires at least one source"
+            )
+
+        reference = PriceMarketReference(
+            price_item_id=item.id,
+            region=region_label,
+            unit=item.unit,
+            currency=currency,
+            market_min=min_value,
+            market_max=max_value,
+            reference_price=reference_value,
+            methodology_note=methodology_note,
+            checked_at=checked,
+        )
+        for payload in sources:
+            reference.sources.append(PriceSource(**validate_source_payload(payload)))
+        self.db.add(reference)
+        await self.db.commit()
+        return reference
+
+    async def get_market_references(
+        self,
+        owner_id: uuid.UUID,
+        price_item_id: uuid.UUID,
+    ) -> list[PriceMarketReference]:
+        """Return the item's references (newest research first) with sources.
+
+        Ownership is enforced through the parent PriceItem, so foreign ids
+        raise the same uniform 404 as the price-item endpoints.
+        """
+        await self.get_owned_item(owner_id, price_item_id)
+        stmt = (
+            select(PriceMarketReference)
+            .where(PriceMarketReference.price_item_id == price_item_id)
+            .options(selectinload(PriceMarketReference.sources))
+            .order_by(
+                PriceMarketReference.checked_at.desc(),
+                PriceMarketReference.created_at.desc(),
+            )
+        )
+        return list((await self.db.execute(stmt)).scalars())
+
+    async def update_market_reference(
+        self,
+        owner_id: uuid.UUID,
+        reference_id: uuid.UUID,
+        *,
+        market_min: Decimal,
+        market_max: Decimal,
+        reference_price: Decimal | None = None,
+        methodology_note: str | None = None,
+        checked_at: datetime,
+        sources: list[dict] | None = None,
+    ) -> PriceMarketReference:
+        """Re-check a reference in place (9E.1 policy); never touches item price.
+
+        ``sources`` replaces the full source set when provided; otherwise the
+        existing evidence is preserved.
+        """
+        reference = (
+            await self.db.execute(
+                select(PriceMarketReference)
+                .join(PriceItem, PriceItem.id == PriceMarketReference.price_item_id)
+                .where(
+                    PriceMarketReference.id == reference_id,
+                    PriceItem.owner_id == owner_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if reference is None:
+            raise MarketReferenceNotFoundError(
+                f"Market reference {reference_id} not found"
+            )
+        min_value = validate_amount(market_min, label="market_min")
+        max_value = validate_amount(market_max, label="market_max")
+        if min_value > max_value:
+            raise PriceBookValidationError("market_min must not exceed market_max")
+        reference.market_min = min_value
+        reference.market_max = max_value
+        if reference_price is not None:
+            reference.reference_price = validate_amount(
+                reference_price, label="reference_price"
+            )
+        if methodology_note is not None:
+            reference.methodology_note = methodology_note
+        reference.checked_at = normalize_checked_at(checked_at)
+        if sources is not None:
+            if not sources:
+                raise PriceBookValidationError(
+                    "a market reference requires at least one source"
+                )
+            validated = [PriceSource(**validate_source_payload(p)) for p in sources]
+            reference.sources.clear()
+            reference.sources.extend(validated)
+        await self.db.commit()
+        return reference
