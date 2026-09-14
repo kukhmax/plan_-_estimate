@@ -7,6 +7,7 @@ import {
   updatePriceItem,
 } from '../api/priceItems';
 import { useI18n } from '../hooks/useI18n';
+import { useMarketEvidence } from '../hooks/useMarketEvidence';
 import { QualityLevelValue } from '../types/checklist';
 import {
   PRICE_CATEGORIES,
@@ -21,6 +22,7 @@ import {
 } from '../types/priceItem';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice, normalizePriceInput } from '../utils/priceFormat';
+import { PriceBookMarket } from './PriceBookMarket';
 
 type Tab = 'active' | 'archived';
 
@@ -75,6 +77,9 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
   const [formPriceError, setFormPriceError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [openOptionsId, setOpenOptionsId] = useState<string | null>(null);
+
+  // Per-item market evidence (read-only; cached, never re-fetched per render).
+  const evidence = useMarketEvidence(items.map((item) => item.id));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -490,6 +495,9 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
                       <> · {scopeLabel(item.price_scope)}</>
                     )}
                   </p>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">
+                    {t.pricebook.market.my_price}
+                  </p>
                   <p className="text-base font-extrabold text-slate-900 mt-1">
                     <span className="text-emerald-700">
                       {formatPrice(item.price)} {t.pricebook.currency_symbol}
@@ -541,6 +549,7 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
                   </button>
                 </div>
               )}
+              <PriceBookMarket itemId={item.id} entry={evidence[item.id]} unitLabel={unitLabel} />
             </li>
           ))}
         </ul>

@@ -685,6 +685,25 @@
       "Q3": "Klasa Q3",
       "Q4": "Klasa Q4"
     },
+    "market": {
+      "my_price": "Moja cena",
+      "market": "Rynek",
+      "checked": "Sprawdzono",
+      "sources": "Źródła",
+      "reference": "Punkt odniesienia",
+      "no_evidence": "Brak danych rynkowych",
+      "loading": "Ładowanie danych rynkowych...",
+      "open_source": "Otwórz źródło",
+      "source_type": {
+        "CONTRACTOR_PRICE_LIST": "Cennik wykonawcy",
+        "MARKETPLACE": "Marketplace / ogłoszenia",
+        "MANUFACTURER": "Producent",
+        "MATERIAL_STORE": "Sklep / dystrybutor",
+        "INDUSTRY_ARTICLE": "Artykuł branżowy",
+        "OWN_PRICE": "Cena własna",
+        "OTHER": "Inne"
+      }
+    },
     "seed": {
       "prep_generic_m2": "Przygotowanie podłoża – ogólne",
       "paint_generic_m2": "Malowanie – ogólne",

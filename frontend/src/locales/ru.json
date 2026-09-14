@@ -685,6 +685,25 @@
       "Q3": "Класс Q3",
       "Q4": "Класс Q4"
     },
+    "market": {
+      "my_price": "Моя цена",
+      "market": "Рынок",
+      "checked": "Проверено",
+      "sources": "Источники",
+      "reference": "Ориентир",
+      "no_evidence": "Нет рыночных данных",
+      "loading": "Загрузка рыночных данных...",
+      "open_source": "Открыть источник",
+      "source_type": {
+        "CONTRACTOR_PRICE_LIST": "Прайс подрядчика",
+        "MARKETPLACE": "Маркетплейс / объявления",
+        "MANUFACTURER": "Производитель",
+        "MATERIAL_STORE": "Магазин / дистрибьютор",
+        "INDUSTRY_ARTICLE": "Отраслевая статья",
+        "OWN_PRICE": "Своя цена",
+        "OTHER": "Другое"
+      }
+    },
     "seed": {
       "prep_generic_m2": "Подготовка основания — общая",
       "paint_generic_m2": "Покраска — общая",
