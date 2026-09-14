@@ -2193,3 +2193,90 @@ build, пока текущий production продолжает работать
 -   перед обновлением, которое может содержать migrations, всегда делать
     backup БД;
 -   после deployment проверять и `/api/health`, и Telegram Mini App.
+
+------------------------------------------------------------------------
+
+# ЧАСТЬ XX --- ПРОВЕРЕННАЯ PRODUCTION-ПРОЦЕДУРА (использованная в практике)
+
+## 68. Каноническая команда Compose
+
+На production всегда использовать **одну** каноническую форму с явным
+именем проекта (`name: plan-estimate` из `docker-compose.prod.yml`):
+
+``` bash
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml <command>
+```
+
+Имя проекта `-p plan-estimate` фиксирует одинаковый контекст Compose в
+любой директории и исключает конфликт имён с dev-стеком.
+
+## 69. Безопасный порядок обновления (проверен)
+
+``` bash
+# 1. Код: только fast-forward на целевой ветке
+git fetch origin
+git status                 # дерево должно быть чистым
+git pull --ff-only origin stage-9
+
+# 2. Проверка конфигурации (до любых изменений)
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml config --quiet
+
+# 3. Собрать, пока текущий production продолжает работать
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml build
+
+# 4. Применить
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml up -d --build
+
+# 5. Состояние контейнеров
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml ps
+
+# 6. Внутренний health backend
+docker exec plan_estimate_backend curl -fsS http://localhost:8000/api/health
+#    Ожидается: {"status":"ok"}
+
+# 7. Текущая миграция (backend entrypoint применяет alembic upgrade head при старте)
+docker exec plan_estimate_backend alembic current
+
+# 8. Публичная проверка frontend
+curl -fsS https://plan-estimate.pl
+curl -I https://plan-estimate.pl
+```
+
+## 70. НИКОГДА не выполнять при обычном развёртывании
+
+``` bash
+docker compose ... down -v        # НЕ выПОЛНЯТЬ
+```
+
+`down -v` удаляет persistent volumes (PostgreSQL). При обычном обновлении
+это категорически запрещено (см. Часть XVI §58).
+
+## 71. Обновление Telegram Menu Button + cache-busting после каждого frontend deployment
+
+Vite собирает assets с хешированными именами, но Telegram WebView может
+удерживать **старый launch document** (Javascript-слой `index.html`) между
+запусками Mini App. Поэтому после каждого production-обновления frontend
+следует сменить версию WebApp URL в кнопке меню бота:
+
+``` bash
+# 1. Получить короткий SHA текущего деплоя
+git rev-parse --short HEAD
+
+# 2. Загрузить TELEGRAM_BOT_TOKEN из .env.production (НЕ печатать токен)
+set -a; source .env.production; set +a
+
+# 3. Установить Menu Button с cache-busting URL (версия = короткий SHA)
+curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setChatMenuButton" \
+  -H "Content-Type: application/json" \
+  -d '{"menu_button": {"type": "web_app", "text": "Plan & Estimate", "web_app": {"url": "https://plan-estimate.pl/?v=<git-short-sha>"}}}'
+
+# 4. Проверить установленное значение
+curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMenuButton"
+```
+
+Пояснение: команда выше задаёт **глобальный (default) Menu Button** для
+всех чатов; опциональный параметр `chat_id` применяет кнопку только к
+одному пользователю. После `setChatMenuButton` с новый `?v=...` WebView
+Telegram перезагружает Mini App по новому launch URL, что и обновляет
+интерфейс. `TELEGRAM_BOT_TOKEN` подставляется только внутри команды curl и
+не выводится на экран. Проверка выполняется командой `getChatMenuButton`.

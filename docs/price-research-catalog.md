@@ -197,3 +197,217 @@ Total catalog: **51 research items** (P1 = 20 · P2 = 22 · P3 = 9).
 - A **single contractor page is a data point, never a "market average"**; high-impact items prefer 3+ independent sources; single-source references carry a methodology note (9E.1 §7).
 - Manufacturer/material-store sources support **material/system costs**, not labor rates (9E.1 §7).
 - Quality evidence requires **source wording** — never infer S/Q from marketing text (9E.1 §13).
+
+---
+
+# PART 9E.4 — Normalized master review (all 51 research items)
+
+> Canonical Stage 9, execution sub-stage **9E.4**. This part **normalizes** the raw 9E.3 research
+> (five batch evidence files: `price-research-batch-a.md` … `-e.md`) into one master review.
+> It is **documentation only**: no rows are written to the database, no placeholder seeds are
+> replaced, no migration is created, no API/frontend behavior changes. All 9E.3 raw research is
+> preserved verbatim; nothing in the batch files was edited.
+
+## 16.1 Decision framework and invariant
+
+The architectural invariant is preserved:
+
+**`PriceItem.price` (owner/commercial price)  ≠  market reference ranges  ≠  source quoted prices.**
+
+The `market_min` / `market_max` / `reference_price` values below are **normalized evidence windows**
+derived in 9E.3 from dated, URL-traceable source quotes — they are *supporting evidence only*, never
+an automatic owner price. A starting owner price is **proposed only for `MARKET_SUPPORTED`** rows and
+is still subject to the owner's final number at 9E.5. `OWN_PRICE` and `DROP_MERGE_RESTRUCTURE` rows
+deliberately carry **no proposable starting price**.
+
+Three decisions are used, each exactly one per item:
+
+1. **MARKET_SUPPORTED** — enough comparable market evidence exists to propose a starting owner
+   price (the normalized evidence window becomes the reference frame for the 9E.5 owner price).
+2. **OWN_PRICE** — external market evidence is insufficient, structurally incompatible, or too weak
+   for a comparable starting price; the owner shall define the commercial price internally.
+3. **DROP_MERGE_RESTRUCTURE** — the catalog item does not match how the market actually quotes/sells
+   the work and must be dropped, merged, renamed, or structurally changed before implementation.
+
+## 16.2 Decision totals (51/51 covered)
+
+| Decision | Count | Share |
+|---|---|---|
+| MARKET_SUPPORTED | **26** | 51 % |
+| OWN_PRICE | **15** | 29 % |
+| DROP_MERGE_RESTRUCTURE | **10** | 20 % |
+| **TOTAL** | **51** | 100 % |
+
+## 16.3 Master review table
+
+Reading notes: `min`/`max`/`ref` are **normalized evidence windows** (zł, PLN), region-keyed — not
+owner prices. Empty cells (`—`) mean the evidence did not justify a numeric value. `scope` follows
+the Stage 9B enum (`LABOR` / `LABOR_AND_MATERIAL`); quality levels appear only where source wording
+supports them (`hint` = applicability hint, not a market claim).
+
+| # | Code | PL name (short) | Category | Unit | Scope | Quality | Decision | market_min | market_max | reference | Region basis | Conf. | Sources | Normalization note |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | CENNIK_PREP_PROT-01 | Zabezpieczenie podłóg i powierzchni | PREPARATION | M2 | LABOR | — | OWN_PRICE | 5 | 15 | — | Kraków + PL | MEDIUM | 4 (2 partial) | Market usually includes/flat-rates it; catalog §13 pre-flag. Evidence kept as context. |
+| 2 | CENNIK_PREP_WALLP-01 | Usuwanie tapet | PREPARATION | M2 | LABOR | — | MARKET_SUPPORTED | 10 | 30 | 20 | Kraków + PL | HIGH | 4 | Solid comparable labor band. |
+| 3 | CENNIK_PREP_SCRAPE-01 | Zdzieranie starych powłok / gładzi | PREPARATION | M2 | LABOR | — | MARKET_SUPPORTED | 10 | 35 | 18 | Kraków + PL | HIGH | 4 + 1 suppl. | Comparable scraping to substrate. |
+| 4 | CENNIK_PREP_FLEECE-01 | Zdzieranie flizeliny / włókniny szklanej | PREPARATION | M2 | LABOR | — | OWN_PRICE | 35 | 64 | — | PL | LOW | 1 (proxy tier) | Dedicated flizelina removal is never priced standalone; 35–64 is a proxy tier (fiberglass wallpaper), structurally not comparable. |
+| 5 | CENNIK_PREP_DEGR-01 | Odtłuszczanie podłoża | PREPARATION | M2 | LABOR | — | OWN_PRICE | 10 | 15 | — | PL | LOW | 1 | Single source; degreasing is normally bundled with substrate washing/prep. Context only. |
+| 6 | CENNIK_PREP_MOLD-01 | Usuwanie pleśni i grzyba (z preparatem) | PREPARATION | M2 | LABOR_AND_MATERIAL | — | MARKET_SUPPORTED | 30 | 120 | — | PL | MEDIUM | 4 + 1 suppl. | Broad spread preserved; L+M scope explicit. |
+| 7 | CENNIK_PREP_CLEAN-01 | Odkurzanie / czyszczenie podłoża | PREPARATION | M2 | LABOR | — | OWN_PRICE | — | — | — | — | INSUFFICIENT | 0 usable | Never priced standalone (folded into gładź/malowanie or billed hourly). Standalone post-sanding cleaning evidence gap (known issue A). |
+| 8 | CENNIK_PRIM_STD-01 | Grunt penetrujący (pod szpachlowanie) | PREPARATION | M2 | LABOR_AND_MATERIAL | — | MARKET_SUPPORTED | 7 | 15 | — | Kraków + PL | MEDIUM | 6 rows / 2 L+M-computable | Primary priming row. |
+| 9 | CENNIK_PRIM_ADH-01 | Grunt kontaktowy adhezyjny | PREPARATION | M2 | LABOR_AND_MATERIAL | — | OWN_PRICE | — | — | — | PL | LOW | 1 (component evidence) | Component evidence only (material 20–40/l, uplift 5–10); no direct per-m² quote. Company/product-specific. |
+| 10 | CENNIK_PRIM_HIGH-01 | Gruntowanie dwukrotne (wysokochłonne) | PREPARATION | M2 | LABOR_AND_MATERIAL | — | OWN_PRICE | — | — | — | PL | LOW | 1 (+1 qualitative) | Single-source double-coat; usually a custom premium. |
+| 11 | CENNIK_PRIM_PAINT-01 | Gruntowanie przed malowaniem | PREPARATION | M2 | LABOR_AND_MATERIAL | — | MARKET_SUPPORTED | 3 | 15 | — | Kraków + PL | MEDIUM | 6 rows / 2 L+M-explicit | Kept separate from PRIM_STD (paint substrate). |
+| 12 | CENNIK_SKIM_1L-01 | Gładź szpachlowa — 1 warstwa | SKIM_COAT | M2 | LABOR | — | MARKET_SUPPORTED | 30 | 50 | 40 | Kraków + PL | HIGH | 4 | One full-surface coat. |
+| 13 | CENNIK_SKIM_2L-01 | Gładź szpachlowa — 2 warstwy | SKIM_COAT | M2 | LABOR | — | MARKET_SUPPORTED | 35 | 75 | 55 | Kraków + PL | HIGH | 4 | Two full-surface coats. |
+| 14 | CENNIK_SKIM_3L-01 | Gładź szpachlowa — 3 warstwy | SKIM_COAT | M2 | LABOR | — | DROP_MERGE_RESTRUCTURE | 60 | 80 | — | PL | MEDIUM | 2 (1 suspected dup.) + 2 partial | Overlap/duplication risk with SKIM_2L + SAND (known issue A). Restructure as **SKIM_2L + 3rd-layer add-on**; keep a standalone 3-coat row only if owner needs it as an explicit package. Do not seed as a full-surface row while 2-coat+SAND already covers the same band. |
+| 15 | CENNIK_SKIM_SAND-01 | Szlifowanie gładzi z odpylaniem | SKIM_COAT | M2 | LABOR | — | MARKET_SUPPORTED | 10 | 25 | 14 | Kraków + PL | HIGH | 4 | Sanding + dust extraction. |
+| 16 | CENNIK_SKIM_PKG-01 | Pakiet gładź 2x + szlifowanie | SKIM_COAT | M2 | LABOR | — | DROP_MERGE_RESTRUCTURE | 35 | 70 | 50 | PL (+ Kraków L+M suppl.) | MEDIUM | 4 | Component-sum mismatch (known issue A): SKIM_2L + SAND ≈ **65–91** exceeds package band **35–70** → package is volume-discounted/component-limited. Restructure: define exact package scope (which components included), then either re-anchor to component-sum consistency or merge into SKIM_2L + SKIM_SAND. |
+| 17 | CENNIK_SKIM_CRACK-01 | Naprawa rys i pęknięć | SKIM_COAT | LM | LABOR | — | MARKET_SUPPORTED | 62 | 95 | — | PL | LOW | 2 direct + 2 non-comp. | Market prices crack repair per mb; thin evidence. Resolve unit (LM) and scope (widen + fill, material excluded) explicitly before owner pricing. |
+| 18 | CENNIK_SKIM_CORNER-01 | Montaż narożników ochronnych | SKIM_COAT | LM | LABOR | — | MARKET_SUPPORTED | 12 | 22 | 16 | Kraków + PL | HIGH | 3 | — |
+| 19 | CENNIK_SKIM_LOCAL-01 | Szpachlowanie lokalne / punktowe | SKIM_COAT | M2 | LABOR | — | OWN_PRICE | 9 | 50 | — | Kraków + PL | MEDIUM | 4 (3 orgs) | Real band is extremely context-dependent (hole size, depth). Owner defines a rate; research suggests Kraków 25–40 as sanity anchor, never a market claim. |
+| 20 | CENNIK_SKIM_SQ-01 | Gładź pod wyższą klasę z lampą smugową (S3/S4) | SKIM_COAT | M2 | LABOR | S3/S4 (hint) | MARKET_SUPPORTED | 60 | 80 | — | PL (+ Kraków mention) | LOW | 3 priced partial + 1 qual. | Quality hint only on literal "lampa smugowa" wording. |
+| 21 | CENNIK_GK_JOINT-01 | Szpachlowanie spoin g-k z taśmą (Q1/Q2) | DRYWALL | M2 | LABOR | Q1/Q2 (hint) | DROP_MERGE_RESTRUCTURE | 34 | 46 | — | Kraków-regional + PL | MEDIUM | 3 (+1 flagged) | Unit model mismatch (known issue C): market cenniki price joints per **mb**; the M2 evidence is a single local Kraków row (34–46/m² board). Restructure: confirm **LM as the joint-finishing unit** (betonizm Q1 12–18, koszt-wykonczen Q1 15/Q2 18–20, Kraków Q2 24/mb) with the M2 aggregate optional/report-only. |
+| 22 | CENNIK_GK_FULL-01 | Szpachlowanie całopowierzchniowe (Q3) | DRYWALL | M2 | LABOR | Q3 (hint) | MARKET_SUPPORTED | 28 | 45 | 40 | Kraków + PL | MEDIUM | 3 (2 explicit Q3) | Full-surface board skim. |
+| 23 | CENNIK_GK_SCREW-01 | Maskowanie łbów wkrętów | DRYWALL | M2 | LABOR | — | OWN_PRICE | — | — | — | — | INSUFFICIENT | 0 standalone | Bundled into the Q1/Q2 joint tier; catalog "do not duplicate". Seed only if the owner wants a standalone billable line. |
+| 24 | CENNIK_GK_CORNER-01 | Wykończenie naroży zewnętrznych g-k | DRYWALL | LM | LABOR | — | MARKET_SUPPORTED | 10 | 22 | 18 | Kraków + PL | MEDIUM | 3 (+2 partial) | Unit normalized to LM; the mismatched Kraków "22–30 zł/m²" cell (linear service on an M2 unit) is excluded, not merged. |
+| 25 | CENNIK_GK_Q4-01 | Szpachlowanie całopowierzchniowe g-k pod smugę (Q4) | DRYWALL | M2 | LABOR | Q4 | MARKET_SUPPORTED | 40 | 80 | — | PL | MEDIUM | 2 explicit Q4 | Conflict resolved: betonizm.pl main-table 60–80 is used; its chart 110 is a documented outlier, not merged. |
+| 26 | CENNIK_GF_FLIZ_L-01 | Klejenie flizeliny / włókniny szklanej — robocizna | GLASS_FIBER | M2 | LABOR | — | OWN_PRICE | — | — | — | PL (+ Kraków row) | LOW | 0 tech-A | No technology-A (flizelina malarska) labour price exists; tech-B fiberglass wallpaper analog (48,82–77) is NOT substitutable (known issue D). |
+| 27 | CENNIK_GF_FLIZ_M-01 | Klejenie flizeliny — z materiałem | GLASS_FIBER | M2 | LABOR_AND_MATERIAL | — | OWN_PRICE | — | — | — | PL (+ Kraków row) | LOW | 0 tech-A; 1 tech-B analog | Same as above for L+M (tech-B L+M analog 110–190 excluded from a tech-A price basis). |
+| 28 | CENNIK_GF_MESH-01 | Montaż siatki zbrojącej na tynki | GLASS_FIBER | M2 | LABOR | — | MARKET_SUPPORTED | 12 | 58 | — | Kraków + PL | MEDIUM | 2 (scope caveat) | Wide band; scope caveat — confirm "embedded in the render coat" only. |
+| 29 | CENNIK_PAINT_2K-01 | Malowanie ścian — 2 warstwy (standard) | PAINTING | M2 | LABOR | — | MARKET_SUPPORTED | 10 | 28 | 18 | Kraków + PL | HIGH | 5 (1 partial, 1 flagged) | Default reference row. Coat-count structure: 2 coats on prepared substrate; no double-count of PRIM_PAINT/SKIM (known issue B). |
+| 30 | CENNIK_PAINT_1K-01 | Malowanie — 1 warstwa (odświeżenie) | PAINTING | M2 | LABOR | — | MARKET_SUPPORTED | 8 | 30 | — | Kraków + PL | MEDIUM | 1 strong + 2 partial | Re-verify cennikremontów Kraków 1-coat row (16–30 vs own 2-coat 10–28) before owner pricing (known issue B). |
+| 31 | CENNIK_PAINT_3K-01 | Malowanie — 3 warstwy | PAINTING | M2 | LABOR | — | MARKET_SUPPORTED | 21,80 | 48 | — | Kraków + PL | MEDIUM | 1 Kraków + 1 national | 1-coat/2-coat/3-coat kept as distinct coat sets; no overlap. |
+| 32 | CENNIK_PAINT_CEIL-01 | Malowanie sufitów — 2 warstwy | PAINTING | M2 | LABOR | — | MARKET_SUPPORTED | 16 | 32 | 24 | Kraków + PL | MEDIUM | 1 Kraków table + 4 national | Ceiling rates kept structurally separate from walls (known issue B). |
+| 33 | CENNIK_PAINT_COL-01 | Malowanie kolorem (zmiana koloru) | PAINTING | M2 | LABOR | — | MARKET_SUPPORTED | 14 | 30 | 20 | Kraków + PL | MEDIUM | 3 | Full color-coverage row kept separate from **dark-color surcharges** (+8–15 zł/m²; +5–15% color — documented as context, not merged). |
+| 34 | CENNIK_PAINT_MASK-01 | Maskowanie stolarki i detali | PAINTING | M2 | LABOR | — | OWN_PRICE | 5 | 20 | — | Kraków + PL | LOW | 4 (scope-variant) | Ambiguous package scope (simple foil 5–9 vs comprehensive 18,7–20,2); normally bundled or flat-rated. |
+| 35 | CENNIK_PAINT_MULTI-01 | Malowanie wielokolorowe / wzory | PAINTING | M2 | LABOR | — | OWN_PRICE | — | — | — | — | INSUFFICIENT | 0 comparable | No fixed per-m² market row; market prices it as surcharges. Owner defines a per-colour surcharge policy (known issue B). |
+| 36 | CENNIK_REV_PREP-01 | Ościeża — przygotowanie podłoża | REVEAL | M2 | LABOR | — | DROP_MERGE_RESTRUCTURE | — | — | — | — | INSUFFICIENT | 0 | No standalone M2 market rate — reveal work is quoted **per mb (LM)** or as complete bundles (80–120 / 113 zł/m²) (known issue E). Restructure per group 16.6. |
+| 37 | CENNIK_REV_SKIM-01 | Ościeża — szpachlowanie | REVEAL | M2 | LABOR | — | DROP_MERGE_RESTRUCTURE | — | — | — | — | INSUFFICIENT | 0 | Same as 36. |
+| 38 | CENNIK_REV_SAND-01 | Ościeża — szlifowanie | REVEAL | M2 | LABOR | — | DROP_MERGE_RESTRUCTURE | — | — | — | — | INSUFFICIENT | 0 | Same as 36 for sanding. |
+| 39 | CENNIK_REV_PAINT-01 | Ościeża — malowanie (m²) | REVEAL | M2 | LABOR | — | DROP_MERGE_RESTRUCTURE | — | — | — | — | INSUFFICIENT | 0 | Same as 36 for painting; reveal paint is measured into wall area or inside the LM obróbka. |
+| 40 | CENNIK_REV_PAINT_LM-01 | Ościeża — malowanie (mb) | REVEAL | LM | LABOR | — | DROP_MERGE_RESTRUCTURE | — | — | — | — | INSUFFICIENT | 0 | No per-mb paint-only reveal rate exists; always bundled. Merge into REV_WORK_LM (paint is part of the linear obróbka) (known issue E). |
+| 41 | CENNIK_REV_WORK_LM-01 | Ościeża — prace liniowe / obróbka ościeży (mb) | REVEAL | LM | LABOR | — | MARKET_SUPPORTED | 30 | 110 | 60 | PL national (Kraków-zone mapped; 0 local firm rates) | MEDIUM | 1 regional-zone + 5 national | 5F mb-basis row. LM is the dominant market unit for reveal work. Kraków-zone LM evidence is calculator-zone mapping (o-okna Strefa I 95–160; Kraków +20–35%) — offerable as regional-coefficient guidance, pending owner decision (known issue E, issue 9). No LM↔M² conversion performed. |
+| 42 | CENNIK_MC_WALL_L-01 | Mikrocement na ściany — robocizna | MICROCEMENT | M2 | LABOR | — | OWN_PRICE | 100 | 180 | 140 | PL national only (0 local/reg.) | MEDIUM | 4 national | No Kraków/Małopolskie firm prices wall MC labor separately; labor-only band is a national-guide construct (known issue F, issue 10). Owner defines the rate or applies a regional coefficient (+20–30% per Kraków premium evidence); 100–180 kept as national context, never a local basable price. |
+| 43 | CENNIK_MC_WALL_S-01 | Mikrocement — pełny system z materiałem | MICROCEMENT | M2 | LABOR_AND_MATERIAL | — | MARKET_SUPPORTED | 320 | 650 | 350 | Kraków + Małopolskie | MEDIUM | 1 local + 2 reg. + 6 nat. | Dry-interior core 320–400; 250–650 includes premium/premium-tier L+M. Seed must declare a prep assumption ("substrate ready, leveling excluded") (known issue F, issue 16). |
+| 44 | CENNIK_MC_FLOOR_L-01 | Mikrocement na posadzkę — robocizna | MICROCEMENT | M2 | LABOR | — | OWN_PRICE | 180 | 250 | 220 | PL national only (0 local/reg.) | MEDIUM | 3 national | Same local-basis gap as 42 for floors; national band (broad 180–400 flagged) is context only. |
+| 45 | CENNIK_MC_FLOOR_S-01 | Mikrocement — pełny system posadzka | MICROCEMENT | M2 | LABOR_AND_MATERIAL | — | MARKET_SUPPORTED | 320 | 400 | 380 | Kraków + Małopolskie | HIGH | 1 local + 2 reg. + 7 nat. | Local 320–400 (≤50 m² tier to 400); national 300–550 (typ. 350–500). Highest-confidence MC row. |
+| 46 | CENNIK_MC_SHOWER-01 | Mikrocement — strefa prysznicowa (system z hydroizolacją) | MICROCEMENT | M2 | LABOR_AND_MATERIAL | — | MARKET_SUPPORTED | 450 | 650 | 550 | Kraków + Małopolskie | MEDIUM | 1 local + 1 reg. + 5 nat. | L+M with membrane (hydroizolacja) incl.; netto/brutto split preserved (sanitmax explicit brutto 380–720 separated, never merged) (known issue F, issue 12/13). |
+| 47 | CENNIK_MC_STAIRS-01 | Mikrocement na schody | MICROCEMENT | M2 (or per step — TBD) | LABOR_AND_MATERIAL | — | DROP_MERGE_RESTRUCTURE | 750 | 950 | — | Kraków (m²) + PL | LOW | 1 local + 7 nat. | Stairs unit model (known issue F): m² 350–950 vs per-step 400–1300 vs per-flight are NOT convertible without geometry. Restructure: choose the seed unit + scope (tread/riser/edge/nosing/prep) before implementation; m² row kept only as report basis. |
+| 48 | CENNIK_DEC_VEN-01 | Stiuk wenecki — klasyczny | DECORATIVE | M2 | LABOR | — | MARKET_SUPPORTED | 100 | 160 | 140 | PL national; Kraków L+M city anchor only (405) | MEDIUM | 0 local + 1 reg. + 6 nat. | Classic Venetian LABOR core 120–150 (premium to 300 context). No Kraków labor row; big-city coefficient (+15–25% per itynki) is an owner/9E.5 decision (known issue G). |
+| 49 | CENNIK_DEC_VEN_MAR-01 | Stiuk wenecki — efekt marmuru z żyłkowaniem | DECORATIVE | M2 | LABOR | — | OWN_PRICE | — | — | — | PL/regional | LOW | 0 local + 1 reg. + 3 nat. | No Polish veined-LABOR m² row exists (surrogate non-veined 80–160; explicit veined L+M 350–550). Strongest OWN_PRICE candidate; derive from workshop man-hours at 9E.5, keep 350–550 L+M as sanity window (issue 20/24) (known issue G). |
+| 50 | CENNIK_DEC_CONC-01 | Efekt betonu / beton architektoniczny | DECORATIVE | M2 | LABOR | — | MARKET_SUPPORTED | 60 | 150 | 110 | PL national | MEDIUM | 0 local + 1 reg. + 5 nat. | Thin-layer wall-applied concrete effect; core 60–150 (outer 50–270 context). Permanent boundary vs microcement/panels/resin kept (issue 27) (known issue G). Big-city coefficient owner decision. |
+| 51 | CENNIK_DEC_GENERIC-01 | Tynk dekoracyjny — ogólny | DECORATIVE | M2 | LABOR | — | DROP_MERGE_RESTRUCTURE | 40 | 80 | 60 | PL national | MEDIUM | 0 local + 4 nat. | Generic "tynk dekoracyjny" technology breadth (issue 23/29). Restructure: restrict scope to structural/colored/rustykalny family explicitly (rename the row, e.g. "Tynk strukturalny/rustykalny — linia podstawowa"), keep 40–80 as reference context; travertine/metallic/limewash kept as `COMMON_DECORATIVE_CONTEXT`, never merged. |
+
+
+## 16.4 OWN_PRICE rows — why the market cannot support a comparable starting price (15)
+
+- **Normally bundled / internally priced (7)**: `PREP_PROT`, `PREP_DEGR`, `PREP_CLEAN`, `SKIM_LOCAL`,
+  `GK_SCREW`, `PAINT_MASK`, `PAINT_MULTI`. The market either includes these in a package, flat-rates
+  them, prices them per piece/polish, or quotes them on a context-dependent basis (hole-size, project
+  scope) that cannot yield a comparable per-unit reference.
+- **Technology-specific evidence gap (3)**: `PREP_FLEECE`, `GF_FLIZ_L`, `GF_FLIZ_M` — dedicated
+  tech-A (flizelina malarska / glass fleece) rows have no standalone price; only proxy/surrogate
+  tech-B fiberglass-wallpaper figures exist, which are legitimately not substitutable.
+- **Component-only / custom-premium market (3)**: `PRIM_ADH`, `PRIM_HIGH` — component/material evidence
+  only, no direct per-m² quote; `DEC_VEN_MAR` — veined marble is artistic/custom work, no fixed LABOR
+  row; `PAINT_MULTI` — no fixed per-m² multi-color row (see first group too).
+- **No local (Kraków/Małopolskie) basis (2)**: `MC_WALL_L`, `MC_FLOOR_L` — labor-only microcement is a
+  national-price-guide construct; no Kraków firm publishes it. Owner sets the rate or applies a
+  regional coefficient; the national bands (100–180 / 180–250) are sanity context only.
+
+## 16.5 DROP_MERGE_RESTRUCTURE rows — proposed structural corrections (10)
+
+1. **`SKIM_3L-01 (14)** — overlap risk with SKIM_2L + SAND. Restructure as **SKIM_2L + 3rd-layer
+   add-on**; standalone 3-coat full-surface row only if the owner explicitly wants a 3-coat package.
+2. **`SKIM_PKG-01 (16)** — component-sum mismatch (35–70 vs component equivalent 65–91). Restructure:
+   define the exact package scope, then re-anchor to component-sum consistency or merge into
+   SKIM_2L + SKIM_SAND.
+3. **`GK_JOINT-01 (21)** — M2 vs LM unit mismatch. Restructure to **LM joint-finishing** (market
+   basis) with optional M2 aggregate/report-only, or explicitly redefine M2 scope.
+4. **`REV_PREP-01 (36)** / `REV_SKIM-01 (37)** / `REV_SAND-01 (38)** / `REV_PAINT-01 (39)** /
+   `REV_PAINT_LM-01 (40)** — the market quotes reveal work per **mb (LM)** or as complete bundles;
+   M2 component rows have no standalone market. Restructure: make **REV_WORK_LM (41)** the single
+   canonical commercial reveal row; keep M2 only as the 5F measurement/report aggregate; optionally
+   derive M2 component rates from wall-work (Batch A/B) + a reveal-handling surcharge if the owner
+   prefers a component structure.
+5. **`MC_STAIRS-01 (47)** — stairs unit model fragmented (m² / per-step / per-flight). Restructure:
+   choose seed unit + scope (tread/riser/edge/nosing/prep) before implementation.
+6. **`DEC_GENERIC-01 (51)** — technology breadth of "generic decorative render". Restructure: restrict
+   to structural/colored/rustykalny scope with an explicit renamed row ("Tynk strukturalny/
+   rustykalny — linia podstawowa"), or drop it in favor of the specific VEN/CONC rows; 40–80 stays
+   reference context only.
+
+## 16.6 Known-issues resolution map (A–G → decision)
+
+| Known issue | Resolved by | Result |
+|---|---|---|
+| A. SKIM_PKG market range vs component-sum | row 16 DROP_MERGE | package scope must be re-defined; component sum kept as consistency anchor |
+| A. 3-layer skim duplication / overlap | row 14 DROP_MERGE | restructure to 2-coat + add-on |
+| A. post-sanding cleaning / vacuuming evidence gap | row 7 OWN_PRICE | standalone cleaning remains internally priced |
+| A. crack-repair unit/scope consistency | row 17 MARKET_SUPPORTED (LOW) | LM unit + scope note; no invented LM↔M² conversion |
+| B. 1/2/3-coat structure | rows 29–31 MARKET_SUPPORTED | three coat sets distinct on the same prepared-substrate/labor basis |
+| B. ceiling vs wall prices | rows 29 vs 32 MARKET_SUPPORTED | separate rows kept (ceiling 16–32 vs wall 10–28) |
+| B. color / dark-color surcharges | row 33 MARKET_SUPPORTED + note | color-coverage row kept separate from dark surcharge context |
+| B. masking/protection structure | row 34 OWN_PRICE | compounded into bundles/flat rates |
+| B. multi-color fixed market | row 35 OWN_PRICE | owner defines per-colour surcharge policy |
+| C. Q1/Q2 m² vs lm ambiguity | row 21 DROP_MERGE | unit model decision (LM preferred) |
+| C. Q3 full finish | row 22 MARKET_SUPPORTED | Q3 hint; range 28–45 real |
+| C. Q4 source conflicts | row 25 MARKET_SUPPORTED | betonizm 60–80 used; chart 110 noted as outlier |
+| C. corner bead / corner unit mismatch | row 24 MARKET_SUPPORTED | unit normalized to LM; mismatched M² cell excluded |
+| C. screw correction OWN_PRICE | row 23 OWN_PRICE | remains bundled; seed only if owner wants standalone |
+| C. no invented Q-level compatibility | rows 20/22/25 quality hints | S/Q attached only on literal wording |
+| D. flizelina vs fiberglass wall covering | rows 26–27 OWN_PRICE | tech-B not substituted for tech-A |
+| D. GF_MESH support | row 28 MARKET_SUPPORTED | mesh embedding has a market basis |
+| E. complete bundle vs component M² | rows 36–40 DROP_MERGE | reveal M2 components folded into LM canonical row |
+| E. LM vs M² quoting model / 5F geometry | rows 36–41 | LM canonical row (41); M2 as 5F report aggregate; no arbitrary LM↔M² conversion |
+| E. structural decide rows | rows 36–41 | §16.7 Group 1 (5 restructure + `REV_WORK_LM` kept numeric) |
+| F. labor-only vs system scope | rows 42, 44 OWN_PRICE | national-only labor bands are context; no local basis |
+| F. hydroizolacja in wet areas | row 46 MARKET_SUPPORTED | L+M membrane incl.; brutto separated; scope explicit |
+| F. minimum-job effects | rows 43/45/46 notes | min-m² tiers documented as context; no M2-rate conversion |
+| F. wall vs floor | rows 43 vs 45 MARKET_SUPPORTED | per-surface seeds separated |
+| F. stairs unit | row 47 DROP_MERGE | unit model decision |
+| F. Festfloor/material data ≠ labor | rows 42–47 notes | material echelons kept as Stage-10 estimate input only |
+| G. classic Venetian LABOR basis | row 48 MARKET_SUPPORTED | national core 120–150; big-city coefficient is owner decision |
+| G. veined/marble no LABOR | row 49 OWN_PRICE | workshop man-hours at 9E.5 |
+| G. concrete effect | row 50 MARKET_SUPPORTED | thin-layer wall scope; boundary vs microcement permanent |
+| G. generic family | row 51 DROP_MERGE | restrict/rename rows or drop; 40–80 context |
+| G. material vs labor separation | rows 48–50 notes | manufacturer material rows never fed LABOR |
+| G. complexity surcharge not invented | rows 49/51 notes | no % surcharge in the rows; ENHANCED/ARTISTIC documented as scope notes |
+
+## 16.7 OWNER DECISIONS REQUIRED — grouped (answer these before 9E.5 implementation approval)
+
+**Group 1 — Reveal row structure (rows 36–41):** Confirm the proposed restructure — make
+`REV_WORK_LM` (30–110 zł/mb, ref 60) the **single canonical commercial reveal row**; fold the M2
+component rows (PREP/SKIM/SAND/PAINT) and `REV_PAINT_LM` into it, keeping M2 only as the 5F
+measurement/report aggregate. Alternative: (b) keep M2 components derived from wall-work + a
+reveal-handling surcharge. Owner picks (a) or (b); applying the Kraków-zone LM regional coefficient
+(+20–35%) is part of this decision set.
+
+**Group 2 — OWN_PRICE starting rates (15 items):** provide owner rates (or approve their future
+derivation in 9E.5): `PREP_PROT`, `PREP_DEGR`, `PREP_CLEAN`, `PREP_FLEECE`, `PRIM_ADH`, `PRIM_HIGH`,
+`SKIM_LOCAL`, `GK_SCREW`, `GF_FLIZ_L`, `GF_FLIZ_M`, `PAINT_MASK`, `PAINT_MULTI`, `MC_WALL_L`,
+`MC_FLOOR_L`, `DEC_VEN_MAR`. For the "usually bundled" subset (PREP_PROT/DEGR/CLEAN, GK_SCREW,
+PAINT_MASK, PAINT_MULTI) the owner may instead decide to **not seed them as separate billable lines**.
+
+**Group 3 — SKIM package structure (rows 14, 16):** approve the restructure — `SKIM_PKG` becomes
+SKIM_2L + SAND (or a re-scoped package), and `SKIM_3L` becomes a 2-coat + 3rd-layer add-on (or a
+single explicit 3-coat package). Confirm which lines the owner wants to sell.
+
+**Group 4 — GK joint unit model (row 21):** approve **LM** as the joint-finishing unit (market basis)
+with M2 as optional aggregate; or require an explicitly re-defined M2 joint row.
+
+**Group 5 — MC_STAIRS unit (row 47):** choose the seed unit (**M2 with explicit tread/riser/edge/
+nosing scope, or per-step) and whether the per-flight rate is a future optional mode.
+
+**Group 6 — DEC_GENERIC scope (row 51):** keep a **renamed/restricted** generic decorative row
+(structural/colored/rustykalny family, 40–80 reference context) or drop it in favor of the specific
+VEN/CONC rows.
+
+**Group 7 — regional (big-city) pricing policy (rows 48, 50 + reveal row 41):** confirm applying the
+documented big-city coefficient (+15–25% decorative, +20–35% Kraków-zone LM) or using national
+defaults, as the owner's pricing policy input for 9E.5.
+
+Only these groups require owner input before 9E.5; the 26 `MARKET_SUPPORTED` rows also have a
+starting-price proposal pending at 9E.5, but that is the normal owner-approval step, not a blocking
+decision.
