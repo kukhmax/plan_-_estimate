@@ -19,6 +19,14 @@ export const DEFAULT_LIGHT_THEME: Record<string, string> = {
   '--tg-theme-section-header-text-color': '#64748b',
   '--tg-theme-subtitle-text-color': '#64748b',
   '--tg-theme-destructive-text-color': '#dc2626',
+  '--tg-control-bg-color': '#ffffff',
+  '--tg-control-text-color': '#0f172a',
+  '--tg-control-placeholder-color': '#64748b',
+  '--tg-control-border-color': '#cbd5e1',
+  '--tg-control-focus-border-color': '#2563eb',
+  '--tg-control-focus-ring-color': 'rgba(37, 99, 235, 0.28)',
+  '--tg-control-disabled-bg-color': '#f1f5f9',
+  '--tg-control-disabled-text-color': '#94a3b8',
 };
 
 export const DEFAULT_DARK_THEME: Record<string, string> = {
@@ -35,6 +43,14 @@ export const DEFAULT_DARK_THEME: Record<string, string> = {
   '--tg-theme-section-header-text-color': '#708499',
   '--tg-theme-subtitle-text-color': '#708499',
   '--tg-theme-destructive-text-color': '#ef5350',
+  '--tg-control-bg-color': '#232e3c',
+  '--tg-control-text-color': '#f5f5f5',
+  '--tg-control-placeholder-color': '#708499',
+  '--tg-control-border-color': '#4b5f75',
+  '--tg-control-focus-border-color': '#6ab2f2',
+  '--tg-control-focus-ring-color': 'rgba(106, 178, 242, 0.35)',
+  '--tg-control-disabled-bg-color': '#1c2733',
+  '--tg-control-disabled-text-color': '#708499',
 };
 
 export function applyTelegramTheme(

@@ -9,8 +9,13 @@
     "retry": "Повторить",
     "dev_banner": "DEV AUTH MODE — MOCK USER (Running outside official Telegram client)",
     "logged_in_as": "Вошедший пользователь",
+    "account": "Аккаунт",
+    "account_title": "Данные пользователя",
     "telegram_verified": "Telegram подтверждён",
     "mock_auth": "Mock Auth",
+    "telegram_user_id": "Telegram User ID",
+    "username": "Имя пользователя",
+    "uuid": "UUID",
     "errors": {
       "telegram_unavailable": "Откройте приложение в Telegram или явно включите режим разработки.",
       "telegram_init_data_missing": "Telegram не передал данные для входа. Закройте и снова откройте приложение.",

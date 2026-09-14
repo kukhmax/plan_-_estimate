@@ -96,6 +96,8 @@ describe('App authentication component', () => {
     });
 
     expect(screen.getByText(/DEV AUTH MODE/i)).toBeInTheDocument();
+    // Account details now live behind the compact footer control, not inline.
+    fireEvent.click(screen.getByRole('button', { name: 'open-account' }));
     expect(screen.getByText('Jan Kowalski')).toBeInTheDocument();
     expect(screen.getByText('@dev_contractor')).toBeInTheDocument();
     expect(screen.getByText('999999999')).toBeInTheDocument();
@@ -134,11 +136,12 @@ describe('App authentication component', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('Adam Nowak')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument();
     });
 
     expect(screen.queryByRole('alert', { name: 'dev-auth-banner' })).not.toBeInTheDocument();
-    expect(screen.getByText('Telegram Verified')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'open-account' }));
+    expect(screen.getByText('Telegram zweryfikowany')).toBeInTheDocument();
     expect(screen.getByText('@real_contractor')).toBeInTheDocument();
     expect(api.loginWithTelegram).toHaveBeenCalledWith(initData);
     expect(localStorage.getItem('access_token')).toBe('valid-jwt-token');
@@ -302,7 +305,7 @@ describe('App authentication component', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('Jan Kowalski')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument();
     });
 
     expect(document.documentElement.style.getPropertyValue('--tg-theme-bg-color')).toBe('#1a1a1a');
@@ -369,7 +372,9 @@ describe('App authentication component', () => {
     vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
 
     render(<App />);
-    await waitFor(() => expect(screen.getByText('Jan Kowalski')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument(),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'show-projects' }));
     await screen.findByLabelText(`open-project-${project.id}`);
@@ -407,7 +412,9 @@ describe('App authentication component', () => {
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
 
     render(<App />);
-    await waitFor(() => expect(screen.getByText('Jan Kowalski')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument(),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'show-pricebook' }));
     expect(await screen.findByRole('region', { name: 'price-book-section' })).toBeInTheDocument();

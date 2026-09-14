@@ -19,6 +19,32 @@ function keySet(node: unknown, prefix = ''): Set<string> {
 }
 
 describe('PL/RU locale parity (LOCALIZATION)', () => {
+  it('has identical app-shell and auth key structure in PL and RU (Stage 9D.1)', () => {
+    const plApp = keySet(pl.app);
+    const ruApp = keySet(ru.app);
+    expect(plApp).toEqual(ruApp);
+
+    const plAuth = keySet(pl.auth);
+    const ruAuth = keySet(ru.auth);
+    expect(plAuth).toEqual(ruAuth);
+
+    const plCommon = keySet(pl.common);
+    const ruCommon = keySet(ru.common);
+    expect(plCommon).toEqual(ruCommon);
+
+    // The compact account control + modal labels required by the 9D.1 spec.
+    for (const key of [
+      'account',
+      'account_title',
+      'telegram_verified',
+      'telegram_user_id',
+      'username',
+      'uuid',
+    ]) {
+      expect(plAuth.has(key)).toBe(true);
+    }
+  });
+
   it('has identical inspection and checklist key structure in PL and RU', () => {
     const plKeys = keySet(pl.inspections);
     const ruKeys = keySet(ru.inspections);
