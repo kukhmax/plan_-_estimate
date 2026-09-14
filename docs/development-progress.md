@@ -51,7 +51,7 @@
 | **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
 | Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | **Stage 8** | **"Co powiedzieć klientowi" (Client Communication Assistant)** | **Completed 2026-09-13** | Deterministic, rule-driven client communication recommendations (PL/RU) from completed-inspection facts — versioned immutable phrase catalog, exact-key selection over materialized Stage 6/7 facts, complete quality matrix, mobile communication cards with evaluate / "Why?" traceability / copy / active-resolved-all history |
-| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; 9E.5 (owner approval) & 9E.6 (implementation) & 9E.7 (load) & 9F (final gate) Pending — 9E.5 NOT STARTED** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
+| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; 9E.6 (implementation) & 9E.7 (load) & 9F (final gate) Pending — 9E.6 NOT STARTED** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
 | Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
 | Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
@@ -1495,7 +1495,7 @@ Audit-only closure (no new functionality, no refactors, no migrations). All gate
 **Verification**: focused communication + integration **60 passed**; full backend pytest **340 passed**; full frontend Vitest **213 passed (19 files)**; `tsc --noEmit` PASS; `vite build` PASS; `git diff --check` clean; Alembic single head + running `current` = `0013_create_communication_engine (head)` (no migration created in 8E; upgrade/downgrade cycle proven in 8B remains documented); Docker runtime healthy — postgres/backend healthy, `/api/health` `{"status":"ok"}`, frontend :5173 HTTP 200. Documentation finalized: **Stage 8 → Completed 2026-09-13** (owner verified), all sub-stages 8A–8E Completed, roadmap notes A–D preserved, Stage 9 remains **Pending**; README updated to the repo convention (Stages 0–8 Completed, Stages 9–20 pending). Committed as **`docs(stage-8): complete client communication stage`** (docs + README only) and pushed to `stage-8`. NOT merged into `main` — the owner-authorized merge command is reserved for owner approval.
 
 ### Stage 9: Editable Price Book / Cennik
-- **Status**: **In Progress — execution sub-stages 9A (architecture & domain contract), 9B (backend domain, migration & seed infrastructure), 9C (public API + ownership tests) Completed 2026-09-13; 9D (mobile-first price book UI) Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 (market price reference & sources architecture) and 9E.2 (research catalog structure) Completed 2026-09-13 (docs-only); 9E.3A–9E.3E (Kraków market research — Batches A–E) Completed 2026-09-13/14 (evidence files only, no seeds); 9E.4 (normalization/review — all 51 items, decisions assigned, owner-decision groups defined) Completed 2026-09-14 (docs-only, no seeds); **9E.5 (owner approval) NOT STARTED** — requires explicit owner approval and their answers to the 9E.4 owner-decision groups; 9E.6–9E.7, 9F pending**. Stage 9 answers the product question **"What is our current unit price?"** with an owner-editable contractor price catalog (Cennik). **Stage 9 is not an estimate**: canonical Stage 10 (Kosztorys) consumes Price Book prices and is out of Stage 9 scope; no Project/room/inspection/estimate entities are created in Stage 9. `main` untouched; Stages 10–20 remain Pending.
+- **Status**: **In Progress — execution sub-stages 9A (architecture & domain contract), 9B (backend domain, migration & seed infrastructure), 9C (public API + ownership tests) Completed 2026-09-13; 9D (mobile-first price book UI) Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 (market price reference & sources architecture) and 9E.2 (research catalog structure) Completed 2026-09-13 (docs-only); 9E.3A–9E.3E (Kraków market research — Batches A–E) Completed 2026-09-13/14 (evidence files only, no seeds); 9E.4 (normalization/review — all 51 items, decisions assigned, owner-decision groups defined) Completed 2026-09-14 (docs-only, no seeds); **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 §16.7 decision groups approved; final implementation-ready catalog: 44 candidates, 28 MARKET_SUPPORTED / 16 OWN_PRICE, 7 dropped/merged)**; **9E.6 (implementation/seed) NOT STARTED**; 9E.7, 9F pending**. Stage 9 answers the product question **"What is our current unit price?"** with an owner-editable contractor price catalog (Cennik). **Stage 9 is not an estimate**: canonical Stage 10 (Kosztorys) consumes Price Book prices and is out of Stage 9 scope; no Project/room/inspection/estimate entities are created in Stage 9. `main` untouched; Stages 10–20 remain Pending.
 - **Date**: 2026-09-13 (9A)
 
 #### 9A — architecture & domain contract (decision record)
@@ -1850,6 +1850,45 @@ technical placeholder seeds from 9B (`CENNIK_PREP_GENERIC_M2` / `CENNIK_PAINT_GE
   the four 9B technical placeholder seeds, any invented market prices. **STAGE_9E.5: NOT STARTED** —
   next sub-stage requires explicit owner approval and answers to the §16.7 owner-decision groups.
   Canonical Stage 9 remains **In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.5 execution status 2026-09-14 — owner approval of the normalized catalog (COMPLETE / OWNER_APPROVED; documentation only; committed + pushed to `stage-9`)
+
+**Deliverable**: binding owner answers to all 7 decision groups of 9E.4 §16.7, recorded in
+`docs/price-research-catalog.md` (new **PART 9E.5**, §17.1–17.4) and frozen as the final
+implementation-ready catalog definition that 9E.6 (implementation / PriceItem seeds) and 9E.7 (load)
+must honor.
+
+- **Owner approval record (§17.1, all 7 groups APPROVED)**: (1) **SKIM_3L** — no standalone
+  market-priced 3-coat row; base = SKIM_2L + third-coat add-on; (2) **SKIM_PKG** — DROP/MERGE, no
+  package PriceItem, Stage 10 composes packages from atomic items; (3) **GK_JOINT** — LM canonical
+  unit for linear joint evidence, Q3/Q4 full-surface stays M2, no LM↔M² conversion;
+  (4) **GF_FLIZ_L / GF_FLIZ_M** — OWN_PRICE, flizelina malarska kept separate from fiberglass wall
+  covering, owner rates supplied separately; (5) **REVEALS** — REV_WORK_LM is the principal
+  commercial row, REV_PREP / REV_SKIM / REV_SAND / REV_PAINT / REV_PAINT_LM fold in as internal/helper
+  only, Stage 5F geometry keeps both LM and M2, no automatic LM↔M² conversion; (6) **MC_STAIRS** —
+  canonical unit PCS / per step, M2/per-flight/per-step observations reference-only, initial owner
+  price OWN_PRICE; (7) **DEC_GENERIC** — rename/restrict to tynk strukturalny / rustykalny, never a
+  catch-all for Venetian / concrete-effect / microcement or other distinct technologies.
+- **Final implementation-ready catalog (§17.2–17.3)**: single source of truth = §16.3 as amended by
+  §17.1 decisions; §17.3 disposition table covers all 51 reviewed rows.
+- **Recalculated counts (§17.4) — original review vs final implementation set**:
+  - Original research catalog (9E.4 review): **51** items — 26 MARKET_SUPPORTED / 15 OWN_PRICE /
+    10 DROP_MERGE_RESTRUCTURE.
+  - Final implementation PriceItem candidates (post-approval): **44** — **28 MARKET_SUPPORTED** /
+    **16 OWN_PRICE**.
+  - Dropped (2): SKIM_3L, SKIM_PKG. Folded/merged into REV_WORK_LM (5): REV_PREP, REV_SKIM,
+    REV_SAND, REV_PAINT, REV_PAINT_LM. Restructured but retained (3): GK_JOINT → LM (MS),
+    MC_STAIRS → PCS/OWN_PRICE, DEC_GENERIC → renamed/restricted (MS).
+  - Total check: 44 + 7 = 51. The final implementation count is deliberately **not forced to 51**.
+- **Also in this sub-stage**: `docs/development-progress.md` status rows updated (roadmap row and
+  Stage Log header now show 9E.5 Completed / OWNER_APPROVED; 9E.6 NOT STARTED).
+- **Verification**: `git diff --check` PASS; only documentation files changed — no application code,
+  no migration, no seed implementation, no Stage 9E.6 work — and committed as
+  **`docs(stage-9): approve normalized price catalog`** and pushed to `origin/stage-9`; working tree
+  clean; `main` untouched. The four 9B technical placeholder seeds (`CENNIK_PREP_GENERIC_M2` /
+  `CENNIK_PAINT_GENERIC_M2` / `CENNIK_REVEAL_GENERIC_M2` / `CENNIK_REVEAL_GENERIC_LM`) remain
+  untouched through 9E.5. **STAGE_9E.6: NOT STARTED** — next sub-stage requires explicit owner
+  approval. Canonical Stage 9 remains **In Progress**; Stage 10 remains **Pending**.
 
 ## Stage Log Template for Future Stages
 

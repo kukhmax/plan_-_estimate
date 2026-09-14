@@ -238,6 +238,11 @@ Three decisions are used, each exactly one per item:
 | DROP_MERGE_RESTRUCTURE | **10** | 20 % |
 | **TOTAL** | **51** | 100 % |
 
+> **9E.5 update (2026-09-14, owner-approved)**: the counts above freeze the **9E.4 pre-approval
+> review**. After owner approval, **44** of the 51 reviewed items are **final implementation PriceItem
+> candidates** (**28 MARKET_SUPPORTED / 16 OWN_PRICE**) and **7** are dropped or merged — full per-row
+> disposition in **PART 9E.5 §17.3**, recalculated totals in **§17.4**.
+
 ## 16.3 Master review table
 
 Reading notes: `min`/`max`/`ref` are **normalized evidence windows** (zł, PLN), region-keyed — not
@@ -375,7 +380,7 @@ supports them (`hint` = applicability hint, not a market claim).
 | G. material vs labor separation | rows 48–50 notes | manufacturer material rows never fed LABOR |
 | G. complexity surcharge not invented | rows 49/51 notes | no % surcharge in the rows; ENHANCED/ARTISTIC documented as scope notes |
 
-## 16.7 OWNER DECISIONS REQUIRED — grouped (answer these before 9E.5 implementation approval)
+## 16.7 OWNER DECISIONS REQUIRED — grouped (answered & APPROVED 2026-09-14 — see PART 9E.5 §17)
 
 **Group 1 — Reveal row structure (rows 36–41):** Confirm the proposed restructure — make
 `REV_WORK_LM` (30–110 zł/mb, ref 60) the **single canonical commercial reveal row**; fold the M2
@@ -408,6 +413,148 @@ VEN/CONC rows.
 documented big-city coefficient (+15–25% decorative, +20–35% Kraków-zone LM) or using national
 defaults, as the owner's pricing policy input for 9E.5.
 
-Only these groups require owner input before 9E.5; the 26 `MARKET_SUPPORTED` rows also have a
+Only these groups required owner input before 9E.5; the 26 `MARKET_SUPPORTED` rows also have a
 starting-price proposal pending at 9E.5, but that is the normal owner-approval step, not a blocking
 decision.
+
+**[9E.5 resolution 2026-09-14]**: all 7 groups above were answered and **APPROVED** by the owner on
+2026-09-14; the verbatim decisions and the frozen implementation-ready catalog are recorded in
+**PART 9E.5** below.
+
+# PART 9E.5 — Owner approval of the normalized catalog (all 7 decision groups APPROVED)
+
+> Canonical Stage 9, execution sub-stage **9E.5 (owner approval)** — completed **2026-09-14**. This part
+> records the owner's binding answers to the 7 decision groups raised in §16.7 and freezes the final
+> **implementation-ready catalog definition** that 9E.6 (implementation / PriceItem seeds) and 9E.7
+> (load) must honor. It is **documentation only**: no rows written, no placeholder seeds replaced, no
+> migration created, no API/frontend behavior change. All 9E.3 raw evidence (batches A–E) and the
+> 9E.4 normalized review (§16.1–16.7) are preserved verbatim above.
+
+## 17.1 Owner approval record (2026-09-14)
+
+Decisions recorded exactly as approved; each entry states the resulting catalog fate.
+
+1. **SKIM_3L (row 14) — APPROVED.** Do not maintain a separate market-priced 3-coat skim item. Use
+   the normal 2-coat skim item (`CENNIK_SKIM_2L-01`) as the base. Future third-coat work is
+   represented as an additional work/add-on rather than pretending there is a clean independent
+   3-coat market price. **Fate: dropped as a standalone PriceItem.**
+2. **SKIM_PKG (row 16) — APPROVED: DROP/MERGE.** Do not implement a separate package-deal PriceItem.
+   Stage 10 may compose a package from atomic work items. **Fate: dropped as a standalone PriceItem.**
+3. **GK_JOINT (row 21) — APPROVED.** Use **LM** as the canonical commercial unit for drywall joint
+   treatment where the researched market evidence is linear. Keep full-surface Q3/Q4 finishing as M2
+   items. Do not convert LM evidence into M2. **Fate: restructured to LM; retained as an
+   implementation candidate (MARKET_SUPPORTED, linear market basis).**
+4. **GF_FLIZ_L / GF_FLIZ_M (rows 26–27) — APPROVED: OWN_PRICE.** Keep flizelina malarska separate
+   from fiberglass wall covering. Do not infer market labor rates from glass-fiber evidence. Owner
+   rates will be supplied separately. **Fate: retained as OWN_PRICE candidates (owner-supplied
+   rates).**
+5. **REVEALS (rows 36–41) — APPROVED: RESTRUCTURE.** Use `REV_WORK_LM` as the principal commercial
+   reveal-work item. Preserve Stage 5F geometry support for both LM and M2. `REV_PREP` / `REV_SKIM` /
+   `REV_SAND` / `REV_PAINT` / `REV_PAINT_LM` may remain only as internal/helper components where
+   useful, but must not be presented as market-supported standalone prices without evidence. No
+   LM↔M2 automatic conversion. **Fate: `REV_WORK_LM` kept as the canonical candidate; rows 36–40
+   folded (merged, not standalone market rows).**
+6. **MC_STAIRS (row 47) — APPROVED.** Canonical commercial unit is **PCS / per step**. Treat current
+   M2 / per-flight / per-step market observations only as supporting reference evidence. Do not
+   convert between those units. Initial owner commercial price per step is **OWN_PRICE** until
+   sufficient comparable per-step evidence or own project history exists. **Fate: retained as
+   OWN_PRICE candidate, unit PCS / per step.**
+7. **DEC_GENERIC (row 51) — APPROVED.** Rename/restrict the generic decorative item to
+   structural/rustic trowel decorative finish (e.g. tynk dekoracyjny strukturalny / rustykalny). Do
+   not use it as a catch-all for Venetian, concrete effect, microcement, or other distinct
+   technologies. **Fate: renamed & restricted; retained as MARKET_SUPPORTED candidate within the
+   structural/rustykalny scope.**
+
+## 17.2 Final implementation-ready catalog definition (Stage 9E.6 input)
+
+**Single source of truth**: the final PriceItem shape (code, PL name, category, unit, scope, quality)
+is **§16.3 as amended by the §17.1 decisions**. §17.3 lists the fate of every one of the 51 reviewed
+rows. 9E.6 seeds exactly the **44 candidates** marked **KEEP**; the **7 rows** marked **DROP / FOLD**
+are not seeded as standalone PriceItems. `PriceItem.price` (owner/commercial price) is set only at
+the 9E.6/9E.7 implementation review — from the approved market windows for MARKET_SUPPORTED rows and
+from owner-supplied internal rates for OWN_PRICE rows — never copied directly from the market
+reference columns (invariant: OWNER PRICE ≠ MARKET RANGE ≠ SOURCE QUOTED PRICE).
+
+The four 9B technical placeholder seeds (`CENNIK_PREP_GENERIC_M2`, `CENNIK_PAINT_GENERIC_M2`,
+`CENNIK_REVEAL_GENERIC_M2`, `CENNIK_REVEAL_GENERIC_LM`) remain untouched through 9E.5; their
+replacement/transition is 9E.6 scope.
+
+## 17.3 Disposition of all 51 reviewed rows (post-approval)
+
+| # | Code | 9E.4 decision | 9E.5 fate | Final status |
+|---|---|---|---|---|
+| 1 | CENNIK_PREP_PROT-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (owner rate) |
+| 2 | CENNIK_PREP_WALLP-01 | MARKET_SUPPORTED | KEEP | candidate — window 10–30, ref 20 |
+| 3 | CENNIK_PREP_SCRAPE-01 | MARKET_SUPPORTED | KEEP | candidate — window 10–35, ref 18 |
+| 4 | CENNIK_PREP_FLEECE-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (owner rate) |
+| 5 | CENNIK_PREP_DEGR-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (owner rate) |
+| 6 | CENNIK_PREP_MOLD-01 | MARKET_SUPPORTED | KEEP | candidate — 30–120, L+M |
+| 7 | CENNIK_PREP_CLEAN-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (or not seeded as separate billable line) |
+| 8 | CENNIK_PRIM_STD-01 | MARKET_SUPPORTED | KEEP | candidate — 7–15, L+M |
+| 9 | CENNIK_PRIM_ADH-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (owner rate) |
+| 10 | CENNIK_PRIM_HIGH-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (owner rate) |
+| 11 | CENNIK_PRIM_PAINT-01 | MARKET_SUPPORTED | KEEP | candidate — 3–15, L+M |
+| 12 | CENNIK_SKIM_1L-01 | MARKET_SUPPORTED | KEEP | candidate — 30–50, ref 40 |
+| 13 | CENNIK_SKIM_2L-01 | MARKET_SUPPORTED | KEEP | candidate — 35–75, ref 55; **base for third-coat add-on** |
+| 14 | CENNIK_SKIM_3L-01 | DROP_MERGE_RESTRUCTURE | **DROP** | NOT seeded — base SKIM_2L + add-on (decision 1) |
+| 15 | CENNIK_SKIM_SAND-01 | MARKET_SUPPORTED | KEEP | candidate — 10–25, ref 14 |
+| 16 | CENNIK_SKIM_PKG-01 | DROP_MERGE_RESTRUCTURE | **DROP** | NOT seeded — Stage 10 composes packages (decision 2) |
+| 17 | CENNIK_SKIM_CRACK-01 | MARKET_SUPPORTED | KEEP | candidate — LM, 62–95 |
+| 18 | CENNIK_SKIM_CORNER-01 | MARKET_SUPPORTED | KEEP | candidate — LM, 12–22, ref 16 |
+| 19 | CENNIK_SKIM_LOCAL-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (owner rate) |
+| 20 | CENNIK_SKIM_SQ-01 | MARKET_SUPPORTED | KEEP | candidate — 60–80, S3/S4 hint |
+| 21 | CENNIK_GK_JOINT-01 | DROP_MERGE_RESTRUCTURE | KEEP (RESTRUCTURED → LM) | candidate — **MARKET_SUPPORTED, LM** (decision 3) |
+| 22 | CENNIK_GK_FULL-01 | MARKET_SUPPORTED | KEEP | candidate — 28–45, ref 40, Q3 hint |
+| 23 | CENNIK_GK_SCREW-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (or not seeded as separate line) |
+| 24 | CENNIK_GK_CORNER-01 | MARKET_SUPPORTED | KEEP | candidate — LM, 10–22, ref 18 |
+| 25 | CENNIK_GK_Q4-01 | MARKET_SUPPORTED | KEEP | candidate — 40–80, Q4 |
+| 26 | CENNIK_GF_FLIZ_L-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE, owner rates (decision 4) |
+| 27 | CENNIK_GF_FLIZ_M-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE, owner rates (decision 4) |
+| 28 | CENNIK_GF_MESH-01 | MARKET_SUPPORTED | KEEP | candidate — 12–58, scope caveat |
+| 29 | CENNIK_PAINT_2K-01 | MARKET_SUPPORTED | KEEP | candidate — 10–28, ref 18 |
+| 30 | CENNIK_PAINT_1K-01 | MARKET_SUPPORTED | KEEP | candidate — 8–30 |
+| 31 | CENNIK_PAINT_3K-01 | MARKET_SUPPORTED | KEEP | candidate — 21,80–48 |
+| 32 | CENNIK_PAINT_CEIL-01 | MARKET_SUPPORTED | KEEP | candidate — 16–32, ref 24 |
+| 33 | CENNIK_PAINT_COL-01 | MARKET_SUPPORTED | KEEP | candidate — 14–30, ref 20 |
+| 34 | CENNIK_PAINT_MASK-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (or not seeded as separate line) |
+| 35 | CENNIK_PAINT_MULTI-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (owner surcharge policy) |
+| 36 | CENNIK_REV_PREP-01 | DROP_MERGE_RESTRUCTURE | **FOLD** | merged into REV_WORK_LM — internal/helper only (decision 5) |
+| 37 | CENNIK_REV_SKIM-01 | DROP_MERGE_RESTRUCTURE | **FOLD** | merged into REV_WORK_LM — internal/helper only |
+| 38 | CENNIK_REV_SAND-01 | DROP_MERGE_RESTRUCTURE | **FOLD** | merged into REV_WORK_LM — internal/helper only |
+| 39 | CENNIK_REV_PAINT-01 | DROP_MERGE_RESTRUCTURE | **FOLD** | merged into REV_WORK_LM — internal/helper only |
+| 40 | CENNIK_REV_PAINT_LM-01 | DROP_MERGE_RESTRUCTURE | **FOLD** | merged into REV_WORK_LM — internal/helper only |
+| 41 | CENNIK_REV_WORK_LM-01 | MARKET_SUPPORTED | KEEP | candidate — **canonical reveal row, LM 30–110, ref 60** (decision 5 principal) |
+| 42 | CENNIK_MC_WALL_L-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (national context only) |
+| 43 | CENNIK_MC_WALL_S-01 | MARKET_SUPPORTED | KEEP | candidate — 320–650, L+M |
+| 44 | CENNIK_MC_FLOOR_L-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (national context only) |
+| 45 | CENNIK_MC_FLOOR_S-01 | MARKET_SUPPORTED | KEEP | candidate — 320–400, ref 380, L+M |
+| 46 | CENNIK_MC_SHOWER-01 | MARKET_SUPPORTED | KEEP | candidate — 450–650, ref 550, L+M |
+| 47 | CENNIK_MC_STAIRS-01 | DROP_MERGE_RESTRUCTURE | KEEP (RESTRUCTURED → PCS) | candidate — **OWN_PRICE, PCS / per step** (decision 6) |
+| 48 | CENNIK_DEC_VEN-01 | MARKET_SUPPORTED | KEEP | candidate — 100–160, ref 140 |
+| 49 | CENNIK_DEC_VEN_MAR-01 | OWN_PRICE | KEEP | candidate — OWN_PRICE (workshop man-hours) |
+| 50 | CENNIK_DEC_CONC-01 | MARKET_SUPPORTED | KEEP | candidate — 60–150, ref 110 |
+| 51 | CENNIK_DEC_GENERIC-01 | DROP_MERGE_RESTRUCTURE | KEEP (RESTRUCTURED → renamed) | candidate — **MARKET_SUPPORTED, tynk strukturalny/rustykalny, 40–80** (decision 7) |
+
+## 17.4 Recalculated counts (original review vs final implementation set)
+
+| Set | Count | MARKET_SUPPORTED | OWN_PRICE | DROP_MERGE_RESTRUCTURE (9E.4 view) |
+|---|---|---|---|---|
+| Original research catalog (9E.4 review) | **51** | 26 | 15 | 10 |
+| Final implementation PriceItem candidates (post-9E.5 approval) | **44** | **28** | **16** | — |
+
+**Dropped / merged / restructured results (10 DMR rows from 9E.4 → final fates):**
+
+| Fate | Count | Rows |
+|---|---|---|
+| Dropped (no standalone PriceItem) | 2 | SKIM_3L (14 — base SKIM_2L + add-on), SKIM_PKG (16 — Stage 10 composition) |
+| Folded / merged into `REV_WORK_LM` | 5 | REV_PREP (36), REV_SKIM (37), REV_SAND (38), REV_PAINT (39), REV_PAINT_LM (40) |
+| Restructured but retained as candidates | 3 | GK_JOINT (21 → LM, MARKET_SUPPORTED), MC_STAIRS (47 → PCS, OWN_PRICE), DEC_GENERIC (51 → renamed/restricted, MARKET_SUPPORTED) |
+
+Total check: **28 + 16 + 2 + 5 = 51** reviewed items; **44** final candidates for seeding in 9E.6,
+**7** not seeded. The final implementation count is deliberately **not forced to 51**.
+
+**Summary for the owner**: the final 9E.6 catalog is **44 PriceItems** — **28 MARKET_SUPPORTED**
+(with proposable starting prices from the approved market windows; exact numbers confirmed at the
+9E.6 implementation review) and **16 OWN_PRICE** (owner supplies internal rates; includes the
+bundled/protection/custom rows and MC_STAIRS per step). 7 reviewed items are not implemented: 2
+dropped (SKIM_3L, SKIM_PKG) and 5 folded into REV_WORK_LM.
