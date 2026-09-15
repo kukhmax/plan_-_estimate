@@ -2059,7 +2059,7 @@ only its visibility was wrong. This affects Edit and Add equally.
   Canonical Stage 9 remains **In Progress**. The 9E.7.1 change set was committed and pushed by the owner as
   **`fix(stage-9): make price book editor visible from long catalog`** (`f38cd13` on `stage-9`).
 
-#### 9E.8 execution status 2026-09-15 — Price Book mobile UX cleanup (IMPLEMENTED; UNCOMMITTED — awaiting owner acceptance)
+#### 9E.8 execution status 2026-09-15 — Price Book mobile UX cleanup (IMPLEMENTED; OWNER ACCEPTED)
 
 Owner-directed mobile UX cleanup of the Price Book. **Backend, schema, market-evidence data and the approved
 44-row catalog were not touched** — no new API, no migration, no data change. The spec's two STOP conditions were
@@ -2106,8 +2106,8 @@ substrate column needed).
   owner-price edit behavior" is read as "no regression to the existing archived affordance"). The inline editor is
   offered on the Active tab.
 - **Deferred / NOT done per instruction**: no commit, no push, no deploy — the owner handles Git and Docker.
-  Stage 10; CI/deploy. **STAGE_9F: NOT STARTED — the next stage requires explicit owner approval.** Canonical
-  Stage 9 remains **In Progress**.
+  Stage 9 — COMPLETE / OWNER ACCEPTED
+  Stage 10 — NOT STARTED.  Stage 10; CI/deploy.
 
 ## Stage Log Template for Future Stages
 
