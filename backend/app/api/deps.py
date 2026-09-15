@@ -12,6 +12,7 @@ from app.domain.services.client_service import ClientService
 from app.domain.services.communication_service import CommunicationService
 from app.domain.services.inspection_service import InspectionService
 from app.domain.services.opening_service import OpeningService
+from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.project_service import ProjectService
 from app.domain.services.risk_service import RiskService
 from app.domain.services.room_service import RoomService
@@ -119,3 +120,9 @@ async def get_communication_service(
     db: AsyncSession = Depends(get_db),
 ) -> CommunicationService:
     return CommunicationService(db)
+
+
+async def get_price_book_service(
+    db: AsyncSession = Depends(get_db),
+) -> PriceBookService:
+    return PriceBookService(db)

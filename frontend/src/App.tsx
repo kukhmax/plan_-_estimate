@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { I18nProvider, useI18n } from './hooks/useI18n';
 import { ClientList } from './components/ClientList';
+import { PriceBook } from './components/PriceBook';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
+import { AccountModal } from './components/AccountModal';
 
 const AppContent: React.FC = () => {
   const { user, isDevAuth, isLoading, error, retry } = useAuth();
   const { t, locale, setLocale } = useI18n();
-  const [activeSection, setActiveSection] = useState<'clients' | 'projects'>('clients');
+  const [activeSection, setActiveSection] = useState<'clients' | 'projects' | 'pricebook'>('clients');
   const [projectsNavToken, setProjectsNavToken] = useState(0);
+  const [showAccount, setShowAccount] = useState(false);
 
   return (
     <div
@@ -31,7 +34,7 @@ const AppContent: React.FC = () => {
         </aside>
       )}
 
-      <main className="w-full max-w-lg p-4 sm:p-6 flex flex-col items-center">
+      <main className="w-full max-w-lg p-4 sm:p-6 flex-1 flex flex-col items-center">
         <header className="text-center my-6 w-full">
           <div className="flex items-center justify-between">
             <h1
@@ -119,77 +122,7 @@ const AppContent: React.FC = () => {
 
         {!isLoading && user && (
           <>
-            <section
-              aria-label="user-card"
-              className="w-full rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
-              style={{
-                backgroundColor: 'var(--tg-theme-secondary-bg-color)',
-              }}
-            >
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <span
-                    className="text-xs font-semibold uppercase tracking-wider"
-                    style={{ color: 'var(--tg-theme-hint-color)' }}
-                  >
-                    {t.auth.logged_in_as}
-                  </span>
-                  <h2
-                    className="text-lg font-bold"
-                    style={{ color: 'var(--tg-theme-text-color)' }}
-                  >
-                    {user.first_name || user.last_name
-                      ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
-                      : user.username || 'Wykonawca'}
-                  </h2>
-                </div>
-                <span
-                  className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
-                    isDevAuth
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-emerald-100 text-emerald-800'
-                  }`}
-                >
-                  {isDevAuth ? t.auth.mock_auth : t.auth.telegram_verified}
-                </span>
-              </div>
-
-              <dl className="p-5 space-y-3 text-sm">
-                <div className="flex justify-between border-b border-slate-50 pb-2">
-                  <dt style={{ color: 'var(--tg-theme-hint-color)' }}>Telegram User ID</dt>
-                  <dd
-                    className="font-mono font-medium"
-                    style={{ color: 'var(--tg-theme-text-color)' }}
-                  >
-                    {user.telegram_user_id}
-                  </dd>
-                </div>
-
-                {user.username && (
-                  <div className="flex justify-between border-b border-slate-50 pb-2">
-                    <dt style={{ color: 'var(--tg-theme-hint-color)' }}>Username</dt>
-                    <dd
-                      className="font-medium"
-                      style={{ color: 'var(--tg-theme-link-color)' }}
-                    >
-                      @{user.username}
-                    </dd>
-                  </div>
-                )}
-
-                <div className="flex justify-between border-b border-slate-50 pb-2">
-                  <dt style={{ color: 'var(--tg-theme-hint-color)' }}>UUID</dt>
-                  <dd
-                    className="font-mono text-xs break-all"
-                    style={{ color: 'var(--tg-theme-hint-color)' }}
-                  >
-                    {user.id}
-                  </dd>
-                </div>
-              </dl>
-            </section>
-
-            <nav aria-label="main-navigation" className="w-full mt-4 grid grid-cols-2 gap-2">
+            <nav aria-label="main-navigation" className="w-full mt-6 grid grid-cols-3 gap-2">
               <button
                 type="button"
                 aria-label="show-clients"
@@ -239,16 +172,80 @@ const AppContent: React.FC = () => {
               >
                 {t.navigation.projects}
               </button>
+              <button
+                type="button"
+                aria-label="show-pricebook"
+                onClick={() => setActiveSection('pricebook')}
+                className={`px-3 py-2 text-sm font-semibold rounded-xl transition ${
+                  activeSection === 'pricebook'
+                    ? ''
+                    : 'border border-slate-200'
+                }`}
+                style={
+                  activeSection === 'pricebook'
+                    ? {
+                        backgroundColor: 'var(--tg-theme-button-color)',
+                        color: 'var(--tg-theme-button-text-color)',
+                      }
+                    : {
+                        backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+                        color: 'var(--tg-theme-hint-color)',
+                      }
+                }
+              >
+                {t.navigation.pricebook}
+              </button>
             </nav>
 
             {activeSection === 'clients' ? (
               <ClientList />
-            ) : (
+            ) : activeSection === 'projects' ? (
               <ProjectWorkspace resetSignal={projectsNavToken} />
+            ) : (
+              <PriceBook />
             )}
           </>
         )}
       </main>
+
+      {!isLoading && user && (
+        <footer
+          aria-label="app-footer"
+          className="w-full max-w-lg px-4 pb-6 pt-2"
+        >
+          <div
+            className="flex items-center justify-between gap-3 rounded-xl px-3 py-2"
+            style={{ backgroundColor: 'var(--tg-theme-secondary-bg-color)' }}
+          >
+            <span
+              className="text-xs font-medium truncate"
+              style={{ color: 'var(--tg-theme-hint-color)' }}
+            >
+              {t.app.title}
+            </span>
+            <button
+              type="button"
+              aria-label="open-account"
+              onClick={() => setShowAccount(true)}
+              className="min-h-11 px-4 shrink-0 text-sm font-semibold rounded-xl transition"
+              style={{
+                backgroundColor: 'var(--tg-theme-button-color)',
+                color: 'var(--tg-theme-button-text-color)',
+              }}
+            >
+              {t.auth.account}
+            </button>
+          </div>
+        </footer>
+      )}
+
+      {showAccount && user && (
+        <AccountModal
+          user={user}
+          isDevAuth={isDevAuth}
+          onClose={() => setShowAccount(false)}
+        />
+      )}
     </div>
   );
 };

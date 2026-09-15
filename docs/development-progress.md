@@ -51,7 +51,7 @@
 | **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
 | Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | **Stage 8** | **"Co powiedzieć klientowi" (Client Communication Assistant)** | **Completed 2026-09-13** | Deterministic, rule-driven client communication recommendations (PL/RU) from completed-inspection facts — versioned immutable phrase catalog, exact-key selection over materialized Stage 6/7 facts, complete quality matrix, mobile communication cards with evaluate / "Why?" traceability / copy / active-resolved-all history |
-| Stage 9 | Editable Price Book | Pending | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges |
+| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; **9E.6A (price market evidence backend foundation) Completed 2026-09-14 (committed `31540af` — models + migration 0015 + read-only evidence endpoint)**; **9E.6B (mobile price market evidence UI) Implemented 2026-09-14 (read-only compact market evidence on Price Book cards; 44-row catalog load NOT performed — deferred per owner instruction)**; **9E.7 (load approved 44-row catalog + market evidence + nullable price foundation) Implemented 2026-09-15 (44 canonical rows: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 28 market references / 112 sources seeded idempotently; legacy GENERIC seeds retired; migration 0016 makes PriceItem.price nullable — NULL = not set, 0.00 = real zero; full backend 515 tests + frontend 304 tests PASS; committed `097e46c`)**; **9E.7.1 (Price Book add/edit form visibility regression) Implemented 2026-09-15 (opening Add/Edit scrolls the form into view so the editor is actually visible on a 44-row catalog; 2 regression tests; full frontend 306 tests PASS; real-browser 390 px verification PASS; committed `f38cd13`)**; **9E.8 (Price Book mobile UX cleanup) Implemented 2026-09-15 (inline owner-price editor for catalog rows, direct Edytuj/Archiwizuj, dedicated mobile source viewer, label + S/Q UX cleanup; full frontend 323 tests PASS; real-browser 320/390/412 px verification 23/23 PASS; UNCOMMITTED — awaiting owner acceptance)**; 9F (final gate) Pending — **9F NOT STARTED** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
 | Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
 | Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
@@ -1493,6 +1493,621 @@ Audit-only closure (no new functionality, no refactors, no migrations). All gate
 9. **Performance**: risk list grouped, communication list flat (bounded queries), detail fetched lazily, no per-card source fetch on initial render, evaluate bounded — no N+1.
 10. **Roadmap consistency**: canonical Stage 0–20 order intact (no numbering drift); preserved notes confirmed — 5F reveals/ościeża, 5G "Opcje" progressive disclosure, per-surface inspection entry (NOTE A), Stage 14 photos + defect annotation (NOTE C), full chain `Photo → PhotoAnnotation → Inspection Finding → Risk → Communication → Recommended Work → Estimate → PDF / protocol` (already includes Communication — no normalization needed), quality-level technical reference (NOTE D).
 **Verification**: focused communication + integration **60 passed**; full backend pytest **340 passed**; full frontend Vitest **213 passed (19 files)**; `tsc --noEmit` PASS; `vite build` PASS; `git diff --check` clean; Alembic single head + running `current` = `0013_create_communication_engine (head)` (no migration created in 8E; upgrade/downgrade cycle proven in 8B remains documented); Docker runtime healthy — postgres/backend healthy, `/api/health` `{"status":"ok"}`, frontend :5173 HTTP 200. Documentation finalized: **Stage 8 → Completed 2026-09-13** (owner verified), all sub-stages 8A–8E Completed, roadmap notes A–D preserved, Stage 9 remains **Pending**; README updated to the repo convention (Stages 0–8 Completed, Stages 9–20 pending). Committed as **`docs(stage-8): complete client communication stage`** (docs + README only) and pushed to `stage-8`. NOT merged into `main` — the owner-authorized merge command is reserved for owner approval.
+
+### Stage 9: Editable Price Book / Cennik
+- **Status**: **In Progress — execution sub-stages 9A (architecture & domain contract), 9B (backend domain, migration & seed infrastructure), 9C (public API + ownership tests) Completed 2026-09-13; 9D (mobile-first price book UI) Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 (market price reference & sources architecture) and 9E.2 (research catalog structure) Completed 2026-09-13 (docs-only); 9E.3A–9E.3E (Kraków market research — Batches A–E) Completed 2026-09-13/14 (evidence files only, no seeds); 9E.4 (normalization/review — all 51 items, decisions assigned, owner-decision groups defined) Completed 2026-09-14 (docs-only, no seeds); **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 §16.7 decision groups approved; final implementation-ready catalog: 44 candidates, 28 MARKET_SUPPORTED / 16 OWN_PRICE, 7 dropped/merged)**; **9E.6A (price market evidence backend foundation) Completed 2026-09-14 (committed `31540af`)**; **9E.6B (mobile price market evidence UI) Implemented 2026-09-14 (compact read-only evidence presentation on Price Book cards; 44 approved catalog rows NOT loaded — deferred per owner instruction)**; **9E.7 (load approved 44-row catalog + market evidence + nullable price foundation) Completed 2026-09-15 (committed `097e46c`)**; **9E.7.1 (Price Book add/edit form visibility regression) Implemented 2026-09-15 (uncommitted — awaiting owner acceptance)**; 9F pending**. Stage 9 answers the product question **"What is our current unit price?"** with an owner-editable contractor price catalog (Cennik). **Stage 9 is not an estimate**: canonical Stage 10 (Kosztorys) consumes Price Book prices and is out of Stage 9 scope; no Project/room/inspection/estimate entities are created in Stage 9. `main` untouched; Stages 10–20 remain Pending.
+- **Date**: 2026-09-13 (9A)
+
+#### 9A — architecture & domain contract (decision record)
+
+**1. PriceItem responsibility.** A `PriceItem` is one reference-price row: stable semantic `code`, name (`name_key` for seeded / `display_name` for user-created), `category`, `unit`, `price` (Decimal PLN), `currency` (ISO 4217-style code, PLN-only in MVP), optional `quality_level`, `price_scope` (LABOR default), `is_archived`, `created_at` / `updated_at`. It answers "what do we charge per unit for this line of work?" It computes nothing, belongs to no Project, and models no scope-of-work.
+
+**2. Price Book vs Estimate boundary.** Price Book = owner-editable reference data. Stage 10 Estimate computes lines (unit × quantity by surface/substrate/quality tier) and consumes Price Book rows; it must persist a price snapshot at line-creation time (see §9). Stage 9 owns only catalog management; no estimate line items, no recommended-work entities, no contracts.
+
+**3. Units — `PriceUnit` enum M2 / LM / PCS / HOUR / DAY / FLAT.**
+- `M2` — metr kwadratowy (m²) — surface work (painting, skimming, preparation).
+- `LM` — metr bieżący (mb) — edge / reveal-work lines, friezes.
+- `PCS` — sztuka (szt.) — discrete items.
+- `HOUR` — roboczogodzina (r-g).
+- `DAY` — dniówka (r-d).
+- `FLAT` — ryczałt / fixed-price unit (a whole-scope lump-sum line).
+**M³ (M3) is explicitly NOT in the enum** — no finishing-trade line needs volumetric pricing; adding it for theoretical completeness would widen the enum without a real line item. Unit validation is enum-level on the backend; unit↔category pairing is deliberately **not** restricted (a hard matrix would block legitimate combinations).
+
+**4. Categories — `PriceCategory` enum, 11 members, substrate-free.** Normalized canonical set covering concrete / gypsum / cement-lime / G-K / painting / glass-fiber / microcement / venetian / preparation / reveals without encoding any substrate into a category name:
+- `PREPARATION` — przygotowanie podłoża (gruntowanie, czyszczenie, naprawy).
+- `SKIM_COAT` — szpachlowanie / gładź.
+- `PLASTER` — tynki (gipsowe, cementowo-wapienne, maszynowe).
+- `DRYWALL` — sucha zabudowa / płyty G-K.
+- `PAINTING` — malowanie / gruntowanie powłok.
+- `GLASS_FIBER` — welon szklany / tkaniny przeciwspękaniowe.
+- `MICROCEMENT` — mikrocement (ściany, posadzki, strefy mokre).
+- `DECORATIVE` — stiuk wenecki / tynki dekoracyjne.
+- `REVEAL` — ościeża / otwory okienne i drzwiowe.
+- `MATERIAL` — materiał sprzedawany wg ceny zakupu (wyszczególnienie materiałowe).
+- `OTHER` — inna praca.
+A substrate is a property of the work item (expressed through the item name and an optional `quality_level`), never a category.
+
+**5. Money precision — INPUT ≠ STORAGE ≠ DISPLAY; DECIMAL only, never float.**
+- **STORAGE**: `Numeric(12, 2)` — exactly two decimal places, PLN range. Nothing is rounded before storage and nothing is truncated.
+- **API**: price serialized as a string always in the fixed 2-dp wire form (`"45.00"`); Pydantic `Decimal(decimal_places=2)` validates; input with more than 2 decimal places → **422**; a negative value → **422**; `0.00` is valid (a "to jeszcze ustalić" placeholder price). An invalid input is rejected, **never silently rounded/truncated** — the user's typed value is preserved until corrected (mirrors the 8C.2 policy).
+- **INPUT UX**: free-form text (`45`, `45,5`, `45,50`), `,`→`.` normalization only, ≤2 dp enforced pre-submit with a localized inline error.
+- **DISPLAY**: Polish format `45,00 zł` (comma decimal separator, non-breaking space, zł suffix) — the permanent two-decimals display precedent.
+
+**6. Currency storage — ISO 4217-style code, PLN only.** `currency` is an ISO 4217-style 3-character code stored in a **string column** (`VARCHAR(3)` / `String(3)`) — **no PostgreSQL `PriceCurrency` enum is created**. For MVP the application/API accepts only `"PLN"`, defaults to `"PLN"`, and the UI exposes only PLN, with no FX conversion; currency validation is controlled in application/domain code (not the database), so future EUR support requires no DB enum migration — only an API/validation extension (documented intent, not implemented).
+
+**7. Seed / edit strategy — chosen: lazy per-owner materialization.** The seed catalog is defined in code (deterministic bootstrap, the ChecklistTemplate/Risk/communication pattern). On first Price Book access a user's rows materialize as **their own editable copies** (`owner_id` = the accessing owner, one copy per seed row). The user edits their own copy freely; the seed definition is never mutated; re-bootstrap after edits materializes only rows not yet present (idempotent) and never overwrites user data. **Rejected**: multi-tenant shared rows with a per-user override table (second table + a resolution layer with no MVP benefit), and an empty user catalog filled from scratch (the contractor expects a starter list to edit). Seed prices are starter values — editable suggestions, not enforced rates.
+**Bootstrap invariants.** Seeded definitions carry stable semantic codes; the unique identity of an owned row is **`(owner_id, semantic code)`**; bootstrap inserts missing seeded codes for the owner; bootstrap is idempotent; bootstrap **never overwrites owner-edited existing rows**; a later release adding a new seed may create the missing row for an existing owner **without resetting their prior edited rows**. **No seed-version complexity is added.**
+
+**8. Ownership.** Every `PriceItem` carries `owner_id` FK → `users.id` ON DELETE CASCADE (the Project pattern) with index `(owner_id, is_archived)`. Uniform 401 unauthenticated / 404 nonexistent-or-foreign-owner on every route — no existence leaks (established multi-tenant isolation pattern).
+
+**9. Price-history policy — no revision table; Stage 10 snapshot contract recorded.** Stage 9 persists only `created_at` / `updated_at` for catalog changes; **no `price_history` table** is built. **Stage 10 obligation (recorded now)**: every estimate line must persist the consumed price and a full item snapshot at line-creation time, so later Price Book edits never rewrite historical estimate lines. No Stage 10/13 entities exist in Stage 9.
+
+**10. Archiving.** `is_archived` boolean soft-archive (Client/Project/AreaSegment convention), default `false`; the default catalog view filters archived rows out; archived rows remain readable by id and restorable (`PATCH` toggles `is_archived`); future refs remain valid; **archive over hard delete**.
+
+**11. Kraków pricing — strategy (9A) → content (9E).** 9E ships a sourced regional catalog: every row carries a traced source (public price list or the contractor's own current rates) and a date; rows are editable reference suggestions, explicitly non-official (no warranty/legal wording), and never authoritative for an estimate without the owner's confirmation. **No prices are invented in 9A.**
+
+**12. Labor / material scope — `PriceScope` enum, LABOR default.** `LABOR` (robocizna — default; the contractor's primary use case), `MATERIAL` (materials only), `LABOR_AND_MATERIAL` (combined). `price_scope` is a per-item flag; the plain unit price is the primary display value and scope appears as a localized chip when not LABOR. Equipment/difficulty surcharges are canonical Stage 12 and are **not** expressed in Stage 9.
+
+**13. Localization.** Every item carries a stable machine `code` that is **never rendered** (established policy). Seeded names via `name_key` → PL/RU locale dictionaries; user-created rows via `display_name` (user text, no key). Display precedence `display_name` > `name_key`; unresolved → neutral localized fallback — never a raw key, never the code. Category chips and unit labels are localized.
+
+**14. Q/S quality compatibility.** Optional nullable `quality_level` column **reusing** the Stage 6 `qualitylevel` enum (`create_type=False`; the enum remains owned by migration 0011), defined as an **optional pricing/applicability hint** — not a compatibility claim. Canonical contract: **Stage 9 does not own substrate↔quality compatibility** — Stage 6 remains authoritative for inspection `substrate` ↔ quality scale. `Q1–Q4` apply only where a gypsum-board-oriented price item makes commercial/domain sense; `S1–S4` apply only where a surface-finish price item makes commercial/domain sense. Stage 9 must **not duplicate the Stage 6 compatibility engine** and adds **no complex DB compatibility matrix**; Stage 9B may enforce only obvious invalid combinations in domain/service validation and tests. Future Stage 11 mapping is responsible for selecting compatible PriceItems for an inspection/recommended-work context. **No `substrate_id` / substrate enum is added to `PriceItem`** to solve this alone.
+
+**15. Reveals (ościeża) compatibility.** Explicit `REVEAL` category and starter items follow the 5F ościeża work scale: reveal preparation m², reveal skimming m², reveal painting m² — each priced per m² (`M2`); the outer reveal cosmetic edge / reveal-work line priced per mb (`LM`). Per-unit rows cover both m² and mb reveal lines.
+
+**16. Code identity & future Stage 11/13 mapping.** **`(owner_id, code)` is unique** — an explicit future DB invariant. Seeded codes use the `CENNIK_*` prefix (e.g. `CENNIK_MALOWANIE_M2`); user-created items receive a generated stable `CUSTOM_*` code. The user may edit display name, price, scope, etc., but the **semantic `code` is immutable after creation** — this immutability is what makes Stage 11 resolution (recommended work → PriceItem → estimate line) and Stage 13 work-tracking reuse reliable. No Stage 11/13 entities appear in Stage 9.
+
+**17. Mobile-first UX — design (9A) → implementation (9D).** Navigation entry "Cennik" → catalog list (category filter chips row, search box, Active / Archived tabs — all wrapping) → item row (display name, category chip, compact `12,50 zł / m²`) → edit (price, unit, category, optional quality / scope / archived) → save. Primary "Add item" control is full-width / `min-h-11`; row touch targets `min-h-11` (~44 px); search+filters never squeeze rows; no horizontal scroll at 320 / 390 / 412 px; "Opcje" progressive disclosure hosts Archive / Restore; PL long-label regressions; **no desktop-specific layout** (permanent mobile-first rule).
+
+#### 9A — Execution plan 9A → 9F
+- **9A (this record)** — architecture & domain contract, documentation-only. Gate: `git diff --check` clean; docs + README consistent; commit `docs(stage-9): define editable price book architecture`; push `-u origin stage-9`; `main` untouched; **no 9B without owner approval**.
+- **9B — backend domain**: `backend/app/models/price_item.py` (`PriceItem` + `PriceUnit` / `PriceCategory` / `PriceScope` enums only; `currency` as ISO 4217-style `String(3)`, PLN-only in MVP; `qualitylevel` reused), Alembic `0014_create_price_book` (three enums + `price_items`, reversible, single head 0014), base starter seed (deterministic per-owner materialization, idempotent), `backend/app/schemas/price.py`, domain service. Gate: enum/model contracts; migration cycle on real PostgreSQL (`upgrade 0013→0014`, `downgrade -1`, re-`upgrade head`); focused tests; full backend suite.
+- **9C — API + tests**: `backend/app/api/v1/endpoints/pricebook.py` — `GET /api/v1/pricebook` (list; category / archived / search filters), `POST` (create), `GET /{id}`, `PATCH /{id}` (fields and `is_archived` toggle); uniform 401/404. Gate: focused + full backend suites; precision contract (2 dp ok, 3 dp → 422, negative → 422, `0.00` ok); idempotent materialization; archive/restore.
+- **9D — mobile-first catalog UI**: `frontend/src/features/pricebook/` (list, filters, search, item edit, add, archive under "Opcje"), `frontend/src/api/pricebook.ts`, `frontend/src/types/price.ts`, `price.*` locale keys PL/RU parity. Gate: Vitest + `tsc --noEmit` + `vite build`; mobile regression 320/390/412 px; locale parity.
+- **9E — Kraków-sourced catalog content** (refined 9E.1 plan, §14 below: 9E.1 architecture → 9E.2 research catalog → 9E.3 web research Kraków/Małopolskie → 9E.4 normalization review → 9E.5 owner approval → 9E.6 implementation → 9E.7 load; 9F final audit): sourced / dated / editable / non-official regional rows with localized names (strategy per §11) as additional deterministic seed data. Gate: deterministic + idempotent; no invented prices; parity green.
+- **9F — integration & final audit**: stage-wide regressions; scope audit (no estimate/Project coupling); docs → Stage 9 **Completed only on owner acceptance**; README; one logical commit; push; merge readiness reserved for owner approval. **Never** merge into `main` without explicit owner approval.
+
+#### 9A — Contract scope guardrails
+- 9A is documentation-only: **no** backend models, **no** migration (0014 is 9B), **no** API, **no** front-end, **no** seed data.
+- **No change** to Stage 6/7/8 behavior; no rewrite of communication/risk/checklist modules; `main` stays at the 8997d11 merge.
+- Stage 9 status: **In Progress** until owner acceptance after 9F; Stage 10 remains **Pending**.
+
+#### 9B execution status 2026-09-13 — backend domain, migration & seed infrastructure (COMPLETE; committed + pushed to `stage-9`)
+**Implemented** (no public API, no frontend, no real catalog — per the 9B contract):
+- **`backend/app/models/price_item.py`** — `PriceUnit` (exactly `M2 / LM / PCS / HOUR / DAY / FLAT`), `PriceCategory` (exactly the 11 members `PREPARATION / SKIM_COAT / PLASTER / DRYWALL / PAINTING / GLASS_FIBER / MICROCEMENT / DECORATIVE / REVEAL / MATERIAL / OTHER`), `PriceScope` (`LABOR / MATERIAL / LABOR_AND_MATERIAL`), and `PriceItem` (`price_items` table: id UUID pk; `owner_id` FK → `users.id` ON DELETE CASCADE + index `ix_price_items_owner_id`; `code` String(120); `name_key`/`display_name` nullable String(255); `category` / `unit` / `price_scope` enums; `price` `Numeric(12, 2)`; `currency` `String(3)` default `"PLN"` — **no PriceCurrency enum**, ISO 4217-style string; `quality_level` nullable **reusing** the Stage 6 `qualitylevel` enum as an optional pricing/applicability hint; `is_archived` Boolean default false; `created_at`/`updated_at` timestamptz; `UniqueConstraint(owner_id, code)` = `uq_price_items_owner_code`; composite index `ix_price_items_owner_archived`). No `project_id`/`room_id`/`estimate_id`/`substrate`/workflow/coefficient/revision-version columns (Stage 10/11/13 coupling explicitly excluded).
+- **`backend/app/domain/data/price_book_seed.py`** — technical seed infrastructure: frozen `PriceItemSeed` dataclass + `build_technical_baseline_price_items()` returning exactly **4 stable `CENNIK_*` rows** (`CENNIK_PREP_GENERIC_M2` 1.11, `CENNIK_PAINT_GENERIC_M2` 2.22, `CENNIK_REVEAL_GENERIC_M2` 3.33, `CENNIK_REVEAL_GENERIC_LM` 4.44) with `name_key` localization keys and **obvious placeholder, non-market prices** (never described as average Kraków rates — the sourced regional catalog is explicitly deferred to 9E).
+- **`backend/app/domain/services/price_book_service.py`** — module validation (`validate_price`: Decimal-only, finite, ≥0, **≤2 decimal places rejected, never silently rounded/truncated** — input value preserved unchanged; `validate_currency`: PLN-only for MVP; `validate_custom_name`: custom rows require a non-blank `display_name`) and `PriceBookService`: `ensure_owner_catalog` (lazy **per-owner** materialization under a module `asyncio.Lock`: only missing `(owner_id, code)` seed rows are inserted; idempotent; owner-edited rows **never overwritten**; later-release seeds insert only their own missing rows — no seed-version complexity), `generate_custom_code` (server-side `CUSTOM_<12 upper-hex>`, unique per owner), `create_custom_item` (service-level helper for tests — **no public create route in 9B**), `update_item` (**no `code` parameter by construction** — the semantic code is immutable after creation), `list_owner_items` (`include_archived` opt-in; ordered by code), `get_owned_item` (owner-isolated; `PriceItemNotFoundError` otherwise). Soft archive only — no destructive lifecycle.
+- **`backend/app/domain/exceptions.py`** — `PriceItemNotFoundError` + `PriceBookValidationError`.
+- **Alembic `0014_create_price_book`** (parent `0013_create_communication_engine`) — creates DB enum types `pricecategory` / `priceunit` / `pricescope`, table `price_items`, and reuses `qualitylevel` via `create_type=False` (still owned by 0011, deliberately not re-created or dropped); reversible upgrade/downgrade; **single Alembic head `0014_create_price_book`**.
+- **`backend/tests/test_price_book.py`** — 34 focused tests (no route tests — no HTTP API in 9B): enum exact members; currency stored as `VARCHAR(3)` string (no DB enum); `Numeric(12,2)` column; `0.00` accepted; negative rejected; `>2` decimal places rejected with value preserved (no silent rounding); `(owner_id, code)` unique via `IntegrityError`; same code allowed for different owners; archived persisted on re-query (`populate_existing`); `owner_id` FK `ondelete="CASCADE"` asserted; seed policies `CENNIK_*`/`name_key`; bootstrap first-run creates all 4 rows; second-run idempotent (0 new); owner edit preserved on re-bootstrap; **monkeypatched hypothetical new seed inserts only its missing row**; no cross-owner leakage; `CUSTOM_*` shape/uniqueness; **code immutability through the update path** (re-read from DB); `quality_level` nullable + persisted + `enum_class is QualityLevel` with DB type name `qualitylevel` (Stage 6 reuse, not duplicated); ownership isolation for get/update/list.
+**Verification**: focused `test_price_book.py` **34 passed**; full backend pytest **374 passed** (was 340; +34); `git diff --check` clean; migration cycle **on real PostgreSQL PASS** — entrypoint-applied `upgrade 0013→0014`, explicit `downgrade 0013` confirmed `price_items` dropped + `pricecategory`/`priceunit`/`pricescope` enum types dropped + `qualitylevel` preserved, re-`upgrade head` confirmed the full target schema restored (14 canonical columns, 4 enum types, `uq_price_items_owner_code`, `price_items_owner_id_fkey`, `ix_price_items_owner_id`, `ix_price_items_owner_archived`), running `alembic current` = `0014_create_price_book (head)`; Docker `docker compose up -d --build` healthy (postgres/backend/frontend; `/api/health` `{"status":"ok"}`; frontend :5173 up; container `alembic current` = `0014_create_price_book (head)`); `docker compose down -v` never run. **Deliberately NOT implemented in 9B**: real Kraków market catalog (9E), public API routes (9C), frontend UI (9D), Pydantic schemas (9C boundary), any Stage 10/11/13 entity. Committed as **`feat(stage-9): add editable price book backend domain`** and pushed to `origin/stage-9`; working tree clean; `main` untouched at 8997d11. **Canonical Stage 9 remains In Progress** (9C API owners pending); Stage 10 remains **Pending**.
+
+#### 9C execution status 2026-09-13 — public owner-scoped price book API + ownership tests (COMPLETE; committed + pushed to `stage-9`)
+**Implemented** (backend API only — no frontend UI, no real market catalog):
+- **`backend/app/schemas/price.py`** — `PriceItemCreate` (`extra="forbid"` so a client-supplied semantic `code` is rejected with 422; required `display_name` max 255, `category`, `unit`, `price: Decimal`; optional `currency` default `"PLN"` max 3, `price_scope` default `LABOR`, `quality_level` nullable), `PriceItemUpdate` (`extra="forbid"`, all fields optional — omitted fields preserved; `quality_level` clear-to-null supported, no `code`/`name_key`/`is_archived` fields by construction), `PriceItemRead` (exact contract fields: `id, code, name_key, display_name, category, unit, price, currency, price_scope, quality_level, is_archived, created_at, updated_at`; money serialized as Decimal → JSON string, never float; `from_attributes=True`), `PriceItemListResponse` (`items` + `total`).
+- **`backend/app/api/v1/endpoints/pricebook.py`** — owner-scoped route family over `/api/price-items`: `GET /price-items` (list; **bootstrap-on-access**: calls `ensure_owner_catalog` first so the first list materializes the owner's seed rows, idempotent and never overwriting owner edits), `POST /price-items` (create → server-generated immutable `CUSTOM_<12 upper-hex>` code; 201), `GET /price-items/{id}` (owner-isolated detail; **does not** bootstrap — minimal predictable behavior), `PATCH /price-items/{id}` (partial update via `model_dump(exclude_unset=True)`; omitted fields preserved), `POST /price-items/{id}/archive` + `POST .../restore` (explicit soft lifecycle endpoints following the Clients convention; idempotent; **no DELETE**). Domain validation maps to 404 (`PriceItemNotFoundError`) / 422 (`PriceBookValidationError`) with string detail.
+- **`backend/app/domain/services/price_book_service.py`** (extended) — `list_owner_items` rewritten to the filter contract (returning a bare `list[PriceItem]`, preserving the 9B service contract): `archived` `"active"` (default) / `"archived"` / `"all"`; `category` / `unit` / `price_scope` / `quality_level` filters; `search` on `code` / `name_key` / `display_name` (case-insensitive `ilike`); stable deterministic ordering `is_archived → category → coalesce(display_name, name_key) → code`; **no pagination** (`total == len(filtered items)`, derived in the route). `update_item` gains the `_UNSET` sentinel so a PATCH `{"quality_level": null}` clears to null while an omitted field is untouched; blank `display_name` **rejects for custom rows** but **clears a seeded row's display override** (reverting to its `name_key` identity); seeded rows are editable copies (price/display override) but `code`/`name_key` are never mutated. New idempotent `archive_item` / `restore_item` soft-lifecycle methods (owner-isolated via `get_owned_item`).
+- **Dependencies/registration** — `get_price_book_service` added to `backend/app/api/deps.py`; `pricebook_router` registered in `backend/app/main.py`.
+- **`backend/tests/test_price_book_api.py`** — 38 focused API tests: unauthenticated 401 across all 6 routes; first list bootstraps exactly 4 seed rows for the owner; **seed-edit-survives-rebootstrap** (§14 CRITICAL INVARIANT via HTTP: patch seed price/display → re-list → repeat bootstrap → edits unchanged, still 4 rows); `archived` filters (active=4 / archived=1 / all=5 after one archive); `category`/`unit`/`price_scope`/`quality_level` filters; `search` on code / name_key / display_name; stable deterministic ordering; custom item full lifecycle (POST → `CUSTOM_*` → GET → PATCH price/name → archive → absent from active → visible archived → restore → visible active; code unchanged throughout); archive/restore idempotence; price validation (`0`/`0.00`/`45`/`45.5`/`45.50` accepted canonically; negative / `>2` dp / NaN / Infinity rejected 422); EUR rejected; blank custom display name rejected; unknown enums rejected (422); client cannot supply/alter semantic `code` (422 via `extra="forbid"`); PATCH preserves omitted fields; `quality_level` clear-to-null; seeded display override + clear reverts to `name_key`; **ownership isolation A/B** (A's bootstrap never creates/changes B rows; B sees its OWN seed copies; any B access to A's rows → uniform 404; no existence leaks); unknown id → 404.
+**Verification**: focused `test_price_book.py` + `test_price_book_api.py` **72 passed** (34 + 38); full backend pytest **412 passed** (was 374; +38); `git diff --check` clean; **no new migration** — single Alembic head `0014_create_price_book`, local `alembic current` = `0014_create_price_book (head)`; Docker `docker compose up -d --build` healthy (postgres/backend/frontend; `/api/health` `{"status":"ok"}`; container `alembic current` = `0014_create_price_book (head)`); authenticated smoke PASS on docker (mock auth → first list bootstraps 4 `CENNIK_*` rows → seed price/display edit survives re-list → custom create `CUSTOM_*` + client-supplied `code` 422 + negative price 422 → archive → active=4/archived=1/all=5 → restore); `docker compose down -v` never run. **Deliberately NOT implemented in 9C**: frontend price book UI (9D), real Kraków market catalog (9E), any Stage 10/11/13 entity. Committed as **`feat(stage-9): expose owner-scoped price book API`** and pushed to `origin/stage-9`; working tree clean (except staged docs); `main` untouched at 8997d11. **Canonical Stage 9 remains In Progress** (9E real catalog, 9F final gate pending); Stage 10 remains **Pending**.
+
+#### 9D execution status 2026-09-13 — mobile-first editable price book UI (COMPLETE; owner accepted; committed + pushed to `stage-9`)
+**Implemented** (frontend only — no backend/domain change, **no** migration, **no** real Kraków market catalog, **no** Stage 10 estimate / Stage 11 mapping):
+- **`frontend/src/types/priceItem.ts`** — typed contract mirroring the 9C `PriceItemRead` DTO exactly: `PriceItem` (id, code, name_key, display_name, category, unit, price: string, currency, price_scope, quality_level, is_archived, created_at, updated_at), `PriceItemListResponse`, `PriceItemListParams` (`archived` `"active"`/`"archived"`/`"all"`, `category`, `search`), `PriceItemCreatePayload` / `PriceItemUpdatePayload`, plus single-sourced readonly enum arrays `PRICE_CATEGORIES` (11), `PRICE_UNITS` (6), `PRICE_SCOPES` (3) and `PRICE_QUALITY_LEVELS` (S1–S4, Q1–Q4). No `any` anywhere.
+- **`frontend/src/utils/priceFormat.ts`** (+ `priceFormat.test.ts`, 20 cases) — money display **without float arithmetic**: `formatPrice` string-splits on `.` and pads/truncates to exactly two decimals → `"45,50"`, `"0,00"`, em dash for empty; `normalizePriceInput` implements the §8 input contract — accepts `45` / `45.5` / `45.50` / `45,5` / `45,50` / `0` / `0.00` (comma normalized to dot), rejects negative / malformed (`abc`, `45.5.5`, `45.`) / `>2` decimals (`45.555` → `precision`) / empty; returns canonical dot value for the API and a machine `reason` for localized messages. The stored value is never altered by display (no rounding/truncation).
+- **`frontend/src/api/priceItems.ts`** — clients.ts-convention typed fetcher: `fetchPriceItems` (omits defaults; passes `archived`, `category`, `search`), `createPriceItem` POST, `updatePriceItem` PATCH, `archivePriceItem` / `restorePriceItem` POST — `getAuthHeaders`, throws `Error`, no `any`.
+- **`frontend/src/components/PriceBook.tsx`** — the mobile-first Cennik screen: Active/Archived tabs (`role=tablist`), search + category filter, full-width "Dodaj pozycję" primary (all `min-h-11`, ≥44 px), item cards (name **never** truncated — wrap-safe; price emphasized `45,50 zł / m²`; category, scope chip when `≠ LABOR`, optional quality badge "Klasa Q3", archived badge), "Opcje" progressive disclosure (Edit / Archiwizuj), Restore on archived rows, **no code / name_key / UUID / owner_id ever rendered**, and **no DELETE anywhere**. Seeded identity §5: `display_name` > localized `name_key` (`resolveKey(t, "pricebook.seed.*")` — e.g. "Przygotowanie podłoża – ogólne" / "Материалы — общая подготовка" style) > localized fallback em dash. Edit form §7: display name (custom rows required; seeded rows show `Nazwa bazowa: …` hint and a blank name clears the display override), category / unit / price (text input `inputMode="decimal"`) / scope / optional quality; PLN read-only note; code/name_key never editable. §8 submit guard: invalid price surfaces a localized inline error and blocks the API call; Save disabled while price is invalid (non-empty). Create uses the server response; archive/restore hit the explicit endpoint (`POST .../archive`, `POST .../restore`); all localized states (loading / no items / no archived / no search results / load-save-archive-restore errors) — **no raw 422/500/codes**.
+- **`frontend/src/locales/pl.json` / `ru.json`** — full `pricebook.*` namespace (PL + RU), `navigation.pricebook` = "Cennik" / "Прайс"; 11 categories, 6 units, 3 scopes, 8 quality labels ("Klasa S1"…), the four `seed.*` name_keys, currency symbol "zł"; parity locked by `frontend/src/locales/parity.test.ts` (new Stage 9D case: identical PL/RU key structure + every machine enum member is labelable).
+- **`frontend/src/App.tsx`** (+ `App.test.tsx`) — third main-nav entry `show-pricebook` in the `grid grid-cols-3` nav ("Cennik"/"Прайс"; **no desktop-only nav**), app section `'pricebook'` renders `<PriceBook />`; App tests gain the `./api/priceItems` mock and a "opens the price book section from the main navigation" case (region `price-book-section`, fetch hit, no crash).
+**Spec-compliant verification of §6/§8/§9/§10/§12/§13/§15/§16**: all above covered by `PriceBook.test.tsx` (34 cases) + `priceFormat.test.ts` (20) + `parity.test.ts` + `App.test.tsx` — list/filters/create/edit/money input/archive/restore/error-state UI/mobile (390/412 px core, no horizontal scroll, ≥44 px targets, full-width primaries, long PL/RU wrap safety), PL/RU via locale switch, typed contracts without `any`.
+**Verification**: focused 9D frontend **66 passed** (20 priceFormat + 12 App + 34 PriceBook); full frontend vitest **269 passed (21 files)** (was 213; +56 = 20+34 price/PriceBook minus 0, App 12 incl. 1 new); `tsc --noEmit` PASS; `vite build` PASS; full backend pytest **412 passed** (unchanged — 9D touches no backend source); `git diff --check` clean; **no new migration** — single Alembic head `0014_create_price_book`; Docker `docker compose up -d --build` healthy (postgres/backend healthy, `/api/health` `{"status":"ok"}`, frontend :5173 HTTP 200, container `alembic current` = `0014_create_price_book (head)`); **authenticated live smoke PASS on docker** — mock auth → `GET /api/price-items?archived=active` returns the 4 owner seed rows with `name_key` = `pricebook.seed.prep_generic_m2` etc., exactly the dotted keys the UI resolves from the PL/RU dictionaries. `docker compose down -v` never run. **Deliberately NOT implemented in 9D**: real Kraków market catalog (9E), any Stage 10 estimate or Stage 11 mapping, any redesign of unrelated UI. **9D OWNER ACCEPTANCE 2026-09-13**: the owner manually tested the A–O checklist and accepted the implementation — visual/mobile acceptance **PASS**, current Price Book behavior works as expected in the manual workflow; technical seed prices remain intentional placeholders and the real Kraków market catalog remains deferred to 9E. On approval the owner authorized the commit and push; the full 9D change set was committed as **`feat(stage-9): add mobile editable price book`** and pushed to `origin/stage-9`; working tree clean; `main` untouched at 8997d11. **Canonical Stage 9 remains In Progress** (9E real catalog, 9F final gate pending); Stage 10 remains **Pending**.
+
+#### 9E.1 execution status 2026-09-13 — market price reference & sources architecture (COMPLETE; architecture/documentation only — committed + pushed to `stage-9`)
+**Scope**: architecture contract for attaching researched **Kraków / Małopolskie** market references and source URLs to Price Book items. **No code, no migration, no frontend, no real Kraków prices.** Real web research is explicitly deferred to 9E.3; this record settles the data model, provenance policy, and the Stage 10/15 compatibility contract.
+
+**Core product invariant — owner price ≠ market evidence.** `PriceItem.price` = the owner's current **editable working/commercial price**. Market research never automatically overwrites `PriceItem.price`; a market reference exists only as supporting context/evidence. The three concepts are kept strictly separate:
+`OWNER PRICE != MARKET RANGE != SOURCE QUOTED PRICE`.
+A later 9E load / Stage 10 estimate / Stage 15 PDF may *display* market data, but only `PriceItem.price` is authoritative for quoting, estimating, and contracting. Owner edits to `PriceItem.price` remain fully independent of any attached references; refreshing or deleting market references never mutates `PriceItem.price`.
+
+**Relationship model (minimal, two-level).**
+`PriceItem 1 → 0..N PriceMarketReference 1 → 1..N PriceSource`.
+One market reference summarizes multiple external sources for one regional/unit view; one source belongs to exactly one reference. Owner price stays independent at the root; the estimate/PDF layers can read a compact "reference + its sources" bundle. **PriceSource never mutates PriceItem directly** — all linkage flows through the reference row. Neither table is a root aggregate: ownership is enforced transitively through `PriceItem.owner_id` on every access path (no denormalized `owner_id` on references/sources); a future direct reference endpoint must join through `PriceItem` for the 9C-style uniform-404 owner isolation.
+
+**Entity 1 — `PriceMarketReference`** (`price_market_references`). Genuinely required fields:
+- `id` — UUID pk
+- `price_item_id` — FK → `price_items.id` ON DELETE CASCADE (isolation via parent)
+- `region` — **controlled text**, MVP exact values `"Kraków"` / `"Małopolskie"` / `"Kraków / Małopolskie"` (plain `String`, **no geo tables** — region is a label, not a query dimension in MVP; a future multi-region expansion may normalize proper region entities then, not before)
+- `market_min` / `market_max` — `Numeric(12,2)`, **Decimal-only, never float**; research outputs over the observed numeric source contributions, never authoritative tariffs
+- `currency` — `String(3)`, PLN-only in MVP, **must be compatible with the linked `PriceItem.currency`**
+- `unit` — reuse the Stage 9B `PriceUnit` enum; **must equal the linked `PriceItem.unit`** (the reference range is expressed in the same unit as the owner price; compatibility enforced in service validation)
+- `checked_at` — required research date (the "Sprawdzono: YYYY-MM-DD" the UI must surface); market prices age quickly, never shown as current without its date
+- `created_at` / `updated_at`
+
+Optional (kept because they carry real meaning): `reference_price` (nullable single "punkt odniesienia" figure when the research legitimately yields a middle value; **not auto-computed** from min/max), `methodology_note` (nullable text — how the range was derived; where quality assumptions and qualitative-only source context are recorded). **Deliberately excluded**: revision/version columns — MVP policy is **re-check in place** (re-run research, update values + refresh `checked_at`); historical research preservation stays a documented future option and is introduced only if clearly justified, not in 9E.
+
+**Entity 2 — `PriceSource`** (`price_sources`, one row per cited evidence item). Genuinely required fields:
+- `id` — UUID pk
+- `market_reference_id` — FK → `price_market_references.id` ON DELETE CASCADE
+- `source_name` — String display text (e.g. "Cennik wykończeniowy Firma X", "Allegro Usługi", "store-wykonczeniowy-krakow.pl")
+- `source_type` — controlled `SourceType` DB enum
+- `checked_at` — required (each source ages too)
+- `created_at`
+
+Optional numeric + provenance fields (the "quoted evidence" set): `source_url` (nullable; **never forced — OWN_PRICE sources carry no URL**), `source_region` (nullable controlled text; may differ from the reference region when an out-of-region source is used for qualitative context), `quoted_price_min` / `quoted_price_max` / `quoted_price_single` (nullable `Numeric(12,2)`; **a source supports exactly one quoting mode** — a single quoted price, OR a quoted range, OR qualitative-context-only with all three null), `quoted_unit` (nullable; the unit the source itself quoted — must be **compatible** with the reference's unit per the normalization rule below, otherwise the source contributes qualitative context only, never numbers), `note` (nullable).
+
+**`SourceType` controlled values (normalized, seven)**:
+`CONTRACTOR_PRICE_LIST` (preferred labor evidence), `MARKETPLACE` (services/goods marketplaces), `MANUFACTURER` (system/material manufacturer lists), `MATERIAL_STORE` (distributor/retail material pricing), `INDUSTRY_ARTICLE` (press/industry commentary — qualitative context by default), `OWN_PRICE` (the owner's own internal price rationale/history — **never presented as external market evidence**), `OTHER`.
+
+**Region contract (MVP).** Exact resolved values `"Kraków"`, `"Małopolskie"`, `"Kraków / Małopolskie"` as plain controlled text; region appears on the reference (the researched area) and optionally per source; no normalization tables and no geo FK — deferred unless a future stage adds true multi-region support.
+
+**Date policy.** `checked_at` is required on every market reference **and** every source. Future UI must render "Sprawdzono: YYYY-MM-DD" wherever a reference is shown; stale references are never treated as current without date visibility (an explicit staleness hint is a later UX concern, out of 9E.1 scope).
+
+**Evidence / source-count policy.**
+- Every market-derived `PriceMarketReference` requires **≥ 1 source** (enforced at creation).
+- For important / high-impact items prefer **3+ independent sources** before the range is treated as representative.
+- A **single contractor page is a data point, never a "market average"**; single-source references must say so in a methodology note.
+- `MANUFACTURER` / `MATERIAL_STORE` sources support **material/system costs, not labor rates** (labor evidence comes from `CONTRACTOR_PRICE_LIST` / `MARKETPLACE` / local company offers).
+- Own/internal values are marked `OWN_PRICE`, distinct from external evidence.
+- The source list size is visible with the reference — evidence breadth is never hidden.
+
+**Quoted price / range handling.** Each source contributes in exactly one mode: single quoted price, quoted range, or qualitative context. The reference `market_min`/`market_max` aggregate the numeric contributions of its compatible-unit sources; qualitative-only sources are reflected in `methodology_note` and never inject invented numbers.
+
+**Labor / material separation (critical).**
+- `LABOR` items — evidence from contractor price lists, service marketplaces, local company offers.
+- `MATERIAL` items — manufacturer/distributor/store prices acceptable.
+- `LABOR_AND_MATERIAL` items — a source **must clearly state the combined scope** or it cannot contribute numbers (`methodology_note` records the mismatch otherwise).
+- **Never mix labor-only and labor+material values into one market range** — a labor-only source and a labor+material source for the same item are incompatible evidence and must not be averaged together.
+
+**Unit normalization (strict, no auto-conversion).**
+- Compare source values only with compatible units: `M2 ↔ m² ↔ m2`; `LM ↔ mb / metr bieżący`; `PCS ↔ szt.`; `HOUR ↔ godz.`; `DAY ↔ dzień`; `FLAT ↔ ryczałt` **only when the scope semantics are sufficiently comparable**.
+- **No automatic conversion between FLAT and M2**; no combining of incomparable units; a source quoting an incompatible unit contributes qualitative context only.
+
+**Quality-specific references.** If the linked `PriceItem.quality_level` is set (Q1–Q4 / S1–S4), market evidence should match that quality expectation **when the source wording supports it**. Never infer a Q/S level from vague marketing text; a source that does not specify quality attaches to generic items only or is recorded in `methodology_note` as quality-unspecified.
+
+**Future owner-price vs market UX contract (design only — NOT implemented).** Primary = owner price; secondary = market context:
+```
+Szpachlowanie 2 warstwy
+52,00 zł / m²          ← owner price (authoritative)
+
+Rynek Kraków:
+40–55 zł / m²
+Punkt odniesienia: 47,50 zł
+Sprawdzono: 2026-09-12
+Źródła (5)              ← tap → source rows
+```
+Tapping "Źródła" / "Источники" reveals per source: `source_name`, source type, `checked_at`, quoted price/range if present, external link if `source_url` exists. **No raw DB ids, no codes, no owner_id leaked** (consistent with the 9D card policy).
+
+**Stage 10 compatibility (recorded obligation).** A Stage 10 estimate line **must snapshot the owner price used** at line-creation time. Later market-reference changes must **never silently recalculate** an existing estimate line — the snapshot is the contractual number, exactly as Stage 9A §10 recorded for price-history policy.
+
+**Stage 15 PDF compatibility (supporting evidence only).** An estimate/protocol PDF **may optionally include** the market range, checked date, and a source list/links. Market references are supporting context — **never the contract price authority** and never a substitute for the snapshot owner price in a legal document.
+
+**Refined Stage 9E execution plan (architecture → research → review → implementation).**
+- **9E.1** (this record) — market reference / source architecture (docs)
+- **9E.2** — research catalog structure: final work-item list to research
+- **9E.3** — web research Kraków / Małopolskie: collect dated source evidence
+- **9E.4** — normalize and review: unit / scope / quality / labor-material consistency
+- **9E.5** — owner review: approve seed values / ranges
+- **9E.6** — implementation: migration / model / API / UI / source display as actually needed
+- **9E.7** — load approved researched catalog
+- **9F** — Stage 9 integration / final audit
+
+**Stage 9E.1 acceptance criteria met**: owner-price-vs-market separation (§1), market-reference entity & required-field decision (§2), source entity & quoting-mode rule (§3), seven controlled `SourceType` values (§3), region contract (§5), checked-date policy (§6), evidence-count policy (§7), quoted price/range handling (§7), labor/material separation (§11), unit compatibility (§12), quality-evidence handling (§13), future source UI (§8–9), Stage 10 estimate snapshot behavior (§10), Stage 15 PDF compatibility (§10), and the real-research execution plan (§14) — all explicitly settled in this record. No code, no migration, no frontend, no real prices. Committed as **`docs(stage-9): define market price source architecture`** and pushed to `origin/stage-9`; working tree clean; `main` untouched at 8997d11. **Deliberately NOT implemented**: real Kraków research (9E.3), research catalog list (9E.2), any Stage 10/11/13 entity, any frontend. **Canonical Stage 9 remains In Progress** (9E.2–9E.7, 9F pending); Stage 10 remains **Pending**.
+
+#### 9E.2 execution status 2026-09-13 — research catalog structure (COMPLETE; docs-only — committed + pushed to `stage-9`)
+**Deliverable**: the canonical Kraków / Małopolskie research catalog — **`docs/price-research-catalog.md`** (created this sub-stage; referenced here). It defines **WHAT** 9E.3 will research and contains **no prices and no invented rates**.
+- **Catalog**: **51 research items** across 9 groups with stable `CENNIK_*` semantic code proposals, PL + RU labels, Stage 9B category / unit / scope enums, optional quality hints, P1/P2/P3 priority, a per-row **comparability definition** (comparable vs not-comparable evidence) and notes. Groups: Preparation (7), Priming (4, category-mapped to `PREPARATION` — no dedicated enum member), Skim coat / filling (9), Gypsum board / drywall finishing (5), Glass fiber / fleece (3), Painting (7), Reveals / ościeża (6), Microcement (6), Decorative / Venetian (4).
+- **Priorities**: P1 = 20 (preparation, priming, skim, sanding, skim+sanding package, GK joint + full-surface, fleece labor, painting standard + ceilings, reveals prep/skim/paint/mb, microcement walls labor+system, classic Venetian) · P2 = 22 · P3 = 9.
+- **One scope per item** (§1): no ambiguous rows (e.g. "szpachlowanie"); explicit single/2/3-coat skim, full skim+sanding package, joint treatment vs full-surface, fleece application labor vs with material, painting 2-coat standard.
+- **Painting default defined** (§7): standard row = 2 coats, white wall paint, prepared substrate, **labor-only**, per m² — every painting source compared against this default first.
+- **Q1–Q4 decision (§5)**: generic commercial rows + optional `quality_level` hints, not four separate items; explicit quality rows (`CENNIK_GK_Q4-01`, `CENNIK_SKIM_SQ-01`) exist only where source wording justifies them (both P3); mapping notes Q1 = joints · Q2 = joints + feathering · Q3 = full-surface · Q4 = full-surface ≥1 mm / strip light.
+- **Reveals 5F compatibility (§8)**: m² rows (reveal as surface) vs LM rows (linear reveal work, mb basis) are kept strictly separate — no LM↔M2 interchangeability — and complement the existing 9B seeds `CENNIK_REVEAL_GENERIC_M2` / `_LM`.
+- **Microcement system vs labor preserved (§9)**: wall/floor pairs `LABOR` vs `LABOR_AND_MATERIAL` rows; shower zone with membrane and substrate-prep notes.
+- **S1–S4 limitation documented (§11, §12)**: contractors do not reliably publish S/Q labels; the catalog uses generic rows and attaches quality **only** on literal source wording — no manufactured S1–S4 market prices.
+- **OWN_PRICE candidates (§12)**: `PREP_CLEAN`, `SKIM_LOCAL`, `GK_SCREW`, `PAINT_MASK`, `PAINT_MULTI`, `MC_STAIRS`, `PREP_PROT` — assigned `OWN_PRICE` in 9E.4/9E.5 if 9E.3 finds no market basis; never forced fake market references.
+- **Research batches (§14)**: A (prep/priming/skim/sanding — 20 items), B (painting/glass fiber/GK — 15), C (reveals — 6), D (microcement — 6), E (decorative/Venetian — 4). **No web research performed.**
+- **Acceptance criteria met (§18)**: list concrete and comparable; no prices invented; labor/material scope explicit per row; units explicit; Q/S ambiguity documented; reveals 5F-compatible; microcement system-vs-labor distinction preserved; decorative/Venetian included; priorities assigned; batches defined; codes proposed. Committed as **`docs(stage-9): define Krakow price research catalog`** and pushed to `origin/stage-9`; working tree clean; `main` untouched at 8997d11. **Deliberately NOT implemented**: any web research (9E.3), prices, migrations, backend/frontend code. **Canonical Stage 9 remains In Progress** (9E.3–9E.7, 9F pending); Stage 10 remains **Pending**.
+
+#### 9E.3A execution status 2026-09-13 — Kraków market research — Batch A: preparation / priming / skim / sanding (COMPLETE; web research + documentation only — committed + pushed to `stage-9`)
+**Deliverable**: the Batch A research-evidence file — **`docs/price-research-batch-a.md`** (created this sub-stage; referenced here). It records **verbatim source quotes only** (`checked_at` 2026-09-13; the three load-bearing Kraków anchors — s-szpachlowanie.pl Kraków cennik, malarzkrakow.pl/cennik, kb.pl gruntowanie city table — re-confirmed 2026-09-14). It contains **no seed decisions and no `PriceItem.price` values**.
+- **Items researched**: **20 / 20** Batch A catalog items — Preparation (7: PROT, WALLP, SCRAPE, FLEECE, DEGR, MOLD, CLEAN), Priming (4: STD, ADH, HIGH, PAINT), Skim/filling/sanding (9: 1L, 2L, 3L, SAND, PKG, CRACK, CORNER, LOCAL, SQ).
+- **Source count**: **40 referenced evidence pages** (37 with usable numeric quotes; 3 qualitative / non-comparable context) — **6 Kraków / Małopolskie-region anchors** (5 Kraków firms + kb.pl Kraków municipal row) and **34 Poland-wide**, incl. 2 outside-target-region supplementary (Warszawa Derty Serwis; Łódź SLIM-POL). Suspected content-network duplication flagged (sccot.pl ↔ itodesign.pl), as are single-publisher pages.
+- **Confidence distribution**: **HIGH 6** (PREP_WALLP, PREP_SCRAPE, SKIM_1L, SKIM_2L, SKIM_SAND, SKIM_CORNER) · **MEDIUM 7** (PREP_PROT, PREP_MOLD, PRIM_STD, PRIM_PAINT, SKIM_3L, SKIM_PKG, SKIM_LOCAL) · **LOW 6** (PREP_FLEECE, PREP_DEGR, PRIM_ADH, PRIM_HIGH, SKIM_CRACK, SKIM_SQ) · **INSUFFICIENT 1** (PREP_CLEAN).
+- **Insufficient-evidence items**: **1** — CENNIK_PREP_CLEAN-01 (post-sanding substrate vacuuming is never priced standalone; "sprzątanie po remoncie" is non-comparable whole-flat cleaning).
+- **Kraków anchors (key figures)**: s-szpachlowanie.pl Kraków skim table — 1 warstwa 35–50 · 2 warstwy 55–75 · szlifowanie 10–16 · narożniki wewn. 12–18 / zewn. 15–22 zł/mb · ubytki punktowo 25–40 · gładź "pod światło boczne / lampy LED" 35–55; malarzkrakow.pl — zabezpieczenie od 5 · gruntowanie od 5 · skrobanie od 10 · zrywanie tapet od 10 zł/m² (net, labor); kb.pl city table — Kraków gruntowanie 7,73 zł/m² brutto (labor, VAT 8%); małopolskie 6,68–7,73.
+- **Market results (evidence windows, NOT implementation)**: e.g. SKIM_1L 30–50 · SKIM_2L 35–75 · SKIM_SAND 10–25 · SKIM_PKG 35–70 · SKIM_CORNER 12–22 zł/mb · PREP_WALLP 10–30 · PREP_SCRAPE 10–35 · PRIM_STD L+M 7–15 · PRIM_PAINT L+M 3–15. `reference_price` set only where a central commonly-observed value exists with method stated (never a fake arithmetic average); labor-only and labor+material never mixed; PL nationwide sources marked supplementary; no S1–S4/Q-level inference (SKIM_SQ uses the sources' own wording).
+- **OWN_PRICE candidates after research**: **8** — PREP_CLEAN (no market basis), PREP_PROT, PREP_FLEECE, PREP_DEGR (single/bundled), PRIM_ADH, PRIM_HIGH (component/single-source), SKIM_3L (single content-network 3x quote; usually 2x + add-on), SKIM_LOCAL (complex-dependent). No final owner price assigned.
+- **Cross-check passed (9E.3A §19)**: traceable ranges, URL-duplication flags, scope-unmixed ranges, compatible units, PL marked, no invented prices, all 20 codes verbatim from the catalog. Company/labor-content caveats: most portals are SEO content pages; the strongest independent set is kb.pl / cenauslug / zleca; no clean "Małopolskie-only" local row beyond kb.pl's voivodeship rows.
+- **Verification**: `git diff --check` PASS; committed as **`docs(stage-9): research Krakow preparation and skim prices`** and pushed to `origin/stage-9`; working tree clean; `main` untouched at 8997d11. **Deliberately NOT implemented**: any prices, seeds, migrations, backend/frontend code; 9E.3B (Batch B — painting / glass fiber / GK) and 9E.4 (market-reference building / seed decisions) remain **Pending** — next sub-stage requires explicit owner approval. **Canonical Stage 9 remains In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.3B execution status 2026-09-14 — Kraków market research — Batch B: painting / glass fiber / gypsum board finishing (COMPLETE; web research + documentation only)
+**Deliverable**: the Batch B research-evidence file — **`docs/price-research-batch-b.md`** (created this sub-stage; referenced here). It records **verbatim source quotes only** (`checked_at` 2026-09-14; every load-bearing numeric quote re-fetched fresh). It contains **no seed decisions and no `PriceItem.price` values**.
+- **Items researched**: **15 / 15** Batch B catalog items — Painting (7: PAINT_2K, PAINT_1K, PAINT_3K, PAINT_CEIL, PAINT_COL, PAINT_MASK, PAINT_MULTI), Glass fiber/fleece (3: GF_FLIZ_L, GF_FLIZ_M, GF_MESH), Gypsum board finishing (5: GK_JOINT, GK_FULL, GK_SCREW, GK_CORNER, GK_Q4).
+- **Source count**: **20 numeric evidence pages referenced** + 2 contextual pages — **8 Kraków / regional anchors** (5 Kraków firms — malarzkrakow.pl, kubamalarz.pl, totaldecor.pl, ekipa-krakow, s-szpachlowanie.pl — and 3 Kraków city-/regional tables — cennikremontow.pl ×2, kb.pl Kraków) and **12 Poland-wide**, incl. Kraków city rows inside national pages (kb.network, koszt-wykonczen.pl, cennikremontow.pl) and 1 Małopolskie city row on a national portal (cenauslug.pl, Nowy Sącz). Content-network duplication flagged (kb.network ↔ aikfarby); sccot.pl, daibau.pl, hejmalarz.pl excluded from numerics.
+- **Confidence distribution**: **HIGH 1** (PAINT_2K) · **MEDIUM 9** (PAINT_1K, PAINT_3K, PAINT_CEIL, PAINT_COL, GF_MESH, GK_JOINT, GK_FULL, GK_CORNER, GK_Q4) · **LOW 3** (PAINT_MASK, GF_FLIZ_L, GF_FLIZ_M) · **INSUFFICIENT 2** (PAINT_MULTI, GK_SCREW).
+- **Insufficient-evidence items**: **2** — CENNIK_PAINT_MULTI-01 (multi-color priced only as surcharge structure — ciemne +8–15 zł/m², kolor +5–15%, tesa cut-ins "dodatkowo płatne" — no standalone m² market price) and CENNIK_GK_SCREW-01 (screw-head filling never priced standalone; always bundled in Q1/Q2 joint rows — betonizm.pl, koszt-wykonczen.pl).
+- **Kraków anchors (key figures)**: malarzkrakow.pl — malowanie od 8 (1 warstwa) / od 14 (kolor) / od 5 (maskowanie) zł/m² net, labor; kubamalarz.pl Kraków — 2 warstwy 25–27 zł/m² (partial, scope ambiguous); totaldecor.pl — kolor 18, pełne GK 40 zł/m²; ekipa-krakow — malowanie 10 (flagged low-outlier), narożniki 10 zł/mb; s-szpachlowanie.pl Kraków — narożniki zewn. 15–22 zł/mb; kb.pl city table — Kraków tapetowanie włókniną 64,30 zł/m² brutto (tech-B analog, not tech-A); cennikremontow.pl Kraków — malowanie sufitów 2 warstwy biały 18–32 / kolor 16–22, maskowanie 18,70 zł/m² net, GK szpachlowanie 34–46 zł/m², wtapianie siatki 12–58 zł/m².
+- **Market results (evidence windows, NOT implementation)**: PAINT_2K 10–28 (ref 18) · PAINT_1K 8–30 · PAINT_3K 21,80–48 · PAINT_CEIL 16–32 (ref 24) · PAINT_COL 14–30 (ref 20) · PAINT_MASK 5–20 · GF_MESH 12–58 · GK_JOINT 34–46 (explicit Q1/Q2 evidence) · GK_FULL 28–45 (ref 40, explicit Q3 evidence) · GK_CORNER 10–22 zł/mb (ref 18) · GK_Q4 40–80 (explicit Q4 evidence, 2 sources). **Fleece tech gap**: no tech-A (flizelina malarska / włóknina szklana underlay) application-labour market price exists in any checked source → GF_FLIZ_L/GF_FLIZ_M evidence windows left empty, marked OWN_PRICE candidates; tech-B analog (tapeta z włókna szklanego) recorded explicitly labeled — kb.pl 48,82–77 zł/m² brutto (Kraków 64,30), aikfarby.pl Kraków 65,40–74,30 (śr. 69,80), t-tapety 50–80 netto, aikfarby L+M łączny 110–190 zł/m² — never merged into a tech-A range. `reference_price` set only where a central commonly-observed value exists (PAINT_2K 18, PAINT_CEIL 24, PAINT_COL 20, GK_FULL 40, GK_CORNER 18); labor vs labor+material never mixed; strictly LABOR painting rows exclude paint/primer/material; PL nationwide sources marked supplementary; Q-level evidence counted only where the source explicitly states Q1/Q2/Q3/Q4 or an unambiguous Polish technical equivalent (betonizm.pl, koszt-wykonczen.pl).
+- **OWN_PRICE candidates after research**: **5** — PAINT_MASK (scope-variant; PCS rows), PAINT_MULTI (surcharge-only structure), GF_FLIZ_L, GF_FLIZ_M (no tech-A market basis), GK_SCREW (always bundled). No final owner price assigned.
+- **Explicit Q-level sources**: betonizm.pl — Q1 12–18 zł/mb, Q2 20–30 zł/m², Q3 30–45 zł/m², Q4 60–80 zł/m² "całopowierzchniowe ≥1 mm" (main-table figure; chart conflict 110 flagged in §21); koszt-wykonczen.pl — Q1 15 zł/mb, Q2 18–20 zł/mb (Kraków 24 zł/mb, 30–35 zł/m²), Q3 28–35 zł/m², Q4 40–55 zł/m² (gradacja 220–240).
+- **Cross-check passed (9E.3B §19)**: traceable ranges, URL-duplication flags, scope-unmixed ranges, compatible units (unit mismatches flagged, not merged), PL marked, no invented prices, all 15 codes verbatim from the catalog. §21 NORMALIZATION_REVIEW_NOTE flags for 9E.4 (Batch A numbers untouched): (1) SKIM_PKG vs SKIM_1L/2L package-scope check — Kraków component equivalent 65–91 exceeds the 35–70 package band → package likely volume-discounted/component-limited; (2) painting coat-count normalization — 2-coat PAINT_2K default must not double-count PRIM_PAINT/SKIM; cennikremontow 1-coat row internally inconsistent; (3) betonizm Q4 table-vs-chart conflict; (4) GK_JOINT M2 vs LM unit model; (5) cennikremontow "Montaż narożników" cell unit mismatch (22–30 zł/m² for a linear service).
+- **Verification**: `git diff --check` PASS; committed as **`docs(stage-9): research Krakow painting and drywall prices`** and pushed to `origin/stage-9`; working tree clean; `main` untouched. **Deliberately NOT implemented**: any prices, seeds, migrations, backend/frontend code; 9E.3C (Batch C — reveals) and 9E.4 (market-reference building / seed decisions) remain **Pending** — next sub-stage requires explicit owner approval. **Canonical Stage 9 remains In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.3C execution status 2026-09-14 — Kraków market research — Batch C: reveals / ościeża / glify / szpalety (COMPLETE; web research + documentation only)
+**Deliverable**: the Batch C research-evidence file — **`docs/price-research-batch-c.md`** (created this sub-stage; referenced here). It records **verbatim source quotes only** (`checked_at` 2026-09-14; every load-bearing numeric quote re-fetched fresh). It contains **no seed decisions and no `PriceItem.price` values**.
+- **Items researched**: **6 / 6** Batch C catalog items (§9/catalog) — REV_PREP-01 (M2, LABOR, P1), REV_SKIM-01 (M2, LABOR, P1), REV_SAND-01 (M2, LABOR, P2), REV_PAINT-01 (M2, LABOR, P1), REV_WORK_LM-01 (LM, LABOR, P1), REV_PAINT_LM-01 (LM, LABOR, P2).
+- **Source count**: **10 numeric evidence pages referenced** + 10 negative-check pages audited (local Kraków/Małopolskie sources all NONE_FOUND for reveal rows) — **0 Kraków firms, 0 Małopolskie pages, 10 Poland-wide**; 1 of the 10 is a regional-zone national calculator mapping (o-okna.com.pl Strefa I = metropolie, incl. Kraków, +20–35%).
+- **Confidence distribution**: **HIGH 0** · **MEDIUM 1** (REV_WORK_LM — 4+ independent LABOR per-mb sources cluster 30–110, ref 60) · **LOW 0** · **INSUFFICIENT 5** (REV_PREP, REV_SKIM, REV_SAND, REV_PAINT — no standalone per-m² component rows anywhere; REV_PAINT_LM — LM painting never priced standalone).
+- **Market structure finding**: the Polish reveal-finishing market does **not** price component reveal operations per m². Standard modes are (1) **per-mb** (dominant for LABOR obróbka — nowabudowa 58,25; cenausług glify 55–85; kb-family obróbka ościeży 30–70; o-okna 50–110 PCV robocizna), (2) **per piece** (window/door bundles: 250–550 zł/okno, 120–400 zł/skrzydło), (3) **per-m² complete obróbka bundles** (okna-porady/dziennikbudowlany 80–120 zł/m²; nowabudowa door glif m² 113 — S1 467,25 brutto/4,13 m²). Two technologies must not be mixed: szpachlowa/tynkowa obróbka (30–110 zł/mb LABOR) vs prefab szpaleta/profile systems (80–350 zł/mb L+M).
+- **Kraków-local negative-result audit**: 10 pages checked with **zero** reveal rows — malarzkrakow.pl, kubamalarz.pl, krakow-malowanie.pl, s-szpachlowanie.pl/szpachlowanie-krakow-cennik (404 → corrected URL), cennikremontow.pl Kraków tab, kb.pl Kraków city tab, cenausług.pl Kraków glify/ocieplenie-ościeży subpages (HTTP 410, dead). Terraglass.com.pl and assystem.com.pl → HTTP 403, excluded/archived.
+- **Market results (evidence windows, NOT implementation)**: REV_WORK_LM **30–110 zł/mb** (ref 60) MEDIUM — LABOR only, both window and door contexts, new (S2) and post-installation repair (S4) contexts; REV_PAINT_LM INSUFFICIENT (no standalone row — only full obróbka per-mb or per-piece bundles). **All 4 M2 components INSUFFICIENT** — per-m² evidence exists only as complete bundles (outside canonical component scope) → recorded in §13 cross-unit context table, never merged into M2 ranges.
+- **Window vs door**: window=door LM rate equality demonstrated where together (S1 nowabudowa — same 58,25 zł/mb LM for both exceed 30 cm; S8 400 zł/skrzydło = window/door door unit); door-only per-m² glif row (S1 113 zł/m²) is a complete bundle, not a component.
+- **New vs repair**: S2 cenausług (new plastering/glifs for windows) and S4 dziennikbudowlany (obróbka po montażu okien) both yield compatible 55–85 / 30–70 zł/mb LABOR bands → LM support does not require merging contexts; no REPAIR_DAMAGE-specific per-mb row exists.
+- **OWN_PRICE candidates after research**: **5** — REV_PREP, REV_SKIM, REV_SAND, REV_PAINT (no per-m² component market), REV_PAINT_LM (no standalone LM painting); REV_WORK_LM has a market basis (30–110, ref 60) and is **NOT** a candidate. No final owner price assigned.
+- **Stage 5F pricing compatibility (9E.3C §15)**: **PARTIALLY_SUPPORTED** — the **LM** reveal row (REV_WORK_LM) is supported by direct per-mb LABOR market evidence; the **M2** component rows are **not** separately supported (no per-m² component market; only complete obróbka bundles outside scope). Keeping both M2 and LM model survives; M2 rows need owner decisions in 9E.4. Future optional modes identified: per-window/per-door pieces and minimum-charge rows (S8 od 200 zł/skrzydło). No Stage 5F or Price Book architecture change performed (contract).
+- **Cross-check passed (9E.3C §22)**: traceable numerics with exact URLs, local-national separation (LOCAL 0, REGIONAL-zone 1, NATIONAL 9), M2/LM never merged, per-piece never converted, window/door recorded, new/repair recorded, LABOR vs L+M never mixed, minimums (od) excluded from ranges, no invented geometry (no assumed window M2), no invented prices. §16 NORMALIZATION_REVIEW_NOTE flags for 9E.4 — Batch A/B items (1)–(5) preserved untouched + new: (6) reveal unit model — M2 components vs LM row; (7) per-m² complete obróbka bundles (80–120; nowabudowa 113) vs component scope; (8) "szpaleta" dual scope (window interior reveal vs prefab window surround element); (9) Kraków-zone LM evidence is calculator-zone mapping (o-okna Strefa I 95–160 robocizna; Kraków +20–35%), not a Kraków firm quote.
+- **Verification**: `git diff --check` PASS; committed as **`docs(stage-9): research Krakow reveal prices`** and pushed to `origin/stage-9`; working tree clean; `main` untouched. **Deliberately NOT implemented**: any prices, seeds, migrations, backend/frontend code; 9E.3D (Batch D) and 9E.4 (market-reference building / seed decisions) remain **Pending** — next sub-stage requires explicit owner approval. **Canonical Stage 9 remains In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.3D execution status 2026-09-14 — Kraków market research — Batch D: microcement (COMPLETE; web research + documentation only)
+**Deliverable**: the Batch D research-evidence file — **`docs/price-research-batch-d.md`** (created this sub-stage; referenced here). It records **verbatim source quotes only** (`checked_at` 2026-09-14). It contains **no seed decisions and no `PriceItem.price` values**. Research → evidence file → documentation → commit → push chain completed this sub-stage.
+- **Items researched**: **6 / 6** Batch D catalog items (§10/catalog — all verbatim from the catalog): CENNIK_MC_WALL_L-01 (schody-adjacent — microcement walls labor; M2, LABOR), CENNIK_MC_WALL_S-01 (walls, full system with material; M2, LABOR_AND_MATERIAL), CENNIK_MC_FLOOR_L-01 (floor labor; M2, LABOR), CENNIK_MC_FLOOR_S-01 (floor full system; M2, LABOR_AND_MATERIAL), CENNIK_MC_SHOWER-01 (shower wet zone, system with hydroizolacja; M2, LABOR_AND_MATERIAL), CENNIK_MC_STAIRS-01 (stairs; M2 canonical, per-step/per-flight record basis; LABOR_AND_MATERIAL).
+- **Source count**: **22 referenced pages** used (19 weighted + 3 flag-only) + 8 negative/local-audit pages with no usable per-m² rows — **1 strict Kraków-local anchor** (Monolite Kraków salon), **2 Małopolskie/regional L+M anchors** (Zement pracowniabetonu.pl serving Kraków; JAK Chemia Kraków showroom / Libiąż), 2 Kraków-adjacent producers with material evidence (Conbar; Festfloor national), rest Poland-wide/manufacturer-market overviews (**POLAND_SUPPLEMENTARY ~19**).
+- **Confidence distribution**: **HIGH 1** (FLOOR_S — 3+ genuinely comparable local/regional system sources) · **MEDIUM 4** (WALL_L, WALL_S, FLOOR_L, SHOWER) · **LOW 1** (STAIRS — unit basis ambiguity) · **INSUFFICIENT 0**.
+- **Market structure finding**: the Polish microcement market predominantly quotes **complete L+M systems ("pod klucz"/"kompleksowo")**, not labor-only. True labor-only pricing exists almost exclusively on national price guides → the two **labor-only rows (WALL_L 100–180, ref 140; FLOOR_L 180–250, ref 220) have NO local (Kraków/Małopolskie) basis** (documented negative audit §4.1) — candidates for OWN_PRICE or regional-coefficient derivation at 9E.4, never derived from complete-system prices.
+- **Kraków-local anchor (L+M systems)**: Monolite (single strict Kraków salon) — walls 320–650 (dry-interior core 320–400), floors 320–400 (≤50 m² tier to 400), bathroom walls incl. hydro 450–650, stairs m² 750–950 (stopnica+podstopnica). Regional: Zement pracowniabetonu.pl (floors 350–500 typical; walls 350–400; hydro +40–80 separate), JAK Chemia (walls ow triangle, L+M ~260–320 band).
+- **Market results (evidence windows, NOT implementation)**: WALL_S **320–650 lokalny / 250–400 PL** (ref 350) MEDIUM; FLOOR_S **320–400 lokalny / 300–550 PL** (ref 380) HIGH; SHOWER **450–650 lokalny / 380–580 (brutto 380–720) PL** (ref 550) MEDIUM; STAIRS **750–950 m² lokalny / M² 350–900 and per step 400–1300 PL** (ref —) LOW. **All figures evidence windows only — cell dedicated, never assigned as owner prices.**
+- **Waterproofing explicit**: hydro included vs separate recorded per source (matrix §15); only SHOWER row is a system-with-membrane row; application-only prices recorded as context, not row evidence.
+- **Minimum-job findings (§13)**: 50–80 m² floor minimum systems, <25–30 m² flat-rating, small-area premiums (od 22 000–35 000 zł white-packages); **all recorded as commercial context, never converted to M2 rates**.
+- **OWN_PRICE candidates after research**: **0 pure** (all six items have some market evidence); **STAIRS** is a **unit-model + scope-normalization case** (m² vs per step 400–1300 vs per flight 9000–13000 — units never converted), not absence-of-market; **WALL_L / FLOOR_L** (labor-only, no local basis) → strongest OWN_PRICE pressures. No final owner price assigned.
+- **Stage 5F / material-system context**: **MATERIAL SYSTEM CONTEXT (§16)** records material-only evidence (34,5–194 zł/m² material, national material echelons 80–300) strictly separate from contractor L+M 250–650 — manufacturer/store prices **never** treated as labor. **FESTFLOOR CONTEXT (§17)**: one explicit manufacturer system reference (national, binder+aggregate finish ~120–190 zł/m² material band) — recorded as a system/materials reference, **not** "the market"; Festfloor-affiliated content network (cementibeton.pl family) flagged and de-weighted.
+- **Cross-check passed (9E.3D §20)**: all 6 canonical items researched (codes verbatim from catalog §10); traceable numerics with exact URLs; local-national separation (LOCAL 1 / REGIONAL 2 / NATIONAL per item); LABOR vs L+M vs MATERIAL separated; walls/floors not silently mixed; waterproofing explicit; substrate prep explicit; stairs M2/per-step/per-flight never converted; minimums excluded from ranges; manufacturer prices not treated as labor; derived material cells show formula (`pack ÷ coverage`); no guessed consumption; no invented prices (jak-wykonac.fun S21 content-farm excluded from independent counting). §18 NORMALIZATION_REVIEW_NOTE flags for 9E.4 — Batch A/B items (1)–(5) and Batch C items (6)–(9) preserved untouched + new: (10) labor-only rows have no local basis (OWN_PRICE/regional-coefficient decision); (11) STAIRS unit model — canonical M2 vs per-step vs per-flight; (12) "kompleksowo vs robocizna" quoting-mode mixes in national guides (only labor-origin rows used for WALL_L/FLOOR_L); (13) hydro-included vs hydro-separate VAT/nett-basis consistency (sanitmax explicit brutto 380–720 vs netto figures); (14) L+M system bands embed variable substrate prep — prep treated as included vs billed-extra per source, never merged into system bands; (15) <25–30 m² flat-rating and 50–80 m² floor minimums must not enter M2 rows; (16) "beton ciré" search-term collision with concrete-cutting/ready-mix vendors (§2); (17) topciment.com 403-on-default-fetch (retained via UA-rendered fetch) + dk7-krakow-libertow.pl (403) + loftsurface Kraków realize (404) exclusion/archival; (18) pracowniabetonu.pl vs pracowniabetonu.eu are distinct companies (both kept, neither merged); (19) 10 m² kit packs convert via `pack ÷ coverage` only where the store states pack coverage.
+- **Verification**: `git diff --check` PASS; committed as **`docs(stage-9): research Krakow microcement prices`** and pushed to `origin/stage-9`; working tree clean; `main` untouched. **Deliberately NOT implemented**: any prices, seeds, migrations, backend/frontend code; 9E.3E (Batch E — decorative / Venetian) and 9E.4 (market-reference building / seed decisions) remain **Pending** — next sub-stage requires explicit owner approval. **Canonical Stage 9 remains In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.3E execution status 2026-09-14 — Kraków market research — Batch E: decorative finishes / Venetian plaster (COMPLETE; **9E.3 Web Research Batches A–E now COMPLETE**; web research + documentation only)
+**Deliverable**: the Batch E research-evidence file — **`docs/price-research-batch-e.md`** (created this sub-stage; referenced here). It records **verbatim source quotes only** (`checked_at` 2026-09-14). It contains **no seed decisions and no `PriceItem.price` values**. This is the final 9E.3 batch: all **51/51 canonical catalog items** now have dated research evidence across Batches A–E.
+- **Items researched**: **4 / 4** Batch E catalog items (§11/catalog — all verbatim from the catalog): CENNIK_DEC_VEN-01 (stiuk wenecki — klasyczny; M2, LABOR, P1), CENNIK_DEC_VEN_MAR-01 (efekt marmuru z żyłkowaniem; M2, LABOR, P2), CENNIK_DEC_CONC-01 (efekt betonu / beton architektoniczny; M2, LABOR, P2), CENNIK_DEC_GENERIC-01 (tynk dekoracyjny — ogólny; M2, LABOR, P2).
+- **Source count**: **23 referenced pages** (16 weighted + 7 flag/exclusion) — **0 Kraków-local firms with published m² LABOR rates** (dflhome Kraków-Kliny, dekormarmo Kraków audit — both individual quotation / portfolio-only; cenauslug.pl stiuk wenecki/Kraków HTTP 410, cudaarchitektury.pl HTTP 403 content-network), **1 Kraków-local marketplace anchor** (OLX TynkDeko Kraków `od 100 zł/m² — wycena indywidualna`; JS-rendered but text served at check), **2 regional serving-Kraków** (VIAN viandekor.pl — marble 350–550 L+M / concrete 160 L+M, explicit Kraków service cities; KB.pl Kraków-row 405 zł/m² L+M stiuk wenecki, min 10 m², Małopolskie 387–424), **~16 Poland-wide labor guides / system prices / material context**.
+- **Confidence distribution**: **HIGH 0** · **MEDIUM 3** (VEN — classic labor 120–150 core from 4 guides, ref 140; CONC — concrete-effect labor 60–150 core from 5 guides, ref 110; GENERIC — structural/glaze labor 40–80 from 4 guides, ref 60) · **LOW 1** (VEN_MAR — veined marble: no Polish veined-LABOR row; only L+M 350–550 by one regionally-served firm + "wyceniamy indywidualnie" (dekor-lux); **reference null**) · **INSUFFICIENT 0**.
+- **Market structure finding**: Polish decorative-finish pricing splits into (a) **national labor guides 40–150/300 zł/m² robocizna** (structural → classic-Venetian ladder) and (b) **firm-published L+M system prices 160–550 zł/m²** (concrete-effect 160; Venetian 313–480; veined marble 350–550). Kraków firms publish **no fixed m² labor rates** — decorative work is individually quoted (dflhome / dekor-lux evidence). Big-city premium for Kraków documented by itynki at +15–25% (table +20%).
+- **Veining complexity (§13)**: VIAN prices veining inside its **L+M band od 350 → 550** (complexity/color-driven, ~57% spread between simple and complex); dekor-lux prices veined variants **individually** ("wyceniamy inaczej") and notes A4 próbka cannot show veining rhythm; wistalex/ewyposazenie "marmoryzacja/efekt marmuru" labor rows (120–150 / 80–160) are **surrogate, not explicit veining** — kept separate. **No Polish source publishes a fixed veining surcharge % or zł** — none invented.
+- **Concrete-vs-microcement guard (§11)**: thin-layer wall-applied concrete effect (1,5–3 mm decorative coating) kept strictly separate from microcement (Batch D MC_*; dekor-lux "Betonus"; konkret "połyskliwy mikrocement 220–380 zł/m² material"), prefab concrete panels (bursatm 200–400 zł/m²), cast-in-situ concrete, resin floors, limewash/wychmurzenia, tadelakt/trawertyn/sahara/japandi/alkantara — an explicit permanent exclusion list for 9E.4/9E.6.
+- **Minimum-job / sample findings (§12–13)**: min 10 m² (KB), small-wall premium (VIAN; poilerobocizna 6 m² łazienka +30%, >50 m² −10–15%), sample `≥ 1 m²` required (konkret) / A4 próbka limitation (dekor-lux) — recorded as commercial context, never converted to m² rates, no sample fee invented.
+- **Material system context (§14)**: DERIVED MATERIAL CONTEXT with formulas — natural lime Venetian 59–83 zł/m² (`590–830/10 m²`), synthetic acrylic set 30–46 zł/m², Stiuk Wenecki Magnat retail 14–22 zł/m² (140–220/5 kg → 10 m²), concrete-effect dry mix 95–420 zł/m² (18–75 zł/kg × 4,5–5,5 kg/m²), sealing 4–22 zł/m² — manufacturer/store/retail context only, never labor.
+- **OWN_PRICE candidates after research**: **CENNIK_DEC_VEN_MAR-01 (veined marble)** — the strongest Batch E candidate (no veined-LABOR market row); derive from own workshop man-hours at 9E.4/9E.5 with S12's 350–550 L+M as sanity window. VEN/CONC/GENERIC have defensible national LABOR ranges (not OWN_PRICE); local (Kraków) coefficients (± big-city premium) remain an owner/9E.4 decision. No new catalog rows proposed (9E.4 owns catalog restructuring).
+- **Cross-check passed (9E.3E §19)**: all 4 canonical items researched (codes verbatim from catalog §11); exact URLs; LOCAL (0 priced) vs regional-serving-Kraków (2) vs national (~16) separated; LABOR vs MATERIAL vs L+M separated (labor ranges only from labor-labelled rows; no material-subtraction derivation); classic vs veined Venetian strictly separated (surrogate evidence flagged); concrete effect not mixed with microcement/panels/resin (§11); generic row limited to structural/colored/rustykalny 40–80 (`COMMON_DECORATIVE_CONTEXT` documented — travertine/metallic/stone kept as context); substrate prep documented per source and kept out of labor rows; minimums/small-area/sample excluded from unit ranges; artistic/custom work not normalized (no invented surcharge); no invented prices (content-network clones counted zero); VAT UNKNOWN across sources (no automatic base conversion). §17 NORMALIZATION_REVIEW_NOTE flags for 9E.4 — **Batch A/B items (1)–(5), Batch C items (6)–(9), Batch D items (10)–(19) preserved untouched** + new Batch E items (20)–(29): (20) classic vs veined Venetian kept separate; (21) `stiuk syntetyczny` vs natural lime never priced alike; (22) quoting-mode mixes in national guides (poilerobocizna table = robocizna z materiałem vs intro robocizna) — only labor-labelled rows feed LABOR; (23) generic "tynk dekoracyjny" technology breadth — range only from structural/colored/rustykalny family, GENERIC-01 range-vs-OWN_PRICE decision pending; (24) artistic complexity (veining, szalunek +35–50%, multi-color) documented, never normalized into a premium %; (25) substrate-prep inclusion variance (L+M systems assume "gotowe podłoże"; labor rows exclude prep) — prep belongs to PREP/SKIM Batch A rows; (26) small-job/min-m² pricing recorded as context only (10 m² min, +30% small-wall, >50 m² −10–15%, sample ≥1 m²); (27) concrete-effect vs microcement contamination guard (permanent boundary, §11); (28) KB.pl Kraków city-row is national-portal city mapping (min 10 m² kompleksowa white/gray), L+M sanity window only — same class as Batch C (9)/Batch D notes; (29) content-network duplication (cudaarchitektury/mebloweporady/forummeble one skeleton; `*tynki` family; SEO-poradnik labor guides — count as differing data points, not 4 confirmations; cenauslug 410 / cudaarchitektury 403 archival).
+- **Verification**: `git diff --check` PASS; committed as **`docs(stage-9): research Krakow decorative finish prices`** and pushed to `origin/stage-9`; working tree clean; `main` untouched. **Canonical Stage 9 remains In Progress**; **9E.3 Web Research (Batches A–E) is COMPLETE**; **9E.4 (normalization/review) PENDING** — next sub-stage requires explicit owner approval; Stage 10 remains **Pending**. **Deliberately NOT implemented in 9E.3E**: any prices, seeds, migrations, backend/frontend code; no catalog restructuring (deferred to 9E.4); no OWN_PRICE assignments (9E.4/9E.5).
+
+#### 9D.1 execution status 2026-09-14 — mobile shell + Telegram dark theme UX correction (COMPLETE — owner accepted; committed as **`c4cc6b6 fix(stage-9): improve mobile shell and Telegram dark theme`** and pushed to `origin/stage-9`)**
+**Context — two owner-reported issues (owner reported at the 9D.2/9D.1 planning review):**
+1. **Issue A**: the large authenticated-user diagnostic card ("Telegram zweryfikowany / Telegram User ID / Nazwa użytkownika / UUID") consumed the top of the main page content — the owner asked to remove it from the normal page flow and move account access to a compact footer control.
+2. **Issue B (systemic)**: in Telegram dark theme, typed text in form controls (e.g. Price Book → "Dodaj pozycję") was invisible: controls rendered a light/white background while typed text inherited the light Telegram theme text color. Owner asked for a systemic fix across `input`/`select`/`textarea` — not a one-off "Nazwa" input patch and not a global `color: black` forced style.
+
+**Deliverable**: frontend-only correction (no backend, no API contract, no PriceItem model, no seeds, no researched-price values touched). Per the 9D.1 gate the changes were first left uncommitted for the owner's manual Telegram WebView verification; after owner acceptance the full 9D.1 change set (7 modified files + 2 new files below) was committed as **`c4cc6b6 fix(stage-9): improve mobile shell and Telegram dark theme`** and pushed to `origin/stage-9`; working tree clean; `main` untouched.
+
+**Issue A implementation**:
+- Removed the `<section aria-label="user-card">` authenticated-user diagnostic card from `frontend/src/App.tsx`.
+- Added a compact **app footer** (`aria-label="app-footer"`, bottom of the app supply, below `<main>`) showing the app title and a `min-h-11` **"Konto" / "Аккаунт"** control (`aria-label="open-account"`), themed via `--tg-theme-*` variables. No duplicated auth logic — it consumes the existing `useAuth()` `user` / `isDevAuth` state.
+- Created **`frontend/src/components/AccountModal.tsx`** — a lightweight mobile-friendly modal (no new dependency) reusing existing project conventions: `role="dialog"` + `aria-modal="true"`, backdrop-click close, explicit close button (`aria-label="close-account-modal"`, label `t.common.close` "Zamknij"/"Закрыть"), ESC keydown close, no horizontal overflow, `break-all` on the UUID and Telegram User ID, `min-h-11` touch targets, panel themed with `--tg-theme-secondary-bg-color` / `--tg-theme-text-color` / `--tg-theme-hint-color` / `--tg-theme-link-color` / `--tg-control-border-color`. Shows verification badge (Mock Auth / Telegram zweryfikowany), Telegram User ID, username (when present), UUID.
+- PL/RU labels added to `frontend/src/locales/pl.json` / `ru.json` (`auth.account`, `auth.account_title`, enforced-enumerated `auth.telegram_verified`, `auth.telegram_user_id`, `auth.username`, `auth.uuid`); parity locked by the new parity test case in `frontend/src/locales/parity.test.ts`.
+
+**Issue B implementation (systemic form-control theming)**:
+- Added **8 control theme variables** to `:root` (light) and `html[data-color-scheme='dark']` in `frontend/src/index.css`: `--tg-control-bg-color`, `--tg-control-text-color`, `--tg-control-placeholder-color`, `--tg-control-border-color`, `--tg-control-focus-border-color`, `--tg-control-focus-ring-color`, `--tg-control-disabled-bg-color`, `--tg-control-disabled-text-color` (dark theme: dark `#232e3c` control bg + light `#f5f5f5` text + visible `#4b5f75` border + secondary placeholder + visible focus ring, and vice versa for light). The same variables were added to `DEFAULT_LIGHT_THEME`/`DEFAULT_DARK_THEME` in `frontend/src/hooks/useTelegramWebApp.ts` so `applyTelegramTheme()` applies them at runtime from Telegram themeParams.
+- Added **`html { color-scheme: light }`** / **`html[data-color-scheme='dark'] { color-scheme: dark }`** so the browser renders native popups (select dropdowns, autofill) in the matching scheme.
+- Added **un-layered systemic rules** in `index.css` (outside any Tailwind `@layer`, so they beat layered utility classes like `bg-white`/`border-slate-200` without touching component markup): `input, select, textarea` bg/text/border/caret; `::placeholder` visibility; `:focus` border + ring; `:disabled`; `:read-only`; `:-webkit-autofill` (1000px inset shadow + `-webkit-text-fill-color` to keep autofill readable in both themes). No `!important`, no global black text. Selects (category/unit/scope/quality in Price Book) inherit the same bg/border/text rules for closed, selected, and disabled states.
+
+**Scope discipline**: UI correction only. No `PriceBook.tsx` behavior changed, no price formatting, no archive/restore, no search/filter, no PriceItem model/schema, no Alembic migration, no seed logic, no researched prices, no canonical-roadmap changes.
+
+**Files**: modified — `frontend/src/App.tsx`, `frontend/src/App.test.tsx`, `frontend/src/hooks/useTelegramWebApp.ts`, `frontend/src/index.css`, `frontend/src/locales/parity.test.ts`, `frontend/src/locales/pl.json`, `frontend/src/locales/ru.json`; new — `frontend/src/components/AccountModal.tsx`, `frontend/src/App.shell.test.tsx`.
+
+**Tests (NEW/EDITED)**:
+- **`frontend/src/App.shell.test.tsx`** (8 tests, Stage 9D.1): A) no `user-card`/Telegram ID in the normal page flow and navigation remains first; B) compact `open-account` control exists inside the `contentinfo` footer; C) opening shows verification badge + name + Telegram User ID + username + UUID; D) close restores the underlying page via close button and ESC; E) RU localization (`Аккаунт`, `Данные пользователя`, `Telegram подтверждён`, `Имя пользователя`), RU keeps technical "Telegram User ID"; F) Price Book "Dodaj pozycję" form still opens with all 6 fields and survives account-modal open/close; G) readable light control theme vars (`bg` ≠ `text`); H) readable dark theme control vars (`#232e3c` bg ≠ `#f5f5f5` text, border present).
+- **`frontend/src/locales/parity.test.ts`** — new 9D.1 case asserting identical PL/RU `app`/`auth`/`common` key structure + presence of the six 9D.1 account keys.
+- **`frontend/src/App.test.tsx`** — completion markers switched from `user-card` content to the `open-account` footer control.
+
+**Verification**: focused vitest run PASS; full frontend vitest **279 passed (22 files)** (was 278 across 22 files; +1 net after adding 8 shell tests and adjusting App tests); `tsc --noEmit` PASS; `vite build` PASS; dev-server smoke PASS (HTTP 200 on `/`); `git diff --check` PASS (two untracked new files included); backend pytest untouched (no backend source changed). Manual Telegram-viewport checks were completed by the owner per the acceptance checklist. **Deliberately NOT implemented**: any backend/API/seed/migration change, any researched market price, any unrelated UI redesign, canonical Stage 9 roadmap changes. **OWNER_ACCEPTANCE: ACCEPTED 2026-09-14** — owner verified in the real Telegram WebView (dark theme inputs/selects readable, typed text visible, large user card gone, footer account control reachable, modal data correct, at ~390/412 px) and authorized the commit; committed as **`c4cc6b6`** and pushed to `origin/stage-9`; working tree clean. **STAGE_9E4: Completed 2026-09-14 (normalization/review — docs-only).** Canonical Stage 9 remains **In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.4 execution status 2026-09-14 — normalize & review the Kraków price research catalog (COMPLETE; documentation only; committed + pushed to `stage-9`)
+
+**Deliverable**: the normalized master review for all **51/51** canonical research items in
+`docs/price-research-catalog.md` (new **PART 9E.4**, §16.1–16.7). It assigns exactly one decision to
+every item — **MARKET_SUPPORTED (26) / OWN_PRICE (15) / DROP_MERGE_RESTRUCTURE (10)** — preserving the
+architectural invariant **`PriceItem.price` (owner/commercial price) ≠ market reference ranges ≠ source
+quoted prices**. No prices, seeds, migrations, API, or frontend behavior were changed; the four
+technical placeholder seeds from 9B (`CENNIK_PREP_GENERIC_M2` / `CENNIK_PAINT_GENERIC_M2` /
+`CENNIK_REVEAL_GENERIC_M2` / `CENNIK_REVEAL_GENERIC_LM`) remain untouched; all 9E.3 raw research
+(batches A–E) is preserved verbatim.
+
+- **Decision totals**: MARKET_SUPPORTED **26** · OWN_PRICE **15** · DROP_MERGE_RESTRUCTURE **10** ·
+  TOTAL **51**.
+- **Master table** (§16.3): one row per item with code, PL name, category, unit, scope, quality
+  hint, decision, normalized market_min/max, reference_price, region basis, confidence, source
+  count, and a normalization note; `—` used everywhere the evidence does not justify a numeric value
+  (no forced prices).
+- **OWN_PRICE rationale** (§16.4): (7) normally bundled / internally priced (PREP_PROT, PREP_DEGR,
+  PREP_CLEAN, SKIM_LOCAL, GK_SCREW, PAINT_MASK, PAINT_MULTI); (3) technology-specific evidence gap
+  (PREP_FLEECE, GF_FLIZ_L, GF_FLIZ_M — tech-B fiberglass wallpaper never substituted for tech-A
+  fleece); (3) component-only / custom-premium market (PRIM_ADH, PRIM_HIGH, DEC_VEN_MAR); (2) no
+  local (Kraków/Małopolskie) basis for labor-only microcement (MC_WALL_L, MC_FLOOR_L).
+- **DROP_MERGE_RESTRUCTURE — proposed structural corrections** (§16.5): SKIM_3L → 2-coat + 3rd-layer
+  add-on; SKIM_PKG → re-scoped package or merge into SKIM_2L + SAND (component-sum mismatch 65–91 vs
+  35–70); GK_JOINT → LM unit model; REV_PREP/SKIM/SAND/PAINT/PAINT_LM → fold into the single canonical
+  LM reveal row (REV_WORK_LM keeps the market band 30–110, ref 60); MC_STAIRS → unit model decision
+  (M2 vs per-step vs per-flight); DEC_GENERIC → restrict/rename to structural/rustykalny family or drop.
+- **Known-issues resolution map** (§16.6): every previously flagged issue A–G (SKIM package/3-layer/
+  cleaning/crack repair; painting coat-count/ceiling/colour/masking/multi-colour; drywall Q1–Q4 unit
+  and source conflicts/screw/corner; glass-fiber flizelina vs tech-B; reveal bundle/LM-vs-M2/5F;
+  microcement labor-vs-system/hydro/stairs/minimum-jobs/Festfloor; decorative classic/veined/conc/
+  generic/material-vs-labor/complexity) is mapped to a decision.
+- **Owner decisions required** (§16.7): **7 grouped decision sets** — (1) reveal row structure;
+  (2) OWN_PRICE starting rates for the 15 items; (3) SKIM package/layer structure; (4) GK joint unit
+  model; (5) MC_STAIRS unit; (6) DEC_GENERIC scope; (7) regional (big-city) pricing policy. These are
+  the blocking inputs for 9E.5.
+- **Also in this sub-stage**: `docs/development-progress.md` updated (9D.1 marked OWNER_ACCEPTED with
+  commit `c4cc6b6`; Stage 9 status rows updated; 9E.4 record added); `docs/PRODUCTION_DEPLOYMENT_RUNBOOK_RU.md`
+  gained one concise verified production-deployment + Telegram Menu Button `?v=` cache-busting section.
+- **Verification**: `git diff --check` PASS; only documentation files changed (no application code);
+  committed as **`docs(stage-9): normalize Krakow price research catalog`** and pushed to
+  `origin/stage-9`; working tree clean; `main` untouched. **Deliberately NOT implemented**: any
+  PriceItem/seed/migration change (9E.6/9E.7), any API/frontend behavior change, any replacement of
+  the four 9B technical placeholder seeds, any invented market prices. **STAGE_9E.5: NOT STARTED** —
+  next sub-stage requires explicit owner approval and answers to the §16.7 owner-decision groups.
+  Canonical Stage 9 remains **In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.5 execution status 2026-09-14 — owner approval of the normalized catalog (COMPLETE / OWNER_APPROVED; documentation only; committed + pushed to `stage-9`)
+
+**Deliverable**: binding owner answers to all 7 decision groups of 9E.4 §16.7, recorded in
+`docs/price-research-catalog.md` (new **PART 9E.5**, §17.1–17.4) and frozen as the final
+implementation-ready catalog definition that 9E.6 (implementation / PriceItem seeds) and 9E.7 (load)
+must honor.
+
+- **Owner approval record (§17.1, all 7 groups APPROVED)**: (1) **SKIM_3L** — no standalone
+  market-priced 3-coat row; base = SKIM_2L + third-coat add-on; (2) **SKIM_PKG** — DROP/MERGE, no
+  package PriceItem, Stage 10 composes packages from atomic items; (3) **GK_JOINT** — LM canonical
+  unit for linear joint evidence, Q3/Q4 full-surface stays M2, no LM↔M² conversion;
+  (4) **GF_FLIZ_L / GF_FLIZ_M** — OWN_PRICE, flizelina malarska kept separate from fiberglass wall
+  covering, owner rates supplied separately; (5) **REVEALS** — REV_WORK_LM is the principal
+  commercial row, REV_PREP / REV_SKIM / REV_SAND / REV_PAINT / REV_PAINT_LM fold in as internal/helper
+  only, Stage 5F geometry keeps both LM and M2, no automatic LM↔M² conversion; (6) **MC_STAIRS** —
+  canonical unit PCS / per step, M2/per-flight/per-step observations reference-only, initial owner
+  price OWN_PRICE; (7) **DEC_GENERIC** — rename/restrict to tynk strukturalny / rustykalny, never a
+  catch-all for Venetian / concrete-effect / microcement or other distinct technologies.
+- **Final implementation-ready catalog (§17.2–17.3)**: single source of truth = §16.3 as amended by
+  §17.1 decisions; §17.3 disposition table covers all 51 reviewed rows.
+- **Recalculated counts (§17.4) — original review vs final implementation set**:
+  - Original research catalog (9E.4 review): **51** items — 26 MARKET_SUPPORTED / 15 OWN_PRICE /
+    10 DROP_MERGE_RESTRUCTURE.
+  - Final implementation PriceItem candidates (post-approval): **44** — **28 MARKET_SUPPORTED** /
+    **16 OWN_PRICE**.
+  - Dropped (2): SKIM_3L, SKIM_PKG. Folded/merged into REV_WORK_LM (5): REV_PREP, REV_SKIM,
+    REV_SAND, REV_PAINT, REV_PAINT_LM. Restructured but retained (3): GK_JOINT → LM (MS),
+    MC_STAIRS → PCS/OWN_PRICE, DEC_GENERIC → renamed/restricted (MS).
+  - Total check: 44 + 7 = 51. The final implementation count is deliberately **not forced to 51**.
+- **Also in this sub-stage**: `docs/development-progress.md` status rows updated (roadmap row and
+  Stage Log header now show 9E.5 Completed / OWNER_APPROVED; 9E.6 NOT STARTED).
+- **Verification**: `git diff --check` PASS; only documentation files changed — no application code,
+  no migration, no seed implementation, no Stage 9E.6 work — and committed as
+  **`docs(stage-9): approve normalized price catalog`** and pushed to `origin/stage-9`; working tree
+  clean; `main` untouched. The four 9B technical placeholder seeds (`CENNIK_PREP_GENERIC_M2` /
+  `CENNIK_PAINT_GENERIC_M2` / `CENNIK_REVEAL_GENERIC_M2` / `CENNIK_REVEAL_GENERIC_LM`) remain
+  untouched through 9E.5. **STAGE_9E.6: NOT STARTED** — next sub-stage requires explicit owner
+  approval. Canonical Stage 9 remains **In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.6A execution status 2026-09-14 — price market evidence backend foundation (COMPLETE; committed `31540af` on `stage-9`)
+
+**Deliverable**: backend foundation for the market-evidence layer designed in 9E.1 — the
+`PriceMarketReference → PriceSource[]` models, the reversible Alembic migration `0015_create_market_evidence`,
+owner-scoped domain-service operations, and a read-only evidence endpoint. Per the task contract the 44
+approved PriceItem catalog rows were **NOT** loaded here (that is 9E.6B); the four 9B technical placeholder
+seeds remain untouched.
+
+- **Models** (`app/models/market_evidence.py`): `SourceType` (7 controlled values), `PriceMarketReference`,
+  `PriceSource`. FK chain `price_items` (CASCADE) → `price_market_references` (CASCADE) → `price_sources`;
+  money stays `Numeric(12,2)` Decimal end-to-end; unit/currency reuse the Stage 9B contracts; no currency DB
+  enum (ISO-style `String(3)`, PLN-only MVP), no revision/version columns (re-check-in-place).
+- **Migration** `0015_create_market_evidence` (parent `0014_create_price_book`): creates both tables, the
+  `sourcetype` enum, and the FK indexes; reuses the existing `priceunit` enum via `create_type=False`; single
+  head; downgrade removes **only** the 9E.6A objects. **Migration cycle PASS** (local dev Postgres):
+  upgrade → `0015`; downgrade `0015→0014` (all 6 pre-existing `price_items` rows and the `priceunit` /
+  `qualitylevel` / `pricecategory` / `pricescope` enums survive); re-upgrade → `0015`; single head.
+- **Service** (`app/domain/services/price_book_service.py`): `validate_amount` (same finite / >=0 / at-most-2dp
+  rule set as `validate_price`, never silently rounding), MVP region contract (`Kraków` / `Małopolskie` /
+  `Kraków / Małopolskie`), per-source quoting-mode validation (exactly one of SINGLE / RANGE / QUALITATIVE;
+  QUALITATIVE requires a non-blank note), `create_market_reference_with_sources` (>=1 source; reference
+  unit/currency must equal the parent PriceItem), `get_market_references` (0..N, newest research first),
+  `update_market_reference` (re-check-in-place; never touches `PriceItem.price`); `MarketReferenceNotFoundError`
+  added to `app/domain/exceptions.py`.
+- **API** (`app/api/v1/endpoints/pricebook.py`): `GET /api/price-items/{price_item_id}/market-reference` →
+  `{items, total}` with nested sources; Decimal money serialized as JSON strings (never binary floats); missing
+  evidence returns `200` + empty list; foreign/unknown items return the uniform `404`; unauthenticated → `401`.
+  No public evidence write API in 9E.6A; `PATCH /api/price-items` cannot mutate evidence.
+- **Tests** (`tests/test_market_evidence.py`, 46 new focused tests, all PASS): model/DB invariants, Decimal
+  exactness, quoting modes, ownership isolation (foreign `404`, unauthenticated `401`, no source leak), API
+  serialization, archived-evidence readability, DB-level cascade on hard-deleted items while soft
+  archive/restore preserves evidence, and the invariant regression that every evidence create/update leaves
+  `PriceItem.price` untouched. Full backend suite: **458 passed, 0 failed**.
+- **Also**: `tests/conftest.py` enables `PRAGMA foreign_keys=ON` on the in-memory SQLite engine so the
+  documented ON DELETE CASCADE behavior is exercised against a Postgres-shaped constraint set.
+- **Deferred**: loading the 44 approved catalog rows (now 9E.7); owner-price/evidence load, seed wiring
+  (9E.7); CI/deploy. **Verification**: `git diff --check` PASS; only the 9E.6A backend implementation and
+  this record changed — committed as **`feat(stage-9): add price market evidence backend`** (`31540af`) and
+  pushed to `origin/stage-9`. **STAGE_9E.6B: NOT STARTED (at that time); STAGE_9E.7: NOT STARTED** — next
+  sub-stages require explicit owner approval. Canonical Stage 9 remains **In Progress**; Stage 10
+  remains **Pending**.
+
+#### 9E.6B execution status 2026-09-14 — mobile price market evidence UI (IMPLEMENTED; uncommitted — awaiting owner acceptance)
+
+**Deliverable**: compact mobile-first, read-only market-evidence presentation on the existing editable
+Price Book. Per the explicit owner instruction for this sub-stage, **9E.6B = the evidence UI**; the 44
+approved catalog rows are **NOT** loaded here (deferred to the later 9E load), and the four 9B technical
+placeholder seeds remain untouched.
+
+- **Frontend (new)**: `types/marketEvidence.ts` (typed contract mirroring the 9E.6A `PriceMarketReferenceRead`
+  / `PriceSourceRead` schemas, money as Decimal JSON strings), `api/marketEvidence.ts` (read-only
+  `GET /api/price-items/{id}/market-reference` client), `hooks/useMarketEvidence.ts` (session-scoped
+  per-item cache — each item fetched at most once per mount, reused across tab/search/filter re-lists,
+  no per-render N+1 loop; failed fetch degrades to a silent `error` entry so the page never breaks),
+  `components/PriceBookMarket.tsx` (secondary market summary + progressive sources disclosure),
+  `utils/evidenceFormat.ts` (deterministic `DD.MM.YYYY` evidence dates).
+- **Frontend (changed)**: `components/PriceBook.tsx` — each card shows a small "Moja cena" / «Моя цена»
+  eyebrow above the unchanged owner price (still the only primary value), then a secondary market block:
+  localized `Rynek`/«Рынок` range (`formatPrice` 2-dp size `market_min–market_max`, PLN, unit-matching
+  the reference), `Sprawdzono`/«Проверено` date, optional `Punkt odniesienia`/«Ориентир` line, and a
+  `Źródła (N)`/«Источники (N)` toggle that expands a compact inline source list (name, localized source
+  type, region, SINGLE/RANGE quote or QUALITATIVE note, checked date, optional external link with
+  `rel="noopener noreferrer"`). No evidence → small muted `Rynek: Brak danych rynkowych` / «Нет рыночных
+  данных` state; loading → compact muted line; error → section collapses. `locales/pl.json` + `ru.json`:
+  `pricebook.market.*` including the seven localized `SourceType` labels (parity test keeps PL/RU
+  structurally identical).
+- **Contract preserved**: market evidence is strictly read-only research data. Add/Edit PriceItem forms
+  expose **no** market fields; `PATCH /api/price-items` still edits only the owner working price. No
+  estimate behavior; no client-side average calculation; market range never transforms into the owner's
+  price. No backend bulk endpoint was needed — the existing per-item endpoint makes the UI usable.
+- **Tests**: new `PriceBook.market.test.tsx` — **20 focused tests PASS** (owner-price primary, market
+  range, checked date, source count, disclosure open/close, SINGLE/RANGE/QUALITATIVE formatting, missing
+  URL, URL action, localized source types PL/RU, no-evidence state, optional reference price,
+  archived-item evidence, loading state, API-failure resilience, PL↔RU label switch, no market fields in
+  Add/Edit forms, owner-price edit unchanged). Existing `PriceBook.test.tsx` untouched and PASS.
+- **Verification**: full frontend suite `vitest` **298 passed / 0 failed**; `tsc --noEmit` PASS;
+  `vite build` PASS; `git diff --check` PASS. **No backend files changed.** Manual Telegram acceptance at
+  390/412 px pending owner review (checklist in the 9E.6B task brief).
+- **Deferred**: loading the 44 approved catalog rows; owner-price/evidence seed wiring (9E.7); CI/deploy.
+  **STAGE_9E.7: NOT STARTED** — next sub-stage requires explicit owner approval. Canonical Stage 9 remains
+  **In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.7 execution status 2026-09-15 — load approved 44-row catalog + market evidence + nullable price (IMPLEMENTED; uncommitted — awaiting owner acceptance)
+
+**Deliverable**: replaces the four 9B *technical placeholder* seeds (`CENNIK_*_GENERIC_*`, prices
+1.11/2.22/3.33/4.44) with the owner-approved 44-row catalog and materializes the approved market evidence
+for the 28 MARKET_SUPPORTED rows, idempotently. Owner-locked precision policy: **OWNER PRICE ≠ MARKET RANGE ≠
+SOURCE QUOTED PRICE** — no market value is ever written into `PriceItem.price`; every canonical row seeds
+`price = NULL` ("Do ustalenia" / «Уточняется»), `0.00` remains a real, explicitly set zero (never a "not set"
+sentinel), and `reference_price` stays evidence-only.
+
+- **Backend — seed data (new)**: `domain/data/price_book_seed.py` rewritten — `PriceItemSeed`
+  (`price: str | None = None`), `PriceSourceSeed`, `MarketReferenceSeed`;
+  `build_approved_price_book_items()` → **44 canonical rows (28 MARKET_SUPPORTED / 16 OWN_PRICE)**, each
+  `price=None`, `name_key = pricebook.seed.<stem>`, category/unit/scope per catalog §16.3 + 9E.5 decisions;
+  quality seeded only for unambiguous single-tier rows (**GK_FULL → Q3**, **GK_Q4 → Q4**; GK_JOINT/SKIM_SQ
+  dual hints stay NULL); `build_approved_market_references()` → **28 references / 112 sources**, every URL
+  copied verbatim from `docs/price-research-batch-{a..e}.md` + the catalog (a docs-corpus test asserts all
+  112); `LEGACY_GENERIC_CODES` (the four 9B GENERIC codes). The Stage 9B
+  `build_technical_baseline_price_items()` is deleted.
+- **Backend — service (changed)**: `price_book_service.ensure_owner_catalog` extended — inserts missing canonical
+  seeds (`price=NULL`), **retires** legacy GENERIC rows once on bootstrap (`is_archived=True`; ids/edits/name_key
+  preserved; never deleted), and **reconciles evidence idempotently by content-key** (region + unit + quantized
+  min/max/ref + checked_at + methodology_note; per-source top-up by full content tuple — a reference/source is
+  never duplicated). Second bootstrap returns `[]` and never overwrites owner edits. The 16 OWN_PRICE rows get
+  **no** numeric ranges (UI keeps "Brak danych rynkowych"); GF_FLIZ_L/M and MC_STAIRS carry no authored evidence;
+  SKIM_CRACK (LM) and GK_JOINT (LM) preserve their own units with no LM↔M² conversion.
+- **Backend — nullable price (9E.7 owner decision, one explicit override)**: new migration
+  `alembic/versions/0016_make_price_nullable.py` (over `price_items.price`): NULL allowed = owner commercial
+  price not set yet; 0.00 stays a real price; `PriceItemRead.price` becomes nullable in the API JSON; custom
+  create still requires an explicit price; PATCH can set a real price later; explicit null via PATCH is a no-op;
+  nothing ever converts NULL → 0.00 and no estimate engine reads `PriceItem.price` yet (Stage 10 will reject/flag
+  null-priced lines — documented, no code now). Migration cycle verified on dev infra (NOT production): fresh
+  scratch DB `plan_estimate_migration_check` on the dev postgres container → `upgrade head` → `downgrade -1` →
+  `upgrade head` all PASS, then the scratch DB was dropped. (Revision id renamed to the 25-char
+  `0016_make_price_nullable` — the initial working id exceeded `alembic_version.version_num VARCHAR(32)`.)
+- **Frontend (changed)**: `types/priceItem.ts` — `PriceItem.price: string | null` (create payload stays
+  required); `components/PriceBook.tsx` — a null price renders localized `pricebook.price_not_set`
+  ("Do ustalenia" / «Уточняется»), `0.00` renders `0,00 zł` via the existing `formatPrice`, and editing a null
+  seed row opens with an empty price field (`item.price ?? ''`) so the owner can enter a price;
+  `locales/pl.json` + `ru.json` — the 44 canonical `pricebook.seed.*` keys replace the 4 legacy GENERIC keys
+  (values verbatim from catalog §3–§11 row tables; parity test now asserts all 44).
+- **Tests**: new `test_price_book_catalog_9e7.py` (catalog seed / bootstrap / evidence seed incl. the
+  docs-verbatim URL corpus check / idempotency / owner isolation / API envelope), new
+  `test_price_item_nullable_price.py` (null persists, 0.00 ≠ null, PATCH sets a real price on a null seed row,
+  no NULL→0 conversions, custom create still requires a price), new `PriceBook.nullprice.test.tsx` (null →
+  price_not_set PL/RU, 0.00 → "0,00 zł", editing a null row submits a real price, seeded name_key resolves).
+  Focused backend price-book/evidence files: **175 passed**. Full backend suite: **515 passed / 0 failed**.
+  Full frontend suite: **304 passed / 0 failed**; `tsc --noEmit` PASS; `vite build` PASS; `git diff --check` PASS.
+- **Deferred**: Stage 10 null-priced-line flagging (documented above, no code now); CI/deploy; manual Telegram
+  acceptance at 390/412 px pending owner review. **STAGE_9F: NOT STARTED** — the next stage requires explicit
+  owner approval. Canonical Stage 9 remains **In Progress**. The 9E.7 change set was committed by the owner as
+  **`feat(stage-9): seed approved price catalog and market evidence`** (`097e46c`).
+
+#### 9E.7.1 execution status 2026-09-15 — Price Book add/edit form visibility regression (IMPLEMENTED; uncommitted — awaiting owner acceptance)
+
+**Defect**: the Stage 9E.7 catalog load made the Price Book list 44 rows long, which exposed a UI regression in
+the add/edit workflow. The form is rendered *above* the list, so tapping **Opcje → Edytuj** on a card deep in
+the catalog opened the editor far above the current scroll position: on a phone the user saw the options panel
+close and **nothing else happen**, and Edit appeared to be broken. The form state itself was always correct —
+only its visibility was wrong. This affects Edit and Add equally.
+
+- **Frontend (changed)**: `components/PriceBook.tsx` — a `useLayoutEffect` keyed on `showForm` scrolls the form
+  into view through a new `formRef` (`scrollIntoView({ behavior: 'smooth', block: 'start' })`). The call is
+  optional-chained (`formRef.current?.scrollIntoView?.(...)`) so environments without `scrollIntoView` (jsdom)
+  are unaffected. No other behavior, markup, or contract changed; no market/price semantics touched.
+- **Tests**: `components/PriceBook.test.tsx` — new focused block **"PriceBook — opened form visibility (Stage
+  9E.7.1)"** with **2 regression tests** (form scrolled into view on Edit, and on Add). Each stubs
+  `Element.prototype.scrollIntoView` (absent in jsdom) and asserts the call targets the form element. Both were
+  confirmed to **FAIL with the effect removed** and PASS with it restored.
+- **Verification**: focused PriceBook files (`PriceBook.test.tsx` 36 + `PriceBook.nullprice.test.tsx` 6 +
+  `PriceBook.market.test.tsx` 20) **62 passed / 0 failed**; full frontend suite **306 passed / 0 failed**
+  (304 → 306); `tsc --noEmit` PASS; `vite build` PASS; `git diff --check` PASS. **No backend file changed.**
+- **Manual real-browser verification (390 × 844, headless Chromium over CDP)**: run against an isolated stack — a
+  temporary backend on `:8001` pointed at the 9E.7 database `plan_estimate_e71` (migration `0016`, 44 active
+  rows, all `price = NULL`) plus a temporary Vite server on `:5174`; the owner's running containers on `:8000` /
+  `:5173` were **left untouched** (the long-running `plan_estimate` DB is still on migration `0015` and was not
+  modified). Tapping Opcje → Edytuj on the **last of 44 rows** reproduces the defect: without the effect
+  `scrollY` stays at `7693` while the form sits at document Y `433` — roughly **7 260 px above the viewport**, so
+  it is invisible. With the fix the page smooth-scrolls to `433` and the form top lands at `0`, fully on screen
+  (form rect `0–511` inside the 844 viewport); a screenshot confirms the "Edytuj pozycję" heading, every field,
+  and the Anuluj / Zapisz buttons are visible, with the edited row's `Nazwa bazowa: …` hint and `mb` unit
+  intact.
+- **Observed, not changed**: the scroll animates for roughly 1.4 s (smooth) across a ~7 100 px jump; flagged for
+  the owner's acceptance rather than altered here.
+- **Deferred**: owner manual Telegram acceptance at 390/412 px; Stage 10; CI/deploy. **STAGE_9F: NOT STARTED.**
+  Canonical Stage 9 remains **In Progress**. The 9E.7.1 change set was committed and pushed by the owner as
+  **`fix(stage-9): make price book editor visible from long catalog`** (`f38cd13` on `stage-9`).
+
+#### 9E.8 execution status 2026-09-15 — Price Book mobile UX cleanup (IMPLEMENTED; OWNER ACCEPTED)
+
+Owner-directed mobile UX cleanup of the Price Book. **Backend, schema, market-evidence data and the approved
+44-row catalog were not touched** — no new API, no migration, no data change. The spec's two STOP conditions were
+checked and **not triggered**: the inline editor PATCHes only `{ price }` through the existing optional
+`PriceItemUpdatePayload`, and the S/Q requirement is met with labelled option groups plus helper text (no
+substrate column needed).
+
+- **Frontend (added)**: `components/PriceSourceViewer.tsx` — a mobile bottom-sheet viewer for market sources
+  (`role="dialog"`, `aria-modal`, dimmed backdrop tap-to-close, explicit 44 px close button, `Escape` handling,
+  Telegram `--tg-theme-*` vars, wrapping source names/notes, tappable source URL). Sources are no longer rendered
+  inline inside the card.
+- **Frontend (changed)**: `components/PriceBook.tsx` — catalog rows (`name_key !== null`) open a **compact inline
+  owner-price editor inside the same card** (`MOJA CENA` / `Cena` / unit read-only with a fixed-unit hint /
+  `Anuluj`–`Zapisz`); only the commercial price is editable, all canonical metadata (name, category, unit,
+  price_scope, quality, code) is display-only. Save PATCHes the owner price and updates the row in place without
+  a reload (no page jump); cancel discards; validation errors render inside the editor. Custom rows keep the full
+  add/edit form. The `Opcje` disclosure was replaced by direct `Edytuj` / `Archiwizuj` buttons (archived rows stay
+  restore-only). The 9E.7.1 scroll-into-view effect is retained **only** for Add and custom-row edit, which still
+  use the global form. The custom form gained an explicit `Kategoria` label and the quality selector is now split
+  into labelled `S` / `Q` option groups with explanatory helper text defaulting to `Bez poziomu` — no class is
+  ever inferred from the category. `components/PriceBookMarket.tsx` — the source disclosure now opens the viewer,
+  keeping the card compact; market range, checked date and reference price are unchanged.
+- **Frontend (i18n)**: `locales/pl.json` + `ru.json` — `display_name` → "Nazwa pozycji" / «Название позиции»,
+  `price_scope` → "Cena obejmuje" / «Цена включает», plus new `quality_group_s`, `quality_group_q`,
+  `quality_helper`, `unit_fixed_hint` and `market.viewer_title` in both locales (backend `PriceScope` enum
+  untouched; key parity preserved).
+- **Tests**: new `PriceBook — inline catalog price edit (Stage 9E.8)` and `PriceBook — form labels (Stage 9E.8)`
+  blocks in `PriceBook.test.tsx` (inline open, no scroll, prefill, explicit 0.00, read-only canonical metadata,
+  price-only PATCH, close-on-save, cancel, inline validation, archived restore-only, PL/RU labels, S/Q grouping,
+  no inferred class); `PriceBook.nullprice.test.tsx` rewritten for the inline editor; `PriceBook.market.test.tsx`
+  extended with viewer open/close, Escape, long-content wrapping and RU viewer-title coverage.
+- **Verification**: focused PriceBook files **79 passed / 0 failed**; full frontend suite **323 passed / 0 failed**
+  (306 → 323); `tsc --noEmit` PASS; `vite build` PASS; `git diff --check` PASS. **No backend file changed.**
+- **Manual real-browser verification (headless Chromium over CDP, 320 / 390 / 412 px)**: run against an isolated
+  stack (temporary fixture API on `:8099` + temporary Vite dev server on `:5199`); the owner's containers on
+  `:8000` / `:5173` were **left untouched**. **23/23 checks passed at each width**: 46-card catalog renders, no
+  horizontal overflow, `Edytuj` on a deep catalog row opens the inline editor inside that card with no page
+  movement (`scrollY` unchanged), canonical metadata controls absent, 44 px targets, save closes the editor and
+  shows the new price in place, sources open in the viewer with no horizontal scrolling and wrapping content,
+  close / Escape return to the same Price Book position, custom rows keep the full form, and archived rows stay
+  restore-only.
+- **Interpretation flagged for the owner**: per the owner's earlier decision, archived rows remain
+  restore-only, so a catalog row on the Archived tab exposes no price editor (spec item 29 "appropriate
+  owner-price edit behavior" is read as "no regression to the existing archived affordance"). The inline editor is
+  offered on the Active tab.
+- **Deferred / NOT done per instruction**: no commit, no push, no deploy — the owner handles Git and Docker.
+  Stage 9 — COMPLETE / OWNER ACCEPTED
+  Stage 10 — NOT STARTED.  Stage 10; CI/deploy.
 
 ## Stage Log Template for Future Stages
 

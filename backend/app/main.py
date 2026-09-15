@@ -9,6 +9,7 @@ from app.api.v1.endpoints.communications import router as communications_router
 from app.api.v1.endpoints.inspections import router as inspections_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.openings import router as openings_router
+from app.api.v1.endpoints.pricebook import router as pricebook_router
 from app.api.v1.endpoints.projects import router as projects_router
 from app.api.v1.endpoints.risks import router as risks_router
 from app.api.v1.endpoints.rooms import router as rooms_router
@@ -42,3 +43,4 @@ app.include_router(checklists_router, prefix="/api", tags=["checklists"])
 app.include_router(inspections_router, prefix="/api", tags=["inspections"])
 app.include_router(risks_router, prefix="/api", tags=["risks"])
 app.include_router(communications_router, prefix="/api", tags=["communications"])
+app.include_router(pricebook_router, prefix="/api", tags=["price-items"])

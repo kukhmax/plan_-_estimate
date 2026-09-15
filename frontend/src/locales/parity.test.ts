@@ -19,6 +19,32 @@ function keySet(node: unknown, prefix = ''): Set<string> {
 }
 
 describe('PL/RU locale parity (LOCALIZATION)', () => {
+  it('has identical app-shell and auth key structure in PL and RU (Stage 9D.1)', () => {
+    const plApp = keySet(pl.app);
+    const ruApp = keySet(ru.app);
+    expect(plApp).toEqual(ruApp);
+
+    const plAuth = keySet(pl.auth);
+    const ruAuth = keySet(ru.auth);
+    expect(plAuth).toEqual(ruAuth);
+
+    const plCommon = keySet(pl.common);
+    const ruCommon = keySet(ru.common);
+    expect(plCommon).toEqual(ruCommon);
+
+    // The compact account control + modal labels required by the 9D.1 spec.
+    for (const key of [
+      'account',
+      'account_title',
+      'telegram_verified',
+      'telegram_user_id',
+      'username',
+      'uuid',
+    ]) {
+      expect(plAuth.has(key)).toBe(true);
+    }
+  });
+
   it('has identical inspection and checklist key structure in PL and RU', () => {
     const plKeys = keySet(pl.inspections);
     const ruKeys = keySet(ru.inspections);
@@ -125,6 +151,87 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
     ];
     for (const key of findingKeys) {
       expect(plRisk.has(`finding.${key}`)).toBe(true);
+    }
+  });
+
+  it('has identical pricebook key structure in PL and RU (Stage 9D)', () => {
+    const plPricebook = keySet(pl.pricebook);
+    const ruPricebook = keySet(ru.pricebook);
+    expect(plPricebook).toEqual(ruPricebook);
+
+    // Every backend machine enum member that the UI must be able to label.
+    for (const category of [
+      'PREPARATION',
+      'SKIM_COAT',
+      'PLASTER',
+      'DRYWALL',
+      'PAINTING',
+      'GLASS_FIBER',
+      'MICROCEMENT',
+      'DECORATIVE',
+      'REVEAL',
+      'MATERIAL',
+      'OTHER',
+    ]) {
+      expect(plPricebook.has(`categories.${category}`)).toBe(true);
+    }
+    for (const unit of ['M2', 'LM', 'PCS', 'HOUR', 'DAY', 'FLAT']) {
+      expect(plPricebook.has(`units.${unit}`)).toBe(true);
+    }
+    for (const scope of ['LABOR', 'MATERIAL', 'LABOR_AND_MATERIAL']) {
+      expect(plPricebook.has(`scopes.${scope}`)).toBe(true);
+    }
+    for (const quality of ['S1', 'S2', 'S3', 'S4', 'Q1', 'Q2', 'Q3', 'Q4']) {
+      expect(plPricebook.has(`quality.${quality}`)).toBe(true);
+    }
+    // Every name_key of the approved 44-row catalog (28 MS / 16 OWN_PRICE).
+    for (const seedKey of [
+      'prep_prot',
+      'prep_wallp',
+      'prep_scrape',
+      'prep_fleece',
+      'prep_degr',
+      'prep_mold',
+      'prep_clean',
+      'prim_std',
+      'prim_adh',
+      'prim_high',
+      'prim_paint',
+      'skim_1l',
+      'skim_2l',
+      'skim_sand',
+      'skim_crack',
+      'skim_corner',
+      'skim_local',
+      'skim_sq',
+      'gk_joint',
+      'gk_full',
+      'gk_screw',
+      'gk_corner',
+      'gk_q4',
+      'gf_fliz_l',
+      'gf_fliz_m',
+      'gf_mesh',
+      'paint_2k',
+      'paint_1k',
+      'paint_3k',
+      'paint_ceil',
+      'paint_col',
+      'paint_mask',
+      'paint_multi',
+      'rev_work_lm',
+      'mc_wall_l',
+      'mc_wall_s',
+      'mc_floor_l',
+      'mc_floor_s',
+      'mc_shower',
+      'mc_stairs',
+      'dec_ven',
+      'dec_ven_mar',
+      'dec_conc',
+      'dec_generic',
+    ]) {
+      expect(plPricebook.has(`seed.${seedKey}`)).toBe(true);
     }
   });
 

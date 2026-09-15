@@ -6,6 +6,11 @@
 *.key
 *.cert
 *.pfx
+!.env.production.example
+.env.production
+
+certs/
+
 
 # Python & virtual environments
 __pycache__/

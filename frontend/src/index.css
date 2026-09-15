@@ -16,8 +16,32 @@
   --tg-theme-section-header-text-color: #64748b;
   --tg-theme-subtitle-text-color: #64748b;
   --tg-theme-destructive-text-color: #dc2626;
+  --tg-control-bg-color: #ffffff;
+  --tg-control-text-color: #0f172a;
+  --tg-control-placeholder-color: #64748b;
+  --tg-control-border-color: #cbd5e1;
+  --tg-control-focus-border-color: #2563eb;
+  --tg-control-focus-ring-color: rgba(37, 99, 235, 0.28);
+  --tg-control-disabled-bg-color: #f1f5f9;
+  --tg-control-disabled-text-color: #94a3b8;
   --tg-viewport-height: 100vh;
   --tg-viewport-stable-height: 100vh;
+}
+
+html {
+  color-scheme: light;
+}
+
+html[data-color-scheme='dark'] {
+  --tg-control-bg-color: #232e3c;
+  --tg-control-text-color: #f5f5f5;
+  --tg-control-placeholder-color: #708499;
+  --tg-control-border-color: #4b5f75;
+  --tg-control-focus-border-color: #6ab2f2;
+  --tg-control-focus-ring-color: rgba(106, 178, 242, 0.35);
+  --tg-control-disabled-bg-color: #1c2733;
+  --tg-control-disabled-text-color: #708499;
+  color-scheme: dark;
 }
 
 body {
@@ -25,4 +49,61 @@ body {
   color: var(--tg-theme-text-color);
   min-height: var(--tg-viewport-stable-height, 100vh);
   overflow-x: hidden;
+}
+
+/*
+ * Systemic form-control theming (Telegram dark/light theme).
+ *
+ * These rules deliberately live OUTSIDE any Tailwind @layer: un-layered normal
+ * declarations win over layered utility classes, so theme-driven control colors
+ * reliably beat appearance utilities such as `bg-white` / `border-slate-200`
+ * without touching every component file. Typed text and control backgrounds must
+ * stay readable in both Telegram themes; native autofill and focus are covered
+ * below, and `color-scheme` guides the browser's own popup rendering.
+ */
+input,
+select,
+textarea {
+  background-color: var(--tg-control-bg-color, var(--tg-theme-secondary-bg-color));
+  color: var(--tg-control-text-color, var(--tg-theme-text-color));
+  border-color: var(--tg-control-border-color, var(--tg-theme-hint-color));
+  caret-color: var(--tg-control-text-color, var(--tg-theme-text-color));
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--tg-control-placeholder-color, var(--tg-theme-hint-color));
+  opacity: 1;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--tg-control-focus-border-color, var(--tg-theme-accent-text-color));
+  box-shadow: 0 0 0 2px var(--tg-control-focus-ring-color, var(--tg-theme-accent-text-color));
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: var(--tg-control-disabled-bg-color, #f1f5f9);
+  color: var(--tg-control-disabled-text-color, #94a3b8);
+  border-color: var(--tg-control-border-color, var(--tg-theme-hint-color));
+  opacity: 1;
+}
+
+input:read-only,
+textarea:read-only {
+  background-color: var(--tg-control-disabled-bg-color, #f1f5f9);
+  color: var(--tg-control-text-color, var(--tg-theme-text-color));
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--tg-control-bg-color, #ffffff) inset;
+  -webkit-text-fill-color: var(--tg-control-text-color, #0f172a);
+  caret-color: var(--tg-control-text-color, #0f172a);
+  transition: background-color 9999s ease-in-out 0s;
 }
