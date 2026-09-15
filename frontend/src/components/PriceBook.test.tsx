@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as priceItemsApi from '../api/priceItems';
 import { I18nProvider } from '../hooks/useI18n';
@@ -310,25 +310,23 @@ describe('PriceBook — edit', () => {
   });
 
   async function openEdit(itemLabel: string) {
-    fireEvent.click(await screen.findByLabelText('add-price-item'));
-    fireEvent.click(screen.getByLabelText(`price-item-options-${itemLabel}`));
-    fireEvent.click(screen.getByLabelText(`edit-price-item-${itemLabel}`));
+    fireEvent.click(await screen.findByLabelText(`edit-price-item-${itemLabel}`));
   }
 
-  it('opens an existing item pre-filled (with the seeded identity hint)', async () => {
+  it('opens the full form for a custom row (not the inline catalog editor)', async () => {
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-      items: [seedPaint],
+      items: [custom],
       total: 1,
     });
     renderBook();
-    await openEdit('item-2');
+    await openEdit('item-3');
 
-    expect(screen.getByLabelText('price-item-display-name')).toHaveValue('');
-    expect(screen.getByLabelText('price-item-price')).toHaveValue('2.22');
-    expect(screen.getByLabelText('price-item-category')).toHaveValue('PAINTING');
-    expect(
-      screen.getByText(`Nazwa bazowa: ${'Malowanie ścian — 2 warstwy (standard)'}`),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText('price-item-form')).toBeInTheDocument();
+    expect(screen.getByLabelText('price-item-display-name')).toHaveValue(
+      'Malowanie lateksowe dwukrotnie',
+    );
+    expect(screen.getByLabelText('price-item-price')).toHaveValue('9.99');
+    expect(screen.queryByLabelText('inline-price-edit-item-3')).not.toBeInTheDocument();
   });
 
   it('submits edited price and name for a custom row', async () => {
@@ -353,23 +351,29 @@ describe('PriceBook — edit', () => {
     );
   });
 
-  it('clearing the name on a seeded row sends an empty override (revert to name_key)', async () => {
+  it('keeps the unit, category and quality editable on a custom row', async () => {
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-      items: [seedPaint],
+      items: [custom],
       total: 1,
     });
     renderBook();
-    await openEdit('item-2');
+    await openEdit('item-3');
 
-    const nameInput = screen.getByLabelText('price-item-display-name');
-    fireEvent.change(nameInput, { target: { value: 'Tymczasowa nazwa' } });
-    fireEvent.change(nameInput, { target: { value: '' } });
-    fireEvent.submit(screen.getByLabelText('price-item-form'));
+    const form = screen.getByLabelText('price-item-form');
+    expect(within(form).getByLabelText('price-item-unit')).toHaveValue('M2');
+    expect(within(form).getByLabelText('price-item-category')).toHaveValue('PAINTING');
+    expect(within(form).getByLabelText('price-item-quality')).toHaveValue('Q3');
+
+    fireEvent.change(within(form).getByLabelText('price-item-unit'), {
+      target: { value: 'LM' },
+    });
+    fireEvent.change(screen.getByLabelText('price-item-price'), { target: { value: '3.33' } });
+    fireEvent.submit(form);
 
     await waitFor(() =>
       expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith(
-        'item-2',
-        expect.objectContaining({ display_name: '' }),
+        'item-3',
+        expect.objectContaining({ unit: 'LM' }),
       ),
     );
   });
@@ -389,6 +393,265 @@ describe('PriceBook — edit', () => {
 
     expect(screen.getByText('Pozycja własna wymaga nazwy.')).toBeInTheDocument();
     expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
+  });
+});
+
+describe('PriceBook — inline catalog price edit (Stage 9E.8)', () => {
+  const zeroCatalog: PriceItem = {
+    id: 'item-6',
+    code: 'CENNIK_PRIM_STD-01',
+    name_key: 'pricebook.seed.prim_std',
+    display_name: null,
+    category: 'PREPARATION',
+    unit: 'M2',
+    price: '0.00',
+    currency: 'PLN',
+    price_scope: 'LABOR',
+    quality_level: null,
+    is_archived: false,
+    created_at: '2026-09-13T10:00:00Z',
+    updated_at: '2026-09-13T10:00:00Z',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValue(seedPrep);
+  });
+
+  function stubScrollIntoView() {
+    const spy = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = spy;
+    return {
+      spy,
+      restore: () => {
+        Element.prototype.scrollIntoView = original;
+      },
+    };
+  }
+
+  it('opens the inline editor on a catalog row instead of the global form', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [seedPrep],
+      total: 1,
+    });
+    renderBook();
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+
+    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
+
+    expect(screen.getByLabelText('inline-price-edit-item-1')).toBeInTheDocument();
+    expect(screen.queryByLabelText('price-item-form')).not.toBeInTheDocument();
+  });
+
+  it('does not scroll the page when a catalog row is opened for editing', async () => {
+    const { spy, restore } = stubScrollIntoView();
+    try {
+      vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+        items: [seedPrep],
+        total: 1,
+      });
+      renderBook();
+      await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+
+      fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('inline-price-edit-item-1')).toBeInTheDocument();
+    } finally {
+      restore();
+    }
+  });
+
+  it('pre-fills the inline input with the current catalog price', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [seedPrep],
+      total: 1,
+    });
+    renderBook();
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+
+    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
+    expect(screen.getByLabelText('inline-price-input-item-1')).toHaveValue('1.11');
+  });
+
+  it('keeps an explicit 0.00 catalog price as 0.00 in the inline input', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [zeroCatalog],
+      total: 1,
+    });
+    renderBook();
+    await screen.findByText('Gruntowanie gruntem penetrującym (pod szpachlowanie)');
+
+    fireEvent.click(screen.getByLabelText('edit-price-item-item-6'));
+    expect(screen.getByLabelText('inline-price-input-item-6')).toHaveValue('0.00');
+  });
+
+  it('shows the canonical unit read-only and hides the canonical metadata fields', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [seedPrep],
+      total: 1,
+    });
+    renderBook();
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+
+    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
+    const editor = screen.getByLabelText('inline-price-edit-item-1');
+
+    expect(editor).toHaveTextContent('m²');
+    expect(screen.queryByLabelText('price-item-unit')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('price-item-category')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('price-item-scope')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('price-item-quality')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('price-item-display-name')).not.toBeInTheDocument();
+  });
+
+  it('PATCHes only the owner price and closes the editor on success', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [seedPrep],
+      total: 1,
+    });
+    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValueOnce({
+      ...seedPrep,
+      price: '65.00',
+    });
+    renderBook();
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+
+    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
+    fireEvent.change(screen.getByLabelText('inline-price-input-item-1'), {
+      target: { value: '65,00' },
+    });
+    fireEvent.click(screen.getByLabelText('inline-price-save-item-1'));
+
+    await waitFor(() =>
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-1', { price: '65.00' }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByLabelText('inline-price-edit-item-1')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('65,00 zł')).toBeInTheDocument();
+  });
+
+  it('cancels without any API call and restores the card', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [seedPrep],
+      total: 1,
+    });
+    renderBook();
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+
+    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
+    fireEvent.change(screen.getByLabelText('inline-price-input-item-1'), {
+      target: { value: '99' },
+    });
+    fireEvent.click(screen.getByLabelText('inline-price-cancel-item-1'));
+
+    expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('inline-price-edit-item-1')).not.toBeInTheDocument();
+    expect(screen.getByText('1,11 zł')).toBeInTheDocument();
+  });
+
+  it('keeps the validation error inside the inline editor and blocks a malformed price', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [seedPrep],
+      total: 1,
+    });
+    renderBook();
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+
+    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
+    const input = screen.getByLabelText('inline-price-input-item-1');
+
+    fireEvent.change(input, { target: { value: '1,11,11' } });
+    expect(screen.getByLabelText('inline-price-save-item-1')).toBeDisabled();
+    expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.click(screen.getByLabelText('inline-price-save-item-1'));
+
+    expect(screen.getByLabelText('inline-price-edit-item-1')).toHaveTextContent('Podaj cenę.');
+    expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
+  });
+
+  it('offers restore only (no price editor) on an archived catalog row', async () => {
+    const archivedCatalog: PriceItem = {
+      ...seedPrep,
+      id: 'item-7',
+      is_archived: true,
+    };
+    vi.mocked(priceItemsApi.fetchPriceItems)
+      .mockResolvedValueOnce({ items: [], total: 0 })
+      .mockResolvedValueOnce({ items: [archivedCatalog], total: 1 });
+    renderBook();
+
+    fireEvent.click(await screen.findByLabelText('pricebook-tab-archived'));
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+
+    expect(screen.getByLabelText('restore-price-item-item-7')).toBeInTheDocument();
+    expect(screen.queryByLabelText('edit-price-item-item-7')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('inline-price-edit-item-7')).not.toBeInTheDocument();
+  });
+});
+
+describe('PriceBook — form labels (Stage 9E.8)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  async function openForm() {
+    fireEvent.click(await screen.findByLabelText('add-price-item'));
+    return screen.getByLabelText('price-item-form');
+  }
+
+  it('labels the name field "Nazwa pozycji", the category "Kategoria" and the scope "Cena obejmuje" in PL', async () => {
+    renderBook();
+    const form = await openForm();
+
+    expect(within(form).getByText('Nazwa pozycji')).toBeInTheDocument();
+    expect(within(form).getByText('Kategoria')).toBeInTheDocument();
+    expect(within(form).getByText('Cena obejmuje')).toBeInTheDocument();
+  });
+
+  it('labels the name field "Название позиции", the category "Категория" and the scope "Цена включает" in RU', async () => {
+    localStorage.setItem('locale', 'ru');
+    renderBook();
+    const form = await openForm();
+
+    expect(within(form).getByText('Название позиции')).toBeInTheDocument();
+    expect(within(form).getByText('Категория')).toBeInTheDocument();
+    expect(within(form).getByText('Цена включает')).toBeInTheDocument();
+  });
+
+  it('does not infer an S or Q quality class from the selected category', async () => {
+    renderBook();
+    const form = await openForm();
+
+    const quality = within(form).getByLabelText('price-item-quality');
+    expect(quality).toHaveValue('');
+
+    fireEvent.change(within(form).getByLabelText('price-item-category'), {
+      target: { value: 'SKIM_COAT' },
+    });
+    expect(within(form).getByLabelText('price-item-quality')).toHaveValue('');
+  });
+
+  it('groups the S and Q quality options under separate, explained groups', async () => {
+    renderBook();
+    const form = await openForm();
+
+    const quality = within(form).getByLabelText('price-item-quality');
+    const groups = quality.querySelectorAll('optgroup');
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toHaveAttribute('label', 'Klasy S — tynki, beton');
+    expect(groups[1]).toHaveAttribute('label', 'Klasy Q — płyty g-k');
+    expect(form).toHaveTextContent(
+      'Klasy S i Q zależą od rodzaju podłoża i systemu. Wybierz klasę tylko wtedy, gdy jest ustalona.',
+    );
   });
 });
 
@@ -414,7 +677,7 @@ describe('PriceBook — opened form visibility (Stage 9E.7.1)', () => {
     };
   }
 
-  it('scrolls the form into view when Edit is tapped on a catalog row', async () => {
+  it('scrolls the form into view when Edit is tapped on a custom row', async () => {
     const { spy, restore } = stubScrollIntoView();
     try {
       vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
@@ -425,7 +688,6 @@ describe('PriceBook — opened form visibility (Stage 9E.7.1)', () => {
       await screen.findByText('Malowanie lateksowe dwukrotnie');
       expect(spy).not.toHaveBeenCalled();
 
-      fireEvent.click(screen.getByLabelText('price-item-options-item-3'));
       fireEvent.click(screen.getByLabelText('edit-price-item-item-3'));
 
       const form = screen.getByLabelText('price-item-form');
@@ -544,15 +806,13 @@ describe('PriceBook — archive / restore lifecycle', () => {
     vi.mocked(priceItemsApi.restorePriceItem).mockResolvedValue(custom);
   });
 
-  it('archives via Opcje and removes the item from the active view', async () => {
+  it('archives directly from the card and removes the item from the active view', async () => {
     vi.mocked(priceItemsApi.fetchPriceItems)
       .mockResolvedValueOnce({ items: [seedPrep, custom], total: 2 })
       .mockResolvedValueOnce({ items: [seedPrep], total: 1 });
     renderBook();
 
-    fireEvent.click(await screen.findByLabelText('add-price-item'));
-    fireEvent.click(screen.getByLabelText(`price-item-options-${custom.id}`));
-    fireEvent.click(screen.getByLabelText(`archive-price-item-${custom.id}`));
+    fireEvent.click(await screen.findByLabelText(`archive-price-item-${custom.id}`));
 
     await waitFor(() =>
       expect(priceItemsApi.archivePriceItem).toHaveBeenCalledWith(custom.id),
@@ -626,9 +886,7 @@ describe('PriceBook — localized error states', () => {
     );
     renderBook();
 
-    fireEvent.click(await screen.findByLabelText('add-price-item'));
-    fireEvent.click(screen.getByLabelText(`price-item-options-${custom.id}`));
-    fireEvent.click(screen.getByLabelText(`archive-price-item-${custom.id}`));
+    fireEvent.click(await screen.findByLabelText(`archive-price-item-${custom.id}`));
 
     expect(await screen.findByText('Nie udało się zarchiwizować pozycji.')).toBeInTheDocument();
     expect(screen.queryByText(/500/)).not.toBeInTheDocument();

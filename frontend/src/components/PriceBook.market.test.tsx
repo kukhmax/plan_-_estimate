@@ -398,7 +398,6 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
     expect(within(form).queryByLabelText(/market|source|rynek|рынок|источник/i)).not.toBeInTheDocument();
     expect(within(form).getByLabelText('price-item-price')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText('price-item-options-item-1'));
     fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
     form = screen.getByLabelText('price-item-form');
     expect(within(form).queryByLabelText(/market|source|rynek|рынок|источник/i)).not.toBeInTheDocument();
@@ -415,7 +414,6 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
     renderBook();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
-    fireEvent.click(screen.getByLabelText('price-item-options-item-1'));
     fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
     fireEvent.change(screen.getByLabelText('price-item-price'), { target: { value: '3.33' } });
     fireEvent.submit(screen.getByLabelText('price-item-form'));
@@ -426,5 +424,82 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
         expect.objectContaining({ price: '3.33' }),
       ),
     );
+  });
+
+  it('opens the sources in a dedicated viewer with an obvious close action', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({ items: [item], total: 1 });
+    vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValueOnce({
+      items: [makeReference()],
+      total: 1,
+    });
+    renderBook();
+
+    await screen.findByText('Szpachlowanie 2 warstwy');
+    expect(screen.queryByLabelText('price-sources-viewer-item-1')).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
+    const viewer = await screen.findByLabelText('price-sources-viewer-item-1');
+    expect(within(viewer).getByText('Źródła rynkowe')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('close-price-sources-item-1'));
+    await waitFor(() =>
+      expect(screen.queryByLabelText('price-sources-viewer-item-1')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('70,00 zł')).toBeInTheDocument();
+  });
+
+  it('closes the source viewer with Escape', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({ items: [item], total: 1 });
+    vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValueOnce({
+      items: [makeReference()],
+      total: 1,
+    });
+    renderBook();
+
+    await screen.findByText('Szpachlowanie 2 warstwy');
+    fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
+    await screen.findByLabelText('price-sources-viewer-item-1');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByLabelText('price-sources-viewer-item-1')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('renders long source names and notes without truncating them', async () => {
+    const longName =
+      'Krakowska Grupa Wykonawcza Robót Wykończeniowych i Remontowych sp. z o.o. sp.k.';
+    const longNote =
+      'Cena dotyczy szpachlowania dwóch warstw wraz z przeszlifowaniem i odpyleniem powierzchni.';
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({ items: [item], total: 1 });
+    vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValueOnce({
+      items: [makeReference({}, [makeSource({ source_name: longName, note: longNote })])],
+      total: 1,
+    });
+    renderBook();
+
+    await screen.findByText('Szpachlowanie 2 warstwy');
+    fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
+    const source = await screen.findByLabelText('price-item-source-item-1-0');
+
+    const name = within(source).getByText(longName);
+    expect(name.className).toContain('break-words');
+    expect(within(source).getByText(longNote)).toBeInTheDocument();
+  });
+
+  it('localizes the source viewer title in RU', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({ items: [item], total: 1 });
+    vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValueOnce({
+      items: [makeReference()],
+      total: 1,
+    });
+    renderBook();
+
+    await screen.findByText('Szpachlowanie 2 warstwy');
+    fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
+    const viewer = await screen.findByLabelText('price-sources-viewer-item-1');
+    expect(within(viewer).getByText('Рыночные источники')).toBeInTheDocument();
+    expect(screen.getByLabelText('close-price-sources-item-1')).toHaveTextContent('Закрыть');
   });
 });

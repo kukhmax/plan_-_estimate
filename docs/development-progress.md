@@ -51,7 +51,7 @@
 | **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
 | Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | **Stage 8** | **"Co powiedzieć klientowi" (Client Communication Assistant)** | **Completed 2026-09-13** | Deterministic, rule-driven client communication recommendations (PL/RU) from completed-inspection facts — versioned immutable phrase catalog, exact-key selection over materialized Stage 6/7 facts, complete quality matrix, mobile communication cards with evaluate / "Why?" traceability / copy / active-resolved-all history |
-| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; **9E.6A (price market evidence backend foundation) Completed 2026-09-14 (committed `31540af` — models + migration 0015 + read-only evidence endpoint)**; **9E.6B (mobile price market evidence UI) Implemented 2026-09-14 (read-only compact market evidence on Price Book cards; 44-row catalog load NOT performed — deferred per owner instruction)**; **9E.7 (load approved 44-row catalog + market evidence + nullable price foundation) Implemented 2026-09-15 (44 canonical rows: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 28 market references / 112 sources seeded idempotently; legacy GENERIC seeds retired; migration 0016 makes PriceItem.price nullable — NULL = not set, 0.00 = real zero; full backend 515 tests + frontend 304 tests PASS; committed `097e46c`)**; **9E.7.1 (Price Book add/edit form visibility regression) Implemented 2026-09-15 (opening Add/Edit scrolls the form into view so the editor is actually visible on a 44-row catalog; 2 regression tests; full frontend 306 tests PASS; real-browser 390 px verification PASS; uncommitted — awaiting owner acceptance)**; 9F (final gate) Pending — **9F NOT STARTED** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
+| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; **9E.6A (price market evidence backend foundation) Completed 2026-09-14 (committed `31540af` — models + migration 0015 + read-only evidence endpoint)**; **9E.6B (mobile price market evidence UI) Implemented 2026-09-14 (read-only compact market evidence on Price Book cards; 44-row catalog load NOT performed — deferred per owner instruction)**; **9E.7 (load approved 44-row catalog + market evidence + nullable price foundation) Implemented 2026-09-15 (44 canonical rows: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 28 market references / 112 sources seeded idempotently; legacy GENERIC seeds retired; migration 0016 makes PriceItem.price nullable — NULL = not set, 0.00 = real zero; full backend 515 tests + frontend 304 tests PASS; committed `097e46c`)**; **9E.7.1 (Price Book add/edit form visibility regression) Implemented 2026-09-15 (opening Add/Edit scrolls the form into view so the editor is actually visible on a 44-row catalog; 2 regression tests; full frontend 306 tests PASS; real-browser 390 px verification PASS; committed `f38cd13`)**; **9E.8 (Price Book mobile UX cleanup) Implemented 2026-09-15 (inline owner-price editor for catalog rows, direct Edytuj/Archiwizuj, dedicated mobile source viewer, label + S/Q UX cleanup; full frontend 323 tests PASS; real-browser 320/390/412 px verification 23/23 PASS; UNCOMMITTED — awaiting owner acceptance)**; 9F (final gate) Pending — **9F NOT STARTED** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
 | Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
 | Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
@@ -2056,8 +2056,58 @@ only its visibility was wrong. This affects Edit and Add equally.
 - **Observed, not changed**: the scroll animates for roughly 1.4 s (smooth) across a ~7 100 px jump; flagged for
   the owner's acceptance rather than altered here.
 - **Deferred**: owner manual Telegram acceptance at 390/412 px; Stage 10; CI/deploy. **STAGE_9F: NOT STARTED.**
-  Canonical Stage 9 remains **In Progress**; the 9E.7.1 change set is **uncommitted** — per the stage discipline
-  the owner performs the git commit and push.
+  Canonical Stage 9 remains **In Progress**. The 9E.7.1 change set was committed and pushed by the owner as
+  **`fix(stage-9): make price book editor visible from long catalog`** (`f38cd13` on `stage-9`).
+
+#### 9E.8 execution status 2026-09-15 — Price Book mobile UX cleanup (IMPLEMENTED; UNCOMMITTED — awaiting owner acceptance)
+
+Owner-directed mobile UX cleanup of the Price Book. **Backend, schema, market-evidence data and the approved
+44-row catalog were not touched** — no new API, no migration, no data change. The spec's two STOP conditions were
+checked and **not triggered**: the inline editor PATCHes only `{ price }` through the existing optional
+`PriceItemUpdatePayload`, and the S/Q requirement is met with labelled option groups plus helper text (no
+substrate column needed).
+
+- **Frontend (added)**: `components/PriceSourceViewer.tsx` — a mobile bottom-sheet viewer for market sources
+  (`role="dialog"`, `aria-modal`, dimmed backdrop tap-to-close, explicit 44 px close button, `Escape` handling,
+  Telegram `--tg-theme-*` vars, wrapping source names/notes, tappable source URL). Sources are no longer rendered
+  inline inside the card.
+- **Frontend (changed)**: `components/PriceBook.tsx` — catalog rows (`name_key !== null`) open a **compact inline
+  owner-price editor inside the same card** (`MOJA CENA` / `Cena` / unit read-only with a fixed-unit hint /
+  `Anuluj`–`Zapisz`); only the commercial price is editable, all canonical metadata (name, category, unit,
+  price_scope, quality, code) is display-only. Save PATCHes the owner price and updates the row in place without
+  a reload (no page jump); cancel discards; validation errors render inside the editor. Custom rows keep the full
+  add/edit form. The `Opcje` disclosure was replaced by direct `Edytuj` / `Archiwizuj` buttons (archived rows stay
+  restore-only). The 9E.7.1 scroll-into-view effect is retained **only** for Add and custom-row edit, which still
+  use the global form. The custom form gained an explicit `Kategoria` label and the quality selector is now split
+  into labelled `S` / `Q` option groups with explanatory helper text defaulting to `Bez poziomu` — no class is
+  ever inferred from the category. `components/PriceBookMarket.tsx` — the source disclosure now opens the viewer,
+  keeping the card compact; market range, checked date and reference price are unchanged.
+- **Frontend (i18n)**: `locales/pl.json` + `ru.json` — `display_name` → "Nazwa pozycji" / «Название позиции»,
+  `price_scope` → "Cena obejmuje" / «Цена включает», plus new `quality_group_s`, `quality_group_q`,
+  `quality_helper`, `unit_fixed_hint` and `market.viewer_title` in both locales (backend `PriceScope` enum
+  untouched; key parity preserved).
+- **Tests**: new `PriceBook — inline catalog price edit (Stage 9E.8)` and `PriceBook — form labels (Stage 9E.8)`
+  blocks in `PriceBook.test.tsx` (inline open, no scroll, prefill, explicit 0.00, read-only canonical metadata,
+  price-only PATCH, close-on-save, cancel, inline validation, archived restore-only, PL/RU labels, S/Q grouping,
+  no inferred class); `PriceBook.nullprice.test.tsx` rewritten for the inline editor; `PriceBook.market.test.tsx`
+  extended with viewer open/close, Escape, long-content wrapping and RU viewer-title coverage.
+- **Verification**: focused PriceBook files **79 passed / 0 failed**; full frontend suite **323 passed / 0 failed**
+  (306 → 323); `tsc --noEmit` PASS; `vite build` PASS; `git diff --check` PASS. **No backend file changed.**
+- **Manual real-browser verification (headless Chromium over CDP, 320 / 390 / 412 px)**: run against an isolated
+  stack (temporary fixture API on `:8099` + temporary Vite dev server on `:5199`); the owner's containers on
+  `:8000` / `:5173` were **left untouched**. **23/23 checks passed at each width**: 46-card catalog renders, no
+  horizontal overflow, `Edytuj` on a deep catalog row opens the inline editor inside that card with no page
+  movement (`scrollY` unchanged), canonical metadata controls absent, 44 px targets, save closes the editor and
+  shows the new price in place, sources open in the viewer with no horizontal scrolling and wrapping content,
+  close / Escape return to the same Price Book position, custom rows keep the full form, and archived rows stay
+  restore-only.
+- **Interpretation flagged for the owner**: per the owner's earlier decision, archived rows remain
+  restore-only, so a catalog row on the Archived tab exposes no price editor (spec item 29 "appropriate
+  owner-price edit behavior" is read as "no regression to the existing archived affordance"). The inline editor is
+  offered on the Active tab.
+- **Deferred / NOT done per instruction**: no commit, no push, no deploy — the owner handles Git and Docker.
+  Stage 10; CI/deploy. **STAGE_9F: NOT STARTED — the next stage requires explicit owner approval.** Canonical
+  Stage 9 remains **In Progress**.
 
 ## Stage Log Template for Future Stages
 

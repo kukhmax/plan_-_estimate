@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as priceItemsApi from '../api/priceItems';
 import { I18nProvider } from '../hooks/useI18n';
@@ -97,7 +97,7 @@ describe('PriceBook — nullable owner price (Stage 9E.7)', () => {
     expect(screen.queryByText('Do ustalenia')).not.toBeInTheDocument();
   });
 
-  it('lets the owner type a price on a null-priced seed row (form starts empty, not 0)', async () => {
+  it('lets the owner type a price on a null-priced seed row (inline input starts empty, not 0)', async () => {
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
       items: [seedWallp],
       total: 1,
@@ -109,19 +109,15 @@ describe('PriceBook — nullable owner price (Stage 9E.7)', () => {
     renderBook();
     await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
 
-    fireEvent.click(screen.getByLabelText('price-item-options-item-1'));
     fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
 
-    const priceInput = screen.getByLabelText('price-item-price');
+    const priceInput = screen.getByLabelText('inline-price-input-item-1');
     expect(priceInput).toHaveValue('');
     fireEvent.change(priceInput, { target: { value: '20' } });
-    fireEvent.submit(screen.getByLabelText('price-item-form'));
+    fireEvent.click(screen.getByLabelText('inline-price-save-item-1'));
 
     await waitFor(() =>
-      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith(
-        'item-1',
-        expect.objectContaining({ price: '20' }),
-      ),
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-1', { price: '20' }),
     );
   });
 
@@ -133,11 +129,12 @@ describe('PriceBook — nullable owner price (Stage 9E.7)', () => {
     renderBook();
     await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
 
-    fireEvent.click(screen.getByLabelText('price-item-options-item-1'));
     fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
-    fireEvent.submit(screen.getByLabelText('price-item-form'));
+    fireEvent.click(screen.getByLabelText('inline-price-save-item-1'));
 
-    expect(await screen.findByText('Podaj cenę.')).toBeInTheDocument();
+    expect(
+      await within(screen.getByLabelText('inline-price-edit-item-1')).findByText('Podaj cenę.'),
+    ).toBeInTheDocument();
     expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
   });
 
