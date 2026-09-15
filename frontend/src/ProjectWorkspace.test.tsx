@@ -409,6 +409,7 @@ describe('ProjectWorkspace', () => {
 
     // Initial check: wall surface has 13.500 gross, 0 deduction, 13.500 net
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`options-toggle-${wallSurface.id}`));
     expect(screen.getByLabelText(`toggle-openings-${wallSurface.id}`)).toBeInTheDocument();
 
     // 2. Open openings list for wallSurface
@@ -485,7 +486,8 @@ describe('ProjectWorkspace', () => {
     fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
 
     // Open openings list
-    await waitFor(() => expect(screen.getByLabelText(`toggle-openings-${wallSurface.id}`)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText(`options-toggle-${wallSurface.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`options-toggle-${wallSurface.id}`));
     fireEvent.click(screen.getByLabelText(`toggle-openings-${wallSurface.id}`));
     await waitFor(() => expect(screen.getByLabelText(`archive-opening-${doorOpening.id}`)).toBeInTheDocument());
 
@@ -569,7 +571,8 @@ describe('ProjectWorkspace', () => {
     await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
 
-    await waitFor(() => expect(screen.getByLabelText(`toggle-openings-${wallSurface.id}`)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText(`options-toggle-${wallSurface.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`options-toggle-${wallSurface.id}`));
     fireEvent.click(screen.getByLabelText(`toggle-openings-${wallSurface.id}`));
 
     await waitFor(() => expect(screen.getByLabelText(`edit-opening-${doorOpening.id}`)).toBeInTheDocument());
@@ -786,13 +789,17 @@ describe('ProjectWorkspace', () => {
     expect(within(wall2Item).getByText(/2\.10 m²/)).toBeInTheDocument();
     expect(within(wall2Item).getByText(/8\.70 m²/)).toBeInTheDocument();
 
-    // 4. Open Wall 1 openings and verify Door:
-    fireEvent.click(screen.getByLabelText(`toggle-openings-${wall1.id}`));
+    // 4. Expand Wall 1 options and open openings, verify Door:
+    fireEvent.click(within(wall1Item).getByLabelText(`options-toggle-${wall1.id}`));
+    await waitFor(() => expect(within(wall1Item).getByLabelText(`toggle-openings-${wall1.id}`)).toBeInTheDocument());
+    fireEvent.click(within(wall1Item).getByLabelText(`toggle-openings-${wall1.id}`));
     await waitFor(() => expect(within(wall1Item).getByText('Drzwi')).toBeInTheDocument());
     expect(within(wall1Item).getByText(/0\.90 × 2\.00 m/)).toBeInTheDocument();
 
-    // 5. Open Wall 2 openings and verify Window:
-    fireEvent.click(screen.getByLabelText(`toggle-openings-${wall2.id}`));
+    // 5. Expand Wall 2 options and open openings, verify Window:
+    fireEvent.click(within(wall2Item).getByLabelText(`options-toggle-${wall2.id}`));
+    await waitFor(() => expect(within(wall2Item).getByLabelText(`toggle-openings-${wall2.id}`)).toBeInTheDocument());
+    fireEvent.click(within(wall2Item).getByLabelText(`toggle-openings-${wall2.id}`));
     await waitFor(() => expect(within(wall2Item).getByText('Okno')).toBeInTheDocument());
     expect(within(wall2Item).getByText(/1\.50 × 1\.40 m/)).toBeInTheDocument();
   });
@@ -1252,6 +1259,7 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     expect(screen.getByLabelText('inspect-room')).toBeInTheDocument();
     expect(screen.getByLabelText('inspect-floor')).toBeInTheDocument();
     expect(screen.getByLabelText('inspect-ceiling')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(`options-toggle-${wallSurface.id}`));
     expect(screen.getByLabelText(`inspect-surface-${wallSurface.id}`)).toBeInTheDocument();
   });
 
@@ -1264,12 +1272,16 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
 
   it('opens a wall-targeted inspection list from the wall card (ENTRY)', async () => {
     await openRoomView();
+    fireEvent.click(screen.getByLabelText(`options-toggle-${wallSurface.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`inspect-surface-${wallSurface.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`inspect-surface-${wallSurface.id}`));
     expect(await screen.findByText('Ściana północna')).toBeInTheDocument();
   });
 
   it('starts a new wall inspection and creates a DRAFT via the flow (ENTRY)', async () => {
     await openRoomView();
+    fireEvent.click(screen.getByLabelText(`options-toggle-${wallSurface.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`inspect-surface-${wallSurface.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`inspect-surface-${wallSurface.id}`));
     fireEvent.click(await screen.findByLabelText('Nowe badanie'));
     fireEvent.click(await screen.findByLabelText('Beton'));

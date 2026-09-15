@@ -80,6 +80,8 @@ export function SurfaceList({
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [expandedOpenings, setExpandedOpenings] = useState<Record<string, boolean>>({});
+  /** Per-card Opcje progressive disclosure — UI state only, never persisted. */
+  const [expandedOptions, setExpandedOptions] = useState<Record<string, boolean>>({});
   const effectiveWallMode = wallMode ?? 'RECTANGLE';
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -122,6 +124,13 @@ export function SurfaceList({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const toggleOptions = (surfaceId: string) => {
+    setExpandedOptions((current) => ({
+      ...current,
+      [surfaceId]: !current[surfaceId],
+    }));
+  };
 
   const toggleOpenings = (surfaceId: string) => {
     setExpandedOpenings((current) => ({
@@ -531,6 +540,7 @@ export function SurfaceList({
                                   surface.height !== null && surface.height !== undefined;
             const isWall = surface.surface_type === 'WALL';
             const isOpeningsOpen = !!expandedOpenings[surface.id];
+            const isOptionsOpen = !!expandedOptions[surface.id];
 
             return (
               <li
@@ -597,85 +607,109 @@ export function SurfaceList({
 
                     {surface.description && <p className="text-xs text-slate-500">{surface.description}</p>}
 
-                    {/* Actions: 2-column grid with ~44px touch targets */}
-                    <div className="grid grid-cols-2 gap-2">
-                      {onInspectSurface && (
-                        <button
-                          type="button"
-                          aria-label={`inspect-surface-${surface.id}`}
-                          onClick={() => onInspectSurface(surface.id, surface.name)}
-                          className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
-                        >
-                          {t.inspections.inspect_wall}
-                        </button>
-                      )}
-                      {hasDimensions && (
-                        <>
-                          <button
-                            type="button"
-                            aria-label={`add-opening-${surface.id}-DOOR`}
-                            onClick={() => quickAddOpening(surface.id, 'DOOR')}
-                            className="min-h-11 w-full text-xs px-2 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
-                          >
-                            + {t.openings.door}
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`add-opening-${surface.id}-WINDOW`}
-                            onClick={() => quickAddOpening(surface.id, 'WINDOW')}
-                            className="min-h-11 w-full text-xs px-2 rounded-lg bg-sky-50 text-sky-800 font-semibold hover:bg-sky-100 transition"
-                          >
-                            + {t.openings.window}
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`add-opening-${surface.id}-OTHER`}
-                            onClick={() => quickAddOpening(surface.id, 'OTHER')}
-                            className="min-h-11 w-full text-xs px-2 rounded-lg bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition"
-                          >
-                            + {t.openings.other}
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`toggle-openings-${surface.id}`}
-                            onClick={() => toggleOpenings(surface.id)}
-                            className={`min-h-11 w-full text-xs px-2 rounded-lg font-semibold transition ${
-                              isOpeningsOpen
-                                ? 'bg-slate-200 text-slate-800'
-                                : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                            }`}
-                          >
-                            {isOpeningsOpen ? t.openings.close : t.surfaces.manage_openings}
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        aria-label={`edit-surface-${surface.id}`}
-                        onClick={() => startEdit(surface)}
-                        className="min-h-11 w-full text-xs px-2 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
-                      >
-                        {t.common.edit}
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
-                        onClick={() => void changeArchiveState(surface)}
-                        className="min-h-11 w-full text-xs px-2 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
-                      >
-                        {surface.is_archived ? t.common.restore : t.common.archive}
-                      </button>
-                    </div>
+                    {/* Progressive disclosure: Opcje reveals the card's action grid. */}
+                    <button
+                      type="button"
+                      aria-label={`options-toggle-${surface.id}`}
+                      aria-expanded={isOptionsOpen}
+                      onClick={() => toggleOptions(surface.id)}
+                      className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
+                    >
+                      {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
+                    </button>
 
-                    {isOpeningsOpen && (
-                      <OpeningList
-                        key={pendingQuickOpening?.surfaceId === surface.id ? `quick-${pendingQuickOpening.key}` : surface.id}
-                        projectId={projectId}
-                        roomId={roomId}
-                        surfaceId={surface.id}
-                        initialType={pendingQuickOpening?.surfaceId === surface.id ? pendingQuickOpening.type : undefined}
-                        onOpeningChanged={handleOpeningChanged}
-                      />
+                    {/* Work Plan entry point (Stage 10C.2); present but inert in 10C.1. */}
+                    <button
+                      type="button"
+                      aria-label={`work-plan-${surface.id}`}
+                      className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+                    >
+                      {t.surfaces.work_types_quality}
+                    </button>
+
+                    {isOptionsOpen && (
+                      <>
+                        {/* Actions: 2-column grid with ~44px touch targets */}
+                        <div className="grid grid-cols-2 gap-2">
+                          {onInspectSurface && (
+                            <button
+                              type="button"
+                              aria-label={`inspect-surface-${surface.id}`}
+                              onClick={() => onInspectSurface(surface.id, surface.name)}
+                              className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
+                            >
+                              {t.inspections.inspect_wall}
+                            </button>
+                          )}
+                          {hasDimensions && (
+                            <>
+                              <button
+                                type="button"
+                                aria-label={`add-opening-${surface.id}-DOOR`}
+                                onClick={() => quickAddOpening(surface.id, 'DOOR')}
+                                className="min-h-11 w-full text-xs px-2 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
+                              >
+                                + {t.openings.door}
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`add-opening-${surface.id}-WINDOW`}
+                                onClick={() => quickAddOpening(surface.id, 'WINDOW')}
+                                className="min-h-11 w-full text-xs px-2 rounded-lg bg-sky-50 text-sky-800 font-semibold hover:bg-sky-100 transition"
+                              >
+                                + {t.openings.window}
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`add-opening-${surface.id}-OTHER`}
+                                onClick={() => quickAddOpening(surface.id, 'OTHER')}
+                                className="min-h-11 w-full text-xs px-2 rounded-lg bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition"
+                              >
+                                + {t.openings.other}
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`toggle-openings-${surface.id}`}
+                                onClick={() => toggleOpenings(surface.id)}
+                                className={`min-h-11 w-full text-xs px-2 rounded-lg font-semibold transition ${
+                                  isOpeningsOpen
+                                    ? 'bg-slate-200 text-slate-800'
+                                    : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                }`}
+                              >
+                                {isOpeningsOpen ? t.openings.close : t.surfaces.manage_openings}
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            aria-label={`edit-surface-${surface.id}`}
+                            onClick={() => startEdit(surface)}
+                            className="min-h-11 w-full text-xs px-2 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                          >
+                            {t.common.edit}
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
+                            onClick={() => void changeArchiveState(surface)}
+                            className="min-h-11 w-full text-xs px-2 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                          >
+                            {surface.is_archived ? t.common.restore : t.common.archive}
+                          </button>
+                        </div>
+
+                        {isOpeningsOpen && (
+                          <OpeningList
+                            key={pendingQuickOpening?.surfaceId === surface.id ? `quick-${pendingQuickOpening.key}` : surface.id}
+                            projectId={projectId}
+                            roomId={roomId}
+                            surfaceId={surface.id}
+                            initialType={pendingQuickOpening?.surfaceId === surface.id ? pendingQuickOpening.type : undefined}
+                            onOpeningChanged={handleOpeningChanged}
+                          />
+                        )}
+                      </>
                     )}
                   </>
                 ) : (
@@ -687,24 +721,47 @@ export function SurfaceList({
                       </p>
                     )}
                     {surface.description && <p className="text-xs text-slate-500">{surface.description}</p>}
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        aria-label={`edit-surface-${surface.id}`}
-                        onClick={() => startEdit(surface)}
-                        className="min-h-11 px-3 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
-                      >
-                        {t.common.edit}
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
-                        onClick={() => void changeArchiveState(surface)}
-                        className="min-h-11 px-3 text-xs rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
-                      >
-                        {surface.is_archived ? t.common.restore : t.common.archive}
-                      </button>
-                    </div>
+
+                    {/* Progressive disclosure: Opcje reveals the card's action grid. */}
+                    <button
+                      type="button"
+                      aria-label={`options-toggle-${surface.id}`}
+                      aria-expanded={isOptionsOpen}
+                      onClick={() => toggleOptions(surface.id)}
+                      className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
+                    >
+                      {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
+                    </button>
+
+                    {/* Work Plan entry point (Stage 10C.2); present but inert in 10C.1. */}
+                    <button
+                      type="button"
+                      aria-label={`work-plan-${surface.id}`}
+                      className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+                    >
+                      {t.surfaces.work_types_quality}
+                    </button>
+
+                    {isOptionsOpen && (
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          aria-label={`edit-surface-${surface.id}`}
+                          onClick={() => startEdit(surface)}
+                          className="min-h-11 px-3 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                        >
+                          {t.common.edit}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
+                          onClick={() => void changeArchiveState(surface)}
+                          className="min-h-11 px-3 text-xs rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                        >
+                          {surface.is_archived ? t.common.restore : t.common.archive}
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </li>

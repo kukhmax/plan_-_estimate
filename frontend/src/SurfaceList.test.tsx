@@ -40,6 +40,7 @@ function renderSurfaces(
     roomHeight?: string | number | null;
     hasRoomDimensions?: boolean;
     wallMode?: 'RECTANGLE' | 'CUSTOM';
+    onInspectSurface?: (surfaceId: string, surfaceName: string) => void;
   } = {},
 ) {
   return render(
@@ -50,9 +51,15 @@ function renderSurfaces(
         roomHeight={props.roomHeight}
         hasRoomDimensions={props.hasRoomDimensions}
         wallMode={props.wallMode}
+        onInspectSurface={props.onInspectSurface}
       />
     </I18nProvider>,
   );
+}
+
+/** Stage 10C.1: action grids live behind the per-card Opcje progressive disclosure. */
+function expandOptions(surfaceId: string) {
+  fireEvent.click(screen.getByLabelText(`options-toggle-${surfaceId}`));
 }
 
 describe('SurfaceList', () => {
@@ -85,8 +92,9 @@ describe('SurfaceList', () => {
     renderSurfaces();
 
     await waitFor(() =>
-      expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument(),
+      expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toBeInTheDocument(),
     );
+    expandOptions(surface.id);
     fireEvent.click(screen.getByLabelText(`edit-surface-${surface.id}`));
     fireEvent.change(screen.getByLabelText('surface-name'), { target: { value: 'Ściana nowa' } });
     fireEvent.submit(screen.getByLabelText('surface-form'));
@@ -115,12 +123,14 @@ describe('SurfaceList', () => {
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expandOptions(surface.id);
     expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`add-opening-${surface.id}-OTHER`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveClass('min-h-11');
   });
 
   it('renders wall dimensions, gross area, deduction area, and net area', async () => {
@@ -140,6 +150,7 @@ describe('SurfaceList', () => {
     expect(screen.getByText(/13\.50 m²/)).toBeInTheDocument();
     expect(screen.getByText(/1\.80 m²/)).toBeInTheDocument();
     expect(screen.getByText(/11\.70 m²/)).toBeInTheDocument();
+    expandOptions(surface.id);
     expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toBeInTheDocument();
   });
 
@@ -180,7 +191,8 @@ describe('SurfaceList', () => {
     vi.mocked(surfacesApi.restoreSurface).mockResolvedValue(surface);
     renderSurfaces();
 
-    await waitFor(() => expect(screen.getByLabelText(`restore-surface-${surface.id}`)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toBeInTheDocument());
+    expandOptions(surface.id);
     fireEvent.click(screen.getByLabelText(`restore-surface-${surface.id}`));
 
     await waitFor(() => {
@@ -207,6 +219,7 @@ describe('SurfaceList', () => {
     expect(screen.getByText('=')).toBeInTheDocument();
 
     // Verify form inputMode="decimal"
+    expandOptions(surface.id);
     fireEvent.click(screen.getByLabelText(`edit-surface-${surface.id}`));
     expect(screen.getByLabelText('surface-width')).toHaveAttribute('inputMode', 'decimal');
     expect(screen.getByLabelText('surface-height')).toHaveAttribute('inputMode', 'decimal');
@@ -359,6 +372,7 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expandOptions(surface.id);
     fireEvent.click(screen.getByLabelText(`add-opening-${surface.id}-DOOR`));
 
     expect(await screen.findByLabelText(`opening-form-${surface.id}`)).toBeInTheDocument();
@@ -409,6 +423,7 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expandOptions(surface.id);
 
     fireEvent.click(screen.getByLabelText(`add-opening-${surface.id}-DOOR`));
     await screen.findByLabelText(`opening-form-${surface.id}`);
@@ -420,5 +435,210 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     expect(form).toBeInTheDocument();
     expect(screen.getByLabelText('opening-type')).toHaveValue('WINDOW');
     expect(screen.getAllByLabelText(`opening-form-${surface.id}`)).toHaveLength(1);
+  });
+});
+
+describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  const measuredWall = (): SurfaceType => ({
+    ...surface,
+    width: 5,
+    height: 2.7,
+    gross_area: '13.500',
+    deduction_area: '1.800',
+    net_area: '11.700',
+  });
+
+  it('collapses the wall action grid by default, showing only identity, area, Opcje, and Work Plan entry', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`work-plan-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByText('Opcje')).toBeInTheDocument();
+    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`add-opening-${surface.id}-DOOR`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`toggle-openings-${surface.id}`)).not.toBeInTheDocument();
+  });
+
+  it('expands the wall action grid when tapping Opcje and relabels it Ukryj opcje', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expandOptions(surface.id);
+
+    expect(screen.getByText('Ukryj opcje')).toBeInTheDocument();
+    expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`add-opening-${surface.id}-OTHER`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toBeInTheDocument();
+  });
+
+  it('collapses the action grid again when tapping Ukryj opcje', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expandOptions(surface.id);
+    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
+
+    expect(screen.getByText('Opcje')).toBeInTheDocument();
+    expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`add-opening-${surface.id}-DOOR`)).not.toBeInTheDocument();
+  });
+
+  it('keeps option expansion independent per card', async () => {
+    const wall1 = measuredWall();
+    const wall2: SurfaceType = {
+      ...measuredWall(),
+      id: '44444444-4444-4444-4444-444444444444',
+      name: 'Ściana wschodnia',
+    };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wall1, wall2], total: 2 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expandOptions(wall1.id);
+
+    expect(screen.getByLabelText(`edit-surface-${wall1.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`edit-surface-${wall2.id}`)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(`options-toggle-${wall2.id}`)).toBeInTheDocument();
+  });
+
+  it('runs the wall inspection action from the expanded options', async () => {
+    const onInspectSurface = vi.fn();
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    renderSurfaces({ onInspectSurface });
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expandOptions(surface.id);
+    fireEvent.click(screen.getByLabelText(`inspect-surface-${surface.id}`));
+
+    expect(onInspectSurface).toHaveBeenCalledWith(surface.id, 'Ściana północna');
+  });
+
+  it('opens the pre-set door form from the expanded options (add door works)', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expandOptions(surface.id);
+    fireEvent.click(screen.getByLabelText(`add-opening-${surface.id}-DOOR`));
+
+    const form = await screen.findByLabelText(`opening-form-${surface.id}`);
+    expect(form).toBeInTheDocument();
+    expect(screen.getByLabelText('opening-type')).toHaveValue('DOOR');
+  });
+
+  it('manages openings from the expanded options and fetches the list', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expandOptions(surface.id);
+    fireEvent.click(screen.getByLabelText(`toggle-openings-${surface.id}`));
+
+    await waitFor(() => {
+      expect(openingsApi.fetchOpenings).toHaveBeenCalledWith(projectId, roomId, surface.id, false);
+    });
+    expect(await screen.findByLabelText(`no-openings-${surface.id}`)).toBeInTheDocument();
+  });
+
+  it('archives an active wall from the expanded options', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    vi.mocked(surfacesApi.archiveSurface).mockResolvedValue({ ...measuredWall(), is_archived: true });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expandOptions(surface.id);
+    fireEvent.click(screen.getByLabelText(`archive-surface-${surface.id}`));
+
+    await waitFor(() => {
+      expect(surfacesApi.archiveSurface).toHaveBeenCalledWith(projectId, roomId, surface.id);
+    });
+    expect(await screen.findByText('Powierzchnia została zarchiwizowana')).toBeInTheDocument();
+  });
+
+  it('shows no opening controls for a FLOOR surface', async () => {
+    const floor: SurfaceType = {
+      ...surface,
+      name: 'Podłoga w łazience',
+      surface_type: 'FLOOR',
+      width: 4,
+      height: 5,
+      gross_area: '20.000',
+    };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [floor], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Podłoga w łazience')).toBeInTheDocument());
+    expandOptions(floor.id);
+
+    expect(screen.getByLabelText(`edit-surface-${floor.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${floor.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`add-opening-${floor.id}-DOOR`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`add-opening-${floor.id}-WINDOW`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`toggle-openings-${floor.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`inspect-surface-${floor.id}`)).not.toBeInTheDocument();
+  });
+
+  it('shows no opening controls for a CEILING surface', async () => {
+    const ceiling: SurfaceType = {
+      ...surface,
+      name: 'Sufit w salonie',
+      surface_type: 'CEILING',
+      width: 4,
+      height: 5,
+      gross_area: '20.000',
+    };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [ceiling], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Sufit w salonie')).toBeInTheDocument());
+    expandOptions(ceiling.id);
+
+    expect(screen.getByLabelText(`edit-surface-${ceiling.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${ceiling.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`add-opening-${ceiling.id}-DOOR`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`add-opening-${ceiling.id}-WINDOW`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`toggle-openings-${ceiling.id}`)).not.toBeInTheDocument();
+  });
+
+  it('shows the Work Plan entry button (Rodzaje prac i jakość) on the collapsed card', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(screen.getByLabelText(`work-plan-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByText('Rodzaje prac i jakość')).toBeInTheDocument();
+    expect(screen.getByLabelText(`work-plan-${surface.id}`)).toHaveClass('min-h-11');
+  });
+
+  it('localizes the disclosure controls in Russian (O)', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toBeInTheDocument());
+    expect(screen.getByText('Опции')).toBeInTheDocument();
+    expect(screen.getByText('Виды работ и качество')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
+    expect(screen.getByText('Скрыть опции')).toBeInTheDocument();
+    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
   });
 });

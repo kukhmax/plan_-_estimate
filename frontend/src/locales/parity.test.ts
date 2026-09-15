@@ -58,6 +58,14 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
     const ruRisk = keySet(ru.risk);
     expect(plRisk).toEqual(ruRisk);
 
+    const plSurfaces = keySet(pl.surfaces);
+    const ruSurfaces = keySet(ru.surfaces);
+    expect(plSurfaces).toEqual(ruSurfaces);
+    // The Stage 10C.1 progressive-disclosure controls on the surface card.
+    for (const key of ['options', 'hide_options', 'work_types_quality']) {
+      expect(plSurfaces.has(key)).toBe(true);
+    }
+
     const plComm = keySet(pl.communication);
     const ruComm = keySet(ru.communication);
     expect(plComm).toEqual(ruComm);
