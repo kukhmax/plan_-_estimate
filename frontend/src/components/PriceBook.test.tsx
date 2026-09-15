@@ -392,6 +392,70 @@ describe('PriceBook — edit', () => {
   });
 });
 
+describe('PriceBook — opened form visibility (Stage 9E.7.1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValue(custom);
+  });
+
+  // jsdom does not implement scrollIntoView; the component guards the call, so
+  // stub it to observe that opening the form actually brings it into view.
+  function stubScrollIntoView() {
+    const spy = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = spy;
+    return {
+      spy,
+      restore: () => {
+        Element.prototype.scrollIntoView = original;
+      },
+    };
+  }
+
+  it('scrolls the form into view when Edit is tapped on a catalog row', async () => {
+    const { spy, restore } = stubScrollIntoView();
+    try {
+      vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+        items: [custom],
+        total: 1,
+      });
+      renderBook();
+      await screen.findByText('Malowanie lateksowe dwukrotnie');
+      expect(spy).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByLabelText('price-item-options-item-3'));
+      fireEvent.click(screen.getByLabelText('edit-price-item-item-3'));
+
+      const form = screen.getByLabelText('price-item-form');
+      await waitFor(() =>
+        expect(spy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' }),
+      );
+      expect(spy.mock.instances[0]).toBe(form);
+    } finally {
+      restore();
+    }
+  });
+
+  it('also scrolls the form into view when Add is tapped', async () => {
+    const { spy, restore } = stubScrollIntoView();
+    try {
+      renderBook();
+      await screen.findByLabelText('add-price-item');
+      expect(spy).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByLabelText('add-price-item'));
+
+      await waitFor(() =>
+        expect(spy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' }),
+      );
+    } finally {
+      restore();
+    }
+  });
+});
+
 describe('PriceBook — money input contract', () => {
   beforeEach(() => {
     vi.clearAllMocks();

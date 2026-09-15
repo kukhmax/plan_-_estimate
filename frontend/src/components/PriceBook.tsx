@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   archivePriceItem,
   createPriceItem,
@@ -77,6 +83,17 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
   const [formPriceError, setFormPriceError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [openOptionsId, setOpenOptionsId] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  // The add/edit form renders above the Price Book list. With a multi-row
+  // catalog the form lands far above the tapped card, so without this scroll
+  // opening Edit appears to do nothing on a phone. Scroll it into view so the
+  // editor is actually seen when opened (Stage 9E.7.1 regression).
+  useLayoutEffect(() => {
+    if (showForm) {
+      formRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    }
+  }, [showForm]);
 
   // Per-item market evidence (read-only; cached, never re-fetched per render).
   const evidence = useMarketEvidence(items.map((item) => item.id));
@@ -316,6 +333,7 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
 
       {showForm && (
         <form
+          ref={formRef}
           aria-label="price-item-form"
           onSubmit={handleSubmit}
           className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm space-y-3"
