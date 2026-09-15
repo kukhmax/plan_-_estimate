@@ -26,7 +26,7 @@ from app.models.checklist import QualityLevel, Substrate
 from app.models.price_item import PriceItem
 from app.models.project import Project
 from app.models.room import Room
-from app.models.surface import Surface
+from app.models.surface import Surface, SurfaceType
 from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
 from app.schemas.work_plan import OrderedPriceItemSelection
 
@@ -217,3 +217,83 @@ class SurfaceWorkPlanService:
         await self._rewrite_works(plan, validated)
         await self.db.commit()
         return await self._fetch_plan(surface_id)
+
+    async def apply_to_room_walls(
+        self,
+        project_id: uuid.UUID,
+        room_id: uuid.UUID,
+        source_surface_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> list[SurfaceWorkPlan]:
+        """Atomically copy a source wall's planning configuration to every
+        other active WALL surface in the same room (Stage 10B.2).
+
+        Only planning configuration is copied: substrate, quality target, and
+        the ordered planned works. Geometry, openings/deductions, inspections,
+        findings, risks, photos, archive state, and every Price Book row are
+        never touched. Each target receives its own persisted plan rows, so the
+        walls stay independent afterwards. The whole batch commits together or
+        not at all — every source-side validation runs before any mutation, so
+        a failed apply cannot leave half the room updated.
+        """
+        source = await self._ensure_surface_owned(
+            project_id, room_id, source_surface_id, owner_id
+        )
+        if source.surface_type != SurfaceType.WALL:
+            raise SurfaceWorkPlanValidationError(
+                "apply-to-room-walls requires a WALL source surface"
+            )
+        if source.is_archived:
+            raise SurfaceWorkPlanValidationError(
+                "an archived surface cannot start apply-to-room-walls"
+            )
+        source_plan = await self._fetch_plan(source.id)
+        if source_plan is None:
+            raise SurfaceWorkPlanNotFoundError(
+                f"Surface {source.id} has no work plan to apply"
+            )
+
+        # New target rows must never silently reference an archived catalog
+        # item; NULL commercial prices are fine (planning is independent of
+        # commercial completeness). The source plan itself is never mutated.
+        validated_items: list[PriceItem] = []
+        for work in source_plan.planned_works:
+            item = work.price_item
+            if item is None or item.is_archived:
+                raise SurfaceWorkPlanValidationError(
+                    f"Source plan references an archived price item "
+                    f"{work.price_item_id}; update the source plan first"
+                )
+            validated_items.append(item)
+
+        targets = (
+            await self.db.execute(
+                select(Surface)
+                .where(
+                    Surface.room_id == source.room_id,
+                    Surface.surface_type == SurfaceType.WALL,
+                    Surface.id != source.id,
+                    Surface.is_archived.is_(False),
+                )
+                .order_by(Surface.position.nulls_last(), Surface.id)
+            )
+        ).scalars().all()
+
+        target_plans: list[SurfaceWorkPlan] = []
+        for target in targets:
+            target_plan = await self._fetch_plan(target.id)
+            if target_plan is None:
+                target_plan = SurfaceWorkPlan(
+                    surface_id=target.id,
+                    substrate=source_plan.substrate,
+                    quality_target=source_plan.quality_target,
+                )
+                self.db.add(target_plan)
+            else:
+                target_plan.substrate = source_plan.substrate
+                target_plan.quality_target = source_plan.quality_target
+            await self._rewrite_works(target_plan, validated_items)
+            target_plans.append(target_plan)
+
+        await self.db.commit()
+        return [await self._fetch_plan(p.surface_id) for p in target_plans]

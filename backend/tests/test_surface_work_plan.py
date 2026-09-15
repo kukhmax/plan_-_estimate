@@ -779,3 +779,52 @@ class TestU_TwoCoatRows:
         assert works[0].id != works[1].id
         assert works[0].price_item_id == works[1].price_item_id == coat.id
         assert (works[0].position, works[1].position) == (0, 1)
+
+
+class TestV_ApplyToRoomWallsService:
+    async def test_apply_batch_atomic_when_source_item_archived(self, db_session):
+        """A failed apply-to-all must leave every target plan untouched."""
+        user = await _make_user(db_session, 20001)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        source = await _make_surface(db_session, room.id)
+        target_1 = await _make_surface(db_session, room.id)
+        target_2 = await _make_surface(db_session, room.id)
+        source_item = await _make_price_item(db_session, user.id, code="SRC")
+        target_item = await _make_price_item(db_session, user.id, code="TGT")
+        service = SurfaceWorkPlanService(db_session)
+        await service.set_plan(
+            project.id, room.id, source.id, user.id,
+            substrate=Substrate.GYPSUM_PLASTER,
+            quality_target=QualityLevel.S3,
+            planned_works=_selection(source_item.id),
+        )
+        await service.set_plan(
+            project.id, room.id, target_1.id, user.id,
+            substrate=Substrate.CONCRETE,
+            quality_target=QualityLevel.S2,
+            planned_works=_selection(target_item.id),
+        )
+        await service.set_plan(
+            project.id, room.id, target_2.id, user.id,
+            substrate=Substrate.CONCRETE,
+            quality_target=QualityLevel.S2,
+            planned_works=_selection(target_item.id),
+        )
+        # The item the source plan references is archived now — propagation to
+        # new target rows must be rejected before any mutation happens.
+        await PriceBookService(db_session).archive_item(user.id, source_item.id)
+        with pytest.raises(SurfaceWorkPlanValidationError):
+            await service.apply_to_room_walls(project.id, room.id, source.id, user.id)
+        # Neither target was mutated and the source plan is untouched.
+        for target in (target_1, target_2):
+            plan = await service.get_work_plan(project.id, room.id, target.id, user.id)
+            assert plan.substrate == Substrate.CONCRETE
+            assert plan.quality_target == QualityLevel.S2
+            assert [w.price_item_id for w in plan.planned_works] == [target_item.id]
+        source_plan = await service.get_work_plan(
+            project.id, room.id, source.id, user.id
+        )
+        assert [w.price_item_id for w in source_plan.planned_works] == [
+            source_item.id
+        ]

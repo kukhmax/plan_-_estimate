@@ -17,6 +17,7 @@ from app.domain.services.project_service import ProjectService
 from app.domain.services.risk_service import RiskService
 from app.domain.services.room_service import RoomService
 from app.domain.services.surface_service import SurfaceService
+from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.models.user import User
 
 security_scheme = HTTPBearer(auto_error=False)
@@ -126,3 +127,9 @@ async def get_price_book_service(
     db: AsyncSession = Depends(get_db),
 ) -> PriceBookService:
     return PriceBookService(db)
+
+
+async def get_work_plan_service(
+    db: AsyncSession = Depends(get_db),
+) -> SurfaceWorkPlanService:
+    return SurfaceWorkPlanService(db)

@@ -14,6 +14,7 @@ from app.api.v1.endpoints.projects import router as projects_router
 from app.api.v1.endpoints.risks import router as risks_router
 from app.api.v1.endpoints.rooms import router as rooms_router
 from app.api.v1.endpoints.surfaces import router as surfaces_router
+from app.api.v1.endpoints.work_plans import router as work_plan_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -44,3 +45,4 @@ app.include_router(inspections_router, prefix="/api", tags=["inspections"])
 app.include_router(risks_router, prefix="/api", tags=["risks"])
 app.include_router(communications_router, prefix="/api", tags=["communications"])
 app.include_router(pricebook_router, prefix="/api", tags=["price-items"])
+app.include_router(work_plan_router, prefix="/api", tags=["work-plans"])
