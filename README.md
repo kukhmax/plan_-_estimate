@@ -4,7 +4,7 @@ Telegram Mini App for managing interior finishing and renovation work in Poland 
 
 ## Implementation status
 
-### Canonical Stages 0–8 (Completed)
+### Canonical Stages 0–9 (Completed)
 
 - **Stage 0**: Engineering workflow, architectural invariants, and domain rules (`GEMINI.md`, `.agents/rules/`).
 - **Stage 1**: Application infrastructure, Docker PostgreSQL 16, FastAPI backend, React Vite frontend, aiogram bot skeleton.
@@ -22,8 +22,23 @@ Telegram Mini App for managing interior finishing and renovation work in Poland 
 - **Stage 6**: Inspection Checklist Engine — substrate diagnostics with versioned immutable checklist templates (concrete, gypsum plaster, cement-lime plaster, gypsum board, painted, other), room-scoped inspections with four targets (WALL surface, FLOOR, CEILING, room-level), typed answers (BOOLEAN / NUMBER / TEXT / SINGLE_CHOICE / MULTI_CHOICE), quality-scale validation (S1–S4, Q1–Q4, optional for painted/other), factual backend findings only (no risk/price/warranty), mobile PL/RU workflow, and owner-accepted final manual acceptance (2026-09-12).
 - **Stage 7**: Risk Rules Engine — deterministic, rule-driven technical risk evaluation over completed-inspection findings with a versioned immutable rule catalog (15 rules, 8 condition operators), severity (LOW/MEDIUM/HIGH/CRITICAL), `blocks_finishing` and `warranty_exclusion_candidate` flags, source-finding traceability, resolved risk history, mobile PL/RU risk cards with Active/Resolved/All filters, and a permanent **two-decimal metric display policy** (5.000 → 5.00, 13.515 m² → 13.52 m² display only — backend retains full precision). Owner-accepted final manual acceptance (2026-09-13).
 - **Stage 8**: Client Communication Assistant ("Co powiedzieć klientowi") — deterministic, rule-driven communication recommendations consumed from completed-inspection facts with a versioned immutable phrase catalog (no second rules engine). Three exact-key sources: RISK-derived (reusing Stage 7 seeds), FINDING-only, and a complete QUALITY substrate/quality-target matrix (GYPSUM_BOARD Q1–Q4, CONCRETE/GYPSUM_PLASTER/CEMENT_LIME_PLASTER S1–S4). Stable application identity (inspection, phrase code, source signature) with resolved history preserved, active/resolved/all filters, mobile PL/RU communication cards with explicit evaluate, lazy "Why?" traceability, copy-to-clipboard, and script-verified Stage 6→7→8 lifecycle. Owner-accepted final manual acceptance (2026-09-13).
+- **Stage 9**: Editable Price Book (Cennik) — owner-scoped contractor price catalog with a canonical catalog of 44 active items (28 MARKET_SUPPORTED / 16 OWN_PRICE), all owner-adjustable from the mobile UI. Explicit price semantics: an unset price stays NULL ("Do ustalenia" / "Уточняется"), while an explicit zero is a real 0.00. Price items carry labor / material / combined scope; market evidence is stored separately and never overwrites the owner's price — 28 Kraków/Małopolskie market references backed by 112 evidence sources, browsable in a dedicated mobile source viewer. Owner-accepted and merged into `main` (2026-09-15).
 
-Implementation is complete through **Canonical Stage 8**. **Canonical Stage 9 (Editable Price Book / Cennik) is In Progress** — execution sub-stage 9A (architecture & domain contract) is recorded in [`docs/development-progress.md`](docs/development-progress.md); Stages 10–20 are pending.
+Implementation is complete through **Canonical Stage 9**. **Canonical Stage 10 (Estimate / Kosztorys) is In Progress** — see below; Stages 11–20 are pending.
+
+### Canonical Stage 10 (In Progress)
+
+Stage 10 (Estimate / Kosztorys): **10A COMPLETE — 10B NOT STARTED**.
+
+Stage 10A is complete as **architecture / planning only** (`docs/stage-10-architecture.md`) — no Stage 10 runtime functionality is implemented yet. The owner-accepted direction for 10B:
+
+- a per-surface work plan (`Surface` → `SurfaceWorkPlan`) holding the substrate and target quality, with multiple ordered planned works per surface (`SurfacePlannedWork`);
+- "apply to all walls" copies/replaces the planning configuration only — geometry, openings/deductions, inspections, findings, risks, and photos are never copied or changed;
+- labor / material separation (ROBOCIZNA / MATERIAŁY) with the Price Book supplying the suggested commercial price;
+- the estimate snapshots commercial prices and quantities at generation time; manual estimate lines are supported and never modify the Price Book;
+- regeneration of a DRAFT estimate is explicit and owner-confirmed — no silent WorkPlan → Estimate synchronization.
+
+Stage 10B (application implementation) has not started.
 
 ## Domain hierarchy
 
