@@ -52,7 +52,7 @@
 | Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | **Stage 8** | **"Co powiedzieć klientowi" (Client Communication Assistant)** | **Completed 2026-09-13** | Deterministic, rule-driven client communication recommendations (PL/RU) from completed-inspection facts — versioned immutable phrase catalog, exact-key selection over materialized Stage 6/7 facts, complete quality matrix, mobile communication cards with evaluate / "Why?" traceability / copy / active-resolved-all history |
 | **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; **9E.6A (price market evidence backend foundation) Completed 2026-09-14 (committed `31540af` — models + migration 0015 + read-only evidence endpoint)**; **9E.6B (mobile price market evidence UI) Implemented 2026-09-14 (read-only compact market evidence on Price Book cards; 44-row catalog load NOT performed — deferred per owner instruction)**; **9E.7 (load approved 44-row catalog + market evidence + nullable price foundation) Implemented 2026-09-15 (44 canonical rows: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 28 market references / 112 sources seeded idempotently; legacy GENERIC seeds retired; migration 0016 makes PriceItem.price nullable — NULL = not set, 0.00 = real zero; full backend 515 tests + frontend 304 tests PASS; committed `097e46c`)**; **9E.7.1 (Price Book add/edit form visibility regression) Implemented 2026-09-15 (opening Add/Edit scrolls the form into view so the editor is actually visible on a 44-row catalog; 2 regression tests; full frontend 306 tests PASS; real-browser 390 px verification PASS; committed `f38cd13`)**; **9E.8 (Price Book mobile UX cleanup) Implemented 2026-09-15 (inline owner-price editor for catalog rows, direct Edytuj/Archiwizuj, dedicated mobile source viewer, label + S/Q UX cleanup; full frontend 323 tests PASS; real-browser 320/390/412 px verification 23/23 PASS; UNCOMMITTED — awaiting owner acceptance)**; 9F (final gate) Pending — **9F NOT STARTED** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
-| Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
+| **Stage 10** | Estimate / Kosztorys | **In Progress — 10A (Surface Work Planning + Estimate Architecture) Completed 2026-09-15 (docs-only; uncommitted — awaiting owner acceptance); 10A.1 Canonical Architecture Corrections applied 2026-09-15 (docs-only; uncommitted — awaiting owner acceptance)** | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) — see `docs/stage-10-architecture.md` |
 | Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
 | Stage 13 | Technological workflows | Pending | Work sequencing, technological breaks, drying times, stage tracking |
@@ -2108,6 +2108,55 @@ substrate column needed).
 - **Deferred / NOT done per instruction**: no commit, no push, no deploy — the owner handles Git and Docker.
   Stage 9 — COMPLETE / OWNER ACCEPTED
   Stage 10 — NOT STARTED.  Stage 10; CI/deploy.
+
+### Stage 10A: Surface Work Planning + Estimate Architecture
+- **Status**: Completed 2026-09-15 (architecture/documentation only — **uncommitted**, awaiting owner acceptance) — **superseded in part by the Stage 10A.1 canonical corrections below (the 10A.1 model text is authoritative)**
+- **Date**: 2026-09-15
+- **Commit**: none (owner intentionally did not merge/push; VCS performed manually by the owner after acceptance)
+
+#### Added:
+- `docs/stage-10-architecture.md` — full Stage 10 decision record: product goal, mobile-first UX contract, Work Plan domain (`SurfaceWorkPlan` + `SurfacePlannedWork`), multiple works per surface, substrate/quality ownership with Stage 6 enum reuse, apply-to-all-walls overwrite semantics, floor/ceiling support, Price Book reference relationship, Estimate domain (`Estimate` + `EstimateLine`), line origin, snapshot contract, quantity source+override, price override, NULL owner-price behaviour, labor/material classification (`LABOR/MATERIAL/LABOR_AND_MATERIAL`), materials MVP boundary, Decimal/rounding totals, WorkPlan→Estimate sync, Stage 11 / Stage 14 boundaries, 10A–10I execution plan, and the 18 required architecture decisions D1–D18.
+
+#### Changed:
+- `docs/development-progress.md` — Stage 10 roadmap row status → "In Progress — 10A Completed 2026-09-15 (docs-only; uncommitted — awaiting owner acceptance)".
+
+#### Database:
+- None — documentation-only stage. No Alembic migration. No schema change. New tables proposed for 10B: `surface_work_plans`, `surface_planned_works`, `estimates`, `estimate_lines` (+ enums `planstatus`, `estimatestatus`, `lineorigin`, `quantitysource`).
+
+#### Tests:
+- None executed in 10A — no application code. Full verification deferred to 10B onward.
+
+#### Verification:
+- `git status` clean before edit; diff limited to the two documentation files; no code/migration/build artifacts touched. STOP per instruction — no commit, no push.
+
+#### Deferred:
+- All application implementation (10B–10I), per the 10A execution plan in `docs/stage-10-architecture.md`. No commit/push/deploy.
+
+### Stage 10A.1: Canonical Architecture Corrections (owner decision, pre-acceptance)
+- **Status**: Completed 2026-09-15 (documentation only — **uncommitted**, awaiting owner acceptance)
+- **Date**: 2026-09-15
+- **Commit**: none (docs only; VCS performed manually by the owner after acceptance)
+
+#### Added:
+- Seven canonical corrections applied to `docs/stage-10-architecture.md` before owner acceptance:
+  1. **Plan per physical surface** — `SurfaceWorkPlan` is 1:0..1 with `Surface` (`surface_id` UNIQUE NOT NULL); substrate/quality per surface; `SurfacePlannedWork` carries `work_plan_id` + `price_item_id` + `position` only (no `surface_id`). Four-wall example (gipsowa S3 / gipsowa S3 / beton S3 / GK Q3) supported natively; "apply to all walls" copies the planning configuration into the other walls' plans.
+  2. **Plan quantity override removed** — `SurfacePlannedWork.quantity_override` dropped; canonical flow `Surface geometry → source_quantity → EstimateLine.quantity`; single override layer on the estimate line (`quantity_overridden`).
+  3. **Manual lines do not require a PriceItem** — `lineorigin` = `PLANNED_WORK / PRICE_BOOK / MANUAL`; `price_item_id` NULL for MANUAL; manual line supplies description/classification/unit/quantity/unit_price/currency and never touches the Price Book.
+  4. **LABOR / MATERIAL are the normal estimate model** — ROBOCIZNA + MATERIAŁY subtotals + RAZEM; `LABOR_AND_MATERIAL` remains supported as an exception/compatibility bucket (no split invented); Stage 9 `PriceScope` unchanged.
+  5. **Versioning / regeneration** — no new version per click; DRAFT regenerates in place with explicit preview/confirmation; manual lines and owner overrides preserved; new version only for a meaningful commercial revision of an immutable document.
+  6. All §24 decisions (D1–D18), the entity diagram, §26 acceptance scenario, and Appendix A updated; contradictory 10A text removed.
+
+#### Changed:
+- `docs/development-progress.md` — Stage 10 roadmap row status now includes the 10A.1 correction.
+
+#### Database:
+- None — documentation-only. Proposed 10B tables keep their names (`surface_work_plans`, `surface_planned_works`, `estimates`, `estimate_lines`) but are corrected: `planstatus` enum dropped (no plan status), `lineorigin` three-valued, `source_quantity` + `quantity_overridden` added to estimate lines, `quantity_override` removed from the plan.
+
+#### Tests:
+- None executed — no application code.
+
+#### Verification:
+- `git diff --check` clean; diff limited to the two documentation files; no code/migration/build artifacts touched. STOP per instruction — no commit, no push, no 10B.
 
 ## Stage Log Template for Future Stages
 
