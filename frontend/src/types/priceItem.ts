@@ -66,7 +66,8 @@ export interface PriceItem {
   display_name: string | null;
   category: PriceCategoryValue;
   unit: PriceUnitValue;
-  price: string;
+  /** NULL = owner price not set yet ("Do ustalenia"); 0.00 is a real price. */
+  price: string | null;
   currency: string;
   price_scope: PriceScopeValue;
   quality_level: QualityLevelValue | null;

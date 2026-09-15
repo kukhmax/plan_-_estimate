@@ -11,7 +11,11 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.domain.data.price_book_seed import PriceItemSeed, build_technical_baseline_price_items
+from app.domain.data.price_book_seed import (
+    LEGACY_GENERIC_CODES,
+    PriceItemSeed,
+    build_approved_price_book_items,
+)
 from app.domain.exceptions import PriceBookValidationError, PriceItemNotFoundError
 from app.domain.services.price_book_service import (
     PriceBookService,
@@ -189,13 +193,16 @@ class TestValidation:
         with pytest.raises(PriceBookValidationError, match="display_name"):
             await service.create_custom_item(user.id, **_custom_kwargs(display_name="   "))
 
-    async def test_seeded_rows_use_name_key_and_placeholder_prices(self, db_session):
+    async def test_seeded_rows_use_name_key_and_null_price(self, db_session):
         user = await _make_user(db_session, 2002)
         service = PriceBookService(db_session)
         await service.ensure_owner_catalog(user.id)
-        for item in await service.list_owner_items(user.id):
+        items = await service.list_owner_items(user.id)
+        assert len(items) == 44
+        for item in items:
             assert item.name_key is not None
             assert item.display_name is None  # seeded rows localize via name_key
+            assert item.price is None  # 9E.7: NULL = owner price not set yet
             assert item.code.startswith("CENNIK_")
 
 
@@ -204,15 +211,15 @@ class TestSeedBootstrap:
         user = await _make_user(db_session, 3001)
         service = PriceBookService(db_session)
         created = await service.ensure_owner_catalog(user.id)
-        assert {i.code for i in created} == {s.code for s in build_technical_baseline_price_items()}
-        assert len(await service.list_owner_items(user.id)) == 4
+        assert {i.code for i in created} == {s.code for s in build_approved_price_book_items()}
+        assert len(await service.list_owner_items(user.id)) == 44
 
     async def test_second_materialization_is_idempotent(self, db_session):
         user = await _make_user(db_session, 3002)
         service = PriceBookService(db_session)
         await service.ensure_owner_catalog(user.id)
         assert await service.ensure_owner_catalog(user.id) == []
-        assert len(await service.list_owner_items(user.id)) == 4
+        assert len(await service.list_owner_items(user.id)) == 44
 
     async def test_owner_edit_preserved_on_rematerialize(self, db_session):
         user = await _make_user(db_session, 3003)
@@ -220,7 +227,7 @@ class TestSeedBootstrap:
         await service.ensure_owner_catalog(user.id)
         prep = next(
             i for i in await service.list_owner_items(user.id)
-            if i.code == "CENNIK_PREP_GENERIC_M2"
+            if i.code == "CENNIK_PREP_WALLP-01"
         )
         await service.update_item(user.id, prep.id, price=Decimal("12.50"))
         await service.ensure_owner_catalog(user.id)  # must not overwrite the edit
@@ -232,7 +239,7 @@ class TestSeedBootstrap:
         service = PriceBookService(db_session)
         await service.ensure_owner_catalog(user.id)
 
-        baseline = build_technical_baseline_price_items()
+        baseline = build_approved_price_book_items()
         extra = PriceItemSeed(
             code="CENNIK_PREP_EXTRA_M2",
             category=PriceCategory.PREPARATION,
@@ -241,12 +248,12 @@ class TestSeedBootstrap:
             name_key="pricebook.seed.prep_extra_m2",
         )
         monkeypatch.setattr(
-            "app.domain.services.price_book_service.build_technical_baseline_price_items",
+            "app.domain.services.price_book_service.build_approved_price_book_items",
             lambda: [*baseline, extra],
         )
         created = await service.ensure_owner_catalog(user.id)
         assert [i.code for i in created] == ["CENNIK_PREP_EXTRA_M2"]
-        assert len(await service.list_owner_items(user.id)) == 5
+        assert len(await service.list_owner_items(user.id)) == 45
 
     async def test_no_cross_owner_leakage(self, db_session):
         user1 = await _make_user(db_session, 3005)

@@ -15,8 +15,8 @@ vi.mock('../api/priceItems', () => ({
 
 const seedPrep: PriceItem = {
   id: 'item-1',
-  code: 'CENNIK_PREP_GENERIC_M2',
-  name_key: 'pricebook.seed.prep_generic_m2',
+  code: 'CENNIK_PREP_WALLP-01',
+  name_key: 'pricebook.seed.prep_wallp',
   display_name: null,
   category: 'PREPARATION',
   unit: 'M2',
@@ -31,8 +31,8 @@ const seedPrep: PriceItem = {
 
 const seedPaint: PriceItem = {
   id: 'item-2',
-  code: 'CENNIK_PAINT_GENERIC_M2',
-  name_key: 'pricebook.seed.paint_generic_m2',
+  code: 'CENNIK_PAINT_2K-01',
+  name_key: 'pricebook.seed.paint_2k',
   display_name: null,
   category: 'PAINTING',
   unit: 'M2',
@@ -115,8 +115,8 @@ describe('PriceBook — list and cards', () => {
     });
     renderBook();
 
-    expect(await screen.findByText('Przygotowanie podłoża – ogólne')).toBeInTheDocument();
-    expect(screen.getByText('Malowanie – ogólne')).toBeInTheDocument();
+    expect(await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)')).toBeInTheDocument();
+    expect(screen.getByText('Malowanie ścian — 2 warstwy (standard)')).toBeInTheDocument();
     expect(screen.getByText('Malowanie lateksowe dwukrotnie')).toBeInTheDocument();
     expect(priceItemsApi.fetchPriceItems).toHaveBeenCalledWith(
       expect.objectContaining({ archived: 'active' }),
@@ -144,8 +144,8 @@ describe('PriceBook — list and cards', () => {
     });
     renderBook();
 
-    await screen.findByText('Przygotowanie podłoża – ogólne');
-    expect(screen.queryByText(/CENNIK_PREP_GENERIC_M2/)).not.toBeInTheDocument();
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+    expect(screen.queryByText(/CENNIK_PREP_WALLP-01/)).not.toBeInTheDocument();
     expect(screen.queryByText(/pricebook\.seed\./)).not.toBeInTheDocument();
     expect(screen.queryByText(/CUSTOM_AB1234CD5678/)).not.toBeInTheDocument();
     expect(screen.queryByText(/item-1/)).not.toBeInTheDocument();
@@ -170,7 +170,7 @@ describe('PriceBook — list and cards', () => {
     });
     renderBook();
 
-    await screen.findByText('Przygotowanie podłoża – ogólne');
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
     expect(screen.queryByText('Praca sprzed roku')).not.toBeInTheDocument();
   });
 
@@ -196,7 +196,7 @@ describe('PriceBook — list and cards', () => {
     });
     renderBook();
 
-    expect(await screen.findByText('Подготовка основания — общая')).toBeInTheDocument();
+    expect(await screen.findByText('Снятие обоев (сдирание, утилизация)')).toBeInTheDocument();
     expect(screen.getByText('Прайс')).toBeInTheDocument();
     expect(screen.getByText('9,99 zł')).toBeInTheDocument();
   });
@@ -327,7 +327,7 @@ describe('PriceBook — edit', () => {
     expect(screen.getByLabelText('price-item-price')).toHaveValue('2.22');
     expect(screen.getByLabelText('price-item-category')).toHaveValue('PAINTING');
     expect(
-      screen.getByText(`Nazwa bazowa: ${'Malowanie – ogólne'}`),
+      screen.getByText(`Nazwa bazowa: ${'Malowanie ścian — 2 warstwy (standard)'}`),
     ).toBeInTheDocument();
   });
 
@@ -496,7 +496,7 @@ describe('PriceBook — archive / restore lifecycle', () => {
     await waitFor(() =>
       expect(screen.queryByText('Malowanie lateksowe dwukrotnie')).not.toBeInTheDocument(),
     );
-    expect(screen.getByText('Przygotowanie podłoża – ogólne')).toBeInTheDocument();
+    expect(screen.getByText('Usuwanie tapet (zdzieranie, utylizacja)')).toBeInTheDocument();
   });
 
   it('restores from the Archived tab back to the active list', async () => {

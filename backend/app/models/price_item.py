@@ -95,10 +95,14 @@ class PriceItem(Base):
         Enum(PriceUnit, name="priceunit"),
         nullable=False,
     )
-    price: Mapped[Decimal] = mapped_column(
+    price: Mapped[Decimal | None] = mapped_column(
         Numeric(12, 2),
-        nullable=False,
-        comment="Unit price in PLN; exactly 2 decimal places, >= 0 (0 = to be agreed)",
+        nullable=True,
+        comment=(
+            "Unit price in PLN; exactly 2 decimal places. NULL = owner commercial "
+            "price not set yet (Stage 10 rejects estimate lines); 0.00 is a real, "
+            "explicitly set zero price and must never be reused as a 'not set' sentinel"
+        ),
     )
     currency: Mapped[str] = mapped_column(
         String(3),

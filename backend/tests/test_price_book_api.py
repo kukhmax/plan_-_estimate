@@ -8,6 +8,7 @@ isolation with uniform 404s.
 import pytest
 from httpx import AsyncClient
 
+from app.domain.data.price_book_seed import build_approved_price_book_items
 from tests.conftest import make_telegram_init_data
 
 VALID_USER = {
@@ -26,12 +27,8 @@ OTHER_USER = {
     "language_code": "pl",
 }
 
-SEED_CODES = {
-    "CENNIK_PREP_GENERIC_M2",
-    "CENNIK_PAINT_GENERIC_M2",
-    "CENNIK_REVEAL_GENERIC_M2",
-    "CENNIK_REVEAL_GENERIC_LM",
-}
+SEED_CODES = {seed.code for seed in build_approved_price_book_items()}
+SEED_COUNT = len(SEED_CODES)
 
 
 async def get_token(async_client: AsyncClient, user_dict: dict) -> str:
@@ -86,12 +83,14 @@ async def test_first_list_bootstraps_owner_catalog(async_client: AsyncClient):
     resp = await async_client.get("/api/price-items", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total"] == 4
+    assert data["total"] == SEED_COUNT == 44
     assert {i["code"] for i in data["items"]} == SEED_CODES
-    # Seed rows localize via name_key; placeholders never marked as market data.
+    # Seed rows localize via name_key and carry no owner price yet (9E.7):
+    # price null, no display_name override, never archived.
     for item in data["items"]:
         assert item["name_key"] is not None
         assert item["display_name"] is None
+        assert item["price"] is None
         assert item["is_archived"] is False
 
 
@@ -101,13 +100,13 @@ async def test_seeded_edit_survives_rebootstrap(async_client: AsyncClient):
 
     resp = await async_client.get("/api/price-items", headers=headers)
     prep = next(
-        i for i in resp.json()["items"] if i["code"] == "CENNIK_PREP_GENERIC_M2"
+        i for i in resp.json()["items"] if i["code"] == "CENNIK_PREP_WALLP-01"
     )
 
     resp = await async_client.patch(
         f"/api/price-items/{prep['id']}",
         headers=headers,
-        json={"price": "12.50", "display_name": "Gruntowanie (własna cena)"},
+        json={"price": "12.50", "display_name": "Usuwanie tapet (własna cena)"},
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["price"] == "12.50"
@@ -117,10 +116,10 @@ async def test_seeded_edit_survives_rebootstrap(async_client: AsyncClient):
     resp = await async_client.get("/api/price-items", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total"] == 4
+    assert data["total"] == SEED_COUNT
     by_code = {i["code"]: i for i in data["items"]}
-    assert by_code["CENNIK_PREP_GENERIC_M2"]["price"] == "12.50"
-    assert by_code["CENNIK_PREP_GENERIC_M2"]["display_name"] == "Gruntowanie (własna cena)"
+    assert by_code["CENNIK_PREP_WALLP-01"]["price"] == "12.50"
+    assert by_code["CENNIK_PREP_WALLP-01"]["display_name"] == "Usuwanie tapet (własna cena)"
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +140,7 @@ async def _bootstrap_and_seed_catalog(async_client: AsyncClient, headers: dict) 
             "/api/price-items", headers=headers, params={"archived": "all"}
         )
     ).json()["items"]
-    lm = next(i for i in items if i["code"] == "CENNIK_REVEAL_GENERIC_LM")
+    lm = next(i for i in items if i["code"] == "CENNIK_REV_WORK_LM-01")
     await async_client.post(f"/api/price-items/{lm['id']}/archive", headers=headers)
     return {"custom_id": custom_id, "archived_id": lm["id"]}
 
@@ -154,7 +153,7 @@ async def test_list_archived_filter(async_client: AsyncClient):
     active = (
         await async_client.get("/api/price-items", headers=headers)
     ).json()
-    assert active["total"] == 4  # 3 active seeds + 1 custom
+    assert active["total"] == SEED_COUNT - 1 + 1 == 44  # 43 active seeds + 1 custom
     assert all(not i["is_archived"] for i in active["items"])
 
     archived = (
@@ -163,14 +162,14 @@ async def test_list_archived_filter(async_client: AsyncClient):
         )
     ).json()
     assert archived["total"] == 1
-    assert archived["items"][0]["code"] == "CENNIK_REVEAL_GENERIC_LM"
+    assert archived["items"][0]["code"] == "CENNIK_REV_WORK_LM-01"
 
     all_items = (
         await async_client.get(
             "/api/price-items", headers=headers, params={"archived": "all"}
         )
     ).json()
-    assert all_items["total"] == 5
+    assert all_items["total"] == SEED_COUNT + 1 == 45
 
 
 async def test_list_entity_filters(async_client: AsyncClient):
@@ -182,7 +181,7 @@ async def test_list_entity_filters(async_client: AsyncClient):
         "/api/price-items", headers=headers, params={"category": "PAINTING"}
     )
     data = resp.json()
-    assert data["total"] == 2  # CENNIK_PAINT_GENERIC_M2 + custom
+    assert data["total"] == 8  # 7 PAINTING seeds + custom
     assert {i["category"] for i in data["items"]} == {"PAINTING"}
 
     resp = await async_client.get(
@@ -198,8 +197,10 @@ async def test_list_entity_filters(async_client: AsyncClient):
     resp = await async_client.get(
         "/api/price-items", headers=headers, params={"quality_level": "Q3"}
     )
-    assert resp.json()["total"] == 1
-    assert resp.json()["items"][0]["id"] == ids["custom_id"]
+    # GK_FULL seeds as Q3; the custom item also rides Q3.
+    q3 = resp.json()
+    assert q3["total"] == 2
+    assert ids["custom_id"] in {i["id"] for i in q3["items"]}
 
 
 async def test_list_search(async_client: AsyncClient):
@@ -216,15 +217,15 @@ async def test_list_search(async_client: AsyncClient):
 
     # code match
     resp = await async_client.get(
-        "/api/price-items", headers=headers, params={"search": "CENNIK_PAINT"}
+        "/api/price-items", headers=headers, params={"search": "CENNIK_PAINT_2K"}
     )
-    assert {i["code"] for i in resp.json()["items"]} == {"CENNIK_PAINT_GENERIC_M2"}
+    assert {i["code"] for i in resp.json()["items"]} == {"CENNIK_PAINT_2K-01"}
 
     # name_key match (seeded identity, localized client-side)
     resp = await async_client.get(
         "/api/price-items",
         headers=headers,
-        params={"search": "pricebook.seed.paint"},
+        params={"search": "pricebook.seed.paint_2k"},
     )
     assert resp.json()["total"] == 1
 
@@ -534,9 +535,9 @@ async def test_ownership_isolation(async_client: AsyncClient):
     headers_a = auth_header(token_a)
     headers_b = auth_header(token_b)
 
-    # A bootstraps its own catalog (4 seed rows).
+    # A bootstraps its own catalog (44 seed rows).
     resp = await async_client.get("/api/price-items", headers=headers_a)
-    assert resp.json()["total"] == 4
+    assert resp.json()["total"] == SEED_COUNT
     a_seed_ids = {i["id"] for i in resp.json()["items"]}
 
     # B's first list bootstraps B's OWN editable copies (same codes, distinct
@@ -554,10 +555,10 @@ async def test_ownership_isolation(async_client: AsyncClient):
     a_item_id = created["id"]
     a_code = created["code"]
 
-    # A sees only its own rows (4 seeds + 1 custom).
+    # A sees only its own rows (44 seeds + 1 custom).
     assert (
         await async_client.get("/api/price-items", headers=headers_a)
-    ).json()["total"] == 5
+    ).json()["total"] == SEED_COUNT + 1
     # B never gains visibility of A's custom or seeded rows.
     resp = await async_client.get("/api/price-items", headers=headers_b)
     b_ids = {i["id"] for i in resp.json()["items"]}

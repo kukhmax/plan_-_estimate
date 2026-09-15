@@ -121,7 +121,8 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
     display_name: item.display_name ?? '',
     category: item.category,
     unit: item.unit,
-    price: item.price,
+    // Seed rows bootstrap with price = null; editing lets the owner enter a price.
+    price: item.price ?? '',
     price_scope: item.price_scope,
     quality_level: item.quality_level ?? '',
   });
@@ -499,9 +500,15 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
                     {t.pricebook.market.my_price}
                   </p>
                   <p className="text-base font-extrabold text-slate-900 mt-1">
-                    <span className="text-emerald-700">
-                      {formatPrice(item.price)} {t.pricebook.currency_symbol}
-                    </span>
+                    {item.price === null ? (
+                      <span className="text-slate-500">
+                        {t.pricebook.price_not_set}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700">
+                        {formatPrice(item.price)} {t.pricebook.currency_symbol}
+                      </span>
+                    )}
                     <span className="text-slate-500 text-sm"> / {unitLabel(item.unit)}</span>
                   </p>
                 </div>

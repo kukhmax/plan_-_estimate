@@ -52,7 +52,7 @@ class PriceItemRead(BaseModel):
     display_name: str | None = None
     category: PriceCategory
     unit: PriceUnit
-    price: Decimal
+    price: Decimal | None
     currency: str
     price_scope: PriceScope
     quality_level: QualityLevel | None = None

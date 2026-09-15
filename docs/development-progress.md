@@ -51,7 +51,7 @@
 | **Stage 6** | **Inspection Checklist Engine** | **Completed** | Substrate diagnostics, checklist questions, versioned templates, typed answers, factual findings, WALL/FLOOR/CEILING/room-level targets, quality-scale validation, and owner-accepted final manual acceptance |
 | Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | **Stage 8** | **"Co powiedzieć klientowi" (Client Communication Assistant)** | **Completed 2026-09-13** | Deterministic, rule-driven client communication recommendations (PL/RU) from completed-inspection facts — versioned immutable phrase catalog, exact-key selection over materialized Stage 6/7 facts, complete quality matrix, mobile communication cards with evaluate / "Why?" traceability / copy / active-resolved-all history |
-| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; **9E.6A (price market evidence backend foundation) Completed 2026-09-14 (committed `31540af` — models + migration 0015 + read-only evidence endpoint)**; **9E.6B (mobile price market evidence UI) Implemented 2026-09-14 (read-only compact market evidence on Price Book cards; 44-row catalog load NOT performed — deferred per owner instruction)**; 9E.7 (load) & 9F (final gate) Pending — 9E.7 NOT STARTED** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
+| **Stage 9** | **Editable Price Book / Cennik** | **In Progress — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; **9E.6A (price market evidence backend foundation) Completed 2026-09-14 (committed `31540af` — models + migration 0015 + read-only evidence endpoint)**; **9E.6B (mobile price market evidence UI) Implemented 2026-09-14 (read-only compact market evidence on Price Book cards; 44-row catalog load NOT performed — deferred per owner instruction)**; **9E.7 (load approved 44-row catalog + market evidence + nullable price foundation) Implemented 2026-09-15 (44 canonical rows: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 28 market references / 112 sources seeded idempotently; legacy GENERIC seeds retired; migration 0016 makes PriceItem.price nullable — NULL = not set, 0.00 = real zero; full backend 515 tests + frontend 304 tests PASS; uncommitted — awaiting owner acceptance)**; 9F (final gate) Pending — **9F NOT STARTED** | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
 | Stage 10 | Estimate / Kosztorys | Pending | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) |
 | Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
@@ -1971,6 +1971,58 @@ placeholder seeds remain untouched.
 - **Deferred**: loading the 44 approved catalog rows; owner-price/evidence seed wiring (9E.7); CI/deploy.
   **STAGE_9E.7: NOT STARTED** — next sub-stage requires explicit owner approval. Canonical Stage 9 remains
   **In Progress**; Stage 10 remains **Pending**.
+
+#### 9E.7 execution status 2026-09-15 — load approved 44-row catalog + market evidence + nullable price (IMPLEMENTED; uncommitted — awaiting owner acceptance)
+
+**Deliverable**: replaces the four 9B *technical placeholder* seeds (`CENNIK_*_GENERIC_*`, prices
+1.11/2.22/3.33/4.44) with the owner-approved 44-row catalog and materializes the approved market evidence
+for the 28 MARKET_SUPPORTED rows, idempotently. Owner-locked precision policy: **OWNER PRICE ≠ MARKET RANGE ≠
+SOURCE QUOTED PRICE** — no market value is ever written into `PriceItem.price`; every canonical row seeds
+`price = NULL` ("Do ustalenia" / «Уточняется»), `0.00` remains a real, explicitly set zero (never a "not set"
+sentinel), and `reference_price` stays evidence-only.
+
+- **Backend — seed data (new)**: `domain/data/price_book_seed.py` rewritten — `PriceItemSeed`
+  (`price: str | None = None`), `PriceSourceSeed`, `MarketReferenceSeed`;
+  `build_approved_price_book_items()` → **44 canonical rows (28 MARKET_SUPPORTED / 16 OWN_PRICE)**, each
+  `price=None`, `name_key = pricebook.seed.<stem>`, category/unit/scope per catalog §16.3 + 9E.5 decisions;
+  quality seeded only for unambiguous single-tier rows (**GK_FULL → Q3**, **GK_Q4 → Q4**; GK_JOINT/SKIM_SQ
+  dual hints stay NULL); `build_approved_market_references()` → **28 references / 112 sources**, every URL
+  copied verbatim from `docs/price-research-batch-{a..e}.md` + the catalog (a docs-corpus test asserts all
+  112); `LEGACY_GENERIC_CODES` (the four 9B GENERIC codes). The Stage 9B
+  `build_technical_baseline_price_items()` is deleted.
+- **Backend — service (changed)**: `price_book_service.ensure_owner_catalog` extended — inserts missing canonical
+  seeds (`price=NULL`), **retires** legacy GENERIC rows once on bootstrap (`is_archived=True`; ids/edits/name_key
+  preserved; never deleted), and **reconciles evidence idempotently by content-key** (region + unit + quantized
+  min/max/ref + checked_at + methodology_note; per-source top-up by full content tuple — a reference/source is
+  never duplicated). Second bootstrap returns `[]` and never overwrites owner edits. The 16 OWN_PRICE rows get
+  **no** numeric ranges (UI keeps "Brak danych rynkowych"); GF_FLIZ_L/M and MC_STAIRS carry no authored evidence;
+  SKIM_CRACK (LM) and GK_JOINT (LM) preserve their own units with no LM↔M² conversion.
+- **Backend — nullable price (9E.7 owner decision, one explicit override)**: new migration
+  `alembic/versions/0016_make_price_nullable.py` (over `price_items.price`): NULL allowed = owner commercial
+  price not set yet; 0.00 stays a real price; `PriceItemRead.price` becomes nullable in the API JSON; custom
+  create still requires an explicit price; PATCH can set a real price later; explicit null via PATCH is a no-op;
+  nothing ever converts NULL → 0.00 and no estimate engine reads `PriceItem.price` yet (Stage 10 will reject/flag
+  null-priced lines — documented, no code now). Migration cycle verified on dev infra (NOT production): fresh
+  scratch DB `plan_estimate_migration_check` on the dev postgres container → `upgrade head` → `downgrade -1` →
+  `upgrade head` all PASS, then the scratch DB was dropped. (Revision id renamed to the 25-char
+  `0016_make_price_nullable` — the initial working id exceeded `alembic_version.version_num VARCHAR(32)`.)
+- **Frontend (changed)**: `types/priceItem.ts` — `PriceItem.price: string | null` (create payload stays
+  required); `components/PriceBook.tsx` — a null price renders localized `pricebook.price_not_set`
+  ("Do ustalenia" / «Уточняется»), `0.00` renders `0,00 zł` via the existing `formatPrice`, and editing a null
+  seed row opens with an empty price field (`item.price ?? ''`) so the owner can enter a price;
+  `locales/pl.json` + `ru.json` — the 44 canonical `pricebook.seed.*` keys replace the 4 legacy GENERIC keys
+  (values verbatim from catalog §3–§11 row tables; parity test now asserts all 44).
+- **Tests**: new `test_price_book_catalog_9e7.py` (catalog seed / bootstrap / evidence seed incl. the
+  docs-verbatim URL corpus check / idempotency / owner isolation / API envelope), new
+  `test_price_item_nullable_price.py` (null persists, 0.00 ≠ null, PATCH sets a real price on a null seed row,
+  no NULL→0 conversions, custom create still requires a price), new `PriceBook.nullprice.test.tsx` (null →
+  price_not_set PL/RU, 0.00 → "0,00 zł", editing a null row submits a real price, seeded name_key resolves).
+  Focused backend price-book/evidence files: **175 passed**. Full backend suite: **515 passed / 0 failed**.
+  Full frontend suite: **304 passed / 0 failed**; `tsc --noEmit` PASS; `vite build` PASS; `git diff --check` PASS.
+- **Deferred**: Stage 10 null-priced-line flagging (documented above, no code now); CI/deploy; manual Telegram
+  acceptance at 390/412 px pending owner review. **STAGE_9F: NOT STARTED** — the next stage requires explicit
+  owner approval. Canonical Stage 9 remains **In Progress**; the 9E.7 change set is **uncommitted** — per the
+  stage discipline the owner performs the git commit and push.
 
 ## Stage Log Template for Future Stages
 

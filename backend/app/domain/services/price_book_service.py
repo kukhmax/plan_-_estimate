@@ -16,8 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.domain.data.price_book_seed import (
+    LEGACY_GENERIC_CODES,
+    MarketReferenceSeed,
     PriceItemSeed,
-    build_technical_baseline_price_items,
+    PriceSourceSeed,
+    build_approved_market_references,
+    build_approved_price_book_items,
 )
 from app.domain.exceptions import (
     MarketReferenceNotFoundError,
@@ -41,6 +45,20 @@ _ALLOWED_CURRENCIES = frozenset({"PLN"})
 
 # Distinguishes "field omitted" from an explicit clear-to-null in a PATCH.
 _UNSET = object()
+
+
+def _as_decimal(value: str | None) -> Decimal | None:
+    return Decimal(str(value)) if value is not None else None
+
+
+def _money(value: Decimal) -> Decimal:
+    """Quantize a money value to the Numeric(12, 2) scale for content-key equality.
+
+    The money contract bounds inputs to two decimals, so quantization never
+    rounds; it only aligns DB-rounded values (Decimal("12.00")) with seed
+    literals (Decimal("12")) for idempotent evidence reconciliation.
+    """
+    return value.quantize(Decimal("0.01"))
 
 
 def validate_price(value: Decimal) -> Decimal:
@@ -230,28 +248,45 @@ class PriceBookService:
         self.db = db
 
     async def ensure_owner_catalog(self, owner_id: uuid.UUID) -> list[PriceItem]:
-        """Materialize every missing baseline seed code for one owner.
+        """Materialize the owner's catalog and market evidence (idempotent).
 
-        Idempotent: only codes not already present for this owner are inserted,
-        and existing owner rows (including user edits) are never overwritten.
+        Adds every missing 9E.5 canonical seed (``price=None``), retires the
+        Stage 9B GENERIC placeholders once (soft-archive, never delete), and
+        reconciles the approved evidence: a reference (or any missing source) is
+        created only when its content key is absent, so repeated bootstraps do
+        not duplicate rows and existing owner rows (including user edits and the
+        owner's own research) are never overwritten. Commits only when something
+        actually changed.
         """
         async with _bootstrap_lock:
-            existing_codes = set(
-                (
-                    await self.db.execute(
-                        select(PriceItem.code).where(PriceItem.owner_id == owner_id)
-                    )
-                ).scalars()
-            )
-            missing = [
-                seed
-                for seed in build_technical_baseline_price_items()
-                if seed.code not in existing_codes
-            ]
+            existing = (
+                await self.db.execute(
+                    select(PriceItem).where(PriceItem.owner_id == owner_id)
+                )
+            ).scalars().all()
+            by_code = {row.code: row for row in existing}
+
             created: list[PriceItem] = []
-            for seed in missing:
-                created.append(self._materialize_seed(owner_id, seed))
+            for seed in build_approved_price_book_items():
+                if seed.code not in by_code:
+                    item = self._materialize_seed(owner_id, seed)
+                    created.append(item)
+                    by_code[item.code] = item
+            changed = bool(created)
             if created:
+                # New ids are required before evidence can link to their items.
+                await self.db.flush()
+
+            for code in LEGACY_GENERIC_CODES:
+                row = by_code.get(code)
+                if row is not None and not row.is_archived:
+                    row.is_archived = True
+                    changed = True
+
+            if await self._reconcile_evidence(owner_id, by_code):
+                changed = True
+
+            if changed:
                 await self.db.commit()
             return created
 
@@ -262,12 +297,154 @@ class PriceBookService:
             name_key=seed.name_key,
             category=seed.category,
             unit=seed.unit,
-            price=Decimal(seed.price),
+            price=Decimal(seed.price) if seed.price is not None else None,
             price_scope=seed.price_scope,
+            quality_level=seed.quality_level,
             currency="PLN",
         )
         self.db.add(item)
         return item
+
+    async def _reconcile_evidence(
+        self,
+        owner_id: uuid.UUID,
+        by_code: dict[str, PriceItem],
+    ) -> bool:
+        """Create missing approved references/sources; True if anything was added.
+
+        References are matched by content key (region + unit + market bounds +
+        reference price + checked_at + methodology_note + currency), sources by
+        their full content tuple, so repeated bootstraps never duplicate rows and
+        a user's own research is preserved as long as it differs in any field.
+        """
+        item_ids = [item.id for item in by_code.values()]
+        if not item_ids:
+            return False
+        refs = (
+            await self.db.execute(
+                select(PriceMarketReference)
+                .where(PriceMarketReference.price_item_id.in_(item_ids))
+                .options(selectinload(PriceMarketReference.sources))
+            )
+        ).scalars().all()
+
+        changed = False
+        for code, seed in build_approved_market_references().items():
+            item = by_code.get(code)
+            if item is None:
+                continue
+            matching = [
+                reference
+                for reference in refs
+                if reference.price_item_id == item.id
+                and self._reference_matches(reference, seed)
+            ]
+            if not matching:
+                reference = self._materialize_reference(item, seed)
+                self.db.add(reference)
+                refs.append(reference)
+                changed = True
+                continue
+            existing = matching[0]
+            present_keys = {
+                self._source_content_key(source, source.checked_at)
+                for source in existing.sources
+            }
+            for src_seed in seed.sources:
+                key = self._source_content_key(src_seed, seed.checked_at)
+                if key not in present_keys:
+                    existing.sources.append(
+                        PriceSource(**self._source_payload(src_seed, seed.checked_at))
+                    )
+                    present_keys.add(key)
+                    changed = True
+        return changed
+
+    def _materialize_reference(
+        self,
+        item: PriceItem,
+        seed: MarketReferenceSeed,
+    ) -> PriceMarketReference:
+        reference = PriceMarketReference(
+            price_item_id=item.id,
+            region=seed.region,
+            unit=seed.unit,
+            currency="PLN",
+            market_min=_as_decimal(seed.market_min),
+            market_max=_as_decimal(seed.market_max),
+            reference_price=_as_decimal(seed.reference_price),
+            methodology_note=seed.methodology_note,
+            checked_at=normalize_checked_at(seed.checked_at),
+        )
+        for src_seed in seed.sources:
+            reference.sources.append(
+                PriceSource(**self._source_payload(src_seed, seed.checked_at))
+            )
+        return reference
+
+    @staticmethod
+    def _source_payload(src_seed: PriceSourceSeed, checked_at: datetime) -> dict:
+        return {
+            "source_name": src_seed.source_name,
+            "source_type": src_seed.source_type,
+            "source_url": src_seed.source_url,
+            "source_region": None,
+            "quoted_price_min": _as_decimal(src_seed.quoted_price_min),
+            "quoted_price_max": _as_decimal(src_seed.quoted_price_max),
+            "quoted_price_single": _as_decimal(src_seed.quoted_price_single),
+            "quoted_unit": src_seed.quoted_unit,
+            "note": src_seed.note,
+            "checked_at": checked_at,
+        }
+
+    @staticmethod
+    def _reference_matches(
+        reference: PriceMarketReference,
+        seed: MarketReferenceSeed,
+    ) -> bool:
+        return (
+            reference.region == seed.region
+            and reference.unit == seed.unit
+            and reference.currency == "PLN"
+            and _money(reference.market_min) == _money(_as_decimal(seed.market_min))
+            and _money(reference.market_max) == _money(_as_decimal(seed.market_max))
+            and (
+                (reference.reference_price is None and seed.reference_price is None)
+                or (
+                    reference.reference_price is not None
+                    and seed.reference_price is not None
+                    and _money(reference.reference_price)
+                    == _money(_as_decimal(seed.reference_price))
+                )
+            )
+            and reference.methodology_note == seed.methodology_note
+            and normalize_checked_at(reference.checked_at)
+            == normalize_checked_at(seed.checked_at)
+        )
+
+    @staticmethod
+    def _source_content_key(
+        source,
+        checked_at: datetime | None,
+    ) -> tuple:
+        """Canonical content key for one source (works for PriceSource and seed)."""
+        return (
+            source.source_name,
+            source.source_type,
+            source.source_url,
+            _money(_as_decimal(source.quoted_price_min))
+            if source.quoted_price_min is not None
+            else None,
+            _money(_as_decimal(source.quoted_price_max))
+            if source.quoted_price_max is not None
+            else None,
+            _money(_as_decimal(source.quoted_price_single))
+            if source.quoted_price_single is not None
+            else None,
+            source.quoted_unit,
+            source.note,
+            normalize_checked_at(checked_at) if checked_at is not None else None,
+        )
 
     async def generate_custom_code(self, owner_id: uuid.UUID) -> str:
         """Return a unique, stable CUSTOM_* code for the owner (server-side)."""

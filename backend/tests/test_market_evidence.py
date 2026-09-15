@@ -47,7 +47,7 @@ OTHER_USER = {
     "language_code": "pl",
 }
 
-PAINT_CODE = "CENNIK_PAINT_GENERIC_M2"
+PAINT_CODE = "CENNIK_PAINT_MASK-01"
 CHECKED_AT = datetime(2026, 9, 14, 9, 0, 0, tzinfo=timezone.utc)
 EARLIER_CHECKED_AT = datetime(2026, 9, 1, 9, 0, 0, tzinfo=timezone.utc)
 
