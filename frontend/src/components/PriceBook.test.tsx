@@ -489,6 +489,36 @@ describe('PriceBook — inline catalog price edit (Stage 9E.8)', () => {
     expect(screen.getByLabelText('inline-price-input-item-6')).toHaveValue('0.00');
   });
 
+  it('keeps an explicit 0.00 catalog price as a payable zero through save — never null', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [zeroCatalog],
+      total: 1,
+    });
+    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValueOnce({
+      ...zeroCatalog,
+      price: '0.00',
+    });
+    renderBook();
+    await screen.findByText('Gruntowanie gruntem penetrującym (pod szpachlowanie)');
+
+    expect(screen.getByText('0,00 zł')).toBeInTheDocument();
+    expect(screen.queryByText('Do ustalenia')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('edit-price-item-item-6'));
+    expect(screen.getByLabelText('inline-price-input-item-6')).toHaveValue('0.00');
+
+    fireEvent.click(screen.getByLabelText('inline-price-save-item-6'));
+
+    await waitFor(() =>
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-6', { price: '0.00' }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByLabelText('inline-price-edit-item-6')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('0,00 zł')).toBeInTheDocument();
+    expect(screen.queryByText('Do ustalenia')).not.toBeInTheDocument();
+  });
+
   it('shows the canonical unit read-only and hides the canonical metadata fields', async () => {
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
       items: [seedPrep],

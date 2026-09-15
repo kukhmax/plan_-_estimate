@@ -41,6 +41,23 @@ const item: PriceItem = {
 
 const archivedItem: PriceItem = { ...item, id: 'item-4', is_archived: true };
 
+/** Canonical seeded row with no owner price yet — the Stage 9E.7.1 regression target. */
+const nullCatalog: PriceItem = {
+  id: 'item-9',
+  code: 'CENNIK_PREP_WALLP-02',
+  name_key: 'pricebook.seed.prep_wallp',
+  display_name: null,
+  category: 'PREPARATION',
+  unit: 'M2',
+  price: null,
+  currency: 'PLN',
+  price_scope: 'LABOR',
+  quality_level: null,
+  is_archived: false,
+  created_at: '2026-09-13T10:00:00Z',
+  updated_at: '2026-09-13T10:00:00Z',
+};
+
 function makeSource(over: Partial<PriceSource> = {}): PriceSource {
   return {
     id: 'src-1',
@@ -501,5 +518,94 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
     const viewer = await screen.findByLabelText('price-sources-viewer-item-1');
     expect(within(viewer).getByText('Рыночные источники')).toBeInTheDocument();
     expect(screen.getByLabelText('close-price-sources-item-1')).toHaveTextContent('Закрыть');
+  });
+
+  it('keeps market evidence visible and unchanged through a null-catalog price edit (invariant)', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [nullCatalog],
+      total: 1,
+    });
+    vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValueOnce({
+      items: [makeReference()],
+      total: 1,
+    });
+    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValueOnce({
+      ...nullCatalog,
+      price: '65.00',
+    });
+    renderBook();
+
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+    const market = await screen.findByLabelText('price-item-market-item-9');
+    expect(market).toHaveTextContent('55,00–75,00 zł / m²');
+
+    fireEvent.click(screen.getByLabelText('edit-price-item-item-9'));
+
+    // The inline editor opens straight on the card; the evidence block stays put.
+    const editor = screen.getByLabelText('inline-price-edit-item-9');
+    expect(screen.getByLabelText('inline-price-input-item-9')).toHaveValue('');
+    expect(editor).toHaveTextContent('m²');
+    expect(screen.getByLabelText('price-item-market-item-9')).toHaveTextContent(
+      '55,00–75,00 zł / m²',
+    );
+
+    fireEvent.change(screen.getByLabelText('inline-price-input-item-9'), {
+      target: { value: '65.00' },
+    });
+    fireEvent.click(screen.getByLabelText('inline-price-save-item-9'));
+
+    await waitFor(() =>
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-9', { price: '65.00' }),
+    );
+    expect(await screen.findByText('65,00 zł')).toBeInTheDocument();
+
+    // Owner-price PATCHes never touch market evidence: range, checked date and sources remain.
+    const marketAfter = screen.getByLabelText('price-item-market-item-9');
+    expect(marketAfter).toHaveTextContent('55,00–75,00 zł / m²');
+    expect(marketAfter).toHaveTextContent('Sprawdzono: 13.09.2026');
+    expect(screen.getByLabelText('price-item-sources-toggle-item-9')).toHaveTextContent(
+      'Źródła (1)',
+    );
+    fireEvent.click(screen.getByLabelText('price-item-sources-toggle-item-9'));
+    expect(await screen.findByLabelText('price-item-source-item-9-0')).toHaveTextContent(
+      'Firma Wykończeniowa sp. z o.o.',
+    );
+  });
+
+  it('does not let an expanded Sources viewer block the catalog Edit flow', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [nullCatalog],
+      total: 1,
+    });
+    vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValueOnce({
+      items: [makeReference()],
+      total: 1,
+    });
+    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValueOnce({
+      ...nullCatalog,
+      price: '65.00',
+    });
+    renderBook();
+
+    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+    fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-9'));
+    await screen.findByLabelText('price-sources-viewer-item-9');
+
+    // A previously expanded sources sheet must not leave Edit unreachable.
+    fireEvent.click(screen.getByLabelText('edit-price-item-item-9'));
+    expect(screen.getByLabelText('inline-price-edit-item-9')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('close-price-sources-item-9'));
+    fireEvent.change(screen.getByLabelText('inline-price-input-item-9'), {
+      target: { value: '65.00' },
+    });
+    fireEvent.click(screen.getByLabelText('inline-price-save-item-9'));
+
+    await waitFor(() =>
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-9', { price: '65.00' }),
+    );
+    // Sources remain available after the owner-price edit.
+    fireEvent.click(screen.getByLabelText('price-item-sources-toggle-item-9'));
+    expect(await screen.findByLabelText('price-sources-viewer-item-9')).toBeInTheDocument();
   });
 });
