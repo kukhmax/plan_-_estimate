@@ -30,6 +30,7 @@ from app.models.risk import (
 from app.models.room import Room
 from app.models.surface import Surface
 from app.models.user import User
+from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
 
 __all__ = [
     "AnswerType",
@@ -65,5 +66,7 @@ __all__ = [
     "SourceType",
     "Substrate",
     "Surface",
+    "SurfacePlannedWork",
+    "SurfaceWorkPlan",
     "User",
 ]

@@ -99,3 +99,11 @@ class MarketReferenceNotFoundError(Exception):
 
 class PriceBookValidationError(Exception):
     """Raised when price book input violates a Stage 9 domain rule."""
+
+
+class SurfaceWorkPlanNotFoundError(Exception):
+    """Raised when a surface has no work plan, or the plan is not accessible."""
+
+
+class SurfaceWorkPlanValidationError(Exception):
+    """Raised when work plan input violates a Stage 10 domain rule."""
