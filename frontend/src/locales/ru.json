@@ -800,4 +800,22 @@
       "dec_generic": "Декоративная штукатурка — общая"
     }
   }
+  ,
+  "reveals": {
+    "toggle": "Рассчитать откосы",
+    "depth": "Глубина (м)",
+    "sides": "Стороны откоса",
+    "side_left": "Левая",
+    "side_right": "Правая",
+    "side_top": "Верх",
+    "side_bottom": "Низ",
+    "length": "Длина откоса",
+    "area": "Площадь откоса",
+    "per_opening": "На проём",
+    "total": "Итого",
+    "summary_title": "Откосы",
+    "summary_windows": "Окна",
+    "summary_doors": "Двери",
+    "summary_combined": "Всего"
+  }
 }

@@ -6,13 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import (
     DeductionExceedsGrossAreaError,
+    InvalidRevealConfigError,
     InvalidSurfaceTypeError,
     OpeningNotFoundError,
     ProjectNotFoundError,
     RoomNotFoundError,
     SurfaceNotFoundError,
 )
-from app.models.opening import Opening
+from app.models.opening import Opening, OpeningType
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
@@ -139,6 +140,12 @@ class OpeningService:
             height=payload.height,
             quantity=payload.quantity,
             description=payload.description,
+            reveal_enabled=payload.reveal_enabled,
+            reveal_depth=payload.reveal_depth,
+            reveal_left=payload.reveal_left,
+            reveal_right=payload.reveal_right,
+            reveal_top=payload.reveal_top,
+            reveal_bottom=payload.reveal_bottom,
         )
         self.db.add(opening)
         await self.db.commit()
@@ -201,6 +208,29 @@ class OpeningService:
                     raise DeductionExceedsGrossAreaError(
                         f"Total opening deductions ({total_deductions}) would exceed wall gross area ({gross_area})"
                     )
+
+        target_reveal_enabled = (
+            payload.reveal_enabled
+            if "reveal_enabled" in payload.model_fields_set
+            else opening.reveal_enabled
+        )
+        target_reveal_depth = (
+            payload.reveal_depth
+            if "reveal_depth" in payload.model_fields_set
+            else opening.reveal_depth
+        )
+        target_opening_type = (
+            payload.opening_type if payload.opening_type is not None else opening.opening_type
+        )
+        if target_reveal_enabled:
+            if target_opening_type == OpeningType.OTHER:
+                raise InvalidRevealConfigError(
+                    "Reveal calculation is only available for WINDOW and DOOR openings"
+                )
+            if target_reveal_depth is None:
+                raise InvalidRevealConfigError(
+                    "reveal_depth is required when reveal_enabled is True"
+                )
 
         for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(opening, field, value)

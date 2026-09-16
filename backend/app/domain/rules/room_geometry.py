@@ -61,6 +61,28 @@ class ResolvedRoomTotals:
 
 
 @dataclass(frozen=True)
+class RevealResult:
+    """Reveal (ościeże) totals for one opening record."""
+
+    single_length: Decimal
+    single_area: Decimal
+    total_length: Decimal
+    total_area: Decimal
+
+
+@dataclass(frozen=True)
+class RevealAggregateTotals:
+    """Room-level reveal aggregates split by opening type."""
+
+    window_total_length: Decimal | None
+    window_total_area: Decimal | None
+    door_total_length: Decimal | None
+    door_total_area: Decimal | None
+    combined_total_length: Decimal | None
+    combined_total_area: Decimal | None
+
+
+@dataclass(frozen=True)
 class PlaneAreaTotals:
     """Effective area of a single FLOOR/CEILING plane.
 
@@ -135,6 +157,50 @@ def calculate_opening_area(
     single = (width * height).quantize(AREA_PRECISION)
     total = (width * height * Decimal(quantity)).quantize(AREA_PRECISION)
     return OpeningAreaResult(single_area=single, total_area=total)
+
+
+def calculate_reveal(
+    width: Decimal,
+    height: Decimal,
+    depth: Decimal,
+    left: bool,
+    right: bool,
+    top: bool,
+    bottom: bool,
+    quantity: int = 1,
+) -> RevealResult | None:
+    """Calculate reveal totals for one opening.
+
+    Left/right edges run the full height; top/bottom edges run the full width.
+    Returns None when dimensions or depth are non-positive, quantity < 1, or
+    no sides are enabled.
+    """
+    if width <= 0 or height <= 0 or depth <= 0 or quantity < 1:
+        return None
+
+    single_length = Decimal("0.000")
+    if left:
+        single_length += height
+    if right:
+        single_length += height
+    if top:
+        single_length += width
+    if bottom:
+        single_length += width
+
+    if single_length <= 0:
+        return None
+
+    single_length = single_length.quantize(AREA_PRECISION)
+    single_area = (single_length * depth).quantize(AREA_PRECISION)
+    total_length = (single_length * Decimal(quantity)).quantize(AREA_PRECISION)
+    total_area = (single_area * Decimal(quantity)).quantize(AREA_PRECISION)
+    return RevealResult(
+        single_length=single_length,
+        single_area=single_area,
+        total_length=total_length,
+        total_area=total_area,
+    )
 
 
 def calculate_segment_area(

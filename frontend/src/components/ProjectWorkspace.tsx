@@ -699,6 +699,47 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
                     </strong>
                   </div>
                 </div>
+
+                {/* Reveal (ościeże) summary */}
+                {(selectedRoom.calculations?.window_reveal_total_length != null ||
+                  selectedRoom.calculations?.door_reveal_total_length != null) && (
+                  <div
+                    aria-label="room-reveals-summary"
+                    className="pt-2 border-t border-slate-100 space-y-1 text-[11px] text-slate-500"
+                  >
+                    <span className="block font-semibold text-slate-700">{t.reveals.summary_title}</span>
+                    {selectedRoom.calculations?.window_reveal_total_length != null && (
+                      <div className="flex justify-between">
+                        <span>{t.reveals.summary_windows}</span>
+                        <span>
+                          <strong className="text-slate-700">{formatMetric(selectedRoom.calculations.window_reveal_total_length)} {t.common.unit_m}</strong>
+                          {' / '}
+                          <strong className="text-slate-700">{formatMetric(selectedRoom.calculations.window_reveal_total_area)} {t.common.unit_m2}</strong>
+                        </span>
+                      </div>
+                    )}
+                    {selectedRoom.calculations?.door_reveal_total_length != null && (
+                      <div className="flex justify-between">
+                        <span>{t.reveals.summary_doors}</span>
+                        <span>
+                          <strong className="text-slate-700">{formatMetric(selectedRoom.calculations.door_reveal_total_length)} {t.common.unit_m}</strong>
+                          {' / '}
+                          <strong className="text-slate-700">{formatMetric(selectedRoom.calculations.door_reveal_total_area)} {t.common.unit_m2}</strong>
+                        </span>
+                      </div>
+                    )}
+                    {selectedRoom.calculations?.reveal_total_length != null && (
+                      <div className="flex justify-between font-medium text-slate-600">
+                        <span>{t.reveals.summary_combined}</span>
+                        <span>
+                          <strong>{formatMetric(selectedRoom.calculations.reveal_total_length)} {t.common.unit_m}</strong>
+                          {' / '}
+                          <strong>{formatMetric(selectedRoom.calculations.reveal_total_area)} {t.common.unit_m2}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div

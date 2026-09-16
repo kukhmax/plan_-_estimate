@@ -13,12 +13,13 @@ from app.domain.rules.room_geometry import (
     WallDerivedTotals,
     calculate_plane_base_area,
     calculate_plane_totals,
+    calculate_reveal,
     calculate_room_geometry,
     calculate_wall_derived_totals,
     resolve_room_totals,
 )
 from app.models.area_segment import AreaOperation, AreaPlane, AreaSegment
-from app.models.opening import Opening
+from app.models.opening import Opening, OpeningType
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
@@ -68,6 +69,10 @@ class RoomService:
         deduction: Decimal,
         floor_totals: PlaneAreaTotals | None = None,
         ceiling_totals: PlaneAreaTotals | None = None,
+        window_reveal_total_length: Decimal | None = None,
+        window_reveal_total_area: Decimal | None = None,
+        door_reveal_total_length: Decimal | None = None,
+        door_reveal_total_area: Decimal | None = None,
     ) -> RoomCalculations | None:
         resolved = resolve_room_totals(
             geometry,
@@ -78,6 +83,21 @@ class RoomService:
         )
         if resolved is None:
             return None
+
+        has_window = window_reveal_total_length is not None
+        has_door = door_reveal_total_length is not None
+        combined_length: Decimal | None = None
+        combined_area: Decimal | None = None
+        if has_window or has_door:
+            combined_length = (
+                (window_reveal_total_length or Decimal("0.000"))
+                + (door_reveal_total_length or Decimal("0.000"))
+            ).quantize(AREA_PRECISION)
+            combined_area = (
+                (window_reveal_total_area or Decimal("0.000"))
+                + (door_reveal_total_area or Decimal("0.000"))
+            ).quantize(AREA_PRECISION)
+
         return RoomCalculations(
             floor_area=resolved.floor_area,
             ceiling_area=resolved.ceiling_area,
@@ -88,6 +108,12 @@ class RoomService:
             total_deduction_area=resolved.total_deduction_area,
             net_wall_area=resolved.net_wall_area,
             wall_count=resolved.wall_count,
+            window_reveal_total_length=window_reveal_total_length,
+            window_reveal_total_area=window_reveal_total_area,
+            door_reveal_total_length=door_reveal_total_length,
+            door_reveal_total_area=door_reveal_total_area,
+            reveal_total_length=combined_length,
+            reveal_total_area=combined_area,
         )
 
     async def _load_plane_segment_totals(
@@ -124,6 +150,69 @@ class RoomService:
                 ) from exc
         return totals
 
+    async def _load_reveal_aggregates(
+        self,
+        room_id: uuid.UUID,
+    ) -> tuple[Decimal | None, Decimal | None, Decimal | None, Decimal | None]:
+        """Return (window_length, window_area, door_length, door_area) from active reveals."""
+        stmt = select(
+            Opening.opening_type,
+            Opening.width,
+            Opening.height,
+            Opening.quantity,
+            Opening.reveal_depth,
+            Opening.reveal_left,
+            Opening.reveal_right,
+            Opening.reveal_top,
+            Opening.reveal_bottom,
+        ).join(Surface, Opening.surface_id == Surface.id).where(
+            Surface.room_id == room_id,
+            Surface.is_archived.is_(False),
+            Opening.is_archived.is_(False),
+            Opening.reveal_enabled.is_(True),
+            Opening.opening_type.in_([OpeningType.WINDOW, OpeningType.DOOR]),
+        )
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        window_length = Decimal("0.000")
+        window_area = Decimal("0.000")
+        door_length = Decimal("0.000")
+        door_area = Decimal("0.000")
+        has_window = False
+        has_door = False
+
+        for otype, width, height, qty, depth, left, right, top, bottom in rows:
+            if depth is None:
+                continue
+            rev = calculate_reveal(
+                Decimal(str(width)),
+                Decimal(str(height)),
+                Decimal(str(depth)),
+                bool(left),
+                bool(right),
+                bool(top),
+                bool(bottom),
+                int(qty),
+            )
+            if rev is None:
+                continue
+            if OpeningType(otype) == OpeningType.WINDOW:
+                window_length += rev.total_length
+                window_area += rev.total_area
+                has_window = True
+            else:
+                door_length += rev.total_length
+                door_area += rev.total_area
+                has_door = True
+
+        return (
+            window_length.quantize(AREA_PRECISION) if has_window else None,
+            window_area.quantize(AREA_PRECISION) if has_window else None,
+            door_length.quantize(AREA_PRECISION) if has_door else None,
+            door_area.quantize(AREA_PRECISION) if has_door else None,
+        )
+
     async def _attach_calculations(self, room: Room) -> None:
         deduction_stmt = (
             select(
@@ -146,12 +235,17 @@ class RoomService:
             room.id, calculate_plane_base_area(room.length, room.width)
         )
         geometry = calculate_room_geometry(room.length, room.width, room.height)
+        w_len, w_area, d_len, d_area = await self._load_reveal_aggregates(room.id)
         room.calculations = self._build_calculations(
             geometry,
             wall_totals,
             deduction,
             floor_totals=plane_totals.get(AreaPlane.FLOOR),
             ceiling_totals=plane_totals.get(AreaPlane.CEILING),
+            window_reveal_total_length=w_len,
+            window_reveal_total_area=w_area,
+            door_reveal_total_length=d_len,
+            door_reveal_total_area=d_area,
         )
 
     async def list_rooms(
@@ -240,6 +334,71 @@ class RoomService:
             area = (Decimal(width) * Decimal(height)).quantize(AREA_PRECISION)
             segment_pairs_by_room[room_id][plane].append((operation, area))
 
+        reveal_stmt = (
+            select(
+                Surface.room_id,
+                Opening.opening_type,
+                Opening.width,
+                Opening.height,
+                Opening.quantity,
+                Opening.reveal_depth,
+                Opening.reveal_left,
+                Opening.reveal_right,
+                Opening.reveal_top,
+                Opening.reveal_bottom,
+            )
+            .join(Surface, Opening.surface_id == Surface.id)
+            .join(Room, Surface.room_id == Room.id)
+            .where(
+                Room.project_id == project_id,
+                Surface.is_archived.is_(False),
+                Opening.is_archived.is_(False),
+                Opening.reveal_enabled.is_(True),
+                Opening.opening_type.in_([OpeningType.WINDOW, OpeningType.DOOR]),
+            )
+        )
+        if not include_archived:
+            reveal_stmt = reveal_stmt.where(Room.is_archived.is_(False))
+        reveal_rows = (await self.db.execute(reveal_stmt)).all()
+
+        RevealAccum = dict[str, dict[str, Decimal]]
+        reveal_by_room: dict[uuid.UUID, RevealAccum] = defaultdict(
+            lambda: {
+                "w_len": Decimal("0.000"),
+                "w_area": Decimal("0.000"),
+                "d_len": Decimal("0.000"),
+                "d_area": Decimal("0.000"),
+            }
+        )
+        reveal_has_by_room: dict[uuid.UUID, dict[str, bool]] = defaultdict(
+            lambda: {"window": False, "door": False}
+        )
+        for r_room_id, otype, width, height, qty, depth, left, right, top, bottom in reveal_rows:
+            if depth is None:
+                continue
+            rev = calculate_reveal(
+                Decimal(str(width)),
+                Decimal(str(height)),
+                Decimal(str(depth)),
+                bool(left),
+                bool(right),
+                bool(top),
+                bool(bottom),
+                int(qty),
+            )
+            if rev is None:
+                continue
+            acc = reveal_by_room[r_room_id]
+            has = reveal_has_by_room[r_room_id]
+            if OpeningType(otype) == OpeningType.WINDOW:
+                acc["w_len"] += rev.total_length
+                acc["w_area"] += rev.total_area
+                has["window"] = True
+            else:
+                acc["d_len"] += rev.total_length
+                acc["d_area"] += rev.total_area
+                has["door"] = True
+
         stmt = stmt.order_by(Room.created_at.desc())
         result = await self.db.execute(stmt)
         rows = result.all()
@@ -266,12 +425,23 @@ class RoomService:
                 else None
             )
 
+            acc = reveal_by_room.get(room.id, {})
+            has = reveal_has_by_room.get(room.id, {})
+            w_len = acc.get("w_len", Decimal("0.000")).quantize(AREA_PRECISION) if has.get("window") else None
+            w_area = acc.get("w_area", Decimal("0.000")).quantize(AREA_PRECISION) if has.get("window") else None
+            d_len = acc.get("d_len", Decimal("0.000")).quantize(AREA_PRECISION) if has.get("door") else None
+            d_area = acc.get("d_area", Decimal("0.000")).quantize(AREA_PRECISION) if has.get("door") else None
+
             room.calculations = self._build_calculations(
                 geometry,
                 wall_totals,
                 deduction,
                 floor_totals=floor_totals,
                 ceiling_totals=ceiling_totals,
+                window_reveal_total_length=w_len,
+                window_reveal_total_area=w_area,
+                door_reveal_total_length=d_len,
+                door_reveal_total_area=d_area,
             )
             items.append(room)
 

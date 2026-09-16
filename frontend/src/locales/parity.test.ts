@@ -265,6 +265,32 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
     }
   });
 
+  it('has identical reveals key structure in PL and RU (Stage 5F)', () => {
+    const plReveals = keySet(pl.reveals);
+    const ruReveals = keySet(ru.reveals);
+    expect(plReveals).toEqual(ruReveals);
+
+    for (const key of [
+      'toggle',
+      'depth',
+      'sides',
+      'side_left',
+      'side_right',
+      'side_top',
+      'side_bottom',
+      'length',
+      'area',
+      'per_opening',
+      'total',
+      'summary_title',
+      'summary_windows',
+      'summary_doors',
+      'summary_combined',
+    ]) {
+      expect(plReveals.has(key)).toBe(true);
+    }
+  });
+
   it('contains every backend checklist dotted key used by templates', () => {
     const plChecklist = keySet(pl.checklist);
     const backendKeys = [

@@ -75,6 +75,12 @@ class RoomCalculations(BaseModel):
     total_deduction_area: Decimal | None = None
     net_wall_area: Decimal | None = None
     wall_count: int | None = None
+    window_reveal_total_length: Decimal | None = None
+    window_reveal_total_area: Decimal | None = None
+    door_reveal_total_length: Decimal | None = None
+    door_reveal_total_area: Decimal | None = None
+    reveal_total_length: Decimal | None = None
+    reveal_total_area: Decimal | None = None
 
 
 class RoomRead(BaseModel):

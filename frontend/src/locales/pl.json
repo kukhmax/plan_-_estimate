@@ -800,4 +800,22 @@
       "dec_generic": "Tynk dekoracyjny — ogólny"
     }
   }
+  ,
+  "reveals": {
+    "toggle": "Oblicz ościeża",
+    "depth": "Głębokość (m)",
+    "sides": "Strony ościeżnicy",
+    "side_left": "Lewa",
+    "side_right": "Prawa",
+    "side_top": "Góra",
+    "side_bottom": "Dół",
+    "length": "Długość ościeżnicy",
+    "area": "Powierzchnia ościeżnicy",
+    "per_opening": "Na otwór",
+    "total": "Łącznie",
+    "summary_title": "Ościeża",
+    "summary_windows": "Okna",
+    "summary_doors": "Drzwi",
+    "summary_combined": "Razem"
+  }
 }

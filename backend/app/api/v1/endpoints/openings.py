@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api.deps import get_current_user, get_opening_service
 from app.domain.exceptions import (
     DeductionExceedsGrossAreaError,
+    InvalidRevealConfigError,
     InvalidSurfaceTypeError,
     OpeningNotFoundError,
     ProjectNotFoundError,
@@ -206,6 +207,11 @@ async def update_opening(
             detail="Opening not found",
         )
     except DeductionExceedsGrossAreaError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
+    except InvalidRevealConfigError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),

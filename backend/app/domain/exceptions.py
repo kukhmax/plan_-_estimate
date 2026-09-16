@@ -119,3 +119,7 @@ class CanonicalPlaneMissingError(Exception):
 
 class AreaSegmentSurfaceMismatchError(Exception):
     """Raised when an area segment's surface disagrees with its plane or room."""
+
+
+class InvalidRevealConfigError(Exception):
+    """Raised when reveal configuration is invalid (wrong type or missing depth)."""

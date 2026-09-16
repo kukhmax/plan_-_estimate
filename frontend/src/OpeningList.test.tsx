@@ -29,6 +29,16 @@ const openingDoor: OpeningType = {
   single_area: '1.800',
   total_area: '1.800',
   description: 'Standardowe drzwi',
+  reveal_enabled: false,
+  reveal_depth: null,
+  reveal_left: true,
+  reveal_right: true,
+  reveal_top: true,
+  reveal_bottom: false,
+  reveal_single_length: null,
+  reveal_single_area: null,
+  reveal_total_length: null,
+  reveal_total_area: null,
   is_archived: false,
   created_at: '2026-09-09T10:00:00Z',
   updated_at: '2026-09-09T10:00:00Z',
@@ -45,6 +55,16 @@ const openingWindow: OpeningType = {
   single_area: '2.100',
   total_area: '4.200',
   description: null,
+  reveal_enabled: false,
+  reveal_depth: null,
+  reveal_left: true,
+  reveal_right: true,
+  reveal_top: true,
+  reveal_bottom: false,
+  reveal_single_length: null,
+  reveal_single_area: null,
+  reveal_total_length: null,
+  reveal_total_area: null,
   is_archived: false,
   created_at: '2026-09-09T10:00:00Z',
   updated_at: '2026-09-09T10:00:00Z',
@@ -133,6 +153,7 @@ describe('OpeningList', () => {
         height: 2.0,
         quantity: 1,
         description: null,
+        reveal_enabled: false,
       });
     });
 
@@ -437,5 +458,154 @@ describe('OpeningList dimension defaults (Stage 5D.1A.1)', () => {
     expect(openingsApi.archiveOpening).not.toHaveBeenCalled();
     // The existing opening row is untouched
     expect(screen.getByText(/0\.90 × 2\.00 m/)).toBeInTheDocument();
+  });
+});
+
+describe('OpeningList reveals (Stage 5F)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  it('shows reveal toggle for DOOR and WINDOW but not for OTHER', async () => {
+    renderOpenings();
+    await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+
+    // DOOR — toggle visible
+    fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'DOOR' } });
+    expect(screen.getByLabelText(`reveal-toggle-${surfaceId}`)).toBeInTheDocument();
+
+    // WINDOW — toggle visible
+    fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'WINDOW' } });
+    expect(screen.getByLabelText(`reveal-toggle-${surfaceId}`)).toBeInTheDocument();
+
+    // OTHER — toggle hidden
+    fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'OTHER' } });
+    expect(screen.queryByLabelText(`reveal-toggle-${surfaceId}`)).not.toBeInTheDocument();
+  });
+
+  it('toggling reveal on shows depth input and side checkboxes; toggling off hides them', async () => {
+    renderOpenings();
+    await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+
+    // depth and side checkboxes not present initially
+    expect(screen.queryByLabelText('reveal-depth')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('reveal-left')).not.toBeInTheDocument();
+
+    // toggle on
+    fireEvent.click(screen.getByLabelText(`reveal-toggle-${surfaceId}`));
+    expect(screen.getByLabelText('reveal-depth')).toBeInTheDocument();
+    expect(screen.getByLabelText('reveal-left')).toBeInTheDocument();
+    expect(screen.getByLabelText('reveal-right')).toBeInTheDocument();
+    expect(screen.getByLabelText('reveal-top')).toBeInTheDocument();
+    expect(screen.getByLabelText('reveal-bottom')).toBeInTheDocument();
+
+    // default checked state: left/right/top=true, bottom=false
+    expect(screen.getByLabelText('reveal-left')).toBeChecked();
+    expect(screen.getByLabelText('reveal-right')).toBeChecked();
+    expect(screen.getByLabelText('reveal-top')).toBeChecked();
+    expect(screen.getByLabelText('reveal-bottom')).not.toBeChecked();
+
+    // toggle off
+    fireEvent.click(screen.getByLabelText(`reveal-toggle-${surfaceId}`));
+    expect(screen.queryByLabelText('reveal-depth')).not.toBeInTheDocument();
+  });
+
+  it('creates an opening with reveal fields in payload when reveal is enabled', async () => {
+    vi.mocked(openingsApi.createOpening).mockResolvedValue({
+      ...openingWindow,
+      reveal_enabled: true,
+      reveal_depth: '0.150',
+      reveal_total_length: '4.300',
+      reveal_total_area: '0.645',
+    });
+    renderOpenings();
+    await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+
+    fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'WINDOW' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '1.5' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '1.4' } });
+
+    // enable reveal
+    fireEvent.click(screen.getByLabelText(`reveal-toggle-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('reveal-depth'), { target: { value: '0.15' } });
+    // bottom stays unchecked (default)
+
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+
+    await waitFor(() => {
+      expect(openingsApi.createOpening).toHaveBeenCalledWith(
+        projectId,
+        roomId,
+        surfaceId,
+        expect.objectContaining({
+          opening_type: 'WINDOW',
+          reveal_enabled: true,
+          reveal_depth: 0.15,
+          reveal_left: true,
+          reveal_right: true,
+          reveal_top: true,
+          reveal_bottom: false,
+        }),
+      );
+    });
+  });
+
+  it('creates an opening without reveal fields when reveal is disabled', async () => {
+    vi.mocked(openingsApi.createOpening).mockResolvedValue(openingDoor);
+    renderOpenings();
+    await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.0' } });
+    // reveal toggle not clicked
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+
+    await waitFor(() => {
+      expect(openingsApi.createOpening).toHaveBeenCalledWith(
+        projectId,
+        roomId,
+        surfaceId,
+        expect.objectContaining({ reveal_enabled: false }),
+      );
+      expect(openingsApi.createOpening).toHaveBeenCalledWith(
+        projectId,
+        roomId,
+        surfaceId,
+        expect.not.objectContaining({ reveal_left: expect.anything() }),
+      );
+    });
+  });
+
+  it('shows reveal totals on opening card when reveal_enabled and totals are provided', async () => {
+    const openingWithReveal: OpeningType = {
+      ...openingWindow,
+      reveal_enabled: true,
+      reveal_depth: '0.150',
+      reveal_total_length: '4.300',
+      reveal_total_area: '0.645',
+    };
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [openingWithReveal], total: 1 });
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`opening-item-${openingWindow.id}`)).toBeInTheDocument());
+    const card = screen.getByLabelText(`opening-item-${openingWindow.id}`);
+    expect(card).toHaveTextContent('Ościeża');
+    expect(card).toHaveTextContent('4.30 m');
+    expect(card).toHaveTextContent('0.65 m²');
+  });
+
+  it('does not show reveal section on card when reveal is disabled', async () => {
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [openingDoor], total: 1 });
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`opening-item-${openingDoor.id}`)).toBeInTheDocument());
+    const card = screen.getByLabelText(`opening-item-${openingDoor.id}`);
+    expect(card).not.toHaveTextContent('Ościeża');
   });
 });

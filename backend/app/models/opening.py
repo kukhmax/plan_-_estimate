@@ -48,6 +48,12 @@ class Opening(Base):
         default=1,
     )
     description: Mapped[str | None] = mapped_column(String(4096), nullable=True)
+    reveal_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    reveal_depth: Mapped[Decimal | None] = mapped_column(Numeric(10, 3), nullable=True)
+    reveal_left: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    reveal_right: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    reveal_top: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    reveal_bottom: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

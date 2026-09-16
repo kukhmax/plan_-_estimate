@@ -8,6 +8,12 @@ export interface RoomCalculations {
   total_deduction_area: string | number | null;
   net_wall_area: string | number | null;
   wall_count?: number | null;
+  window_reveal_total_length?: string | number | null;
+  window_reveal_total_area?: string | number | null;
+  door_reveal_total_length?: string | number | null;
+  door_reveal_total_area?: string | number | null;
+  reveal_total_length?: string | number | null;
+  reveal_total_area?: string | number | null;
 }
 
 export interface RoomType {

@@ -32,6 +32,12 @@ interface OpeningFormState {
   height: string;
   quantity: string;
   description: string;
+  reveal_enabled: boolean;
+  reveal_depth: string;
+  reveal_left: boolean;
+  reveal_right: boolean;
+  reveal_top: boolean;
+  reveal_bottom: boolean;
 }
 
 const EMPTY_FORM: OpeningFormState = {
@@ -41,6 +47,12 @@ const EMPTY_FORM: OpeningFormState = {
   height: '',
   quantity: '1',
   description: '',
+  reveal_enabled: false,
+  reveal_depth: '',
+  reveal_left: true,
+  reveal_right: true,
+  reveal_top: true,
+  reveal_bottom: false,
 };
 
 export function OpeningList({
@@ -123,6 +135,12 @@ export function OpeningList({
       height: opening.height !== null ? String(opening.height) : '',
       quantity: String(opening.quantity ?? 1),
       description: opening.description ?? '',
+      reveal_enabled: opening.reveal_enabled ?? false,
+      reveal_depth: opening.reveal_depth != null ? String(opening.reveal_depth) : '',
+      reveal_left: opening.reveal_left ?? true,
+      reveal_right: opening.reveal_right ?? true,
+      reveal_top: opening.reveal_top ?? true,
+      reveal_bottom: opening.reveal_bottom ?? false,
     });
     setUseAsDefault(false);
     setFormError(null);
@@ -137,6 +155,7 @@ export function OpeningList({
         opening_type: type,
         width: saved ? String(saved.width) : '',
         height: saved ? String(saved.height) : '',
+        reveal_enabled: type === 'OTHER' ? false : current.reveal_enabled,
       };
     });
   };
@@ -175,6 +194,17 @@ export function OpeningList({
       quantity: quantityNum,
       description: form.description.trim() || null,
     };
+    if (form.reveal_enabled && form.opening_type !== 'OTHER') {
+      const depthNum = parseFloat(form.reveal_depth.trim());
+      payload.reveal_enabled = true;
+      payload.reveal_depth = Number.isNaN(depthNum) || depthNum <= 0 ? null : depthNum;
+      payload.reveal_left = form.reveal_left;
+      payload.reveal_right = form.reveal_right;
+      payload.reveal_top = form.reveal_top;
+      payload.reveal_bottom = form.reveal_bottom;
+    } else if (!form.reveal_enabled) {
+      payload.reveal_enabled = false;
+    }
 
     try {
       if (editingId) {
@@ -185,6 +215,12 @@ export function OpeningList({
           height: payload.height,
           quantity: payload.quantity,
           description: payload.description,
+          reveal_enabled: payload.reveal_enabled,
+          reveal_depth: payload.reveal_depth,
+          reveal_left: payload.reveal_left,
+          reveal_right: payload.reveal_right,
+          reveal_top: payload.reveal_top,
+          reveal_bottom: payload.reveal_bottom,
         };
         await updateOpening(projectId, roomId, surfaceId, editingId, updatePayload);
         setSuccess(t.openings.updated);
@@ -366,6 +402,60 @@ export function OpeningList({
             </div>
           )}
 
+          {/* Reveal (ościeże) — only for WINDOW and DOOR */}
+          {form.opening_type !== 'OTHER' && (
+            <div className="pt-1 border-t border-slate-200/60 space-y-2">
+              <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                <input
+                  aria-label={`reveal-toggle-${surfaceId}`}
+                  type="checkbox"
+                  checked={form.reveal_enabled}
+                  onChange={(e) => setForm((cur) => ({ ...cur, reveal_enabled: e.target.checked }))}
+                />
+                {t.reveals.toggle}
+              </label>
+              {form.reveal_enabled && (
+                <div className="space-y-2 pl-1">
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">{t.reveals.depth}</label>
+                    <input
+                      aria-label="reveal-depth"
+                      type="number"
+                      inputMode="decimal"
+                      min="0.001"
+                      step="any"
+                      placeholder="0.150"
+                      value={form.reveal_depth}
+                      onChange={(e) => setForm((cur) => ({ ...cur, reveal_depth: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <span className="block text-xs text-slate-500 mb-1">{t.reveals.sides}</span>
+                    <div className="flex flex-wrap gap-3">
+                      {([
+                        ['reveal_left', t.reveals.side_left],
+                        ['reveal_right', t.reveals.side_right],
+                        ['reveal_top', t.reveals.side_top],
+                        ['reveal_bottom', t.reveals.side_bottom],
+                      ] as const).map(([field, label]) => (
+                        <label key={field} className="flex items-center gap-1 text-xs text-slate-600 cursor-pointer">
+                          <input
+                            aria-label={`reveal-${field.replace('reveal_', '')}`}
+                            type="checkbox"
+                            checked={form[field]}
+                            onChange={(e) => setForm((cur) => ({ ...cur, [field]: e.target.checked }))}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Secondary optional fields: Name & Description */}
           <div className="pt-1 border-t border-slate-200/60 space-y-1.5">
             <span className="block text-[11px] text-slate-400 font-medium">
@@ -463,6 +553,15 @@ export function OpeningList({
 
                 {opening.description && (
                   <p className="text-slate-400 text-[11px] mt-0.5">{opening.description}</p>
+                )}
+
+                {opening.reveal_enabled && opening.reveal_total_length != null && (
+                  <div className="text-slate-500 mt-0.5 text-[11px]">
+                    {t.reveals.summary_title}:{' '}
+                    <strong className="text-slate-700">{formatMetric(opening.reveal_total_length)} {t.common.unit_m}</strong>
+                    {' · '}
+                    <strong className="text-slate-700">{formatMetric(opening.reveal_total_area)} {t.common.unit_m2}</strong>
+                  </div>
                 )}
               </div>
 
