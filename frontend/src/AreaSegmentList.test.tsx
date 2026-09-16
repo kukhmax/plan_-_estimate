@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as areaSegmentsApi from './api/areaSegments';
 import * as surfacesApi from './api/surfaces';
+import * as workPlansApi from './api/workPlans';
 import { AreaSegmentList } from './components/AreaSegmentList';
 import { I18nProvider } from './hooks/useI18n';
 import { AreaSegmentType } from './types/areaSegment';
@@ -18,6 +19,14 @@ vi.mock('./api/areaSegments', () => ({
 vi.mock('./api/surfaces', () => ({
   fetchSurfaces: vi.fn(),
 }));
+vi.mock('./api/workPlans', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./api/workPlans')>();
+  return {
+    ...actual,
+    fetchSurfaceWorkPlan: vi.fn(),
+    putSurfaceWorkPlan: vi.fn(),
+  };
+});
 
 const projectId = '11111111-1111-1111-1111-111111111111';
 const roomId = '22222222-2222-2222-2222-222222222222';
@@ -117,6 +126,16 @@ async function expandPlane(planeKey: 'floor' | 'ceiling') {
   const toggle = await screen.findByLabelText(`options-toggle-${planeKey}`);
   fireEvent.click(toggle);
 }
+
+beforeEach(() => {
+  vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockImplementation(async (_project, _room, id) => ({
+    id: `plan-${id}`,
+    surface_id: id,
+    substrate: 'CONCRETE',
+    quality_target: 'S2',
+    planned_works: [],
+  }));
+});
 
 describe('AreaSegmentList', () => {
   beforeEach(() => {
@@ -541,6 +560,42 @@ describe('AreaSegmentList plane-card parity (10C.1B)', () => {
     expect(screen.getByLabelText('add-ceiling-rectangle')).toBeInTheDocument();
     expect(screen.queryByLabelText('add-floor-rectangle')).not.toBeInTheDocument();
     expect(screen.getByLabelText('options-toggle-floor')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens canonical FLOOR and CEILING WorkPlans independently from measurement Opcje', async () => {
+    renderAreaSegments();
+
+    const floorWorkPlan = await screen.findByLabelText(`work-plan-${floorSurfaceId}`);
+    const ceilingWorkPlan = screen.getByLabelText(`work-plan-${ceilingSurfaceId}`);
+    expect(screen.queryByLabelText('add-floor-rectangle')).not.toBeInTheDocument();
+
+    fireEvent.click(floorWorkPlan);
+    expect(await screen.findByLabelText(`work-plan-editor-${floorSurfaceId}`)).toBeInTheDocument();
+    expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledWith(
+      projectId,
+      roomId,
+      floorSurfaceId,
+    );
+    expect(screen.queryByLabelText('add-floor-rectangle')).not.toBeInTheDocument();
+
+    await expandPlane('floor');
+    expect(screen.getByLabelText(`work-plan-editor-${floorSurfaceId}`)).toBeInTheDocument();
+    expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument();
+
+    fireEvent.click(ceilingWorkPlan);
+    expect(await screen.findByLabelText(`work-plan-editor-${ceilingSurfaceId}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`work-plan-editor-${floorSurfaceId}`)).not.toBeInTheDocument();
+    expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledWith(
+      projectId,
+      roomId,
+      ceilingSurfaceId,
+    );
+    expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument();
+    expect(screen.queryByLabelText('add-ceiling-rectangle')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(`close-work-plan-${ceilingSurfaceId}`));
+    expect(screen.queryByLabelText(`work-plan-editor-${ceilingSurfaceId}`)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument();
   });
 
   it('N/O: zero-segment FLOOR and CEILING still expose the canonical Surface.id / Work Plan button', async () => {

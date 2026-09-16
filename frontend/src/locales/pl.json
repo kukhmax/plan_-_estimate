@@ -184,6 +184,19 @@
     "custom_wall_invalid": "Podaj poprawną szerokość i wysokość (m)",
     "add_wall": "Dodaj ścianę"
   },
+  "work_plan": {
+    "title": "Rodzaje prac i jakość",
+    "loading": "Ładowanie planu prac...",
+    "error_load": "Nie udało się załadować planu prac.",
+    "error_save": "Nie udało się zapisać planu prac.",
+    "retry": "Ponów próbę",
+    "no_plan": "Brak zapisanego planu prac dla tej powierzchni.",
+    "planned_works": "Zaplanowane prace",
+    "no_works": "Brak zaplanowanych prac.",
+    "preview_read_only": "Lista prac jest w tym etapie tylko do podglądu.",
+    "unavailable_item": "Pozycja cennika jest niedostępna",
+    "saved": "Plan prac został zapisany."
+  },
   "openings": {
     "title": "Otwory w ścianie",
     "add": "Dodaj otwór",

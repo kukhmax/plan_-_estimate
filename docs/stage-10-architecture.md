@@ -76,7 +76,8 @@ The canonical UI is the Telegram Mini App on a smartphone (permanent mobile-firs
          │     ├─ per-surface: ordered work list → "Dodaj pracę" → Price Book picker
          │     │    (filter by category, unit, substrate hint)
          │     ├─ reorder (↑↓), remove work
-         │     └─ "Zastosuj do wszystkich ścian" (apply-to-all: copy one wall's plan to the others,
+         │     └─ "Zapisz dla wszystkich ścian" / "Сохранить для всех стен"
+         │        (Stage 10C.3 apply-to-all: copy one wall's plan to the others,
          │        explicit overwrite confirmation)
          └─ "Wygeneruj kosztorys"  →  Estimate editor (DRAFT)
               ├─ grouped lines (per surface → works in position order)
@@ -177,19 +178,29 @@ ceiling gets gładź + malowanie only*).
 A one-tap bulk operation for the on-site workflow: *"this room's walls all get the same planning
 configuration"*.
 
-- **Semantics** (copy / replace): applying the current wall's plan to all other walls **copies / replaces
-  the planning configuration** into each target wall's `SurfaceWorkPlan` (creating it if absent,
-  replacing its contents if present):
+**Current execution ownership**: **Stage 10C.3 — Apply Work Plan to All Walls** implements this
+WALL-only action with the final UI labels:
+
+- PL: **„Zapisz dla wszystkich ścian”**
+- RU: **„Сохранить для всех стен”**
+
+It uses the existing backend endpoint:
+`POST .../surfaces/{source_surface_id}/work-plan/apply-to-room-walls`.
+
+- **WALL-only source and targets**: the selected active WALL is the source; the operation applies to every
+  other ACTIVE WALL surface in the same Room. FLOOR, CEILING, and OTHER never expose this action.
+- **Semantics** (copy / replace): the source WALL's plan **copies / replaces only the planning
+  configuration** in each target wall's `SurfaceWorkPlan` (creating it if absent, replacing its contents
+  if present):
   1. `substrate`,
   2. `quality_target`,
   3. the ordered `SurfacePlannedWork` rows.
 - **Explicit overwrite confirmation**: if a target wall already has a plan with works, the UI shows a
   confirm dialog with the count of rows that would be replaced (`Zastąpić plan prac na N ścianach?`).
   Overwrite is destructive to those plan rows only and is never silent.
-- **Never copied / never changed**: dimensions / geometry, openings / deductions, net-area math,
-  inspections / answers, findings, risks, communication applications, photos / defects, estimate lines,
-  archive state, the physical `Surface` identity itself, and Price Book data. Apply-to-all is
-  plan-configuration only (D6).
+- **Never copied / never changed**: physical `Surface` identity, dimensions, geometry, openings,
+  deductions, AreaSegments, inspections, inspection answers, findings, risks, communication, photos /
+  defects, archive state, Estimate data, or Price Book data. Apply-to-all is plan-configuration only (D6).
 - After the copy each wall's plan is independent; later single-wall edits do not re-propagate.
 
 ---
@@ -401,7 +412,7 @@ Owner decision (10A.1): **ROBOCIZNA and MATERIAŁY are the normal Stage 10 estim
 
 ---
 
-## 19. Mobile UX screen map (10E/10F/10G scope)
+## 19. Mobile UX screen map (current Stage 10C execution; original 10E/10F/10G context)
 
 1. **Room card → "Plan prac"** — enters the plan screen; creates one `SurfaceWorkPlan` per surface on
    first touch.
@@ -413,7 +424,7 @@ Owner decision (10A.1): **ROBOCIZNA and MATERIAŁY are the normal Stage 10 estim
    book price state; selecting appends a `SurfacePlannedWork`. Archived items are excluded.
 4. **Work chip actions** — reorder (↑/↓ ≥44 px), remove (with undo or confirm). Quantities are not entered
    here — they belong to the estimate line (§12).
-5. **"Zastosuj do wszystkich ścian"** — apply-to-all with explicit overwrite confirmation (§6).
+5. **„Zapisz dla wszystkich ścian” / „Сохранить для всех стен”** — Stage 10C.3 WALL-only apply-to-all with explicit overwrite confirmation (§6).
 6. **"Wygeneruj kosztorys"** — creates the next `Estimate` version as DRAFT and opens the estimate
    editor.
 7. **Estimate editor** — lines grouped by surface in order; per-line controls: quantity (overridable,
@@ -424,7 +435,8 @@ Owner decision (10A.1): **ROBOCIZNA and MATERIAŁY are the normal Stage 10 estim
    commercial revision of an immutable document; the version list is reachable from the estimate screen.
 
 Every string is a PL/RU locale key; no numeric constants in components; 390/412 px and 320 px regression
-checks are part of every frontend sub-stage (10E/10F/10G).
+checks are part of every current frontend sub-stage. The original 10E/10F/10G grouping is historical;
+apply-to-all ownership is now exclusively Stage 10C.3.
 
 ---
 
@@ -498,12 +510,24 @@ checks are part of every frontend sub-stage (10E/10F/10G).
 | **10D** | Estimate engine hardening: snapshot immutability tests (book edit after line creation → line unchanged), totals invariant, version sequencing, DRAFT regeneration preview (manual lines + overrides preserved), manual lines, price override semantics | `pytest` snapshot/regression suite PASS |
 | **10E** | Mobile UI — work planning (plan screen, surface lists, work picker, reorder, substrate/quality picker, PL/RU) | `vitest` + `tsc` + `vite build` PASS; 390/412 px manual |
 | **10F** | Mobile UI — estimate (generate, line editor, freeform manual add, subtotal footer, status flow, PL/RU) | `vitest` + `tsc` + `vite build` PASS; 390/412 px manual |
-| **10G** | Apply-to-all-walls UX + explicit overwrite confirmation + full mobile regression (320/390/412, wrapping, touch targets, long RU labels) | `vitest` + manual matrix PASS |
+| **10G** (historical placeholder; superseded) | No longer owns apply-to-all-walls UX; the current execution assignment is **Stage 10C.3** | No separate apply-to-all execution under 10G |
 | **10H** | Final manual acceptance — full walkthrough as owner (per §26) on 390/412 px and in Telegram; owner sign-off | Owner acceptance |
 | **10I** | Final gate — full backend `pytest` + frontend `vitest` + `tsc --noEmit` + `vite build`, `git diff --check`, `docs/development-progress.md` update, one logical commit, push to `origin/stage-10` | Clean tree; Stage 10 CLOSED |
 
-Sub-stages 10B onward each require explicit owner approval; 10A stops after this record and the
-`development-progress.md` update, **without committing or pushing**.
+The table above preserves the original 10A architecture phasing. The **current owner-approved Stage 10C
+execution order** is authoritative:
+
+1. **10C.2A — Editor Shell + Existing Plan Loading** — implemented; awaiting owner verification.
+2. **10C.2B** — next.
+3. **10C.2C** — next.
+4. **10C.2D** — retained in the current breakdown and follows 10C.2C.
+5. **10C.3 — Apply Work Plan to All Walls** — implements the WALL-only **„Zapisz dla wszystkich ścian” /
+   „Сохранить для всех стен”** action through the existing `apply-to-room-walls` endpoint.
+
+After completion of **Stage 10C**, execution returns to **Stage 5F — Opening Reveals / Ościeża**. Stage
+5F is not moved into or ahead of Stage 10C.
+
+Sub-stages require explicit owner approval; no later sub-stage starts automatically.
 
 ---
 
@@ -574,13 +598,15 @@ coefficient — coefficients are Stage 12.
 
 ### D6 — Apply-to-all overwrite semantics
 
-**Decision**: apply-to-all **copies / replaces the source wall's planning configuration** — `substrate`,
-`quality_target`, and the ordered `SurfacePlannedWork` rows — into every other wall's `SurfaceWorkPlan`
-(creating it if absent, replacing it if present), **with an explicit overwrite confirmation** when
-targets already have plan rows (count shown; destructive to those plan rows only, never silent). Never
-copied or changed: dimensions / geometry, openings / deductions, inspections / answers, findings, risks,
-communication applications, photos / defects, estimate lines, archive state, the physical `Surface`
-identity, and Price Book data. After the copy, each wall's plan is independent.
+**Decision**: Stage 10C.3's WALL-only **„Zapisz dla wszystkich ścian” / „Сохранить для всех стен”**
+action uses the selected active WALL as source and **copies / replaces only its planning configuration** —
+`substrate`, `quality_target`, and the ordered `SurfacePlannedWork` rows — in every other ACTIVE WALL in
+the same Room (creating a plan if absent, replacing its contents if present). The implementation uses
+`POST .../surfaces/{source_surface_id}/work-plan/apply-to-room-walls` and requires explicit overwrite
+confirmation when targets already have plan rows (count shown; destructive to those plan rows only, never
+silent). It never copies or changes physical `Surface` identity, dimensions, geometry, openings,
+deductions, AreaSegments, inspections, inspection answers, findings, risks, communication, photos /
+defects, archive state, Estimate data, or Price Book data. After the copy, each wall's plan is independent.
 
 ### D7 — `Estimate` / `EstimateLine` entities
 
@@ -804,7 +830,7 @@ GK) exist.
    distinct `SurfaceWorkPlan`**. Wall 1 pre-fills substrate **gipsowa**, quality **S3** from its
    inspection (`assert_quality_scale_valid(gipsowa, S3)` passes).
 2. On Wall 1, adds works *Gładź szpachlowa* (M2, LABOR), *Włóknina szklana* (M2, LABOR), *Malowanie* (M2,
-   LABOR); reorders them; taps **"Zastosuj do wszystkich ścian"** → confirmation shows "skopiuj plan prac
+   LABOR); reorders them; taps **"Zapisz dla wszystkich ścian"** → confirmation shows "skopiuj plan prac
    na 3 ściany" → confirm → Walls 2–4 carry the same substrate/quality/works as their own plans.
 3. Wall 3 substrate is corrected to **beton / S3**; Wall 4 to **GK / Q3** (their own plans change
    independently). Floor: adds *Mikrocement* (M2) on Podłoga. The four-wall example — gipsowa/S3,
@@ -847,10 +873,11 @@ otherwise clean. STOP — no commit, no push, no 10B without owner approval.
 7. **`quality_target` field naming is final** — aligned with Stage 6 `Inspection.quality_target`. (D5)
 8. **DRAFT regeneration ordering**: retained `PLANNED_WORK` lines follow the current `SurfacePlannedWork`
    order (planes by `Surface.position`, then works by position); manual lines are never deleted. (D8/D17 / §20)
-9. **Apply-to-all is final**: copies / replaces `substrate`, `quality_target`, and the ordered planned
-   works — never dimensions/geometry, openings/deductions, inspections/answers, findings, risks,
-   communication applications, photos/defects, estimate lines, archive state, or the physical `Surface`
-   identity. (D6 / §6)
+9. **Apply-to-all is final**: Stage 10C.3 exposes **„Zapisz dla wszystkich ścian” / „Сохранить для всех
+   стен”** only for WALL. The selected active WALL is the source; every other ACTIVE WALL in the same Room
+   receives replacement `substrate`, `quality_target`, and ordered planned works. It never changes Surface
+   identity, dimensions, geometry, openings, deductions, AreaSegments, inspections, inspection answers,
+   findings, risks, communication, photos/defects, archive state, or Estimate data. (D6 / §6)
 
 ## Appendix B — Reused contracts (unchanged by 10A)
 

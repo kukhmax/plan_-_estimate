@@ -17,6 +17,7 @@ import {
 } from '../types/surface';
 import { formatMetric } from '../utils/format';
 import { OpeningList } from './OpeningList';
+import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 
 interface SurfaceListProps {
   projectId: string;
@@ -82,6 +83,7 @@ export function SurfaceList({
   const [expandedOpenings, setExpandedOpenings] = useState<Record<string, boolean>>({});
   /** Per-card Opcje progressive disclosure — UI state only, never persisted. */
   const [expandedOptions, setExpandedOptions] = useState<Record<string, boolean>>({});
+  const [activeWorkPlanSurfaceId, setActiveWorkPlanSurfaceId] = useState<string | null>(null);
   const effectiveWallMode = wallMode ?? 'RECTANGLE';
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -130,6 +132,10 @@ export function SurfaceList({
       ...current,
       [surfaceId]: !current[surfaceId],
     }));
+  };
+
+  const toggleWorkPlan = (surfaceId: string) => {
+    setActiveWorkPlanSurfaceId((current) => current === surfaceId ? null : surfaceId);
   };
 
   const toggleOpenings = (surfaceId: string) => {
@@ -546,6 +552,7 @@ export function SurfaceList({
             const isWall = surface.surface_type === 'WALL';
             const isOpeningsOpen = !!expandedOpenings[surface.id];
             const isOptionsOpen = !!expandedOptions[surface.id];
+            const isWorkPlanOpen = activeWorkPlanSurfaceId === surface.id;
 
             return (
               <li
@@ -623,14 +630,26 @@ export function SurfaceList({
                       {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
                     </button>
 
-                    {/* Work Plan entry point (Stage 10C.2); present but inert in 10C.1. */}
                     <button
                       type="button"
                       aria-label={`work-plan-${surface.id}`}
+                      aria-expanded={isWorkPlanOpen}
+                      aria-controls={`work-plan-editor-${surface.id}`}
+                      onClick={() => toggleWorkPlan(surface.id)}
                       className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
                     >
                       {t.surfaces.work_types_quality}
                     </button>
+
+                    {isWorkPlanOpen && (
+                      <SurfaceWorkPlanEditor
+                        projectId={projectId}
+                        roomId={roomId}
+                        surfaceId={surface.id}
+                        surfaceName={surface.name}
+                        onClose={() => setActiveWorkPlanSurfaceId(null)}
+                      />
+                    )}
 
                     {isOptionsOpen && (
                       <>
@@ -738,14 +757,26 @@ export function SurfaceList({
                       {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
                     </button>
 
-                    {/* Work Plan entry point (Stage 10C.2); present but inert in 10C.1. */}
                     <button
                       type="button"
                       aria-label={`work-plan-${surface.id}`}
+                      aria-expanded={isWorkPlanOpen}
+                      aria-controls={`work-plan-editor-${surface.id}`}
+                      onClick={() => toggleWorkPlan(surface.id)}
                       className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
                     >
                       {t.surfaces.work_types_quality}
                     </button>
+
+                    {isWorkPlanOpen && (
+                      <SurfaceWorkPlanEditor
+                        projectId={projectId}
+                        roomId={roomId}
+                        surfaceId={surface.id}
+                        surfaceName={surface.name}
+                        onClose={() => setActiveWorkPlanSurfaceId(null)}
+                      />
+                    )}
 
                     {isOptionsOpen && (
                       <div className="flex gap-2 flex-wrap">

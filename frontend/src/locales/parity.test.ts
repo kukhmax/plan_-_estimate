@@ -162,6 +162,28 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
     }
   });
 
+  it('has identical WorkPlan key structure in PL and RU (Stage 10C.2A)', () => {
+    const plWorkPlan = keySet(pl.work_plan);
+    const ruWorkPlan = keySet(ru.work_plan);
+    expect(plWorkPlan).toEqual(ruWorkPlan);
+
+    for (const key of [
+      'title',
+      'loading',
+      'error_load',
+      'error_save',
+      'retry',
+      'no_plan',
+      'planned_works',
+      'no_works',
+      'preview_read_only',
+      'unavailable_item',
+      'saved',
+    ]) {
+      expect(plWorkPlan.has(key)).toBe(true);
+    }
+  });
+
   it('has identical pricebook key structure in PL and RU (Stage 9D)', () => {
     const plPricebook = keySet(pl.pricebook);
     const ruPricebook = keySet(ru.pricebook);

@@ -15,6 +15,7 @@ import {
   PlaneAreaSummary,
 } from '../types/areaSegment';
 import { formatMetric } from '../utils/format';
+import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 
 interface AreaSegmentListProps {
   projectId: string;
@@ -71,6 +72,7 @@ export function AreaSegmentList({
   const [saving, setSaving] = useState(false);
   /** Per-plane Opcje progressive disclosure — UI state only, FLOOR independent of CEILING. */
   const [expandedOptions, setExpandedOptions] = useState<Partial<Record<AreaPlane, boolean>>>({});
+  const [activeWorkPlanPlane, setActiveWorkPlanPlane] = useState<AreaPlane | null>(null);
   /** Canonical plane Surface.id (Stage 10C.1A) resolved from the room's surface rows. */
   const [planeSurfaces, setPlaneSurfaces] = useState<Record<AreaPlane, string | null>>({
     FLOOR: null,
@@ -222,6 +224,10 @@ export function AreaSegmentList({
     setExpandedOptions((current) => ({ ...current, [plane]: !current[plane] }));
   };
 
+  const toggleWorkPlan = (plane: AreaPlane) => {
+    setActiveWorkPlanPlane((current) => current === plane ? null : plane);
+  };
+
   const renderPlaneSection = (plane: AreaPlane) => {
     const activeForm = form !== null && form.plane === plane ? form : null;
     const planeSegments = segments.filter((s) => s.plane === plane);
@@ -234,6 +240,7 @@ export function AreaSegmentList({
     const planeKey = plane === 'FLOOR' ? 'floor' : 'ceiling';
     const isOptionsOpen = !!expandedOptions[plane];
     const planeSurfaceId = planeSurfaces[plane];
+    const isWorkPlanOpen = activeWorkPlanPlane === plane;
 
     return (
       <section
@@ -280,16 +287,29 @@ export function AreaSegmentList({
           {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
         </button>
 
-        {/* Work Plan entry point (Stage 10C.2); present but inert in 10C.1B.
-            Bound to the real canonical plane Surface.id from the room's surface rows. */}
         {planeSurfaceId && (
-          <button
-            type="button"
-            aria-label={`work-plan-${planeSurfaceId}`}
-            className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
-          >
-            {t.surfaces.work_types_quality}
-          </button>
+          <>
+            <button
+              type="button"
+              aria-label={`work-plan-${planeSurfaceId}`}
+              aria-expanded={isWorkPlanOpen}
+              aria-controls={`work-plan-editor-${planeSurfaceId}`}
+              onClick={() => toggleWorkPlan(plane)}
+              className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+            >
+              {t.surfaces.work_types_quality}
+            </button>
+
+            {isWorkPlanOpen && (
+              <SurfaceWorkPlanEditor
+                projectId={projectId}
+                roomId={roomId}
+                surfaceId={planeSurfaceId}
+                surfaceName={planeLabel(plane)}
+                onClose={() => setActiveWorkPlanPlane(null)}
+              />
+            )}
+          </>
         )}
 
         {isOptionsOpen && (

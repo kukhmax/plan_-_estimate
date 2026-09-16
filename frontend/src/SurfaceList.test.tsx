@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as openingsApi from './api/openings';
 import * as surfacesApi from './api/surfaces';
+import * as workPlansApi from './api/workPlans';
 import { SurfaceList } from './components/SurfaceList';
 import { I18nProvider } from './hooks/useI18n';
 import { SurfaceType } from './types/surface';
@@ -21,6 +22,14 @@ vi.mock('./api/openings', () => ({
   archiveOpening: vi.fn(),
   restoreOpening: vi.fn(),
 }));
+vi.mock('./api/workPlans', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./api/workPlans')>();
+  return {
+    ...actual,
+    fetchSurfaceWorkPlan: vi.fn(),
+    putSurfaceWorkPlan: vi.fn(),
+  };
+});
 
 const projectId = '11111111-1111-1111-1111-111111111111';
 const roomId = '22222222-2222-2222-2222-222222222222';
@@ -61,6 +70,16 @@ function renderSurfaces(
 function expandOptions(surfaceId: string) {
   fireEvent.click(screen.getByLabelText(`options-toggle-${surfaceId}`));
 }
+
+beforeEach(() => {
+  vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockImplementation(async (_project, _room, id) => ({
+    id: `plan-${id}`,
+    surface_id: id,
+    substrate: 'CONCRETE',
+    quality_target: 'S2',
+    planned_works: [],
+  }));
+});
 
 describe('SurfaceList', () => {
   beforeEach(() => {
@@ -617,6 +636,37 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     expect(screen.getByLabelText(`work-plan-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByText('Rodzaje prac i jakość')).toBeInTheDocument();
     expect(screen.getByLabelText(`work-plan-${surface.id}`)).toHaveClass('min-h-11');
+  });
+
+  it('opens and closes the exact wall WorkPlan independently from Opcje', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    renderSurfaces();
+
+    const workPlan = await screen.findByLabelText(`work-plan-${surface.id}`);
+    const options = screen.getByLabelText(`options-toggle-${surface.id}`);
+    expect(workPlan).toHaveAttribute('aria-expanded', 'false');
+    expect(options).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(workPlan);
+    expect(await screen.findByLabelText(`work-plan-editor-${surface.id}`)).toBeInTheDocument();
+    expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledWith(projectId, roomId, surface.id);
+    expect(options).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+
+    fireEvent.click(workPlan);
+    expect(screen.queryByLabelText(`work-plan-editor-${surface.id}`)).not.toBeInTheDocument();
+
+    fireEvent.click(workPlan);
+    await screen.findByLabelText(`work-plan-form-${surface.id}`);
+    expandOptions(surface.id);
+    expect(screen.getByLabelText(`work-plan-editor-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(`close-work-plan-${surface.id}`));
+    expect(screen.queryByLabelText(`work-plan-editor-${surface.id}`)).not.toBeInTheDocument();
+    expect(options).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+    expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
   });
 
   it('localizes the disclosure controls in Russian (O)', async () => {
