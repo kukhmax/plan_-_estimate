@@ -3,11 +3,12 @@
 A SurfaceWorkPlan is the planning configuration for exactly one Surface:
 the substrate, the agreed quality target, and an ordered list of Price Book
 references. The plan never snapshots prices and never mutates a PriceItem;
-archiving a PriceItem excludes it from future selection but leaves existing
-plan rows untouched. Ownership always resolves through
+archiving prevents its occurrence count from increasing while existing
+occurrences may survive replacement. Ownership always resolves through
 Surface -> Room -> Project -> Owner, so no tenancy columns exist on the plan.
 """
 import uuid
+from collections import Counter
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,16 +73,18 @@ class SurfaceWorkPlanService:
         self,
         owner_id: uuid.UUID,
         selection: list[OrderedPriceItemSelection],
+        existing_counts: Counter[uuid.UUID],
     ) -> list[PriceItem]:
         """Validate every selection row and return it in the given order.
 
-        Each referenced PriceItem must exist under the owner and must not be
-        archived. Duplicate references are preserved — the architecture allows
-        the same PriceItem more than once (e.g. two separate coat rows).
+        Active items may be selected freely. An archived item's requested count
+        cannot exceed the count already persisted on this same plan. Duplicate
+        references and exact payload order are preserved.
         """
         if not selection:
             return []
         ids = [row.price_item_id for row in selection]
+        requested_counts = Counter(ids)
         items = (
             await self.db.execute(select(PriceItem).where(PriceItem.id.in_(ids)))
         ).scalars().all()
@@ -93,7 +96,10 @@ class SurfaceWorkPlanService:
                 raise PriceItemNotFoundError(
                     f"Price item {row.price_item_id} not found"
                 )
-            if item.is_archived:
+            if (
+                item.is_archived
+                and requested_counts[item.id] > existing_counts[item.id]
+            ):
                 raise SurfaceWorkPlanValidationError(
                     f"Archived price item {row.price_item_id} cannot be selected "
                     "for a work plan"
@@ -175,9 +181,16 @@ class SurfaceWorkPlanService:
         assert_quality_scale_valid(substrate, quality_target)
 
         selection = planned_works or []
-        validated = await self._resolve_owned_items(owner_id, selection)
-
         plan = await self._fetch_plan(surface_id)
+        existing_counts = (
+            Counter(work.price_item_id for work in plan.planned_works)
+            if plan is not None
+            else Counter()
+        )
+        validated = await self._resolve_owned_items(
+            owner_id, selection, existing_counts
+        )
+
         if plan is None:
             plan = SurfaceWorkPlan(
                 surface_id=surface_id,
@@ -213,7 +226,12 @@ class SurfaceWorkPlanService:
                 f"Surface {surface_id} has no work plan yet"
             )
 
-        validated = await self._resolve_owned_items(owner_id, planned_works)
+        existing_counts = Counter(
+            work.price_item_id for work in plan.planned_works
+        )
+        validated = await self._resolve_owned_items(
+            owner_id, planned_works, existing_counts
+        )
         await self._rewrite_works(plan, validated)
         await self.db.commit()
         return await self._fetch_plan(surface_id)

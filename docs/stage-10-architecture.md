@@ -224,18 +224,21 @@ The Price Book is the only pricing source, and Stage 10 never copies money into 
 
 - `SurfacePlannedWork.price_item_id` (FK, NOT NULL) references the exact catalog row — labor or material,
   M2/LM/PCS/HOUR/DAY/FLAT, the owner-editable `PriceItem.price`.
-- Planning **prefers atomic `LABOR` work items** where the catalog provides them; material rows are
-  planned as separate lines. Mixed `LABOR_AND_MATERIAL` catalog rows remain referenceable for backward
-  compatibility (D15).
+- Every active `PriceScope` is selectable in a WorkPlan: `LABOR`, `MATERIAL`, and
+  `LABOR_AND_MATERIAL`. Planning **prefers atomic `LABOR` work items** where the catalog provides them;
+  material rows are planned as separate lines, while mixed rows remain referenceable as the unsplit
+  compatibility path (D15).
 - **No price snapshot inside the plan** — the plan is scope, not money. Price enters the record only at
   estimate-line creation (§11, D9).
 - **No hardcoded prices anywhere**: no unit price, no rate table, no markup in plan/estimate UI. A custom
   work that has no book row is first created as a `CUSTOM_*` PriceItem via the existing Price Book flow,
   then referenced from the plan.
-- **Archiving behaviour**: archiving a `PriceItem` (Stage 9 semantics) blocks *new* plan rows referencing
-  it; it never deletes or mutates existing `SurfacePlannedWork` rows or existing estimate lines (their
-  snapshots stand). Generation refuses plan rows whose item is archived until the owner replaces the item
-  in the plan (D3).
+- **Archiving behaviour**: archiving a `PriceItem` (Stage 9 semantics) blocks *new* plan occurrences and
+  never deletes or mutates existing `SurfacePlannedWork` rows or existing estimate lines. A full-replacement
+  WorkPlan write may retain, reorder, or remove existing archived occurrences, but for each archived
+  `price_item_id`, the requested count must not exceed that same WorkPlan's persisted count before the
+  replacement. Once removed, an archived occurrence cannot be re-added; its count can never increase after
+  archival. Generation refuses plan rows whose item is archived until the owner replaces the item (D3).
 
 ---
 
@@ -421,7 +424,9 @@ Owner decision (10A.1): **ROBOCIZNA and MATERIAŁY are the normal Stage 10 estim
    validated with `assert_quality_scale_valid`) and the ordered work chips. Chips show the book display
    name, unit, and current price state (`12,00 zł / m²` or `Do ustalenia`).
 3. **"Dodaj pracę"** — Price Book picker (bottom sheet): search + filter by category/unit, shows the
-   book price state; selecting appends a `SurfacePlannedWork`. Archived items are excluded.
+   book price state; selecting appends a `SurfacePlannedWork`. Active `LABOR`, `MATERIAL`, and
+   `LABOR_AND_MATERIAL` items are selectable. Archived items are excluded from new selection; already
+   referenced archived occurrences remain visible in the plan and may be retained, reordered, or removed.
 4. **Work chip actions** — reorder (↑/↓ ≥44 px), remove (with undo or confirm). Quantities are not entered
    here — they belong to the estimate line (§12).
 5. **„Zapisz dla wszystkich ścian” / „Сохранить для всех стен”** — Stage 10C.3 WALL-only apply-to-all with explicit overwrite confirmation (§6).
@@ -517,8 +522,9 @@ apply-to-all ownership is now exclusively Stage 10C.3.
 The table above preserves the original 10A architecture phasing. The **current owner-approved Stage 10C
 execution order** is authoritative:
 
-1. **10C.2A — Editor Shell + Existing Plan Loading** — implemented; awaiting owner verification.
-2. **10C.2B** — next.
+1. **10C.2A — Editor Shell + Existing Plan Loading** — completed; owner accepted.
+2. **10C.2B** — Price Book picker is next; its prerequisite archived-occurrence PUT contract correction
+   is backend-only and does not itself complete 10C.2B.
 3. **10C.2C** — next.
 4. **10C.2D** — retained in the current breakdown and follows 10C.2C.
 5. **10C.3 — Apply Work Plan to All Walls** — implements the WALL-only **„Zapisz dla wszystkich ścian” /
@@ -568,8 +574,10 @@ Non-surface scope belongs to manual estimate lines.
 
 **Decision**: `price_item_id` NOT NULL FK; the plan stores **the reference only — no price copy**. The
 price state is read from the book at generation. `PriceItem.price = NULL` is valid in the plan and
-produces an unpriced line (D11). Archived items are excluded from the picker and from generation; existing
-rows and lines are never mutated by archiving.
+produces an unpriced line (D11). Active `LABOR`, `MATERIAL`, and `LABOR_AND_MATERIAL` items are valid plan
+references. Archived items are excluded from new picker selections and from generation; existing rows and
+lines are never mutated by archiving. Full replacement may retain, reorder, or reduce each already-existing
+archived `price_item_id` count, but must reject any payload that increases that count for the same WorkPlan.
 
 **Rationale**: preserves "no hardcoded prices" (Stage 9D/GB rule) and Stage 9E.1 snapshot semantics;
 keeps the plan as pure scope so it remains cheap to revise. **Planning prefers atomic `LABOR` work items

@@ -3,10 +3,10 @@
 Covers model/DB invariants (A), the duplicate-PriceItem allowance decision (B),
 deterministic positioning (C), ownership isolation through the Surface chain (D),
 S/Q quality-scale compatibility (E, G), NULL quality (F), create/update/atomic
-replace (H/I/J), archived PriceItem rejection for new selection vs. existing-row
-survival (K/L), reference-only semantics with no price snapshot (M), per-surface
-plan independence (N), unplanned surfaces (O), cascade deletion (P), ordered
-reads (Q), replace-only-works (R/S/T), and the two-coat-row case (U).
+replace (H/I/J), archived PriceItem count-based retention/removal/no-increase
+semantics (K/L), all PriceScopes, reference-only semantics with no price snapshot
+(M), per-surface plan independence (N), unplanned surfaces (O), cascade deletion
+(P), ordered reads (Q), replace-only-works (R/S/T), and the two-coat-row case (U).
 """
 from decimal import Decimal
 import uuid
@@ -26,7 +26,7 @@ from app.domain.exceptions import (
 from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.models.checklist import QualityLevel, Substrate
-from app.models.price_item import PriceCategory, PriceItem, PriceUnit
+from app.models.price_item import PriceCategory, PriceItem, PriceScope, PriceUnit
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
@@ -82,7 +82,8 @@ async def _make_price_item(
     owner_id: uuid.UUID,
     *,
     code: str | None = None,
-    price: str = "12.50",
+    price: str | None = "12.50",
+    price_scope: PriceScope = PriceScope.LABOR,
     is_archived: bool = False,
 ) -> PriceItem:
     item = PriceItem(
@@ -90,7 +91,8 @@ async def _make_price_item(
         code=code or f"ITEM_{uuid.uuid4().hex[:8].upper()}",
         category=PriceCategory.PAINTING,
         unit=PriceUnit.M2,
-        price=Decimal(price),
+        price=Decimal(price) if price is not None else None,
+        price_scope=price_scope,
         is_archived=is_archived,
     )
     db.add(item)
@@ -107,6 +109,30 @@ async def _make_chain(db, owner_id: uuid.UUID) -> dict:
 
 def _selection(*price_item_ids: uuid.UUID) -> list[OrderedPriceItemSelection]:
     return [OrderedPriceItemSelection(price_item_id=item_id) for item_id in price_item_ids]
+
+
+async def _make_plan_with_archived_item(
+    db, telegram_id: int, *, archived_count: int = 1
+):
+    user = await _make_user(db, telegram_id)
+    chain = await _make_chain(db, user.id)
+    active_a = await _make_price_item(db, user.id, code="ACTIVE_A")
+    archived = await _make_price_item(db, user.id, code="ARCHIVED")
+    active_c = await _make_price_item(db, user.id, code="ACTIVE_C")
+    service = SurfaceWorkPlanService(db)
+    await service.set_plan(
+        chain["project_id"],
+        chain["room_id"],
+        chain["surface_id"],
+        user.id,
+        substrate=Substrate.GYPSUM_PLASTER,
+        quality_target=QualityLevel.S2,
+        planned_works=_selection(
+            active_a.id, *([archived.id] * archived_count), active_c.id
+        ),
+    )
+    await PriceBookService(db).archive_item(user.id, archived.id)
+    return user, chain, service, active_a, archived, active_c
 
 
 class TestA_ModelInvariants:
@@ -169,6 +195,30 @@ class TestB_DuplicatePriceItemAllowed:
         )
         assert [w.price_item_id for w in plan.planned_works] == [item.id, item.id]
         assert [w.position for w in plan.planned_works] == [0, 1]
+
+
+class TestB_PriceScopes:
+    @pytest.mark.parametrize(
+        "price_scope",
+        [PriceScope.LABOR, PriceScope.MATERIAL, PriceScope.LABOR_AND_MATERIAL],
+    )
+    async def test_active_price_scope_is_valid_for_planning(
+        self, db_session, price_scope
+    ):
+        user = await _make_user(db_session, 1002)
+        chain = await _make_chain(db_session, user.id)
+        item = await _make_price_item(
+            db_session, user.id, price_scope=price_scope
+        )
+        service = SurfaceWorkPlanService(db_session)
+
+        plan = await service.set_plan(
+            chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
+            substrate=Substrate.GYPSUM_BOARD,
+            planned_works=_selection(item.id),
+        )
+
+        assert plan.planned_works[0].price_item.price_scope == price_scope
 
 
 class TestC_DeterministicPositioning:
@@ -492,7 +542,7 @@ class TestJ_AtomicReplace:
         assert rows[0].position == 0
 
 
-class TestK_ArchivedItemRejectedForNewSelection:
+class TestK_ArchivedItemReplacementCounts:
     async def test_archived_item_rejected_when_no_plan_yet(self, db_session):
         user = await _make_user(db_session, 10001)
         chain = await _make_chain(db_session, user.id)
@@ -512,31 +562,201 @@ class TestK_ArchivedItemRejectedForNewSelection:
             is None
         )
 
-    async def test_reselecting_archived_item_leaves_existing_plan_unchanged(self, db_session):
-        user = await _make_user(db_session, 10002)
-        chain = await _make_chain(db_session, user.id)
-        item = await _make_price_item(db_session, user.id)
-        service = SurfaceWorkPlanService(db_session)
+    async def test_existing_archived_occurrence_can_be_retained(self, db_session):
+        user, chain, service, active_a, archived, active_c = (
+            await _make_plan_with_archived_item(db_session, 10002)
+        )
+
         plan = await service.set_plan(
             chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
             substrate=Substrate.GYPSUM_PLASTER,
             quality_target=QualityLevel.S2,
-            planned_works=_selection(item.id),
+            planned_works=_selection(active_a.id, archived.id, active_c.id),
         )
 
-        await PriceBookService(db_session).archive_item(user.id, item.id)
+        assert [w.price_item_id for w in plan.planned_works] == [
+            active_a.id,
+            archived.id,
+            active_c.id,
+        ]
+
+    async def test_configuration_can_change_while_archived_occurrence_remains(
+        self, db_session
+    ):
+        user, chain, service, active_a, archived, active_c = (
+            await _make_plan_with_archived_item(db_session, 10003)
+        )
+
+        plan = await service.set_plan(
+            chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
+            substrate=Substrate.CONCRETE,
+            quality_target=QualityLevel.S3,
+            planned_works=_selection(active_a.id, archived.id, active_c.id),
+        )
+
+        assert plan.substrate == Substrate.CONCRETE
+        assert plan.quality_target == QualityLevel.S3
+        assert [w.price_item_id for w in plan.planned_works] == [
+            active_a.id,
+            archived.id,
+            active_c.id,
+        ]
+
+    async def test_existing_archived_occurrence_can_move(self, db_session):
+        user, chain, service, active_a, archived, active_c = (
+            await _make_plan_with_archived_item(db_session, 10004)
+        )
+
+        plan = await service.replace_planned_works(
+            chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
+            planned_works=_selection(active_c.id, archived.id, active_a.id),
+        )
+
+        assert [w.price_item_id for w in plan.planned_works] == [
+            active_c.id,
+            archived.id,
+            active_a.id,
+        ]
+
+    async def test_existing_archived_occurrence_can_be_removed(self, db_session):
+        user, chain, service, active_a, _, active_c = (
+            await _make_plan_with_archived_item(db_session, 10005)
+        )
+
+        plan = await service.set_plan(
+            chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
+            substrate=Substrate.GYPSUM_PLASTER,
+            quality_target=QualityLevel.S2,
+            planned_works=_selection(active_a.id, active_c.id),
+        )
+
+        assert [w.price_item_id for w in plan.planned_works] == [
+            active_a.id,
+            active_c.id,
+        ]
+
+    async def test_removed_archived_occurrence_cannot_be_readded(self, db_session):
+        user, chain, service, active_a, archived, active_c = (
+            await _make_plan_with_archived_item(db_session, 10006)
+        )
+        await service.set_plan(
+            chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
+            substrate=Substrate.GYPSUM_PLASTER,
+            quality_target=QualityLevel.S2,
+            planned_works=_selection(active_a.id, active_c.id),
+        )
+
         with pytest.raises(SurfaceWorkPlanValidationError):
             await service.set_plan(
                 chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
-                substrate=Substrate.PAINTED,  # would change the plan if it applied
-                planned_works=_selection(item.id),
+                substrate=Substrate.GYPSUM_PLASTER,
+                quality_target=QualityLevel.S2,
+                planned_works=_selection(active_a.id, archived.id, active_c.id),
             )
+
         plan = await service.get_work_plan(
             chain["project_id"], chain["room_id"], chain["surface_id"], user.id
         )
-        assert plan.substrate == Substrate.GYPSUM_PLASTER
-        assert plan.quality_target == QualityLevel.S2
-        assert [w.price_item_id for w in plan.planned_works] == [item.id]
+        assert [w.price_item_id for w in plan.planned_works] == [
+            active_a.id,
+            active_c.id,
+        ]
+
+    async def test_archived_occurrence_count_cannot_increase(self, db_session):
+        user, chain, service, active_a, archived, active_c = (
+            await _make_plan_with_archived_item(db_session, 10007)
+        )
+
+        with pytest.raises(SurfaceWorkPlanValidationError):
+            await service.set_plan(
+                chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
+                substrate=Substrate.GYPSUM_PLASTER,
+                quality_target=QualityLevel.S2,
+                planned_works=_selection(
+                    active_a.id, archived.id, archived.id, active_c.id
+                ),
+            )
+
+        plan = await service.get_work_plan(
+            chain["project_id"], chain["room_id"], chain["surface_id"], user.id
+        )
+        assert [w.price_item_id for w in plan.planned_works] == [
+            active_a.id,
+            archived.id,
+            active_c.id,
+        ]
+
+    async def test_two_existing_archived_occurrences_can_be_retained(
+        self, db_session
+    ):
+        user, chain, service, active_a, archived, active_c = (
+            await _make_plan_with_archived_item(
+                db_session, 10008, archived_count=2
+            )
+        )
+
+        plan = await service.set_plan(
+            chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
+            substrate=Substrate.GYPSUM_PLASTER,
+            quality_target=QualityLevel.S2,
+            planned_works=_selection(
+                active_a.id, archived.id, archived.id, active_c.id
+            ),
+        )
+
+        assert (
+            [w.price_item_id for w in plan.planned_works].count(archived.id) == 2
+        )
+
+    async def test_two_existing_archived_occurrences_can_reduce_to_one(
+        self, db_session
+    ):
+        user, chain, service, active_a, archived, active_c = (
+            await _make_plan_with_archived_item(
+                db_session, 10009, archived_count=2
+            )
+        )
+
+        plan = await service.set_plan(
+            chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
+            substrate=Substrate.GYPSUM_PLASTER,
+            quality_target=QualityLevel.S2,
+            planned_works=_selection(active_a.id, archived.id, active_c.id),
+        )
+
+        assert (
+            [w.price_item_id for w in plan.planned_works].count(archived.id) == 1
+        )
+
+    async def test_two_existing_archived_occurrences_cannot_increase_to_three(
+        self, db_session
+    ):
+        user, chain, service, active_a, archived, active_c = (
+            await _make_plan_with_archived_item(
+                db_session, 10010, archived_count=2
+            )
+        )
+
+        with pytest.raises(SurfaceWorkPlanValidationError):
+            await service.set_plan(
+                chain["project_id"], chain["room_id"], chain["surface_id"], user.id,
+                substrate=Substrate.GYPSUM_PLASTER,
+                quality_target=QualityLevel.S2,
+                planned_works=_selection(
+                    active_a.id,
+                    archived.id,
+                    archived.id,
+                    archived.id,
+                    active_c.id,
+                ),
+            )
+
+        plan = await service.get_work_plan(
+            chain["project_id"], chain["room_id"], chain["surface_id"], user.id
+        )
+        assert (
+            [w.price_item_id for w in plan.planned_works].count(archived.id) == 2
+        )
 
 
 class TestL_ArchiveNeverMutatesExistingRows:

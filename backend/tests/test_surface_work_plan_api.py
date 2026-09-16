@@ -3,10 +3,11 @@
 Covers the three sub-resource routes (GET / PUT / POST apply) under the exact
 canonical paths, owner isolation with hidden 404s, PUT upsert semantics
 (ordered and duplicate PriceItems preserved, NULL quality, S/Q compatibility,
-archived/foreign/NULL-price items, atomic replacement), and the WALL-only
-apply-to-all bulk action (active targets only, replace semantics, independent
-target plans, untouched geometry/openings/inspections, archived-source-item
-rejection, NULL-price propagation, cross-owner hiding, no Price Book mutation).
+archived occurrence retention/count limits, foreign/NULL-price items, atomic
+replacement), and the WALL-only apply-to-all bulk action (active targets only,
+replace semantics, independent target plans, untouched geometry/openings/inspections,
+archived-source-item rejection, NULL-price propagation, cross-owner hiding, no
+Price Book mutation).
 """
 from decimal import Decimal
 import uuid
@@ -547,6 +548,65 @@ async def test_put_archived_item_rejected(async_client: AsyncClient, db_session)
     assert after.status_code == 404
 
 
+async def test_put_existing_archived_item_can_survive_reorder_and_config_change(
+    async_client: AsyncClient, db_session
+):
+    token = await get_token(async_client, VALID_USER)
+    headers = auth_header(token)
+    owner = (
+        await db_session.execute(
+            select(User).where(User.telegram_user_id == VALID_USER["id"])
+        )
+    ).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id)
+    surface = await _make_surface(db_session, room.id)
+    item_a = await _make_price_item(db_session, owner.id, code="A")
+    archived = await _make_price_item(db_session, owner.id, code="B")
+    item_c = await _make_price_item(db_session, owner.id, code="C")
+    created = await async_client.put(
+        _wp(project.id, room.id, surface.id),
+        headers=headers,
+        json=upsert_payload(
+            price_item_ids=[str(item_a.id), str(archived.id), str(item_c.id)]
+        ),
+    )
+    assert created.status_code == 200, created.text
+    await PriceBookService(db_session).archive_item(owner.id, archived.id)
+
+    updated = await async_client.put(
+        _wp(project.id, room.id, surface.id),
+        headers=headers,
+        json=upsert_payload(
+            substrate="CONCRETE",
+            quality_target="S2",
+            price_item_ids=[str(item_c.id), str(archived.id), str(item_a.id)],
+        ),
+    )
+
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["substrate"] == "CONCRETE"
+    assert updated.json()["quality_target"] == "S2"
+    assert [w["price_item_id"] for w in updated.json()["planned_works"]] == [
+        str(item_c.id),
+        str(archived.id),
+        str(item_a.id),
+    ]
+    archived_work = updated.json()["planned_works"][1]
+    assert archived_work["price_item"]["is_archived"] is True
+
+    refetched = await async_client.get(
+        _wp(project.id, room.id, surface.id), headers=headers
+    )
+    assert refetched.status_code == 200
+    assert refetched.json()["planned_works"][1]["price_item"]["id"] == str(
+        archived.id
+    )
+    assert (
+        refetched.json()["planned_works"][1]["price_item"]["is_archived"] is True
+    )
+
+
 async def test_put_null_price_item_accepted(async_client: AsyncClient, db_session):
     token = await get_token(async_client, VALID_USER)
     headers = auth_header(token)
@@ -568,7 +628,10 @@ async def test_put_null_price_item_accepted(async_client: AsyncClient, db_sessio
     assert resp.json()["planned_works"][0]["price_item"]["price"] is None
 
 
-async def test_put_foreign_item_rejected(async_client: AsyncClient, db_session):
+@pytest.mark.parametrize("is_archived", [False, True])
+async def test_put_foreign_item_rejected(
+    async_client: AsyncClient, db_session, is_archived: bool
+):
     token_a = await get_token(async_client, VALID_USER)
     headers_a = auth_header(token_a)
     await get_token(async_client, OTHER_USER)
@@ -585,7 +648,9 @@ async def test_put_foreign_item_rejected(async_client: AsyncClient, db_session):
     project = await _make_project(db_session, owner_a.id)
     room = await _make_room(db_session, project.id)
     surface = await _make_surface(db_session, room.id)
-    foreign_item = await _make_price_item(db_session, owner_b.id)
+    foreign_item = await _make_price_item(
+        db_session, owner_b.id, is_archived=is_archived
+    )
     resp = await async_client.put(
         _wp(project.id, room.id, surface.id),
         headers=headers_a,
@@ -617,12 +682,14 @@ async def test_put_replacement_atomic_on_invalid_item(
         json=upsert_payload(price_item_ids=[str(a.id), str(b.id), str(c.id)]),
     )
     assert ok.status_code == 200
-    # b is archived; the next PUT must not partially replace the works.
+    # b is archived; increasing its count from one to two must fail atomically.
     await PriceBookService(db_session).archive_item(owner.id, b.id)
     bad = await async_client.put(
         _wp(project.id, room.id, surface.id),
         headers=headers,
-        json=upsert_payload(price_item_ids=[str(d.id), str(b.id), str(a.id)]),
+        json=upsert_payload(
+            price_item_ids=[str(d.id), str(b.id), str(b.id), str(a.id)]
+        ),
     )
     assert bad.status_code == 422
     after = await async_client.get(
