@@ -195,7 +195,16 @@
     "no_works": "Brak zaplanowanych prac.",
     "preview_read_only": "Lista prac jest w tym etapie tylko do podglądu.",
     "unavailable_item": "Pozycja cennika jest niedostępna",
-    "saved": "Plan prac został zapisany."
+    "saved": "Plan prac został zapisany.",
+    "add_work": "+ Dodaj pracę",
+    "picker_title": "Wybierz pracę z cennika",
+    "picker_search": "Szukaj w cenniku...",
+    "picker_loading": "Ładowanie cennika...",
+    "picker_empty": "Brak aktywnych pozycji",
+    "picker_no_results": "Brak wyników",
+    "picker_error": "Nie udało się wczytać cennika.",
+    "picker_close": "Zamknij",
+    "remove_work": "Usuń"
   },
   "openings": {
     "title": "Otwory w ścianie",

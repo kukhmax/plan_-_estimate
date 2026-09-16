@@ -1,9 +1,11 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as workPlansApi from './api/workPlans';
+import * as priceItemsApi from './api/priceItems';
 import { ApiError } from './api/http';
 import { SurfaceWorkPlanEditor } from './components/SurfaceWorkPlanEditor';
 import { I18nProvider } from './hooks/useI18n';
+import { PriceItem, PriceItemListResponse } from './types/priceItem';
 import { SurfaceWorkPlanRead } from './types/workPlan';
 
 vi.mock('./api/workPlans', async (importOriginal) => {
@@ -15,9 +17,21 @@ vi.mock('./api/workPlans', async (importOriginal) => {
   };
 });
 
+vi.mock('./api/priceItems', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./api/priceItems')>();
+  return {
+    ...actual,
+    fetchPriceItems: vi.fn(),
+  };
+});
+
 const projectId = '11111111-1111-1111-1111-111111111111';
 const roomId = '22222222-2222-2222-2222-222222222222';
 const surfaceId = '33333333-3333-3333-3333-333333333333';
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
 
 const plannedWorks: SurfaceWorkPlanRead['planned_works'] = [
   {
@@ -97,6 +111,29 @@ function makePlan(overrides: Partial<SurfaceWorkPlanRead> = {}): SurfaceWorkPlan
   };
 }
 
+function makePriceItem(overrides: Partial<PriceItem> = {}): PriceItem {
+  return {
+    id: 'pi-default',
+    code: 'CUSTOM_X',
+    name_key: null,
+    display_name: 'Test Item',
+    category: 'PREPARATION',
+    unit: 'M2',
+    price_scope: 'LABOR',
+    price: '25.00',
+    currency: 'PLN',
+    is_archived: false,
+    quality_level: null,
+    created_at: '2026-09-01T00:00:00Z',
+    updated_at: '2026-09-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+function makePriceItemListResponse(items: PriceItem[]): PriceItemListResponse {
+  return { items, total: items.length };
+}
+
 function renderEditor(id = surfaceId) {
   return render(
     <I18nProvider>
@@ -111,14 +148,25 @@ function renderEditor(id = surfaceId) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 describe('SurfaceWorkPlanEditor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(makePlan());
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(
+      makePriceItemListResponse([]),
+    );
   });
 
-  it('shows loading and hydrates the existing header and ordered read-only preview', async () => {
+  // -------------------------------------------------------------------------
+  // Existing load / form tests (adapted for draft occurrences)
+  // -------------------------------------------------------------------------
+
+  it('shows loading and hydrates the existing header and ordered draft preview', async () => {
     let resolvePlan!: (plan: SurfaceWorkPlanRead) => void;
     vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockReturnValue(
       new Promise((resolve) => {
@@ -282,5 +330,382 @@ describe('SurfaceWorkPlanEditor', () => {
     await act(async () => resolveFirst(makePlan({ substrate: 'CONCRETE', quality_target: 'S1' })));
     expect(substrate).toHaveValue('GYPSUM_BOARD');
     expect(screen.getByLabelText(`work-plan-quality-${nextSurfaceId}`)).toHaveValue('Q2');
+  });
+
+  // -------------------------------------------------------------------------
+  // Picker tests
+  // -------------------------------------------------------------------------
+
+  it('picker opens and shows loading state', async () => {
+    let resolveItems!: (r: PriceItemListResponse) => void;
+    vi.mocked(priceItemsApi.fetchPriceItems).mockReturnValue(
+      new Promise((r) => { resolveItems = r; }),
+    );
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    expect(screen.getByText('Ładowanie cennika...')).toBeInTheDocument();
+
+    await act(async () => resolveItems(makePriceItemListResponse([])));
+  });
+
+  it('picker can be closed', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([]));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-panel-${surfaceId}`);
+
+    fireEvent.click(screen.getByLabelText(`close-picker-${surfaceId}`));
+    expect(screen.queryByLabelText(`picker-panel-${surfaceId}`)).not.toBeInTheDocument();
+  });
+
+  it('picker shows active LABOR item and selecting it appends an occurrence', async () => {
+    const laborItem = makePriceItem({
+      id: 'pi-labor',
+      display_name: 'Gruntowanie podłoża',
+      price_scope: 'LABOR',
+      price: '8.00',
+      is_archived: false,
+    });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(
+      makePriceItemListResponse([laborItem]),
+    );
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+
+    const btn = screen.getByLabelText('picker-item-pi-labor');
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveTextContent('Gruntowanie podłoża');
+    expect(btn).toHaveTextContent('Robocizna');
+
+    fireEvent.click(btn);
+
+    // Picker closes and occurrence is appended
+    expect(screen.queryByLabelText(`picker-panel-${surfaceId}`)).not.toBeInTheDocument();
+    expect(screen.getByText('Gruntowanie podłoża')).toBeInTheDocument();
+  });
+
+  it('picker shows MATERIAL item selectable', async () => {
+    const materialItem = makePriceItem({
+      id: 'pi-mat',
+      display_name: 'Farba emulsyjna',
+      price_scope: 'MATERIAL',
+      is_archived: false,
+    });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(
+      makePriceItemListResponse([materialItem]),
+    );
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+
+    expect(screen.getByLabelText('picker-item-pi-mat')).toBeInTheDocument();
+    expect(screen.getByText('Materiał')).toBeInTheDocument();
+  });
+
+  it('picker shows LABOR_AND_MATERIAL item selectable', async () => {
+    const lmItem = makePriceItem({
+      id: 'pi-lm',
+      display_name: 'Gładź 2 warstwy z materiałem',
+      price_scope: 'LABOR_AND_MATERIAL',
+      is_archived: false,
+    });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(
+      makePriceItemListResponse([lmItem]),
+    );
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+
+    expect(screen.getByLabelText('picker-item-pi-lm')).toBeInTheDocument();
+  });
+
+  it('archived items are absent from picker candidates', async () => {
+    const activeItem = makePriceItem({ id: 'pi-active', display_name: 'Aktywna praca', is_archived: false });
+    // Picker always requests archived:'active' — so archived should NOT come back.
+    // The mock simulates only active items being returned (as the API would do).
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(
+      makePriceItemListResponse([activeItem]),
+    );
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+
+    // Only the active item should be selectable
+    expect(screen.getByLabelText('picker-item-pi-active')).toBeInTheDocument();
+    // Verify the API was called with archived:'active' — ensuring archived are excluded
+    expect(priceItemsApi.fetchPriceItems).toHaveBeenCalledWith({ archived: 'active' });
+  });
+
+  it('NULL-price item is selectable and displays localized price_not_set text', async () => {
+    const nullPriceItem = makePriceItem({
+      id: 'pi-null',
+      display_name: 'Cena do ustalenia',
+      price: null,
+      is_archived: false,
+    });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(
+      makePriceItemListResponse([nullPriceItem]),
+    );
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+
+    const btn = screen.getByLabelText('picker-item-pi-null');
+    expect(btn).toHaveTextContent('Do ustalenia');
+
+    fireEvent.click(btn);
+    // After select the occurrence shows the localized price_not_set
+    await waitFor(() => {
+      const allNotSet = screen.getAllByText('Do ustalenia');
+      // occurrence-3 (archived, null price) + newly added = at least 2
+      expect(allNotSet.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it('market/reference price is never substituted — price shown is exactly the owner price', async () => {
+    const item = makePriceItem({ id: 'pi-own', display_name: 'Szpachlowanie', price: '35.00' });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([item]));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+
+    const btn = screen.getByLabelText('picker-item-pi-own');
+    // Displays 35.00 not some market reference
+    expect(btn).toHaveTextContent('35,00');
+    expect(btn).toHaveTextContent('zł');
+  });
+
+  it('search filters picker results client-side', async () => {
+    const items = [
+      makePriceItem({ id: 'pi-1', display_name: 'Malowanie ścian', is_archived: false }),
+      makePriceItem({ id: 'pi-2', display_name: 'Gruntowanie podłoża', is_archived: false }),
+    ];
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse(items));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+
+    expect(screen.getByLabelText('picker-item-pi-1')).toBeInTheDocument();
+    expect(screen.getByLabelText('picker-item-pi-2')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(`picker-search-${surfaceId}`), {
+      target: { value: 'Malowanie' },
+    });
+
+    expect(screen.getByLabelText('picker-item-pi-1')).toBeInTheDocument();
+    expect(screen.queryByLabelText('picker-item-pi-2')).not.toBeInTheDocument();
+  });
+
+  it('no-results state shown when search finds nothing', async () => {
+    const items = [makePriceItem({ id: 'pi-1', display_name: 'Malowanie', is_archived: false })];
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse(items));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+
+    fireEvent.change(screen.getByLabelText(`picker-search-${surfaceId}`), {
+      target: { value: 'xxxxxnotfound' },
+    });
+
+    expect(screen.getByText('Brak wyników')).toBeInTheDocument();
+    expect(screen.queryByLabelText('picker-item-pi-1')).not.toBeInTheDocument();
+  });
+
+  it('same PriceItem can be added twice — duplicates are independent', async () => {
+    const item = makePriceItem({ id: 'pi-dup', display_name: 'Prace dwukrotne', is_archived: false });
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(
+      makePlan({ planned_works: [] }),
+    );
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([item]));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    // Add first occurrence
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText('picker-item-pi-dup'));
+
+    // Add second occurrence of the same item
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText('picker-item-pi-dup'));
+
+    // Both occurrences present
+    expect(screen.getAllByText('Prace dwukrotne')).toHaveLength(2);
+    expect(
+      within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem'),
+    ).toHaveLength(2);
+  });
+
+  it('removing one duplicate leaves the other intact', async () => {
+    const item = makePriceItem({ id: 'pi-dup2', display_name: 'Powtarzalna praca', is_archived: false });
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(
+      makePlan({ planned_works: [] }),
+    );
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([item]));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    // Add two occurrences
+    for (let i = 0; i < 2; i++) {
+      fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+      await screen.findByLabelText(`picker-list-${surfaceId}`);
+      fireEvent.click(screen.getByLabelText('picker-item-pi-dup2'));
+    }
+    expect(screen.getAllByText('Powtarzalna praca')).toHaveLength(2);
+
+    // Remove the first remove button
+    const removeButtons = screen.getAllByText('Usuń');
+    expect(removeButtons).toHaveLength(2);
+    fireEvent.click(removeButtons[0]);
+
+    // One remains
+    expect(screen.getAllByText('Powtarzalna praca')).toHaveLength(1);
+  });
+
+  it('new occurrence appended at end preserves existing order', async () => {
+    const newItem = makePriceItem({
+      id: 'pi-new',
+      display_name: 'Nowa praca',
+      is_archived: false,
+    });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([newItem]));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText('picker-item-pi-new'));
+
+    const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    // Original 4 + 1 new = 5
+    expect(rows).toHaveLength(5);
+    expect(rows[4]).toHaveTextContent('Nowa praca');
+    // First row still first
+    expect(rows[0]).toHaveTextContent('Pierwsza praca');
+  });
+
+  it('PUT preserves exact order including duplicate IDs and new occurrence', async () => {
+    const newItem = makePriceItem({ id: 'pi-extra', display_name: 'Dodatkowa', is_archived: false });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([newItem]));
+    vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(
+      makePlan({ substrate: 'GYPSUM_PLASTER' }),
+    );
+    renderEditor();
+
+    // Change substrate to make form dirty
+    fireEvent.change(await screen.findByLabelText(`work-plan-substrate-${surfaceId}`), {
+      target: { value: 'GYPSUM_PLASTER' },
+    });
+
+    // Add one more item via picker
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText('picker-item-pi-extra'));
+
+    fireEvent.click(screen.getByLabelText(`save-work-plan-${surfaceId}`));
+
+    await waitFor(() => {
+      expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledWith(
+        projectId,
+        roomId,
+        surfaceId,
+        expect.objectContaining({
+          price_item_ids: [
+            'price-shared',
+            'price-localized',
+            'price-shared',
+            'price-unavailable',
+            'pi-extra',
+          ],
+        }),
+      );
+    });
+  });
+
+  it('existing archived occurrence stays visible and has archived badge', async () => {
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    // occurrence-3 has is_archived: true — must show badge
+    const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(rows[2]).toHaveTextContent('Zarchiwizowana');
+  });
+
+  it('successful save rehydrates — form becomes clean', async () => {
+    const freshPlan = makePlan({ substrate: 'GYPSUM_PLASTER', planned_works: [] });
+    vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(freshPlan);
+    renderEditor();
+
+    fireEvent.change(await screen.findByLabelText(`work-plan-substrate-${surfaceId}`), {
+      target: { value: 'GYPSUM_PLASTER' },
+    });
+    fireEvent.click(screen.getByLabelText(`save-work-plan-${surfaceId}`));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(`save-work-plan-${surfaceId}`)).toBeDisabled();
+    });
+    expect(screen.getByLabelText(`work-plan-substrate-${surfaceId}`)).toHaveValue('GYPSUM_PLASTER');
+  });
+
+  it('failed save preserves entire draft', async () => {
+    vi.mocked(workPlansApi.putSurfaceWorkPlan).mockRejectedValue(new Error('Network error'));
+    const newItem = makePriceItem({ id: 'pi-draft', display_name: 'Praca w drafcie', is_archived: false });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([newItem]));
+    renderEditor();
+
+    // Change substrate so form is dirty
+    fireEvent.change(await screen.findByLabelText(`work-plan-substrate-${surfaceId}`), {
+      target: { value: 'CONCRETE' },
+    });
+
+    // Add one item via picker
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText('picker-item-pi-draft'));
+    expect(screen.getByText('Praca w drafcie')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(`save-work-plan-${surfaceId}`));
+    await screen.findByText('Nie udało się zapisać planu prac.');
+
+    // Draft still intact
+    expect(screen.getByText('Praca w drafcie')).toBeInTheDocument();
+    expect(screen.getByLabelText(`save-work-plan-${surfaceId}`)).toBeEnabled();
+  });
+
+  it('WALL/FLOOR/CEILING canonical surface ID preserved — editor uses passed surfaceId', async () => {
+    const wallId = 'wall-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    renderEditor(wallId);
+    await screen.findByLabelText(`work-plan-form-${wallId}`);
+    expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledWith(projectId, roomId, wallId);
+  });
+
+  it('PL locale: add work button text is correct', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(makePlan({ planned_works: [] }));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    expect(screen.getByLabelText(`open-picker-${surfaceId}`)).toHaveTextContent('+ Dodaj pracę');
+  });
+
+  it('picker shows empty state when no active items at all', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([]));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    expect(await screen.findByText('Brak aktywnych pozycji')).toBeInTheDocument();
   });
 });

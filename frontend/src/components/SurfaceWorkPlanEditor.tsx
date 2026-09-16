@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { fetchPriceItems } from '../api/priceItems';
 import {
   fetchSurfaceWorkPlan,
   isSurfaceWorkPlanMissing,
@@ -6,8 +7,10 @@ import {
 } from '../api/workPlans';
 import { useI18n } from '../hooks/useI18n';
 import { QualityLevelValue, SubstrateValue } from '../types/checklist';
+import { PriceItem } from '../types/priceItem';
 import {
   SurfacePlannedWorkRead,
+  SurfacePriceItemSummaryRead,
   SurfaceWorkPlanRead,
 } from '../types/workPlan';
 import { localizeApiError } from '../utils/apiErrors';
@@ -23,10 +26,23 @@ interface SurfaceWorkPlanEditorProps {
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
+type PickerState = 'closed' | 'loading' | 'ready' | 'error';
 
 interface WorkPlanBaseline {
   substrate: SubstrateValue | '';
   qualityTarget: QualityLevelValue | null;
+  /** Occurrence IDs as committed by the last successful save/load. */
+  occurrenceIds: string[];
+}
+
+/** A draft occurrence: may be persisted (has work_plan_id) or local-only. */
+interface DraftOccurrence {
+  /** Unique key within the draft list; stable identity for React. */
+  draftKey: string;
+  /** price_item_id sent in PUT */
+  priceItemId: string;
+  /** Full summary snapshot for display — may be null for unavailable items. */
+  summary: SurfacePriceItemSummaryRead | null;
 }
 
 const SUBSTRATES: readonly SubstrateValue[] = [
@@ -57,6 +73,21 @@ function qualityLevelsForSubstrate(substrate: SubstrateValue | ''): readonly Qua
   return [];
 }
 
+/** Stable draft key generator — monotonically increasing per render lifetime. */
+let draftKeyCounter = 0;
+function nextDraftKey(): string {
+  return `dk-${++draftKeyCounter}`;
+}
+
+/** Convert a persisted occurrence to a draft occurrence. */
+function workToDraft(work: SurfacePlannedWorkRead): DraftOccurrence {
+  return {
+    draftKey: nextDraftKey(),
+    priceItemId: work.price_item_id,
+    summary: work.price_item,
+  };
+}
+
 export function SurfaceWorkPlanEditor({
   projectId,
   roomId,
@@ -74,16 +105,32 @@ export function SurfaceWorkPlanEditor({
   const [hasPlan, setHasPlan] = useState(false);
   const [substrate, setSubstrate] = useState<SubstrateValue | ''>('');
   const [qualityTarget, setQualityTarget] = useState<QualityLevelValue | null>(null);
-  const [plannedWorks, setPlannedWorks] = useState<SurfacePlannedWorkRead[]>([]);
+
+  // Draft occurrences — independent stable list, preserves order + duplicates.
+  const [draftOccurrences, setDraftOccurrences] = useState<DraftOccurrence[]>([]);
+
   const [baseline, setBaseline] = useState<WorkPlanBaseline>({
     substrate: '',
     qualityTarget: null,
+    occurrenceIds: [],
   });
+
+  // Price Book picker state
+  const [pickerState, setPickerState] = useState<PickerState>('closed');
+  const [allPriceItems, setAllPriceItems] = useState<PriceItem[]>([]);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
+
   const loadGeneration = useRef(0);
 
   const editorId = `work-plan-editor-${surfaceId}`;
   const qualityLevels = qualityLevelsForSubstrate(substrate);
-  const dirty = substrate !== baseline.substrate || qualityTarget !== baseline.qualityTarget;
+
+  const currentOccurrenceIds = draftOccurrences.map((o) => o.priceItemId);
+  const dirty =
+    substrate !== baseline.substrate ||
+    qualityTarget !== baseline.qualityTarget ||
+    JSON.stringify(currentOccurrenceIds) !== JSON.stringify(baseline.occurrenceIds);
 
   const describeError = (error: unknown, fallback: string): string => {
     const detail = localizeApiError(error, t);
@@ -93,11 +140,13 @@ export function SurfaceWorkPlanEditor({
   const hydrate = (plan: SurfaceWorkPlanRead | null) => {
     const nextSubstrate = plan?.substrate ?? '';
     const nextQuality = plan?.quality_target ?? null;
+    const nextOccurrences = (plan?.planned_works ?? []).map(workToDraft);
+    const nextIds = nextOccurrences.map((o) => o.priceItemId);
     setHasPlan(plan !== null);
     setSubstrate(nextSubstrate);
     setQualityTarget(nextQuality);
-    setPlannedWorks(plan?.planned_works ?? []);
-    setBaseline({ substrate: nextSubstrate, qualityTarget: nextQuality });
+    setDraftOccurrences(nextOccurrences);
+    setBaseline({ substrate: nextSubstrate, qualityTarget: nextQuality, occurrenceIds: nextIds });
   };
 
   useEffect(() => {
@@ -165,7 +214,7 @@ export function SurfaceWorkPlanEditor({
         substrate,
         quality_target: qualityTarget,
         // PUT is full replacement; occurrence order and duplicates must remain exact.
-        price_item_ids: plannedWorks.map((work) => work.price_item_id),
+        price_item_ids: draftOccurrences.map((o) => o.priceItemId),
       });
       hydrate(plan);
       setSaved(true);
@@ -176,16 +225,101 @@ export function SurfaceWorkPlanEditor({
     }
   };
 
-  const plannedWorkName = (work: SurfacePlannedWorkRead): string => {
-    const item = work.price_item;
-    if (!item) return t.work_plan.unavailable_item;
+  const occurrenceDisplayName = (summary: SurfacePriceItemSummaryRead | null): string => {
+    if (!summary) return t.work_plan.unavailable_item;
+    if (summary.display_name) return summary.display_name;
+    if (summary.name_key) {
+      const localized = resolveKey(t, summary.name_key);
+      if (localized !== summary.name_key) return localized;
+    }
+    return t.work_plan.unavailable_item;
+  };
+
+  const priceItemDisplayName = (item: PriceItem): string => {
     if (item.display_name) return item.display_name;
     if (item.name_key) {
       const localized = resolveKey(t, item.name_key);
       if (localized !== item.name_key) return localized;
     }
-    return t.work_plan.unavailable_item;
+    return item.code;
   };
+
+  // ---------------------------------------------------------------------------
+  // Picker
+  // ---------------------------------------------------------------------------
+
+  const openPicker = async () => {
+    setPickerState('loading');
+    setPickerSearch('');
+    setPickerError(null);
+    try {
+      // Load ALL active items in one shot — avoid N+1; filter client-side.
+      const resp = await fetchPriceItems({ archived: 'active' });
+      setAllPriceItems(resp.items);
+      setPickerState('ready');
+    } catch {
+      setPickerError(t.work_plan.picker_error);
+      setPickerState('error');
+    }
+  };
+
+  const closePicker = () => {
+    setPickerState('closed');
+    setPickerSearch('');
+  };
+
+  const handlePickerSelect = (item: PriceItem) => {
+    const occurrence: DraftOccurrence = {
+      draftKey: nextDraftKey(),
+      priceItemId: item.id,
+      summary: {
+        id: item.id,
+        code: item.code,
+        name_key: item.name_key,
+        display_name: item.display_name,
+        category: item.category,
+        unit: item.unit,
+        price_scope: item.price_scope,
+        price: item.price,
+        currency: item.currency,
+        is_archived: item.is_archived,
+        quality_level: item.quality_level,
+      },
+    };
+    setDraftOccurrences((prev) => [...prev, occurrence]);
+    closePicker();
+    setSaveError(null);
+    setSaved(false);
+  };
+
+  const handleRemoveOccurrence = (draftKey: string) => {
+    setDraftOccurrences((prev) => prev.filter((o) => o.draftKey !== draftKey));
+    setSaveError(null);
+    setSaved(false);
+  };
+
+  // Client-side search across display name, name_key (localized), code, category, scope, unit.
+  const filteredPickerItems = useMemo(() => {
+    const q = pickerSearch.trim().toLowerCase();
+    if (!q) return allPriceItems;
+    return allPriceItems.filter((item) => {
+      const name = priceItemDisplayName(item).toLowerCase();
+      const cat = t.pricebook.categories[item.category]?.toLowerCase() ?? '';
+      const scope = t.pricebook.scopes[item.price_scope]?.toLowerCase() ?? '';
+      const unit = t.pricebook.units[item.unit]?.toLowerCase() ?? '';
+      return (
+        name.includes(q) ||
+        cat.includes(q) ||
+        scope.includes(q) ||
+        unit.includes(q) ||
+        item.code.toLowerCase().includes(q)
+      );
+    });
+  }, [allPriceItems, pickerSearch, t]);
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <section
@@ -278,31 +412,43 @@ export function SurfaceWorkPlanEditor({
             </select>
           </label>
 
+          {/* Planned works draft */}
           <div className="space-y-2 min-w-0">
             <h6 className="text-sm font-semibold text-[var(--tg-theme-text-color)]">
               {t.work_plan.planned_works}
             </h6>
-            {plannedWorks.length === 0 ? (
+            {draftOccurrences.length === 0 ? (
               <p className="text-sm text-[var(--tg-theme-hint-color)]">{t.work_plan.no_works}</p>
             ) : (
               <ol aria-label={`planned-works-${surfaceId}`} className="space-y-2">
-                {plannedWorks.map((work) => {
-                  const item = work.price_item;
+                {draftOccurrences.map((occurrence) => {
+                  const item = occurrence.summary;
                   return (
                     <li
-                      key={work.id}
-                      aria-label={`planned-work-${work.id}`}
+                      key={occurrence.draftKey}
+                      aria-label={`draft-occurrence-${occurrence.draftKey}`}
                       className="min-w-0 rounded-lg border border-[var(--tg-control-border-color)] p-2"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <span className="min-w-0 text-sm font-semibold text-[var(--tg-theme-text-color)] break-words">
-                          {plannedWorkName(work)}
+                          {occurrenceDisplayName(item)}
                         </span>
-                        {item?.is_archived && (
-                          <span className="text-xs text-[var(--tg-theme-destructive-text-color)]">
-                            {t.pricebook.archived_badge}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {item?.is_archived && (
+                            <span className="text-xs text-[var(--tg-theme-destructive-text-color)]">
+                              {t.pricebook.archived_badge}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            aria-label={`remove-occurrence-${occurrence.draftKey}`}
+                            onClick={() => handleRemoveOccurrence(occurrence.draftKey)}
+                            disabled={saving}
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-xs text-[var(--tg-theme-destructive-text-color)] disabled:opacity-60"
+                          >
+                            {t.work_plan.remove_work}
+                          </button>
+                        </div>
                       </div>
                       {item ? (
                         <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--tg-theme-hint-color)]">
@@ -324,8 +470,100 @@ export function SurfaceWorkPlanEditor({
                 })}
               </ol>
             )}
-            <p className="text-xs text-[var(--tg-theme-hint-color)]">{t.work_plan.preview_read_only}</p>
+
+            {/* Add work button — always visible when ready */}
+            <button
+              type="button"
+              aria-label={`open-picker-${surfaceId}`}
+              onClick={() => void openPicker()}
+              disabled={saving || pickerState === 'loading'}
+              className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm disabled:opacity-60"
+            >
+              {t.work_plan.add_work}
+            </button>
           </div>
+
+          {/* Price Book Picker — inline panel */}
+          {pickerState !== 'closed' && (
+            <div
+              aria-label={`picker-panel-${surfaceId}`}
+              role="dialog"
+              aria-modal="false"
+              className="w-full min-w-0 rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-bg-color)] p-3 space-y-2"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h6 className="text-sm font-semibold text-[var(--tg-theme-text-color)] break-words">
+                  {t.work_plan.picker_title}
+                </h6>
+                <button
+                  type="button"
+                  aria-label={`close-picker-${surfaceId}`}
+                  onClick={closePicker}
+                  className="min-h-11 min-w-11 flex items-center justify-center text-sm text-[var(--tg-theme-hint-color)]"
+                >
+                  {t.work_plan.picker_close}
+                </button>
+              </div>
+
+              {pickerState === 'loading' && (
+                <p role="status" className="py-3 text-sm text-center text-[var(--tg-theme-hint-color)]">
+                  {t.work_plan.picker_loading}
+                </p>
+              )}
+
+              {pickerState === 'error' && (
+                <p role="alert" className="text-sm text-[var(--tg-theme-destructive-text-color)]">
+                  {pickerError ?? t.work_plan.picker_error}
+                </p>
+              )}
+
+              {pickerState === 'ready' && (
+                <>
+                  <input
+                    type="search"
+                    aria-label={`picker-search-${surfaceId}`}
+                    placeholder={t.work_plan.picker_search}
+                    value={pickerSearch}
+                    onChange={(e) => setPickerSearch(e.target.value)}
+                    className="w-full min-h-11 rounded-xl border px-3 py-2 text-sm bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)]"
+                  />
+
+                  {filteredPickerItems.length === 0 ? (
+                    <p className="py-3 text-sm text-center text-[var(--tg-theme-hint-color)]">
+                      {pickerSearch.trim() ? t.work_plan.picker_no_results : t.work_plan.picker_empty}
+                    </p>
+                  ) : (
+                    <ul aria-label={`picker-list-${surfaceId}`} className="space-y-1 max-h-64 overflow-y-auto">
+                      {filteredPickerItems.map((item) => (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            aria-label={`picker-item-${item.id}`}
+                            onClick={() => handlePickerSelect(item)}
+                            className="w-full min-h-11 text-left px-3 py-2 rounded-lg hover:bg-[var(--tg-theme-secondary-bg-color)] active:bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)]"
+                          >
+                            <div className="text-sm font-semibold break-words">
+                              {priceItemDisplayName(item)}
+                            </div>
+                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-[var(--tg-theme-hint-color)]">
+                              <span>{t.pricebook.categories[item.category]}</span>
+                              <span>{t.pricebook.units[item.unit]}</span>
+                              <span>{t.pricebook.scopes[item.price_scope]}</span>
+                              <span>
+                                {item.price === null
+                                  ? t.pricebook.price_not_set
+                                  : `${formatPrice(item.price)} ${item.currency === 'PLN' ? t.pricebook.currency_symbol : item.currency}`}
+                              </span>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {saveError && (
             <div role="alert" className="space-y-1">
