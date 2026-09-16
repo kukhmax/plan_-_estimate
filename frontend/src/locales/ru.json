@@ -30,6 +30,16 @@
     "projects": "Объекты",
     "pricebook": "Прайс"
   },
+  "errors": {
+    "openings_deductions_exceed_gross": "Общая площадь проёмов не может превышать площадь стены.",
+    "openings_require_wall_surface": "Проемы можно добавлять только в стены.",
+    "validation_required": "Это поле обязательно.",
+    "validation_decimal_places": "Укажите не более 3 знаков после запятой.",
+    "validation_greater_than": "Значение должно быть больше 0.",
+    "validation_greater_than_equal": "Значение должно быть не меньше 1.",
+    "validation_integer": "Введите целое число.",
+    "validation_failed": "Проверьте введённые значения."
+  },
   "common": {
     "open": "Открыть",
     "edit": "Редактировать",

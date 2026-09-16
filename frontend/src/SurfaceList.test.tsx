@@ -573,7 +573,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     expect(await screen.findByText('Powierzchnia została zarchiwizowana')).toBeInTheDocument();
   });
 
-  it('shows no opening controls for a FLOOR surface', async () => {
+  it('does not render a canonical FLOOR card in the generic surface list (10C.1C)', async () => {
     const floor: SurfaceType = {
       ...surface,
       name: 'Podłoga w łazience',
@@ -585,18 +585,13 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [floor], total: 1 });
     renderSurfaces();
 
-    await waitFor(() => expect(screen.getByText('Podłoga w łazience')).toBeInTheDocument());
-    expandOptions(floor.id);
-
-    expect(screen.getByLabelText(`edit-surface-${floor.id}`)).toBeInTheDocument();
-    expect(screen.getByLabelText(`archive-surface-${floor.id}`)).toBeInTheDocument();
-    expect(screen.queryByLabelText(`add-opening-${floor.id}-DOOR`)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(`add-opening-${floor.id}-WINDOW`)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(`toggle-openings-${floor.id}`)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(`inspect-surface-${floor.id}`)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
+    expect(screen.queryByText('Podłoga w łazience')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('surfaces-list')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`options-toggle-${floor.id}`)).not.toBeInTheDocument();
   });
 
-  it('shows no opening controls for a CEILING surface', async () => {
+  it('does not render a canonical CEILING card in the generic surface list (10C.1C)', async () => {
     const ceiling: SurfaceType = {
       ...surface,
       name: 'Sufit w salonie',
@@ -608,14 +603,10 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [ceiling], total: 1 });
     renderSurfaces();
 
-    await waitFor(() => expect(screen.getByText('Sufit w salonie')).toBeInTheDocument());
-    expandOptions(ceiling.id);
-
-    expect(screen.getByLabelText(`edit-surface-${ceiling.id}`)).toBeInTheDocument();
-    expect(screen.getByLabelText(`archive-surface-${ceiling.id}`)).toBeInTheDocument();
-    expect(screen.queryByLabelText(`add-opening-${ceiling.id}-DOOR`)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(`add-opening-${ceiling.id}-WINDOW`)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(`toggle-openings-${ceiling.id}`)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
+    expect(screen.queryByText('Sufit w salonie')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('surfaces-list')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`options-toggle-${ceiling.id}`)).not.toBeInTheDocument();
   });
 
   it('shows the Work Plan entry button (Rodzaje prac i jakość) on the collapsed card', async () => {
@@ -640,5 +631,95 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
     expect(screen.getByText('Скрыть опции')).toBeInTheDocument();
     expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+  });
+});
+
+describe('SurfaceList canonical plane filtering (10C.1C finding 3)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  /** Canonical FLOOR/CEILING Surface rows — provisioned once per room by 10C.1A. */
+  const canonicalFloor = (): SurfaceType => ({
+    ...surface,
+    id: 'f1111111-1111-1111-1111-111111111111',
+    name: 'Floor',
+    surface_type: 'FLOOR',
+    position: 100,
+  });
+  const canonicalCeiling = (): SurfaceType => ({
+    ...surface,
+    id: 'c1111111-1111-1111-1111-111111111111',
+    name: 'Ceiling',
+    surface_type: 'CEILING',
+    position: 101,
+  });
+  const measuredWall = (): SurfaceType => ({
+    ...surface,
+    width: 5,
+    height: 2.7,
+    gross_area: '13.500',
+    deduction_area: '1.800',
+    net_area: '11.700',
+  });
+
+  it('A: canonical FLOOR/CEILING rows stay in the fetched data but appear nowhere as generic cards (no duplicates)', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({
+      items: [canonicalFloor(), canonicalCeiling(), measuredWall()],
+      total: 3,
+    });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    // Exactly one generic card: the wall. Canonical planes are rendered solely by AreaSegmentList.
+    expect(screen.getByLabelText('surfaces-list').querySelectorAll('li')).toHaveLength(1);
+    expect(screen.queryByText('Floor')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ceiling')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`options-toggle-${canonicalFloor().id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`options-toggle-${canonicalCeiling().id}`)).not.toBeInTheDocument();
+  });
+
+  it('B: room with only canonical planes shows the wall empty state, not orphan cards', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({
+      items: [canonicalFloor(), canonicalCeiling()],
+      total: 2,
+    });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
+    expect(screen.queryByLabelText('surfaces-list')).not.toBeInTheDocument();
+    expect(screen.queryByText('Floor')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ceiling')).not.toBeInTheDocument();
+  });
+
+  it('C: wall cards are unchanged when canonical planes coexist with walls', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({
+      items: [canonicalFloor(), canonicalCeiling(), measuredWall()],
+      total: 3,
+    });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(screen.getByText(/5\.00 × 2\.70 m/)).toBeInTheDocument();
+    expect(screen.getByText(/11\.70 m²/)).toBeInTheDocument();
+    expandOptions(surface.id);
+    expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
+  });
+
+  it('D: surface count derivation still sees canonical rows under the hood when position numbering', async () => {
+    // nextWallPosition derives from ALL surfaces (incl. canonical FLOOR/CEILING
+    // position 100/101); a new wall must simply not break — regression guard only.
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({
+      items: [canonicalFloor(), canonicalCeiling()],
+      total: 2,
+    });
+    renderSurfaces({ roomHeight: 2.7, wallMode: 'CUSTOM' });
+
+    await waitFor(() => expect(screen.getByLabelText('custom-wall-entry')).toBeInTheDocument());
+    expect(screen.getByText('Ściana 1')).toBeInTheDocument();
+    expect(screen.queryAllByLabelText(/^surface-item-/)).toHaveLength(0);
   });
 });

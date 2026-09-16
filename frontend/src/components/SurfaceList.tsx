@@ -312,6 +312,11 @@ export function SurfaceList({
     return labels[surfaceType];
   };
 
+  // AreaSegmentList is the sole FLOOR/CEILING representation; full state still drives identity and counts.
+  const visibleSurfaces = surfaces.filter(
+    (s) => s.surface_type !== 'FLOOR' && s.surface_type !== 'CEILING',
+  );
+
   return (
     <section aria-label="surfaces-section" className="w-full mt-5">
       <h3 className="text-lg font-bold text-slate-900 mb-3">{t.surfaces.title}</h3>
@@ -528,14 +533,14 @@ export function SurfaceList({
       {success && <p role="status" className="text-sm text-emerald-700 mb-3">{success}</p>}
       {loading && <p className="text-sm text-slate-500 text-center py-4">{t.surfaces.loading}</p>}
       {!loading && error && <p role="alert" className="text-sm text-red-600 text-center py-4">{error}</p>}
-      {!loading && !error && surfaces.length === 0 && (
+      {!loading && !error && visibleSurfaces.length === 0 && (
         <p aria-label="no-surfaces" className="text-sm text-slate-400 text-center py-6">
           {t.surfaces.empty}
         </p>
       )}
-      {!loading && !error && surfaces.length > 0 && (
+      {!loading && !error && visibleSurfaces.length > 0 && (
         <ul aria-label="surfaces-list" className="space-y-3">
-          {surfaces.map((surface) => {
+          {visibleSurfaces.map((surface) => {
             const hasDimensions = surface.width !== null && surface.width !== undefined &&
                                   surface.height !== null && surface.height !== undefined;
             const isWall = surface.surface_type === 'WALL';

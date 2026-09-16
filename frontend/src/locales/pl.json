@@ -30,6 +30,16 @@
     "projects": "Obiekty",
     "pricebook": "Cennik"
   },
+  "errors": {
+    "openings_deductions_exceed_gross": "Łączna powierzchnia otworów nie może przekraczać powierzchni ściany.",
+    "openings_require_wall_surface": "Otwory można dodawać tylko do ścian.",
+    "validation_required": "To pole jest wymagane.",
+    "validation_decimal_places": "Podaj maksymalnie 3 miejsca po przecinku.",
+    "validation_greater_than": "Wartość musi być większa od 0.",
+    "validation_greater_than_equal": "Wartość musi wynosić co najmniej 1.",
+    "validation_integer": "Podaj liczbę całkowitą.",
+    "validation_failed": "Sprawdź wprowadzone wartości."
+  },
   "common": {
     "open": "Otwórz",
     "edit": "Edytuj",

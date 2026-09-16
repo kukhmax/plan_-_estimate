@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from './api/http';
 import * as openingsApi from './api/openings';
 import { OpeningList } from './components/OpeningList';
 import { I18nProvider } from './hooks/useI18n';
@@ -188,6 +189,114 @@ describe('OpeningList', () => {
     // Form inputs remain intact for user correction
     expect(screen.getByLabelText('opening-width')).toHaveValue(5);
     expect(screen.getByLabelText('opening-height')).toHaveValue(3);
+  });
+
+  it('localizes an over-deduction 422 in Polish on every repeated submission', async () => {
+    vi.mocked(openingsApi.createOpening).mockRejectedValue(
+      new ApiError(
+        'Total opening deductions (20.513 m²) would exceed wall gross area (9.000 m²)',
+        422,
+        'openings_deductions_exceed_gross',
+      ),
+    );
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.072' } });
+    fireEvent.change(screen.getByLabelText('opening-quantity'), { target: { value: '11' } });
+
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Łączna powierzchnia otworów nie może przekraczać powierzchni ściany.',
+    );
+
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+    await waitFor(() => expect(openingsApi.createOpening).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Łączna powierzchnia otworów nie może przekraczać powierzchni ściany.',
+    );
+    expect(screen.getByLabelText('opening-width')).toHaveValue(0.9);
+    expect(screen.getByLabelText('opening-height')).toHaveValue(2.072);
+    expect(screen.getByLabelText('opening-quantity')).toHaveValue(11);
+  });
+
+  it('localizes an over-deduction 422 in Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(openingsApi.createOpening).mockRejectedValue(
+      new ApiError(
+        'Total opening deductions (20.513 m²) would exceed wall gross area (9.000 m²)',
+        422,
+        'openings_deductions_exceed_gross',
+      ),
+    );
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.072' } });
+    fireEvent.change(screen.getByLabelText('opening-quantity'), { target: { value: '11' } });
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Общая площадь проёмов не может превышать площадь стены.',
+    );
+  });
+
+  it('localizes the Pydantic decimal-places 422 from the owner example', async () => {
+    vi.mocked(openingsApi.createOpening).mockRejectedValue(
+      new ApiError(
+        'body.height: Decimal input should have no more than 3 decimal places',
+        422,
+      ),
+    );
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.07207' } });
+    fireEvent.change(screen.getByLabelText('opening-quantity'), { target: { value: '11' } });
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Podaj maksymalnie 3 miejsca po przecinku.',
+    );
+    expect(screen.getByLabelText('opening-height')).toHaveValue(2.07207);
+  });
+
+  it('uses a localized generic 422 only when the API supplied no structured detail', async () => {
+    vi.mocked(openingsApi.createOpening).mockRejectedValue(
+      new ApiError('Request failed (422)', 422),
+    );
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2' } });
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sprawdź wprowadzone wartości.');
+  });
+
+  it('preserves an unknown structured 422 detail instead of hiding it', async () => {
+    vi.mocked(openingsApi.createOpening).mockRejectedValue(
+      new ApiError('body.custom: Custom validator detail', 422),
+    );
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2' } });
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'body.custom: Custom validator detail',
+    );
   });
 
   it('archives an active opening and notifies parent', async () => {

@@ -45,12 +45,12 @@ export const DEFAULT_DARK_THEME: Record<string, string> = {
   '--tg-theme-destructive-text-color': '#ef5350',
   '--tg-control-bg-color': '#232e3c',
   '--tg-control-text-color': '#f5f5f5',
-  '--tg-control-placeholder-color': '#708499',
+  '--tg-control-placeholder-color': '#94a8bc',
   '--tg-control-border-color': '#4b5f75',
   '--tg-control-focus-border-color': '#6ab2f2',
   '--tg-control-focus-ring-color': 'rgba(106, 178, 242, 0.35)',
   '--tg-control-disabled-bg-color': '#1c2733',
-  '--tg-control-disabled-text-color': '#708499',
+  '--tg-control-disabled-text-color': '#94a8bc',
 };
 
 export function applyTelegramTheme(

@@ -15,6 +15,7 @@ import {
   OpeningUpdatePayload,
 } from '../types/opening';
 import { formatMetric } from '../utils/format';
+import { localizeApiError } from '../utils/apiErrors';
 
 interface OpeningListProps {
   projectId: string;
@@ -198,7 +199,7 @@ export function OpeningList({
       await load();
       onOpeningChanged?.();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : t.openings.error);
+      setFormError(localizeApiError(err, t));
     } finally {
       setSaving(false);
     }
@@ -218,7 +219,7 @@ export function OpeningList({
       await load();
       onOpeningChanged?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t.openings.error);
+      setError(localizeApiError(err, t));
     }
   };
 
