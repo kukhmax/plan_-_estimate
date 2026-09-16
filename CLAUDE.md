@@ -99,7 +99,7 @@ Follow this sequence exactly:
 8. Report **PASS** or **FAIL**. On FAIL, do not commit, push, or begin another stage.
 9. On PASS, update `docs/development-progress.md`, inspect the complete diff, and create one logical stage commit. Do not push yet.
 10. **`git push` requires explicit owner approval.** State the proposed push command and wait for approval before executing it.
-11. **Production deployment requires explicit owner approval** for every step: SSH access, `git pull`, Docker build, Docker up, Alembic migration, and any data-modifying operation.
+11. **Production deployment requires explicit owner approval** for every step: SSH access, `git pull`, Docker build, Docker up, Alembic migration, and any data-modifying operation. When a backend deployment contains a new Alembic migration: inspect the migration file from the checked-out repository, build the new backend image, present the migration assessment for owner approval, then recreate the backend container — the entrypoint auto-applies `alembic upgrade head` on startup. **Never inspect `alembic heads` or `alembic history` from a running container built from the previous image** — it reports the old code head, not the new migration. See `docs/PRODUCTION_DEPLOYMENT_RUNBOOK_RU.md` for the full canonical order.
 12. After production deployment, verify health at `https://plan-estimate.pl/api/health` and provide the Telegram cache-buster URL.
 13. Stop after production verification. Starting the next stage always requires explicit owner approval.
 

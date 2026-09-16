@@ -1667,9 +1667,28 @@ docker compose \
 позволяет избежать ненужного downtime из-за ошибки компиляции или
 сборки.
 
+> **Важно: отличие build от пересоздания контейнера.** Успешный
+> `docker compose build backend` создаёт новый image, но НЕ обновляет
+> уже работающий контейнер. Команда `docker compose up -d backend`
+> (следующий шаг) необходима для пересоздания контейнера из нового image.
+> Оба шага обязательны при любом изменении кода backend.
+
+> **Критично при наличии новой Alembic-миграции.** Если в коде появилась
+> новая миграция, не выполнять `exec backend alembic heads` или
+> `alembic history` против работающего контейнера после `git pull` но до
+> пересоздания — работающий контейнер использует старый image и показывает
+> старую версию кода. Проверить файл миграции напрямую из репозитория, а
+> состояние базы данных — только из НОВОГО контейнера после `up -d backend`.
+
 ------------------------------------------------------------------------
 
 ## 45. Шаг 7 --- применить новые images
+
+> **Если в обновлении присутствует новая Alembic-миграция:** этот шаг
+> применяет её к базе данных (backend entrypoint запускает
+> `alembic upgrade head` автоматически). Перед выполнением необходимо
+> явное подтверждение владельца. Для определения пути миграции
+> использовать файл из репозитория, а не запрос к работающему контейнеру.
 
 Только после успешного build:
 
@@ -1692,9 +1711,12 @@ alembic upgrade head
 
 Поэтому migrations новой версии применяются при запуске backend.
 
+После `up -d backend` обязательно проверить, что текущая миграция
+совпадает с head (следующий раздел §46).
+
 ------------------------------------------------------------------------
 
-## 46. Шаг 8 --- проверить контейнеры
+## 46. Шаг 8 --- проверить контейнеры и состояние миграции
 
 ``` bash
 docker compose \
@@ -1715,6 +1737,18 @@ plan_estimate_caddy      Up ...
 PostgreSQL и FastAPI не должны иметь публичных host-port mappings.
 
 Caddy должен публиковать `80` и `443`.
+
+Если в обновлении присутствовала новая Alembic-миграция, проверить
+её применение из НОВОГО контейнера:
+
+``` bash
+docker exec plan_estimate_backend alembic current
+docker exec plan_estimate_backend alembic heads
+```
+
+Оба вывода должны совпадать (указывать на один и тот же revision).
+Если не совпадают --- остановиться, проверить логи backend, не
+продолжать до выяснения причины.
 
 ------------------------------------------------------------------------
 
@@ -1915,6 +1949,66 @@ docker logs plan_estimate_backend --tail 100
 ```
 
 Не выводить и не передавать `TELEGRAM_BOT_TOKEN`.
+
+------------------------------------------------------------------------
+
+## 57a. В репозитории есть миграция N+1, но `alembic heads` показывает N
+
+**Причина**: работающий backend-контейнер был собран из старого image — до
+того, как был выполнен `git pull`. Этот контейнер не знает о новых файлах
+миграций, добавленных в репозиторий после сборки его image.
+
+Запрос `docker compose exec backend alembic heads` обращается к коду
+внутри работающего контейнера, а не к файловой системе хоста. Поэтому
+он вернёт head из старого image независимо от того, что находится в
+`backend/alembic/versions/` на хосте.
+
+**Диагностика**:
+
+``` bash
+# Убедиться, что git pull уже выполнен
+git log --oneline -3
+
+# Проверить, какой файл миграции есть в репозитории
+ls backend/alembic/versions/
+
+# Проверить, что показывает работающий контейнер
+docker exec plan_estimate_backend alembic heads
+# Если отличается от ожидаемого — контейнер использует старый image
+```
+
+**Решение**: сначала собрать новый image, затем пересоздать контейнер,
+и только после этого проверять `alembic heads`.
+
+``` bash
+# 1. Собрать новый image
+docker compose \
+  --env-file .env.production \
+  -p plan-estimate \
+  -f docker-compose.prod.yml \
+  build backend
+
+# 2. Пересоздать контейнер из нового image
+docker compose \
+  --env-file .env.production \
+  -p plan-estimate \
+  -f docker-compose.prod.yml \
+  up -d backend
+
+# 3. Теперь проверить heads из НОВОГО контейнера
+docker compose \
+  --env-file .env.production \
+  -p plan-estimate \
+  -f docker-compose.prod.yml \
+  exec backend alembic heads
+# Теперь должен отображаться ожидаемый head из нового кода
+```
+
+> **Внимание**: в текущей production-конфигурации backend entrypoint
+> автоматически запускает `alembic upgrade head` при старте контейнера.
+> Это означает, что шаг 2 уже применит миграцию. Не запускать
+> `alembic upgrade head` вручную повторно — убедиться через
+> `alembic current`, что текущая ревизия совпадает с `alembic heads`.
 
 ------------------------------------------------------------------------
 
@@ -2210,22 +2304,24 @@ docker compose --env-file .env.production -p plan-estimate -f docker-compose.pro
 Имя проекта `-p plan-estimate` фиксирует одинаковый контекст Compose в
 любой директории и исключает конфликт имён с dev-стеком.
 
-## 69. Безопасный порядок обновления (проверен)
+## 69. Безопасный порядок обновления
+
+### 69a. Обновление БЕЗ новой Alembic-миграции (frontend или backend)
 
 ``` bash
 # 1. Код: только fast-forward на целевой ветке
 git fetch origin
 git status                 # дерево должно быть чистым
-git pull --ff-only origin stage-9
+git pull --ff-only origin <branch>
 
-# 2. Проверка конфигурации (до любых изменений)
+# 2. Проверка конфигурации
 docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml config --quiet
 
 # 3. Собрать, пока текущий production продолжает работать
 docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml build
 
 # 4. Применить
-docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml up -d
 
 # 5. Состояние контейнеров
 docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml ps
@@ -2234,12 +2330,71 @@ docker compose --env-file .env.production -p plan-estimate -f docker-compose.pro
 docker exec plan_estimate_backend curl -fsS http://localhost:8000/api/health
 #    Ожидается: {"status":"ok"}
 
-# 7. Текущая миграция (backend entrypoint применяет alembic upgrade head при старте)
+# 7. Публичная проверка
+curl -fsS https://plan-estimate.pl/api/health
+curl -I https://plan-estimate.pl
+```
+
+### 69b. Обновление С новой Alembic-миграцией (обязательный порядок)
+
+> **Критичное правило**: не выполнять `alembic heads` или `alembic history`
+> внутри работающего backend-контейнера после `git pull` но до пересоздания
+> контейнера. Работающий контейнер использует старый image и возвращает
+> старый head кода. Файл миграции нужно проверять напрямую из репозитория.
+
+``` bash
+# 1. Код: только fast-forward
+git fetch origin
+git status
+git pull --ff-only origin <branch>
+git log --oneline -3      # убедиться, что ожидаемый commit в HEAD
+
+# 2. Проверить файл миграции из РЕПОЗИТОРИЯ (не из работающего контейнера)
+cat backend/alembic/versions/<new_migration_file>.py
+# Убедиться: является ли миграция аддитивной/обратно-совместимой?
+# Определить текущую ревизию из СТАРОГО контейнера:
 docker exec plan_estimate_backend alembic current
 
-# 8. Публичная проверка frontend
-curl -fsS https://plan-estimate.pl
+# 3. Проверка конфигурации Compose
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml config --quiet
+
+# 4. Собрать новый backend image (пока старые контейнеры продолжают работать)
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml build backend
+# (также собрать frontend, если он изменился)
+
+# ─────────────────────────────────────────────────────────────────────────
+# СТОП — ОЖИДАНИЕ ЯВНОГО ПОДТВЕРЖДЕНИЯ ВЛАДЕЛЬЦА
+# Перед этим шагом сообщить:
+#   - текущая ревизия БД (из шага 2)
+#   - ожидаемый head (из файла миграции в репозитории)
+#   - характер миграции (аддитивная / деструктивная)
+#   - рекомендация по backup
+# ─────────────────────────────────────────────────────────────────────────
+
+# 5. Пересоздать backend из НОВОГО image
+#    (entrypoint автоматически применит alembic upgrade head при старте)
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml up -d backend
+
+# 6. Проверить применение миграции из НОВОГО контейнера
+docker exec plan_estimate_backend alembic current
+docker exec plan_estimate_backend alembic heads
+#    Оба вывода должны совпадать. Если нет --- остановиться, смотреть логи.
+
+# 7. Применить frontend (если изменился)
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml up -d frontend
+
+# 8. Состояние контейнеров
+docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml ps
+
+# 9. Внутренний health
+docker exec plan_estimate_backend curl -fsS http://localhost:8000/api/health
+
+# 10. Публичная проверка
+curl -fsS https://plan-estimate.pl/api/health
 curl -I https://plan-estimate.pl
+
+# 11. При ошибке health — посмотреть логи
+docker logs plan_estimate_backend --tail 100
 ```
 
 ## 70. НИКОГДА не выполнять при обычном развёртывании
