@@ -14,7 +14,9 @@ import {
   AreaSegmentType,
   PlaneAreaSummary,
 } from '../types/areaSegment';
+import { SurfaceType } from '../types/surface';
 import { formatMetric } from '../utils/format';
+import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 
 interface AreaSegmentListProps {
@@ -61,6 +63,11 @@ export function AreaSegmentList({
   onMeasurementChanged,
 }: AreaSegmentListProps) {
   const { t } = useI18n();
+  const surfaceDisplayLabels = {
+    wall: t.surfaces.wall,
+    floor: t.surfaces.floor,
+    ceiling: t.surfaces.ceiling,
+  };
   const [segments, setSegments] = useState<AreaSegmentType[]>([]);
   const [planes, setPlanes] = useState<Record<AreaPlane, PlaneAreaSummary> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,8 +80,8 @@ export function AreaSegmentList({
   /** Per-plane Opcje progressive disclosure — UI state only, FLOOR independent of CEILING. */
   const [expandedOptions, setExpandedOptions] = useState<Partial<Record<AreaPlane, boolean>>>({});
   const [activeWorkPlanPlane, setActiveWorkPlanPlane] = useState<AreaPlane | null>(null);
-  /** Canonical plane Surface.id (Stage 10C.1A) resolved from the room's surface rows. */
-  const [planeSurfaces, setPlaneSurfaces] = useState<Record<AreaPlane, string | null>>({
+  /** Canonical plane Surface (Stage 10C.1A) resolved from the room's surface rows. */
+  const [planeSurfaces, setPlaneSurfaces] = useState<Record<AreaPlane, SurfaceType | null>>({
     FLOOR: null,
     CEILING: null,
   });
@@ -99,19 +106,19 @@ export function AreaSegmentList({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      let floorId: string | null = null;
-      let ceilingId: string | null = null;
+      let floorSurface: SurfaceType | null = null;
+      let ceilingSurface: SurfaceType | null = null;
       try {
         const surfaceData = await fetchSurfaces(projectId, roomId);
         for (const surface of surfaceData.items) {
           if (surface.is_archived) continue;
-          if (surface.surface_type === 'FLOOR' && floorId === null) floorId = surface.id;
-          else if (surface.surface_type === 'CEILING' && ceilingId === null) ceilingId = surface.id;
+          if (surface.surface_type === 'FLOOR' && floorSurface === null) floorSurface = surface;
+          else if (surface.surface_type === 'CEILING' && ceilingSurface === null) ceilingSurface = surface;
         }
       } catch {
         // canonical plane identity unavailable — no synthetic ID
       }
-      if (!cancelled) setPlaneSurfaces({ FLOOR: floorId, CEILING: ceilingId });
+      if (!cancelled) setPlaneSurfaces({ FLOOR: floorSurface, CEILING: ceilingSurface });
     })();
     return () => {
       cancelled = true;
@@ -239,7 +246,11 @@ export function AreaSegmentList({
     const hasPlaneArea = rectangleBase || planeSegments.length > 0;
     const planeKey = plane === 'FLOOR' ? 'floor' : 'ceiling';
     const isOptionsOpen = !!expandedOptions[plane];
-    const planeSurfaceId = planeSurfaces[plane];
+    const planeSurface = planeSurfaces[plane];
+    const planeSurfaceId = planeSurface?.id ?? null;
+    const displayName = planeSurface
+      ? getSurfaceDisplayName(planeSurface, surfaceDisplayLabels)
+      : planeLabel(plane);
     const isWorkPlanOpen = activeWorkPlanPlane === plane;
 
     return (
@@ -249,7 +260,7 @@ export function AreaSegmentList({
         className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2.5"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h4 className="text-sm font-semibold text-slate-900">{planeLabel(plane)}</h4>
+          <h4 className="text-sm font-semibold text-slate-900">{displayName}</h4>
           {hasPlaneArea && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
               {t.area_segments.total}: {formatMetric(totals.net)} {t.common.unit_m2}
@@ -305,7 +316,7 @@ export function AreaSegmentList({
                 projectId={projectId}
                 roomId={roomId}
                 surfaceId={planeSurfaceId}
-                surfaceName={planeLabel(plane)}
+                surfaceName={displayName}
                 onClose={() => setActiveWorkPlanPlane(null)}
               />
             )}

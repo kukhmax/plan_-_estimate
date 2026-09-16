@@ -16,6 +16,7 @@ import {
   SurfaceUpdatePayload,
 } from '../types/surface';
 import { formatMetric } from '../utils/format';
+import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { OpeningList } from './OpeningList';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 
@@ -70,6 +71,11 @@ export function SurfaceList({
   onInspectSurface,
 }: SurfaceListProps) {
   const { t } = useI18n();
+  const surfaceDisplayLabels = {
+    wall: t.surfaces.wall,
+    floor: t.surfaces.floor,
+    ceiling: t.surfaces.ceiling,
+  };
   const [surfaces, setSurfaces] = useState<SurfaceType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -553,6 +559,7 @@ export function SurfaceList({
             const isOpeningsOpen = !!expandedOpenings[surface.id];
             const isOptionsOpen = !!expandedOptions[surface.id];
             const isWorkPlanOpen = activeWorkPlanSurfaceId === surface.id;
+            const displayName = getSurfaceDisplayName(surface, surfaceDisplayLabels);
 
             return (
               <li
@@ -562,7 +569,7 @@ export function SurfaceList({
               >
                 {/* Header: name + badges */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-slate-900 text-sm min-w-0 break-words">{surface.name}</span>
+                  <span className="font-semibold text-slate-900 text-sm min-w-0 break-words">{displayName}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
                     {typeLabel(surface.surface_type)}
                   </span>
@@ -646,7 +653,7 @@ export function SurfaceList({
                         projectId={projectId}
                         roomId={roomId}
                         surfaceId={surface.id}
-                        surfaceName={surface.name}
+                        surfaceName={displayName}
                         onClose={() => setActiveWorkPlanSurfaceId(null)}
                       />
                     )}
@@ -659,7 +666,7 @@ export function SurfaceList({
                             <button
                               type="button"
                               aria-label={`inspect-surface-${surface.id}`}
-                              onClick={() => onInspectSurface(surface.id, surface.name)}
+                              onClick={() => onInspectSurface(surface.id, displayName)}
                               className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
                             >
                               {t.inspections.inspect_wall}
@@ -773,7 +780,7 @@ export function SurfaceList({
                         projectId={projectId}
                         roomId={roomId}
                         surfaceId={surface.id}
-                        surfaceName={surface.name}
+                        surfaceName={displayName}
                         onClose={() => setActiveWorkPlanSurfaceId(null)}
                       />
                     )}

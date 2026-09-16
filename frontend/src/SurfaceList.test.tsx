@@ -275,7 +275,7 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     await waitFor(() => {
       expect(surfacesApi.generateWalls).toHaveBeenCalledWith(projectId, roomId);
     });
-    expect(await screen.findByText('Wall 4')).toBeInTheDocument();
+    expect(await screen.findByText('Ściana 4')).toBeInTheDocument();
     expect(screen.getByLabelText('surfaces-list').querySelectorAll('li')).toHaveLength(4);
     expect(screen.getByText('Wygenerowano 4 ściany')).toBeInTheDocument();
   });
@@ -419,13 +419,13 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
 
     await waitFor(() => expect(screen.getByLabelText('generate-walls')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('generate-walls'));
-    await waitFor(() => expect(screen.getByText('Wall 4')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Ściana 4')).toBeInTheDocument());
 
     fireEvent.click(screen.getByLabelText('generate-walls'));
     await waitFor(() => expect(surfacesApi.generateWalls).toHaveBeenCalledTimes(2));
 
     expect(screen.getByLabelText('surfaces-list').querySelectorAll('li')).toHaveLength(4);
-    expect(screen.getAllByText('Wall 1')).toHaveLength(1);
+    expect(screen.getAllByText('Ściana 1')).toHaveLength(1);
   });
 
   it('switches quick action type between Door and Window without duplicate forms', async () => {
@@ -681,6 +681,54 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
     expect(screen.getByText('Скрыть опции')).toBeInTheDocument();
     expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+  });
+
+  it('shows generated wall names in Polish while keeping the stored name in the edit form', async () => {
+    const generatedWall = { ...measuredWall(), name: 'Wall 1' };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [generatedWall], total: 1 });
+    renderSurfaces();
+
+    expect(await screen.findByText('Ściana 1')).toBeInTheDocument();
+    expect(screen.queryByText('Wall 1')).not.toBeInTheDocument();
+
+    expandOptions(generatedWall.id);
+    fireEvent.click(screen.getByLabelText(`edit-surface-${generatedWall.id}`));
+    expect(screen.getByLabelText('surface-name')).toHaveValue('Wall 1');
+    expect(surfacesApi.updateSurface).not.toHaveBeenCalled();
+  });
+
+  it('uses localized Russian generated names in cards and the exact wall WorkPlan', async () => {
+    localStorage.setItem('locale', 'ru');
+    const wall1 = { ...measuredWall(), name: 'Wall 1' };
+    const wall2 = {
+      ...measuredWall(),
+      id: '44444444-4444-4444-4444-444444444444',
+      name: 'Wall 2',
+      position: 1,
+    };
+    const custom = {
+      ...measuredWall(),
+      id: '55555555-5555-5555-5555-555555555555',
+      name: 'Ściana łukowa',
+      position: 2,
+    };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({
+      items: [wall1, wall2, custom],
+      total: 3,
+    });
+    renderSurfaces();
+
+    expect(await screen.findByText('Стена 1')).toBeInTheDocument();
+    expect(screen.getByText('Стена 2')).toBeInTheDocument();
+    expect(screen.getByText('Ściana łukowa')).toBeInTheDocument();
+    expect(screen.queryByText('Wall 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Wall 2')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(`work-plan-${wall1.id}`));
+    const editor = await screen.findByLabelText(`work-plan-editor-${wall1.id}`);
+    expect(editor).toHaveTextContent('Виды работ и качество');
+    expect(editor).toHaveTextContent('Стена 1');
+    expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledWith(projectId, roomId, wall1.id);
   });
 });
 

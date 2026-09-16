@@ -570,7 +570,8 @@ describe('AreaSegmentList plane-card parity (10C.1B)', () => {
     expect(screen.queryByLabelText('add-floor-rectangle')).not.toBeInTheDocument();
 
     fireEvent.click(floorWorkPlan);
-    expect(await screen.findByLabelText(`work-plan-editor-${floorSurfaceId}`)).toBeInTheDocument();
+    const floorEditor = await screen.findByLabelText(`work-plan-editor-${floorSurfaceId}`);
+    expect(floorEditor).toHaveTextContent('Podłoga');
     expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledWith(
       projectId,
       roomId,
@@ -583,7 +584,8 @@ describe('AreaSegmentList plane-card parity (10C.1B)', () => {
     expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument();
 
     fireEvent.click(ceilingWorkPlan);
-    expect(await screen.findByLabelText(`work-plan-editor-${ceilingSurfaceId}`)).toBeInTheDocument();
+    const ceilingEditor = await screen.findByLabelText(`work-plan-editor-${ceilingSurfaceId}`);
+    expect(ceilingEditor).toHaveTextContent('Sufit');
     expect(screen.queryByLabelText(`work-plan-editor-${floorSurfaceId}`)).not.toBeInTheDocument();
     expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledWith(
       projectId,
@@ -596,6 +598,32 @@ describe('AreaSegmentList plane-card parity (10C.1B)', () => {
     fireEvent.click(screen.getByLabelText(`close-work-plan-${ceilingSurfaceId}`));
     expect(screen.queryByLabelText(`work-plan-editor-${ceilingSurfaceId}`)).not.toBeInTheDocument();
     expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument();
+  });
+
+  it('localizes canonical FLOOR and CEILING cards and WorkPlan titles in Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    renderAreaSegments();
+
+    expect(await screen.findByText('Пол')).toBeInTheDocument();
+    expect(screen.getByText('Потолок')).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByLabelText(`work-plan-${floorSurfaceId}`));
+    const floorEditor = await screen.findByLabelText(`work-plan-editor-${floorSurfaceId}`);
+    expect(floorEditor).toHaveTextContent('Пол');
+    expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledWith(
+      projectId,
+      roomId,
+      floorSurfaceId,
+    );
+
+    fireEvent.click(screen.getByLabelText(`work-plan-${ceilingSurfaceId}`));
+    const ceilingEditor = await screen.findByLabelText(`work-plan-editor-${ceilingSurfaceId}`);
+    expect(ceilingEditor).toHaveTextContent('Потолок');
+    expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledWith(
+      projectId,
+      roomId,
+      ceilingSurfaceId,
+    );
   });
 
   it('N/O: zero-segment FLOOR and CEILING still expose the canonical Surface.id / Work Plan button', async () => {
