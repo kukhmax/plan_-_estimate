@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_current_user, get_surface_service
 from app.domain.exceptions import (
+    CanonicalPlaneConflictError,
     DeductionExceedsGrossAreaError,
     ProjectNotFoundError,
     RoomNotFoundError,
@@ -133,6 +134,11 @@ async def create_surface(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Room not found",
         )
+    except CanonicalPlaneConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
     return SurfaceRead.model_validate(surface)
 
 
@@ -216,6 +222,11 @@ async def update_surface(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
         )
+    except CanonicalPlaneConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
     return SurfaceRead.model_validate(surface)
 
 
@@ -254,6 +265,11 @@ async def archive_surface(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Surface not found",
         )
+    except CanonicalPlaneConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
     return SurfaceRead.model_validate(surface)
 
 
@@ -291,5 +307,10 @@ async def restore_surface(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Surface not found",
+        )
+    except CanonicalPlaneConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
         )
     return SurfaceRead.model_validate(surface)

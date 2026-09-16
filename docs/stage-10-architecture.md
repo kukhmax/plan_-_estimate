@@ -13,6 +13,13 @@
 > for a meaningful commercial revision). Contradictory 10A text has been removed, not duplicated. §24
 > (D1–D18), §26, and Appendix A below are the corrected contract.
 
+> **10C.1A — Canonical Floor/Ceiling Surfaces (implemented 2026-09-16, uncommitted; awaiting owner acceptance)**
+> Corrective sub-stage discovered during 10C.1 acceptance: the standard room workflow did not provision
+> canonical FLOOR/CEILING `Surface` rows, so Stage 10B `SurfaceWorkPlan` had no stable `Surface.id` for the
+> floor/ceiling measurement planes (WALLs are real `Surface` rows; FLOOR/CEILING were room-scoped
+> `AreaSegment` planes only). 10C.1A makes FLOOR and CEILING canonical physical `Surface` entities for every
+> room. Full record: §25A.
+
 ---
 
 ## 0. Purpose
@@ -703,6 +710,87 @@ referenceable. No new column is reserved for Stage 11 in this stage.
 | `docs/development-progress.md` | **minimally updated** — Stage 10 roadmap row status → "In Progress — 10A Completed 2026-09-15 (docs-only, uncommitted); 10A.1 Canonical Architecture Corrections applied 2026-09-15 (docs-only, uncommitted)"; one Stage Log entry appended |
 
 No source code, no migrations, no tests, no build artifacts are changed by 10A / 10A.1.
+
+---
+
+## 25A. 10C.1A — Canonical Floor/Ceiling Surfaces (implementation record)
+
+- **Date**: 2026-09-16
+- **Branch / HEAD**: `stage-10` (uncommitted working tree; awaiting owner acceptance)
+- **Reason**: discovered during 10C.1 acceptance — WALLs are real `Surface` rows, but FLOOR/CEILING
+  measurement data lived only in room-scoped `AreaSegment` rows; the canonical room workflow created no
+  FLOOR/CEILING `Surface` rows, so Stage 10B `SurfaceWorkPlan` had no stable `Surface.id` for floor or
+  ceiling. 10C.1A adopts canonical physical `Surface` entities for FLOOR and CEILING.
+
+### Scope (canonical invariant)
+
+- **Every Room**: exactly one active canonical **FLOOR** `Surface` and exactly one active canonical
+  **CEILING** `Surface`; zero+ WALL surfaces. Real rows in `surfaces` with stable UUID `Surface.id`. No fake
+  frontend IDs, no `PlaneSurface` mapping model. WALL behaviour is unchanged.
+- Canonical plane names are language-neutral tokens following the "Wall N" convention: **`Floor`** /
+  **`Ceiling`**, positions **100** / **101** (kept out of the wall 0..N range).
+- **Uniqueness**: the DB invariant is the smallest one that preserves archive/restore — a partial unique
+  index `uq_surfaces_active_plane_per_room (room_id, surface_type)` filtered to active
+  (`is_archived = false`) FLOOR/CEILING rows. Archived plane rows may therefore exist (restore/archive keep
+  working); the domain service rejects creating a second active plane, retyping onto a plane type, archiving
+  a canonical plane, or restoring a plane that would collide with an active one — all 409
+  `CanonicalPlaneConflictError`.
+- **Ambiguity handling**: if a room already has **more than one active** same-plane FLOOR/CEILING surface,
+  the system never merges or deletes user rows — provisioning and migration 0018 **abort and report the
+  room** (`CanonicalPlaneConflictError` / migration `RuntimeError`) for manual reconciliation.
+
+### Provisioning
+
+- `app/domain/services/canonical_planes.py` — `ensure_canonical_plane_surfaces(db, room_id)` is idempotent:
+  **reuse** the single active plane surface if one exists, otherwise **create** it. `room_service.create_room`
+  provisions FLOOR+CEILING automatically; `surface_service` guards plane-type create/update/archive/restore.
+- Room dimension changes do **not** replace canonical identities — plane `Surface.id` is stable across room
+  updates. `generate_walls` is untouched and never creates/removes plane rows.
+
+### Backfill (Alembic migration 0018)
+
+- `0018_canonical_plane_surfaces` (revision `0018_canonical_plane_surfaces`, down_revision
+  `0017_create_surface_work_plans`). Staged, transactional, reversible:
+  1. provision/reuse canonical Floor/Ceiling per room (aborts with an explicit message on duplicate active
+     planes — never merges user rows),
+  2. add nullable `area_segments.surface_id`,
+  3. backfill **every** existing `AreaSegment` to exactly one canonical surface (aborts if a segment resolves
+     to nothing),
+  4. add FK `fk_area_segments_surface_id (surface_id → surfaces.id, ON DELETE CASCADE)` + index
+     `ix_area_segments_surface_id`, set NOT NULL (safe: every row backfilled),
+  5. add the partial unique index `uq_surfaces_active_plane_per_room`.
+- Downgrade removes only rows carrying the canonical signature (type + `Floor`/`Ceiling` name + position
+  100/101, active); reused user rows are preserved. Verified against real PostgreSQL:
+  `0017 → 0018 → 0017 → 0018` plus the duplicate-plane abort path (transaction fully rolled back).
+
+### Area segment association
+
+- `AreaSegment.surface_id → surfaces.id` FK; `room_id` retained. Both columns are kept and the domain
+  service (`area_segment_service._resolve_plane_surface`) validates they agree. Backfill + service rejects,
+  with `AreaSegmentSurfaceMismatchError` (409): segment→surface from another room, WALL targets, plane/type
+  mismatches (FLOOR segment → CEILING surface), and unverifiable `surface_id` (never trusted from the
+  client without validation).
+
+### API compatibility & calculations
+
+- Backend resolves canonical planes from `room_id + plane` when `surface_id` is omitted; responses expose
+  `surface_id`. Existing measurement clients keep working (schema adds an optional field). Ceiling/floor net
+  area math (BASE + ADD − SUBTRACT segments, openings subtracted on walls) is numerically identical before
+  and after. `SurfaceWorkPlan` GET/PUT on `.../surfaces/{floor_surface_id}/work-plan` and the ceiling
+  counterpart work on the canonical plane IDs; no `FloorWorkPlan`/`CeilingWorkPlan` models; the WorkPlan
+  schema is unchanged.
+
+### Verification (all green 2026-09-16)
+
+- Backend suite: **618 passed** (incl. new `tests/test_canonical_planes.py` — 23-tests A–X matrix + lifecycle
+  guards, and updated `test_surfaces`, `test_openings`, `test_inspections`, `test_wall_generation`).
+- Alembic migration cycle on **real PostgreSQL**: `0017 → 0018` (provision/reuse, backfill, NOT NULL, FK,
+  unique index), `0018 → 0017` (user rows preserved, canonical rows removed, column dropped),
+  `0017 → 0018` (no duplicates, reused rows keep stable IDs), duplicate-active-plane room → abort + rollback.
+- Frontend: 340 passed, `tsc --noEmit` clean, `vite build` clean, `git diff --check` clean.
+
+**Status**: 10C.1A — Canonical Floor/Ceiling Surfaces **IMPLEMENTED — awaiting owner acceptance**.
+STOP — no commit, no push, no deploy, no 10C.1B / 10C.2.
 
 ---
 

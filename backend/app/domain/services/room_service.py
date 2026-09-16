@@ -22,6 +22,7 @@ from app.models.opening import Opening
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
+from app.domain.services.canonical_planes import ensure_canonical_plane_surfaces
 from app.schemas.room import RoomCalculations, RoomCreate, RoomUpdate
 
 
@@ -293,6 +294,10 @@ class RoomService:
             height=payload.height,
         )
         self.db.add(room)
+        # Flush first so room.id exists before the canonical planes reference it;
+        # surfaces and the room commit together or not at all.
+        await self.db.flush()
+        await ensure_canonical_plane_surfaces(self.db, room.id)
         await self.db.commit()
         await self.db.refresh(room)
         await self._attach_calculations(room)

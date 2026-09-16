@@ -103,7 +103,7 @@ async def create_surface(
     return response.json()
 
 
-@pytest.mark.parametrize("surface_type", ["WALL", "CEILING", "FLOOR", "OTHER"])
+@pytest.mark.parametrize("surface_type", ["WALL", "OTHER"])
 async def test_create_each_supported_surface_type(
     async_client: AsyncClient,
     surface_type: str,
@@ -163,8 +163,8 @@ async def test_surface_relationship_is_persisted(
         token,
         project["id"],
         room["id"],
-        name="Sufit główny",
-        surface_type="CEILING",
+        name="Ściana główna",
+        surface_type="WALL",
     )
 
     result = await db_session.execute(
@@ -172,8 +172,8 @@ async def test_surface_relationship_is_persisted(
     )
     persisted = result.scalar_one()
     assert persisted.room_id == uuid.UUID(room["id"])
-    assert persisted.name == "Sufit główny"
-    assert persisted.surface_type == SurfaceType.CEILING
+    assert persisted.name == "Ściana główna"
+    assert persisted.surface_type == SurfaceType.WALL
     assert persisted.description == "Powierzchnia testowa"
     assert persisted.is_archived is False
 
@@ -198,16 +198,16 @@ async def test_list_surfaces_filters_archived_and_scopes_to_room(
         token,
         project["id"],
         room["id"],
-        "Sufit",
-        "CEILING",
+        "Nadproże",
+        "OTHER",
     )
     archived = await create_surface(
         async_client,
         token,
         project["id"],
         room["id"],
-        "Podłoga",
-        "FLOOR",
+        "Element tymczasowy",
+        "OTHER",
     )
     unrelated = await create_surface(
         async_client,
@@ -233,18 +233,25 @@ async def test_list_surfaces_filters_archived_and_scopes_to_room(
     )
 
     assert active_response.status_code == 200
-    assert active_response.json()["total"] == 2
-    assert {item["id"] for item in active_response.json()["items"]} == {
+    active_items = active_response.json()["items"]
+    assert active_response.json()["total"] == 4
+    # Canonical FLOOR and CEILING planes are always present alongside the
+    # manually created active surfaces.
+    canonical_ids = {
+        item["id"]
+        for item in active_items
+        if item["surface_type"] in {"FLOOR", "CEILING"}
+    }
+    assert len(canonical_ids) == 2
+    assert {item["id"] for item in active_items} == canonical_ids | {
         first["id"],
         second["id"],
     }
     assert archived_response.status_code == 200
-    assert archived_response.json()["total"] == 3
-    assert {item["id"] for item in archived_response.json()["items"]} == {
-        first["id"],
-        second["id"],
-        archived["id"],
-    }
+    assert archived_response.json()["total"] == 5
+    assert {item["id"] for item in archived_response.json()["items"]} == (
+        canonical_ids | {first["id"], second["id"], archived["id"]}
+    )
     assert unrelated["id"] not in {
         item["id"] for item in archived_response.json()["items"]
     }
@@ -284,16 +291,16 @@ async def test_update_surface(async_client: AsyncClient) -> None:
     response = await async_client.patch(
         surface_url(project["id"], room["id"], surface["id"]),
         json={
-            "name": "Sufit podwieszany",
-            "surface_type": "CEILING",
+            "name": "Przegroda dodatkowa",
+            "surface_type": "OTHER",
             "description": None,
         },
         headers=auth_header(token),
     )
 
     assert response.status_code == 200
-    assert response.json()["name"] == "Sufit podwieszany"
-    assert response.json()["surface_type"] == "CEILING"
+    assert response.json()["name"] == "Przegroda dodatkowa"
+    assert response.json()["surface_type"] == "OTHER"
     assert response.json()["description"] is None
     assert response.json()["room_id"] == room["id"]
 

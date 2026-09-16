@@ -11,6 +11,10 @@ from app.models.area_segment import AreaOperation, AreaPlane
 class AreaSegmentCreate(BaseModel):
     plane: AreaPlane
     operation: AreaOperation
+    surface_id: uuid.UUID | None = Field(
+        default=None,
+        description="Physical FLOOR/CEILING surface; resolved from room+plane when omitted",
+    )
     width: Decimal = Field(
         gt=0,
         decimal_places=3,
@@ -65,6 +69,7 @@ class AreaSegmentUpdate(BaseModel):
 class AreaSegmentRead(BaseModel):
     id: uuid.UUID
     room_id: uuid.UUID
+    surface_id: uuid.UUID | None = None
     plane: AreaPlane
     operation: AreaOperation
     width: Decimal

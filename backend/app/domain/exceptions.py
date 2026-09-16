@@ -107,3 +107,15 @@ class SurfaceWorkPlanNotFoundError(Exception):
 
 class SurfaceWorkPlanValidationError(Exception):
     """Raised when work plan input violates a Stage 10 domain rule."""
+
+
+class CanonicalPlaneConflictError(Exception):
+    """Raised when a room would hold more than one active FLOOR/CEILING surface."""
+
+
+class CanonicalPlaneMissingError(Exception):
+    """Raised when a room has no canonical FLOOR/CEILING surface to associate."""
+
+
+class AreaSegmentSurfaceMismatchError(Exception):
+    """Raised when an area segment's surface disagrees with its plane or room."""

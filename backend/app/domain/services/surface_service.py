@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import (
+    CanonicalPlaneConflictError,
     DeductionExceedsGrossAreaError,
     ProjectNotFoundError,
     RoomNotFoundError,
@@ -16,6 +17,7 @@ from app.domain.rules.room_geometry import (
     generate_canonical_walls,
     matches_canonical_wall_set,
 )
+from app.domain.services.canonical_planes import find_active_plane_surface
 from app.models.opening import Opening
 from app.models.project import Project
 from app.models.room import Room
@@ -195,6 +197,15 @@ class SurfaceService:
     ) -> Surface:
         await self._ensure_room_owned(project_id, room_id, owner_id)
 
+        if payload.surface_type in (SurfaceType.FLOOR, SurfaceType.CEILING):
+            existing = await find_active_plane_surface(
+                self.db, room_id, payload.surface_type
+            )
+            if existing is not None:
+                raise CanonicalPlaneConflictError(
+                    f"Room already has an active {payload.surface_type.value} surface"
+                )
+
         surface = Surface(
             room_id=room_id,
             name=payload.name,
@@ -257,6 +268,22 @@ class SurfaceService:
         target_height = payload.height if payload.height is not None else surface.height
         target_type = payload.surface_type if payload.surface_type is not None else surface.surface_type
 
+        # Canonical plane surfaces are the room's physical FLOOR/CEILING identity;
+        # their type cannot change (AreaSegments reference them and require the
+        # type to match). Other surfaces cannot retype onto an occupied plane.
+        if surface.surface_type in (SurfaceType.FLOOR, SurfaceType.CEILING):
+            if target_type != surface.surface_type:
+                raise CanonicalPlaneConflictError(
+                    f"A {surface.surface_type.value} surface cannot change its "
+                    "surface type"
+                )
+        elif target_type in (SurfaceType.FLOOR, SurfaceType.CEILING):
+            existing = await find_active_plane_surface(self.db, room_id, target_type)
+            if existing is not None:
+                raise CanonicalPlaneConflictError(
+                    f"Room already has an active {target_type.value} surface"
+                )
+
         # Validate that new dimensions do not cause existing active deductions to exceed gross area
         if target_type == SurfaceType.WALL and target_width is not None and target_height is not None:
             new_gross = (target_width * target_height).quantize(Decimal("0.001"))
@@ -301,6 +328,13 @@ class SurfaceService:
         owner_id: uuid.UUID,
     ) -> Surface:
         surface = await self.get_surface(project_id, room_id, surface_id, owner_id)
+        if (
+            not surface.is_archived
+            and surface.surface_type in (SurfaceType.FLOOR, SurfaceType.CEILING)
+        ):
+            raise CanonicalPlaneConflictError(
+                f"A canonical {surface.surface_type.value} surface cannot be archived"
+            )
         surface.is_archived = True
         await self.db.commit()
         await self.db.refresh(surface)
@@ -314,6 +348,14 @@ class SurfaceService:
         owner_id: uuid.UUID,
     ) -> Surface:
         surface = await self.get_surface(project_id, room_id, surface_id, owner_id)
+        if surface.surface_type in (SurfaceType.FLOOR, SurfaceType.CEILING):
+            existing = await find_active_plane_surface(
+                self.db, room_id, surface.surface_type
+            )
+            if existing is not None:
+                raise CanonicalPlaneConflictError(
+                    f"Room already has an active {surface.surface_type.value} surface"
+                )
         surface.is_archived = False
         await self.db.commit()
         await self.db.refresh(surface)

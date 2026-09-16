@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import (
     AreaSegmentNotFoundError,
+    AreaSegmentSurfaceMismatchError,
+    CanonicalPlaneMissingError,
     NegativeNetAreaError,
     ProjectNotFoundError,
     RoomNotFoundError,
@@ -16,10 +18,17 @@ from app.domain.rules.room_geometry import (
     calculate_plane_totals,
     calculate_segment_area,
 )
+from app.domain.services.canonical_planes import find_active_plane_surface
 from app.models.area_segment import AreaOperation, AreaPlane, AreaSegment
 from app.models.project import Project
 from app.models.room import Room
+from app.models.surface import Surface, SurfaceType
 from app.schemas.area_segment import AreaSegmentCreate, AreaSegmentUpdate
+
+PLANE_TO_SURFACE_TYPE = {
+    AreaPlane.FLOOR: SurfaceType.FLOOR,
+    AreaPlane.CEILING: SurfaceType.CEILING,
+}
 
 
 class AreaSegmentService:
@@ -47,6 +56,45 @@ class AreaSegmentService:
         room_result = await self.db.execute(room_stmt)
         if room_result.scalar_one_or_none() is None:
             raise RoomNotFoundError(f"Room {room_id} not found")
+
+    async def _resolve_plane_surface(
+        self,
+        room_id: uuid.UUID,
+        plane: AreaPlane,
+        surface_id: uuid.UUID | None,
+    ) -> uuid.UUID:
+        """Resolve the physical Surface an area segment belongs to.
+
+        When the client omits surface_id (existing measurement clients) the
+        room's canonical FLOOR/CEILING surface is resolved. A provided surface_id
+        must belong to the same room and its type must match the segment plane.
+        """
+        if surface_id is None:
+            canonical = await find_active_plane_surface(
+                self.db, room_id, PLANE_TO_SURFACE_TYPE[plane]
+            )
+            if canonical is None:
+                raise CanonicalPlaneMissingError(
+                    f"Room {room_id} has no active {plane.value} surface"
+                )
+            return canonical.id
+
+        surface_stmt = select(Surface).where(
+            Surface.id == surface_id,
+            Surface.room_id == room_id,
+        )
+        surface = (await self.db.execute(surface_stmt)).scalar_one_or_none()
+        if surface is None:
+            raise AreaSegmentSurfaceMismatchError(
+                f"Surface {surface_id} does not belong to room {room_id}"
+            )
+        expected = PLANE_TO_SURFACE_TYPE[plane]
+        if surface.surface_type != expected:
+            raise AreaSegmentSurfaceMismatchError(
+                f"surface_type {surface.surface_type.value} does not match "
+                f"{plane.value} plane"
+            )
+        return surface.id
 
     async def _get_active_segments(
         self,
@@ -147,6 +195,9 @@ class AreaSegmentService:
     ) -> AreaSegment:
         await self._ensure_room_owned(project_id, room_id, owner_id)
 
+        surface_id = await self._resolve_plane_surface(
+            room_id, payload.plane, payload.surface_id
+        )
         active = await self._get_active_segments(room_id, payload.plane)
         new_area = calculate_segment_area(payload.width, payload.height)
         await self._assert_plane_net_non_negative(
@@ -155,6 +206,7 @@ class AreaSegmentService:
 
         segment = AreaSegment(
             room_id=room_id,
+            surface_id=surface_id,
             plane=payload.plane,
             operation=payload.operation,
             width=payload.width,

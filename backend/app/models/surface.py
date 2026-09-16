@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Uuid
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -62,4 +62,19 @@ class Surface(Base):
 
     __table_args__ = (
         Index("ix_surfaces_room_archived", "room_id", "is_archived"),
+        # Canonical FLOOR/CEILING invariant: at most one active surface per plane
+        # per room. Archived rows are excluded so archive/restore lifecycles stay
+        # possible for legacy surfaces.
+        Index(
+            "uq_surfaces_active_plane_per_room",
+            "room_id",
+            "surface_type",
+            unique=True,
+            sqlite_where=text(
+                "surface_type IN ('FLOOR', 'CEILING') AND is_archived = 0"
+            ),
+            postgresql_where=text(
+                "surface_type IN ('FLOOR', 'CEILING') AND is_archived = false"
+            ),
+        ),
     )

@@ -195,19 +195,19 @@ async def test_opening_cannot_be_attached_to_non_wall_surface(
     project = await create_project(async_client, token)
     room = await create_room(async_client, token, project["id"])
 
-    # Test on FLOOR surface
-    floor_surf = await create_surface(
-        async_client,
-        token,
-        project["id"],
-        room["id"],
-        name="Podłoga",
-        surface_type="FLOOR",
-        width="5.000",
-        height="4.000",
+    surfaces_resp = await async_client.get(
+        f"/api/projects/{project['id']}/rooms/{room['id']}/surfaces",
+        headers=auth_header(token),
     )
+    assert surfaces_resp.status_code == 200, surfaces_resp.text
+    by_type = {
+        item["surface_type"]: item["id"]
+        for item in surfaces_resp.json()["items"]
+    }
+
+    # Test on the canonical FLOOR surface
     res_floor = await async_client.post(
-        openings_url(project["id"], room["id"], floor_surf["id"]),
+        openings_url(project["id"], room["id"], by_type["FLOOR"]),
         json={
             "opening_type": "OTHER",
             "width": "1.000",
@@ -218,19 +218,9 @@ async def test_opening_cannot_be_attached_to_non_wall_surface(
     assert res_floor.status_code == 422
     assert "Openings can only be attached to WALL surfaces" in res_floor.text
 
-    # Test on CEILING surface
-    ceil_surf = await create_surface(
-        async_client,
-        token,
-        project["id"],
-        room["id"],
-        name="Sufit",
-        surface_type="CEILING",
-        width="5.000",
-        height="4.000",
-    )
+    # Test on the canonical CEILING surface
     res_ceil = await async_client.post(
-        openings_url(project["id"], room["id"], ceil_surf["id"]),
+        openings_url(project["id"], room["id"], by_type["CEILING"]),
         json={
             "opening_type": "OTHER",
             "width": "1.000",

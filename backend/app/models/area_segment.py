@@ -33,6 +33,12 @@ class AreaSegment(Base):
         nullable=False,
         index=True,
     )
+    surface_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("surfaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     plane: Mapped[AreaPlane] = mapped_column(
         Enum(AreaPlane, name="areaplane"),
         nullable=False,

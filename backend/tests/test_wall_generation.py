@@ -329,7 +329,7 @@ async def test_generate_walls_creates_four_canonical_walls(
     assert all(Decimal(w["deduction_area"]) == Decimal("0.000") for w in walls)
 
 
-async def test_generate_walls_does_not_create_floor_or_ceiling(
+async def test_generate_walls_preserves_canonical_planes(
     async_client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
@@ -342,13 +342,28 @@ async def test_generate_walls_does_not_create_floor_or_ceiling(
         {"name": "Pokój", "length": "5.000", "width": "4.000", "height": "2.700"},
     )
 
-    await async_client.post(generate_url(project["id"], room["id"]), headers=auth_header(token))
+    async def surface_types() -> list[str]:
+        result = await db_session.execute(
+            select(Surface.surface_type).where(
+                Surface.room_id == uuid.UUID(room["id"])
+            )
+        )
+        return sorted(row[0].value for row in result.all())
 
-    result = await db_session.execute(
-        select(Surface.surface_type).where(Surface.room_id == uuid.UUID(room["id"]))
+    # Room creation provisions the canonical FLOOR and CEILING planes.
+    assert await surface_types() == ["CEILING", "FLOOR"]
+
+    response = await async_client.post(
+        generate_url(project["id"], room["id"]), headers=auth_header(token)
     )
-    types = [row[0] for row in result.all()]
-    assert types == [SurfaceType.WALL] * 4
+    assert response.status_code == 200
+
+    after = await surface_types()
+    assert after == ["CEILING", "FLOOR", "WALL", "WALL", "WALL", "WALL"]
+    # generate_walls must not create additional plane surfaces.
+    assert after.count("WALL") == 4
+    assert after.count("FLOOR") == 1
+    assert after.count("CEILING") == 1
 
 
 async def test_generate_walls_idempotent_noop_returns_existing_walls(
@@ -382,7 +397,7 @@ async def test_generate_walls_idempotent_noop_returns_existing_walls(
             Surface.is_archived.is_(False),
         )
     )
-    assert count_result.scalar_one() == 4
+    assert count_result.scalar_one() == 6
 
 
 async def test_generate_walls_422_when_dimensions_missing(
@@ -440,7 +455,7 @@ async def test_generate_walls_409_when_walls_do_not_match_canonical(
             Surface.is_archived.is_(False),
         )
     )
-    assert count_result.scalar_one() == 1
+    assert count_result.scalar_one() == 3
 
 
 async def test_generate_walls_409_when_manual_walls_without_position(
@@ -516,13 +531,14 @@ async def test_generate_walls_ignores_archived_walls(
     assert response.status_code == 200
     assert response.json()["total"] == 4
 
-    # Archived wall is untouched; total surface count is now 5.
+    # Archived wall stays untouched next to the two canonical planes and the
+    # four generated walls: total surface count is now 7.
     count_result = await db_session.execute(
         select(func.count())
         .select_from(Surface)
         .where(Surface.room_id == uuid.UUID(room["id"]))
     )
-    assert count_result.scalar_one() == 5
+    assert count_result.scalar_one() == 7
 
 
 async def test_generate_walls_owner_isolation(
@@ -754,9 +770,17 @@ async def test_surfaces_ordered_by_position_and_null_last(
         headers=auth_header(token),
     )
     assert listing.status_code == 200
-    ids = [item["id"] for item in listing.json()["items"]]
-    # Positioned walls first (ascending), then legacy null-position wall.
-    assert ids == [w0["id"], w2["id"], legacy["id"]]
+    items = listing.json()["items"]
+    ids = [item["id"] for item in items]
+    # Canonical FLOOR/CEILING planes sit after the positioned walls (positions
+    # 100/101), then the legacy null-position wall.
+    plane_ids = [
+        item["id"]
+        for item in items
+        if item["surface_type"] in {"FLOOR", "CEILING"}
+    ]
+    assert len(plane_ids) == 2
+    assert ids == [w0["id"], w2["id"], *plane_ids, legacy["id"]]
 
 
 async def test_generate_endpoint_response_shape(

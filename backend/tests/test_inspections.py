@@ -299,12 +299,15 @@ class TestInspectionCreation:
         self, async_client: AsyncClient
     ) -> None:
         token, project, room = await _scaffold(async_client)
-        ceiling = await create_surface(
-            async_client,
-            token,
-            project["id"],
-            room["id"],
-            surface_type="CEILING",
+        surfaces_resp = await async_client.get(
+            f"/api/projects/{project['id']}/rooms/{room['id']}/surfaces",
+            headers=auth_header(token),
+        )
+        assert surfaces_resp.status_code == 200, surfaces_resp.text
+        ceiling = next(
+            item
+            for item in surfaces_resp.json()["items"]
+            if item["surface_type"] == "CEILING"
         )
         template = await template_by_substrate(async_client, token, "CONCRETE")
         response = await async_client.post(

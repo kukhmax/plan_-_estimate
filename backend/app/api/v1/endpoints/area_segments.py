@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api.deps import get_area_segment_service, get_current_user
 from app.domain.exceptions import (
     AreaSegmentNotFoundError,
+    AreaSegmentSurfaceMismatchError,
+    CanonicalPlaneMissingError,
     NegativeNetAreaError,
     ProjectNotFoundError,
     RoomNotFoundError,
@@ -107,6 +109,16 @@ async def create_area_segment(
     except NegativeNetAreaError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
+    except CanonicalPlaneMissingError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
+    except AreaSegmentSurfaceMismatchError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
         )
     return AreaSegmentRead.model_validate(segment)
