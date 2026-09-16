@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(docker compose up*)",
+      "Bash(docker compose down*)",
+      "Bash(docker compose build*)",
+      "Bash(docker compose restart*)",
+      "Bash(docker-compose up*)",
+      "Bash(docker-compose down*)",
+      "Bash(ssh *)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -fd*)",
+      "Bash(git clean -fdx*)",
+      "Bash(git push --force*)",
+      "Bash(git push --force-with-lease*)"
+    ]
+  }
+}

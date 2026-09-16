@@ -59,14 +59,17 @@ Rules:
 - Historical Git commit labels (such as `feat(stage-5a)`) reflect past development iterations and do not override or redefine the canonical stage mapping.
 - Explicit project-owner approval is strictly required to change this roadmap or to start any new stage.
 
+## Local development constraints
+
+- **Local Docker is prohibited** for routine development and verification. Do not run `docker compose up/down/build` locally. Use native tooling only.
+- If a test genuinely requires infrastructure unavailable without Docker, report it — do not start containers.
+- Docker is reserved exclusively for the production Oracle server deployment workflow.
+
 ## Common commands
 
 Run commands from the repository root unless noted otherwise.
 
 ```bash
-# Infrastructure
-docker compose up -d postgres
-
 # Backend development and tests
 cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000
 backend/.venv/bin/pytest backend/tests
@@ -84,7 +87,7 @@ npm --prefix frontend run build
 
 Follow this sequence exactly:
 
-**Stage → Implementation → Tests → PASS/FAIL → Commit → Push**
+**Stage → Implementation → Automated verification → PASS/FAIL report → Owner verification/acceptance → Commit → [explicit owner approval] → Push → [explicit owner approval] → Production deployment → Production verification → next Stage only after explicit owner approval**
 
 1. Work only on the stage explicitly requested by the user.
 2. Before editing, determine the last completed stage from `docs/development-progress.md` and Git history. Inspect `git status`, `git diff`, and `git log --oneline -10`.
@@ -92,9 +95,12 @@ Follow this sequence exactly:
 4. Preserve the existing implementation and valid uncommitted work. Do not replace working code merely because another tool or model created it.
 5. State the already completed work, remaining work, files to touch, tests to run, and PASS criteria before implementation.
 6. Implement the smallest coherent change for the requested stage. Do not refactor unrelated code.
-7. Run focused tests first, then relevant regressions, typechecks, builds, and manual checks where applicable.
+7. Run focused tests first, then relevant regressions, typechecks, builds, and manual checks where applicable. Do not use local Docker — native tooling only.
 8. Report **PASS** or **FAIL**. On FAIL, do not commit, push, or begin another stage.
-9. On PASS, update `docs/development-progress.md`, inspect the complete diff, create one logical stage commit, and push the current branch.
-10. Stop after the push. Starting the next stage always requires explicit user approval.
+9. On PASS, update `docs/development-progress.md`, inspect the complete diff, and create one logical stage commit. Do not push yet.
+10. **`git push` requires explicit owner approval.** State the proposed push command and wait for approval before executing it.
+11. **Production deployment requires explicit owner approval** for every step: SSH access, `git pull`, Docker build, Docker up, Alembic migration, and any data-modifying operation.
+12. After production deployment, verify health at `https://plan-estimate.pl/api/health` and provide the Telegram cache-buster URL.
+13. Stop after production verification. Starting the next stage always requires explicit owner approval.
 
 Never run destructive Git operations—including `git reset --hard`, `git clean`, force-push, branch deletion, or commands that discard uncommitted changes—without explicit user approval for that exact operation.
