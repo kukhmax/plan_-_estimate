@@ -4,6 +4,8 @@ export type AreaOperation = 'ADD' | 'SUBTRACT';
 export interface AreaSegmentType {
   id: string;
   room_id: string;
+  /** Canonical plane Surface.id (Stage 10C.1A); mirrors backend AreaSegmentRead. */
+  surface_id?: string | null;
   plane: AreaPlane;
   operation: AreaOperation;
   width: string | number;

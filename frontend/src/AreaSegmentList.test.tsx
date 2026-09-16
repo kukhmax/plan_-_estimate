@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as areaSegmentsApi from './api/areaSegments';
+import * as surfacesApi from './api/surfaces';
 import { AreaSegmentList } from './components/AreaSegmentList';
 import { I18nProvider } from './hooks/useI18n';
 import { AreaSegmentType } from './types/areaSegment';
+import { SurfaceListResponse } from './types/surface';
 
 vi.mock('./api/areaSegments', () => ({
   fetchAreaSegments: vi.fn(),
@@ -13,12 +15,19 @@ vi.mock('./api/areaSegments', () => ({
   restoreAreaSegment: vi.fn(),
 }));
 
+vi.mock('./api/surfaces', () => ({
+  fetchSurfaces: vi.fn(),
+}));
+
 const projectId = '11111111-1111-1111-1111-111111111111';
 const roomId = '22222222-2222-2222-2222-222222222222';
+const floorSurfaceId = 'f1111111-1111-1111-1111-111111111111';
+const ceilingSurfaceId = 'c1111111-1111-1111-1111-111111111111';
 
 const floorAdd: AreaSegmentType = {
   id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   room_id: roomId,
+  surface_id: floorSurfaceId,
   plane: 'FLOOR',
   operation: 'ADD',
   width: 3.0,
@@ -34,6 +43,7 @@ const floorAdd: AreaSegmentType = {
 const floorSubtract: AreaSegmentType = {
   id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
   room_id: roomId,
+  surface_id: floorSurfaceId,
   plane: 'FLOOR',
   operation: 'SUBTRACT',
   width: 1.0,
@@ -49,6 +59,7 @@ const floorSubtract: AreaSegmentType = {
 const ceilingAdd: AreaSegmentType = {
   id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
   room_id: roomId,
+  surface_id: ceilingSurfaceId,
   plane: 'CEILING',
   operation: 'ADD',
   width: 5.0,
@@ -59,6 +70,35 @@ const ceilingAdd: AreaSegmentType = {
   is_archived: false,
   created_at: '2026-09-11T08:10:00Z',
   updated_at: '2026-09-11T08:10:00Z',
+};
+
+// Canonical FLOOR/CEILING Surface rows (Stage 10C.1A provisions one of each per room).
+const canonicalPlanes: SurfaceListResponse = {
+  items: [
+    {
+      id: floorSurfaceId,
+      room_id: roomId,
+      name: 'Floor',
+      surface_type: 'FLOOR',
+      description: null,
+      position: 100,
+      is_archived: false,
+      created_at: '2026-09-16T08:00:00Z',
+      updated_at: '2026-09-16T08:00:00Z',
+    },
+    {
+      id: ceilingSurfaceId,
+      room_id: roomId,
+      name: 'Ceiling',
+      surface_type: 'CEILING',
+      description: null,
+      position: 101,
+      is_archived: false,
+      created_at: '2026-09-16T08:00:00Z',
+      updated_at: '2026-09-16T08:00:00Z',
+    },
+  ],
+  total: 2,
 };
 
 function renderAreaSegments(onMeasurementChanged = vi.fn()) {
@@ -73,19 +113,31 @@ function renderAreaSegments(onMeasurementChanged = vi.fn()) {
   );
 }
 
+async function expandPlane(planeKey: 'floor' | 'ceiling') {
+  const toggle = await screen.findByLabelText(`options-toggle-${planeKey}`);
+  fireEvent.click(toggle);
+}
+
 describe('AreaSegmentList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(canonicalPlanes);
   });
 
-  it('renders PODŁOGA and SUFIT sections each with add rectangle/subtraction buttons', async () => {
+  it('renders PODŁOGA and SUFIT cards; measurement actions hidden behind Opcje', async () => {
     renderAreaSegments();
 
     await waitFor(() => expect(screen.getByText('Podłoga')).toBeInTheDocument());
     expect(screen.getByText('Sufit')).toBeInTheDocument();
 
+    // Actions are collapsed behind Opcje by default.
+    expect(screen.queryByLabelText('add-floor-rectangle')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('add-ceiling-rectangle')).not.toBeInTheDocument();
+
+    await expandPlane('floor');
+    await expandPlane('ceiling');
     expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument();
     expect(screen.getByLabelText('add-floor-subtraction')).toBeInTheDocument();
     expect(screen.getByLabelText('add-ceiling-rectangle')).toBeInTheDocument();
@@ -95,6 +147,8 @@ describe('AreaSegmentList', () => {
   it('shows empty states when a plane has no segments', async () => {
     renderAreaSegments();
 
+    await expandPlane('floor');
+    await expandPlane('ceiling');
     await waitFor(() =>
       expect(
         screen.getByText('Brak prostokątów podłogi'),
@@ -110,6 +164,8 @@ describe('AreaSegmentList', () => {
     });
     renderAreaSegments();
 
+    await expandPlane('floor');
+    await expandPlane('ceiling');
     await waitFor(() => expect(screen.getByText('Parkiet wejście')).toBeInTheDocument());
     expect(screen.getAllByText('Dodanie')).toHaveLength(2);
     expect(screen.getByText(/3\.00 × 2\.00 m/)).toBeInTheDocument();
@@ -131,6 +187,7 @@ describe('AreaSegmentList', () => {
 
   it('renders mobile-optimized decimal inputs in the segment form', async () => {
     renderAreaSegments();
+    await expandPlane('floor');
     await waitFor(() => expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-floor-rectangle'));
 
@@ -143,6 +200,7 @@ describe('AreaSegmentList', () => {
     vi.mocked(areaSegmentsApi.createAreaSegment).mockResolvedValue(floorAdd);
     renderAreaSegments(onMeasurementChanged);
 
+    await expandPlane('floor');
     await waitFor(() => expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-floor-rectangle'));
 
@@ -169,6 +227,7 @@ describe('AreaSegmentList', () => {
     vi.mocked(areaSegmentsApi.createAreaSegment).mockResolvedValue(floorSubtract);
     renderAreaSegments();
 
+    await expandPlane('floor');
     await waitFor(() => expect(screen.getByLabelText('add-floor-subtraction')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-floor-subtraction'));
 
@@ -192,6 +251,7 @@ describe('AreaSegmentList', () => {
     vi.mocked(areaSegmentsApi.createAreaSegment).mockResolvedValue(ceilingAdd);
     renderAreaSegments();
 
+    await expandPlane('ceiling');
     await waitFor(() => expect(screen.getByLabelText('add-ceiling-rectangle')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-ceiling-rectangle'));
 
@@ -222,6 +282,7 @@ describe('AreaSegmentList', () => {
     });
     renderAreaSegments(onMeasurementChanged);
 
+    await expandPlane('floor');
     await waitFor(() =>
       expect(screen.getByLabelText(`edit-segment-${floorAdd.id}`)).toBeInTheDocument(),
     );
@@ -246,6 +307,7 @@ describe('AreaSegmentList', () => {
   it('rejects invalid dimensions without calling the API', async () => {
     renderAreaSegments();
 
+    await expandPlane('floor');
     await waitFor(() => expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-floor-rectangle'));
 
@@ -266,6 +328,7 @@ describe('AreaSegmentList', () => {
     );
     renderAreaSegments();
 
+    await expandPlane('floor');
     await waitFor(() => expect(screen.getByLabelText('add-floor-subtraction')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-floor-subtraction'));
 
@@ -284,6 +347,7 @@ describe('AreaSegmentList', () => {
     vi.mocked(areaSegmentsApi.archiveAreaSegment).mockResolvedValue({ ...floorAdd, is_archived: true });
     renderAreaSegments(onMeasurementChanged);
 
+    await expandPlane('floor');
     await waitFor(() =>
       expect(screen.getByLabelText(`archive-segment-${floorAdd.id}`)).toBeInTheDocument(),
     );
@@ -307,6 +371,7 @@ describe('AreaSegmentList', () => {
     vi.mocked(areaSegmentsApi.restoreAreaSegment).mockResolvedValue(floorAdd);
     renderAreaSegments(onMeasurementChanged);
 
+    await expandPlane('floor');
     await waitFor(() =>
       expect(screen.getByLabelText(`restore-segment-${floorAdd.id}`)).toBeInTheDocument(),
     );
@@ -338,7 +403,8 @@ describe('AreaSegmentList', () => {
     expect(screen.getAllByText('Powierzchnia bazowa')).toHaveLength(2);
     expect(screen.getAllByText('12.21 m²').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Korekty')).toHaveLength(2);
-    // Empty-state copy is still present for the no-segments list
+    // Empty-state copy is still present for the no-segments list (behind Opcje)
+    await expandPlane('floor');
     expect(screen.getByText('Brak prostokątów podłogi')).toBeInTheDocument();
   });
 
@@ -369,9 +435,127 @@ describe('AreaSegmentList', () => {
     });
     renderAreaSegments();
 
+    await expandPlane('floor');
     await waitFor(() => expect(screen.getByText('Brak prostokątów podłogi')).toBeInTheDocument());
     // No base-area row and no fabricated 0.000 total badge
     expect(screen.queryByText('Powierzchnia bazowa')).not.toBeInTheDocument();
     expect(screen.queryByText(/Razem: 0\.000 m²/)).not.toBeInTheDocument();
+  });
+});
+
+describe('AreaSegmentList plane-card parity (10C.1B)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(canonicalPlanes);
+  });
+
+  it('A/B: FLOOR shows Opcje and Rodzaje prac i jakość', async () => {
+    renderAreaSegments();
+
+    const toggle = await screen.findByLabelText('options-toggle-floor');
+    expect(toggle).toBeInTheDocument();
+    expect(toggle).toHaveTextContent('Opcje');
+    const workPlan = screen.getByLabelText(`work-plan-${floorSurfaceId}`);
+    expect(workPlan).toBeInTheDocument();
+    expect(workPlan).toHaveTextContent('Rodzaje prac i jakość');
+  });
+
+  it('C: FLOOR WorkPlan button binds the canonical FLOOR Surface.id (not segment/room/synthetic)', async () => {
+    renderAreaSegments();
+
+    const buttons = await screen.findAllByLabelText(/^work-plan-/);
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
+      `work-plan-${floorSurfaceId}`,
+      `work-plan-${ceilingSurfaceId}`,
+    ]);
+    // No id masquerading as a Surface.id.
+    expect(screen.queryByLabelText('work-plan-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`work-plan-${roomId}`)).not.toBeInTheDocument();
+  });
+
+  it('D/E/F: FLOOR actions hidden collapsed, visible expanded, collapse again', async () => {
+    renderAreaSegments();
+
+    const toggle = await screen.findByLabelText('options-toggle-floor');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('add-floor-rectangle')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('add-floor-subtraction')).not.toBeInTheDocument();
+
+    await expandPlane('floor');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveTextContent('Ukryj opcje');
+    expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument();
+    expect(screen.getByLabelText('add-floor-subtraction')).toBeInTheDocument();
+
+    await expandPlane('floor');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('add-floor-rectangle')).not.toBeInTheDocument();
+  });
+
+  it('G/H: CEILING shows Opcje and Rodzaje prac i jakość', async () => {
+    renderAreaSegments();
+
+    const toggle = await screen.findByLabelText('options-toggle-ceiling');
+    expect(toggle).toBeInTheDocument();
+    const workPlan = screen.getByLabelText(`work-plan-${ceilingSurfaceId}`);
+    expect(workPlan).toBeInTheDocument();
+    expect(workPlan).toHaveTextContent('Rodzaje prac i jakość');
+  });
+
+  it('I: CEILING WorkPlan button uses the canonical CEILING Surface.id', async () => {
+    renderAreaSegments();
+
+    const workPlan = await screen.findByLabelText(`work-plan-${ceilingSurfaceId}`);
+    expect(workPlan.getAttribute('aria-label')).toBe(`work-plan-${ceilingSurfaceId}`);
+  });
+
+  it('J/K: CEILING actions hidden collapsed, visible expanded', async () => {
+    renderAreaSegments();
+
+    const toggle = await screen.findByLabelText('options-toggle-ceiling');
+    expect(screen.queryByLabelText('add-ceiling-rectangle')).not.toBeInTheDocument();
+
+    await expandPlane('ceiling');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('add-ceiling-rectangle')).toBeInTheDocument();
+    expect(screen.getByLabelText('add-ceiling-subtraction')).toBeInTheDocument();
+  });
+
+  it('L: opening FLOOR does not expand CEILING', async () => {
+    renderAreaSegments();
+
+    await screen.findByLabelText('options-toggle-floor');
+    await expandPlane('floor');
+    expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument();
+    expect(screen.queryByLabelText('add-ceiling-rectangle')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('options-toggle-ceiling')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('M: opening CEILING does not expand FLOOR', async () => {
+    renderAreaSegments();
+
+    await screen.findByLabelText('options-toggle-ceiling');
+    await expandPlane('ceiling');
+    expect(screen.getByLabelText('add-ceiling-rectangle')).toBeInTheDocument();
+    expect(screen.queryByLabelText('add-floor-rectangle')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('options-toggle-floor')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('N/O: zero-segment FLOOR and CEILING still expose the canonical Surface.id / Work Plan button', async () => {
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({
+      items: [],
+      total: 0,
+      planes: {
+        FLOOR: { base_area: '12.210', adjustment_area: '0.000', net_area: '12.210' },
+        CEILING: { base_area: '12.210', adjustment_area: '0.000', net_area: '12.210' },
+      },
+    });
+    renderAreaSegments();
+
+    expect(await screen.findByLabelText(`work-plan-${floorSurfaceId}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`work-plan-${ceilingSurfaceId}`)).toBeInTheDocument();
+    expect(screen.getAllByText(/Razem: 12\.21 m²/)).toHaveLength(2);
   });
 });

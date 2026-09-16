@@ -6,6 +6,7 @@ import {
   restoreAreaSegment,
   updateAreaSegment,
 } from '../api/areaSegments';
+import { fetchSurfaces } from '../api/surfaces';
 import { useI18n } from '../hooks/useI18n';
 import {
   AreaOperation,
@@ -68,6 +69,13 @@ export function AreaSegmentList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** Per-plane Opcje progressive disclosure — UI state only, FLOOR independent of CEILING. */
+  const [expandedOptions, setExpandedOptions] = useState<Partial<Record<AreaPlane, boolean>>>({});
+  /** Canonical plane Surface.id (Stage 10C.1A) resolved from the room's surface rows. */
+  const [planeSurfaces, setPlaneSurfaces] = useState<Record<AreaPlane, string | null>>({
+    FLOOR: null,
+    CEILING: null,
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,6 +90,31 @@ export function AreaSegmentList({
       setLoading(false);
     }
   }, [projectId, roomId, t.area_segments.error]);
+
+  // Canonical plane identity comes from the room's real Surface rows, so it stays
+  // available even when a plane has zero AreaSegment rows. If the surfaces fetch
+  // fails the Work Plan entry stays hidden rather than fabricating an ID.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let floorId: string | null = null;
+      let ceilingId: string | null = null;
+      try {
+        const surfaceData = await fetchSurfaces(projectId, roomId);
+        for (const surface of surfaceData.items) {
+          if (surface.is_archived) continue;
+          if (surface.surface_type === 'FLOOR' && floorId === null) floorId = surface.id;
+          else if (surface.surface_type === 'CEILING' && ceilingId === null) ceilingId = surface.id;
+        }
+      } catch {
+        // canonical plane identity unavailable — no synthetic ID
+      }
+      if (!cancelled) setPlaneSurfaces({ FLOOR: floorId, CEILING: ceilingId });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, roomId]);
 
   useEffect(() => {
     void load();
@@ -185,6 +218,10 @@ export function AreaSegmentList({
       ? t.area_segments.operation_add
       : t.area_segments.operation_subtract;
 
+  const toggleOptions = (plane: AreaPlane) => {
+    setExpandedOptions((current) => ({ ...current, [plane]: !current[plane] }));
+  };
+
   const renderPlaneSection = (plane: AreaPlane) => {
     const activeForm = form !== null && form.plane === plane ? form : null;
     const planeSegments = segments.filter((s) => s.plane === plane);
@@ -195,6 +232,8 @@ export function AreaSegmentList({
     const rectangleBase = summary !== undefined && summary.base_area !== null;
     const hasPlaneArea = rectangleBase || planeSegments.length > 0;
     const planeKey = plane === 'FLOOR' ? 'floor' : 'ceiling';
+    const isOptionsOpen = !!expandedOptions[plane];
+    const planeSurfaceId = planeSurfaces[plane];
 
     return (
       <section
@@ -230,170 +269,197 @@ export function AreaSegmentList({
           </div>
         )}
 
-        <div className="flex gap-2 flex-wrap">
-          <button
-            type="button"
-            aria-label={`add-${planeKey}-rectangle`}
-            onClick={() => startAdd(plane, 'ADD')}
-            className="text-xs px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
-          >
-            + {t.area_segments.add_rectangle}
-          </button>
-          <button
-            type="button"
-            aria-label={`add-${planeKey}-subtraction`}
-            onClick={() => startAdd(plane, 'SUBTRACT')}
-            className="text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 transition"
-          >
-            + {t.area_segments.add_subtraction}
-          </button>
-        </div>
+        {/* Progressive disclosure: Opcje reveals the plane's measurement actions. */}
+        <button
+          type="button"
+          aria-label={`options-toggle-${planeKey}`}
+          aria-expanded={isOptionsOpen}
+          onClick={() => toggleOptions(plane)}
+          className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
+        >
+          {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
+        </button>
 
-        {activeForm && (
-          <form
-            aria-label={`${planeKey}-segment-form`}
-            onSubmit={handleSubmit}
-            className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5"
+        {/* Work Plan entry point (Stage 10C.2); present but inert in 10C.1B.
+            Bound to the real canonical plane Surface.id from the room's surface rows. */}
+        {planeSurfaceId && (
+          <button
+            type="button"
+            aria-label={`work-plan-${planeSurfaceId}`}
+            className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
           >
-            <div className="flex items-center justify-between flex-wrap gap-1">
-              <h5 className="text-xs font-semibold text-slate-700">
-                {editingId ? t.area_segments.edit : t.area_segments.add}
-              </h5>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
-                {operationLabel(activeForm.operation)}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">
-                  {t.area_segments.width}
-                </label>
-                <input
-                  aria-label="segment-width"
-                  type="number"
-                  inputMode="decimal"
-                  min="0.001"
-                  step="any"
-                  placeholder="2.000"
-                  autoFocus
-                  value={activeForm.width}
-                  onChange={(e) =>
-                    setForm((cur) => (cur ? { ...cur, width: e.target.value } : cur))
-                  }
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">
-                  {t.area_segments.length}
-                </label>
-                <input
-                  aria-label="segment-height"
-                  type="number"
-                  inputMode="decimal"
-                  min="0.001"
-                  step="any"
-                  placeholder="2.000"
-                  value={activeForm.height}
-                  onChange={(e) =>
-                    setForm((cur) => (cur ? { ...cur, height: e.target.value } : cur))
-                  }
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
-                />
-              </div>
-            </div>
-            <input
-              aria-label="segment-label"
-              type="text"
-              maxLength={255}
-              placeholder={t.area_segments.label}
-              value={activeForm.label}
-              onChange={(e) =>
-                setForm((cur) => (cur ? { ...cur, label: e.target.value } : cur))
-              }
-              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
-            />
-            {formError && (
-              <p role="alert" className="text-sm text-red-600 font-medium">{formError}</p>
-            )}
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={closeForm}
-                className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100"
-              >
-                {t.common.cancel}
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-2.5 py-1.5 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-              >
-                {saving ? t.common.saving : t.common.save}
-              </button>
-            </div>
-          </form>
+            {t.surfaces.work_types_quality}
+          </button>
         )}
 
-        {planeSegments.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-2">
-            {plane === 'FLOOR'
-              ? t.area_segments.empty_floor
-              : t.area_segments.empty_ceiling}
-          </p>
-        ) : (
-          <ul className="space-y-1.5">
-            {planeSegments.map((segment) => (
-              <li
-                key={segment.id}
-                aria-label={`segment-item-${segment.id}`}
-                className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 text-xs"
+        {isOptionsOpen && (
+          <>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                aria-label={`add-${planeKey}-rectangle`}
+                onClick={() => startAdd(plane, 'ADD')}
+                className="text-xs px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                        segment.operation === 'ADD'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-rose-100 text-rose-700'
-                      }`}
-                    >
-                      {operationLabel(segment.operation)}
-                    </span>
-                    {segment.label && (
-                      <span className="font-semibold text-slate-800 truncate">
-                        {segment.label}
-                      </span>
-                    )}
+                + {t.area_segments.add_rectangle}
+              </button>
+              <button
+                type="button"
+                aria-label={`add-${planeKey}-subtraction`}
+                onClick={() => startAdd(plane, 'SUBTRACT')}
+                className="text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 transition"
+              >
+                + {t.area_segments.add_subtraction}
+              </button>
+            </div>
+
+            {activeForm && (
+              <form
+                aria-label={`${planeKey}-segment-form`}
+                onSubmit={handleSubmit}
+                className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5"
+              >
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <h5 className="text-xs font-semibold text-slate-700">
+                    {editingId ? t.area_segments.edit : t.area_segments.add}
+                  </h5>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
+                    {operationLabel(activeForm.operation)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">
+                      {t.area_segments.width}
+                    </label>
+                    <input
+                      aria-label="segment-width"
+                      type="number"
+                      inputMode="decimal"
+                      min="0.001"
+                      step="any"
+                      placeholder="2.000"
+                      autoFocus
+                      value={activeForm.width}
+                      onChange={(e) =>
+                        setForm((cur) => (cur ? { ...cur, width: e.target.value } : cur))
+                      }
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+                    />
                   </div>
-                  <p className="text-slate-500 mt-0.5">
-                    {formatMetric(segment.width)} × {formatMetric(segment.height)} {t.common.unit_m} ={' '}
-                    <strong className="text-slate-800">
-                      {formatMetric(segment.area ?? segmentArea(segment))} {t.common.unit_m2}
-                    </strong>
-                  </p>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">
+                      {t.area_segments.length}
+                    </label>
+                    <input
+                      aria-label="segment-height"
+                      type="number"
+                      inputMode="decimal"
+                      min="0.001"
+                      step="any"
+                      placeholder="2.000"
+                      value={activeForm.height}
+                      onChange={(e) =>
+                        setForm((cur) => (cur ? { ...cur, height: e.target.value } : cur))
+                      }
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+                    />
+                  </div>
                 </div>
-                <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
+                <input
+                  aria-label="segment-label"
+                  type="text"
+                  maxLength={255}
+                  placeholder={t.area_segments.label}
+                  value={activeForm.label}
+                  onChange={(e) =>
+                    setForm((cur) => (cur ? { ...cur, label: e.target.value } : cur))
+                  }
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+                />
+                {formError && (
+                  <p role="alert" className="text-sm text-red-600 font-medium">{formError}</p>
+                )}
+                <div className="flex gap-2 justify-end">
                   <button
                     type="button"
-                    aria-label={`edit-segment-${segment.id}`}
-                    onClick={() => startEdit(segment)}
-                    className="text-xs px-2 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                    onClick={closeForm}
+                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100"
                   >
-                    {t.common.edit}
+                    {t.common.cancel}
                   </button>
                   <button
-                    type="button"
-                    aria-label={`${segment.is_archived ? 'restore' : 'archive'}-segment-${segment.id}`}
-                    onClick={() => void changeArchiveState(segment)}
-                    className="text-xs px-2 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-medium hover:bg-slate-200 transition"
+                    type="submit"
+                    disabled={saving}
+                    className="px-2.5 py-1.5 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
                   >
-                    {segment.is_archived ? t.common.restore : t.common.archive}
+                    {saving ? t.common.saving : t.common.save}
                   </button>
                 </div>
-              </li>
-            ))}
-          </ul>
+              </form>
+            )}
+
+            {planeSegments.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-2">
+                {plane === 'FLOOR'
+                  ? t.area_segments.empty_floor
+                  : t.area_segments.empty_ceiling}
+              </p>
+            ) : (
+              <ul className="space-y-1.5">
+                {planeSegments.map((segment) => (
+                  <li
+                    key={segment.id}
+                    aria-label={`segment-item-${segment.id}`}
+                    className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 text-xs"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            segment.operation === 'ADD'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-rose-100 text-rose-700'
+                          }`}
+                        >
+                          {operationLabel(segment.operation)}
+                        </span>
+                        {segment.label && (
+                          <span className="font-semibold text-slate-800 truncate">
+                            {segment.label}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-500 mt-0.5">
+                        {formatMetric(segment.width)} × {formatMetric(segment.height)} {t.common.unit_m} ={' '}
+                        <strong className="text-slate-800">
+                          {formatMetric(segment.area ?? segmentArea(segment))} {t.common.unit_m2}
+                        </strong>
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
+                      <button
+                        type="button"
+                        aria-label={`edit-segment-${segment.id}`}
+                        onClick={() => startEdit(segment)}
+                        className="text-xs px-2 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                      >
+                        {t.common.edit}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`${segment.is_archived ? 'restore' : 'archive'}-segment-${segment.id}`}
+                        onClick={() => void changeArchiveState(segment)}
+                        className="text-xs px-2 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-medium hover:bg-slate-200 transition"
+                      >
+                        {segment.is_archived ? t.common.restore : t.common.archive}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </section>
     );
