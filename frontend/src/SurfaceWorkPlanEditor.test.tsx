@@ -708,4 +708,206 @@ describe('SurfaceWorkPlanEditor', () => {
     fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
     expect(await screen.findByText('Brak aktywnych pozycji')).toBeInTheDocument();
   });
+
+  // -------------------------------------------------------------------------
+  // Stage 10C.2C: Planned work ordering tests
+  // -------------------------------------------------------------------------
+
+  it('first occurrence cannot move up (button is disabled)', async () => {
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    const list = screen.getByLabelText(`planned-works-${surfaceId}`);
+    const rows = within(list).getAllByRole('listitem');
+    expect(rows).toHaveLength(4);
+
+    const firstRowUpBtn = within(rows[0]).getByText('↑');
+    expect(firstRowUpBtn).toBeDisabled();
+
+    const firstRowDownBtn = within(rows[0]).getByText('↓');
+    expect(firstRowDownBtn).toBeEnabled();
+  });
+
+  it('last occurrence cannot move down (button is disabled)', async () => {
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    const list = screen.getByLabelText(`planned-works-${surfaceId}`);
+    const rows = within(list).getAllByRole('listitem');
+    expect(rows).toHaveLength(4);
+
+    const lastRowDownBtn = within(rows[3]).getByText('↓');
+    expect(lastRowDownBtn).toBeDisabled();
+
+    const lastRowUpBtn = within(rows[3]).getByText('↑');
+    expect(lastRowUpBtn).toBeEnabled();
+  });
+
+  it('move middle occurrence up swaps positions locally without API call', async () => {
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    let rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(rows[0]).toHaveTextContent('Pierwsza praca');
+    expect(rows[1]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
+
+    // Click move up on row 1 (Malowanie)
+    const row1UpBtn = within(rows[1]).getByText('↑');
+    fireEvent.click(row1UpBtn);
+
+    // No API call occurred
+    expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
+
+    // Now Malowanie is first, Pierwsza praca is second
+    rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(rows[0]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
+    expect(rows[1]).toHaveTextContent('Pierwsza praca');
+
+    // Save button is now enabled (draft is dirty)
+    expect(screen.getByLabelText(`save-work-plan-${surfaceId}`)).toBeEnabled();
+  });
+
+  it('move middle occurrence down swaps positions locally', async () => {
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    let rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(rows[1]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
+    expect(rows[2]).toHaveTextContent('Zarchiwizowana'); // occurrence-3 (archived Pierwsza praca)
+
+    // Click move down on row 1 (Malowanie)
+    const row1DownBtn = within(rows[1]).getByText('↓');
+    fireEvent.click(row1DownBtn);
+
+    rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(rows[1]).toHaveTextContent('Zarchiwizowana');
+    expect(rows[2]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
+  });
+
+  it('archived occurrence can be reordered', async () => {
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    let rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(rows[2]).toHaveTextContent('Zarchiwizowana');
+
+    // Move archived occurrence up to position 1
+    const archivedUpBtn = within(rows[2]).getByText('↑');
+    fireEvent.click(archivedUpBtn);
+
+    rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(rows[1]).toHaveTextContent('Zarchiwizowana');
+    expect(rows[2]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
+  });
+
+  it('duplicate occurrences remain independent when moving one', async () => {
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    // Initial order: [Pierwsza praca (active), Malowanie, Pierwsza praca (archived), Unavailable]
+    let rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(rows[0]).toHaveTextContent('Pierwsza praca');
+    expect(rows[0]).not.toHaveTextContent('Zarchiwizowana');
+    expect(rows[2]).toHaveTextContent('Pierwsza praca');
+    expect(rows[2]).toHaveTextContent('Zarchiwizowana');
+
+    // Move first occurrence down to position 1
+    const firstDownBtn = within(rows[0]).getByText('↓');
+    fireEvent.click(firstDownBtn);
+
+    // New order: [Malowanie, Pierwsza praca (active), Pierwsza praca (archived), Unavailable]
+    rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(rows[0]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
+    expect(rows[1]).toHaveTextContent('Pierwsza praca');
+    expect(rows[1]).not.toHaveTextContent('Zarchiwizowana');
+    expect(rows[2]).toHaveTextContent('Pierwsza praca');
+    expect(rows[2]).toHaveTextContent('Zarchiwizowana');
+  });
+
+  it('Save sends exact reordered price_item_ids with duplicate IDs preserved', async () => {
+    vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(makePlan());
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    // Initial order: ['price-shared', 'price-localized', 'price-shared', 'price-unavailable']
+    const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    // Move row 0 down -> order becomes: ['price-localized', 'price-shared', 'price-shared', 'price-unavailable']
+    fireEvent.click(within(rows[0]).getByText('↓'));
+
+    const saveBtn = screen.getByLabelText(`save-work-plan-${surfaceId}`);
+    expect(saveBtn).toBeEnabled();
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledWith(
+        projectId,
+        roomId,
+        surfaceId,
+        expect.objectContaining({
+          price_item_ids: [
+            'price-localized',
+            'price-shared',
+            'price-shared',
+            'price-unavailable',
+          ],
+        }),
+      );
+    });
+  });
+
+  it('failed Save retains reordered draft', async () => {
+    vi.mocked(workPlansApi.putSurfaceWorkPlan).mockRejectedValue(new Error('Network error'));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    // Move row 0 down
+    fireEvent.click(within(rows[0]).getByText('↓'));
+
+    const saveBtn = screen.getByLabelText(`save-work-plan-${surfaceId}`);
+    fireEvent.click(saveBtn);
+
+    expect(await screen.findByText('Nie udało się zapisać planu prac.')).toBeInTheDocument();
+
+    // Draft still retains reordered order
+    const updatedRows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(updatedRows[0]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
+    expect(updatedRows[1]).toHaveTextContent('Pierwsza praca');
+    expect(saveBtn).toBeEnabled();
+  });
+
+  it('successful Save rehydrates server order and clears dirty state', async () => {
+    // Return a rehydrated plan matching the new order
+    const rehydratedPlan: SurfaceWorkPlanRead = {
+      id: 'plan-1',
+      surface_id: surfaceId,
+      substrate: 'CONCRETE',
+      quality_target: 'S3',
+      planned_works: [
+        plannedWorks[1], // Malowanie
+        plannedWorks[0], // Pierwsza praca
+        plannedWorks[2],
+        plannedWorks[3],
+      ],
+    };
+    vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(rehydratedPlan);
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+
+    const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    // Move row 0 down
+    fireEvent.click(within(rows[0]).getByText('↓'));
+
+    const saveBtn = screen.getByLabelText(`save-work-plan-${surfaceId}`);
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(saveBtn).toBeDisabled();
+    });
+    expect(screen.getByText('Plan prac został zapisany.')).toBeInTheDocument();
+
+    const finalRows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(finalRows[0]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
+    expect(finalRows[1]).toHaveTextContent('Pierwsza praca');
+  });
 });

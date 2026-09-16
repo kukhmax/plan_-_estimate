@@ -204,7 +204,9 @@
     "picker_no_results": "Ничего не найдено",
     "picker_error": "Не удалось загрузить прайс.",
     "picker_close": "Закрыть",
-    "remove_work": "Убрать"
+    "remove_work": "Убрать",
+    "move_up": "Переместить выше",
+    "move_down": "Переместить ниже"
   },
   "openings": {
     "title": "Проемы в стене",

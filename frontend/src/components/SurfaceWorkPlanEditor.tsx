@@ -298,6 +298,32 @@ export function SurfaceWorkPlanEditor({
     setSaved(false);
   };
 
+  const handleMoveOccurrenceUp = (index: number) => {
+    if (index <= 0 || index >= draftOccurrences.length) return;
+    setDraftOccurrences((prev) => {
+      const next = [...prev];
+      const item = next[index];
+      next[index] = next[index - 1];
+      next[index - 1] = item;
+      return next;
+    });
+    setSaveError(null);
+    setSaved(false);
+  };
+
+  const handleMoveOccurrenceDown = (index: number) => {
+    if (index < 0 || index >= draftOccurrences.length - 1) return;
+    setDraftOccurrences((prev) => {
+      const next = [...prev];
+      const item = next[index];
+      next[index] = next[index + 1];
+      next[index + 1] = item;
+      return next;
+    });
+    setSaveError(null);
+    setSaved(false);
+  };
+
   // Client-side search across display name, name_key (localized), code, category, scope, unit.
   const filteredPickerItems = useMemo(() => {
     const q = pickerSearch.trim().toLowerCase();
@@ -421,7 +447,7 @@ export function SurfaceWorkPlanEditor({
               <p className="text-sm text-[var(--tg-theme-hint-color)]">{t.work_plan.no_works}</p>
             ) : (
               <ol aria-label={`planned-works-${surfaceId}`} className="space-y-2">
-                {draftOccurrences.map((occurrence) => {
+                {draftOccurrences.map((occurrence, index) => {
                   const item = occurrence.summary;
                   return (
                     <li
@@ -433,12 +459,32 @@ export function SurfaceWorkPlanEditor({
                         <span className="min-w-0 text-sm font-semibold text-[var(--tg-theme-text-color)] break-words">
                           {occurrenceDisplayName(item)}
                         </span>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           {item?.is_archived && (
-                            <span className="text-xs text-[var(--tg-theme-destructive-text-color)]">
+                            <span className="text-xs text-[var(--tg-theme-destructive-text-color)] mr-1">
                               {t.pricebook.archived_badge}
                             </span>
                           )}
+                          <button
+                            type="button"
+                            aria-label={`move-up-occurrence-${occurrence.draftKey}`}
+                            onClick={() => handleMoveOccurrenceUp(index)}
+                            disabled={saving || index === 0}
+                            className="min-h-[44px] min-w-[36px] px-1 flex items-center justify-center text-sm font-bold text-[var(--tg-theme-text-color)] disabled:opacity-30"
+                            title={t.work_plan.move_up}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`move-down-occurrence-${occurrence.draftKey}`}
+                            onClick={() => handleMoveOccurrenceDown(index)}
+                            disabled={saving || index === draftOccurrences.length - 1}
+                            className="min-h-[44px] min-w-[36px] px-1 flex items-center justify-center text-sm font-bold text-[var(--tg-theme-text-color)] disabled:opacity-30"
+                            title={t.work_plan.move_down}
+                          >
+                            ↓
+                          </button>
                           <button
                             type="button"
                             aria-label={`remove-occurrence-${occurrence.draftKey}`}

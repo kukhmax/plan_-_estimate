@@ -204,7 +204,9 @@
     "picker_no_results": "Brak wyników",
     "picker_error": "Nie udało się wczytać cennika.",
     "picker_close": "Zamknij",
-    "remove_work": "Usuń"
+    "remove_work": "Usuń",
+    "move_up": "Przesuń w górę",
+    "move_down": "Przesuń w dół"
   },
   "openings": {
     "title": "Otwory w ścianie",

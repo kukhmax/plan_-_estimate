@@ -52,7 +52,7 @@
 | Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | **Stage 8** | **"Co powiedzieć klientowi" (Client Communication Assistant)** | **Completed 2026-09-13** | Deterministic, rule-driven client communication recommendations (PL/RU) from completed-inspection facts — versioned immutable phrase catalog, exact-key selection over materialized Stage 6/7 facts, complete quality matrix, mobile communication cards with evaluate / "Why?" traceability / copy / active-resolved-all history |
 | **Stage 9** | **Editable Price Book / Cennik** | **Completed 2026-09-15 (OWNER ACCEPTED; merged to `main` as `96d0518`)** — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; **9E.6A (price market evidence backend foundation) Completed 2026-09-14 (committed `31540af` — models + migration 0015 + read-only evidence endpoint)**; **9E.6B (mobile price market evidence UI) Implemented 2026-09-14 (read-only compact market evidence on Price Book cards; 44-row catalog load NOT performed — deferred per owner instruction)**; **9E.7 (load approved 44-row catalog + market evidence + nullable price foundation) Implemented 2026-09-15 (44 canonical rows: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 28 market references / 112 sources seeded idempotently; legacy GENERIC seeds retired; migration 0016 makes PriceItem.price nullable — NULL = not set, 0.00 = real zero; full backend 515 tests + frontend 304 tests PASS; committed `097e46c`)**; **9E.7.1 (Price Book add/edit form visibility regression) Implemented 2026-09-15 (opening Add/Edit scrolls the form into view so the editor is actually visible on a 44-row catalog; 2 regression tests; full frontend 306 tests PASS; real-browser 390 px verification PASS; committed `f38cd13`)**; **9E.8 (Price Book mobile UX cleanup) Implemented 2026-09-15 (inline owner-price editor for catalog rows, direct Edytuj/Archiwizuj, dedicated mobile source viewer, label + S/Q UX cleanup; full frontend 323 tests PASS; real-browser 320/390/412 px verification 23/23 PASS; committed 2026-09-15 (`a948f68`, `c82c6ea`, `d1688e1`); owner accepted)**; 9F (final gate) **NOT RUN as a separate execution** — Stage 9 final acceptance completed from accumulated verification evidence and owner acceptance; **Stage 9 COMPLETE** (merged to `main` as `96d0518`) | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
-| **Stage 10** | Estimate / Kosztorys | **In Progress — 10A (Surface Work Planning + Estimate Architecture) and 10A.1 (Canonical Architecture Corrections) Completed 2026-09-15 (docs-only; owner accepted; committed together as `6bbc4ce`)**; **10B.1 (Surface Work Plan backend domain) Completed 2026-09-15, owner accepted, committed `3c9751e` (2026-09-16)**; **10B.2 (Surface Work Plan HTTP API + apply-to-room-walls) Completed 2026-09-16, committed `86de66d`**; **10C.1 (Compact Surface Card + Opcje progressive disclosure) Completed 2026-09-16 — OWNER ACCEPTED after real Telegram production retest**; **10C.1A (Canonical Floor/Ceiling Surfaces) Completed 2026-09-16 — OWNER ACCEPTED, committed `a6c50c5`**; **10C.1B (Floor/Ceiling Mobile UI Parity) Completed 2026-09-16 — OWNER ACCEPTED, committed `0ca24a2`**; **10C.1C (Telegram Owner Acceptance Fixes) Completed 2026-09-16 — OWNER ACCEPTED, committed `d9d9265`**; **10C.2A (WorkPlan Editor Shell + Existing Plan Loading) Completed 2026-09-16 — OWNER ACCEPTED after real Telegram retest; 10C.2B (frontend Price Book picker + backend contract correction) Implemented 2026-09-16 (awaiting owner verification); 10C.2C/10C.2D NOT STARTED; 10C.3 (Apply Work Plan to All Walls) NOT STARTED and owns the WALL-only “Zapisz dla wszystkich ścian” / “Сохранить dla всех стен” action** — 10D+ NOT STARTED | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) — see `docs/stage-10-architecture.md` |
+| **Stage 10** | Estimate / Kosztorys | **In Progress — 10A (Surface Work Planning + Estimate Architecture) and 10A.1 (Canonical Architecture Corrections) Completed 2026-09-15 (docs-only; owner accepted; committed together as `6bbc4ce`)**; **10B.1 (Surface Work Plan backend domain) Completed 2026-09-15, owner accepted, committed `3c9751e` (2026-09-16)**; **10B.2 (Surface Work Plan HTTP API + apply-to-room-walls) Completed 2026-09-16, committed `86de66d`**; **10C.1 (Compact Surface Card + Opcje progressive disclosure) Completed 2026-09-16 — OWNER ACCEPTED after real Telegram production retest**; **10C.1A (Canonical Floor/Ceiling Surfaces) Completed 2026-09-16 — OWNER ACCEPTED, committed `a6c50c5`**; **10C.1B (Floor/Ceiling Mobile UI Parity) Completed 2026-09-16 — OWNER ACCEPTED, committed `0ca24a2`**; **10C.1C (Telegram Owner Acceptance Fixes) Completed 2026-09-16 — OWNER ACCEPTED, committed `d9d9265`**; **10C.2A (WorkPlan Editor Shell + Existing Plan Loading) Completed 2026-09-16 — OWNER ACCEPTED after real Telegram retest**; **10C.2B (Frontend Price Book Picker + backend contract correction) Completed 2026-09-16 — OWNER ACCEPTED after real Telegram retest (cosmetic polish deferred to final UI/UX polish)**; **10C.2C (Planned Work Ordering) Implemented 2026-09-16 (awaiting owner verification); 10C.2D NOT STARTED; 10C.3 (Apply Work Plan to All Walls) NOT STARTED and owns the WALL-only “Zapisz dla wszystkich ścian” / “Сохранить dla всех стен” action** — 10D+ NOT STARTED | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) — see `docs/stage-10-architecture.md` |
 | Stage 11 |
  Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
@@ -2386,8 +2386,9 @@ substrate column needed).
 
 #### Current Stage 10 status:
 - **Stage 10C.2A — WorkPlan Editor Shell + Existing Plan Loading: completed and OWNER ACCEPTED after real Telegram retest.** Stage 10C.2 is not complete.
-- **Stage 10C.2B — Frontend Price Book Picker: implemented and verified (awaiting owner verification).** Backend contract correction previously committed; Stage 10C.2 is not complete.
-- Current execution order: **10C.2A** → **10C.2B** (implemented, awaiting owner review) → **10C.2C** → **10C.2D** → **10C.3 — Apply Work Plan to All Walls**.
+- **Stage 10C.2B — Frontend Price Book Picker: completed and OWNER ACCEPTED after real Telegram retest (cosmetic picker/card polish deferred to final UI/UX polish).** Stage 10C.2 is not complete.
+- **Stage 10C.2C — Planned Work Ordering: implemented and verified (awaiting owner verification).** Stage 10C.2 is not complete.
+- Current execution order: **10C.2A** → **10C.2B** → **10C.2C** (implemented, awaiting owner review) → **10C.2D** → **10C.3 — Apply Work Plan to All Walls**.
 - **Stage 10C.3** owns the WALL-only **„Zapisz dla wszystkich ścian” / „Сохранить для всех стен”** action through `POST .../surfaces/{source_surface_id}/work-plan/apply-to-room-walls`; it is **NOT STARTED**.
 - After completion of all Stage 10C work, proceed to **Stage 5F — Opening Reveals / Ościeża**. Stage 5F remains deferred until then.
 
@@ -2459,7 +2460,7 @@ substrate column needed).
 - No frontend, schema, migration, Estimate, apply-to-all UI, Stage 5F, permanent-delete, or README implementation change.
 
 ### Stage 10C.2B: Frontend Price Book Picker (frontend)
-- **Status**: Implemented and verified 2026-09-16 (awaiting owner verification); Stage 10C.2 is not complete.
+- **Status**: Completed 2026-09-16 (frontend; **OWNER ACCEPTED** after real Telegram retest; cosmetic picker/card polish deferred to final UI/UX polish); Stage 10C.2 is not complete.
 - **Migration**: None.
 
 #### Delivered:
@@ -2484,6 +2485,34 @@ substrate column needed).
 - TypeScript typecheck (`tsc --noEmit`): PASS (0 errors).
 - Vite production build (`vite build`): PASS.
 - Backend diff: EMPTY (preceding contract correction already passed full 631 backend tests).
+- `git diff --check`: PASS.
+
+### Stage 10C.2C: Planned Work Ordering (frontend)
+- **Status**: Implemented and verified 2026-09-16 (awaiting owner verification); Stage 10C.2 is not complete.
+- **Migration**: None.
+
+#### Delivered:
+- `SurfaceWorkPlanEditor.tsx` now supports simple mobile ordering controls for planned-work occurrences:
+  - Each occurrence in the draft list includes ↑ (move up) and ↓ (move down) buttons.
+  - ↑ moves the specific occurrence one position up; disabled for the first item (`index === 0`).
+  - ↓ moves the specific occurrence one position down; disabled for the last item (`index === draftOccurrences.length - 1`).
+  - Moving an occurrence modifies the local draft only; no API calls are made during reordering.
+  - Reordering marks the draft dirty and enables the Save button.
+  - Duplicate PriceItem occurrences remain completely independent; moving one duplicate does not affect the other.
+  - Archived occurrences in the plan can also be reordered.
+  - Underlying PriceItem catalog rows are never modified.
+  - Save (`putSurfaceWorkPlan`) sends `price_item_ids` in the exact visible reordered sequence with duplicate IDs preserved.
+  - Successful save rehydrates the server canonical plan order and clears dirty state.
+  - Failed save retains the reordered local draft without losing user changes.
+  - Mobile controls sized for touch targets (>=44px height) without causing horizontal scrolling.
+  - Localized with `move_up` and `move_down` in PL and RU.
+
+#### Verification:
+- Focused `SurfaceWorkPlanEditor.test.tsx`: **36 passed** (including 9 new ordering tests).
+- Full frontend Vitest: **420 passed** across 29 test files (0 failed).
+- TypeScript typecheck (`tsc --noEmit`): PASS (0 errors).
+- Vite production build (`vite build`): PASS.
+- Backend diff: EMPTY (no backend changes needed).
 - `git diff --check`: PASS.
 
 ## Stage Log Template for Future Stages
