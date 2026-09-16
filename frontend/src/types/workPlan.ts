@@ -36,3 +36,10 @@ export interface SurfaceWorkPlanUpsert {
   quality_target: QualityLevelValue | null;
   price_item_ids: string[];
 }
+
+export interface SurfaceWorkPlanApplyResult {
+  source_surface_id: string;
+  target_count: number;
+  target_surface_ids: string[];
+  targets: SurfaceWorkPlanRead[];
+}

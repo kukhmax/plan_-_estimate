@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './http';
 import {
+  applyWorkPlanToRoomWalls,
   fetchSurfaceWorkPlan,
   isSurfaceWorkPlanMissing,
   putSurfaceWorkPlan,
@@ -53,6 +54,14 @@ describe('workPlans API client', () => {
     expect(calls[0].url).toBe(`${base}${path}`);
     expect(calls[0].init?.method).toBe('PUT');
     expect(calls[0].init?.body).toBe(JSON.stringify(payload));
+  });
+
+  it('POSTs to apply-to-room-walls with no body', async () => {
+    await applyWorkPlanToRoomWalls(projectId, roomId, surfaceId);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`${base}${path}/apply-to-room-walls`);
+    expect(calls[0].init?.method).toBe('POST');
   });
 });
 

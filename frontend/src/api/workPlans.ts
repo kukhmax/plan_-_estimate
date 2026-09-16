@@ -1,4 +1,5 @@
 import {
+  SurfaceWorkPlanApplyResult,
   SurfaceWorkPlanRead,
   SurfaceWorkPlanUpsert,
 } from '../types/workPlan';
@@ -26,6 +27,17 @@ export function putSurfaceWorkPlan(
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+}
+
+export function applyWorkPlanToRoomWalls(
+  projectId: string,
+  roomId: string,
+  surfaceId: string,
+): Promise<SurfaceWorkPlanApplyResult> {
+  return apiRequest(
+    `${workPlanPath(projectId, roomId, surfaceId)}/apply-to-room-walls`,
+    { method: 'POST' },
+  );
 }
 
 export function isSurfaceWorkPlanMissing(error: unknown): boolean {

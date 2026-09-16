@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchPriceItems } from '../api/priceItems';
 import {
+  applyWorkPlanToRoomWalls,
   fetchSurfaceWorkPlan,
   isSurfaceWorkPlanMissing,
   putSurfaceWorkPlan,
@@ -22,11 +23,16 @@ interface SurfaceWorkPlanEditorProps {
   roomId: string;
   surfaceId: string;
   surfaceName: string;
+  /** True only for WALL surfaces — enables the apply-to-all-walls action. */
+  isWall?: boolean;
+  /** Count of other active WALL surfaces in the same room (apply-to-all target count). */
+  otherActiveWallCount?: number;
   onClose: () => void;
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
 type PickerState = 'closed' | 'loading' | 'ready' | 'error';
+type ApplyState = 'idle' | 'confirming' | 'applying' | 'success' | 'error';
 
 interface WorkPlanBaseline {
   substrate: SubstrateValue | '';
@@ -93,6 +99,8 @@ export function SurfaceWorkPlanEditor({
   roomId,
   surfaceId,
   surfaceName,
+  isWall = false,
+  otherActiveWallCount = 0,
   onClose,
 }: SurfaceWorkPlanEditorProps) {
   const { t } = useI18n();
@@ -114,6 +122,11 @@ export function SurfaceWorkPlanEditor({
     qualityTarget: null,
     occurrenceIds: [],
   });
+
+  // Apply-to-all-walls state (WALL surfaces only)
+  const [applyState, setApplyState] = useState<ApplyState>('idle');
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [appliedCount, setAppliedCount] = useState<number | null>(null);
 
   // Price Book picker state
   const [pickerState, setPickerState] = useState<PickerState>('closed');
@@ -156,6 +169,9 @@ export function SurfaceWorkPlanEditor({
     setSaveError(null);
     setSaved(false);
     setSaving(false);
+    setApplyState('idle');
+    setApplyError(null);
+    setAppliedCount(null);
 
     void fetchSurfaceWorkPlan(projectId, roomId, surfaceId)
       .then((plan) => {
@@ -322,6 +338,28 @@ export function SurfaceWorkPlanEditor({
     });
     setSaveError(null);
     setSaved(false);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Apply to all walls
+  // ---------------------------------------------------------------------------
+
+  const handleApplyToAllWalls = async () => {
+    setApplyState('applying');
+    setApplyError(null);
+    try {
+      const result = await applyWorkPlanToRoomWalls(projectId, roomId, surfaceId);
+      setAppliedCount(result.target_count);
+      setApplyState('success');
+    } catch (error) {
+      setApplyError(describeError(error, t.work_plan.apply_error));
+      setApplyState('error');
+    }
+  };
+
+  const handleApplyCancel = () => {
+    setApplyState('idle');
+    setApplyError(null);
   };
 
   // Client-side search across display name, name_key (localized), code, category, scope, unit.
@@ -635,6 +673,89 @@ export function SurfaceWorkPlanEditor({
           >
             {saving ? t.common.saving : t.common.save}
           </button>
+
+          {/* Apply to all walls — WALL surfaces with a saved plan only */}
+          {isWall && hasPlan && (
+            <div className="space-y-2 pt-1 border-t border-[var(--tg-control-border-color)]">
+              {applyState === 'idle' && (
+                <button
+                  type="button"
+                  aria-label={`apply-to-all-walls-${surfaceId}`}
+                  onClick={() => setApplyState('confirming')}
+                  disabled={saving}
+                  className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm disabled:opacity-60"
+                >
+                  {t.work_plan.apply_to_walls}
+                </button>
+              )}
+              {applyState === 'confirming' && (
+                <div
+                  aria-label={`apply-confirm-panel-${surfaceId}`}
+                  className="rounded-xl border border-[var(--tg-control-border-color)] p-3 space-y-2"
+                >
+                  <p className="text-sm text-[var(--tg-theme-text-color)] break-words">
+                    {t.work_plan.apply_confirm.replace('{count}', String(otherActiveWallCount))}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      aria-label={`apply-confirm-yes-${surfaceId}`}
+                      onClick={() => void handleApplyToAllWalls()}
+                      className="flex-1 min-h-11 px-3 rounded-xl bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] font-semibold text-sm"
+                    >
+                      {t.work_plan.apply_confirm_yes}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`apply-cancel-${surfaceId}`}
+                      onClick={handleApplyCancel}
+                      className="flex-1 min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] font-semibold text-sm"
+                    >
+                      {t.common.cancel}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {applyState === 'applying' && (
+                <p role="status" className="py-2 text-sm text-center text-[var(--tg-theme-hint-color)]">
+                  {t.work_plan.applying}
+                </p>
+              )}
+              {applyState === 'success' && (
+                <div className="space-y-1">
+                  <p role="status" className="text-sm text-[var(--tg-theme-text-color)]">
+                    {t.work_plan.apply_success.replace('{count}', String(appliedCount ?? 0))}
+                  </p>
+                  <button
+                    type="button"
+                    aria-label={`apply-success-dismiss-${surfaceId}`}
+                    onClick={handleApplyCancel}
+                    className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] text-sm font-medium"
+                  >
+                    {t.common.close}
+                  </button>
+                </div>
+              )}
+              {applyState === 'error' && (
+                <div role="alert" className="space-y-1">
+                  <p className="text-sm font-semibold text-[var(--tg-theme-destructive-text-color)]">
+                    {t.work_plan.apply_error}
+                  </p>
+                  {applyError && applyError !== t.work_plan.apply_error && (
+                    <p className="text-xs text-[var(--tg-theme-destructive-text-color)] break-words">{applyError}</p>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`apply-error-dismiss-${surfaceId}`}
+                    onClick={handleApplyCancel}
+                    className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] text-sm font-medium"
+                  >
+                    {t.common.close}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </form>
       )}
     </section>

@@ -6,7 +6,7 @@ import { ApiError } from './api/http';
 import { SurfaceWorkPlanEditor } from './components/SurfaceWorkPlanEditor';
 import { I18nProvider } from './hooks/useI18n';
 import { PriceItem, PriceItemListResponse } from './types/priceItem';
-import { SurfaceWorkPlanRead } from './types/workPlan';
+import { SurfaceWorkPlanApplyResult, SurfaceWorkPlanRead } from './types/workPlan';
 
 vi.mock('./api/workPlans', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./api/workPlans')>();
@@ -14,6 +14,7 @@ vi.mock('./api/workPlans', async (importOriginal) => {
     ...actual,
     fetchSurfaceWorkPlan: vi.fn(),
     putSurfaceWorkPlan: vi.fn(),
+    applyWorkPlanToRoomWalls: vi.fn(),
   };
 });
 
@@ -134,7 +135,23 @@ function makePriceItemListResponse(items: PriceItem[]): PriceItemListResponse {
   return { items, total: items.length };
 }
 
-function renderEditor(id = surfaceId) {
+function makeApplyResult(overrides: Partial<SurfaceWorkPlanApplyResult> = {}): SurfaceWorkPlanApplyResult {
+  return {
+    source_surface_id: surfaceId,
+    target_count: 3,
+    target_surface_ids: [],
+    targets: [],
+    ...overrides,
+  };
+}
+
+interface RenderOpts {
+  isWall?: boolean;
+  otherActiveWallCount?: number;
+}
+
+function renderEditor(id = surfaceId, opts: RenderOpts = {}) {
+  const { isWall = true, otherActiveWallCount = 3 } = opts;
   return render(
     <I18nProvider>
       <SurfaceWorkPlanEditor
@@ -142,6 +159,8 @@ function renderEditor(id = surfaceId) {
         roomId={roomId}
         surfaceId={id}
         surfaceName="Ściana północna"
+        isWall={isWall}
+        otherActiveWallCount={otherActiveWallCount}
         onClose={vi.fn()}
       />
     </I18nProvider>,
@@ -874,6 +893,103 @@ describe('SurfaceWorkPlanEditor', () => {
     expect(updatedRows[0]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
     expect(updatedRows[1]).toHaveTextContent('Pierwsza praca');
     expect(saveBtn).toBeEnabled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Stage 10C.3: Apply to all walls tests
+  // -------------------------------------------------------------------------
+
+  it('apply-to-all button is shown for WALL surfaces with a saved plan', async () => {
+    renderEditor();
+    await screen.findByLabelText(`apply-to-all-walls-${surfaceId}`);
+  });
+
+  it('apply-to-all button is NOT shown for non-WALL surfaces (isWall=false)', async () => {
+    renderEditor(surfaceId, { isWall: false });
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    expect(screen.queryByLabelText(`apply-to-all-walls-${surfaceId}`)).not.toBeInTheDocument();
+  });
+
+  it('apply-to-all button is NOT shown when hasPlan is false (404 empty state)', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(
+      new ApiError('Surface work plan not found', 404),
+    );
+    renderEditor();
+    await screen.findByText('Brak zapisanego planu prac dla tej powierzchni.');
+    expect(screen.queryByLabelText(`apply-to-all-walls-${surfaceId}`)).not.toBeInTheDocument();
+  });
+
+  it('clicking apply-to-all shows inline confirmation with target count', async () => {
+    renderEditor(surfaceId, { otherActiveWallCount: 3 });
+    await screen.findByLabelText(`apply-to-all-walls-${surfaceId}`);
+
+    fireEvent.click(screen.getByLabelText(`apply-to-all-walls-${surfaceId}`));
+
+    expect(screen.getByLabelText(`apply-confirm-panel-${surfaceId}`)).toBeInTheDocument();
+    expect(screen.getByText(/3 ścian/)).toBeInTheDocument();
+    expect(screen.getByLabelText(`apply-confirm-yes-${surfaceId}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`apply-cancel-${surfaceId}`)).toBeInTheDocument();
+    // No API call yet
+    expect(workPlansApi.applyWorkPlanToRoomWalls).not.toHaveBeenCalled();
+  });
+
+  it('cancelling confirmation returns to idle — no API call', async () => {
+    renderEditor();
+    await screen.findByLabelText(`apply-to-all-walls-${surfaceId}`);
+
+    fireEvent.click(screen.getByLabelText(`apply-to-all-walls-${surfaceId}`));
+    expect(screen.getByLabelText(`apply-confirm-panel-${surfaceId}`)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(`apply-cancel-${surfaceId}`));
+    expect(screen.queryByLabelText(`apply-confirm-panel-${surfaceId}`)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(`apply-to-all-walls-${surfaceId}`)).toBeInTheDocument();
+    expect(workPlansApi.applyWorkPlanToRoomWalls).not.toHaveBeenCalled();
+  });
+
+  it('confirming calls apply API with correct IDs and shows success with actual count', async () => {
+    vi.mocked(workPlansApi.applyWorkPlanToRoomWalls).mockResolvedValue(makeApplyResult({ target_count: 3 }));
+    renderEditor();
+    await screen.findByLabelText(`apply-to-all-walls-${surfaceId}`);
+
+    fireEvent.click(screen.getByLabelText(`apply-to-all-walls-${surfaceId}`));
+    fireEvent.click(screen.getByLabelText(`apply-confirm-yes-${surfaceId}`));
+
+    await waitFor(() => {
+      expect(workPlansApi.applyWorkPlanToRoomWalls).toHaveBeenCalledWith(projectId, roomId, surfaceId);
+    });
+    expect(await screen.findByText(/skopiowano na 3/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`apply-confirm-panel-${surfaceId}`)).not.toBeInTheDocument();
+  });
+
+  it('apply API failure shows error and allows dismiss', async () => {
+    vi.mocked(workPlansApi.applyWorkPlanToRoomWalls).mockRejectedValue(
+      new ApiError('apply-to-room-walls requires a WALL source surface', 422),
+    );
+    renderEditor();
+    await screen.findByLabelText(`apply-to-all-walls-${surfaceId}`);
+
+    fireEvent.click(screen.getByLabelText(`apply-to-all-walls-${surfaceId}`));
+    fireEvent.click(screen.getByLabelText(`apply-confirm-yes-${surfaceId}`));
+
+    expect(await screen.findByText('Nie udało się skopiować planu prac.')).toBeInTheDocument();
+    expect(screen.getByText('apply-to-room-walls requires a WALL source surface')).toBeInTheDocument();
+
+    // Dismiss returns to idle
+    fireEvent.click(screen.getByLabelText(`apply-error-dismiss-${surfaceId}`));
+    expect(screen.getByLabelText(`apply-to-all-walls-${surfaceId}`)).toBeInTheDocument();
+  });
+
+  it('success dismiss returns to idle with apply button visible again', async () => {
+    vi.mocked(workPlansApi.applyWorkPlanToRoomWalls).mockResolvedValue(makeApplyResult({ target_count: 2 }));
+    renderEditor();
+    await screen.findByLabelText(`apply-to-all-walls-${surfaceId}`);
+
+    fireEvent.click(screen.getByLabelText(`apply-to-all-walls-${surfaceId}`));
+    fireEvent.click(screen.getByLabelText(`apply-confirm-yes-${surfaceId}`));
+    await screen.findByText(/skopiowano na 2/);
+
+    fireEvent.click(screen.getByLabelText(`apply-success-dismiss-${surfaceId}`));
+    expect(screen.getByLabelText(`apply-to-all-walls-${surfaceId}`)).toBeInTheDocument();
   });
 
   it('successful Save rehydrates server order and clears dirty state', async () => {

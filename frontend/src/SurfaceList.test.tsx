@@ -28,6 +28,7 @@ vi.mock('./api/workPlans', async (importOriginal) => {
     ...actual,
     fetchSurfaceWorkPlan: vi.fn(),
     putSurfaceWorkPlan: vi.fn(),
+    applyWorkPlanToRoomWalls: vi.fn(),
   };
 });
 

@@ -654,6 +654,8 @@ export function SurfaceList({
                         roomId={roomId}
                         surfaceId={surface.id}
                         surfaceName={displayName}
+                        isWall={true}
+                        otherActiveWallCount={activeWallCount - 1}
                         onClose={() => setActiveWorkPlanSurfaceId(null)}
                       />
                     )}
