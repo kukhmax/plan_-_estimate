@@ -52,7 +52,7 @@
 | Stage 7 | Risk Rules Engine | **Completed** | Deterministic risk evaluation, warnings, mitigation requirements, warranty exclusions — owner-verified 2026-09-13 |
 | **Stage 8** | **"Co powiedzieć klientowi" (Client Communication Assistant)** | **Completed 2026-09-13** | Deterministic, rule-driven client communication recommendations (PL/RU) from completed-inspection facts — versioned immutable phrase catalog, exact-key selection over materialized Stage 6/7 facts, complete quality matrix, mobile communication cards with evaluate / "Why?" traceability / copy / active-resolved-all history |
 | **Stage 9** | **Editable Price Book / Cennik** | **Completed 2026-09-15 (OWNER ACCEPTED; merged to `main` as `96d0518`)** — 9D Completed 2026-09-13 (owner accepted); 9D.1 (mobile shell + Telegram dark theme UX correction) Completed 2026-09-14 (owner accepted; committed `c4cc6b6`); 9E.1 & 9E.2 (market architecture + research catalog) Completed 2026-09-13; 9E.3A (Kraków market research — batch A: preparation/priming/skim/sanding) Completed 2026-09-13 (evidence file only, no seeds); 9E.3B (Kraków market research — batch B: painting/glass fiber/GK) Completed 2026-09-14 (evidence file only, no seeds); 9E.3C (Kraków market research — batch C: reveals / ościeża / glify / szpalety) Completed 2026-09-14 (evidence file only, no seeds); 9E.3D (Kraków market research — batch D: microcement) Completed 2026-09-14 (evidence file only, no seeds); 9E.3E (Kraków market research — batch E: decorative finishes / Venetian) Completed 2026-09-14 (evidence file only, no seeds) — **9E.3 Web Research (Batches A–E) COMPLETE**; **9E.4 (normalization/review of all 51 items) Completed 2026-09-14 (docs-only, no seeds)**; **9E.5 (owner approval) Completed 2026-09-14 (OWNER_APPROVED — all 7 decision groups approved; 44 final implementation candidates: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 7 dropped/merged)**; **9E.6A (price market evidence backend foundation) Completed 2026-09-14 (committed `31540af` — models + migration 0015 + read-only evidence endpoint)**; **9E.6B (mobile price market evidence UI) Implemented 2026-09-14 (read-only compact market evidence on Price Book cards; 44-row catalog load NOT performed — deferred per owner instruction)**; **9E.7 (load approved 44-row catalog + market evidence + nullable price foundation) Implemented 2026-09-15 (44 canonical rows: 28 MARKET_SUPPORTED / 16 OWN_PRICE; 28 market references / 112 sources seeded idempotently; legacy GENERIC seeds retired; migration 0016 makes PriceItem.price nullable — NULL = not set, 0.00 = real zero; full backend 515 tests + frontend 304 tests PASS; committed `097e46c`)**; **9E.7.1 (Price Book add/edit form visibility regression) Implemented 2026-09-15 (opening Add/Edit scrolls the form into view so the editor is actually visible on a 44-row catalog; 2 regression tests; full frontend 306 tests PASS; real-browser 390 px verification PASS; committed `f38cd13`)**; **9E.8 (Price Book mobile UX cleanup) Implemented 2026-09-15 (inline owner-price editor for catalog rows, direct Edytuj/Archiwizuj, dedicated mobile source viewer, label + S/Q UX cleanup; full frontend 323 tests PASS; real-browser 320/390/412 px verification 23/23 PASS; committed 2026-09-15 (`a948f68`, `c82c6ea`, `d1688e1`); owner accepted)**; 9F (final gate) **NOT RUN as a separate execution** — Stage 9 final acceptance completed from accumulated verification evidence and owner acceptance; **Stage 9 COMPLETE** (merged to `main` as `96d0518`) | Contractor base price catalog, labor rates, materials, equipment, difficulty surcharges; owner-editable catalog rows; **not** an estimate (that is Stage 10) — see 9A contract in the Stage Log |
-| **Stage 10** | Estimate / Kosztorys | **In Progress — 10A (Surface Work Planning + Estimate Architecture) and 10A.1 (Canonical Architecture Corrections) Completed 2026-09-15 (docs-only; owner accepted; committed together as `6bbc4ce`)**; **10B.1 (Surface Work Plan backend domain) Completed 2026-09-15, owner accepted, committed `3c9751e` (2026-09-16)**; **10B.2 (Surface Work Plan HTTP API + apply-to-room-walls) Completed 2026-09-16, committed `86de66d`**; **10C.1 (Compact Surface Card + Opcje progressive disclosure, frontend) Completed 2026-09-16, committed `da9246d`**; **10C.1A (Canonical Floor/Ceiling Surfaces — owner corrective sub-stage) Completed 2026-09-16, owner accepted, committed `a6c50c5`**; **10C.1B (Floor/Ceiling Mobile UI Parity — owner corrective sub-stage) Completed 2026-09-16, owner accepted, committed `0ca24a2`**; **10C.1C (Telegram Owner Acceptance Fixes — owner corrective sub-stage) Implemented 2026-09-16 (findings 1–3 frontend-only; uncommitted — awaiting owner retest; permanent-delete finding stopped at decision gate)** — 10B.3, 10C.2, 10D+ NOT STARTED | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) — see `docs/stage-10-architecture.md` |
+| **Stage 10** | Estimate / Kosztorys | **In Progress — 10A (Surface Work Planning + Estimate Architecture) and 10A.1 (Canonical Architecture Corrections) Completed 2026-09-15 (docs-only; owner accepted; committed together as `6bbc4ce`)**; **10B.1 (Surface Work Plan backend domain) Completed 2026-09-15, owner accepted, committed `3c9751e` (2026-09-16)**; **10B.2 (Surface Work Plan HTTP API + apply-to-room-walls) Completed 2026-09-16, committed `86de66d`**; **10C.1 (Compact Surface Card + Opcje progressive disclosure) Completed 2026-09-16 — OWNER ACCEPTED after real Telegram production retest**; **10C.1A (Canonical Floor/Ceiling Surfaces) Completed 2026-09-16 — OWNER ACCEPTED, committed `a6c50c5`**; **10C.1B (Floor/Ceiling Mobile UI Parity) Completed 2026-09-16 — OWNER ACCEPTED, committed `0ca24a2`**; **10C.1C (Telegram Owner Acceptance Fixes) Completed 2026-09-16 — OWNER ACCEPTED, committed `d9d9265`**; **NEXT ACTIVE SUB-STAGE: 10C.2 — Surface Work Plan Editor (NOT STARTED)** — 10D+ NOT STARTED | Line-item calculation by surface, substrate, and quality tier (S1–S4, Q1–Q4) — see `docs/stage-10-architecture.md` |
 | Stage 11 | Inspection → recommended work → add to estimate | Pending | Automatic mapping from inspection findings to scope of work and estimate line items |
 | Stage 12 | Price coefficients | Pending | Multipliers for difficulty, height, surface condition, urgency, and logistics |
 | Stage 13 | Technological workflows | Pending | Work sequencing, technological breaks, drying times, stage tracking |
@@ -1154,7 +1154,8 @@ Clarifications:
 - **Date**: 2026-09-11
 
 ##### 5F — Opening Reveals / Ościeża
-- **Purpose**: Measure and calculate window/door reveals for future preparation, painting, and estimate calculations.
+- **Status / scheduling**: **DEFERRED** — execute after completion of Stage 10C; no implementation started.
+- **Purpose**: Measure window/door reveal length and area for future preparation, painting, and estimate integration.
 - **Planned scope**:
   - Reveal calculation belongs to `Opening`, not a fake `Surface`.
   - Supported reveal sides: `left`, `right`, `top`, `bottom`.
@@ -2225,9 +2226,9 @@ substrate column needed).
 - 10C (frontend Work Plan UI + confirmation dialog) and the Estimate (`Estimate` + `EstimateLine`) domain/API (10B.3+/10C+ per the 10A execution plan). No commit/push/deploy.
 
 ### Stage 10C.1: Compact Surface Card + Opcje Progressive Disclosure (frontend)
-- **Status**: Implemented 2026-09-16 (frontend only; **uncommitted — awaiting owner acceptance**; Git operations performed manually by the owner after acceptance)
+- **Status**: Completed 2026-09-16 (frontend; **OWNER ACCEPTED** after real Telegram production retest of 10C.1 plus corrective sub-stages 10C.1A–10C.1C)
 - **Date**: 2026-09-16
-- **Commit**: none yet — owner performs the commit/push after acceptance
+- **Commit**: `da9246d` — `feat(stage-10): add compact surface card options` (initial 10C.1 implementation; accepted corrections culminated in `d9d9265`)
 
 #### Added:
 - `frontend/src/components/SurfaceList.tsx` — compact mobile Surface card with per-card **Opcje progressive disclosure** (UI state only, never persisted; per-card independence via `expandedOptions`):
@@ -2255,13 +2256,13 @@ substrate column needed).
 - Backend suite not run — no backend files changed.
 
 #### Verification:
-- Mobile acceptance concept verified at component level: collapsed card keeps identity/type/dimensions/area summary/[Opcje]/[Rodzaje prac i jakość]; expanded Opcje keeps every existing action (inspection navigation, opening creation/management, edit, archive/restore) with 44px touch targets; FLOOR/CEILING expose no opening controls; per-card expansion is independent; RU strings (Опции / Скрыть опции / Виды работ и качество) verified via i18n provider; full-width controls avoid horizontal overflow at 320–480 px. `README.md` unchanged; `docs/development-progress.md` updated per §14 (10C NOT marked complete; 10C.2 NOT started). STOP per instruction — no commit, no push, no deploy, no 10C.2.
+- Mobile acceptance concept verified at component level: collapsed card keeps identity/type/dimensions/area summary/[Opcje]/[Rodzaje prac i jakość]; expanded Opcje keeps every existing action (inspection navigation, opening creation/management, edit, archive/restore) with 44px touch targets; FLOOR/CEILING expose no opening controls; per-card expansion is independent; RU strings (Опции / Скрыть опции / Виды работ и качество) verified via i18n provider; full-width controls avoid horizontal overflow at 320–480 px. Real Telegram production retest completed after 10C.1A–10C.1C: **OWNER ACCEPTED**. `README.md` unchanged.
 
 #### Deferred:
-- 10C.2 (enabling the Rodzaje prac i jakość entry — substrate/quality selection + ordered Price Book work rows + apply-to-all confirmation) and the Estimate (`Estimate` + `EstimateLine`) domain/API per the 10A execution plan. No commit/push/deploy.
+- **Next active sub-stage: 10C.2 — Surface Work Plan Editor** (substrate/quality selection + ordered Price Book work rows + apply-to-all confirmation). **NOT STARTED**.
 
 ### Stage 10C.1A: Canonical Floor/Ceiling Surfaces (owner corrective sub-stage)
-- **Status**: Completed 2026-09-16 (backend; **owner accepted; committed `a6c50c5`**)
+- **Status**: Completed 2026-09-16 (backend; **OWNER ACCEPTED**; committed `a6c50c5`)
 - **Date**: 2026-09-16
 - **Commit**: `a6c50c5` — `feat(stage-10): add canonical floor and ceiling surfaces` (owner commit)
 - **Why**: discovered during 10C.1 acceptance — WALLs are real `Surface` rows but FLOOR/CEILING existed only as room-scoped `AreaSegment` planes, so Stage 10B `SurfaceWorkPlan` had no stable `Surface.id` for floor/ceiling. 10C.1A makes FLOOR and CEILING canonical physical `Surface` entities. Full record: §25A in `docs/stage-10-architecture.md`.
@@ -2291,15 +2292,15 @@ substrate column needed).
 - Frontend vitest: **340 passed** (24 files); `tsc --noEmit` PASS; `vite build` PASS; `git diff --check` clean.
 
 #### Verification:
-- Measurement math numerically identical before/after (BASE + ADD − SUBTRACT plane totals unchanged; openings only on WALLs); API remains compatible (plane resolved from `room_id + plane`, optional `surface_id` in requests/responses); WorkPlan GET/PUT works on canonical floor/ceiling `Surface.id` with no WorkPlan schema change and no Floor/Ceiling plan models. Owner isolation (404) and segment→surface cross-room/WALL/mismatch rejections (409) covered by tests. `README.md` unchanged; `docs/stage-10-architecture.md` §25A + this log entry record the stage. STOP per instruction — no commit, no push, no deploy, no 10C.1B / 10C.2.
+- Measurement math numerically identical before/after (BASE + ADD − SUBTRACT plane totals unchanged; openings only on WALLs); API remains compatible (plane resolved from `room_id + plane`, optional `surface_id` in requests/responses); WorkPlan GET/PUT works on canonical floor/ceiling `Surface.id` with no WorkPlan schema change and no Floor/Ceiling plan models. Owner isolation (404) and segment→surface cross-room/WALL/mismatch rejections (409) covered by tests. Real Telegram production retest confirmed canonical Podłoga/Sufit cards remain, duplicate generic FLOOR/CEILING cards are absent, and WALL cards remain correct: **OWNER ACCEPTED**. `README.md` unchanged; `docs/stage-10-architecture.md` §25A + this log entry record the stage.
 
 #### Deferred:
-- 10C.2 (enabling the Rodzaje prac i jakość entry — substrate/quality selection + ordered Price Book work rows + apply-to-all confirmation) and the Estimate (`Estimate` + `EstimateLine`) domain/API per the 10A execution plan. No commit/push/deploy.
+- **Next active sub-stage: 10C.2 — Surface Work Plan Editor. NOT STARTED.**
 
 ### Stage 10C.1B: Floor/Ceiling Mobile UI Parity (owner corrective sub-stage)
-- **Status**: Implemented 2026-09-16 (frontend only; **uncommitted — awaiting owner acceptance**; Git operations performed manually by the owner after acceptance)
+- **Status**: Completed 2026-09-16 (frontend; **OWNER ACCEPTED** after real Telegram production retest)
 - **Date**: 2026-09-16
-- **Commit**: none yet — owner performs the commit/push after acceptance
+- **Commit**: `0ca24a2` — `fix(stage-10): add floor and ceiling work plan controls` (owner commit)
 - **Why**: accepted issue from 10C.1 — WALL cards expose `[ Opcje ]` + `[ Rodzaje prac i jakość ]`, but the FLOOR/CEILING measurement cards rendered their measurement actions permanently and lacked both top-level controls. 10C.1B closes the floor/ceiling parity gap only.
 
 #### Added:
@@ -2323,15 +2324,15 @@ substrate column needed).
 - Backend pytest not run — no backend files changed.
 
 #### Verification:
-- Mobile acceptance verified at component level: full-width top-level controls (`w-full`), 44px touch targets (`min-h-11`), `flex-wrap` ADD/SUBTRACT rows and wrapping full-width buttons eliminate horizontal scroll at 320–480 px, PL and RU labels (`Rodzaje prac i jakość` / `Виды работ и качество`, `Ukryj opcje` / `Скрыть опции`) wrap safely, ADD/SUBTRACT remain usable when expanded, light/dark theme handling unchanged from the existing card convention. `README.md` unchanged; `docs/development-progress.md` Stage 10 roadmap row updated (10C.1B recorded; 10C.2 NOT started). STOP per instruction — no commit, no push, no deploy, no 10C.2.
+- Mobile acceptance verified at component level: full-width top-level controls (`w-full`), 44px touch targets (`min-h-11`), `flex-wrap` ADD/SUBTRACT rows and wrapping full-width buttons eliminate horizontal scroll at 320–480 px, PL and RU labels (`Rodzaje prac i jakość` / `Виды работ и качество`, `Ukryj opcje` / `Скрыть опции`) wrap safely, ADD/SUBTRACT remain usable when expanded, light/dark theme handling unchanged from the existing card convention. Real Telegram production retest confirmed Opcje works and Rodzaje prac i jakość entry points remain present: **OWNER ACCEPTED**. `README.md` unchanged.
 
 #### Deferred:
-- 10C.2 (enabling the Rodzaje prac i jakość entry — substrate/quality selection + ordered Price Book work rows + apply-to-all confirmation) and the Estimate (`Estimate` + `EstimateLine`) domain/API per the 10A execution plan. No commit/push/deploy.
+- **Next active sub-stage: 10C.2 — Surface Work Plan Editor. NOT STARTED.**
 
 ### Stage 10C.1C: Telegram Owner Acceptance Fixes (owner corrective sub-stage)
-- **Status**: Implemented 2026-09-16 (findings 1–3 frontend-only; **uncommitted — awaiting owner retest**; finding 4 stopped at the required delete-policy decision gate)
+- **Status**: Completed 2026-09-16 (findings 1–3 frontend-only; **OWNER ACCEPTED** after real Telegram production retest; finding 4 remains deferred at the delete-policy decision gate)
 - **Date**: 2026-09-16
-- **Commit**: none — owner instruction explicitly prohibits commit, push, and deploy before retest
+- **Commit**: `d9d9265` — `fix(stage-10): resolve Telegram owner acceptance issues` (owner commit)
 - **Why**: owner acceptance found unreadable Telegram dark-theme form controls, raw 422 validation text, and duplicate generic FLOOR/CEILING cards; permanent deletion was also requested but required dependency and retention-policy analysis before implementation.
 
 #### Finding 1 — Telegram dark-theme form controls:
@@ -2374,13 +2375,16 @@ substrate column needed).
 - Backend pytest not run — no backend files changed, as required by the corrective scope.
 
 #### Verification:
-- Local headless Chromium against the current Vite stylesheet passed the light/dark fixture for input, select, textarea, placeholder, and disabled control colors; the error element remained present. This was local browser verification only — **not Telegram WebView verification**.
-- Real Telegram owner retest at 390 px and 412 px remains required for both themes, PL/RU messages, repeated invalid submission, sole FLOOR/CEILING cards, WALL regression, and canonical Work Plan identity.
-- Findings 1–3: **PASS** through automated/build/local-browser gates. Finding 4: **STOPPED BEFORE IMPLEMENTATION** because the delete matrix exposes material retention and cascade-policy decisions. No commit, push, deploy, or Stage 10C.2 work performed.
+- Local headless Chromium against the current Vite stylesheet passed the light/dark fixture for input, select, textarea, placeholder, and disabled control colors; the error element remained present.
+- **Real Telegram production retest — OWNER ACCEPTED**: dark-theme input text is readable; structured/localized 422 errors work; repeated invalid submissions no longer degrade to raw `Request failed (422)`; duplicate generic FLOOR/CEILING cards are gone; canonical Podłoga/Sufit cards remain; WALL cards remain correct; Opcje works; Rodzaje prac i jakość entry points remain present.
+- Findings 1–3: **PASS and OWNER ACCEPTED**. Finding 4 remained stopped before implementation because the DELETE Safety Matrix exposes material retention and cascade-policy decisions.
 
 #### Deferred:
-- Permanent-delete implementation until the owner approves an entity-by-entity retention/dependency policy from the safety matrix.
-- 10C.2 and all later Stage 10 work remain NOT STARTED. No commit/push/deploy.
+1. **Permanent hard-delete for archived entities** — not implemented; requires an entity-specific safe deletion policy based on the established DELETE Safety Matrix and must not introduce destructive cascades.
+2. **Stage 5F — Opening Reveals / Ościeża** — execute after completion of Stage 10C; measure window/door reveal length and area for future estimate integration.
+
+#### Next active sub-stage:
+- **Stage 10C.2 — Surface Work Plan Editor. NOT STARTED.**
 
 ## Stage Log Template for Future Stages
 
