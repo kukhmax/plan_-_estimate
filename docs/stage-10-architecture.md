@@ -212,7 +212,9 @@ It uses the existing backend endpoint:
 - Quantity defaults: **M2** works take the surface's **net area** (walls: net = gross − opening deduction,
   computed by Stage 5 `surface_service`/`room_geometry`; floors/ceilings: plane totals including composite
   ADD/SUBTRACT segments and openings). **LM / PCS / HOUR / DAY / FLAT** works default to a manual quantity
-  at the estimate line (quantity_source = `MANUAL`; §12), since reveal geometry (5F) does not exist yet.
+  at the estimate line (quantity_source = `MANUAL`; §12), **except** for `REVEAL`-category items which
+  may use `REVEAL_LENGTH` (LM) or `REVEAL_AREA` (M2) sources derived from Stage 5F persisted opening
+  reveal totals — see D12 for the full enum.
 - A room-level non-surface item (a lump cost not tied to any plane) is out of the plan's model — it is
   added directly as a **manual estimate line** (§10).
 
@@ -505,33 +507,26 @@ apply-to-all ownership is now exclusively Stage 10C.3.
 
 ---
 
-## 23. Execution plan 10A → 10I
+## 23. Execution plan 10A → 10H (corrected 2026-09-17)
 
-| Sub-stage | Deliverable | Gate |
-|---|---|---|
-| **10A** (this) | Surface Work Planning + Estimate architecture decision record; `development-progress.md` minimal update | Owner acceptance of the 18 decisions before any code |
-| **10B** | Backend domain: SQLAlchemy models (`surface_work_plans`, `surface_planned_works`, `estimates`, `estimate_lines`), enums, reversible Alembic migrations, domain services (per-surface plan CRUD with `assert_quality_scale_valid` reuse, generation with snapshots, `recalculate_totals`, version sequencing, DRAFT regeneration preview, null-price FINAL block); unit tests | `pytest` unit PASS; no API yet |
-| **10C** | Public owner-scoped API: FastAPI routers (plans, works, estimates, generate, finalize), Pydantic v2 schemas, ownership filtering, integration tests | `pytest` integration PASS (mock-auth pattern from Stage 9) |
-| **10D** | Estimate engine hardening: snapshot immutability tests (book edit after line creation → line unchanged), totals invariant, version sequencing, DRAFT regeneration preview (manual lines + overrides preserved), manual lines, price override semantics | `pytest` snapshot/regression suite PASS |
-| **10E** | Mobile UI — work planning (plan screen, surface lists, work picker, reorder, substrate/quality picker, PL/RU) | `vitest` + `tsc` + `vite build` PASS; 390/412 px manual |
-| **10F** | Mobile UI — estimate (generate, line editor, freeform manual add, subtotal footer, status flow, PL/RU) | `vitest` + `tsc` + `vite build` PASS; 390/412 px manual |
-| **10G** (historical placeholder; superseded) | No longer owns apply-to-all-walls UX; the current execution assignment is **Stage 10C.3** | No separate apply-to-all execution under 10G |
-| **10H** | Final manual acceptance — full walkthrough as owner (per §26) on 390/412 px and in Telegram; owner sign-off | Owner acceptance |
-| **10I** | Final gate — full backend `pytest` + frontend `vitest` + `tsc --noEmit` + `vite build`, `git diff --check`, `docs/development-progress.md` update, one logical commit, push to `origin/stage-10` | Clean tree; Stage 10 CLOSED |
+> **Correction note (2026-09-17)**: the original 10A pre-implementation table assigned `10B` to the
+> Estimate backend and `10C` to the Estimate API. Actual implementation used `10B` for the Surface Work
+> Plan backend domain and `10C` for the Surface Work Plan mobile UI (with apply-to-all-walls in 10C.3).
+> The original table is superseded below. Completed stage names and meanings are preserved verbatim.
+> Additionally, Stage 5F (Opening Reveals / Ościeża) was implemented between 10C and 10D completion and
+> is owner-accepted (commit `22afddc`, migration `0019_add_opening_reveals`). D19 (per-opening reveal
+> work planning) was added on 2026-09-17 after owner review of the first estimate architecture report.
 
-The table above preserves the original 10A architecture phasing. The **current owner-approved Stage 10C
-execution order** is authoritative:
-
-1. **10C.2A — Editor Shell + Existing Plan Loading** — completed; owner accepted.
-2. **10C.2B** — Price Book picker is next; its prerequisite archived-occurrence PUT contract correction
-   is backend-only and does not itself complete 10C.2B.
-3. **10C.2C** — next.
-4. **10C.2D** — retained in the current breakdown and follows 10C.2C.
-5. **10C.3 — Apply Work Plan to All Walls** — implements the WALL-only **„Zapisz dla wszystkich ścian” /
-   „Сохранить для всех стен”** action through the existing `apply-to-room-walls` endpoint.
-
-After completion of **Stage 10C**, execution returns to **Stage 5F — Opening Reveals / Ościeża**. Stage
-5F is not moved into or ahead of Stage 10C.
+| Sub-stage | Status | Deliverable | Gate |
+|---|---|---|---|
+| **10A** | ✓ OWNER ACCEPTED 2026-09-15 | Surface Work Planning + Estimate architecture decision record; D1–D18; 10A.1 canonical corrections | Owner accepted D1–D18; commit `6bbc4ce` |
+| **10B** | ✓ OWNER ACCEPTED | Surface Work Plan backend domain: SQLAlchemy models (`surface_work_plans`, `surface_planned_works`), Alembic migrations 0017 + 0018 (canonical planes), domain services (plan CRUD, `assert_quality_scale_valid` reuse, apply-to-room-walls), unit + integration tests | `pytest` PASS; commits `3c9751e`, `86de66d`, `a6c50c5` |
+| **10C** | ✓ OWNER ACCEPTED 2026-09-16 | Surface Work Plan mobile UI: compact surface cards, Opcje progressive disclosure, floor/ceiling parity (10C.1A–10C.1C), work plan editor + Price Book picker (10C.2A–10C.2D), planned work ordering, **apply-to-all-walls** (10C.3 — **„Zapisz dla wszystkich ścian” / „Сохранить для всех стен”**), PL/RU | `vitest` + `tsc` + `vite build` PASS; 390/412 px Telegram accepted; commit `e68a67b` |
+| **10D** | **NEXT** | **Estimate Domain Foundation**: SQLAlchemy models (`estimates`, `estimate_lines`, `opening_reveal_planned_works`), Alembic migration `0020_create_estimates`, Python enums (`EstimateStatus`, `LineOrigin`, `QuantitySource` incl. `REVEAL_LENGTH` / `REVEAL_AREA`), domain services: `estimate_service` (snapshot generation, `recalculate_totals`, DRAFT management, version sequencing, null-price FINAL block) + `opening_reveal_work_service` (reveal work CRUD per opening, per D19); unit tests | `pytest` unit PASS; no public API yet |
+| **10E** | Pending | **Estimate Public API**: FastAPI routers (estimates, lines, generate, finalize, opening reveal works), Pydantic v2 schemas, ownership filtering, integration tests (mock-auth pattern from Stage 9) | `pytest` integration PASS |
+| **10F** | Pending | **Estimate Hardening**: snapshot immutability (PriceBook edit after line creation → unchanged; geometry change → unchanged; reveal disable → unchanged), totals invariant, version sequencing, DRAFT regeneration (manual lines + overrides preserved; reveal line regeneration), manual lines, price override semantics, `REVEAL_LENGTH` / `REVEAL_AREA` source quantity tests | `pytest` snapshot/regression suite PASS |
+| **10G** | Pending | **Estimate Mobile UI**: reveal work planning per opening (work picker, order, remove inside opening detail), “Wygeneruj kosztorys” flow, estimate editor (line list, quantity override, price override, manual add, subtotal footer, `Do ustalenia` counter, status flow), PL/RU | `vitest` + `tsc` + `vite build` PASS; 390/412 px Telegram accepted |
+| **10H** | Pending | **Final Gate**: full backend `pytest` + frontend `vitest` + `tsc --noEmit` + `vite build`, owner walkthrough at 390/412 px and in Telegram (per §26), `git diff --check`, `docs/development-progress.md` update, one logical commit, push to `origin/stage-10` | Owner acceptance; clean tree; Stage 10 CLOSED |
 
 Sub-stages require explicit owner approval; no later sub-stage starts automatically.
 
@@ -627,14 +622,17 @@ DRAFT) · `total` (Numeric(14,2), nullable) · `currency` (String(3), default PL
 
 `estimate_lines`: `id` (uuid pk) · `estimate_id` (FK, not null, ondelete CASCADE, idx) · `origin` (enum
 `lineorigin`: `PLANNED_WORK / PRICE_BOOK / MANUAL`) · `position` (int) · provenance refs `plan_id` /
-`planned_work_id` / `surface_id` / `room_id` (all nullable; populated for `PLANNED_WORK`) ·
+`planned_work_id` / `surface_id` / `room_id` / `opening_id` (all nullable; `plan_id` + `planned_work_id`
++ `surface_id` + `room_id` populated for surface `PLANNED_WORK` lines; `planned_work_id` + `surface_id`
++ `room_id` + `opening_id` populated for reveal `PLANNED_WORK` lines — `plan_id` is NULL for reveal
+lines since `OpeningRevealPlannedWork` has no header table; see D19) ·
 `price_item_id` (FK price_items, **nullable — NULL only for `MANUAL`**) · snapshot: `item_code` (varchar
 120, nullable), `description` (varchar 255), `unit` (enum `priceunit`), `scope` (enum `pricescope`;
 `MANUAL` restricted to `LABOR` / `MATERIAL`), `currency` (String(3)) · quantity: `source_quantity`
 (Numeric(10,3), nullable), `quantity` (Numeric(10,3)), `quantity_source` (enum `quantitysource`),
 `quantity_overridden` (bool, default false) · price: `unit_price` (Numeric(12,2), nullable),
 `price_override` (bool, default false) · `amount` (Numeric(14,2), nullable) · `created_at` /
-`updated_at`. Index `(estimate_id)`, `(surface_id)`.
+`updated_at`. Index `(estimate_id)`, `(surface_id)`, `(opening_id)`.
 
 ### D8 — Version / status strategy
 
@@ -657,8 +655,10 @@ commercial revisions of immutable documents.
 **Decision**: the §11 table verbatim — `item_code` (nullable), `description` (resolved at creation, or
 owner-entered for MANUAL), `unit`, `scope`, `currency`, `unit_price`, `price_override`, `source_quantity`,
 `quantity`, `quantity_source`, `quantity_overridden`, `amount`. Provenance refs (`price_item_id`,
-`plan_id`, `planned_work_id`, `surface_id`, `room_id`) are stored for traceability but are never re-read
-to recompute the line. Snapshot immutability is enforced for FINAL/ACCEPTED and tested (10D).
+`plan_id`, `planned_work_id`, `surface_id`, `room_id`, `opening_id`) are stored for traceability but are
+never re-read to recompute the line. `opening_id` is non-NULL for reveal `PLANNED_WORK` lines (D19);
+NULL for all surface `PLANNED_WORK`, `PRICE_BOOK`, and `MANUAL` lines. Snapshot immutability is enforced
+for FINAL/ACCEPTED and tested (10F).
 
 ### D10 — Manual-line strategy
 
@@ -679,12 +679,30 @@ quoting authority; `0.00` remains a real zero.
 
 ### D12 — Quantity source + override
 
-**Decision**: quantity_source ∈ {`SURFACE_NET_AREA`, `MANUAL`}. M2 planned works default `source_quantity`
-to the surface's **net area** from persisted geometry; LM/PCS/HOUR/DAY/FLAT, incomplete-geometry surfaces,
-and all `PRICE_BOOK` / `MANUAL` lines default to `MANUAL` and block generation until a quantity is entered.
+**Decision**: quantity_source ∈ {`SURFACE_NET_AREA`, `REVEAL_LENGTH`, `REVEAL_AREA`, `MANUAL`}.
+
+- **`SURFACE_NET_AREA`**: M2 planned works on WALL/FLOOR/CEILING; source_quantity = the surface's
+  persisted `net_area` (wall: gross − deduction; floor/ceiling: composite segment total − opening
+  deductions).
+- **`REVEAL_LENGTH`**: `REVEAL`-category LM works; source_quantity = sum of
+  `opening.reveal_total_length` across all `reveal_enabled` openings on the same Surface (WINDOW and
+  DOOR types, at generation time). Persisted on `openings` columns by Stage 5F
+  (`backend/app/models/opening.py`).
+- **`REVEAL_AREA`**: `REVEAL`-category M2 works; source_quantity = sum of
+  `opening.reveal_total_area` across all `reveal_enabled` openings on the Surface. Use when a reveal
+  catalog item is priced per M2 instead of LM.
+- **`MANUAL`**: LM/PCS/HOUR/DAY/FLAT non-reveal works, incomplete-geometry surfaces, and all
+  `PRICE_BOOK` / `MANUAL` lines — the owner enters the quantity and generation blocks until it is
+  provided.
+
 `EstimateLine.quantity` defaults to `source_quantity` and is the **single override layer**, editable in a
 DRAFT; `quantity_overridden` marks an owner-set value so regeneration preserves it. The plan carries **no
 quantity and no quantity override**. Quantities `Numeric(10,3)` (Stage 5 area precision).
+
+**Note (added 2026-09-17 — post-Stage 5F)**: Stage 5F (Opening Reveals / Ościeża, commit `22afddc`) is
+complete and owner-accepted. `reveal_total_length` and `reveal_total_area` are persisted on the
+`openings` table. `REVEAL_LENGTH` and `REVEAL_AREA` are therefore available as source quantities for
+Stage 10D implementation of `REVEAL`-category estimate lines.
 
 ### D13 — Price override
 
@@ -733,6 +751,100 @@ edits never write back to the plans.
 add rows/lines). Stage 10 builds **no** mapping table or recommendation service. Readiness already
 satisfied: `PriceItem.code` immutable, `finding_key` present, plan = appendable row list, estimate lines
 referenceable. No new column is reserved for Stage 11 in this stage.
+
+### D19 — Per-opening reveal work planning (`OpeningRevealPlannedWork`) — added 2026-09-17
+
+**Decision**: Reveal work is planned at the **Opening level** — not at the Surface level. Different
+openings on the same Surface may require different reveal work sequences (primer + corner beads + skim +
+paint on Window 1 vs. primer + paint only on Window 2). A Surface-level REVEAL aggregation that silently
+lumps all openings together is insufficient as the only model.
+
+**Entity** (one new table, no header):
+
+```
+opening_reveal_planned_works:
+  id             (uuid pk)
+  opening_id     (FK openings, not null, ondelete CASCADE, idx)
+  price_item_id  (FK price_items, not null)
+  position       (int, not null)
+  created_at / updated_at (timestamptz UTC)
+```
+
+No unique constraint on `(opening_id, position)` beyond service enforcement — same-item duplicates are
+valid (two coat rows on one opening's reveal, same as `SurfacePlannedWork`).
+
+**Rationale for no header entity**: the `Opening` row already carries the full reveal scope header
+(`reveal_enabled`, `reveal_depth`, `reveal_left/right/top/bottom`, `reveal_total_length/area` from
+Stage 5F). Adding an `OpeningRevealWorkPlan` header table would duplicate the Opening's identity with no
+additional data. Work items hang directly off the Opening — the parent entity IS the scope declaration.
+
+**`PriceCategory` constraint**: `price_item_id` must reference a `PriceItem` with
+`category = PriceCategory.REVEAL`. Enforced at the service layer (not a DB constraint), consistent with
+`SurfacePlannedWork` validation.
+
+**Quantity at estimate line generation** (per `OpeningRevealPlannedWork` row):
+- `unit = LM` → `source_quantity = opening.reveal_total_length`; `quantity_source = REVEAL_LENGTH`
+- `unit = M2` → `source_quantity = opening.reveal_total_area`; `quantity_source = REVEAL_AREA`
+- Other units → `source_quantity = NULL`; `quantity_source = MANUAL`
+
+**Generation scope**: one `EstimateLine` per `OpeningRevealPlannedWork` row. No automatic aggregation at
+generation time — provenance is correct first; the UI may optionally present grouped totals later (§10
+aggregation note).
+
+**Opt-in semantics**: an Opening may have `reveal_enabled = true` with zero `OpeningRevealPlannedWork`
+rows (reveal geometry measured, no reveal work yet selected). An Opening with `reveal_enabled = false`
+must have zero rows; the service rejects adding work to a disabled-reveal opening (no valid
+`reveal_total_length/area` exists). Generation skips openings with no reveal work rows.
+
+**`plan_id` on reveal estimate lines**: NULL. `OpeningRevealPlannedWork` has no header table, so there is
+no `work_plan_id` to store. `planned_work_id = OpeningRevealPlannedWork.id`,
+`opening_id = Opening.id`, `surface_id = Opening.surface_id`, `room_id` via `Surface → Room`.
+
+**Provenance mapping** (D7 / D9 amendment):
+
+| Line type | `plan_id` | `planned_work_id` | `surface_id` | `room_id` | `opening_id` |
+|---|---|---|---|---|---|
+| Surface `PLANNED_WORK` | SurfaceWorkPlan.id | SurfacePlannedWork.id | Surface.id | Room.id | NULL |
+| Reveal `PLANNED_WORK` | NULL | OpeningRevealPlannedWork.id | Surface.id | Room.id | Opening.id |
+| `PRICE_BOOK` | NULL | NULL | NULL | NULL | NULL |
+| `MANUAL` | NULL | NULL | NULL | NULL | NULL |
+
+**Archiving semantics** (mirrors `SurfacePlannedWork`): archiving a `PriceItem` blocks new
+`OpeningRevealPlannedWork` occurrences; existing rows are never deleted or mutated by archiving. Full
+replacement may retain, reorder, or reduce the count for each archived `price_item_id` in the same
+Opening, but must reject any payload that would increase that count after archival.
+
+**Opening archiving**: when an Opening is archived (Stage 5 semantics), its
+`OpeningRevealPlannedWork` rows remain (soft-delete preservation, same as all other opening data).
+Archived openings are excluded from estimate generation.
+
+**Stage 11 compatibility**: `OpeningRevealPlannedWork` rows are an append-only list. Stage 11 may add
+recommended reveal work rows (e.g. a primer row triggered by a substrate finding on the opening's
+surface) by appending via the same `opening_reveal_work_service.add_work()` API — no new column, no
+new table.
+
+**Stage 13 compatibility**: technology workflow prescriptions can reference
+`OpeningRevealPlannedWork.price_item_id` by stable `PriceItem.code` to identify required technological
+steps for a specific opening's reveal. The `opening_id` provenance on estimate lines links each billed
+line back to its source opening for any future workflow tracking.
+
+**Future material consumption**: when Stage 12+ adds consumption tables keyed to `PriceItem.code`, the
+`opening_id` on reveal estimate lines provides the specific opening's `reveal_total_area` /
+`reveal_total_length` as the per-item consumption driver — no retroactive `EstimateLine` schema change
+is needed.
+
+**Aggregation note (§2 business requirement)**: compatible reveal lines (same `price_item_id`, same
+`surface_id`) may be summed for commercial presentation:
+
+```
+Window 1 skim coat: source_quantity = 1.29 m²
+Door 1 skim coat:   source_quantity = 1.02 m²
+→ Szpachlowanie ościeży: 2.31 m²  (UI grouping only)
+```
+
+The estimate lines are kept individual with full `opening_id` provenance. Aggregated commercial
+presentation is a UI/PDF concern (Stage 10G / Stage 15) and does not require schema changes. The
+first implementation generates and stores individual lines; grouping can be layered on top.
 
 ---
 
@@ -889,8 +1001,13 @@ otherwise clean. STOP — no commit, no push, no 10B without owner approval.
 
 ## Appendix B — Reused contracts (unchanged by 10A)
 
-`Project`/`Room`/`Surface`(+`net/deduction/gross` areas) · `Opening` (width/height/quantity) ·
+`Project`/`Room`/`Surface`(+`net/deduction/gross` areas) ·
+`Opening` (width/height/quantity; **Stage 5F adds**: reveal_enabled, reveal_depth, reveal_left/right/top/bottom,
+reveal_single_length/area, reveal_total_length/area — Decimal, same AREA_PRECISION policy, persisted on
+`openings` table, commits `22afddc` / migration `0019_add_opening_reveals`) ·
 `AreaSegment` (plane ADD/SUBTRACT composite totals) · `Inspection` (substrate, quality_target, status,
 pre-fill source) · `PriceItem` (code immutable, price nullable-at-will, price_scope, unit, currency) ·
 `Substrate` / `QualityLevel` / `PriceUnit` / `PriceScope` enums · `assert_quality_scale_valid` ·
-`room_geometry` AREA_PRECISION `Decimal("0.001")`. No existing table or enum is altered by Stage 10A.
+`room_geometry` AREA_PRECISION `Decimal("0.001")`. `PriceCategory.REVEAL` already exists in the enum
+(`backend/app/models/price_item.py`); one active seed item `CENNIK_REV_WORK_LM-01` (unit=LM, LABOR).
+No existing table or enum is altered by Stage 10A; `Opening` columns are additive (Stage 5F).
