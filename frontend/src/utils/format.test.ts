@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMetric } from './format';
+import { formatDecimalMoney, formatMetric } from './format';
 
 describe('formatMetric — two-decimal metric policy (Stage 7 final)', () => {
   it('renders every construction metric to exactly two decimals', () => {
@@ -30,5 +30,34 @@ describe('formatMetric — two-decimal metric policy (Stage 7 final)', () => {
     expect(formatMetric(undefined)).toBe('—');
     expect(formatMetric('')).toBe('—');
     expect(formatMetric('abc')).toBe('—');
+  });
+});
+
+describe('formatDecimalMoney — string-only decimal display (Stage 10G.1)', () => {
+  it('pads single fractional digit to two', () => {
+    expect(formatDecimalMoney('1234.5')).toBe('1234.50');
+  });
+
+  it('passes through two fractional digits unchanged', () => {
+    expect(formatDecimalMoney('5678.00')).toBe('5678.00');
+    expect(formatDecimalMoney('0.99')).toBe('0.99');
+  });
+
+  it('pads integer string with .00', () => {
+    expect(formatDecimalMoney('0')).toBe('0.00');
+    expect(formatDecimalMoney('1000')).toBe('1000.00');
+  });
+
+  it('truncates excess fractional digits to two', () => {
+    expect(formatDecimalMoney('12.345')).toBe('12.34');
+    expect(formatDecimalMoney('9.9999')).toBe('9.99');
+  });
+
+  it('handles trailing dot with no digits', () => {
+    expect(formatDecimalMoney('42.')).toBe('42.00');
+  });
+
+  it('returns em dash for null', () => {
+    expect(formatDecimalMoney(null)).toBe('—');
   });
 });

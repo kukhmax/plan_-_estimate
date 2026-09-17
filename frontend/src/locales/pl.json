@@ -607,12 +607,24 @@
   },
   "checklist": {
     "template": {
-      "concrete": { "title": "Badanie betonu" },
-      "gypsum_plaster": { "title": "Badanie tynku gipsowego" },
-      "cement_lime_plaster": { "title": "Badanie tynku cem.-wap." },
-      "gypsum_board": { "title": "Badanie płyty g-k" },
-      "painted": { "title": "Badanie powierzchni malowanej" },
-      "other": { "title": "Badanie pozostałych podłoży" }
+      "concrete": {
+        "title": "Badanie betonu"
+      },
+      "gypsum_plaster": {
+        "title": "Badanie tynku gipsowego"
+      },
+      "cement_lime_plaster": {
+        "title": "Badanie tynku cem.-wap."
+      },
+      "gypsum_board": {
+        "title": "Badanie płyty g-k"
+      },
+      "painted": {
+        "title": "Badanie powierzchni malowanej"
+      },
+      "other": {
+        "title": "Badanie pozostałych podłoży"
+      }
     },
     "section": {
       "general_conditions": "Stan ogólny",
@@ -799,8 +811,7 @@
       "dec_conc": "Efekt betonu / beton architektoniczny",
       "dec_generic": "Tynk dekoracyjny — ogólny"
     }
-  }
-  ,
+  },
   "reveals": {
     "toggle": "Oblicz ościeża",
     "depth": "Głębokość (m)",
@@ -817,5 +828,31 @@
     "summary_windows": "Okna",
     "summary_doors": "Drzwi",
     "summary_combined": "Razem"
+  },
+  "estimates": {
+    "title": "Kosztorys",
+    "version": "Wersja",
+    "status": "Status",
+    "status_draft": "Szkic",
+    "status_final": "Finalny",
+    "status_accepted": "Zaakceptowany",
+    "status_archived": "Archiwalny",
+    "total": "Razem",
+    "currency": "Waluta",
+    "loading": "Ładowanie kosztorysów...",
+    "error_load": "Nie udało się wczytać kosztorysów.",
+    "error_generate": "Nie udało się utworzyć kosztorysu.",
+    "retry": "Ponów próbę",
+    "empty_title": "Brak kosztorysu",
+    "empty_description": "Kosztorys zostanie wygenerowany na podstawie zaplanowanych prac.",
+    "create": "Utwórz kosztorys",
+    "create_new_version": "Utwórz nową wersję",
+    "creating": "Tworzenie kosztorysu...",
+    "open_draft": "Otwórz kosztorys",
+    "open_version": "Otwórz",
+    "back_to_list": "Kosztorys",
+    "draft_badge": "Aktywny szkic",
+    "conflict_message": "Szkic kosztorysu już istnieje.",
+    "updated_at": "Zaktualizowano"
   }
 }

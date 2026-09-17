@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as checklistsApi from './api/checklists';
 import * as clientsApi from './api/clients';
+import * as estimatesApi from './api/estimates';
 import * as inspectionsApi from './api/inspections';
 import * as openingsApi from './api/openings';
 import * as projectsApi from './api/projects';
@@ -18,6 +19,11 @@ import { RoomType } from './types/room';
 import { SurfaceType } from './types/surface';
 
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
+vi.mock('./api/estimates', () => ({
+  listEstimates: vi.fn(),
+  generateEstimate: vi.fn(),
+  getEstimate: vi.fn(),
+}));
 vi.mock('./api/projects', () => ({
   fetchProjects: vi.fn(),
   createProject: vi.fn(),
@@ -246,6 +252,7 @@ describe('ProjectWorkspace', () => {
       total: 0,
     });
     vi.mocked(inspectionsApi.createInspection).mockResolvedValue(inspection);
+    vi.mocked(estimatesApi.listEstimates).mockResolvedValue({ items: [], total: 0 });
   });
 
   it('renders projects with their assigned clients', async () => {
@@ -1386,5 +1393,45 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
       clickHandler?.();
     });
     expect(await screen.findByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Kosztorys entry (Stage 10G.1)
+  // ---------------------------------------------------------------------------
+
+  it('shows Kosztorys entry button in project detail view', async () => {
+    renderWorkspace();
+    await waitFor(() => screen.getByText('Mieszkanie Mokotów'));
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => screen.getByLabelText('project-detail'));
+    expect(screen.getByLabelText('open-estimates')).toBeInTheDocument();
+    expect(screen.getByLabelText('open-estimates').textContent).toContain('Kosztorys');
+  });
+
+  it('opens EstimateList when Kosztorys entry is tapped', async () => {
+    renderWorkspace();
+    await waitFor(() => screen.getByText('Mieszkanie Mokotów'));
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => screen.getByLabelText('project-detail'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText('open-estimates'));
+    });
+
+    await screen.findByLabelText('estimates-empty-state');
+  });
+
+  it('shows Kosztorys breadcrumb segment after opening estimates', async () => {
+    renderWorkspace();
+    await waitFor(() => screen.getByText('Mieszkanie Mokotów'));
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => screen.getByLabelText('project-detail'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText('open-estimates'));
+    });
+
+    await screen.findByLabelText('estimates-empty-state');
+    expect(screen.getByLabelText('hierarchy-navigation').textContent).toContain('Kosztorys');
   });
 });

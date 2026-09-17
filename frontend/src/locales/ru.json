@@ -607,12 +607,24 @@
   },
   "checklist": {
     "template": {
-      "concrete": { "title": "Обследование бетона" },
-      "gypsum_plaster": { "title": "Обследование гипсовой штукатурки" },
-      "cement_lime_plaster": { "title": "Обследование цем.-изв. штукатурки" },
-      "gypsum_board": { "title": "Обследование ГКЛ" },
-      "painted": { "title": "Обследование окрашенной поверхности" },
-      "other": { "title": "Обследование прочих оснований" }
+      "concrete": {
+        "title": "Обследование бетона"
+      },
+      "gypsum_plaster": {
+        "title": "Обследование гипсовой штукатурки"
+      },
+      "cement_lime_plaster": {
+        "title": "Обследование цем.-изв. штукатурки"
+      },
+      "gypsum_board": {
+        "title": "Обследование ГКЛ"
+      },
+      "painted": {
+        "title": "Обследование окрашенной поверхности"
+      },
+      "other": {
+        "title": "Обследование прочих оснований"
+      }
     },
     "section": {
       "general_conditions": "Общее состояние",
@@ -799,8 +811,7 @@
       "dec_conc": "Эффект бетона / архитектурный бетон",
       "dec_generic": "Декоративная штукатурка — общая"
     }
-  }
-  ,
+  },
   "reveals": {
     "toggle": "Рассчитать откосы",
     "depth": "Глубина (м)",
@@ -817,5 +828,31 @@
     "summary_windows": "Окна",
     "summary_doors": "Двери",
     "summary_combined": "Всего"
+  },
+  "estimates": {
+    "title": "Смета",
+    "version": "Версия",
+    "status": "Статус",
+    "status_draft": "Черновик",
+    "status_final": "Финальная",
+    "status_accepted": "Принята",
+    "status_archived": "Архивная",
+    "total": "Итого",
+    "currency": "Валюта",
+    "loading": "Загрузка смет...",
+    "error_load": "Не удалось загрузить сметы.",
+    "error_generate": "Не удалось создать смету.",
+    "retry": "Повторить",
+    "empty_title": "Нет сметы",
+    "empty_description": "Смета будет сгенерирована на основе запланированных работ.",
+    "create": "Создать смету",
+    "create_new_version": "Создать новую версию",
+    "creating": "Создание сметы...",
+    "open_draft": "Открыть смету",
+    "open_version": "Открыть",
+    "back_to_list": "Смета",
+    "draft_badge": "Активный черновик",
+    "conflict_message": "Черновик сметы уже существует.",
+    "updated_at": "Обновлено"
   }
 }

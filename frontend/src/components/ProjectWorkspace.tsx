@@ -19,8 +19,11 @@ import {
 } from '../types/project';
 import { RoomType, RoomUpdatePayload } from '../types/room';
 import { InspectionTarget } from '../types/inspection';
+import { EstimateSummaryRead } from '../types/estimate';
 import { formatMetric } from '../utils/format';
 import { AreaSegmentList } from './AreaSegmentList';
+import { EstimateList } from './EstimateList';
+import { EstimateShell } from './EstimateShell';
 import { InspectionFlow } from './InspectionFlow';
 import { InspectionList } from './InspectionList';
 import { RoomList } from './RoomList';
@@ -110,6 +113,9 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
     inspectionId: string | null;
   } | null>(null);
   const [listVersion, setListVersion] = useState(0);
+
+  const [showEstimates, setShowEstimates] = useState(false);
+  const [selectedEstimate, setSelectedEstimate] = useState<EstimateSummaryRead | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -316,6 +322,8 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
     closeForm();
     setShowRoomForm(false);
     closeInspections();
+    setShowEstimates(false);
+    setSelectedEstimate(null);
     setSelectedProject(project);
     setSelectedRoom(null);
     setSuccess(null);
@@ -341,6 +349,8 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
     closeForm();
     setShowRoomForm(false);
     closeInspections();
+    setShowEstimates(false);
+    setSelectedEstimate(null);
     setSelectedProject(null);
     setSelectedRoom(null);
     setSuccess(null);
@@ -362,6 +372,8 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
     closeForm();
     setShowRoomForm(false);
     closeInspections();
+    setShowEstimates(false);
+    setSelectedEstimate(null);
     setSelectedProject(null);
     setSelectedRoom(null);
     setSuccess(null);
@@ -378,6 +390,10 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
       setInspectionTarget(null);
     } else if (selectedRoom) {
       setSelectedRoom(null);
+    } else if (selectedEstimate) {
+      setSelectedEstimate(null);
+    } else if (showEstimates) {
+      setShowEstimates(false);
     } else if (selectedProject) {
       backToProjects();
     }
@@ -396,9 +412,43 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
             {t.projects.title}
           </button>
           <span>/</span>
-          <span className="font-medium text-slate-700">{selectedProject.name}</span>
+          {showEstimates || selectedRoom ? (
+            <button
+              type="button"
+              aria-label="back-to-project"
+              onClick={() => {
+                setShowEstimates(false);
+                setSelectedEstimate(null);
+                setSelectedRoom(null);
+                setShowRoomForm(false);
+                closeInspections();
+              }}
+              className="font-semibold text-blue-700 hover:underline"
+            >
+              {selectedProject.name}
+            </button>
+          ) : (
+            <span className="font-medium text-slate-700">{selectedProject.name}</span>
+          )}
           <span>/</span>
-          {selectedRoom ? (
+          {showEstimates && selectedEstimate ? (
+            <>
+              <button
+                type="button"
+                aria-label="back-to-estimates"
+                onClick={() => setSelectedEstimate(null)}
+                className="font-semibold text-blue-700 hover:underline"
+              >
+                {t.estimates.back_to_list}
+              </button>
+              <span>/</span>
+              <span className="font-medium text-slate-700">
+                {t.estimates.version} {selectedEstimate.version}
+              </span>
+            </>
+          ) : showEstimates ? (
+            <span className="font-medium text-slate-700">{t.estimates.title}</span>
+          ) : selectedRoom ? (
             <>
               <button
                 type="button"
@@ -423,7 +473,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
         </nav>
       )}
 
-      {!selectedRoom && (
+      {!selectedRoom && !showEstimates && (
         <div className="flex items-center justify-between gap-3 mb-3">
           <h2 className="text-lg font-bold text-slate-900">
             {selectedProject ? selectedProject.name : t.projects.title}
@@ -553,7 +603,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
       {success && <p role="status" className="text-sm text-emerald-700 mb-3">{success}</p>}
       {selectedProject && error && <p role="alert" className="text-sm text-red-600 mb-3">{error}</p>}
 
-      {selectedProject && !selectedRoom && (
+      {selectedProject && !selectedRoom && !showEstimates && (
         <>
           <article aria-label="project-detail" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
@@ -580,12 +630,45 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
             </div>
             {selectedProject.description && <p className="text-sm text-slate-600 mt-3">{selectedProject.description}</p>}
           </article>
+
+          <button
+            type="button"
+            aria-label="open-estimates"
+            onClick={() => {
+              setShowEstimates(true);
+              setSelectedEstimate(null);
+            }}
+            className="w-full min-h-11 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between hover:bg-slate-50 transition"
+          >
+            <span className="font-semibold text-slate-900 text-sm">{t.estimates.title}</span>
+            <span className="text-slate-400 text-sm">›</span>
+          </button>
+
           <RoomList
             projectId={selectedProject.id}
             onOpenRoom={openRoom}
             onRoomChanged={load}
           />
         </>
+      )}
+
+      {selectedProject && !selectedRoom && showEstimates && !selectedEstimate && (
+        <>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-slate-900">{t.estimates.title}</h2>
+          </div>
+          <EstimateList
+            projectId={selectedProject.id}
+            onOpenEstimate={(estimate) => setSelectedEstimate(estimate)}
+          />
+        </>
+      )}
+
+      {selectedProject && !selectedRoom && showEstimates && selectedEstimate && (
+        <EstimateShell
+          estimate={selectedEstimate}
+          onBack={() => setSelectedEstimate(null)}
+        />
       )}
 
       {selectedProject && selectedRoom && (
