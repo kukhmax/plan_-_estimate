@@ -167,6 +167,27 @@ class EstimateService:
             raise ProjectNotFoundError(f"Project {project_id} not found")
         return project
 
+    async def _lock_project(
+        self, project_id: uuid.UUID, owner_id: uuid.UUID
+    ) -> Project:
+        """Acquire a row-level exclusive lock on the Project row.
+
+        Used during Estimate generation to serialize concurrent requests
+        for the same project. The lock is held until the enclosing transaction
+        commits, ensuring that DRAFT-existence checks and version calculation
+        cannot interleave with a concurrent generation for the same project.
+        Different projects use different row locks and do not block each other.
+        """
+        stmt = (
+            select(Project)
+            .where(Project.id == project_id, Project.owner_id == owner_id)
+            .with_for_update()
+        )
+        project = (await self.db.execute(stmt)).scalar_one_or_none()
+        if project is None:
+            raise ProjectNotFoundError(f"Project {project_id} not found")
+        return project
+
     async def _load_price_item(
         self,
         price_item_id: uuid.UUID,
@@ -427,7 +448,7 @@ class EstimateService:
         If an active DRAFT already exists → raises EstimateDraftExistsError.
         Use regenerate-preview + regenerate to update an existing DRAFT.
         """
-        await self._assert_project_owned(project_id, owner_id)
+        await self._lock_project(project_id, owner_id)
 
         existing_draft = await self._draft_for_project(project_id, owner_id)
         if existing_draft is not None:
