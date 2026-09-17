@@ -9,6 +9,13 @@ from app.models.checklist import (
     Substrate,
 )
 from app.models.client import Client
+from app.models.estimate import (
+    Estimate,
+    EstimateLine,
+    EstimateStatus,
+    LineOrigin,
+    QuantitySource,
+)
 from app.models.inspection import (
     Inspection,
     InspectionAnswer,
@@ -17,6 +24,7 @@ from app.models.inspection import (
 )
 from app.models.market_evidence import PriceMarketReference, PriceSource, SourceType
 from app.models.opening import Opening, OpeningType
+from app.models.opening_reveal_planned_work import OpeningRevealPlannedWork
 from app.models.price_item import PriceCategory, PriceItem, PriceScope, PriceUnit
 from app.models.project import Project
 from app.models.risk import (
@@ -42,11 +50,16 @@ __all__ = [
     "ChecklistSection",
     "ChecklistTemplate",
     "Client",
+    "Estimate",
+    "EstimateLine",
+    "EstimateStatus",
     "Inspection",
     "InspectionAnswer",
     "InspectionFinding",
     "InspectionStatus",
+    "LineOrigin",
     "Opening",
+    "OpeningRevealPlannedWork",
     "OpeningType",
     "PriceCategory",
     "PriceItem",
@@ -55,6 +68,7 @@ __all__ = [
     "PriceSource",
     "PriceUnit",
     "Project",
+    "QuantitySource",
     "QualityLevel",
     "Risk",
     "RiskConditionOperator",

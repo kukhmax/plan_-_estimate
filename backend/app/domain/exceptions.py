@@ -123,3 +123,23 @@ class AreaSegmentSurfaceMismatchError(Exception):
 
 class InvalidRevealConfigError(Exception):
     """Raised when reveal configuration is invalid (wrong type or missing depth)."""
+
+
+class EstimateNotFoundError(Exception):
+    """Raised when an estimate is not found for the requesting owner or project."""
+
+
+class EstimateValidationError(Exception):
+    """Raised when estimate input violates a domain rule (e.g. NULL prices block FINAL)."""
+
+
+class EstimateStateError(Exception):
+    """Raised when an operation is invalid for the current estimate status."""
+
+
+class OpeningRevealWorkNotFoundError(Exception):
+    """Raised when an OpeningRevealPlannedWork row is not found."""
+
+
+class OpeningRevealWorkValidationError(Exception):
+    """Raised when reveal work input violates a domain rule (wrong category, disabled reveal)."""
