@@ -10,7 +10,9 @@ from app.domain.services.auth_service import TelegramAuthService
 from app.domain.services.checklist_service import ChecklistService
 from app.domain.services.client_service import ClientService
 from app.domain.services.communication_service import CommunicationService
+from app.domain.services.estimate_service import EstimateService
 from app.domain.services.inspection_service import InspectionService
+from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
 from app.domain.services.opening_service import OpeningService
 from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.project_service import ProjectService
@@ -133,3 +135,15 @@ async def get_work_plan_service(
     db: AsyncSession = Depends(get_db),
 ) -> SurfaceWorkPlanService:
     return SurfaceWorkPlanService(db)
+
+
+async def get_estimate_service(
+    db: AsyncSession = Depends(get_db),
+) -> EstimateService:
+    return EstimateService(db)
+
+
+async def get_reveal_work_service(
+    db: AsyncSession = Depends(get_db),
+) -> OpeningRevealWorkService:
+    return OpeningRevealWorkService(db)

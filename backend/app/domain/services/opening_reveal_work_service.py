@@ -31,19 +31,36 @@ class OpeningRevealWorkService:
         self.db = db
 
     async def _fetch_opening(
-        self, opening_id: uuid.UUID, owner_id: uuid.UUID
+        self,
+        opening_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        project_id: uuid.UUID | None = None,
+        room_id: uuid.UUID | None = None,
+        surface_id: uuid.UUID | None = None,
     ) -> Opening:
-        """Return the opening if accessible by owner (via surface → room → project)."""
+        """Return the opening if it belongs to the specified hierarchy and owner.
+
+        When project_id / room_id / surface_id are provided the full path is
+        validated to prevent cross-hierarchy access within the same owner.
+        """
         from app.models.surface import Surface
         from app.models.room import Room
         from app.models.project import Project
+
+        conditions = [Opening.id == opening_id, Project.owner_id == owner_id]
+        if surface_id is not None:
+            conditions.append(Opening.surface_id == surface_id)
+        if room_id is not None:
+            conditions.append(Surface.room_id == room_id)
+        if project_id is not None:
+            conditions.append(Room.project_id == project_id)
 
         stmt = (
             select(Opening)
             .join(Surface, Opening.surface_id == Surface.id)
             .join(Room, Surface.room_id == Room.id)
             .join(Project, Room.project_id == Project.id)
-            .where(Opening.id == opening_id, Project.owner_id == owner_id)
+            .where(*conditions)
         )
         opening = (await self.db.execute(stmt)).scalar_one_or_none()
         if opening is None:
@@ -129,9 +146,15 @@ class OpeningRevealWorkService:
         self,
         opening_id: uuid.UUID,
         owner_id: uuid.UUID,
+        project_id: uuid.UUID | None = None,
+        room_id: uuid.UUID | None = None,
+        surface_id: uuid.UUID | None = None,
     ) -> list[OpeningRevealPlannedWork]:
         """Return the ordered reveal work list for an opening."""
-        await self._fetch_opening(opening_id, owner_id)
+        await self._fetch_opening(
+            opening_id, owner_id,
+            project_id=project_id, room_id=room_id, surface_id=surface_id,
+        )
         return await self._fetch_works(opening_id)
 
     async def set_works(
@@ -139,13 +162,19 @@ class OpeningRevealWorkService:
         opening_id: uuid.UUID,
         owner_id: uuid.UUID,
         price_item_ids: list[uuid.UUID],
+        project_id: uuid.UUID | None = None,
+        room_id: uuid.UUID | None = None,
+        surface_id: uuid.UUID | None = None,
     ) -> list[OpeningRevealPlannedWork]:
         """Fully replace the reveal work list for an opening.
 
         The opening must have reveal_enabled=True. All items must be
         PriceCategory.REVEAL. Archived items may not increase in count.
         """
-        opening = await self._fetch_opening(opening_id, owner_id)
+        opening = await self._fetch_opening(
+            opening_id, owner_id,
+            project_id=project_id, room_id=room_id, surface_id=surface_id,
+        )
         if not opening.reveal_enabled:
             raise OpeningRevealWorkValidationError(
                 f"Opening {opening_id} does not have reveal enabled; "
@@ -165,9 +194,15 @@ class OpeningRevealWorkService:
         self,
         opening_id: uuid.UUID,
         owner_id: uuid.UUID,
+        project_id: uuid.UUID | None = None,
+        room_id: uuid.UUID | None = None,
+        surface_id: uuid.UUID | None = None,
     ) -> None:
         """Remove all reveal work rows for an opening."""
-        await self._fetch_opening(opening_id, owner_id)
+        await self._fetch_opening(
+            opening_id, owner_id,
+            project_id=project_id, room_id=room_id, surface_id=surface_id,
+        )
         await self.db.execute(
             delete(OpeningRevealPlannedWork).where(
                 OpeningRevealPlannedWork.opening_id == opening_id

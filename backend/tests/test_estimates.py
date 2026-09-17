@@ -23,6 +23,7 @@ import pytest
 from sqlalchemy import select
 
 from app.domain.exceptions import (
+    EstimateDraftExistsError,
     EstimateNotFoundError,
     EstimateStateError,
     EstimateValidationError,
@@ -892,22 +893,24 @@ class TestK_VersionSequencing:
         assert estimate.version == 1
         assert estimate.status == EstimateStatus.DRAFT
 
-    async def test_second_generate_refreshes_draft_in_place(self, db_session):
+    async def test_second_generate_raises_draft_exists(self, db_session):
+        """POST /generate must not silently regenerate an existing DRAFT (C1)."""
         user = await _make_user(db_session, 29002)
         project = await _make_project(db_session, user.id)
         svc = EstimateService(db_session)
 
         first = await svc.generate_estimate(project.id, user.id)
-        second = await svc.generate_estimate(project.id, user.id)
-        assert second.id == first.id
-        assert second.version == 1
+        with pytest.raises(EstimateDraftExistsError):
+            await svc.generate_estimate(project.id, user.id)
 
+        # Exactly one estimate remains
         count = (
             await db_session.execute(
                 select(Estimate).where(Estimate.project_id == project.id)
             )
         ).scalars().all()
         assert len(count) == 1
+        assert count[0].id == first.id
 
     async def test_new_draft_after_final_gets_version_2(self, db_session):
         user = await _make_user(db_session, 29003)

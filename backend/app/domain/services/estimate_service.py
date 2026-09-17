@@ -21,9 +21,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.domain.exceptions import (
+    EstimateDraftExistsError,
     EstimateNotFoundError,
     EstimateStateError,
     EstimateValidationError,
+    PriceItemNotFoundError,
     ProjectNotFoundError,
 )
 from app.domain.rules.room_geometry import (
@@ -51,6 +53,26 @@ _AMOUNT_PRECISION = Decimal("0.01")
 
 
 @dataclass
+class LineChangeEntry:
+    """One proposed or applied change in a regeneration diff (C6)."""
+
+    change_type: str  # "ADDED" | "REMOVED" | "UPDATED"
+    estimate_line_id: uuid.UUID | None
+    planned_work_id: uuid.UUID
+    surface_id: uuid.UUID | None
+    opening_id: uuid.UUID | None
+    item_code: str | None
+    description: str
+    unit: object  # PriceUnit — avoid circular import
+    old_source_quantity: Decimal | None
+    new_source_quantity: Decimal | None
+    old_unit_price: Decimal | None
+    new_unit_price: Decimal | None
+    quantity_overridden: bool
+    price_override: bool
+
+
+@dataclass
 class RegenerationResult:
     """Summary of changes applied during a DRAFT regeneration."""
 
@@ -59,6 +81,7 @@ class RegenerationResult:
     removed: int = 0
     preserved_manual: int = 0
     lines: list[EstimateLine] = field(default_factory=list)
+    changes: list[LineChangeEntry] = field(default_factory=list)
 
 
 def _item_description(item: PriceItem) -> str:
@@ -76,6 +99,30 @@ def _compute_amount(
     if unit_price is None:
         return None
     return (quantity * unit_price).quantize(_AMOUNT_PRECISION, rounding=ROUND_HALF_UP)
+
+
+def _snapshot_would_change(
+    line: "EstimateLine",
+    item: "PriceItem",
+    new_source_qty: Decimal | None,
+    qty_source: "QuantitySource",
+) -> bool:
+    """Return True if regeneration would change any generated (non-override) field."""
+    if new_source_qty != line.source_quantity:
+        return True
+    if qty_source != line.quantity_source:
+        return True
+    if _item_description(item) != line.description:
+        return True
+    if item.unit != line.unit:
+        return True
+    if item.price_scope != line.scope:
+        return True
+    if item.currency != line.currency:
+        return True
+    if not line.price_override and item.price != line.unit_price:
+        return True
+    return False
 
 
 def _reveal_totals(opening: Opening) -> tuple[Decimal | None, Decimal | None]:
@@ -120,12 +167,35 @@ class EstimateService:
             raise ProjectNotFoundError(f"Project {project_id} not found")
         return project
 
+    async def _load_price_item(
+        self,
+        price_item_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> "PriceItem":
+        """Load a PriceItem by id, scoped to owner. Raises EstimateValidationError if missing."""
+        stmt = select(PriceItem).where(
+            PriceItem.id == price_item_id,
+            PriceItem.owner_id == owner_id,
+        )
+        item = (await self.db.execute(stmt)).scalar_one_or_none()
+        if item is None:
+            raise EstimateValidationError(
+                f"Price item {price_item_id} no longer exists; cannot reset price override"
+            )
+        return item
+
     async def _fetch_estimate(
-        self, estimate_id: uuid.UUID, owner_id: uuid.UUID
+        self,
+        estimate_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        project_id: uuid.UUID | None = None,
     ) -> Estimate:
+        conditions = [Estimate.id == estimate_id, Estimate.owner_id == owner_id]
+        if project_id is not None:
+            conditions.append(Estimate.project_id == project_id)
         stmt = (
             select(Estimate)
-            .where(Estimate.id == estimate_id, Estimate.owner_id == owner_id)
+            .where(*conditions)
             .options(selectinload(Estimate.lines))
             .execution_options(populate_existing=True)
         )
@@ -349,21 +419,23 @@ class EstimateService:
         project_id: uuid.UUID,
         owner_id: uuid.UUID,
     ) -> Estimate:
-        """Create DRAFT v1 from current plans, or regenerate the existing DRAFT in place.
+        """Create a new DRAFT from current plans.
 
         If no DRAFT exists and no immutable estimate exists → creates DRAFT v1.
-        If a DRAFT already exists → regenerates it in place (see regenerate_draft).
         If the latest estimate is FINAL/ACCEPTED/ARCHIVED → creates a new DRAFT
         with version = max + 1.
+        If an active DRAFT already exists → raises EstimateDraftExistsError.
+        Use regenerate-preview + regenerate to update an existing DRAFT.
         """
         await self._assert_project_owned(project_id, owner_id)
 
         existing_draft = await self._draft_for_project(project_id, owner_id)
         if existing_draft is not None:
-            result = await self._do_regenerate(existing_draft, project_id, owner_id)
-            self.recalculate_totals(existing_draft)
-            await self.db.commit()
-            return await self._fetch_estimate(existing_draft.id, owner_id)
+            raise EstimateDraftExistsError(
+                f"Project {project_id} already has an active DRAFT estimate "
+                f"(id={existing_draft.id}). Use regenerate-preview + regenerate "
+                "to update it, or finalize it before generating a new version."
+            )
 
         # Check for immutable latest estimate → new version
         latest_stmt = (
@@ -432,7 +504,10 @@ class EstimateService:
         """Re-derive PLANNED_WORK lines from current plans.
 
         MANUAL lines are never touched. Owner overrides are preserved.
-        Returns a summary of the diff applied.
+        Only counts a line as UPDATED when regeneration would actually change a
+        generated field (source_quantity, snapshot description/unit/scope/currency,
+        or PriceBook price when price_override=False).
+        Returns a summary of the diff applied including structured change entries.
         """
         result = RegenerationResult()
 
@@ -467,8 +542,13 @@ class EstimateService:
             )
 
             if work.id in existing_by_pwid:
-                # Refresh snapshot, preserve overrides
                 line = existing_by_pwid[work.id]
+                # Capture old values before modification for change entry
+                old_src_qty = line.source_quantity
+                old_unit_price = line.unit_price
+                changed = _snapshot_would_change(line, item, source_qty, qty_source)
+
+                # Refresh snapshot, preserve overrides
                 line.position = position
                 line.plan_id = plan.id
                 line.surface_id = surface.id
@@ -486,7 +566,25 @@ class EstimateService:
                     line.unit_price = item.price
                 line.amount = _compute_amount(line.quantity, line.unit_price)
                 new_lines.append(line)
-                result.updated += 1
+
+                if changed:
+                    result.updated += 1
+                    result.changes.append(LineChangeEntry(
+                        change_type="UPDATED",
+                        estimate_line_id=line.id,
+                        planned_work_id=work.id,
+                        surface_id=surface.id,
+                        opening_id=None,
+                        item_code=item.code,
+                        description=_item_description(item),
+                        unit=item.unit,
+                        old_source_quantity=old_src_qty,
+                        new_source_quantity=source_qty,
+                        old_unit_price=old_unit_price,
+                        new_unit_price=line.unit_price,
+                        quantity_overridden=line.quantity_overridden,
+                        price_override=line.price_override,
+                    ))
             else:
                 quantity = source_qty if source_qty is not None else Decimal("0.000")
                 line = EstimateLine(
@@ -515,6 +613,22 @@ class EstimateService:
                 self.db.add(line)
                 new_lines.append(line)
                 result.added += 1
+                result.changes.append(LineChangeEntry(
+                    change_type="ADDED",
+                    estimate_line_id=None,
+                    planned_work_id=work.id,
+                    surface_id=surface.id,
+                    opening_id=None,
+                    item_code=item.code,
+                    description=_item_description(item),
+                    unit=item.unit,
+                    old_source_quantity=None,
+                    new_source_quantity=source_qty,
+                    old_unit_price=None,
+                    new_unit_price=item.price,
+                    quantity_overridden=False,
+                    price_override=False,
+                ))
             position += 1
 
         # Reveal lines
@@ -536,6 +650,10 @@ class EstimateService:
 
             if work.id in existing_by_pwid:
                 line = existing_by_pwid[work.id]
+                old_src_qty = line.source_quantity
+                old_unit_price = line.unit_price
+                changed = _snapshot_would_change(line, item, source_qty, qty_source)
+
                 line.position = position
                 line.surface_id = surface.id
                 line.room_id = room.id
@@ -553,7 +671,25 @@ class EstimateService:
                     line.unit_price = item.price
                 line.amount = _compute_amount(line.quantity, line.unit_price)
                 new_lines.append(line)
-                result.updated += 1
+
+                if changed:
+                    result.updated += 1
+                    result.changes.append(LineChangeEntry(
+                        change_type="UPDATED",
+                        estimate_line_id=line.id,
+                        planned_work_id=work.id,
+                        surface_id=surface.id,
+                        opening_id=opening.id,
+                        item_code=item.code,
+                        description=_item_description(item),
+                        unit=item.unit,
+                        old_source_quantity=old_src_qty,
+                        new_source_quantity=source_qty,
+                        old_unit_price=old_unit_price,
+                        new_unit_price=line.unit_price,
+                        quantity_overridden=line.quantity_overridden,
+                        price_override=line.price_override,
+                    ))
             else:
                 quantity = source_qty if source_qty is not None else Decimal("0.000")
                 line = EstimateLine(
@@ -582,11 +718,43 @@ class EstimateService:
                 self.db.add(line)
                 new_lines.append(line)
                 result.added += 1
+                result.changes.append(LineChangeEntry(
+                    change_type="ADDED",
+                    estimate_line_id=None,
+                    planned_work_id=work.id,
+                    surface_id=surface.id,
+                    opening_id=opening.id,
+                    item_code=item.code,
+                    description=_item_description(item),
+                    unit=item.unit,
+                    old_source_quantity=None,
+                    new_source_quantity=source_qty,
+                    old_unit_price=None,
+                    new_unit_price=item.price,
+                    quantity_overridden=False,
+                    price_override=False,
+                ))
             position += 1
 
         # Remove lines whose planned_work_id is no longer present
         for pw_id, line in existing_by_pwid.items():
             if pw_id not in current_pw_ids:
+                result.changes.append(LineChangeEntry(
+                    change_type="REMOVED",
+                    estimate_line_id=line.id,
+                    planned_work_id=pw_id,
+                    surface_id=line.surface_id,
+                    opening_id=line.opening_id,
+                    item_code=line.item_code,
+                    description=line.description,
+                    unit=line.unit,
+                    old_source_quantity=line.source_quantity,
+                    new_source_quantity=None,
+                    old_unit_price=line.unit_price,
+                    new_unit_price=None,
+                    quantity_overridden=line.quantity_overridden,
+                    price_override=line.price_override,
+                ))
                 await self.db.delete(line)
                 result.removed += 1
 
@@ -600,13 +768,198 @@ class EstimateService:
         result.lines = new_lines
         return result
 
+    async def list_estimates(
+        self,
+        project_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> list[Estimate]:
+        """Return all estimates for a project ordered by version descending."""
+        await self._assert_project_owned(project_id, owner_id)
+        stmt = (
+            select(Estimate)
+            .where(
+                Estimate.project_id == project_id,
+                Estimate.owner_id == owner_id,
+            )
+            .order_by(Estimate.version.desc())
+        )
+        return list((await self.db.execute(stmt)).scalars().all())
+
+    async def get_estimate_detail(
+        self,
+        project_id: uuid.UUID,
+        estimate_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> Estimate:
+        """Return a single estimate with eagerly-loaded lines."""
+        return await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
+
+    async def preview_regeneration(
+        self,
+        project_id: uuid.UUID,
+        estimate_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> RegenerationResult:
+        """Compute what a regeneration would change WITHOUT mutating the estimate.
+
+        Only classifies a line as UPDATED when regeneration would actually change a
+        generated field. Unchanged matched lines are not counted in any category.
+        """
+        estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
+        if estimate.status != EstimateStatus.DRAFT:
+            raise EstimateStateError(
+                f"Only DRAFT estimates can be regenerated; "
+                f"estimate {estimate_id} is {estimate.status.value}"
+            )
+
+        result = RegenerationResult()
+        existing_by_pwid: dict[uuid.UUID, EstimateLine] = {}
+        for line in estimate.lines:
+            if line.origin == LineOrigin.MANUAL:
+                result.preserved_manual += 1
+            elif line.planned_work_id is not None:
+                existing_by_pwid[line.planned_work_id] = line
+
+        current_pw_ids: set[uuid.UUID] = set()
+        net_area_cache: dict[uuid.UUID, Decimal | None] = {}
+
+        surface_works = await self._load_surface_planned_works(estimate.project_id)
+        for work, _plan, surface, _room in surface_works:
+            current_pw_ids.add(work.id)
+            if surface.id not in net_area_cache:
+                net_area_cache[surface.id] = await self._surface_net_area(surface)
+            net_area = net_area_cache[surface.id]
+            item = work.price_item
+            is_m2 = item.unit == PriceUnit.M2
+            source_qty = net_area if is_m2 else None
+            qty_source = QuantitySource.SURFACE_NET_AREA if is_m2 else QuantitySource.MANUAL
+
+            if work.id in existing_by_pwid:
+                line = existing_by_pwid[work.id]
+                if _snapshot_would_change(line, item, source_qty, qty_source):
+                    result.updated += 1
+                    new_unit_price = line.unit_price if line.price_override else item.price
+                    result.changes.append(LineChangeEntry(
+                        change_type="UPDATED",
+                        estimate_line_id=line.id,
+                        planned_work_id=work.id,
+                        surface_id=surface.id,
+                        opening_id=None,
+                        item_code=item.code,
+                        description=_item_description(item),
+                        unit=item.unit,
+                        old_source_quantity=line.source_quantity,
+                        new_source_quantity=source_qty,
+                        old_unit_price=line.unit_price,
+                        new_unit_price=new_unit_price,
+                        quantity_overridden=line.quantity_overridden,
+                        price_override=line.price_override,
+                    ))
+            else:
+                result.added += 1
+                result.changes.append(LineChangeEntry(
+                    change_type="ADDED",
+                    estimate_line_id=None,
+                    planned_work_id=work.id,
+                    surface_id=surface.id,
+                    opening_id=None,
+                    item_code=item.code,
+                    description=_item_description(item),
+                    unit=item.unit,
+                    old_source_quantity=None,
+                    new_source_quantity=source_qty,
+                    old_unit_price=None,
+                    new_unit_price=item.price,
+                    quantity_overridden=False,
+                    price_override=False,
+                ))
+
+        reveal_works = await self._load_reveal_planned_works(estimate.project_id)
+        for work, opening, surface, _room in reveal_works:
+            current_pw_ids.add(work.id)
+            item = work.price_item
+            total_length, total_area = _reveal_totals(opening)
+            if item.unit == PriceUnit.LM:
+                source_qty = total_length
+                qty_source = QuantitySource.REVEAL_LENGTH
+            elif item.unit == PriceUnit.M2:
+                source_qty = total_area
+                qty_source = QuantitySource.REVEAL_AREA
+            else:
+                source_qty = None
+                qty_source = QuantitySource.MANUAL
+
+            if work.id in existing_by_pwid:
+                line = existing_by_pwid[work.id]
+                if _snapshot_would_change(line, item, source_qty, qty_source):
+                    result.updated += 1
+                    new_unit_price = line.unit_price if line.price_override else item.price
+                    result.changes.append(LineChangeEntry(
+                        change_type="UPDATED",
+                        estimate_line_id=line.id,
+                        planned_work_id=work.id,
+                        surface_id=surface.id,
+                        opening_id=opening.id,
+                        item_code=item.code,
+                        description=_item_description(item),
+                        unit=item.unit,
+                        old_source_quantity=line.source_quantity,
+                        new_source_quantity=source_qty,
+                        old_unit_price=line.unit_price,
+                        new_unit_price=new_unit_price,
+                        quantity_overridden=line.quantity_overridden,
+                        price_override=line.price_override,
+                    ))
+            else:
+                result.added += 1
+                result.changes.append(LineChangeEntry(
+                    change_type="ADDED",
+                    estimate_line_id=None,
+                    planned_work_id=work.id,
+                    surface_id=surface.id,
+                    opening_id=opening.id,
+                    item_code=item.code,
+                    description=_item_description(item),
+                    unit=item.unit,
+                    old_source_quantity=None,
+                    new_source_quantity=source_qty,
+                    old_unit_price=None,
+                    new_unit_price=item.price,
+                    quantity_overridden=False,
+                    price_override=False,
+                ))
+
+        for pw_id, line in existing_by_pwid.items():
+            if pw_id not in current_pw_ids:
+                result.removed += 1
+                result.changes.append(LineChangeEntry(
+                    change_type="REMOVED",
+                    estimate_line_id=line.id,
+                    planned_work_id=pw_id,
+                    surface_id=line.surface_id,
+                    opening_id=line.opening_id,
+                    item_code=line.item_code,
+                    description=line.description,
+                    unit=line.unit,
+                    old_source_quantity=line.source_quantity,
+                    new_source_quantity=None,
+                    old_unit_price=line.unit_price,
+                    new_unit_price=None,
+                    quantity_overridden=line.quantity_overridden,
+                    price_override=line.price_override,
+                ))
+
+        # Intentionally no commit — read-only preview.
+        return result
+
     async def regenerate_draft(
         self,
         estimate_id: uuid.UUID,
         owner_id: uuid.UUID,
+        project_id: uuid.UUID | None = None,
     ) -> RegenerationResult:
         """Explicitly regenerate a DRAFT estimate in-place and return the diff summary."""
-        estimate = await self._fetch_estimate(estimate_id, owner_id)
+        estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
         if estimate.status != EstimateStatus.DRAFT:
             raise EstimateStateError(
                 f"Only DRAFT estimates can be regenerated; "
@@ -621,12 +974,13 @@ class EstimateService:
         self,
         estimate_id: uuid.UUID,
         owner_id: uuid.UUID,
+        project_id: uuid.UUID | None = None,
     ) -> Estimate:
         """Transition a DRAFT estimate to FINAL.
 
         Blocked if any line has unit_price=NULL (Do ustalenia).
         """
-        estimate = await self._fetch_estimate(estimate_id, owner_id)
+        estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
         if estimate.status != EstimateStatus.DRAFT:
             raise EstimateStateError(
                 f"Only DRAFT estimates can be finalized; "
@@ -653,11 +1007,12 @@ class EstimateService:
         quantity: Decimal,
         unit_price: Decimal | None,
         currency: str = "PLN",
+        project_id: uuid.UUID | None = None,
     ) -> EstimateLine:
         """Append a freeform MANUAL line to a DRAFT estimate."""
         from app.models.price_item import PriceScope
 
-        estimate = await self._fetch_estimate(estimate_id, owner_id)
+        estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
         if estimate.status != EstimateStatus.DRAFT:
             raise EstimateStateError(
                 f"Lines can only be added to DRAFT estimates; "
@@ -666,6 +1021,11 @@ class EstimateService:
         if scope == PriceScope.LABOR_AND_MATERIAL:
             raise EstimateValidationError(
                 "Manual lines cannot use LABOR_AND_MATERIAL scope"
+            )
+        if currency != estimate.currency:
+            raise EstimateValidationError(
+                f"Manual line currency '{currency}' does not match "
+                f"estimate currency '{estimate.currency}'"
             )
         position = (
             max((ln.position for ln in estimate.lines), default=-1) + 1
@@ -694,3 +1054,111 @@ class EstimateService:
         self.recalculate_totals(estimate)
         await self.db.commit()
         return line
+
+    async def patch_line(
+        self,
+        project_id: uuid.UUID,
+        estimate_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        line_id: uuid.UUID,
+        *,
+        provided_fields: set[str],
+        quantity: Decimal | None = None,
+        unit_price: Decimal | None = None,
+        description: str | None = None,
+        reset_price_override: bool = False,
+        reset_quantity_override: bool = False,
+    ) -> EstimateLine:
+        """Update owner-controlled fields on a DRAFT estimate line."""
+        estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
+        if estimate.status != EstimateStatus.DRAFT:
+            raise EstimateStateError(
+                f"Lines can only be updated on DRAFT estimates; "
+                f"estimate {estimate_id} is {estimate.status.value}"
+            )
+        line = next((ln for ln in estimate.lines if ln.id == line_id), None)
+        if line is None:
+            raise EstimateNotFoundError(
+                f"Line {line_id} not found on estimate {estimate_id}"
+            )
+
+        recalc = False
+
+        if "quantity" in provided_fields:
+            if quantity is None:
+                raise EstimateValidationError("quantity cannot be null")
+            line.quantity = quantity
+            line.quantity_overridden = True
+            recalc = True
+
+        if reset_quantity_override:
+            line.quantity = (
+                line.source_quantity
+                if line.source_quantity is not None
+                else Decimal("0.000")
+            )
+            line.quantity_overridden = False
+            recalc = True
+
+        if "unit_price" in provided_fields:
+            line.unit_price = unit_price
+            line.price_override = True
+            recalc = True
+
+        if reset_price_override:
+            if line.origin == LineOrigin.MANUAL:
+                raise EstimateValidationError(
+                    "price override cannot be reset for MANUAL lines: "
+                    "no PriceBook source to restore from"
+                )
+            if line.price_item_id is None:
+                raise EstimateValidationError(
+                    "line has no price item reference; cannot reset price override"
+                )
+            item = await self._load_price_item(line.price_item_id, owner_id)
+            line.unit_price = item.price
+            line.price_override = False
+            recalc = True
+
+        if "description" in provided_fields:
+            if line.origin != LineOrigin.MANUAL:
+                raise EstimateValidationError(
+                    "description is only editable on MANUAL lines"
+                )
+            if description is None:
+                raise EstimateValidationError("description cannot be null")
+            line.description = description
+
+        if recalc:
+            line.amount = _compute_amount(line.quantity, line.unit_price)
+            self.recalculate_totals(estimate)
+
+        await self.db.commit()
+        return line
+
+    async def delete_manual_line(
+        self,
+        project_id: uuid.UUID,
+        estimate_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        line_id: uuid.UUID,
+    ) -> None:
+        """Delete a MANUAL line from a DRAFT estimate."""
+        estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
+        if estimate.status != EstimateStatus.DRAFT:
+            raise EstimateStateError(
+                f"Lines can only be deleted from DRAFT estimates; "
+                f"estimate {estimate_id} is {estimate.status.value}"
+            )
+        line = next((ln for ln in estimate.lines if ln.id == line_id), None)
+        if line is None:
+            raise EstimateNotFoundError(
+                f"Line {line_id} not found on estimate {estimate_id}"
+            )
+        if line.origin != LineOrigin.MANUAL:
+            raise EstimateValidationError("Only MANUAL lines can be deleted")
+
+        await self.db.delete(line)
+        estimate.lines = [ln for ln in estimate.lines if ln.id != line_id]
+        self.recalculate_totals(estimate)
+        await self.db.commit()

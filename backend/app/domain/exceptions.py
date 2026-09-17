@@ -129,6 +129,10 @@ class EstimateNotFoundError(Exception):
     """Raised when an estimate is not found for the requesting owner or project."""
 
 
+class EstimateDraftExistsError(Exception):
+    """Raised when POST /generate is called but an active DRAFT already exists."""
+
+
 class EstimateValidationError(Exception):
     """Raised when estimate input violates a domain rule (e.g. NULL prices block FINAL)."""
 

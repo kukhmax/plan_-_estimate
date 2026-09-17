@@ -6,11 +6,13 @@ from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.checklists import router as checklists_router
 from app.api.v1.endpoints.clients import router as clients_router
 from app.api.v1.endpoints.communications import router as communications_router
+from app.api.v1.endpoints.estimates import router as estimates_router
 from app.api.v1.endpoints.inspections import router as inspections_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.openings import router as openings_router
 from app.api.v1.endpoints.pricebook import router as pricebook_router
 from app.api.v1.endpoints.projects import router as projects_router
+from app.api.v1.endpoints.reveal_works import router as reveal_works_router
 from app.api.v1.endpoints.risks import router as risks_router
 from app.api.v1.endpoints.rooms import router as rooms_router
 from app.api.v1.endpoints.surfaces import router as surfaces_router
@@ -46,3 +48,5 @@ app.include_router(risks_router, prefix="/api", tags=["risks"])
 app.include_router(communications_router, prefix="/api", tags=["communications"])
 app.include_router(pricebook_router, prefix="/api", tags=["price-items"])
 app.include_router(work_plan_router, prefix="/api", tags=["work-plans"])
+app.include_router(estimates_router, prefix="/api", tags=["estimates"])
+app.include_router(reveal_works_router, prefix="/api", tags=["reveal-works"])
