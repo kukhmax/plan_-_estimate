@@ -56,3 +56,16 @@ export interface EstimateLineRead {
 export interface EstimateRead extends EstimateSummaryRead {
   lines: EstimateLineRead[];
 }
+
+// PATCH body for a DRAFT line (Stage 10E contract). Every field is optional —
+// an omitted key means "leave unchanged". `unit_price: null` is a distinct,
+// meaningful operation (marks the line Do ustalenia / price_override=true);
+// `quantity: null` must never be sent (rejected by the backend — NOT NULL).
+// `reset_quantity_override`/`reset_price_override` must not be combined with
+// a simultaneous `quantity`/`unit_price` assignment on the same field.
+export interface EstimateLineUpdatePayload {
+  quantity?: string;
+  unit_price?: string | null;
+  reset_price_override?: boolean;
+  reset_quantity_override?: boolean;
+}

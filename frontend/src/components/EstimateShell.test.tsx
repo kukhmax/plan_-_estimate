@@ -8,7 +8,7 @@
  * - loading / error / empty states
  */
 import { useState } from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as estimatesApi from '../api/estimates';
 import { I18nProvider } from '../hooks/useI18n';
@@ -19,6 +19,7 @@ vi.mock('../api/estimates', () => ({
   listEstimates: vi.fn(),
   generateEstimate: vi.fn(),
   getEstimate: vi.fn(),
+  patchEstimateLine: vi.fn(),
 }));
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -105,7 +106,9 @@ function renderShell(
 
 beforeEach(() => {
   localStorage.removeItem('locale');
+  vi.mocked(estimatesApi.getEstimate).mockReset();
   vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail());
+  vi.mocked(estimatesApi.patchEstimateLine).mockReset();
 });
 
 describe('API call', () => {
@@ -1552,5 +1555,1003 @@ describe('Stage 10G.2 confirmed crash — surface_name key omitted (undefined) w
     await waitFor(() => screen.getByLabelText('estimate-lines'));
 
     expect(screen.queryByLabelText('line-provenance-0')).toBeNull();
+  });
+});
+
+// ─── Stage 10G.3A — draft line editing and override resets ───────────────────
+
+describe('Stage 10G.3A — draft-only editing gating', () => {
+  it('shows the Edytuj action for a DRAFT estimate', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-edit-action-1')).toBeTruthy();
+  });
+
+  it('does not render any edit action for a FINAL estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'FINAL' }));
+    renderShell(makeSummary({ status: 'FINAL' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('line-edit-action-1')).toBeNull();
+  });
+
+  it('does not render any edit action for an ACCEPTED estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'ACCEPTED' }));
+    renderShell(makeSummary({ status: 'ACCEPTED' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('line-edit-action-1')).toBeNull();
+  });
+
+  it('does not render any edit action for an ARCHIVED estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'ARCHIVED' }));
+    renderShell(makeSummary({ status: 'ARCHIVED' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('line-edit-action-1')).toBeNull();
+  });
+
+  it('does not merely disable but omits reset actions too for an immutable estimate, even when override flags are set', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ quantity_overridden: true, price_override: true })], { status: 'FINAL' }),
+    );
+    renderShell(makeSummary({ status: 'FINAL' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('line-reset-quantity-1')).toBeNull();
+    expect(screen.queryByLabelText('line-reset-price-1')).toBeNull();
+  });
+
+  it('does not render edit actions in the grouped summary view', async () => {
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.queryByLabelText('line-edit-action-1')).toBeNull();
+  });
+});
+
+describe('Stage 10G.3A — quantity edit', () => {
+  it('pre-fills the exact quantity string and submits the exact decimal string typed (no Number/parseFloat)', async () => {
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(makeLine({ quantity: '13.750', quantity_overridden: true }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-quantity-1'))) as HTMLInputElement;
+    expect(input.value).toBe('12.500');
+
+    fireEvent.change(input, { target: { value: '13.750' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { quantity: '13.750' },
+      );
+    });
+  });
+
+  it('does not send a quantity field when the value is unchanged from the original', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    await waitFor(() => screen.getByLabelText('line-edit-quantity-1'));
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+    await waitFor(() => expect(screen.queryByLabelText('line-edit-panel-1')).toBeNull());
+    expect(estimatesApi.patchEstimateLine).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-numeric quantity locally, without any network call', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-quantity-1'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'abc' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => screen.getByLabelText('line-edit-error-1'));
+    expect(estimatesApi.patchEstimateLine).not.toHaveBeenCalled();
+  });
+});
+
+describe('Stage 10G.3A — quantity reset', () => {
+  it('shows the reset action only when quantity_overridden is true', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('line-reset-quantity-1')).toBeNull();
+  });
+
+  it('tapping the quantity reset sends exactly { reset_quantity_override: true }', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine({ quantity_overridden: true })]));
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(makeLine({ quantity_overridden: false }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-reset-quantity-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { reset_quantity_override: true },
+      );
+    });
+  });
+});
+
+describe('Stage 10G.3A — price edit', () => {
+  it('pre-fills the exact unit_price string and submits the exact decimal string typed', async () => {
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(makeLine({ unit_price: '42.750', price_override: true }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-price-1'))) as HTMLInputElement;
+    expect(input.value).toBe('35.00');
+
+    fireEvent.change(input, { target: { value: '42.750' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { unit_price: '42.750' },
+      );
+    });
+  });
+
+  it('submits an explicit unit_price: null when the "Cena do ustalenia" toggle is checked', async () => {
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: null, price_override: true, amount: null }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    await waitFor(() => screen.getByLabelText('line-edit-price-unresolved-1'));
+    fireEvent.click(screen.getByLabelText('line-edit-price-unresolved-1'));
+    expect(screen.queryByLabelText('line-edit-price-1')).toBeNull();
+
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { unit_price: null },
+      );
+    });
+  });
+
+  it('a typed "0.00" submits as the string "0.00", never as null', async () => {
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: '0.00', price_override: true, amount: '0.00' }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-price-1'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '0.00' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { unit_price: '0.00' },
+      );
+    });
+  });
+
+  it('opening the panel for a line whose unit_price is already "0.00" leaves the unresolved toggle unchecked (0.00 is distinct from null)', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ unit_price: '0.00', amount: '0.00' })]),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const toggle = (await waitFor(() => screen.getByLabelText('line-edit-price-unresolved-1'))) as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    expect((screen.getByLabelText('line-edit-price-1') as HTMLInputElement).value).toBe('0.00');
+  });
+
+  it('opening the panel for a line whose unit_price is null pre-checks the unresolved toggle and hides the numeric input', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ unit_price: null, amount: null })]),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const toggle = (await waitFor(() => screen.getByLabelText('line-edit-price-unresolved-1'))) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    expect(screen.queryByLabelText('line-edit-price-1')).toBeNull();
+  });
+});
+
+describe('Stage 10G.3A — price reset', () => {
+  it('tapping the price reset sends exactly { reset_price_override: true }', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine({ price_override: true })]));
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(makeLine({ price_override: false }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-reset-price-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { reset_price_override: true },
+      );
+    });
+  });
+
+  it('does not render the price-reset action for a MANUAL line, even when price_override is true (backend rejects it — no PriceBook source)', async () => {
+    const manualLine = makeLine({
+      origin: 'MANUAL',
+      price_item_id: null,
+      price_override: true,
+      quantity_overridden: true,
+    });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([manualLine]));
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    expect(screen.queryByLabelText('line-reset-price-1')).toBeNull();
+    // Quantity reset has no such backend restriction and remains available.
+    expect(screen.getByLabelText('line-reset-quantity-1')).toBeTruthy();
+  });
+});
+
+describe('Stage 10G.3A — authoritative refetch after mutation', () => {
+  it('a successful edit refetches the Estimate detail rather than mutating local state optimistically', async () => {
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(makeLine({ quantity: '20.000', quantity_overridden: true }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-quantity-1'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '20.000' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(2));
+  });
+
+  it('the drill-down and override indicators reflect the refetched authoritative data, not the submitted form values', async () => {
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ quantity: '20.000', quantity_overridden: true, amount: '700.00' }),
+    );
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([makeLine()]))
+      .mockResolvedValueOnce(
+        makeDetail([makeLine({ quantity: '20.000', quantity_overridden: true, amount: '700.00' })]),
+      );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-quantity-1'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '20.000' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => screen.getByLabelText('line-qty-override-1'));
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('20.000');
+    expect(screen.getByLabelText('line-amount-1').textContent).toContain('700.00');
+  });
+
+  it('the grouped summary rebuilds from the refetched lines using the existing grouping engine (no second engine)', async () => {
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ quantity: '20.000', quantity_overridden: true, amount: '700.00' }),
+    );
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([makeLine()]))
+      .mockResolvedValueOnce(
+        makeDetail([makeLine({ quantity: '20.000', quantity_overridden: true, amount: '700.00' })]),
+      );
+
+    function RefetchGroupedHarness() {
+      const [key, setKey] = useState<string | null>(PLANNED_SURFACE_KEY);
+      return (
+        <EstimateShell
+          estimate={makeSummary()}
+          onBack={vi.fn()}
+          selectedGroupKey={key}
+          onGroupKeyChange={setKey}
+        />
+      );
+    }
+
+    render(
+      <I18nProvider>
+        <RefetchGroupedHarness />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-quantity-1'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '20.000' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+    await waitFor(() => screen.getByLabelText('line-qty-override-1'));
+
+    fireEvent.click(screen.getByLabelText('estimate-detail-back'));
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('20.000');
+    expect(screen.getByLabelText('group-has-overrides-0')).toBeTruthy();
+  });
+});
+
+describe('Stage 10G.3A — cancel and error handling', () => {
+  it('Anuluj discards the edit without calling the API', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-quantity-1'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '999.000' } });
+    fireEvent.click(screen.getByLabelText('line-edit-cancel-1'));
+
+    expect(estimatesApi.patchEstimateLine).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('line-edit-panel-1')).toBeNull();
+    expect(screen.getByLabelText('line-edit-action-1')).toBeTruthy();
+  });
+
+  it('a PATCH failure (422) shows an inline error, keeps the drill-down and edit panel rendered, and does not blank the page', async () => {
+    vi.mocked(estimatesApi.patchEstimateLine).mockRejectedValue(new Error('quantity cannot be null'));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-quantity-1'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '20.000' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => screen.getByLabelText('line-edit-error-1'));
+    expect(screen.getByLabelText('line-edit-error-1').textContent).toBe('quantity cannot be null');
+    expect(screen.getByLabelText('line-edit-panel-1')).toBeTruthy();
+    expect(screen.getByLabelText('estimate-lines')).toBeTruthy();
+    // the previous authoritative quantity is preserved — no optimistic mutation
+    expect((screen.getByLabelText('line-edit-quantity-1') as HTMLInputElement).value).toBe('20.000');
+  });
+
+  it('a reset failure shows an inline error near that line without discarding the previous authoritative line data', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine({ quantity_overridden: true })]));
+    vi.mocked(estimatesApi.patchEstimateLine).mockRejectedValue(new Error('Estimate is not a DRAFT'));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-reset-quantity-1'));
+
+    await waitFor(() => screen.getByLabelText('line-edit-error-1'));
+    expect(screen.getByLabelText('line-edit-error-1').textContent).toBe('Estimate is not a DRAFT');
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.500');
+  });
+});
+
+describe('Stage 10G.3A — mobile UX', () => {
+  it('edit/save/cancel/reset controls all meet the 44px minimum touch target', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ quantity_overridden: true, price_override: true })]),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    expect(screen.getByLabelText('line-edit-action-1').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('line-reset-quantity-1').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('line-reset-price-1').className).toContain('min-h-[44px]');
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    await waitFor(() => screen.getByLabelText('line-edit-save-1'));
+    expect(screen.getByLabelText('line-edit-save-1').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('line-edit-cancel-1').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('line-edit-quantity-1').className).toContain('min-h-[44px]');
+  });
+
+  it('quantity and price inputs use inputMode="decimal" for mobile numeric keyboards', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const qtyInput = await waitFor(() => screen.getByLabelText('line-edit-quantity-1'));
+    const priceInput = screen.getByLabelText('line-edit-price-1');
+    expect(qtyInput.getAttribute('inputmode')).toBe('decimal');
+    expect(priceInput.getAttribute('inputmode')).toBe('decimal');
+  });
+});
+
+describe('Stage 10G.3A regression — existing 10G.2 UI untouched', () => {
+  it('the grouped summary view still renders groups with no edit controls leaking in', async () => {
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-group-0')).toBeTruthy();
+    expect(screen.queryByLabelText('line-edit-action-1')).toBeNull();
+  });
+
+  it('an atomic line not being edited still renders quantity/price/amount exactly as in 10G.2, with Edytuj alongside (not replacing) them', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.500');
+    expect(screen.getByLabelText('line-unit-price-1').textContent).toContain('35.00');
+    expect(screen.getByLabelText('line-amount-1').textContent).toContain('437.50');
+    expect(screen.getByLabelText('line-edit-action-1')).toBeTruthy();
+    expect(screen.queryByLabelText('line-edit-panel-1')).toBeNull();
+  });
+});
+
+// ─── Stage 10G.3A — group-level bulk price editing ────────────────────────────
+
+function renderGroupedShell(
+  lines: EstimateLineRead[] = [makeLine()],
+  summary: EstimateSummaryRead = makeSummary(),
+) {
+  vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail(lines, { status: summary.status }));
+  render(
+    <I18nProvider>
+      <EstimateShell estimate={summary} onBack={vi.fn()} selectedGroupKey={null} onGroupKeyChange={vi.fn()} />
+    </I18nProvider>,
+  );
+}
+
+describe('Stage 10G.3A — group price edit: visibility gating', () => {
+  it('a DRAFT group exposes the Opcje control', async () => {
+    renderGroupedShell();
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('group-options-0')).toBeTruthy();
+  });
+
+  it('does not expose Opcje for a FINAL estimate', async () => {
+    renderGroupedShell([makeLine()], makeSummary({ status: 'FINAL' }));
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.queryByLabelText('group-options-0')).toBeNull();
+  });
+
+  it('does not expose Opcje for an ACCEPTED estimate', async () => {
+    renderGroupedShell([makeLine()], makeSummary({ status: 'ACCEPTED' }));
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.queryByLabelText('group-options-0')).toBeNull();
+  });
+
+  it('does not expose Opcje for an ARCHIVED estimate', async () => {
+    renderGroupedShell([makeLine()], makeSummary({ status: 'ARCHIVED' }));
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.queryByLabelText('group-options-0')).toBeNull();
+  });
+
+  it('opening Opcje reveals the group price-edit action', async () => {
+    renderGroupedShell();
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    expect(screen.getByLabelText('group-price-edit-action-0')).toBeTruthy();
+  });
+
+  it('shows the reset-all action for a PLANNED_WORK group', async () => {
+    renderGroupedShell();
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    expect(screen.getByLabelText('group-reset-price-action-0')).toBeTruthy();
+  });
+
+  it('does not offer the reset-all action for a MANUAL group (no PriceBook source to restore from)', async () => {
+    renderGroupedShell([
+      makeLine({ origin: 'MANUAL', price_item_id: null, price_override: true }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    expect(screen.queryByLabelText('group-reset-price-action-0')).toBeNull();
+  });
+});
+
+describe('Stage 10G.3A — group price edit: exact targeting (group.lines only)', () => {
+  it('applies the price to exactly the 4 lines in the group, never to a same-description line outside the group', async () => {
+    const groupLines = [
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '35.00' }),
+      makeLine({ id: 'l3', position: 3, unit_price: '35.00' }),
+      makeLine({ id: 'l4', position: 4, unit_price: '35.00' }),
+    ];
+    const outsideLine = makeLine({
+      id: 'outside',
+      position: 5,
+      origin: 'MANUAL',
+      price_item_id: null,
+      description: groupLines[0].description,
+      unit_price: '35.00',
+    });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([...groupLines, outsideLine]));
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: '40.00', price_override: true }),
+    );
+    render(
+      <I18nProvider>
+        <EstimateShell estimate={makeSummary()} onBack={vi.fn()} selectedGroupKey={null} onGroupKeyChange={vi.fn()} />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '40.00' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+
+    await waitFor(() => expect(estimatesApi.patchEstimateLine).toHaveBeenCalledTimes(4));
+    const patchedIds = vi.mocked(estimatesApi.patchEstimateLine).mock.calls.map((call) => call[2]);
+    expect([...patchedIds].sort()).toEqual(['l1', 'l2', 'l3', 'l4']);
+    expect(patchedIds).not.toContain('outside');
+    for (const call of vi.mocked(estimatesApi.patchEstimateLine).mock.calls) {
+      expect(call[3]).toEqual({ unit_price: '40.00' });
+    }
+  });
+});
+
+describe('Stage 10G.3A — group price edit: prefill states', () => {
+  it('pre-fills the uniform unit_price when every line shares the same non-null price', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '35.00' }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    expect(input.value).toBe('35.00');
+    expect(screen.queryByLabelText('group-price-edit-mixed-0')).toBeNull();
+  });
+
+  it('starts in the unresolved state and hides the numeric input when every line has unit_price null', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: null, amount: null }),
+      makeLine({ id: 'l2', position: 2, unit_price: null, amount: null }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const toggle = (await waitFor(() => screen.getByLabelText('group-price-edit-unresolved-0'))) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    expect(screen.queryByLabelText('group-price-edit-value-0')).toBeNull();
+  });
+
+  it('shows an empty input and a "Różne ceny" indicator when group prices differ, without inventing a common value', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '40.00' }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    expect(input.value).toBe('');
+    expect(screen.getByLabelText('group-price-edit-mixed-0').textContent).toBe('Różne ceny');
+  });
+});
+
+describe('Stage 10G.3A — group price edit: numeric, zero, and NULL submission', () => {
+  it('submits the exact decimal string typed to every line in the group (no Number/parseFloat)', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '35.00' }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: '42.750', price_override: true }),
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '42.750' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+
+    await waitFor(() => expect(estimatesApi.patchEstimateLine).toHaveBeenCalledTimes(2));
+    for (const call of vi.mocked(estimatesApi.patchEstimateLine).mock.calls) {
+      expect(call[3]).toEqual({ unit_price: '42.750' });
+    }
+  });
+
+  it('sends unit_price "0.00" unchanged to every line, never as null', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '35.00' }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: '0.00', amount: '0.00', price_override: true }),
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '0.00' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+
+    await waitFor(() => expect(estimatesApi.patchEstimateLine).toHaveBeenCalledTimes(2));
+    for (const call of vi.mocked(estimatesApi.patchEstimateLine).mock.calls) {
+      expect(call[3]).toEqual({ unit_price: '0.00' });
+    }
+  });
+
+  it('applies explicit unit_price: null to every line when the "Cena do ustalenia" toggle is used', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '35.00' }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: null, amount: null, price_override: true }),
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const toggle = (await waitFor(() => screen.getByLabelText('group-price-edit-unresolved-0'))) as HTMLInputElement;
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+
+    await waitFor(() => expect(estimatesApi.patchEstimateLine).toHaveBeenCalledTimes(2));
+    for (const call of vi.mocked(estimatesApi.patchEstimateLine).mock.calls) {
+      expect(call[3]).toEqual({ unit_price: null });
+    }
+  });
+
+  it('rejects a non-numeric group price locally, without any network call', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '35.00' }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'abc' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+
+    await waitFor(() => screen.getByLabelText('group-price-edit-error-0'));
+    expect(estimatesApi.patchEstimateLine).not.toHaveBeenCalled();
+  });
+});
+
+describe('Stage 10G.3A — group reset-all prices', () => {
+  it('sends { reset_price_override: true } to every line in the group', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, price_override: true, unit_price: '40.00' }),
+      makeLine({ id: 'l2', position: 2, price_override: true, unit_price: '40.00' }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: '35.00', price_override: false }),
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-reset-price-action-0'));
+
+    await waitFor(() => expect(estimatesApi.patchEstimateLine).toHaveBeenCalledTimes(2));
+    for (const call of vi.mocked(estimatesApi.patchEstimateLine).mock.calls) {
+      expect(call[3]).toEqual({ reset_price_override: true });
+    }
+  });
+});
+
+describe('Stage 10G.3A — group price edit refetch', () => {
+  it('a successful group price edit refetches the Estimate detail rather than mutating local state', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1 }),
+      makeLine({ id: 'l2', position: 2 }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: '40.00', price_override: true }),
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '40.00' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+
+    await waitFor(() => expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(2));
+  });
+
+  it('a successful group price edit closes the editor panel', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1 }),
+      makeLine({ id: 'l2', position: 2 }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: '40.00', price_override: true }),
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '40.00' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+
+    await waitFor(() => expect(screen.queryByLabelText('group-price-edit-panel-0')).toBeNull());
+  });
+});
+
+describe('Stage 10G.3A — group price edit partial failure safety', () => {
+  it('stops after the first failed PATCH, never reports success, and refetches the authoritative Estimate', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1 }),
+      makeLine({ id: 'l2', position: 2 }),
+      makeLine({ id: 'l3', position: 3 }),
+      makeLine({ id: 'l4', position: 4 }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine)
+      .mockResolvedValueOnce(makeLine({ unit_price: '40.00', price_override: true }))
+      .mockResolvedValueOnce(makeLine({ unit_price: '40.00', price_override: true }))
+      .mockRejectedValueOnce(new Error('boom'));
+
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '40.00' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+
+    await waitFor(() => screen.getByLabelText('group-price-edit-error-0'));
+    // exactly 3 PATCH calls: 2 succeeded, the 3rd failed, the 4th was never attempted
+    expect(estimatesApi.patchEstimateLine).toHaveBeenCalledTimes(3);
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText('group-price-edit-error-0').textContent).toBe(
+      'Nie wszystkie pozycje zostały zaktualizowane. Sprawdź grupę i spróbuj ponownie.',
+    );
+    // the editor stays open and recoverable — no silent frontend rollback, no false success
+    expect(screen.getByLabelText('group-price-edit-panel-0')).toBeTruthy();
+    expect((screen.getByLabelText('group-price-edit-value-0') as HTMLInputElement).value).toBe('40.00');
+  });
+
+  it('a reset-all partial failure also refetches and shows an inline error without closing the group options', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, price_override: true }),
+      makeLine({ id: 'l2', position: 2, price_override: true }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine)
+      .mockResolvedValueOnce(makeLine({ unit_price: '35.00', price_override: false }))
+      .mockRejectedValueOnce(new Error('boom'));
+
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-reset-price-action-0'));
+
+    await waitFor(() => screen.getByLabelText('group-price-edit-error-0'));
+    expect(estimatesApi.patchEstimateLine).toHaveBeenCalledTimes(2);
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText('group-reset-price-action-0')).toBeTruthy();
+  });
+});
+
+describe('Stage 10G.3A — no group quantity editing', () => {
+  it('the group options panel never exposes a quantity input or a quantity-edit action', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1 }),
+      makeLine({ id: 'l2', position: 2 }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const panel = await waitFor(() => screen.getByLabelText('group-price-edit-panel-0'));
+    expect(within(panel).queryByLabelText(/quantity/i)).toBeNull();
+    expect(within(panel).queryAllByRole('textbox').length).toBe(1); // only the price value input
+  });
+});
+
+describe('Stage 10G.3A — individual overrides remain possible after a group edit', () => {
+  it('when the refetch shows one differing overridden line, the group summary is represented as mixed, not the old uniform price', async () => {
+    const mixedLines = [
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00', price_override: false }),
+      makeLine({ id: 'l2', position: 2, unit_price: '40.00', price_override: true }),
+      makeLine({ id: 'l3', position: 3, unit_price: '35.00', price_override: false }),
+      makeLine({ id: 'l4', position: 4, unit_price: '35.00', price_override: false }),
+    ];
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail(mixedLines));
+    const { unmount } = render(
+      <I18nProvider>
+        <EstimateShell estimate={makeSummary()} onBack={vi.fn()} selectedGroupKey={null} onGroupKeyChange={vi.fn()} />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+
+    expect(screen.queryByLabelText('group-unit-price-0')).toBeNull();
+    expect(screen.getByLabelText('group-has-overrides-0')).toBeTruthy();
+    unmount();
+
+    // Drilling into the same group (selectedGroupKey preset, as the parent
+    // screen would do after onGroupKeyChange) still allows an atomic edit.
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail(mixedLines));
+    render(
+      <I18nProvider>
+        <EstimateShell
+          estimate={makeSummary()}
+          onBack={vi.fn()}
+          selectedGroupKey={PLANNED_SURFACE_KEY}
+          onGroupKeyChange={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-edit-action-2')).toBeTruthy();
+  });
+});
+
+describe('Stage 10G.3A — group price edit mobile touch targets', () => {
+  it('Opcje, set-price, reset, save, cancel, and the input all meet the 44px minimum', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1 }),
+      makeLine({ id: 'l2', position: 2 }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+
+    expect(screen.getByLabelText('group-options-0').className).toContain('min-h-[44px]');
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    expect(screen.getByLabelText('group-price-edit-action-0').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('group-reset-price-action-0').className).toContain('min-h-[44px]');
+
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    await waitFor(() => screen.getByLabelText('group-price-edit-save-0'));
+    expect(screen.getByLabelText('group-price-edit-save-0').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('group-price-edit-cancel-0').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('group-price-edit-value-0').className).toContain('min-h-[44px]');
+  });
+});
+
+describe('Stage 10G.3A — group price edit Russian localization', () => {
+  it('shows RU labels for Opcje, set-price, reset-all, and the mixed-price indicator', async () => {
+    localStorage.setItem('locale', 'ru');
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '40.00' }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+
+    expect(screen.getByLabelText('group-options-0').textContent).toBe('Опции');
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    expect(screen.getByLabelText('group-price-edit-action-0').textContent).toBe('Установить цену для всех');
+    expect(screen.getByLabelText('group-reset-price-action-0').textContent).toBe('Восстановить цены из прайса');
+
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    await waitFor(() => screen.getByLabelText('group-price-edit-mixed-0'));
+    expect(screen.getByLabelText('group-price-edit-mixed-0').textContent).toBe('Разные цены');
+  });
+});
+
+describe('Stage 10G.3A — group price edit cancel', () => {
+  it('Anuluj discards the group edit without calling the API', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '35.00' }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '999.00' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-cancel-0'));
+
+    expect(estimatesApi.patchEstimateLine).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('group-price-edit-panel-0')).toBeNull();
+  });
+});
+
+// ─── Stage 10G.3A final polish — header action placement ─────────────────────
+
+describe('Stage 10G.3A polish — group Opcje placement (upper-right, beside header)', () => {
+  it('Opcje remains available and sits as a sibling of the drill-down button in the same header row', async () => {
+    renderGroupedShell([makeLine({ id: 'l1', position: 1 }), makeLine({ id: 'l2', position: 2 })]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+
+    const opcje = screen.getByLabelText('group-options-0');
+    const drilldown = screen.getByLabelText('estimate-group-0');
+    expect(opcje.parentElement).toBe(drilldown.parentElement);
+    expect(opcje.parentElement?.className).toContain('flex');
+    expect(opcje.parentElement?.className).toContain('items-start');
+  });
+
+  it('Opcje still opens the existing group price-edit and reset-all actions unchanged', async () => {
+    renderGroupedShell([makeLine({ id: 'l1', position: 1 }), makeLine({ id: 'l2', position: 2 })]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    expect(screen.getByLabelText('group-price-edit-action-0')).toBeTruthy();
+    expect(screen.getByLabelText('group-reset-price-action-0')).toBeTruthy();
+    expect(screen.getByLabelText('group-options-close-0')).toBeTruthy();
+  });
+
+  it('does not render Opcje for a FINAL estimate (DRAFT-only gating preserved)', async () => {
+    renderGroupedShell([makeLine()], makeSummary({ status: 'FINAL' }));
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.queryByLabelText('group-options-0')).toBeNull();
+  });
+
+  it('a long PL description wraps instead of forcing horizontal overflow, and Opcje stays beside it without overlapping', async () => {
+    const longDescription =
+      'Bardzo długa nazwa pracy renowacyjnej opisująca wiele szczegółów technicznych i wymagań podłoża '.repeat(2);
+    renderGroupedShell([makeLine({ description: longDescription })]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+
+    const desc = screen.getByLabelText('group-description-0');
+    expect(desc.className).toContain('break-words');
+    expect(desc.className).toContain('min-w-0');
+    expect(screen.getByLabelText('estimate-group-0').className).toContain('min-w-0');
+    expect(screen.getByLabelText('estimate-group-0').className).toContain('flex-1');
+    expect(screen.getByLabelText('group-options-0').className).toContain('shrink-0');
+  });
+});
+
+describe('Stage 10G.3A polish — atomic Edytuj placement (upper-right, beside header badges)', () => {
+  it('Edytuj remains available and sits in the same header row as the badges, right-aligned via justify-between', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    const edit = screen.getByLabelText('line-edit-action-1');
+    const origin = screen.getByLabelText('line-origin-1');
+    const headerRow = edit.parentElement;
+    expect(headerRow?.className).toContain('justify-between');
+    expect(headerRow?.contains(origin)).toBe(true);
+  });
+
+  it('does not render Edytuj while the line is being edited (edit panel takes its place)', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    await waitFor(() => screen.getByLabelText('line-edit-panel-1'));
+    expect(screen.queryByLabelText('line-edit-action-1')).toBeNull();
+  });
+
+  it('does not render Edytuj for a FINAL estimate (DRAFT-only gating preserved)', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'FINAL' }));
+    renderShell(makeSummary({ status: 'FINAL' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('line-edit-action-1')).toBeNull();
+  });
+
+  it('a line with no overrides and not being edited renders no leftover footer controls', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('line-edit-panel-1')).toBeNull();
+    expect(screen.queryByLabelText('line-reset-quantity-1')).toBeNull();
+    expect(screen.queryByLabelText('line-reset-price-1')).toBeNull();
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.500');
+  });
+
+  it('a long PL description wraps and Edytuj stays available without overlapping the badges', async () => {
+    const longDescription =
+      'Bardzo długa nazwa pozycji kosztorysowej opisująca szczegółowo zakres prac i materiały '.repeat(2);
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine({ description: longDescription })]));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    const desc = screen.getByLabelText('line-description-1');
+    expect(desc.className).toContain('break-words');
+    expect(desc.className).toContain('min-w-0');
+    expect(screen.getByLabelText('line-edit-action-1').className).toContain('shrink-0');
+  });
+});
+
+describe('Stage 10G.3A polish — regression: all previously accepted behavior unchanged', () => {
+  it('group price edit end-to-end flow still works from the relocated Opcje trigger', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '35.00' }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: '40.00', price_override: true }),
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '40.00' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+
+    await waitFor(() => expect(estimatesApi.patchEstimateLine).toHaveBeenCalledTimes(2));
+    for (const call of vi.mocked(estimatesApi.patchEstimateLine).mock.calls) {
+      expect(call[3]).toEqual({ unit_price: '40.00' });
+    }
+  });
+
+  it('atomic edit end-to-end flow still works from the relocated Edytuj trigger', async () => {
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ quantity: '13.750', quantity_overridden: true }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-quantity-1'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '13.750' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { quantity: '13.750' },
+      );
+    });
   });
 });

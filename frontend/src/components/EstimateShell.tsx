@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getEstimate } from '../api/estimates';
+import { getEstimate, patchEstimateLine } from '../api/estimates';
 import { useI18n } from '../hooks/useI18n';
-import type { EstimateLineRead, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue } from '../types/estimate';
+import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue } from '../types/estimate';
 import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatDecimalMoney } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
@@ -58,6 +58,14 @@ function surfaceCardTint(surfaceId: string | null): { bg: string; border: string
   if (surfaceId === null) return NEUTRAL_CARD_TINT;
   return SURFACE_TINT_PALETTE[hashSurfaceId(surfaceId) % SURFACE_TINT_PALETTE.length];
 }
+
+// Client-side shape guard only — never converts to Number. The backend
+// remains the sole authority on whether a decimal string is acceptable.
+function isValidDecimalString(value: string): boolean {
+  return /^\d+(\.\d+)?$/.test(value.trim());
+}
+
+type PriceEditMode = 'value' | 'unresolved';
 
 function getGroupKey(line: EstimateLineRead): string {
   if (line.origin === 'MANUAL' || line.price_item_id === null) {
@@ -138,6 +146,193 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Stage 10G.3A — atomic line editing state. One line editable at a time;
+  // the backend EstimateLine remains authoritative — every successful
+  // mutation triggers a full refetch rather than a local/optimistic patch.
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [editQuantity, setEditQuantity] = useState('');
+  const [editPriceMode, setEditPriceMode] = useState<PriceEditMode>('value');
+  const [editUnitPrice, setEditUnitPrice] = useState('');
+  const [actionBusyLineId, setActionBusyLineId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{ lineId: string; message: string } | null>(null);
+
+  const beginEdit = (line: EstimateLineRead) => {
+    setEditingLineId(line.id);
+    setEditQuantity(line.quantity);
+    setEditPriceMode(line.unit_price === null ? 'unresolved' : 'value');
+    setEditUnitPrice(line.unit_price ?? '');
+    setActionError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingLineId(null);
+    setEditQuantity('');
+    setEditPriceMode('value');
+    setEditUnitPrice('');
+    setActionError(null);
+  };
+
+  const submitEdit = async (line: EstimateLineRead) => {
+    const payload: EstimateLineUpdatePayload = {};
+
+    if (editQuantity !== line.quantity) {
+      if (!isValidDecimalString(editQuantity)) {
+        setActionError({ lineId: line.id, message: t.estimates.line_edit_invalid_number });
+        return;
+      }
+      payload.quantity = editQuantity;
+    }
+
+    if (editPriceMode === 'unresolved') {
+      if (line.unit_price !== null) payload.unit_price = null;
+    } else {
+      const currentPrice = line.unit_price ?? '';
+      if (editUnitPrice !== currentPrice) {
+        if (!isValidDecimalString(editUnitPrice)) {
+          setActionError({ lineId: line.id, message: t.estimates.line_edit_invalid_number });
+          return;
+        }
+        payload.unit_price = editUnitPrice;
+      }
+    }
+
+    if (Object.keys(payload).length === 0) {
+      cancelEdit();
+      return;
+    }
+
+    setActionBusyLineId(line.id);
+    setActionError(null);
+    try {
+      await patchEstimateLine(estimate.project_id, estimate.id, line.id, payload);
+      await load();
+      cancelEdit();
+    } catch (err) {
+      setActionError({
+        lineId: line.id,
+        message: err instanceof Error ? err.message : t.estimates.line_edit_error,
+      });
+    } finally {
+      setActionBusyLineId(null);
+    }
+  };
+
+  const submitReset = async (line: EstimateLineRead, field: 'quantity' | 'price') => {
+    setActionBusyLineId(line.id);
+    setActionError(null);
+    try {
+      await patchEstimateLine(
+        estimate.project_id,
+        estimate.id,
+        line.id,
+        field === 'quantity' ? { reset_quantity_override: true } : { reset_price_override: true },
+      );
+      await load();
+    } catch (err) {
+      setActionError({
+        lineId: line.id,
+        message: err instanceof Error ? err.message : t.estimates.line_edit_error,
+      });
+    } finally {
+      setActionBusyLineId(null);
+    }
+  };
+
+  // Stage 10G.3A — group-level bulk price editing. There is no bulk/
+  // transactional backend endpoint: this reuses the existing atomic PATCH
+  // EstimateLine call once per line in group.lines (the authoritative,
+  // already-accepted 10G.2 grouping key — never a text/description search).
+  // The loop stops on the first failure so a partial group update is never
+  // reported as a full success; every attempt (success or failure) refetches
+  // the authoritative Estimate afterward.
+  const [optionsOpenGroupKey, setOptionsOpenGroupKey] = useState<string | null>(null);
+  const [editingGroupPriceKey, setEditingGroupPriceKey] = useState<string | null>(null);
+  const [groupPriceMode, setGroupPriceMode] = useState<PriceEditMode>('value');
+  const [groupUnitPrice, setGroupUnitPrice] = useState('');
+  const [groupPriceMixed, setGroupPriceMixed] = useState(false);
+  const [groupActionBusyKey, setGroupActionBusyKey] = useState<string | null>(null);
+  const [groupActionError, setGroupActionError] = useState<{ groupKey: string; message: string } | null>(null);
+
+  const closeGroupOptions = (groupKey: string) => {
+    setOptionsOpenGroupKey(null);
+    if (editingGroupPriceKey === groupKey) {
+      setEditingGroupPriceKey(null);
+      setGroupUnitPrice('');
+      setGroupPriceMode('value');
+      setGroupPriceMixed(false);
+      setGroupActionError(null);
+    }
+  };
+
+  const beginGroupPriceEdit = (group: EstimateGroup) => {
+    const prices = group.lines.map((l) => l.unit_price);
+    const uniquePrices = new Set(prices);
+    if (uniquePrices.size === 1) {
+      const value = prices[0];
+      setGroupPriceMode(value === null ? 'unresolved' : 'value');
+      setGroupUnitPrice(value ?? '');
+      setGroupPriceMixed(false);
+    } else {
+      setGroupPriceMode('value');
+      setGroupUnitPrice('');
+      setGroupPriceMixed(true);
+    }
+    setEditingGroupPriceKey(group.key);
+    setGroupActionError(null);
+  };
+
+  const cancelGroupPriceEdit = () => {
+    setEditingGroupPriceKey(null);
+    setGroupUnitPrice('');
+    setGroupPriceMode('value');
+    setGroupPriceMixed(false);
+    setGroupActionError(null);
+  };
+
+  const submitGroupPriceEdit = async (group: EstimateGroup) => {
+    let payload: EstimateLineUpdatePayload;
+    if (groupPriceMode === 'unresolved') {
+      payload = { unit_price: null };
+    } else {
+      if (!isValidDecimalString(groupUnitPrice)) {
+        setGroupActionError({ groupKey: group.key, message: t.estimates.line_edit_invalid_number });
+        return;
+      }
+      payload = { unit_price: groupUnitPrice };
+    }
+
+    setGroupActionBusyKey(group.key);
+    setGroupActionError(null);
+    try {
+      for (const line of group.lines) {
+        await patchEstimateLine(estimate.project_id, estimate.id, line.id, payload);
+      }
+      await load();
+      cancelGroupPriceEdit();
+    } catch {
+      await load();
+      setGroupActionError({ groupKey: group.key, message: t.estimates.group_bulk_partial_failure });
+    } finally {
+      setGroupActionBusyKey(null);
+    }
+  };
+
+  const submitGroupPriceReset = async (group: EstimateGroup) => {
+    setGroupActionBusyKey(group.key);
+    setGroupActionError(null);
+    try {
+      for (const line of group.lines) {
+        await patchEstimateLine(estimate.project_id, estimate.id, line.id, { reset_price_override: true });
+      }
+      await load();
+    } catch {
+      await load();
+      setGroupActionError({ groupKey: group.key, message: t.estimates.group_bulk_partial_failure });
+    } finally {
+      setGroupActionBusyKey(null);
+    }
+  };
 
   const statusLabel = (status: EstimateStatusValue): string => {
     const labels: Record<EstimateStatusValue, string> = {
@@ -323,32 +518,56 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           {linesToShow.map((line) => {
             const compactProvenance = compactProvenanceLabel(line);
             const tint = surfaceCardTint(line.surface_id);
+            // Stage 10G.3A polish — the footer (edit panel / error / reset
+            // buttons) only renders when it has something to show, so a
+            // DRAFT line with no overrides and not mid-edit never leaves a
+            // stray empty bordered strip now that Edytuj lives in the header.
+            const hasDraftFooterContent =
+              editingLineId === line.id ||
+              (actionError !== null && actionError.lineId === line.id) ||
+              line.quantity_overridden ||
+              (line.price_override && line.origin !== 'MANUAL');
             return (
               <div
                 key={line.id}
                 aria-label={`estimate-line-${line.position}`}
                 className={`${tint.bg} border ${tint.border} rounded-2xl p-3 shadow-sm space-y-1.5`}
               >
-                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  <span
-                    aria-label={`line-origin-${line.position}`}
-                    className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium shrink-0"
-                  >
-                    {originLabel(line)}
-                  </span>
-                  <span
-                    aria-label={`line-scope-${line.position}`}
-                    className="text-xs px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200 shrink-0"
-                  >
-                    {scopeLabel(line.scope)}
-                  </span>
-                  {compactProvenance !== null && (
+                <div className="flex items-start justify-between gap-1.5 flex-wrap min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
                     <span
-                      aria-label={`line-provenance-${line.position}`}
-                      className="text-xs text-slate-500 break-words min-w-0"
+                      aria-label={`line-origin-${line.position}`}
+                      className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium shrink-0"
                     >
-                      {compactProvenance}
+                      {originLabel(line)}
                     </span>
+                    <span
+                      aria-label={`line-scope-${line.position}`}
+                      className="text-xs px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200 shrink-0"
+                    >
+                      {scopeLabel(line.scope)}
+                    </span>
+                    {compactProvenance !== null && (
+                      <span
+                        aria-label={`line-provenance-${line.position}`}
+                        className="text-xs text-slate-500 break-words min-w-0"
+                      >
+                        {compactProvenance}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Stage 10G.3A polish — Edytuj sits top-right, beside the
+                      badge/provenance header, per owner-approved placement. */}
+                  {detail.status === 'DRAFT' && editingLineId !== line.id && (
+                    <button
+                      type="button"
+                      aria-label={`line-edit-action-${line.position}`}
+                      onClick={() => beginEdit(line)}
+                      className="shrink-0 min-h-[44px] px-3 text-xs font-medium text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"
+                    >
+                      {t.estimates.line_edit_action}
+                    </button>
                   )}
                 </div>
 
@@ -399,6 +618,124 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                     {t.estimates.price_overridden}
                   </p>
                 )}
+
+                {/* Stage 10G.3A — draft-only editing. Never rendered (not just
+                    disabled) once the estimate leaves DRAFT. Edytuj itself now
+                    lives in the header row above; this footer only appears
+                    when it has something to show (mid-edit, an error, or a
+                    reset action). */}
+                {detail.status === 'DRAFT' && hasDraftFooterContent && (
+                  <div className="pt-1.5 space-y-1.5 border-t border-slate-200/70">
+                    {editingLineId === line.id ? (
+                      <div aria-label={`line-edit-panel-${line.position}`} className="space-y-2">
+                        <label className="block text-xs text-slate-500">
+                          <span className="block mb-0.5">{t.estimates.line_edit_quantity_label}</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              aria-label={`line-edit-quantity-${line.position}`}
+                              value={editQuantity}
+                              onChange={(e) => setEditQuantity(e.target.value)}
+                              className="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+                            />
+                            <span className="text-slate-400 shrink-0">{line.unit}</span>
+                          </div>
+                        </label>
+
+                        <div className="text-xs text-slate-500 space-y-1.5">
+                          <span className="block">{t.estimates.line_edit_price_label}</span>
+                          <label className="flex items-center gap-2 min-h-[44px]">
+                            <input
+                              type="checkbox"
+                              aria-label={`line-edit-price-unresolved-${line.position}`}
+                              checked={editPriceMode === 'unresolved'}
+                              onChange={(e) => setEditPriceMode(e.target.checked ? 'unresolved' : 'value')}
+                              className="w-5 h-5 shrink-0"
+                            />
+                            <span>{t.estimates.line_edit_price_unresolved}</span>
+                          </label>
+                          {editPriceMode === 'value' && (
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              aria-label={`line-edit-price-${line.position}`}
+                              value={editUnitPrice}
+                              onChange={(e) => setEditUnitPrice(e.target.value)}
+                              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+                            />
+                          )}
+                        </div>
+
+                        {actionError !== null && actionError.lineId === line.id && (
+                          <p
+                            role="alert"
+                            aria-label={`line-edit-error-${line.position}`}
+                            className="text-xs text-red-600 break-words min-w-0"
+                          >
+                            {actionError.message}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            aria-label={`line-edit-save-${line.position}`}
+                            onClick={() => void submitEdit(line)}
+                            disabled={actionBusyLineId === line.id}
+                            className="flex-1 min-h-[44px] bg-blue-600 text-white text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+                          >
+                            {actionBusyLineId === line.id ? t.estimates.line_edit_saving : t.estimates.line_edit_save}
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`line-edit-cancel-${line.position}`}
+                            onClick={cancelEdit}
+                            disabled={actionBusyLineId === line.id}
+                            className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+                          >
+                            {t.estimates.line_edit_cancel}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {editingLineId !== line.id && actionError !== null && actionError.lineId === line.id && (
+                      <p
+                        role="alert"
+                        aria-label={`line-edit-error-${line.position}`}
+                        className="text-xs text-red-600 break-words min-w-0"
+                      >
+                        {actionError.message}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {line.quantity_overridden && (
+                        <button
+                          type="button"
+                          aria-label={`line-reset-quantity-${line.position}`}
+                          onClick={() => void submitReset(line, 'quantity')}
+                          disabled={actionBusyLineId === line.id}
+                          className="min-h-[44px] px-3 text-xs font-medium text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-50 disabled:opacity-60"
+                        >
+                          {t.estimates.line_reset_quantity}
+                        </button>
+                      )}
+                      {line.price_override && line.origin !== 'MANUAL' && (
+                        <button
+                          type="button"
+                          aria-label={`line-reset-price-${line.position}`}
+                          onClick={() => void submitReset(line, 'price')}
+                          disabled={actionBusyLineId === line.id}
+                          className="min-h-[44px] px-3 text-xs font-medium text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-50 disabled:opacity-60"
+                        >
+                          {t.estimates.line_reset_price}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -413,80 +750,234 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
       {header}
 
       <div aria-label="estimate-groups" className="space-y-2">
-        {groups.map((group, index) => (
-          <button
-            key={group.key}
-            type="button"
-            aria-label={`estimate-group-${index}`}
-            onClick={() => onGroupKeyChange(group.key)}
-            className="w-full bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-1.5 text-left hover:bg-slate-50 transition min-h-[44px]"
-          >
-            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-              <span
-                aria-label={`group-origin-${index}`}
-                className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium shrink-0"
-              >
-                {originLabelFromGroup(group)}
-              </span>
-              <span
-                aria-label={`group-scope-${index}`}
-                className="text-xs px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200 shrink-0"
-              >
-                {scopeLabel(group.scope)}
-              </span>
-            </div>
+        {groups.map((group, index) => {
+          const supportsPriceReset = group.origin !== 'MANUAL';
+          const optionsOpen = optionsOpenGroupKey === group.key;
+          const isGroupBusy = groupActionBusyKey === group.key;
 
-            <p
-              aria-label={`group-description-${index}`}
-              className="text-sm font-medium text-slate-900 break-words min-w-0"
+          return (
+            <div
+              key={group.key}
+              className="bg-white border border-slate-200 rounded-2xl shadow-sm p-3 space-y-1.5"
             >
-              {resolveKey(t, group.rawDescription)}
-            </p>
+              {/* Stage 10G.3A polish — Opcje sits top-right, beside the
+                  work title/header, per owner-approved placement. The
+                  drill-down button carries the rest of the card content;
+                  items-start keeps Opcje pinned to the top even when the
+                  title wraps to multiple lines. */}
+              <div className="flex items-start gap-2">
+                <button
+                  type="button"
+                  aria-label={`estimate-group-${index}`}
+                  onClick={() => onGroupKeyChange(group.key)}
+                  className="flex-1 min-w-0 space-y-1.5 text-left hover:bg-slate-50 transition min-h-[44px] rounded-lg"
+                >
+                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                    <span
+                      aria-label={`group-origin-${index}`}
+                      className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium shrink-0"
+                    >
+                      {originLabelFromGroup(group)}
+                    </span>
+                    <span
+                      aria-label={`group-scope-${index}`}
+                      className="text-xs px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200 shrink-0"
+                    >
+                      {scopeLabel(group.scope)}
+                    </span>
+                  </div>
 
-            <div className="text-xs text-slate-600 space-y-0.5">
-              {group.quantity !== null && (
-                <div className="flex items-baseline gap-1 flex-wrap min-w-0">
-                  <span aria-label={`group-quantity-${index}`} className="shrink-0">
-                    {group.quantity} {group.unit}
-                  </span>
-                  {group.unitPrice !== null && (
-                    <>
-                      <span className="text-slate-400 shrink-0">×</span>
-                      <span aria-label={`group-unit-price-${index}`} className="shrink-0">
-                        {formatDecimalMoney(group.unitPrice)} {group.currency}
+                  <p
+                    aria-label={`group-description-${index}`}
+                    className="text-sm font-medium text-slate-900 break-words min-w-0"
+                  >
+                    {resolveKey(t, group.rawDescription)}
+                  </p>
+
+                  <div className="text-xs text-slate-600 space-y-0.5">
+                    {group.quantity !== null && (
+                      <div className="flex items-baseline gap-1 flex-wrap min-w-0">
+                        <span aria-label={`group-quantity-${index}`} className="shrink-0">
+                          {group.quantity} {group.unit}
+                        </span>
+                        {group.unitPrice !== null && (
+                          <>
+                            <span className="text-slate-400 shrink-0">×</span>
+                            <span aria-label={`group-unit-price-${index}`} className="shrink-0">
+                              {formatDecimalMoney(group.unitPrice)} {group.currency}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <div className="font-semibold text-slate-800">
+                      <span aria-label={`group-amount-${index}`}>
+                        {group.amount !== null
+                          ? `${formatDecimalMoney(group.amount)} ${group.currency}`
+                          : '—'}
                       </span>
-                    </>
+                    </div>
+                  </div>
+
+                  {group.lineCount > 1 && (
+                    <p
+                      aria-label={`group-line-count-${index}`}
+                      className="text-xs text-slate-400"
+                    >
+                      {group.lineCount} {t.estimates.group_lines_count}
+                    </p>
+                  )}
+
+                  {group.hasOverrides && (
+                    <p
+                      aria-label={`group-has-overrides-${index}`}
+                      className="text-xs text-amber-700 pt-0.5"
+                    >
+                      {t.estimates.group_has_overrides}
+                    </p>
+                  )}
+                </button>
+
+                {detail.status === 'DRAFT' && !optionsOpen && (
+                  <button
+                    type="button"
+                    aria-label={`group-options-${index}`}
+                    onClick={() => setOptionsOpenGroupKey(group.key)}
+                    className="shrink-0 min-h-[44px] px-3 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50"
+                  >
+                    {t.estimates.group_options}
+                  </button>
+                )}
+              </div>
+
+              {/* Stage 10G.3A — group-level price actions panel. DRAFT-only,
+                  hidden behind "Opcje" progressive disclosure per the field-
+                  usage principle (avoid cluttering the grouped card). */}
+              {detail.status === 'DRAFT' && optionsOpen && (
+                <div
+                  aria-label={`group-options-panel-${index}`}
+                  className="space-y-1.5 pt-1.5 border-t border-slate-200/70"
+                >
+                  <button
+                    type="button"
+                    aria-label={`group-price-edit-action-${index}`}
+                    onClick={() => beginGroupPriceEdit(group)}
+                    className="w-full min-h-[44px] px-3 text-xs font-medium text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"
+                  >
+                    {t.estimates.group_price_edit_action}
+                  </button>
+
+                  {supportsPriceReset && (
+                    <button
+                      type="button"
+                      aria-label={`group-reset-price-action-${index}`}
+                      onClick={() => void submitGroupPriceReset(group)}
+                      disabled={isGroupBusy}
+                      className="w-full min-h-[44px] px-3 text-xs font-medium text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-50 disabled:opacity-60"
+                    >
+                      {isGroupBusy ? t.estimates.group_reset_price_saving : t.estimates.group_reset_price_action}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    aria-label={`group-options-close-${index}`}
+                    onClick={() => closeGroupOptions(group.key)}
+                    className="w-full min-h-[44px] px-3 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50"
+                  >
+                    {t.estimates.group_options_close}
+                  </button>
+
+                  {/* Visible for both the bulk price-edit panel below and
+                      the direct reset-all action above, since a
+                      partial-failure error can originate from either. */}
+                  {editingGroupPriceKey !== group.key &&
+                    groupActionError !== null &&
+                    groupActionError.groupKey === group.key && (
+                      <p
+                        role="alert"
+                        aria-label={`group-price-edit-error-${index}`}
+                        className="text-xs text-red-600 break-words min-w-0"
+                      >
+                        {groupActionError.message}
+                      </p>
+                    )}
+
+                  {editingGroupPriceKey === group.key && (
+                    <div
+                      aria-label={`group-price-edit-panel-${index}`}
+                      className="space-y-2 pt-1.5 border-t border-slate-200/70"
+                    >
+                      <p className="text-xs text-slate-500">{t.estimates.group_price_edit_title}</p>
+
+                      {groupPriceMixed && groupPriceMode === 'value' && (
+                        <p
+                          aria-label={`group-price-edit-mixed-${index}`}
+                          className="text-xs text-amber-700"
+                        >
+                          {t.estimates.group_price_edit_mixed}
+                        </p>
+                      )}
+
+                      <label className="flex items-center gap-2 min-h-[44px]">
+                        <input
+                          type="checkbox"
+                          aria-label={`group-price-edit-unresolved-${index}`}
+                          checked={groupPriceMode === 'unresolved'}
+                          onChange={(e) => setGroupPriceMode(e.target.checked ? 'unresolved' : 'value')}
+                          className="w-5 h-5 shrink-0"
+                        />
+                        <span className="text-xs text-slate-500">{t.estimates.group_price_edit_unresolved}</span>
+                      </label>
+
+                      {groupPriceMode === 'value' && (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          aria-label={`group-price-edit-value-${index}`}
+                          value={groupUnitPrice}
+                          onChange={(e) => setGroupUnitPrice(e.target.value)}
+                          className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+                        />
+                      )}
+
+                      {groupActionError !== null && groupActionError.groupKey === group.key && (
+                        <p
+                          role="alert"
+                          aria-label={`group-price-edit-error-${index}`}
+                          className="text-xs text-red-600 break-words min-w-0"
+                        >
+                          {groupActionError.message}
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          aria-label={`group-price-edit-save-${index}`}
+                          onClick={() => void submitGroupPriceEdit(group)}
+                          disabled={isGroupBusy}
+                          className="flex-1 min-h-[44px] bg-blue-600 text-white text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+                        >
+                          {isGroupBusy ? t.estimates.group_price_edit_saving : t.estimates.group_price_edit_save}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`group-price-edit-cancel-${index}`}
+                          onClick={cancelGroupPriceEdit}
+                          disabled={isGroupBusy}
+                          className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+                        >
+                          {t.estimates.group_price_edit_cancel}
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
-              <div className="font-semibold text-slate-800">
-                <span aria-label={`group-amount-${index}`}>
-                  {group.amount !== null
-                    ? `${formatDecimalMoney(group.amount)} ${group.currency}`
-                    : '—'}
-                </span>
-              </div>
             </div>
-
-            {group.lineCount > 1 && (
-              <p
-                aria-label={`group-line-count-${index}`}
-                className="text-xs text-slate-400"
-              >
-                {group.lineCount} {t.estimates.group_lines_count}
-              </p>
-            )}
-
-            {group.hasOverrides && (
-              <p
-                aria-label={`group-has-overrides-${index}`}
-                className="text-xs text-amber-700 pt-0.5"
-              >
-                {t.estimates.group_has_overrides}
-              </p>
-            )}
-          </button>
-        ))}
+          );
+        })}
       </div>
     </article>
   );
