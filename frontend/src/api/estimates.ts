@@ -1,4 +1,4 @@
-import { EstimateLineRead, EstimateLineUpdatePayload, EstimateListResponse, EstimateRead, EstimateSummaryRead } from '../types/estimate';
+import { EstimateLineRead, EstimateLineUpdatePayload, EstimateListResponse, EstimateRead, EstimateSummaryRead, RegenerationPreviewResponse } from '../types/estimate';
 import { apiRequest } from './http';
 
 function estimatesPath(projectId: string): string {
@@ -29,5 +29,28 @@ export function patchEstimateLine(
   return apiRequest(`${estimatesPath(projectId)}/${estimateId}/lines/${lineId}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
+  });
+}
+
+// Stage 10G.3B — read-only diff of what regeneration would change. Never
+// mutates the estimate (Stage 10E contract); no request body.
+export function previewEstimateRegeneration(
+  projectId: string,
+  estimateId: string,
+): Promise<RegenerationPreviewResponse> {
+  return apiRequest(`${estimatesPath(projectId)}/${estimateId}/regenerate-preview`, {
+    method: 'POST',
+  });
+}
+
+// Stage 10G.3B — explicitly confirmed regeneration; re-derives planned lines
+// in-place on the DRAFT estimate, preserving quantity/price overrides per
+// the existing Stage 10F backend contract. No request body.
+export function regenerateEstimate(
+  projectId: string,
+  estimateId: string,
+): Promise<RegenerationPreviewResponse> {
+  return apiRequest(`${estimatesPath(projectId)}/${estimateId}/regenerate`, {
+    method: 'POST',
   });
 }

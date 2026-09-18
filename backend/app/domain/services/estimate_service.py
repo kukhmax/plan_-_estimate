@@ -30,10 +30,14 @@ from app.domain.exceptions import (
 )
 from app.domain.rules.room_geometry import (
     AREA_PRECISION,
+    calculate_plane_base_area,
+    calculate_plane_totals,
     calculate_reveal,
+    calculate_segment_area,
     calculate_surface_gross_area,
     calculate_wall_net_area,
 )
+from app.models.area_segment import AreaPlane, AreaSegment
 from app.models.estimate import (
     Estimate,
     EstimateLine,
@@ -46,7 +50,7 @@ from app.models.opening_reveal_planned_work import OpeningRevealPlannedWork
 from app.models.price_item import PriceItem, PriceUnit
 from app.models.project import Project
 from app.models.room import Room
-from app.models.surface import Surface
+from app.models.surface import Surface, SurfaceType
 from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
 
 _AMOUNT_PRECISION = Decimal("0.01")
@@ -70,6 +74,17 @@ class LineChangeEntry:
     new_unit_price: Decimal | None
     quantity_overridden: bool
     price_override: bool
+    # Presentation-only provenance (Stage 10G.3B follow-up), resolved live from
+    # current DB records analogous to EstimateLineRead's enrichment — never
+    # part of the change identity. surface_id/opening_id/planned_work_id above
+    # remain the authoritative provenance IDs; these are display labels only,
+    # nullable because a REMOVED entry's referenced Surface/Opening may no
+    # longer exist.
+    room_name: str | None = None
+    surface_name: str | None = None
+    surface_type_value: str | None = None
+    opening_name: str | None = None
+    opening_type_value: str | None = None
 
 
 @dataclass
@@ -251,7 +266,20 @@ class EstimateService:
         return (max_v or 0) + 1
 
     async def _surface_net_area(self, surface: Surface) -> Decimal | None:
-        """Compute wall net area: gross - active opening deductions."""
+        """Compute a surface's authoritative M2 area, source depending on type.
+
+        WALL: gross (width x height) minus active opening deductions.
+        FLOOR/CEILING (canonical plane surfaces, Stage 10C.1A): these never
+        store width/height, so gross/opening-deduction geometry does not
+        apply. Their authoritative area is the same Room-level plane
+        calculation the Surface UI already displays as "Razem" — Room.length
+        x Room.width base plus active AreaSegment ADD/SUBTRACT adjustments
+        (see AreaSegmentService._plane_summaries) — never door/window
+        openings, which are WALL-only.
+        """
+        if surface.surface_type in (SurfaceType.FLOOR, SurfaceType.CEILING):
+            return await self._plane_net_area(surface.room_id, surface.surface_type)
+
         gross = calculate_surface_gross_area(
             surface.surface_type, surface.width, surface.height
         )
@@ -270,6 +298,33 @@ class EstimateService:
         ).quantize(AREA_PRECISION)
         net = calculate_wall_net_area(gross, deduction)
         return net
+
+    async def _plane_net_area(
+        self, room_id: uuid.UUID, surface_type: SurfaceType
+    ) -> Decimal | None:
+        """Authoritative FLOOR/CEILING net area — mirrors
+        AreaSegmentService._plane_summaries exactly (same base-area and
+        segment-totals rule functions) so the Estimate never diverges from
+        what the Surface/Area-segments UI shows as "Razem".
+        """
+        plane = AreaPlane.FLOOR if surface_type == SurfaceType.FLOOR else AreaPlane.CEILING
+        room_row = (
+            await self.db.execute(select(Room.length, Room.width).where(Room.id == room_id))
+        ).one_or_none()
+        base_area = calculate_plane_base_area(room_row.length, room_row.width) if room_row else None
+
+        segments_stmt = select(AreaSegment).where(
+            AreaSegment.room_id == room_id,
+            AreaSegment.plane == plane,
+            AreaSegment.is_archived.is_(False),
+        )
+        segments = (await self.db.execute(segments_stmt)).scalars().all()
+        pairs = [
+            (segment.operation, calculate_segment_area(segment.width, segment.height))
+            for segment in segments
+        ]
+        totals = calculate_plane_totals(pairs, base_area)
+        return totals.net_area if totals is not None else None
 
     async def _load_surface_planned_works(
         self, project_id: uuid.UUID
@@ -787,6 +842,7 @@ class EstimateService:
 
         estimate.lines = new_lines
         result.lines = new_lines
+        await self._enrich_change_provenance(result.changes)
         return result
 
     async def list_estimates(
@@ -898,6 +954,47 @@ class EstimateService:
             "lines": enriched_lines,
         }
         return EstimateRead.model_validate(estimate_dict)
+
+    async def _enrich_change_provenance(self, changes: list["LineChangeEntry"]) -> None:
+        """Batch-load Surface/Room/Opening for a regeneration diff and set
+        presentation-only provenance fields in place (Stage 10G.3B follow-up,
+        analogous to the accepted 10G.2 EstimateLine enrichment).
+
+        Bounded to 3 extra queries total, independent of len(changes). Room is
+        resolved via Surface.room_id (Surface belongs to Room; for reveal
+        entries the change already carries surface_id directly, so no
+        Opening -> Surface hop is needed). Never fabricates a name: a REMOVED
+        entry's referenced Surface/Opening may no longer exist, in which case
+        the corresponding field(s) simply stay None.
+        """
+        surface_ids = {c.surface_id for c in changes if c.surface_id is not None}
+        opening_ids = {c.opening_id for c in changes if c.opening_id is not None}
+
+        surfaces: dict[uuid.UUID, Surface] = {}
+        if surface_ids:
+            rows = (await self.db.execute(select(Surface).where(Surface.id.in_(surface_ids)))).scalars().all()
+            surfaces = {s.id: s for s in rows}
+
+        room_ids = {s.room_id for s in surfaces.values()}
+        rooms: dict[uuid.UUID, Room] = {}
+        if room_ids:
+            rows = (await self.db.execute(select(Room).where(Room.id.in_(room_ids)))).scalars().all()
+            rooms = {r.id: r for r in rows}
+
+        openings: dict[uuid.UUID, Opening] = {}
+        if opening_ids:
+            rows = (await self.db.execute(select(Opening).where(Opening.id.in_(opening_ids)))).scalars().all()
+            openings = {o.id: o for o in rows}
+
+        for c in changes:
+            surface = surfaces.get(c.surface_id) if c.surface_id else None
+            room = rooms.get(surface.room_id) if surface else None
+            opening = openings.get(c.opening_id) if c.opening_id else None
+            c.room_name = room.name if room else None
+            c.surface_name = surface.name if surface else None
+            c.surface_type_value = surface.surface_type.value if surface else None
+            c.opening_name = opening.name if opening else None
+            c.opening_type_value = opening.opening_type.value if opening else None
 
     async def preview_regeneration(
         self,
@@ -1054,6 +1151,7 @@ class EstimateService:
                     price_override=line.price_override,
                 ))
 
+        await self._enrich_change_provenance(result.changes)
         # Intentionally no commit — read-only preview.
         return result
 

@@ -896,6 +896,20 @@
     "group_price_edit_saving": "Сохранение...",
     "group_bulk_partial_failure": "Не все позиции были обновлены. Проверьте группу и повторите попытку.",
     "group_reset_price_action": "Восстановить цены из прайса",
-    "group_reset_price_saving": "Восстановление..."
+    "group_reset_price_saving": "Восстановление...",
+    "check_changes_action": "Проверить изменения",
+    "preview_loading": "Проверка изменений...",
+    "preview_no_changes_title": "Смета актуальна.",
+    "preview_no_changes_description": "Изменений в запланированных работах нет.",
+    "preview_close": "Закрыть",
+    "preview_category_added": "Добавлено",
+    "preview_category_removed": "Удалено",
+    "preview_category_updated": "Изменено",
+    "preview_confirm": "Обновить смету",
+    "preview_cancel": "Отмена",
+    "preview_updating": "Обновление...",
+    "preview_error": "Не удалось проверить изменения.",
+    "preview_retry": "Повторить",
+    "preview_regenerate_error": "Не удалось обновить смету."
   }
 }

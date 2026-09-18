@@ -79,11 +79,43 @@ async def _make_project(db, owner_id: uuid.UUID) -> Project:
     return p
 
 
-async def _make_room(db, project_id: uuid.UUID) -> Room:
-    r = Room(project_id=project_id, name="Salon")
+async def _make_room(
+    db,
+    project_id: uuid.UUID,
+    *,
+    name: str = "Salon",
+    length: str | None = None,
+    width: str | None = None,
+) -> Room:
+    r = Room(
+        project_id=project_id,
+        name=name,
+        length=Decimal(length) if length is not None else None,
+        width=Decimal(width) if width is not None else None,
+    )
     db.add(r)
     await db.commit()
     return r
+
+
+async def _make_plane_surface(
+    db,
+    room_id: uuid.UUID,
+    surface_type: SurfaceType,
+    *,
+    name: str | None = None,
+) -> Surface:
+    """A canonical FLOOR/CEILING surface: no width/height (Stage 10C.1A)."""
+    s = Surface(
+        room_id=room_id,
+        name=name or surface_type.value.title(),
+        surface_type=surface_type,
+        width=None,
+        height=None,
+    )
+    db.add(s)
+    await db.commit()
+    return s
 
 
 async def _make_surface(
@@ -502,6 +534,512 @@ async def test_regeneration_rejected_for_final(async_client: AsyncClient, db_ses
         headers=auth(token),
     )
     assert resp.status_code == 422
+
+
+# ===========================================================================
+# D/E provenance follow-up — Stage 10G.3B: human-readable room/surface/opening
+# context on regeneration preview and confirm diff entries.
+# ===========================================================================
+
+async def test_regeneration_preview_added_includes_room_and_surface_provenance(
+    async_client: AsyncClient, db_session
+):
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="Kuchnia")
+    surface = await _make_surface(db_session, room.id)
+    item = await _make_price_item(db_session, owner.id)
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)  # empty — no work plan yet
+
+    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item])
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate-preview", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["added"] == 1
+    change = data["changes"][0]
+    assert change["change_type"] == "ADDED"
+    assert change["room_name"] == "Kuchnia"
+    assert change["surface_name"] == "Ściana"
+    assert change["surface_type_value"] == "WALL"
+    assert change["opening_name"] is None
+    assert change["opening_type_value"] is None
+
+
+async def test_regeneration_preview_updated_includes_room_and_surface_provenance(
+    async_client: AsyncClient, db_session
+):
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="Łazienka")
+    surface = await _make_surface(db_session, room.id)
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="10.00")
+    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item])
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)
+
+    # Geometry change → regeneration recomputes source_quantity → UPDATED.
+    surface.width = Decimal("5000.000")
+    await db_session.commit()
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate-preview", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["updated"] == 1
+    change = data["changes"][0]
+    assert change["change_type"] == "UPDATED"
+    assert change["room_name"] == "Łazienka"
+    assert change["surface_name"] == "Ściana"
+
+
+async def test_regeneration_preview_removed_includes_resolvable_room_and_surface(
+    async_client: AsyncClient, db_session
+):
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="Pokój gościnny")
+    surface = await _make_surface(db_session, room.id)
+    item_a = await _make_price_item(db_session, owner.id, price="10.00")
+    item_b = await _make_price_item(db_session, owner.id, price="20.00")
+    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item_a])
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)
+
+    # Replace the work plan: item_a's line becomes REMOVED while the Surface
+    # and Room it belonged to remain intact and resolvable.
+    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item_b])
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate-preview", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    removed = [c for c in data["changes"] if c["change_type"] == "REMOVED"]
+    assert len(removed) == 1
+    assert removed[0]["room_name"] == "Pokój gościnny"
+    assert removed[0]["surface_name"] == "Ściana"
+
+
+async def test_regeneration_preview_reveal_includes_opening_provenance(
+    async_client: AsyncClient, db_session
+):
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="Łazienka")
+    surface = await _make_surface(db_session, room.id)
+    item = await _make_reveal_item(db_session, owner.id)
+    opening = await _make_opening(db_session, surface.id, reveal_enabled=True, reveal_depth="120.000")
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)  # empty — no reveal work yet
+
+    from app.models.opening_reveal_planned_work import OpeningRevealPlannedWork
+    reveal_work = OpeningRevealPlannedWork(opening_id=opening.id, price_item_id=item.id, position=0)
+    db_session.add(reveal_work)
+    await db_session.commit()
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate-preview", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    added = [c for c in data["changes"] if c["change_type"] == "ADDED"]
+    assert len(added) == 1
+    change = added[0]
+    assert change["room_name"] == "Łazienka"
+    assert change["surface_name"] == "Ściana"
+    assert change["opening_name"] == "Drzwi"
+    assert change["opening_type_value"] == "DOOR"
+
+
+async def test_regeneration_confirm_response_also_includes_provenance(
+    async_client: AsyncClient, db_session
+):
+    """The mutating /regenerate endpoint shares the same enrichment as preview."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="Sypialnia")
+    surface = await _make_surface(db_session, room.id)
+    item = await _make_price_item(db_session, owner.id)
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)  # empty
+
+    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item])
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["added"] == 1
+    assert data["changes"][0]["room_name"] == "Sypialnia"
+    assert data["changes"][0]["surface_name"] == "Ściana"
+
+
+async def test_regeneration_preview_existing_fields_not_regressed_by_provenance(
+    async_client: AsyncClient, db_session
+):
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id)
+    surface = await _make_surface(db_session, room.id)
+    item = await _make_price_item(db_session, owner.id)
+    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item])
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    surface.width = Decimal("9000.000")
+    await db_session.commit()
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate-preview", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+    change = resp.json()["changes"][0]
+    for key in (
+        "change_type", "estimate_line_id", "planned_work_id", "surface_id", "opening_id",
+        "item_code", "description", "unit", "old_source_quantity", "new_source_quantity",
+        "old_unit_price", "new_unit_price", "quantity_overridden", "price_override",
+        "room_name", "surface_name", "surface_type_value", "opening_name", "opening_type_value",
+    ):
+        assert key in change, f"missing field: {key}"
+
+
+async def test_regeneration_preview_multi_room_added_shows_new_room_provenance(
+    async_client: AsyncClient, db_session
+):
+    """Primary owner acceptance scenario: adding a new room (Kuchnia) to a
+    project that already has a generated Estimate for another room (pokój 1)
+    must report the new room's work as ADDED with its own room/surface
+    provenance, without mutating the existing Estimate.
+    """
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room_a = await _make_room(db_session, project.id, name="pokój 1")
+    surface_a = await _make_surface(db_session, room_a.id)
+    item = await _make_price_item(db_session, owner.id, price="35.00")
+    await _make_work_plan(db_session, project.id, room_a.id, surface_a.id, owner.id, [item])
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    assert len(estimate.lines) == 1
+
+    # Owner creates a new room later, with its own planned work.
+    room_b = await _make_room(db_session, project.id, name="kuchnia")
+    surface_b = await _make_surface(db_session, room_b.id)
+    await _make_work_plan(db_session, project.id, room_b.id, surface_b.id, owner.id, [item])
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate-preview", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["added"] == 1
+    assert data["changes"][0]["room_name"] == "kuchnia"
+    assert data["changes"][0]["surface_name"] == "Ściana"
+
+    # Preview must not have mutated the estimate.
+    get_resp = await async_client.get(_est_id(project.id, estimate.id), headers=auth(token))
+    assert len(get_resp.json()["lines"]) == 1
+
+    # Explicit confirmation merges both rooms into the same Estimate.
+    confirm_resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate", headers=auth(token)
+    )
+    assert confirm_resp.status_code == 200, confirm_resp.text
+    get_resp = await async_client.get(_est_id(project.id, estimate.id), headers=auth(token))
+    lines = get_resp.json()["lines"]
+    assert len(lines) == 2
+    assert {ln["room_name"] for ln in lines} == {"pokój 1", "kuchnia"}
+
+
+# ===========================================================================
+# FLOOR/CEILING quantity-source correction (Stage 10G.3B owner-found bug):
+# canonical plane surfaces (Stage 10C.1A) have no width/height, so the
+# Estimate must source their M2 quantity from the same Room-length x
+# Room-width + AreaSegment adjustment calculation the Surface UI already
+# displays as "Razem" — never 0.000, and never door/window openings (WALL
+# only).
+# ===========================================================================
+
+async def test_wall_m2_uses_net_area_unchanged(async_client: AsyncClient, db_session):
+    """A. WALL M2 — existing net-area behavior (gross - opening deduction)."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id)
+    surface = await _make_surface(db_session, room.id, width="4.000", height="2.600")
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item])
+    svc = EstimateService(db_session)
+
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    assert len(estimate.lines) == 1
+    line = estimate.lines[0]
+    assert line.source_quantity == Decimal("10.400")  # 4.000m x 2.600m, no openings
+    assert line.quantity == Decimal("10.400")
+
+
+async def test_floor_m2_uses_room_plane_area_not_zero(async_client: AsyncClient, db_session):
+    """B. FLOOR M2 — must use the authoritative Room-plane area, not 0.000."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="Kuchnia", length="9.400", width="4.000")
+    floor = await _make_plane_surface(db_session, room.id, SurfaceType.FLOOR)
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    await _make_work_plan(db_session, project.id, room.id, floor.id, owner.id, [item])
+    svc = EstimateService(db_session)
+
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    assert len(estimate.lines) == 1
+    line = estimate.lines[0]
+    assert line.source_quantity == Decimal("37.600")
+    assert line.quantity == Decimal("37.600")
+
+
+async def test_ceiling_m2_uses_room_plane_area_not_zero(async_client: AsyncClient, db_session):
+    """C. CEILING M2 — must use the authoritative Room-plane area, not 0.000
+    (the owner's exact real-world scenario: 9.400m x 4.000m = 37.600 m²)."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="kuchnia", length="9.400", width="4.000")
+    ceiling = await _make_plane_surface(db_session, room.id, SurfaceType.CEILING, name="Sufit")
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    await _make_work_plan(db_session, project.id, room.id, ceiling.id, owner.id, [item])
+    svc = EstimateService(db_session)
+
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    assert len(estimate.lines) == 1
+    line = estimate.lines[0]
+    assert line.source_quantity == Decimal("37.600")
+    assert line.quantity == Decimal("37.600")
+
+
+async def test_ceiling_m2_null_price_has_nonzero_quantity_and_null_amount(
+    async_client: AsyncClient, db_session
+):
+    """D. CEILING M2 + NULL price ("Do ustalenia") — quantity must still be
+    37.600, unit_price NULL, amount NULL. Quantity and price resolution are
+    independent."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="kuchnia", length="9.400", width="4.000")
+    ceiling = await _make_plane_surface(db_session, room.id, SurfaceType.CEILING, name="Sufit")
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price=None)
+    await _make_work_plan(db_session, project.id, room.id, ceiling.id, owner.id, [item])
+    svc = EstimateService(db_session)
+
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    line = estimate.lines[0]
+    assert line.source_quantity == Decimal("37.600")
+    assert line.quantity == Decimal("37.600")
+    assert line.unit_price is None
+    assert line.amount is None
+
+
+async def test_ceiling_m2_priced_amount_resolved_normally(
+    async_client: AsyncClient, db_session
+):
+    """E. CEILING M2 + 30.00 PLN price — correct quantity and amount."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="kuchnia", length="9.400", width="4.000")
+    ceiling = await _make_plane_surface(db_session, room.id, SurfaceType.CEILING, name="Sufit")
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    await _make_work_plan(db_session, project.id, room.id, ceiling.id, owner.id, [item])
+    svc = EstimateService(db_session)
+
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    line = estimate.lines[0]
+    assert line.quantity == Decimal("37.600")
+    assert line.unit_price == Decimal("30.00")
+    assert line.amount == Decimal("37.600") * Decimal("30.00")
+
+
+async def test_floor_ceiling_ignore_wall_opening_deductions(
+    async_client: AsyncClient, db_session
+):
+    """F. A door/window on a WALL surface in the same room must never affect
+    FLOOR/CEILING quantity — opening deductions are WALL-only."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="kuchnia", length="9.400", width="4.000")
+    wall = await _make_surface(db_session, room.id, width="4.000", height="2.600")
+    await _make_opening(db_session, wall.id)  # 90cm x 200cm door
+    ceiling = await _make_plane_surface(db_session, room.id, SurfaceType.CEILING, name="Sufit")
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    await _make_work_plan(db_session, project.id, room.id, ceiling.id, owner.id, [item])
+    svc = EstimateService(db_session)
+
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    ceiling_line = next(ln for ln in estimate.lines if ln.surface_id == ceiling.id)
+    assert ceiling_line.source_quantity == Decimal("37.600")  # unaffected by the door
+
+
+async def test_regeneration_preview_reports_correct_ceiling_quantity(
+    async_client: AsyncClient, db_session
+):
+    """G. regenerate-preview must report the correct new_source_quantity for
+    a newly-added CEILING M2 work — not 0.000."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room_a = await _make_room(db_session, project.id, name="pokój 1")
+    surface_a = await _make_surface(db_session, room_a.id)
+    item_a = await _make_price_item(db_session, owner.id, price="10.00")
+    await _make_work_plan(db_session, project.id, room_a.id, surface_a.id, owner.id, [item_a])
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)
+
+    room_b = await _make_room(db_session, project.id, name="kuchnia", length="9.400", width="4.000")
+    ceiling = await _make_plane_surface(db_session, room_b.id, SurfaceType.CEILING, name="Sufit")
+    item_b = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    await _make_work_plan(db_session, project.id, room_b.id, ceiling.id, owner.id, [item_b])
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate-preview", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+    added = [c for c in resp.json()["changes"] if c["change_type"] == "ADDED"]
+    assert len(added) == 1
+    assert added[0]["new_source_quantity"] == "37.600"
+    assert added[0]["room_name"] == "kuchnia"
+    assert added[0]["surface_name"] == "Sufit"
+
+
+async def test_regeneration_confirm_applies_correct_ceiling_quantity(
+    async_client: AsyncClient, db_session
+):
+    """H. Confirmed regeneration must persist the correct CEILING quantity."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="kuchnia", length="9.400", width="4.000")
+    ceiling = await _make_plane_surface(db_session, room.id, SurfaceType.CEILING, name="Sufit")
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)  # empty — no work yet
+    assert estimate.lines == []
+
+    await _make_work_plan(db_session, project.id, room.id, ceiling.id, owner.id, [item])
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+
+    get_resp = await async_client.get(_est_id(project.id, estimate.id), headers=auth(token))
+    lines = get_resp.json()["lines"]
+    assert len(lines) == 1
+    assert lines[0]["quantity"] == "37.600"
+    assert lines[0]["amount"] == "1128.00"
+
+
+async def test_ceiling_quantity_override_preserved_while_source_updates(
+    async_client: AsyncClient, db_session
+):
+    """I. Owner quantity override survives regeneration on a CEILING line;
+    source_quantity still reflects the new authoritative area."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="kuchnia", length="9.400", width="4.000")
+    ceiling = await _make_plane_surface(db_session, room.id, SurfaceType.CEILING, name="Sufit")
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    await _make_work_plan(db_session, project.id, room.id, ceiling.id, owner.id, [item])
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    line = estimate.lines[0]
+    assert line.source_quantity == Decimal("37.600")
+
+    line.quantity = Decimal("40.000")
+    line.quantity_overridden = True
+    await db_session.commit()
+
+    # Room geometry changes (owner corrects a dimension).
+    room.length = Decimal("10.000")
+    await db_session.commit()
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+
+    get_resp = await async_client.get(_est_id(project.id, estimate.id), headers=auth(token))
+    refreshed = get_resp.json()["lines"][0]
+    assert refreshed["quantity_overridden"] is True
+    assert refreshed["quantity"] == "40.000"  # owner override preserved
+    assert refreshed["source_quantity"] == "40.000"  # new authoritative area (10.000 x 4.000)
+
+
+async def test_estimate_total_includes_priced_ceiling_and_floor_work(
+    async_client: AsyncClient, db_session
+):
+    """J. Estimate.total naturally includes correctly-quantified,
+    correctly-priced FLOOR and CEILING lines — no frontend arithmetic."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="kuchnia", length="9.400", width="4.000")
+    floor = await _make_plane_surface(db_session, room.id, SurfaceType.FLOOR, name="Podłoga")
+    ceiling = await _make_plane_surface(db_session, room.id, SurfaceType.CEILING, name="Sufit")
+    floor_item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="50.00")
+    ceiling_item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    await _make_work_plan(db_session, project.id, room.id, floor.id, owner.id, [floor_item])
+    await _make_work_plan(db_session, project.id, room.id, ceiling.id, owner.id, [ceiling_item])
+    svc = EstimateService(db_session)
+
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    expected_total = (Decimal("37.600") * Decimal("50.00")) + (Decimal("37.600") * Decimal("30.00"))
+    assert estimate.total == expected_total
 
 
 # ===========================================================================
@@ -1994,3 +2532,125 @@ async def test_get_estimate_provenance_manual_line_null(async_client: AsyncClien
     assert line["surface_type_value"] is None
     assert line["opening_name"] is None
     assert line["opening_type_value"] is None
+
+
+async def test_regeneration_total_reflects_new_room_after_confirm(
+    async_client: AsyncClient, db_session
+):
+    """Owner-reported real multi-room scenario: Estimate.total must be
+    recalculated from the regenerated authoritative line set after confirm,
+    not remain the pre-regeneration DB-persisted value.
+    """
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room_a = await _make_room(db_session, project.id, name="pokój 1")
+    surface_a = await _make_surface(db_session, room_a.id)
+    item = await _make_price_item(db_session, owner.id, price="30.00")
+    await _make_work_plan(db_session, project.id, room_a.id, surface_a.id, owner.id, [item])
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)
+    total_before = estimate.total
+    assert total_before is not None
+
+    room_b = await _make_room(db_session, project.id, name="kuchnia")
+    surface_b = await _make_surface(db_session, room_b.id)
+    await _make_work_plan(db_session, project.id, room_b.id, surface_b.id, owner.id, [item])
+
+    # Preview must not mutate the persisted total.
+    preview_resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate-preview", headers=auth(token)
+    )
+    assert preview_resp.status_code == 200, preview_resp.text
+    unchanged_get = await async_client.get(_est_id(project.id, estimate.id), headers=auth(token))
+    assert Decimal(unchanged_get.json()["total"]) == total_before
+
+    confirm_resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate", headers=auth(token)
+    )
+    assert confirm_resp.status_code == 200, confirm_resp.text
+
+    get_resp = await async_client.get(_est_id(project.id, estimate.id), headers=auth(token))
+    data = get_resp.json()
+    line_amount_sum = sum(
+        Decimal(ln["amount"]) for ln in data["lines"] if ln["amount"] is not None
+    )
+    new_total = Decimal(data["total"])
+    assert new_total == line_amount_sum
+    assert new_total == total_before * 2  # two identical rooms/work
+    assert {ln["room_name"] for ln in data["lines"]} == {"pokój 1", "kuchnia"}
+
+
+async def test_regeneration_total_preserves_overrides_null_and_zero_price(
+    async_client: AsyncClient, db_session
+):
+    """Regeneration-triggered total recalculation must still honor the
+    Stage 10D invariants: overridden quantity/price preserved and included,
+    NULL price excluded from the resolved total (but the line remains),
+    explicit 0.00 included as zero (never treated as NULL).
+    """
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id, name="Salon")
+    surface = await _make_surface(db_session, room.id)
+    item = await _make_price_item(db_session, owner.id, price="10.00")
+    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item])
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)
+
+    # Owner overrides quantity and price before regeneration.
+    planned_line = estimate.lines[0]
+    planned_line.quantity = Decimal("99.000")
+    planned_line.quantity_overridden = True
+    planned_line.unit_price = Decimal("77.00")
+    planned_line.price_override = True
+    planned_line.amount = Decimal("99.000") * Decimal("77.00")
+    await db_session.commit()
+
+    await svc.add_manual_line(
+        estimate.id, owner.id, description="Do wyceny", scope=PriceScope.LABOR,
+        unit=PriceUnit.FLAT, quantity=Decimal("1.000"), unit_price=None,
+    )
+    await svc.add_manual_line(
+        estimate.id, owner.id, description="Gratis", scope=PriceScope.LABOR,
+        unit=PriceUnit.FLAT, quantity=Decimal("1.000"), unit_price=Decimal("0.00"),
+    )
+
+    # A genuine source change so regeneration has something to do.
+    room_b = await _make_room(db_session, project.id, name="kuchnia")
+    surface_b = await _make_surface(db_session, room_b.id)
+    item_b = await _make_price_item(db_session, owner.id, price="20.00")
+    await _make_work_plan(db_session, project.id, room_b.id, surface_b.id, owner.id, [item_b])
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/regenerate", headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+
+    get_resp = await async_client.get(_est_id(project.id, estimate.id), headers=auth(token))
+    data = get_resp.json()
+
+    salon_line = next(ln for ln in data["lines"] if ln["room_name"] == "Salon")
+    assert salon_line["quantity_overridden"] is True
+    assert Decimal(salon_line["quantity"]) == Decimal("99.000")
+    assert salon_line["price_override"] is True
+    assert Decimal(salon_line["unit_price"]) == Decimal("77.00")
+    assert Decimal(salon_line["amount"]) == Decimal("99.000") * Decimal("77.00")
+
+    manual_lines = [ln for ln in data["lines"] if ln["origin"] == "MANUAL"]
+    null_line = next(ln for ln in manual_lines if ln["unit_price"] is None)
+    zero_line = next(ln for ln in manual_lines if ln["unit_price"] == "0.00")
+    assert null_line["amount"] is None
+    assert zero_line["amount"] == "0.00"
+
+    expected_total = sum(
+        Decimal(ln["amount"]) for ln in data["lines"] if ln["amount"] is not None
+    )
+    # The NULL-priced manual line contributes nothing to the resolved total,
+    # while the explicit 0.00 line is included (as zero, not excluded).
+    assert Decimal(data["total"]) == expected_total

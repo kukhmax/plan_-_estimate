@@ -69,3 +69,44 @@ export interface EstimateLineUpdatePayload {
   reset_price_override?: boolean;
   reset_quantity_override?: boolean;
 }
+
+// Stage 10G.3B — regeneration preview/confirm (Stage 10E contract). Both
+// regenerate-preview and regenerate return this same shape; preview never
+// mutates the estimate, regenerate applies it in-place.
+export type LineChangeTypeValue = 'ADDED' | 'REMOVED' | 'UPDATED';
+
+export interface LineChangeEntry {
+  change_type: LineChangeTypeValue;
+  estimate_line_id: string | null;
+  planned_work_id: string;
+  surface_id: string | null;
+  opening_id: string | null;
+  item_code: string | null;
+  description: string;
+  unit: string;
+  old_source_quantity: string | null;
+  new_source_quantity: string | null;
+  old_unit_price: string | null;
+  new_unit_price: string | null;
+  quantity_overridden: boolean;
+  price_override: boolean;
+  // Stage 10G.3B provenance follow-up — resolved live from current DB
+  // records, analogous to EstimateLineRead's presentation fields. Optional
+  // AND nullable: some response-construction paths may omit these keys
+  // entirely rather than send an explicit null (10G.2 crash-regression
+  // protection), and a REMOVED entry's referenced Surface/Opening may no
+  // longer exist, in which case the field is null rather than fabricated.
+  room_name?: string | null;
+  surface_name?: string | null;
+  surface_type_value?: string | null;
+  opening_name?: string | null;
+  opening_type_value?: string | null;
+}
+
+export interface RegenerationPreviewResponse {
+  added: number;
+  removed: number;
+  updated: number;
+  preserved_manual: number;
+  changes: LineChangeEntry[];
+}

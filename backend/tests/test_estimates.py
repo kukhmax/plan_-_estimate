@@ -1214,3 +1214,134 @@ class TestN_FinalStatus:
                 quantity=Decimal("1.000"),
                 unit_price=Decimal("100.00"),
             )
+
+
+# ---------------------------------------------------------------------------
+# TestO — regeneration diff provenance enrichment (Stage 10G.3B follow-up)
+# ---------------------------------------------------------------------------
+
+
+class TestO_ChangeProvenanceEnrichment:
+    def _entry(self, **overrides) -> "LineChangeEntry":
+        from app.domain.services.estimate_service import LineChangeEntry
+        defaults = dict(
+            change_type="ADDED",
+            estimate_line_id=None,
+            planned_work_id=uuid.uuid4(),
+            surface_id=None,
+            opening_id=None,
+            item_code=None,
+            description="Test",
+            unit=PriceUnit.M2,
+            old_source_quantity=None,
+            new_source_quantity=Decimal("1.000"),
+            old_unit_price=None,
+            new_unit_price=Decimal("10.00"),
+            quantity_overridden=False,
+            price_override=False,
+        )
+        defaults.update(overrides)
+        return LineChangeEntry(**defaults)
+
+    async def test_enriches_surface_and_room_for_a_planned_work_entry(self, db_session):
+        user = await _make_user(db_session, 33001)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id, name="Kuchnia")
+        surface = await _make_surface(db_session, room.id)
+        svc = EstimateService(db_session)
+
+        entry = self._entry(surface_id=surface.id)
+        await svc._enrich_change_provenance([entry])
+
+        assert entry.room_name == "Kuchnia"
+        assert entry.surface_name == "Ściana 1"
+        assert entry.surface_type_value == "WALL"
+        assert entry.opening_name is None
+        assert entry.opening_type_value is None
+
+    async def test_enriches_opening_for_a_reveal_entry(self, db_session):
+        user = await _make_user(db_session, 33002)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id, name="Łazienka")
+        surface = await _make_surface(db_session, room.id)
+        opening = await _make_opening(
+            db_session, surface.id, opening_type=OpeningType.DOOR,
+            reveal_enabled=True, reveal_depth="120.000",
+        )
+        opening.name = "Drzwi"
+        await db_session.commit()
+        svc = EstimateService(db_session)
+
+        entry = self._entry(surface_id=surface.id, opening_id=opening.id)
+        await svc._enrich_change_provenance([entry])
+
+        assert entry.room_name == "Łazienka"
+        assert entry.surface_name == "Ściana 1"
+        assert entry.opening_name == "Drzwi"
+        assert entry.opening_type_value == "DOOR"
+
+    async def test_nonexistent_surface_and_opening_ids_resolve_to_none_without_crashing(self, db_session):
+        svc = EstimateService(db_session)
+        entry = self._entry(
+            change_type="REMOVED",
+            surface_id=uuid.uuid4(),
+            opening_id=uuid.uuid4(),
+            new_source_quantity=None,
+            new_unit_price=None,
+            old_source_quantity=Decimal("5.000"),
+            old_unit_price=Decimal("10.00"),
+        )
+
+        await svc._enrich_change_provenance([entry])
+
+        assert entry.room_name is None
+        assert entry.surface_name is None
+        assert entry.surface_type_value is None
+        assert entry.opening_name is None
+        assert entry.opening_type_value is None
+
+    async def test_entries_with_no_surface_or_opening_are_left_fully_null(self, db_session):
+        svc = EstimateService(db_session)
+        entry = self._entry(surface_id=None, opening_id=None)
+        await svc._enrich_change_provenance([entry])
+        assert entry.room_name is None
+        assert entry.surface_name is None
+        assert entry.opening_name is None
+
+    async def test_empty_change_list_is_a_no_op(self, db_session):
+        svc = EstimateService(db_session)
+        await svc._enrich_change_provenance([])  # must not raise
+
+    async def test_bounded_queries_regardless_of_change_count(self, db_session):
+        """Batch-loading must stay bounded (Surface + Room + Opening = 3
+        queries max) regardless of how many change entries are enriched —
+        never one query per entry.
+        """
+        from sqlalchemy import event
+        from tests.conftest import test_engine
+
+        user = await _make_user(db_session, 33003)
+        project = await _make_project(db_session, user.id)
+        entries = []
+        for i in range(6):
+            room = await _make_room(db_session, project.id, name=f"Room {i}")
+            surface = await _make_surface(db_session, room.id)
+            entries.append(self._entry(surface_id=surface.id))
+
+        svc = EstimateService(db_session)
+        statements: list[str] = []
+
+        def _capture(conn, cursor, statement, parameters, context, executemany):
+            statements.append(statement)
+
+        event.listen(test_engine.sync_engine, "before_cursor_execute", _capture)
+        try:
+            await svc._enrich_change_provenance(entries)
+        finally:
+            event.remove(test_engine.sync_engine, "before_cursor_execute", _capture)
+
+        # Surface batch + Room batch (no Opening query — no opening_ids present).
+        assert len(statements) <= 2
+        for entry in entries:
+            assert entry.room_name is not None
+            assert entry.surface_name == "Ściana 1"

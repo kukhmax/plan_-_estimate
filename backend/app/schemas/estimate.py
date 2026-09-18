@@ -114,6 +114,15 @@ class LineChangeEntryRead(BaseModel):
     new_unit_price: Decimal | None = None
     quantity_overridden: bool
     price_override: bool
+    # Presentation-only provenance (Stage 10G.3B follow-up), resolved live from
+    # current DB records — analogous to EstimateLineRead's enrichment. Never
+    # part of change identity; nullable because a REMOVED entry's referenced
+    # Surface/Opening may no longer exist.
+    room_name: str | None = None
+    surface_name: str | None = None
+    surface_type_value: str | None = None
+    opening_name: str | None = None
+    opening_type_value: str | None = None
 
 
 class RegenerationPreviewResponse(BaseModel):

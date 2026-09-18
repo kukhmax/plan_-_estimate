@@ -896,6 +896,20 @@
     "group_price_edit_saving": "Zapisywanie...",
     "group_bulk_partial_failure": "Nie wszystkie pozycje zostały zaktualizowane. Sprawdź grupę i spróbuj ponownie.",
     "group_reset_price_action": "Przywróć ceny z cennika",
-    "group_reset_price_saving": "Przywracanie..."
+    "group_reset_price_saving": "Przywracanie...",
+    "check_changes_action": "Sprawdź zmiany",
+    "preview_loading": "Sprawdzanie zmian...",
+    "preview_no_changes_title": "Kosztorys jest aktualny.",
+    "preview_no_changes_description": "Brak zmian w zaplanowanych pracach.",
+    "preview_close": "Zamknij",
+    "preview_category_added": "Dodano",
+    "preview_category_removed": "Usunięto",
+    "preview_category_updated": "Zmieniono",
+    "preview_confirm": "Aktualizuj kosztorys",
+    "preview_cancel": "Anuluj",
+    "preview_updating": "Aktualizowanie...",
+    "preview_error": "Nie udało się sprawdzić zmian.",
+    "preview_retry": "Spróbuj ponownie",
+    "preview_regenerate_error": "Nie udało się zaktualizować kosztorysu."
   }
 }

@@ -12,7 +12,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as estimatesApi from '../api/estimates';
 import { I18nProvider } from '../hooks/useI18n';
-import type { EstimateLineRead, EstimateRead, EstimateSummaryRead } from '../types/estimate';
+import type { EstimateLineRead, EstimateRead, EstimateSummaryRead, LineChangeEntry, RegenerationPreviewResponse } from '../types/estimate';
 import { EstimateShell } from './EstimateShell';
 
 vi.mock('../api/estimates', () => ({
@@ -20,6 +20,8 @@ vi.mock('../api/estimates', () => ({
   generateEstimate: vi.fn(),
   getEstimate: vi.fn(),
   patchEstimateLine: vi.fn(),
+  previewEstimateRegeneration: vi.fn(),
+  regenerateEstimate: vi.fn(),
 }));
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -86,6 +88,37 @@ function makeDetail(lines: EstimateLineRead[] = [makeLine()], overrides: Partial
   };
 }
 
+function makeChange(overrides: Partial<LineChangeEntry> = {}): LineChangeEntry {
+  return {
+    change_type: 'ADDED',
+    estimate_line_id: null,
+    planned_work_id: 'pw-new-1',
+    surface_id: 'surf-new-1',
+    opening_id: null,
+    item_code: 'SKIM_Q3_M2',
+    description: 'pricebook.seed.skim_2l',
+    unit: 'M2',
+    old_source_quantity: null,
+    new_source_quantity: '12.400',
+    old_unit_price: null,
+    new_unit_price: '35.00',
+    quantity_overridden: false,
+    price_override: false,
+    ...overrides,
+  };
+}
+
+function makePreview(overrides: Partial<RegenerationPreviewResponse> = {}): RegenerationPreviewResponse {
+  return {
+    added: 0,
+    removed: 0,
+    updated: 0,
+    preserved_manual: 0,
+    changes: [],
+    ...overrides,
+  };
+}
+
 // Default: shows detail view for the standard single-line group
 function renderShell(
   summary: EstimateSummaryRead = makeSummary(),
@@ -109,6 +142,8 @@ beforeEach(() => {
   vi.mocked(estimatesApi.getEstimate).mockReset();
   vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail());
   vi.mocked(estimatesApi.patchEstimateLine).mockReset();
+  vi.mocked(estimatesApi.previewEstimateRegeneration).mockReset();
+  vi.mocked(estimatesApi.regenerateEstimate).mockReset();
 });
 
 describe('API call', () => {
@@ -181,19 +216,25 @@ describe('estimate header', () => {
   });
 
   it('shows FINAL status badge (PL)', async () => {
-    renderShell(makeSummary({ status: 'FINAL' }));
+    const summary = makeSummary({ status: 'FINAL' });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], summary));
+    renderShell(summary);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     expect(screen.getByLabelText('estimate-shell-status').textContent).toBe('Finalny');
   });
 
   it('shows ACCEPTED status badge (PL)', async () => {
-    renderShell(makeSummary({ status: 'ACCEPTED' }));
+    const summary = makeSummary({ status: 'ACCEPTED' });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], summary));
+    renderShell(summary);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     expect(screen.getByLabelText('estimate-shell-status').textContent).toBe('Zaakceptowany');
   });
 
   it('shows ARCHIVED status badge (PL)', async () => {
-    renderShell(makeSummary({ status: 'ARCHIVED' }));
+    const summary = makeSummary({ status: 'ARCHIVED' });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], summary));
+    renderShell(summary);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     expect(screen.getByLabelText('estimate-shell-status').textContent).toBe('Archiwalny');
   });
@@ -213,9 +254,24 @@ describe('estimate header', () => {
   });
 
   it('shows estimate name when present', async () => {
-    renderShell(makeSummary({ name: 'Kosztorys bazowy' }));
+    const summary = makeSummary({ name: 'Kosztorys bazowy' });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], summary));
+    renderShell(summary);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     expect(screen.getByText('Kosztorys bazowy')).toBeTruthy();
+  });
+
+  it('reflects the freshly-fetched total, not the stale summary prop, once detail has loaded (regression: header must never show a stale total after a mutation)', async () => {
+    // The `estimate` prop simulates a parent that fetched the estimate list
+    // BEFORE some total-changing mutation (e.g. regeneration); the freshly
+    // fetched `detail` must win.
+    const staleSummary = makeSummary({ total: '1731.92', currency: 'PLN' });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine()], { ...staleSummary, total: '3819.80' }),
+    );
+    renderShell(staleSummary, null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('3819.80 PLN');
   });
 });
 
@@ -2553,5 +2609,787 @@ describe('Stage 10G.3A polish — regression: all previously accepted behavior u
         PROJECT_ID, ESTIMATE_ID, 'line-1', { quantity: '13.750' },
       );
     });
+  });
+});
+
+// ─── Stage 10G.3B — regeneration preview and explicit confirmation ───────────
+
+function StatefulGroupedShell() {
+  const [key, setKey] = useState<string | null>(null);
+  return (
+    <EstimateShell estimate={makeSummary()} onBack={vi.fn()} selectedGroupKey={key} onGroupKeyChange={setKey} />
+  );
+}
+
+describe('Stage 10G.3B — Sprawdź zmiany visibility (DRAFT-only, whole-project)', () => {
+  it('a DRAFT estimate shows Sprawdź zmiany in the detail view', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+  });
+
+  it('a DRAFT estimate shows Sprawdź zmiany in the grouped summary view (not scoped to a group)', async () => {
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+  });
+
+  it('does not expose Sprawdź zmiany for a FINAL estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'FINAL' }));
+    renderShell(makeSummary({ status: 'FINAL' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('estimate-check-changes-action')).toBeNull();
+  });
+
+  it('does not expose Sprawdź zmiany for an ACCEPTED estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'ACCEPTED' }));
+    renderShell(makeSummary({ status: 'ACCEPTED' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('estimate-check-changes-action')).toBeNull();
+  });
+
+  it('does not expose Sprawdź zmiany for an ARCHIVED estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'ARCHIVED' }));
+    renderShell(makeSummary({ status: 'ARCHIVED' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('estimate-check-changes-action')).toBeNull();
+  });
+});
+
+describe('Stage 10G.3B — preview call is read-only from the frontend perspective', () => {
+  it('calls previewEstimateRegeneration with the correct project and estimate ids', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(makePreview());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => {
+      expect(estimatesApi.previewEstimateRegeneration).toHaveBeenCalledWith(PROJECT_ID, ESTIMATE_ID);
+    });
+  });
+
+  it('opening preview never calls patchEstimateLine or regenerateEstimate', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-category-ADDED'));
+    expect(estimatesApi.patchEstimateLine).not.toHaveBeenCalled();
+    expect(estimatesApi.regenerateEstimate).not.toHaveBeenCalled();
+  });
+
+  it('opening preview does not itself trigger another authoritative Estimate refetch', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(makePreview());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-no-changes'));
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Stage 10G.3B — zero-change state', () => {
+  it('shows the "Kosztorys jest aktualny" message and no confirm action when there are no changes', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(makePreview());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-no-changes'));
+    const text = screen.getByLabelText('estimate-regeneration-no-changes').textContent ?? '';
+    expect(text).toContain('Kosztorys jest aktualny.');
+    expect(text).toContain('Brak zmian w zaplanowanych pracach.');
+    expect(screen.queryByLabelText('estimate-regeneration-confirm')).toBeNull();
+  });
+});
+
+describe('Stage 10G.3B — change category rendering', () => {
+  it('renders an ADDED entry under Dodano with resolved description and new quantity/price', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        added: 1,
+        changes: [makeChange({
+          change_type: 'ADDED',
+          description: 'pricebook.seed.skim_2l',
+          new_source_quantity: '12.400',
+          new_unit_price: '35.00',
+        })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-category-ADDED'));
+
+    expect(screen.getByLabelText('estimate-regeneration-category-ADDED').textContent).toContain('Dodano');
+    expect(screen.getByLabelText('estimate-regeneration-change-description-ADDED-0').textContent).toBe(
+      'Gładź szpachlowa — 2 warstwy (pakiet)',
+    );
+    expect(screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0').textContent).toContain('12.400 M2');
+    expect(screen.getByLabelText('estimate-regeneration-change-price-ADDED-0').textContent).toContain('35.00 PLN');
+  });
+
+  it('renders a REMOVED entry under Usunięto using the old quantity/price', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        removed: 1,
+        changes: [makeChange({
+          change_type: 'REMOVED',
+          old_source_quantity: '8.000',
+          new_source_quantity: null,
+          old_unit_price: '30.00',
+          new_unit_price: null,
+        })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-category-REMOVED'));
+
+    expect(screen.getByLabelText('estimate-regeneration-category-REMOVED').textContent).toContain('Usunięto');
+    expect(screen.getByLabelText('estimate-regeneration-change-quantity-REMOVED-0').textContent).toContain('8.000 M2');
+    expect(screen.getByLabelText('estimate-regeneration-change-price-REMOVED-0').textContent).toContain('30.00 PLN');
+  });
+
+  it('renders an UPDATED entry under Zmieniono, showing old -> new only for the field that actually changed', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        updated: 1,
+        changes: [makeChange({
+          change_type: 'UPDATED',
+          old_source_quantity: '10.000',
+          new_source_quantity: '12.400',
+          old_unit_price: '35.00',
+          new_unit_price: '35.00',
+        })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-category-UPDATED'));
+
+    expect(screen.getByLabelText('estimate-regeneration-category-UPDATED').textContent).toContain('Zmieniono');
+    const qty = screen.getByLabelText('estimate-regeneration-change-quantity-UPDATED-0').textContent ?? '';
+    expect(qty).toContain('10.000 M2');
+    expect(qty).toContain('12.400 M2');
+    expect(qty).toContain('→');
+    // price unchanged -> collapsed to a single value, never "35.00 PLN → 35.00 PLN"
+    expect(screen.getByLabelText('estimate-regeneration-change-price-UPDATED-0').textContent).toBe('35.00 PLN');
+  });
+});
+
+describe('Stage 10G.3B — human-readable description, no raw UUIDs or item codes', () => {
+  it('resolves a seeded pricebook key instead of the raw key', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange({ description: 'pricebook.seed.prim_adh' })] }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-description-ADDED-0'));
+    expect(screen.getByLabelText('estimate-regeneration-change-description-ADDED-0').textContent).toBe(
+      'Gruntowanie gruntem kontaktowym adhezyjnym',
+    );
+  });
+
+  it('never renders raw surface_id / opening_id / planned_work_id / estimate_line_id UUIDs', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        updated: 1,
+        changes: [makeChange({
+          change_type: 'UPDATED',
+          estimate_line_id: 'line-uuid-zzz',
+          planned_work_id: 'pw-uuid-zzz',
+          surface_id: 'surf-uuid-zzz',
+          opening_id: 'open-uuid-zzz',
+        })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    const panel = await waitFor(() => screen.getByLabelText('estimate-regeneration-panel'));
+    const text = panel.textContent ?? '';
+    expect(text).not.toContain('line-uuid-zzz');
+    expect(text).not.toContain('pw-uuid-zzz');
+    expect(text).not.toContain('surf-uuid-zzz');
+    expect(text).not.toContain('open-uuid-zzz');
+  });
+
+  it('never renders the raw item_code', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange({ item_code: 'CENNIK_PRIM_ADH-01' })] }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    const panel = await waitFor(() => screen.getByLabelText('estimate-regeneration-panel'));
+    expect(panel.textContent).not.toContain('CENNIK_PRIM_ADH-01');
+  });
+});
+
+describe('Stage 10G.3B follow-up — compact provenance in preview change entries', () => {
+  it('renders "room — surface" for a surface (non-reveal) ADDED entry', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        added: 1,
+        changes: [makeChange({
+          change_type: 'ADDED',
+          room_name: 'kuchnia',
+          surface_name: 'Wall 1',
+          surface_type_value: 'WALL',
+          opening_id: null,
+        })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-provenance-ADDED-0'));
+    expect(screen.getByLabelText('estimate-regeneration-change-provenance-ADDED-0').textContent).toBe(
+      'kuchnia — Ściana 1',
+    );
+  });
+
+  it('renders "room — surface — opening" for a reveal UPDATED entry with all parts present', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        updated: 1,
+        changes: [makeChange({
+          change_type: 'UPDATED',
+          room_name: 'Łazienka',
+          surface_name: 'Wall 2',
+          surface_type_value: 'WALL',
+          opening_id: 'opening-uuid',
+          opening_name: 'Okno',
+          opening_type_value: 'WINDOW',
+        })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-provenance-UPDATED-0'));
+    expect(screen.getByLabelText('estimate-regeneration-change-provenance-UPDATED-0').textContent).toBe(
+      'Łazienka — Ściana 2 — Okno',
+    );
+  });
+
+  it('shows RU compact provenance for a reveal entry', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        added: 1,
+        changes: [makeChange({
+          change_type: 'ADDED',
+          room_name: 'Кухня',
+          surface_name: 'Wall 1',
+          surface_type_value: 'WALL',
+          opening_id: 'opening-uuid',
+          opening_name: null,
+          opening_type_value: 'WINDOW',
+        })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-provenance-ADDED-0'));
+    const text = screen.getByLabelText('estimate-regeneration-change-provenance-ADDED-0').textContent ?? '';
+    expect(text).toContain('Кухня');
+    expect(text).toContain('—');
+  });
+
+  it('omits the provenance line entirely when no provenance fields are available (never fabricates one)', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        added: 1,
+        changes: [makeChange({
+          change_type: 'ADDED',
+          room_name: null,
+          surface_name: null,
+          surface_type_value: null,
+          opening_id: null,
+        })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-category-ADDED'));
+    expect(screen.queryByLabelText('estimate-regeneration-change-provenance-ADDED-0')).toBeNull();
+  });
+
+  it('falls back to localized surface type when surface_name is empty, and to room only when surface is unavailable', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        added: 1,
+        changes: [makeChange({
+          change_type: 'ADDED',
+          room_name: 'kuchnia',
+          surface_name: null,
+          surface_type_value: 'FLOOR',
+          opening_id: null,
+        })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-provenance-ADDED-0'));
+    expect(screen.getByLabelText('estimate-regeneration-change-provenance-ADDED-0').textContent).toBe(
+      `kuchnia — ${'Podłoga'}`,
+    );
+  });
+
+  it('tolerates omitted (undefined) provenance fields without crashing (10G.2 crash-regression protection)', async () => {
+    const bareChange = makeChange({ change_type: 'ADDED' });
+    // Simulate a response-construction path that omits the keys entirely
+    // rather than sending explicit null, exactly like the fixed 10G.2 crash.
+    delete (bareChange as Partial<LineChangeEntry>).room_name;
+    delete (bareChange as Partial<LineChangeEntry>).surface_name;
+    delete (bareChange as Partial<LineChangeEntry>).surface_type_value;
+    delete (bareChange as Partial<LineChangeEntry>).opening_name;
+    delete (bareChange as Partial<LineChangeEntry>).opening_type_value;
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [bareChange] }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await expect(
+      waitFor(() => screen.getByLabelText('estimate-regeneration-category-ADDED')),
+    ).resolves.toBeTruthy();
+    expect(screen.queryByLabelText('estimate-regeneration-change-provenance-ADDED-0')).toBeNull();
+  });
+
+  it('a long provenance string wraps instead of forcing horizontal overflow', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        added: 1,
+        changes: [makeChange({
+          change_type: 'ADDED',
+          room_name: 'Bardzo długa nazwa pomieszczenia opisująca cały zakres remontu',
+          surface_name: 'Wall 1',
+          surface_type_value: 'WALL',
+        })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-provenance-ADDED-0'));
+    const el = screen.getByLabelText('estimate-regeneration-change-provenance-ADDED-0');
+    expect(el.className).toContain('break-words');
+    expect(el.className).toContain('min-w-0');
+  });
+});
+
+describe('Stage 10G.3B — NULL vs 0.00 price preserved in preview', () => {
+  it('shows "Do ustalenia" for a NULL new_unit_price on an ADDED entry', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange({ new_unit_price: null })] }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-price-ADDED-0'));
+    expect(screen.getByLabelText('estimate-regeneration-change-price-ADDED-0').textContent).toBe('Do ustalenia');
+  });
+
+  it('shows "0.00 PLN" (never "Do ustalenia") for an explicit 0.00 new_unit_price', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange({ new_unit_price: '0.00' })] }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-price-ADDED-0'));
+    const text = screen.getByLabelText('estimate-regeneration-change-price-ADDED-0').textContent ?? '';
+    expect(text).toContain('0.00');
+    expect(text).not.toBe('Do ustalenia');
+  });
+});
+
+describe('Stage 10G.3B — override indicators in preview', () => {
+  it('shows both override indicators when an UPDATED line has quantity_overridden and price_override', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        updated: 1,
+        changes: [makeChange({ change_type: 'UPDATED', quantity_overridden: true, price_override: true })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-override-UPDATED-0'));
+    const text = screen.getByLabelText('estimate-regeneration-change-override-UPDATED-0').textContent ?? '';
+    expect(text).toContain('Ilość zmieniona ręcznie');
+    expect(text).toContain('Cena zmieniona ręcznie');
+  });
+
+  it('shows no override indicator when neither flag is set', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-category-ADDED'));
+    expect(screen.queryByLabelText('estimate-regeneration-change-override-ADDED-0')).toBeNull();
+  });
+});
+
+describe('Stage 10G.3B — explicit confirmation gating', () => {
+  it('opening and viewing a non-empty preview never calls regenerateEstimate on its own', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm'));
+    expect(estimatesApi.regenerateEstimate).not.toHaveBeenCalled();
+  });
+
+  it('explicit "Aktualizuj kosztorys" calls regenerateEstimate with the correct ids', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    vi.mocked(estimatesApi.regenerateEstimate).mockResolvedValue(makePreview({ added: 1 }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-confirm'));
+    await waitFor(() => {
+      expect(estimatesApi.regenerateEstimate).toHaveBeenCalledWith(PROJECT_ID, ESTIMATE_ID);
+    });
+  });
+
+  it('"Anuluj" closes the preview without calling regenerateEstimate', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-cancel'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-cancel'));
+    expect(estimatesApi.regenerateEstimate).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('estimate-regeneration-panel')).toBeNull();
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+  });
+});
+
+describe('Stage 10G.3B — regeneration success', () => {
+  it('refetches the authoritative Estimate after a successful regeneration', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    vi.mocked(estimatesApi.regenerateEstimate).mockResolvedValue(makePreview({ added: 1 }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-confirm'));
+
+    await waitFor(() => expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(2));
+  });
+
+  it('the header total reflects the newly-fetched authoritative total after a successful regeneration, replacing the pre-regeneration total (owner-reported real bug)', async () => {
+    const summary = makeSummary({ total: '1731.92', currency: 'PLN' });
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([makeLine()], summary))
+      .mockResolvedValueOnce(makeDetail([makeLine()], { ...summary, total: '3819.80' }));
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    vi.mocked(estimatesApi.regenerateEstimate).mockResolvedValue(makePreview({ added: 1 }));
+
+    renderShell(summary, null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('1731.92 PLN');
+
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-confirm'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('3819.80 PLN');
+    });
+  });
+
+  it('closes the preview panel after a successful regeneration', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    vi.mocked(estimatesApi.regenerateEstimate).mockResolvedValue(makePreview({ added: 1 }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-confirm'));
+
+    await waitFor(() => expect(screen.queryByLabelText('estimate-regeneration-panel')).toBeNull());
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+  });
+});
+
+describe('Stage 10G.3B — regeneration and preview failure safety', () => {
+  it('keeps the preview context recoverable and shows an inline error on regenerate failure', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    vi.mocked(estimatesApi.regenerateEstimate).mockRejectedValue(new Error('Estimate is not a DRAFT'));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-confirm'));
+
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm-error'));
+    expect(screen.getByLabelText('estimate-regeneration-confirm-error').textContent).toBe('Estimate is not a DRAFT');
+    expect(screen.getByLabelText('estimate-regeneration-category-ADDED')).toBeTruthy();
+    expect(screen.getByLabelText('estimate-regeneration-confirm')).toBeTruthy();
+    expect(screen.getByLabelText('estimate-lines')).toBeTruthy();
+  });
+
+  it('allows retrying confirmation after a regenerate failure', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    vi.mocked(estimatesApi.regenerateEstimate)
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce(makePreview({ added: 1 }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-confirm'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm-error'));
+
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-confirm'));
+    await waitFor(() => expect(screen.queryByLabelText('estimate-regeneration-panel')).toBeNull());
+    expect(estimatesApi.regenerateEstimate).toHaveBeenCalledTimes(2);
+  });
+
+  it('a preview fetch failure shows an inline error with retry and close, without blanking the page', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockRejectedValue(new Error('Network error'));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-error'));
+    expect(screen.getByLabelText('estimate-regeneration-error').textContent).toBe('Network error');
+    expect(screen.getByLabelText('estimate-regeneration-retry')).toBeTruthy();
+    expect(screen.getByLabelText('estimate-regeneration-close')).toBeTruthy();
+    expect(screen.getByLabelText('estimate-lines')).toBeTruthy();
+  });
+
+  it('retry after a preview failure calls previewEstimateRegeneration again', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration)
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce(makePreview());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-error'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-retry'));
+
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-no-changes'));
+    expect(estimatesApi.previewEstimateRegeneration).toHaveBeenCalledTimes(2);
+  });
+
+  it('closing after a preview failure returns to the plain Sprawdź zmiany action', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockRejectedValue(new Error('boom'));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-error'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-close'));
+    expect(screen.queryByLabelText('estimate-regeneration-panel')).toBeNull();
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+  });
+});
+
+describe('Stage 10G.3B — multi-room acceptance scenario', () => {
+  it('preview reports a new room as ADDED while the Estimate stays unchanged, then confirmed regeneration merges both rooms into one aggregated group with distinguishable drill-down provenance', async () => {
+    const roomALine = makeLine({
+      id: 'la1',
+      position: 1,
+      price_item_id: 'pi-skim',
+      scope: 'LABOR',
+      unit: 'M2',
+      opening_id: null,
+      description: 'pricebook.seed.skim_2l',
+      room_name: 'pokój 1',
+      surface_name: 'Wall 1',
+      surface_type_value: 'WALL',
+      surface_id: 'surf-a1',
+      quantity: '10.000',
+      unit_price: '35.00',
+      amount: '350.00',
+    });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValueOnce(makeDetail([roomALine]));
+
+    render(
+      <I18nProvider>
+        <StatefulGroupedShell />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+
+    // Before regeneration: exactly one group, Room A quantity only.
+    expect(screen.getAllByLabelText(/^estimate-group-/).length).toBe(1);
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('10.000');
+
+    // The owner checks for changes — the new Kuchnia planned work reports as ADDED.
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        added: 1,
+        changes: [makeChange({
+          change_type: 'ADDED',
+          description: 'pricebook.seed.skim_2l',
+          surface_id: 'surf-b1',
+          new_source_quantity: '6.000',
+          new_unit_price: '35.00',
+          room_name: 'kuchnia',
+          surface_name: 'Wall 1',
+          surface_type_value: 'WALL',
+        })],
+      }),
+    );
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-category-ADDED'));
+
+    // Preview visibly shows WHERE the new work comes from.
+    expect(screen.getByLabelText('estimate-regeneration-change-provenance-ADDED-0').textContent).toBe(
+      'kuchnia — Ściana 1',
+    );
+
+    // Still unchanged before confirmation.
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('10.000');
+
+    const roomBLine = makeLine({
+      id: 'lb1',
+      position: 2,
+      price_item_id: 'pi-skim',
+      scope: 'LABOR',
+      unit: 'M2',
+      opening_id: null,
+      description: 'pricebook.seed.skim_2l',
+      room_name: 'kuchnia',
+      surface_name: 'Wall 1',
+      surface_type_value: 'WALL',
+      surface_id: 'surf-b1',
+      quantity: '6.000',
+      unit_price: '35.00',
+      amount: '210.00',
+    });
+    vi.mocked(estimatesApi.regenerateEstimate).mockResolvedValue(makePreview({ added: 1 }));
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValueOnce(makeDetail([roomALine, roomBLine]));
+
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-confirm'));
+    await waitFor(() => expect(screen.queryByLabelText('estimate-regeneration-panel')).toBeNull());
+
+    // Grouped summary aggregates matching work across BOTH rooms into one group.
+    await waitFor(() => expect(screen.getAllByLabelText(/^estimate-group-/).length).toBe(1));
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('16.000');
+    expect(screen.getByLabelText('group-line-count-0').textContent).toContain('2');
+
+    // Drill-down still distinguishes each room's provenance.
+    fireEvent.click(screen.getByLabelText('estimate-group-0'));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-provenance-1').textContent).toBe('pokój 1 — Ściana 1');
+    expect(screen.getByLabelText('line-provenance-2').textContent).toBe('kuchnia — Ściana 1');
+  });
+});
+
+describe('Stage 10G.3B regression — accepted 10G.2/10G.3A behavior untouched', () => {
+  it('group price editing still works alongside the new Sprawdź zmiany action', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '35.00' }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: '40.00', price_override: true }),
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '40.00' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+
+    await waitFor(() => expect(estimatesApi.patchEstimateLine).toHaveBeenCalledTimes(2));
+  });
+
+  it('atomic line editing still works alongside the new Sprawdź zmiany action', async () => {
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ quantity: '13.750', quantity_overridden: true }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-quantity-1'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '13.750' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { quantity: '13.750' },
+      );
+    });
+  });
+
+  it('compact provenance and deterministic surface tint are preserved in the detail view', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-provenance-1').textContent).toBe('Salon — Ściana 1');
+    expect(screen.getByLabelText('estimate-line-1').className).toMatch(/bg-\S+-50/);
+  });
+
+  it('Back navigation between grouped and detail views is preserved', async () => {
+    renderShell(makeSummary(), PLANNED_SURFACE_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-detail-back'));
+    expect(screen.getByLabelText('estimate-detail-back')).toBeTruthy();
+  });
+
+  it('the previously fixed undefined-provenance crash regression remains fixed', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([
+      makeLine({ surface_name: undefined, surface_type_value: 'WALL' }),
+    ]));
+    renderShell();
+    await expect(waitFor(() => screen.getByLabelText('estimate-lines'))).resolves.toBeTruthy();
+  });
+
+  it('no JS Number financial arithmetic is introduced by the preview panel', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        added: 1,
+        changes: [makeChange({ new_source_quantity: '319.410', new_unit_price: '312.34' })],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0'));
+    // Exact decimal strings pass through unrounded — 319.410, not 319.41 or 319.4100000001.
+    expect(screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0').textContent).toContain('319.410');
+    expect(screen.getByLabelText('estimate-regeneration-change-price-ADDED-0').textContent).toContain('312.34');
   });
 });

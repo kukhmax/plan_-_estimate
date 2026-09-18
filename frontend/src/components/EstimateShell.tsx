@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getEstimate, patchEstimateLine } from '../api/estimates';
+import { getEstimate, patchEstimateLine, previewEstimateRegeneration, regenerateEstimate } from '../api/estimates';
 import { useI18n } from '../hooks/useI18n';
-import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue } from '../types/estimate';
+import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue, LineChangeEntry, LineChangeTypeValue, RegenerationPreviewResponse } from '../types/estimate';
 import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatDecimalMoney } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
@@ -66,6 +66,18 @@ function isValidDecimalString(value: string): boolean {
 }
 
 type PriceEditMode = 'value' | 'unresolved';
+
+// Shared structural shape for compact provenance rendering — see the
+// compactProvenanceLabel comment below for why this is reused rather than
+// duplicated across EstimateLineRead and LineChangeEntry.
+interface ProvenanceSource {
+  room_name?: string | null;
+  surface_name?: string | null;
+  surface_type_value?: string | null;
+  opening_id: string | null;
+  opening_name?: string | null;
+  opening_type_value?: string | null;
+}
 
 function getGroupKey(line: EstimateLineRead): string {
   if (line.origin === 'MANUAL' || line.price_item_id === null) {
@@ -334,6 +346,82 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     }
   };
 
+  // Stage 10G.3B — regeneration preview/confirm. Preview is strictly
+  // read-only (regenerate-preview never mutates); only explicit confirmation
+  // calls the mutating regenerate endpoint. Checks the WHOLE project
+  // estimate, never scoped to the currently opened room or group.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewResult, setPreviewResult] = useState<RegenerationPreviewResponse | null>(null);
+  const [regenerateBusy, setRegenerateBusy] = useState(false);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
+
+  const openPreview = async () => {
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewResult(null);
+    setRegenerateError(null);
+    try {
+      const result = await previewEstimateRegeneration(estimate.project_id, estimate.id);
+      setPreviewResult(result);
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : t.estimates.preview_error);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewOpen(false);
+    setPreviewLoading(false);
+    setPreviewError(null);
+    setPreviewResult(null);
+    setRegenerateError(null);
+  };
+
+  const confirmRegenerate = async () => {
+    setRegenerateBusy(true);
+    setRegenerateError(null);
+    try {
+      await regenerateEstimate(estimate.project_id, estimate.id);
+      await load();
+      closePreview();
+    } catch (err) {
+      setRegenerateError(err instanceof Error ? err.message : t.estimates.preview_regenerate_error);
+    } finally {
+      setRegenerateBusy(false);
+    }
+  };
+
+  const changeCategoryLabel = (changeType: LineChangeTypeValue): string => {
+    if (changeType === 'ADDED') return t.estimates.preview_category_added;
+    if (changeType === 'REMOVED') return t.estimates.preview_category_removed;
+    return t.estimates.preview_category_updated;
+  };
+
+  // Never invents a value for the side that doesn't apply (ADDED has no
+  // "old", REMOVED has no "new"); collapses to a single value when an
+  // UPDATED entry's quantity/price didn't actually change (e.g. only the
+  // description changed) instead of showing "X -> X".
+  const changeQuantityDisplay = (entry: LineChangeEntry): string => {
+    const fmt = (v: string | null) => (v !== null ? `${v} ${entry.unit}` : '—');
+    if (entry.change_type === 'ADDED') return fmt(entry.new_source_quantity);
+    if (entry.change_type === 'REMOVED') return fmt(entry.old_source_quantity);
+    if (entry.old_source_quantity === entry.new_source_quantity) return fmt(entry.new_source_quantity);
+    return `${fmt(entry.old_source_quantity)} → ${fmt(entry.new_source_quantity)}`;
+  };
+
+  const changePriceDisplay = (entry: LineChangeEntry): string => {
+    const fmt = (v: string | null) =>
+      v !== null ? `${formatDecimalMoney(v)} ${estimate.currency}` : t.estimates.price_not_set;
+    if (entry.change_type === 'ADDED') return fmt(entry.new_unit_price);
+    if (entry.change_type === 'REMOVED') return fmt(entry.old_unit_price);
+    if (entry.old_unit_price === entry.new_unit_price) return fmt(entry.new_unit_price);
+    return `${fmt(entry.old_unit_price)} → ${fmt(entry.new_unit_price)}`;
+  };
+
   const statusLabel = (status: EstimateStatusValue): string => {
     const labels: Record<EstimateStatusValue, string> = {
       DRAFT: t.estimates.status_draft,
@@ -372,30 +460,40 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     return scope;
   };
 
+  // The `estimate` prop is a point-in-time EstimateSummaryRead handed down by
+  // the parent (e.g. from the version list) and is never refreshed by this
+  // component. Once `detail` has been fetched at least once, it is the only
+  // authoritative source for anything that a mutation here (price/quantity
+  // edit, regeneration, ...) can change — total and currency above all.
+  // Falling back to the prop only covers the brief window before the first
+  // successful load(); `detail` is never cleared afterward, even on a later
+  // reload error, so it never regresses to the stale prop once available.
+  const headerSource: EstimateSummaryRead = detail ?? estimate;
+
   const header = (
     <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
       <div className="flex items-center gap-2 flex-wrap min-w-0">
         <h2 className="font-bold text-slate-900 text-base shrink-0">
-          {t.estimates.title} — {t.estimates.version} {estimate.version}
+          {t.estimates.title} — {t.estimates.version} {headerSource.version}
         </h2>
         <span
           aria-label="estimate-shell-status"
-          className={`text-xs px-2.5 py-0.5 rounded-full font-medium shrink-0 ${statusBadgeClass(estimate.status)}`}
+          className={`text-xs px-2.5 py-0.5 rounded-full font-medium shrink-0 ${statusBadgeClass(headerSource.status)}`}
         >
-          {statusLabel(estimate.status)}
+          {statusLabel(headerSource.status)}
         </span>
       </div>
 
-      {estimate.name && (
-        <p className="text-sm text-slate-600 break-words min-w-0">{estimate.name}</p>
+      {headerSource.name && (
+        <p className="text-sm text-slate-600 break-words min-w-0">{headerSource.name}</p>
       )}
 
       <div className="text-xs text-slate-500 space-y-0.5">
         <div>
           <span className="text-slate-400">{t.estimates.total}: </span>
-          <span className="font-medium text-slate-700">
-            {estimate.total !== null
-              ? `${formatDecimalMoney(estimate.total)} ${estimate.currency}`
+          <span className="font-medium text-slate-700" aria-label="estimate-shell-total">
+            {headerSource.total !== null
+              ? `${formatDecimalMoney(headerSource.total)} ${headerSource.currency}`
               : '—'}
           </span>
         </div>
@@ -457,44 +555,218 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     ceiling: t.surfaces.ceiling,
   };
 
+  // Shared shape for anything that can carry live-resolved room/surface/
+  // opening presentation metadata — both EstimateLineRead and (since the
+  // 10G.3B provenance follow-up) LineChangeEntry satisfy this structurally,
+  // so the compact provenance logic is never duplicated between the two.
+  //
   // Preferred order: 1) explicit surface_name if non-empty, 2) canonical
   // localized surface type if known, 3) omit — never invent a name or guess
   // from array order. Presentation metadata may be null OR absent
   // (undefined) at runtime, so every check below must treat them the same.
-  const provenanceSurfaceLabel = (line: EstimateLineRead): string | null => {
-    const surfaceName = line.surface_name;
+  const provenanceSurfaceLabel = (source: ProvenanceSource): string | null => {
+    const surfaceName = source.surface_name;
     if (surfaceName !== null && surfaceName !== undefined && surfaceName.trim().length > 0) {
       return getSurfaceDisplayName(
-        { name: surfaceName, surface_type: line.surface_type_value },
+        { name: surfaceName, surface_type: source.surface_type_value },
         surfaceDisplayLabels,
       );
     }
-    if (line.surface_type_value === 'WALL') return surfaceDisplayLabels.wall;
-    if (line.surface_type_value === 'FLOOR') return surfaceDisplayLabels.floor;
-    if (line.surface_type_value === 'CEILING') return surfaceDisplayLabels.ceiling;
+    if (source.surface_type_value === 'WALL') return surfaceDisplayLabels.wall;
+    if (source.surface_type_value === 'FLOOR') return surfaceDisplayLabels.floor;
+    if (source.surface_type_value === 'CEILING') return surfaceDisplayLabels.ceiling;
     return null;
   };
 
-  const provenanceOpeningLabel = (line: EstimateLineRead): string | null => {
-    if (line.opening_id === null) return null;
-    if (line.opening_name !== null && line.opening_name !== undefined) return line.opening_name;
-    if (line.opening_type_value === 'DOOR') return t.openings.door;
-    if (line.opening_type_value === 'WINDOW') return t.openings.window;
+  const provenanceOpeningLabel = (source: ProvenanceSource): string | null => {
+    if (source.opening_id === null) return null;
+    if (source.opening_name !== null && source.opening_name !== undefined) return source.opening_name;
+    if (source.opening_type_value === 'DOOR') return t.openings.door;
+    if (source.opening_type_value === 'WINDOW') return t.openings.window;
     return t.openings.other;
   };
 
   // Compact "room — surface — opening" provenance, replacing the previous
   // labeled Pomieszczenie/Powierzchnia/Otwór rows. Missing pieces are simply
   // omitted — never invent a placeholder for a part that isn't available.
-  const compactProvenanceLabel = (line: EstimateLineRead): string | null => {
+  const compactProvenanceLabel = (source: ProvenanceSource): string | null => {
     const parts: string[] = [];
-    if (line.room_name !== null && line.room_name !== undefined) parts.push(line.room_name);
-    const surfaceLabel = provenanceSurfaceLabel(line);
+    if (source.room_name !== null && source.room_name !== undefined) parts.push(source.room_name);
+    const surfaceLabel = provenanceSurfaceLabel(source);
     if (surfaceLabel !== null) parts.push(surfaceLabel);
-    const openingLabel = provenanceOpeningLabel(line);
+    const openingLabel = provenanceOpeningLabel(source);
     if (openingLabel !== null) parts.push(openingLabel);
     return parts.length > 0 ? parts.join(' — ') : null;
   };
+
+  // Stage 10G.3B — "Sprawdź zmiany" lives in the shared header area (not on
+  // every group card) and always checks the WHOLE project estimate, never
+  // scoped to the currently opened room/group. DRAFT-only, never rendered
+  // (not just disabled) for FINAL/ACCEPTED/ARCHIVED.
+  const regenerationSection = detail.status === 'DRAFT' && (
+    <div
+      aria-label="estimate-regeneration"
+      className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2"
+    >
+      {!previewOpen ? (
+        <button
+          type="button"
+          aria-label="estimate-check-changes-action"
+          onClick={() => void openPreview()}
+          className="w-full min-h-[44px] px-3 text-sm font-medium text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"
+        >
+          {t.estimates.check_changes_action}
+        </button>
+      ) : (
+        <div aria-label="estimate-regeneration-panel" className="space-y-2">
+          {previewLoading && (
+            <p aria-label="estimate-regeneration-loading" className="text-sm text-slate-500 text-center py-2">
+              {t.estimates.preview_loading}
+            </p>
+          )}
+
+          {!previewLoading && previewError !== null && (
+            <div className="space-y-2">
+              <p
+                role="alert"
+                aria-label="estimate-regeneration-error"
+                className="text-sm text-red-600 break-words min-w-0"
+              >
+                {previewError}
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  aria-label="estimate-regeneration-retry"
+                  onClick={() => void openPreview()}
+                  className="flex-1 min-h-[44px] bg-blue-600 text-white text-sm font-medium rounded-lg px-3"
+                >
+                  {t.estimates.preview_retry}
+                </button>
+                <button
+                  type="button"
+                  aria-label="estimate-regeneration-close"
+                  onClick={closePreview}
+                  className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3"
+                >
+                  {t.estimates.preview_close}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!previewLoading && previewError === null && previewResult !== null && (
+            previewResult.changes.length === 0 ? (
+              <div aria-label="estimate-regeneration-no-changes" className="space-y-1.5">
+                <p className="text-sm font-medium text-slate-700">{t.estimates.preview_no_changes_title}</p>
+                <p className="text-xs text-slate-500">{t.estimates.preview_no_changes_description}</p>
+                <button
+                  type="button"
+                  aria-label="estimate-regeneration-close"
+                  onClick={closePreview}
+                  className="w-full min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3"
+                >
+                  {t.estimates.preview_close}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {(['ADDED', 'UPDATED', 'REMOVED'] as const).map((changeType) => {
+                  const entries = previewResult.changes.filter((c) => c.change_type === changeType);
+                  if (entries.length === 0) return null;
+                  return (
+                    <div
+                      key={changeType}
+                      aria-label={`estimate-regeneration-category-${changeType}`}
+                      className="space-y-1.5"
+                    >
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        {changeCategoryLabel(changeType)}
+                      </p>
+                      {entries.map((entry, i) => {
+                        const entryProvenance = compactProvenanceLabel(entry);
+                        return (
+                        <div
+                          key={`${changeType}-${i}`}
+                          aria-label={`estimate-regeneration-change-${changeType}-${i}`}
+                          className="border border-slate-200 rounded-lg p-2 space-y-1"
+                        >
+                          {entryProvenance !== null && (
+                            <p
+                              aria-label={`estimate-regeneration-change-provenance-${changeType}-${i}`}
+                              className="text-xs text-slate-500 break-words min-w-0"
+                            >
+                              {entryProvenance}
+                            </p>
+                          )}
+                          <p
+                            aria-label={`estimate-regeneration-change-description-${changeType}-${i}`}
+                            className="text-sm text-slate-900 break-words min-w-0"
+                          >
+                            {resolveKey(t, entry.description)}
+                          </p>
+                          <div className="text-xs text-slate-600 flex items-baseline gap-1 flex-wrap min-w-0">
+                            <span aria-label={`estimate-regeneration-change-quantity-${changeType}-${i}`}>
+                              {changeQuantityDisplay(entry)}
+                            </span>
+                            <span className="text-slate-400">×</span>
+                            <span aria-label={`estimate-regeneration-change-price-${changeType}-${i}`}>
+                              {changePriceDisplay(entry)}
+                            </span>
+                          </div>
+                          {(entry.quantity_overridden || entry.price_override) && (
+                            <div
+                              aria-label={`estimate-regeneration-change-override-${changeType}-${i}`}
+                              className="text-xs text-amber-700 space-y-0.5"
+                            >
+                              {entry.quantity_overridden && <p>{t.estimates.quantity_overridden}</p>}
+                              {entry.price_override && <p>{t.estimates.price_overridden}</p>}
+                            </div>
+                          )}
+                        </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+
+                <div className="flex items-center gap-2 flex-wrap pt-1">
+                  <button
+                    type="button"
+                    aria-label="estimate-regeneration-confirm"
+                    onClick={() => void confirmRegenerate()}
+                    disabled={regenerateBusy}
+                    className="flex-1 min-h-[44px] bg-blue-600 text-white text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+                  >
+                    {regenerateBusy ? t.estimates.preview_updating : t.estimates.preview_confirm}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="estimate-regeneration-cancel"
+                    onClick={closePreview}
+                    disabled={regenerateBusy}
+                    className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+                  >
+                    {t.estimates.preview_cancel}
+                  </button>
+                </div>
+
+                {regenerateError !== null && (
+                  <p
+                    role="alert"
+                    aria-label="estimate-regeneration-confirm-error"
+                    className="text-xs text-red-600 break-words min-w-0"
+                  >
+                    {regenerateError}
+                  </p>
+                )}
+              </div>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   // Detail view: show individual lines for the selected group
   if (selectedGroupKey !== null) {
@@ -504,6 +776,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     return (
       <article aria-label="estimate-shell" className="space-y-3">
         {header}
+        {regenerationSection}
 
         <button
           type="button"
@@ -748,6 +1021,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   return (
     <article aria-label="estimate-shell" className="space-y-3">
       {header}
+      {regenerationSection}
 
       <div aria-label="estimate-groups" className="space-y-2">
         {groups.map((group, index) => {
