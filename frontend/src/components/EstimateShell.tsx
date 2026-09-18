@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getEstimate, patchEstimateLine, previewEstimateRegeneration, regenerateEstimate } from '../api/estimates';
+import { addManualEstimateLine, deleteEstimateLine, getEstimate, patchEstimateLine, previewEstimateRegeneration, regenerateEstimate } from '../api/estimates';
 import { useI18n } from '../hooks/useI18n';
-import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue, LineChangeEntry, LineChangeTypeValue, RegenerationPreviewResponse } from '../types/estimate';
+import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue, LineChangeEntry, LineChangeTypeValue, ManualLineCreatePayload, RegenerationPreviewResponse } from '../types/estimate';
+import { PRICE_UNITS, type PriceScopeValue, type PriceUnitValue } from '../types/priceItem';
 import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatDecimalMoney } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
+
+// Stage 10G.3C — the backend rejects LABOR_AND_MATERIAL for MANUAL lines (no
+// PriceBook source to split into labor/material components), so the manual
+// line form only ever offers the two scopes it actually accepts.
+const MANUAL_LINE_SCOPES: readonly PriceScopeValue[] = ['LABOR', 'MATERIAL'];
 
 interface EstimateShellProps {
   estimate: EstimateSummaryRead;
@@ -395,6 +401,114 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     }
   };
 
+  // Stage 10G.3C — manual EstimateLine creation. Belongs to the Estimate as a
+  // whole (shared header area, like "Sprawdź zmiany"), never scoped to a
+  // group/room. No optimistic insertion — success always triggers an
+  // authoritative refetch via load().
+  const [manualFormOpen, setManualFormOpen] = useState(false);
+  const [manualDescription, setManualDescription] = useState('');
+  const [manualScope, setManualScope] = useState<PriceScopeValue>('LABOR');
+  const [manualUnit, setManualUnit] = useState<PriceUnitValue>('M2');
+  const [manualQuantity, setManualQuantity] = useState('1');
+  const [manualPriceMode, setManualPriceMode] = useState<PriceEditMode>('value');
+  const [manualUnitPrice, setManualUnitPrice] = useState('');
+  const [manualBusy, setManualBusy] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
+
+  const openManualForm = () => {
+    setManualFormOpen(true);
+    setManualDescription('');
+    setManualScope('LABOR');
+    setManualUnit('M2');
+    setManualQuantity('1');
+    setManualPriceMode('value');
+    setManualUnitPrice('');
+    setManualError(null);
+  };
+
+  const closeManualForm = () => {
+    setManualFormOpen(false);
+    setManualError(null);
+  };
+
+  const submitManualLine = async () => {
+    if (detail === null) return;
+
+    const trimmedDescription = manualDescription.trim();
+    if (trimmedDescription.length === 0) {
+      setManualError(t.estimates.manual_line_description_required);
+      return;
+    }
+    if (!isValidDecimalString(manualQuantity)) {
+      setManualError(t.estimates.line_edit_invalid_number);
+      return;
+    }
+
+    let unitPrice: string | null;
+    if (manualPriceMode === 'unresolved') {
+      unitPrice = null;
+    } else {
+      if (!isValidDecimalString(manualUnitPrice)) {
+        setManualError(t.estimates.line_edit_invalid_number);
+        return;
+      }
+      unitPrice = manualUnitPrice;
+    }
+
+    const payload: ManualLineCreatePayload = {
+      description: trimmedDescription,
+      scope: manualScope,
+      unit: manualUnit,
+      quantity: manualQuantity,
+      unit_price: unitPrice,
+      currency: detail.currency,
+    };
+
+    setManualBusy(true);
+    setManualError(null);
+    try {
+      await addManualEstimateLine(estimate.project_id, estimate.id, payload);
+      await load();
+      closeManualForm();
+    } catch (err) {
+      setManualError(err instanceof Error ? err.message : t.estimates.manual_line_error);
+    } finally {
+      setManualBusy(false);
+    }
+  };
+
+  // Stage 10G.3C — MANUAL line deletion. DRAFT-only, MANUAL-only (enforced
+  // server-side too); requires an explicit confirmation step.
+  const [deleteConfirmLineId, setDeleteConfirmLineId] = useState<string | null>(null);
+  const [deleteBusyLineId, setDeleteBusyLineId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ lineId: string; message: string } | null>(null);
+
+  const requestDeleteLine = (lineId: string) => {
+    setDeleteConfirmLineId(lineId);
+    setDeleteError(null);
+  };
+
+  const cancelDeleteLine = () => {
+    setDeleteConfirmLineId(null);
+  };
+
+  const confirmDeleteLine = async (line: EstimateLineRead) => {
+    setDeleteBusyLineId(line.id);
+    setDeleteError(null);
+    try {
+      await deleteEstimateLine(estimate.project_id, estimate.id, line.id);
+      await load();
+      setDeleteConfirmLineId(null);
+    } catch (err) {
+      setDeleteError({
+        lineId: line.id,
+        message: err instanceof Error ? err.message : t.estimates.manual_line_delete_error,
+      });
+    } finally {
+      setDeleteBusyLineId(null);
+    }
+  };
+
   const changeCategoryLabel = (changeType: LineChangeTypeValue): string => {
     if (changeType === 'ADDED') return t.estimates.preview_category_added;
     if (changeType === 'REMOVED') return t.estimates.preview_category_removed;
@@ -768,6 +882,136 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     </div>
   );
 
+  // Stage 10G.3C — "+ Dodaj pozycję" belongs to the Estimate as a whole
+  // (shared header area, like regenerationSection above), never scoped to a
+  // group/room/surface. DRAFT-only, never rendered for immutable estimates.
+  const manualLineSection = detail.status === 'DRAFT' && (
+    <div
+      aria-label="estimate-manual-line"
+      className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2"
+    >
+      {!manualFormOpen ? (
+        <button
+          type="button"
+          aria-label="estimate-add-manual-line-action"
+          onClick={openManualForm}
+          className="w-full min-h-[44px] px-3 text-sm font-medium text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"
+        >
+          {t.estimates.add_manual_line_action}
+        </button>
+      ) : (
+        <div aria-label="estimate-manual-line-form" className="space-y-2">
+          <label className="block text-xs text-slate-500">
+            <span className="block mb-0.5">{t.estimates.manual_line_description_label}</span>
+            <textarea
+              aria-label="manual-line-description"
+              value={manualDescription}
+              onChange={(e) => setManualDescription(e.target.value)}
+              placeholder={t.estimates.manual_line_description_placeholder}
+              rows={2}
+              className="w-full border border-slate-300 rounded-lg px-2 py-2 text-sm bg-white resize-none"
+            />
+          </label>
+
+          <label className="block text-xs text-slate-500">
+            <span className="block mb-0.5">{t.estimates.manual_line_scope_label}</span>
+            <select
+              aria-label="manual-line-scope"
+              value={manualScope}
+              onChange={(e) => setManualScope(e.target.value as PriceScopeValue)}
+              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+            >
+              {MANUAL_LINE_SCOPES.map((scope) => (
+                <option key={scope} value={scope}>{scopeLabel(scope)}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-xs text-slate-500">
+            <span className="block mb-0.5">{t.estimates.manual_line_unit_label}</span>
+            <select
+              aria-label="manual-line-unit"
+              value={manualUnit}
+              onChange={(e) => setManualUnit(e.target.value as PriceUnitValue)}
+              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+            >
+              {PRICE_UNITS.map((unit) => (
+                <option key={unit} value={unit}>{t.pricebook.units[unit]}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-xs text-slate-500">
+            <span className="block mb-0.5">{t.estimates.line_edit_quantity_label}</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              aria-label="manual-line-quantity"
+              value={manualQuantity}
+              onChange={(e) => setManualQuantity(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+            />
+          </label>
+
+          <div className="text-xs text-slate-500 space-y-1.5">
+            <span className="block">{t.estimates.line_edit_price_label}</span>
+            <label className="flex items-center gap-2 min-h-[44px]">
+              <input
+                type="checkbox"
+                aria-label="manual-line-price-unresolved"
+                checked={manualPriceMode === 'unresolved'}
+                onChange={(e) => setManualPriceMode(e.target.checked ? 'unresolved' : 'value')}
+                className="w-5 h-5 shrink-0"
+              />
+              <span>{t.estimates.line_edit_price_unresolved}</span>
+            </label>
+            {manualPriceMode === 'value' && (
+              <input
+                type="text"
+                inputMode="decimal"
+                aria-label="manual-line-price"
+                value={manualUnitPrice}
+                onChange={(e) => setManualUnitPrice(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+              />
+            )}
+          </div>
+
+          {manualError !== null && (
+            <p
+              role="alert"
+              aria-label="estimate-manual-line-error"
+              className="text-xs text-red-600 break-words min-w-0"
+            >
+              {manualError}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              aria-label="estimate-manual-line-save"
+              onClick={() => void submitManualLine()}
+              disabled={manualBusy}
+              className="flex-1 min-h-[44px] bg-blue-600 text-white text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+            >
+              {manualBusy ? t.estimates.manual_line_saving : t.estimates.manual_line_save}
+            </button>
+            <button
+              type="button"
+              aria-label="estimate-manual-line-cancel"
+              onClick={closeManualForm}
+              disabled={manualBusy}
+              className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+            >
+              {t.estimates.line_edit_cancel}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // Detail view: show individual lines for the selected group
   if (selectedGroupKey !== null) {
     const selectedGroup = groups.find((g) => g.key === selectedGroupKey);
@@ -777,6 +1021,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
       <article aria-label="estimate-shell" className="space-y-3">
         {header}
         {regenerationSection}
+        {manualLineSection}
 
         <button
           type="button"
@@ -799,7 +1044,11 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
               editingLineId === line.id ||
               (actionError !== null && actionError.lineId === line.id) ||
               line.quantity_overridden ||
-              (line.price_override && line.origin !== 'MANUAL');
+              (line.price_override && line.origin !== 'MANUAL') ||
+              // Stage 10G.3C — a MANUAL line always offers deletion in DRAFT.
+              line.origin === 'MANUAL' ||
+              deleteConfirmLineId === line.id ||
+              (deleteError !== null && deleteError.lineId === line.id);
             return (
               <div
                 key={line.id}
@@ -1007,6 +1256,68 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                         </button>
                       )}
                     </div>
+
+                    {/* Stage 10G.3C — MANUAL lines only; PLANNED_WORK lines
+                        are controlled by project planning + regeneration and
+                        are never deletable here. */}
+                    {line.origin === 'MANUAL' && editingLineId !== line.id && (
+                      deleteConfirmLineId === line.id ? (
+                        <div aria-label={`line-delete-confirm-${line.position}`} className="space-y-1.5 pt-1.5 border-t border-slate-200/70">
+                          <p className="text-xs text-slate-600 break-words min-w-0">
+                            {t.estimates.manual_line_delete_confirm_title}
+                          </p>
+                          {deleteError !== null && deleteError.lineId === line.id && (
+                            <p
+                              role="alert"
+                              aria-label={`line-delete-error-${line.position}`}
+                              className="text-xs text-red-600 break-words min-w-0"
+                            >
+                              {deleteError.message}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              aria-label={`line-delete-confirm-yes-${line.position}`}
+                              onClick={() => void confirmDeleteLine(line)}
+                              disabled={deleteBusyLineId === line.id}
+                              className="flex-1 min-h-[44px] bg-red-600 text-white text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+                            >
+                              {deleteBusyLineId === line.id ? t.estimates.manual_line_deleting : t.estimates.manual_line_delete_confirm_yes}
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`line-delete-cancel-${line.position}`}
+                              onClick={cancelDeleteLine}
+                              disabled={deleteBusyLineId === line.id}
+                              className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+                            >
+                              {t.estimates.line_edit_cancel}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="pt-1.5 border-t border-slate-200/70 space-y-1.5">
+                          <button
+                            type="button"
+                            aria-label={`line-delete-action-${line.position}`}
+                            onClick={() => requestDeleteLine(line.id)}
+                            className="min-h-[44px] px-3 text-xs font-medium text-red-700 border border-red-200 rounded-lg hover:bg-red-50"
+                          >
+                            {t.estimates.manual_line_delete_action}
+                          </button>
+                          {deleteError !== null && deleteError.lineId === line.id && (
+                            <p
+                              role="alert"
+                              aria-label={`line-delete-error-${line.position}`}
+                              className="text-xs text-red-600 break-words min-w-0"
+                            >
+                              {deleteError.message}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    )}
                   </div>
                 )}
               </div>
@@ -1022,6 +1333,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     <article aria-label="estimate-shell" className="space-y-3">
       {header}
       {regenerationSection}
+      {manualLineSection}
 
       <div aria-label="estimate-groups" className="space-y-2">
         {groups.map((group, index) => {

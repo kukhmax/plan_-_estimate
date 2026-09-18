@@ -1,4 +1,4 @@
-import { EstimateLineRead, EstimateLineUpdatePayload, EstimateListResponse, EstimateRead, EstimateSummaryRead, RegenerationPreviewResponse } from '../types/estimate';
+import { EstimateLineRead, EstimateLineUpdatePayload, EstimateListResponse, EstimateRead, EstimateSummaryRead, ManualLineCreatePayload, RegenerationPreviewResponse } from '../types/estimate';
 import { apiRequest } from './http';
 
 function estimatesPath(projectId: string): string {
@@ -52,5 +52,29 @@ export function regenerateEstimate(
 ): Promise<RegenerationPreviewResponse> {
   return apiRequest(`${estimatesPath(projectId)}/${estimateId}/regenerate`, {
     method: 'POST',
+  });
+}
+
+// Stage 10G.3C — append a freeform MANUAL line to a DRAFT estimate.
+export function addManualEstimateLine(
+  projectId: string,
+  estimateId: string,
+  payload: ManualLineCreatePayload,
+): Promise<EstimateLineRead> {
+  return apiRequest(`${estimatesPath(projectId)}/${estimateId}/lines`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+// Stage 10G.3C — delete a MANUAL line from a DRAFT estimate (204 No Content;
+// PLANNED_WORK lines are rejected by the backend — never exposed in the UI).
+export function deleteEstimateLine(
+  projectId: string,
+  estimateId: string,
+  lineId: string,
+): Promise<void> {
+  return apiRequest(`${estimatesPath(projectId)}/${estimateId}/lines/${lineId}`, {
+    method: 'DELETE',
   });
 }

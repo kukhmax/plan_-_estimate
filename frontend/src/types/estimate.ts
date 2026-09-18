@@ -110,3 +110,20 @@ export interface RegenerationPreviewResponse {
   preserved_manual: number;
   changes: LineChangeEntry[];
 }
+
+// Stage 10G.3C — POST body for a MANUAL EstimateLine (Stage 10E contract).
+// scope/unit are plain strings here (matching EstimateLineRead), but the UI
+// only ever offers PriceScopeValue/PriceUnitValue options; LABOR_AND_MATERIAL
+// is never offered — the backend rejects it for MANUAL lines (no PriceBook
+// source to split into labor/material components). currency is optional and,
+// when sent, must match the estimate's own currency (Stage 10E contract) —
+// callers always send the estimate's authoritative currency, never a
+// user-editable value.
+export interface ManualLineCreatePayload {
+  description: string;
+  scope: string;
+  unit: string;
+  quantity: string;
+  unit_price?: string | null;
+  currency?: string;
+}

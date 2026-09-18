@@ -84,5 +84,9 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     const code = typeof detail === 'string' ? domainErrorCodeFromMessage(detail) : undefined;
     throw new ApiError(errorMessage(payload, response.status), response.status, code);
   }
+  // 204 No Content (e.g. DELETE) has no body to parse.
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return response.json() as Promise<T>;
 }

@@ -910,6 +910,20 @@
     "preview_updating": "Aktualizowanie...",
     "preview_error": "Nie udało się sprawdzić zmian.",
     "preview_retry": "Spróbuj ponownie",
-    "preview_regenerate_error": "Nie udało się zaktualizować kosztorysu."
+    "preview_regenerate_error": "Nie udało się zaktualizować kosztorysu.",
+    "add_manual_line_action": "+ Dodaj pozycję",
+    "manual_line_description_label": "Opis",
+    "manual_line_description_placeholder": "np. Transport materiałów",
+    "manual_line_scope_label": "Zakres",
+    "manual_line_unit_label": "Jednostka",
+    "manual_line_description_required": "Podaj opis pozycji.",
+    "manual_line_save": "Dodaj pozycję",
+    "manual_line_saving": "Dodawanie...",
+    "manual_line_error": "Nie udało się dodać pozycji.",
+    "manual_line_delete_action": "Usuń pozycję",
+    "manual_line_delete_confirm_title": "Usunąć tę pozycję ze szkicu kosztorysu?",
+    "manual_line_delete_confirm_yes": "Usuń",
+    "manual_line_deleting": "Usuwanie...",
+    "manual_line_delete_error": "Nie udało się usunąć pozycji."
   }
 }

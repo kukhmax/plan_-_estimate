@@ -83,4 +83,18 @@ describe('apiRequest error detail parsing', () => {
       message: 'body.custom: Custom validator detail',
     });
   });
+
+  it('resolves with undefined for a 204 No Content response (e.g. DELETE) without parsing a body', async () => {
+    const json = vi.fn().mockRejectedValue(new Error('no body to parse'));
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      json,
+    } as unknown as Response);
+
+    const result = await apiRequest('/test', { method: 'DELETE' });
+
+    expect(result).toBeUndefined();
+    expect(json).not.toHaveBeenCalled();
+  });
 });

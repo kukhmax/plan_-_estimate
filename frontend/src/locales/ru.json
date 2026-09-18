@@ -910,6 +910,20 @@
     "preview_updating": "Обновление...",
     "preview_error": "Не удалось проверить изменения.",
     "preview_retry": "Повторить",
-    "preview_regenerate_error": "Не удалось обновить смету."
+    "preview_regenerate_error": "Не удалось обновить смету.",
+    "add_manual_line_action": "+ Добавить позицию",
+    "manual_line_description_label": "Описание",
+    "manual_line_description_placeholder": "напр. Доставка материалов",
+    "manual_line_scope_label": "Категория",
+    "manual_line_unit_label": "Единица",
+    "manual_line_description_required": "Введите описание позиции.",
+    "manual_line_save": "Добавить позицию",
+    "manual_line_saving": "Добавление...",
+    "manual_line_error": "Не удалось добавить позицию.",
+    "manual_line_delete_action": "Удалить позицию",
+    "manual_line_delete_confirm_title": "Удалить эту позицию из черновика сметы?",
+    "manual_line_delete_confirm_yes": "Удалить",
+    "manual_line_deleting": "Удаление...",
+    "manual_line_delete_error": "Не удалось удалить позицию."
   }
 }

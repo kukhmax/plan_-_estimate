@@ -22,6 +22,8 @@ vi.mock('../api/estimates', () => ({
   patchEstimateLine: vi.fn(),
   previewEstimateRegeneration: vi.fn(),
   regenerateEstimate: vi.fn(),
+  addManualEstimateLine: vi.fn(),
+  deleteEstimateLine: vi.fn(),
 }));
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -144,6 +146,8 @@ beforeEach(() => {
   vi.mocked(estimatesApi.patchEstimateLine).mockReset();
   vi.mocked(estimatesApi.previewEstimateRegeneration).mockReset();
   vi.mocked(estimatesApi.regenerateEstimate).mockReset();
+  vi.mocked(estimatesApi.addManualEstimateLine).mockReset();
+  vi.mocked(estimatesApi.deleteEstimateLine).mockReset();
 });
 
 describe('API call', () => {
@@ -3391,5 +3395,561 @@ describe('Stage 10G.3B regression — accepted 10G.2/10G.3A behavior untouched',
     // Exact decimal strings pass through unrounded — 319.410, not 319.41 or 319.4100000001.
     expect(screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0').textContent).toContain('319.410');
     expect(screen.getByLabelText('estimate-regeneration-change-price-ADDED-0').textContent).toContain('312.34');
+  });
+});
+
+// ─── Stage 10G.3C — manual estimate lines ─────────────────────────────────────
+
+function makeManualLine(overrides: Partial<EstimateLineRead> = {}): EstimateLineRead {
+  return makeLine({
+    origin: 'MANUAL',
+    price_item_id: null,
+    plan_id: null,
+    planned_work_id: null,
+    surface_id: null,
+    room_id: null,
+    opening_id: null,
+    room_name: null,
+    surface_name: null,
+    surface_type_value: null,
+    opening_name: null,
+    opening_type_value: null,
+    quantity_source: 'MANUAL',
+    price_override: true,
+    ...overrides,
+  });
+}
+
+describe('Stage 10G.3C — add-manual-line entry (DRAFT-only, whole-estimate)', () => {
+  it('a DRAFT estimate shows + Dodaj pozycję in the detail view', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('estimate-add-manual-line-action')).toBeTruthy();
+  });
+
+  it('a DRAFT estimate shows + Dodaj pozycję in the grouped summary view', async () => {
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-add-manual-line-action')).toBeTruthy();
+  });
+
+  it('does not expose + Dodaj pozycję for a FINAL estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'FINAL' }));
+    renderShell(makeSummary({ status: 'FINAL' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('estimate-add-manual-line-action')).toBeNull();
+  });
+
+  it('does not expose + Dodaj pozycję for an ACCEPTED estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'ACCEPTED' }));
+    renderShell(makeSummary({ status: 'ACCEPTED' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('estimate-add-manual-line-action')).toBeNull();
+  });
+
+  it('does not expose + Dodaj pozycję for an ARCHIVED estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'ARCHIVED' }));
+    renderShell(makeSummary({ status: 'ARCHIVED' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('estimate-add-manual-line-action')).toBeNull();
+  });
+});
+
+describe('Stage 10G.3C — manual line form', () => {
+  it('opens and closes without calling the API', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    await waitFor(() => screen.getByLabelText('estimate-manual-line-form'));
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-cancel'));
+    expect(screen.queryByLabelText('estimate-manual-line-form')).toBeNull();
+    expect(screen.getByLabelText('estimate-add-manual-line-action')).toBeTruthy();
+    expect(estimatesApi.addManualEstimateLine).not.toHaveBeenCalled();
+  });
+
+  it('offers only LABOR and MATERIAL scopes, never LABOR_AND_MATERIAL (backend rejects it for manual lines)', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    const select = (await waitFor(() => screen.getByLabelText('manual-line-scope'))) as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value);
+    expect(values).toEqual(['LABOR', 'MATERIAL']);
+  });
+
+  it('offers all six backend PriceUnit values in the unit selector', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    const select = (await waitFor(() => screen.getByLabelText('manual-line-unit'))) as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value);
+    expect(values).toEqual(['M2', 'LM', 'PCS', 'HOUR', 'DAY', 'FLAT']);
+  });
+
+  it('defaults to the unresolved-price state hidden and quantity "1"', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    await waitFor(() => screen.getByLabelText('manual-line-quantity'));
+    expect((screen.getByLabelText('manual-line-quantity') as HTMLInputElement).value).toBe('1');
+    expect((screen.getByLabelText('manual-line-price-unresolved') as HTMLInputElement).checked).toBe(false);
+  });
+
+  it('checking "Cena do ustalenia" hides the numeric price input', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    const toggle = await waitFor(() => screen.getByLabelText('manual-line-price-unresolved'));
+    fireEvent.click(toggle);
+    expect(screen.queryByLabelText('manual-line-price')).toBeNull();
+  });
+
+  it('rejects an empty description locally, without any network call', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+    await waitFor(() => screen.getByLabelText('estimate-manual-line-error'));
+    expect(screen.getByLabelText('estimate-manual-line-error').textContent).toBe('Podaj opis pozycji.');
+    expect(estimatesApi.addManualEstimateLine).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-numeric quantity locally, without any network call', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Transport' } });
+    fireEvent.change(screen.getByLabelText('manual-line-quantity'), { target: { value: 'abc' } });
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+    await waitFor(() => screen.getByLabelText('estimate-manual-line-error'));
+    expect(estimatesApi.addManualEstimateLine).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-numeric explicit price locally, without any network call', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Transport' } });
+    fireEvent.change(screen.getByLabelText('manual-line-price'), { target: { value: 'xyz' } });
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+    await waitFor(() => screen.getByLabelText('estimate-manual-line-error'));
+    expect(estimatesApi.addManualEstimateLine).not.toHaveBeenCalled();
+  });
+});
+
+describe('Stage 10G.3C — manual line create payload and currency', () => {
+  it('sends the exact typed decimal quantity and numeric price, scope, unit, and the estimate currency', async () => {
+    vi.mocked(estimatesApi.addManualEstimateLine).mockResolvedValue(makeManualLine());
+    renderShell(makeSummary({ currency: 'PLN' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Transport materiałów' } });
+    fireEvent.change(screen.getByLabelText('manual-line-scope'), { target: { value: 'MATERIAL' } });
+    fireEvent.change(screen.getByLabelText('manual-line-unit'), { target: { value: 'FLAT' } });
+    fireEvent.change(screen.getByLabelText('manual-line-quantity'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('manual-line-price'), { target: { value: '250.00' } });
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+
+    await waitFor(() => {
+      expect(estimatesApi.addManualEstimateLine).toHaveBeenCalledWith(PROJECT_ID, ESTIMATE_ID, {
+        description: 'Transport materiałów',
+        scope: 'MATERIAL',
+        unit: 'FLAT',
+        quantity: '1',
+        unit_price: '250.00',
+        currency: 'PLN',
+      });
+    });
+  });
+
+  it('sends a raw decimal quantity string unchanged (no Number/parseFloat rounding)', async () => {
+    vi.mocked(estimatesApi.addManualEstimateLine).mockResolvedValue(makeManualLine());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Naprawa' } });
+    fireEvent.change(screen.getByLabelText('manual-line-quantity'), { target: { value: '12.750' } });
+    fireEvent.click(screen.getByLabelText('manual-line-price-unresolved'));
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+
+    await waitFor(() => {
+      const call = vi.mocked(estimatesApi.addManualEstimateLine).mock.calls[0];
+      expect(call[2].quantity).toBe('12.750');
+    });
+  });
+
+  it('sends explicit unit_price: null when "Cena do ustalenia" is checked', async () => {
+    vi.mocked(estimatesApi.addManualEstimateLine).mockResolvedValue(makeManualLine({ unit_price: null, amount: null }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Dodatkowa naprawa' } });
+    fireEvent.click(screen.getByLabelText('manual-line-price-unresolved'));
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+
+    await waitFor(() => {
+      const call = vi.mocked(estimatesApi.addManualEstimateLine).mock.calls[0];
+      expect(call[2].unit_price).toBeNull();
+    });
+  });
+
+  it('sends "0.00" as an explicit string price, never as null', async () => {
+    vi.mocked(estimatesApi.addManualEstimateLine).mockResolvedValue(
+      makeManualLine({ unit_price: '0.00', amount: '0.00' }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Gratis' } });
+    fireEvent.change(screen.getByLabelText('manual-line-price'), { target: { value: '0.00' } });
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+
+    await waitFor(() => {
+      const call = vi.mocked(estimatesApi.addManualEstimateLine).mock.calls[0];
+      expect(call[2].unit_price).toBe('0.00');
+    });
+  });
+
+  it('never renders an editable currency control (currency always comes from the authoritative estimate)', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    await waitFor(() => screen.getByLabelText('estimate-manual-line-form'));
+    expect(screen.queryByLabelText(/currency/i)).toBeNull();
+  });
+});
+
+describe('Stage 10G.3C — manual line create success and failure', () => {
+  it('refetches the authoritative Estimate after a successful create', async () => {
+    vi.mocked(estimatesApi.addManualEstimateLine).mockResolvedValue(makeManualLine());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Transport' } });
+    fireEvent.click(screen.getByLabelText('manual-line-price-unresolved'));
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+
+    await waitFor(() => expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(2));
+  });
+
+  it('closes and resets the form after a successful create', async () => {
+    vi.mocked(estimatesApi.addManualEstimateLine).mockResolvedValue(makeManualLine());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Transport' } });
+    fireEvent.click(screen.getByLabelText('manual-line-price-unresolved'));
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+
+    await waitFor(() => expect(screen.queryByLabelText('estimate-manual-line-form')).toBeNull());
+    expect(screen.getByLabelText('estimate-add-manual-line-action')).toBeTruthy();
+  });
+
+  it('the header total reflects the authoritative refetched total after a successful create (no frontend arithmetic)', async () => {
+    const summary = makeSummary({ total: '1731.92', currency: 'PLN' });
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([makeLine()], summary))
+      .mockResolvedValueOnce(makeDetail([makeLine(), makeManualLine({ id: 'm1', position: 2 })], { ...summary, total: '1981.92' }));
+    vi.mocked(estimatesApi.addManualEstimateLine).mockResolvedValue(makeManualLine({ id: 'm1', position: 2 }));
+
+    renderShell(summary, null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('1731.92 PLN');
+
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Transport' } });
+    fireEvent.change(screen.getByLabelText('manual-line-price'), { target: { value: '250.00' } });
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('1981.92 PLN');
+    });
+  });
+
+  it('a create failure keeps the form open with typed values preserved and shows an inline error', async () => {
+    vi.mocked(estimatesApi.addManualEstimateLine).mockRejectedValue(new Error('Manual line currency does not match'));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Transport' } });
+    fireEvent.click(screen.getByLabelText('manual-line-price-unresolved'));
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+
+    await waitFor(() => screen.getByLabelText('estimate-manual-line-error'));
+    expect(screen.getByLabelText('estimate-manual-line-error').textContent).toBe('Manual line currency does not match');
+    expect(screen.getByLabelText('estimate-manual-line-form')).toBeTruthy();
+    expect((screen.getByLabelText('manual-line-description') as HTMLTextAreaElement).value).toBe('Transport');
+  });
+
+  it('a 422 error does not blank the Estimate and does not claim success', async () => {
+    vi.mocked(estimatesApi.addManualEstimateLine).mockRejectedValue(
+      new (class extends Error {})('Lines can only be added to DRAFT estimates'),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Transport' } });
+    fireEvent.click(screen.getByLabelText('manual-line-price-unresolved'));
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+
+    await waitFor(() => screen.getByLabelText('estimate-manual-line-error'));
+    expect(screen.getByLabelText('estimate-lines')).toBeTruthy();
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1); // no refetch on failure
+  });
+});
+
+describe('Stage 10G.3C — MANUAL singleton grouping preserved', () => {
+  it('two manual lines with identical description/scope/unit/price remain two separate groups', async () => {
+    const lines = [
+      makeManualLine({ id: 'm1', position: 1, description: 'Transport materiałów', unit_price: '250.00' }),
+      makeManualLine({ id: 'm2', position: 2, description: 'Transport materiałów', unit_price: '250.00' }),
+    ];
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail(lines));
+    render(
+      <I18nProvider>
+        <EstimateShell estimate={makeSummary()} onBack={vi.fn()} selectedGroupKey={null} onGroupKeyChange={vi.fn()} />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getAllByLabelText(/^estimate-group-/).length).toBe(2);
+  });
+});
+
+describe('Stage 10G.3C — existing atomic edit compatibility for MANUAL lines', () => {
+  it('a MANUAL line can still have its quantity edited via the existing atomic editor', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeManualLine()]));
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(makeManualLine({ quantity: '5.000', quantity_overridden: true }));
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(() => screen.getByLabelText('line-edit-quantity-1'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '5.000' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { quantity: '5.000' },
+      );
+    });
+  });
+
+  it('a MANUAL line never shows the reset-to-PriceBook price action (no PriceBook source)', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeManualLine({ price_override: true })]));
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('line-reset-price-1')).toBeNull();
+  });
+});
+
+describe('Stage 10G.3C — delete manual line', () => {
+  it('shows Usuń pozycję only for a MANUAL line, never for a PLANNED_WORK line', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeManualLine()]));
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-delete-action-1')).toBeTruthy();
+  });
+
+  it('does not show a delete action for a PLANNED_WORK line', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('line-delete-action-1')).toBeNull();
+  });
+
+  it('requires explicit confirmation before deleting', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeManualLine()]));
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('line-delete-action-1'));
+    await waitFor(() => screen.getByLabelText('line-delete-confirm-1'));
+    expect(screen.getByLabelText('line-delete-confirm-1').textContent).toContain(
+      'Usunąć tę pozycję ze szkicu kosztorysu?',
+    );
+    expect(estimatesApi.deleteEstimateLine).not.toHaveBeenCalled();
+  });
+
+  it('Anuluj cancels without deleting', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeManualLine()]));
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('line-delete-action-1'));
+    await waitFor(() => screen.getByLabelText('line-delete-cancel-1'));
+    fireEvent.click(screen.getByLabelText('line-delete-cancel-1'));
+    expect(screen.queryByLabelText('line-delete-confirm-1')).toBeNull();
+    expect(estimatesApi.deleteEstimateLine).not.toHaveBeenCalled();
+  });
+
+  it('confirming calls the existing DELETE endpoint with the correct ids', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeManualLine()]));
+    vi.mocked(estimatesApi.deleteEstimateLine).mockResolvedValue(undefined);
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('line-delete-action-1'));
+    await waitFor(() => screen.getByLabelText('line-delete-confirm-yes-1'));
+    fireEvent.click(screen.getByLabelText('line-delete-confirm-yes-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.deleteEstimateLine).toHaveBeenCalledWith(PROJECT_ID, ESTIMATE_ID, 'line-1');
+    });
+  });
+
+  it('a successful delete refetches the authoritative Estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeManualLine()]));
+    vi.mocked(estimatesApi.deleteEstimateLine).mockResolvedValue(undefined);
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText('line-delete-action-1'));
+    await waitFor(() => screen.getByLabelText('line-delete-confirm-yes-1'));
+    fireEvent.click(screen.getByLabelText('line-delete-confirm-yes-1'));
+
+    await waitFor(() => expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(2));
+  });
+
+  it('a delete failure keeps the confirmation recoverable and shows an inline error, without optimistic removal', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeManualLine()]));
+    vi.mocked(estimatesApi.deleteEstimateLine).mockRejectedValue(new Error('Only MANUAL lines can be deleted'));
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('line-delete-action-1'));
+    await waitFor(() => screen.getByLabelText('line-delete-confirm-yes-1'));
+    fireEvent.click(screen.getByLabelText('line-delete-confirm-yes-1'));
+
+    await waitFor(() => screen.getByLabelText('line-delete-error-1'));
+    expect(screen.getByLabelText('line-delete-error-1').textContent).toBe('Only MANUAL lines can be deleted');
+    expect(screen.getByLabelText('estimate-line-1')).toBeTruthy(); // never optimistically removed
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Stage 10G.3C — manual line survives regeneration', () => {
+  it('a manual line remains present and unchanged across a regeneration refetch, alongside updated planned work', async () => {
+    const manual = makeManualLine({ id: 'm1', position: 2, description: 'Transport materiałów', unit_price: '250.00', amount: '250.00' });
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([makeLine(), manual]))
+      .mockResolvedValueOnce(makeDetail([makeLine({ quantity: '20.000', quantity_overridden: false, amount: '700.00' }), manual]));
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ updated: 1, preserved_manual: 1, changes: [makeChange({ change_type: 'UPDATED' })] }),
+    );
+    vi.mocked(estimatesApi.regenerateEstimate).mockResolvedValue(makePreview({ updated: 1, preserved_manual: 1 }));
+
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    // Two groups: the planned work and the singleton manual line.
+    expect(screen.getAllByLabelText(/^estimate-group-/).length).toBe(2);
+
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-confirm'));
+
+    await waitFor(() => expect(screen.queryByLabelText('estimate-regeneration-panel')).toBeNull());
+    // Manual line's own group is still present after regeneration.
+    await waitFor(() => expect(screen.getAllByLabelText(/^estimate-group-/).length).toBe(2));
+  });
+});
+
+describe('Stage 10G.3C — NULL vs 0.00 for manual lines', () => {
+  it('a manual line with NULL price shows quantity normally and "Do ustalenia" for price, "—" for amount', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeManualLine({ quantity: '3.500', unit_price: null, amount: null })]),
+    );
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('3.500');
+    expect(screen.getByLabelText('line-unit-price-1').textContent).toBe('Do ustalenia');
+    expect(screen.getByLabelText('line-amount-1').textContent).toBe('—');
+  });
+
+  it('a manual line with explicit 0.00 price shows 0.00, never "Do ustalenia"', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeManualLine({ quantity: '1.000', unit_price: '0.00', amount: '0.00' })]),
+    );
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-unit-price-1').textContent).toContain('0.00');
+    expect(screen.getByLabelText('line-unit-price-1').textContent).not.toBe('Do ustalenia');
+    expect(screen.getByLabelText('line-amount-1').textContent).toContain('0.00');
+  });
+});
+
+describe('Stage 10G.3C — mobile touch targets', () => {
+  it('add-manual-line, form controls, and delete controls all meet the 44px minimum', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeManualLine()]));
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-add-manual-line-action').className).toContain('min-h-[44px]');
+
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    await waitFor(() => screen.getByLabelText('estimate-manual-line-save'));
+    expect(screen.getByLabelText('estimate-manual-line-save').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('estimate-manual-line-cancel').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('manual-line-quantity').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('manual-line-scope').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('manual-line-unit').className).toContain('min-h-[44px]');
+  });
+
+  it('delete action and confirm buttons meet the 44px minimum', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeManualLine()]));
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-delete-action-1').className).toContain('min-h-[44px]');
+    fireEvent.click(screen.getByLabelText('line-delete-action-1'));
+    await waitFor(() => screen.getByLabelText('line-delete-confirm-yes-1'));
+    expect(screen.getByLabelText('line-delete-confirm-yes-1').className).toContain('min-h-[44px]');
+    expect(screen.getByLabelText('line-delete-cancel-1').className).toContain('min-h-[44px]');
+  });
+});
+
+describe('Stage 10G.3C regression — accepted 10G.2/10G.3A/10G.3B behavior untouched', () => {
+  it('regeneration preview still works alongside the new manual-line entry', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(makePreview());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-no-changes'));
+  });
+
+  it('group price editing still works alongside the new manual-line entry', async () => {
+    renderGroupedShell([
+      makeLine({ id: 'l1', position: 1, unit_price: '35.00' }),
+      makeLine({ id: 'l2', position: 2, unit_price: '35.00' }),
+    ]);
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      makeLine({ unit_price: '40.00', price_override: true }),
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-add-manual-line-action')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('group-options-0'));
+    fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));
+    const input = (await waitFor(() => screen.getByLabelText('group-price-edit-value-0'))) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '40.00' } });
+    fireEvent.click(screen.getByLabelText('group-price-edit-save-0'));
+    await waitFor(() => expect(estimatesApi.patchEstimateLine).toHaveBeenCalledTimes(2));
+  });
+
+  it('compact provenance and cross-room grouping remain unaffected by the new manual-line UI', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-provenance-1').textContent).toBe('Salon — Ściana 1');
+  });
+
+  it('no JS Number financial arithmetic is introduced by the manual-line form', async () => {
+    vi.mocked(estimatesApi.addManualEstimateLine).mockResolvedValue(makeManualLine());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Test' } });
+    fireEvent.change(screen.getByLabelText('manual-line-quantity'), { target: { value: '12.750' } });
+    fireEvent.change(screen.getByLabelText('manual-line-price'), { target: { value: '312.34' } });
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+    await waitFor(() => {
+      const call = vi.mocked(estimatesApi.addManualEstimateLine).mock.calls[0];
+      expect(call[2].quantity).toBe('12.750');
+      expect(call[2].unit_price).toBe('312.34');
+    });
   });
 });
