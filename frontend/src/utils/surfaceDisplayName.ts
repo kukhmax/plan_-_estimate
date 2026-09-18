@@ -1,4 +1,4 @@
-import { SurfaceType } from '../types/surface';
+import { SurfaceTypeValue } from '../types/surface';
 
 export interface SurfaceDisplayLabels {
   wall: string;
@@ -6,19 +6,29 @@ export interface SurfaceDisplayLabels {
   ceiling: string;
 }
 
+/** Presentation-metadata callers (e.g. estimate line provenance) may have a
+ * surface name that is absent (null) or omitted entirely (undefined) at
+ * runtime; `SurfaceType.name` itself stays required for callers backed by a
+ * real persisted Surface record. */
+export interface SurfaceNameInput {
+  name: string | null | undefined;
+  surface_type: SurfaceTypeValue | string | null | undefined;
+}
+
 const GENERATED_WALL_NAME = /^(?:Wall|Ściana|Стена)\s+([1-9]\d*)$/;
 const CANONICAL_FLOOR_NAMES = new Set(['Floor', 'Podłoga', 'Пол']);
 const CANONICAL_CEILING_NAMES = new Set(['Ceiling', 'Sufit', 'Потолок']);
 
 export function getSurfaceDisplayName(
-  surface: Pick<SurfaceType, 'name' | 'surface_type'>,
+  surface: SurfaceNameInput,
   labels: SurfaceDisplayLabels,
 ): string {
-  const normalizedName = surface.name.trim();
+  const rawName = surface.name ?? '';
+  const normalizedName = rawName.trim();
 
   if (surface.surface_type === 'WALL') {
     const match = GENERATED_WALL_NAME.exec(normalizedName);
-    return match ? `${labels.wall} ${match[1]}` : surface.name;
+    return match ? `${labels.wall} ${match[1]}` : rawName;
   }
 
   if (surface.surface_type === 'FLOOR' && CANONICAL_FLOOR_NAMES.has(normalizedName)) {
@@ -29,5 +39,5 @@ export function getSurfaceDisplayName(
     return labels.ceiling;
   }
 
-  return surface.name;
+  return rawName;
 }

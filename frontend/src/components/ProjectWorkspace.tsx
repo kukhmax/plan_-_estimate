@@ -116,6 +116,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
 
   const [showEstimates, setShowEstimates] = useState(false);
   const [selectedEstimate, setSelectedEstimate] = useState<EstimateSummaryRead | null>(null);
+  const [selectedEstimateGroupKey, setSelectedEstimateGroupKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -324,6 +325,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
     closeInspections();
     setShowEstimates(false);
     setSelectedEstimate(null);
+    setSelectedEstimateGroupKey(null);
     setSelectedProject(project);
     setSelectedRoom(null);
     setSuccess(null);
@@ -351,6 +353,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
     closeInspections();
     setShowEstimates(false);
     setSelectedEstimate(null);
+    setSelectedEstimateGroupKey(null);
     setSelectedProject(null);
     setSelectedRoom(null);
     setSuccess(null);
@@ -374,6 +377,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
     closeInspections();
     setShowEstimates(false);
     setSelectedEstimate(null);
+    setSelectedEstimateGroupKey(null);
     setSelectedProject(null);
     setSelectedRoom(null);
     setSuccess(null);
@@ -390,6 +394,8 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
       setInspectionTarget(null);
     } else if (selectedRoom) {
       setSelectedRoom(null);
+    } else if (selectedEstimateGroupKey) {
+      setSelectedEstimateGroupKey(null);
     } else if (selectedEstimate) {
       setSelectedEstimate(null);
     } else if (showEstimates) {
@@ -436,7 +442,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
               <button
                 type="button"
                 aria-label="back-to-estimates"
-                onClick={() => setSelectedEstimate(null)}
+                onClick={() => { setSelectedEstimate(null); setSelectedEstimateGroupKey(null); }}
                 className="font-semibold text-blue-700 hover:underline"
               >
                 {t.estimates.back_to_list}
@@ -659,7 +665,10 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
           </div>
           <EstimateList
             projectId={selectedProject.id}
-            onOpenEstimate={(estimate) => setSelectedEstimate(estimate)}
+            onOpenEstimate={(estimate) => {
+              setSelectedEstimateGroupKey(null);
+              setSelectedEstimate(estimate);
+            }}
           />
         </>
       )}
@@ -668,6 +677,8 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
         <EstimateShell
           estimate={selectedEstimate}
           onBack={() => setSelectedEstimate(null)}
+          selectedGroupKey={selectedEstimateGroupKey}
+          onGroupKeyChange={setSelectedEstimateGroupKey}
         />
       )}
 

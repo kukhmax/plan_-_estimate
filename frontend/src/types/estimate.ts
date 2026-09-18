@@ -42,6 +42,15 @@ export interface EstimateLineRead {
   surface_id: string | null;
   room_id: string | null;
   opening_id: string | null;
+  // Presentation metadata resolved live at read time — optional AND nullable:
+  // some response-construction paths may omit these keys entirely rather
+  // than send an explicit null, so callers must not assume `!== null` alone
+  // rules out `undefined`.
+  room_name?: string | null;
+  surface_name?: string | null;
+  surface_type_value?: string | null;
+  opening_name?: string | null;
+  opening_type_value?: string | null;
 }
 
 export interface EstimateRead extends EstimateSummaryRead {

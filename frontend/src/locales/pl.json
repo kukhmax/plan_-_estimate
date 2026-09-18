@@ -853,6 +853,26 @@
     "back_to_list": "Kosztorys",
     "draft_badge": "Aktywny szkic",
     "conflict_message": "Szkic kosztorysu już istnieje.",
-    "updated_at": "Zaktualizowano"
+    "updated_at": "Zaktualizowano",
+    "lines_loading": "Ładowanie pozycji...",
+    "error_load_detail": "Nie udało się wczytać szczegółów kosztorysu.",
+    "lines_empty_title": "Brak pozycji w kosztorysie.",
+    "lines_empty_description": "Dodaj zaplanowane prace do powierzchni, aby pojawiły się tutaj.",
+    "price_not_set": "Do ustalenia",
+    "quantity_overridden": "Ilość zmieniona ręcznie",
+    "source_quantity": "Źródło",
+    "price_overridden": "Cena zmieniona ręcznie",
+    "origin_planned_work": "Zaplanowana praca",
+    "origin_reveal_work": "Praca na ościeżu",
+    "origin_manual": "Pozycja ręczna",
+    "scope_labor": "Robocizna",
+    "scope_material": "Materiał",
+    "scope_labor_and_material": "Robocizna + materiał",
+    "group_lines_count": "pozycji",
+    "group_has_overrides": "Zawiera zmiany ręczne",
+    "detail_back": "← Wróć do kosztorysu",
+    "provenance_room": "Pomieszczenie",
+    "provenance_surface": "Powierzchnia",
+    "provenance_opening": "Otwór"
   }
 }

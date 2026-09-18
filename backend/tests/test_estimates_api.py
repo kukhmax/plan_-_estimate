@@ -1892,3 +1892,105 @@ async def test_c6_confirm_returns_changes(async_client: AsyncClient, db_session)
     change_types = {c["change_type"] for c in data["changes"]}
     assert "ADDED" in change_types
     assert "REMOVED" in change_types
+
+
+# ===========================================================================
+# Provenance enrichment tests (10G.2)
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_get_estimate_provenance_planned_line(async_client: AsyncClient, db_session):
+    """GET /estimates/{id} returns room_name and surface_name for PLANNED_WORK lines."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id)
+    surface = await _make_surface(db_session, room.id)
+    item = await _make_price_item(db_session, owner.id)
+    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item])
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)
+
+    resp = await async_client.get(_est_id(project.id, estimate.id), headers=auth(token))
+    assert resp.status_code == 200, resp.text
+    line = resp.json()["lines"][0]
+    assert line["room_name"] == "Salon"
+    assert line["surface_name"] == "Ściana"
+    assert line["surface_type_value"] == "WALL"
+    assert line["opening_name"] is None
+    assert line["opening_type_value"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_estimate_provenance_reveal_line(async_client: AsyncClient, db_session):
+    """GET /estimates/{id} returns opening_name and opening_type_value for reveal lines."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id)
+    surface = await _make_surface(db_session, room.id)
+    item = await _make_reveal_item(db_session, owner.id)
+    opening = await _make_opening(db_session, surface.id, reveal_enabled=True, reveal_depth="120.000")
+    svc = EstimateService(db_session)
+
+    from app.models.opening_reveal_planned_work import OpeningRevealPlannedWork
+    reveal_work = OpeningRevealPlannedWork(
+        opening_id=opening.id,
+        price_item_id=item.id,
+        position=0,
+    )
+    db_session.add(reveal_work)
+    await db_session.commit()
+
+    estimate = await svc.generate_estimate(project.id, owner.id)
+
+    resp = await async_client.get(_est_id(project.id, estimate.id), headers=auth(token))
+    assert resp.status_code == 200, resp.text
+    reveal_lines = [l for l in resp.json()["lines"] if l["opening_id"] is not None]
+    assert len(reveal_lines) >= 1
+    line = reveal_lines[0]
+    assert line["opening_name"] == "Drzwi"
+    assert line["opening_type_value"] == "DOOR"
+    assert line["room_name"] == "Salon"
+    assert line["surface_name"] == "Ściana"
+
+
+@pytest.mark.asyncio
+async def test_get_estimate_provenance_manual_line_null(async_client: AsyncClient, db_session):
+    """Manual lines have null provenance fields (no room/surface/opening)."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    svc = EstimateService(db_session)
+    estimate = await svc.generate_estimate(project.id, owner.id)
+
+    resp = await async_client.post(
+        f"{_est_id(project.id, estimate.id)}/lines",
+        headers=auth(token),
+        json={
+            "description": "Manual pozycja",
+            "scope": "LABOR",
+            "unit": "M2",
+            "quantity": "5.000",
+            "unit_price": "10.00",
+            "currency": "PLN",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+
+    resp = await async_client.get(_est_id(project.id, estimate.id), headers=auth(token))
+    assert resp.status_code == 200, resp.text
+    manual_lines = [l for l in resp.json()["lines"] if l["origin"] == "MANUAL"]
+    assert len(manual_lines) == 1
+    line = manual_lines[0]
+    assert line["room_name"] is None
+    assert line["surface_name"] is None
+    assert line["surface_type_value"] is None
+    assert line["opening_name"] is None
+    assert line["opening_type_value"] is None

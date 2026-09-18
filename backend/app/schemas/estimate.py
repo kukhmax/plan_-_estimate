@@ -58,13 +58,19 @@ class EstimateLineRead(BaseModel):
     unit_price: Decimal | None = None
     price_override: bool
     amount: Decimal | None = None
-    # Provenance
+    # Provenance IDs (snapshot)
     price_item_id: uuid.UUID | None = None
     plan_id: uuid.UUID | None = None
     planned_work_id: uuid.UUID | None = None
     surface_id: uuid.UUID | None = None
     room_id: uuid.UUID | None = None
     opening_id: uuid.UUID | None = None
+    # Presentation metadata resolved live at read time (not stored in EstimateLine)
+    room_name: str | None = None
+    surface_name: str | None = None
+    surface_type_value: str | None = None
+    opening_name: str | None = None
+    opening_type_value: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

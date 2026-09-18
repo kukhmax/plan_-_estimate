@@ -815,6 +815,90 @@ class EstimateService:
         """Return a single estimate with eagerly-loaded lines."""
         return await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
 
+    async def get_estimate_read_with_provenance(
+        self,
+        project_id: uuid.UUID,
+        estimate_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> dict:
+        """Return an estimate dict enriched with room/surface/opening display metadata.
+
+        Provenance fields are resolved live from current DB records (not snapshotted).
+        Batch-loads Room, Surface, Opening in 3 extra queries max — no N+1.
+        """
+        from app.schemas.estimate import EstimateRead
+
+        estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
+
+        room_ids = {ln.room_id for ln in estimate.lines if ln.room_id is not None}
+        surface_ids = {ln.surface_id for ln in estimate.lines if ln.surface_id is not None}
+        opening_ids = {ln.opening_id for ln in estimate.lines if ln.opening_id is not None}
+
+        rooms: dict[uuid.UUID, Room] = {}
+        if room_ids:
+            rows = (await self.db.execute(select(Room).where(Room.id.in_(room_ids)))).scalars().all()
+            rooms = {r.id: r for r in rows}
+
+        surfaces: dict[uuid.UUID, Surface] = {}
+        if surface_ids:
+            rows = (await self.db.execute(select(Surface).where(Surface.id.in_(surface_ids)))).scalars().all()
+            surfaces = {s.id: s for s in rows}
+
+        openings: dict[uuid.UUID, Opening] = {}
+        if opening_ids:
+            rows = (await self.db.execute(select(Opening).where(Opening.id.in_(opening_ids)))).scalars().all()
+            openings = {o.id: o for o in rows}
+
+        enriched_lines = []
+        for ln in estimate.lines:
+            room = rooms.get(ln.room_id) if ln.room_id else None
+            surface = surfaces.get(ln.surface_id) if ln.surface_id else None
+            opening = openings.get(ln.opening_id) if ln.opening_id else None
+
+            enriched_lines.append({
+                "id": ln.id,
+                "estimate_id": ln.estimate_id,
+                "origin": ln.origin,
+                "position": ln.position,
+                "description": ln.description,
+                "item_code": ln.item_code,
+                "unit": ln.unit,
+                "scope": ln.scope,
+                "currency": ln.currency,
+                "source_quantity": ln.source_quantity,
+                "quantity": ln.quantity,
+                "quantity_source": ln.quantity_source,
+                "quantity_overridden": ln.quantity_overridden,
+                "unit_price": ln.unit_price,
+                "price_override": ln.price_override,
+                "amount": ln.amount,
+                "price_item_id": ln.price_item_id,
+                "plan_id": ln.plan_id,
+                "planned_work_id": ln.planned_work_id,
+                "surface_id": ln.surface_id,
+                "room_id": ln.room_id,
+                "opening_id": ln.opening_id,
+                "room_name": room.name if room else None,
+                "surface_name": surface.name if surface else None,
+                "surface_type_value": surface.surface_type.value if surface else None,
+                "opening_name": opening.name if opening else None,
+                "opening_type_value": opening.opening_type.value if opening else None,
+            })
+
+        estimate_dict = {
+            "id": estimate.id,
+            "project_id": estimate.project_id,
+            "version": estimate.version,
+            "status": estimate.status,
+            "name": estimate.name,
+            "total": estimate.total,
+            "currency": estimate.currency,
+            "created_at": estimate.created_at,
+            "updated_at": estimate.updated_at,
+            "lines": enriched_lines,
+        }
+        return EstimateRead.model_validate(estimate_dict)
+
     async def preview_regeneration(
         self,
         project_id: uuid.UUID,

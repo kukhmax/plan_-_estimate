@@ -853,6 +853,26 @@
     "back_to_list": "Смета",
     "draft_badge": "Активный черновик",
     "conflict_message": "Черновик сметы уже существует.",
-    "updated_at": "Обновлено"
+    "updated_at": "Обновлено",
+    "lines_loading": "Загрузка позиций...",
+    "error_load_detail": "Не удалось загрузить детали сметы.",
+    "lines_empty_title": "В смете пока нет позиций.",
+    "lines_empty_description": "Добавьте запланированные работы для поверхностей.",
+    "price_not_set": "Уточняется",
+    "quantity_overridden": "Количество изменено вручную",
+    "source_quantity": "Источник",
+    "price_overridden": "Цена изменена вручную",
+    "origin_planned_work": "Запланированная работа",
+    "origin_reveal_work": "Работа по откосу",
+    "origin_manual": "Ручная позиция",
+    "scope_labor": "Работа",
+    "scope_material": "Материал",
+    "scope_labor_and_material": "Работа + материал",
+    "group_lines_count": "позиций",
+    "group_has_overrides": "Содержит ручные изменения",
+    "detail_back": "← Назад к смете",
+    "provenance_room": "Помещение",
+    "provenance_surface": "Поверхность",
+    "provenance_opening": "Проём"
   }
 }

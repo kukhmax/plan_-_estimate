@@ -103,12 +103,11 @@ async def get_estimate(
     service: EstimateService = Depends(get_estimate_service),
 ) -> EstimateRead:
     try:
-        estimate = await service.get_estimate_detail(
+        return await service.get_estimate_read_with_provenance(
             project_id, estimate_id, current_user.id
         )
     except (EstimateNotFoundError, ProjectNotFoundError):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_404_estimate)
-    return EstimateRead.model_validate(estimate)
 
 
 # ---------------------------------------------------------------------------
