@@ -924,6 +924,12 @@
     "manual_line_delete_confirm_title": "Usunąć tę pozycję ze szkicu kosztorysu?",
     "manual_line_delete_confirm_yes": "Usuń",
     "manual_line_deleting": "Usuwanie...",
-    "manual_line_delete_error": "Nie udało się usunąć pozycji."
+    "manual_line_delete_error": "Nie udało się usunąć pozycji.",
+    "finalize_action": "Finalizuj kosztorys",
+    "finalize_confirm_title": "Finalizacja zablokuje edycję tej wersji kosztorysu. Po finalizacji późniejsze zmiany zakresu będą wymagały nowej wersji.",
+    "finalize_confirm_yes": "Finalizuj",
+    "finalize_finalizing": "Finalizowanie...",
+    "finalize_error": "Nie udało się sfinalizować kosztorysu.",
+    "finalize_unresolved_price_error": "Nie można sfinalizować kosztorysu. {count} pozycji nie ma ustalonej ceny. Uzupełnij ceny pozycji oznaczonych „Do ustalenia” i spróbuj ponownie."
   }
 }

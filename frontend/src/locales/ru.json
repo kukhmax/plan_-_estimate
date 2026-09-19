@@ -924,6 +924,12 @@
     "manual_line_delete_confirm_title": "Удалить эту позицию из черновика сметы?",
     "manual_line_delete_confirm_yes": "Удалить",
     "manual_line_deleting": "Удаление...",
-    "manual_line_delete_error": "Не удалось удалить позицию."
+    "manual_line_delete_error": "Не удалось удалить позицию.",
+    "finalize_action": "Зафиксировать смету",
+    "finalize_confirm_title": "После фиксации эта версия сметы станет недоступна для редактирования. Последующие изменения объёма работ потребуют новой версии.",
+    "finalize_confirm_yes": "Зафиксировать",
+    "finalize_finalizing": "Фиксация...",
+    "finalize_error": "Не удалось зафиксировать смету.",
+    "finalize_unresolved_price_error": "Невозможно зафиксировать смету. У {count} позиций не указана цена. Заполните цены у позиций «Цена уточняется» и повторите попытку."
   }
 }

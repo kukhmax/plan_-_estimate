@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { addManualEstimateLine, deleteEstimateLine, getEstimate, patchEstimateLine, previewEstimateRegeneration, regenerateEstimate } from '../api/estimates';
+import { addManualEstimateLine, deleteEstimateLine, finalizeEstimate, getEstimate, patchEstimateLine, previewEstimateRegeneration, regenerateEstimate } from '../api/estimates';
 import { useI18n } from '../hooks/useI18n';
 import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue, LineChangeEntry, LineChangeTypeValue, ManualLineCreatePayload, RegenerationPreviewResponse } from '../types/estimate';
 import { PRICE_UNITS, type PriceScopeValue, type PriceUnitValue } from '../types/priceItem';
@@ -69,6 +69,20 @@ function surfaceCardTint(surfaceId: string | null): { bg: string; border: string
 // remains the sole authority on whether a decimal string is acceptable.
 function isValidDecimalString(value: string): boolean {
   return /^\d+(\.\d+)?$/.test(value.trim());
+}
+
+// Stage 10G.3D — recognizes ONLY the known EstimateService.finalize
+// unresolved-price rejection ("Cannot finalize: N line(s) have no price
+// set..."), never the full English sentence, so the count can be safely
+// extracted for a localized message without misclassifying unrelated
+// 409/422/network errors. This is a UI-message count, not an authoritative
+// Estimate financial value — Number() here is safe and unrelated to the
+// Decimal-string quantity/price/amount invariant.
+function extractUnresolvedPriceCount(message: string): number | null {
+  const match = /^Cannot finalize: (\d+) line/.exec(message);
+  if (match === null) return null;
+  const count = Number(match[1]);
+  return Number.isFinite(count) ? count : null;
 }
 
 type PriceEditMode = 'value' | 'unresolved';
@@ -506,6 +520,46 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
       });
     } finally {
       setDeleteBusyLineId(null);
+    }
+  };
+
+  // Stage 10G.3D — DRAFT -> FINAL. Requires explicit confirmation; never
+  // triggered by navigation. Backend remains authoritative for the
+  // unresolved-price precondition (422) — the frontend never precomputes
+  // finalization validity itself.
+  const [finalizeConfirmOpen, setFinalizeConfirmOpen] = useState(false);
+  const [finalizeBusy, setFinalizeBusy] = useState(false);
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
+
+  const openFinalizeConfirm = () => {
+    setFinalizeConfirmOpen(true);
+    setFinalizeError(null);
+  };
+
+  const cancelFinalizeConfirm = () => {
+    setFinalizeConfirmOpen(false);
+    setFinalizeError(null);
+  };
+
+  const confirmFinalize = async () => {
+    setFinalizeBusy(true);
+    setFinalizeError(null);
+    try {
+      await finalizeEstimate(estimate.project_id, estimate.id);
+      await load();
+      setFinalizeConfirmOpen(false);
+    } catch (err) {
+      const rawMessage = err instanceof Error ? err.message : '';
+      const unresolvedCount = extractUnresolvedPriceCount(rawMessage);
+      if (unresolvedCount !== null) {
+        setFinalizeError(
+          t.estimates.finalize_unresolved_price_error.replace('{count}', String(unresolvedCount)),
+        );
+      } else {
+        setFinalizeError(err instanceof Error ? err.message : t.estimates.finalize_error);
+      }
+    } finally {
+      setFinalizeBusy(false);
     }
   };
 
@@ -1012,6 +1066,63 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     </div>
   );
 
+  // Stage 10G.3D — "Finalizuj kosztorys" belongs to the Estimate as a whole
+  // (last action in the shared header area), DRAFT-only, never automatic.
+  const finalizeSection = detail.status === 'DRAFT' && (
+    <div
+      aria-label="estimate-finalize"
+      className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2"
+    >
+      {!finalizeConfirmOpen ? (
+        <button
+          type="button"
+          aria-label="estimate-finalize-action"
+          onClick={openFinalizeConfirm}
+          className="w-full min-h-[44px] px-3 text-sm font-medium text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50"
+        >
+          {t.estimates.finalize_action}
+        </button>
+      ) : (
+        <div aria-label="estimate-finalize-confirm" className="space-y-2">
+          <p className="text-xs text-slate-600 break-words min-w-0">
+            {t.estimates.finalize_confirm_title}
+          </p>
+
+          {finalizeError !== null && (
+            <p
+              role="alert"
+              aria-label="estimate-finalize-error"
+              className="text-xs text-red-600 break-words min-w-0"
+            >
+              {finalizeError}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              aria-label="estimate-finalize-confirm-yes"
+              onClick={() => void confirmFinalize()}
+              disabled={finalizeBusy}
+              className="flex-1 min-h-[44px] bg-emerald-600 text-white text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+            >
+              {finalizeBusy ? t.estimates.finalize_finalizing : t.estimates.finalize_confirm_yes}
+            </button>
+            <button
+              type="button"
+              aria-label="estimate-finalize-cancel"
+              onClick={cancelFinalizeConfirm}
+              disabled={finalizeBusy}
+              className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
+            >
+              {t.estimates.line_edit_cancel}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // Detail view: show individual lines for the selected group
   if (selectedGroupKey !== null) {
     const selectedGroup = groups.find((g) => g.key === selectedGroupKey);
@@ -1022,6 +1133,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
         {header}
         {regenerationSection}
         {manualLineSection}
+        {finalizeSection}
 
         <button
           type="button"
@@ -1334,6 +1446,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
       {header}
       {regenerationSection}
       {manualLineSection}
+      {finalizeSection}
 
       <div aria-label="estimate-groups" className="space-y-2">
         {groups.map((group, index) => {

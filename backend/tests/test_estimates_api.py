@@ -1303,6 +1303,134 @@ async def test_zero_price_finalize_accepted(async_client: AsyncClient, db_sessio
 
 
 # ===========================================================================
+# Stage 10G.3D — version lifecycle contract verification (no backend
+# changes; these tests document/prove the ACTUAL existing behavior the
+# frontend relies on).
+# ===========================================================================
+
+async def test_final_v1_unchanged_after_project_changes_and_v2_reflects_current_planning(
+    async_client: AsyncClient, db_session
+):
+    """Primary Stage 10G.3D scenario: FINAL v1 is a frozen snapshot; adding a
+    new room after finalization must never mutate it. An explicitly created
+    next DRAFT version reflects current project planning, including the
+    newly added room.
+    """
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room_a = await _make_room(db_session, project.id, name="pokój 1")
+    surface_a = await _make_surface(db_session, room_a.id, width="4.000", height="2.600")
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    await _make_work_plan(db_session, project.id, room_a.id, surface_a.id, owner.id, [item])
+    svc = EstimateService(db_session)
+
+    v1 = await svc.generate_estimate(project.id, owner.id)
+    finalize_resp = await async_client.post(
+        f"{_est_id(project.id, v1.id)}/finalize", headers=auth(token)
+    )
+    assert finalize_resp.status_code == 200, finalize_resp.text
+
+    v1_before = (await async_client.get(_est_id(project.id, v1.id), headers=auth(token))).json()
+    assert v1_before["status"] == "FINAL"
+    assert len(v1_before["lines"]) == 1
+
+    # Owner adds a whole new room + planned work after finalization.
+    room_b = await _make_room(db_session, project.id, name="kuchnia")
+    surface_b = await _make_surface(db_session, room_b.id, width="4.000", height="2.600")
+    await _make_work_plan(db_session, project.id, room_b.id, surface_b.id, owner.id, [item])
+
+    v1_after = (await async_client.get(_est_id(project.id, v1.id), headers=auth(token))).json()
+    assert v1_after == v1_before  # byte-for-byte unchanged by the project edit
+
+    # Owner explicitly creates the next version — the existing generate
+    # endpoint (no separate "create next version" mechanism). Like every
+    # other mutation endpoint, /generate's own response is the raw
+    # (unenriched) EstimateRead; the frontend always follows up with GET
+    # .../estimates/{id} for provenance-enriched, authoritative data.
+    v2_resp = await async_client.post(f"{_est(project.id)}/generate", headers=auth(token))
+    assert v2_resp.status_code == 200, v2_resp.text
+    v2_summary = v2_resp.json()
+    assert v2_summary["version"] == 2
+    assert v2_summary["status"] == "DRAFT"
+    assert len(v2_summary["lines"]) == 2  # both pokój 1 and kuchnia
+
+    v2 = (await async_client.get(_est_id(project.id, v2_summary["id"]), headers=auth(token))).json()
+    assert {ln["room_name"] for ln in v2["lines"]} == {"pokój 1", "kuchnia"}
+
+    # v1 is still completely intact after v2 was created.
+    v1_final = (await async_client.get(_est_id(project.id, v1.id), headers=auth(token))).json()
+    assert v1_final == v1_before
+
+
+async def test_v2_does_not_copy_v1_manual_lines_or_overrides(
+    async_client: AsyncClient, db_session
+):
+    """Documents the actual, accepted generation semantics: a new version is
+    generated FRESH from current project planning, never cloned from the
+    previous Estimate snapshot. MANUAL lines and owner price/quantity
+    overrides on v1 are NOT carried forward to v2 — this is the existing
+    behavior, not a Stage 10G.3D defect; copying them (if ever wanted) is a
+    separate future product decision.
+    """
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id)
+    surface = await _make_surface(db_session, room.id, width="4.000", height="2.600")
+    item = await _make_price_item(db_session, owner.id, unit=PriceUnit.M2, price="30.00")
+    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item])
+    svc = EstimateService(db_session)
+
+    v1 = await svc.generate_estimate(project.id, owner.id)
+    planned_line = v1.lines[0]
+    planned_line.unit_price = Decimal("99.00")
+    planned_line.price_override = True
+    await db_session.commit()
+    await svc.add_manual_line(
+        v1.id, owner.id, description="Transport", scope=PriceScope.LABOR,
+        unit=PriceUnit.FLAT, quantity=Decimal("1.000"), unit_price=Decimal("250.00"),
+    )
+
+    finalize_resp = await async_client.post(
+        f"{_est_id(project.id, v1.id)}/finalize", headers=auth(token)
+    )
+    assert finalize_resp.status_code == 200, finalize_resp.text
+
+    v2_resp = await async_client.post(f"{_est(project.id)}/generate", headers=auth(token))
+    assert v2_resp.status_code == 200, v2_resp.text
+    v2 = v2_resp.json()
+    assert len(v2["lines"]) == 1  # only the fresh planned-work line
+    assert v2["lines"][0]["origin"] == "PLANNED_WORK"
+    assert v2["lines"][0]["price_override"] is False
+    assert v2["lines"][0]["unit_price"] == "30.00"  # current PriceBook value, not v1's 99.00 override
+    assert not any(ln["origin"] == "MANUAL" for ln in v2["lines"])
+
+
+async def test_active_draft_prevents_creating_another_version(
+    async_client: AsyncClient, db_session
+):
+    """Reconfirms the existing 409 guard at the HTTP layer specifically in
+    the version-lifecycle context (DRAFT v2 already exists -> no v3)."""
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    svc = EstimateService(db_session)
+    v1 = await svc.generate_estimate(project.id, owner.id)
+    await async_client.post(f"{_est_id(project.id, v1.id)}/finalize", headers=auth(token))
+    await async_client.post(f"{_est(project.id)}/generate", headers=auth(token))  # v2
+
+    resp = await async_client.post(f"{_est(project.id)}/generate", headers=auth(token))
+    assert resp.status_code == 409
+
+
+# ===========================================================================
 # H. Delete manual line
 # ===========================================================================
 

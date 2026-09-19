@@ -24,6 +24,7 @@ vi.mock('../api/estimates', () => ({
   regenerateEstimate: vi.fn(),
   addManualEstimateLine: vi.fn(),
   deleteEstimateLine: vi.fn(),
+  finalizeEstimate: vi.fn(),
 }));
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -148,6 +149,7 @@ beforeEach(() => {
   vi.mocked(estimatesApi.regenerateEstimate).mockReset();
   vi.mocked(estimatesApi.addManualEstimateLine).mockReset();
   vi.mocked(estimatesApi.deleteEstimateLine).mockReset();
+  vi.mocked(estimatesApi.finalizeEstimate).mockReset();
 });
 
 describe('API call', () => {
@@ -3951,5 +3953,433 @@ describe('Stage 10G.3C regression — accepted 10G.2/10G.3A/10G.3B behavior unto
       expect(call[2].quantity).toBe('12.750');
       expect(call[2].unit_price).toBe('312.34');
     });
+  });
+});
+
+// ─── Stage 10G.3D — estimate finalization and version lifecycle ──────────────
+
+describe('Stage 10G.3D — finalize entry (DRAFT-only, whole-estimate)', () => {
+  it('a DRAFT estimate shows Finalizuj kosztorys', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('estimate-finalize-action')).toBeTruthy();
+  });
+
+  it('a DRAFT estimate shows Finalizuj kosztorys in the grouped summary view too', async () => {
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-finalize-action')).toBeTruthy();
+  });
+
+  it('does not expose Finalizuj kosztorys for a FINAL estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'FINAL' }));
+    renderShell(makeSummary({ status: 'FINAL' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('estimate-finalize-action')).toBeNull();
+  });
+
+  it('does not expose Finalizuj kosztorys for an ACCEPTED estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'ACCEPTED' }));
+    renderShell(makeSummary({ status: 'ACCEPTED' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('estimate-finalize-action')).toBeNull();
+  });
+
+  it('does not expose Finalizuj kosztorys for an ARCHIVED estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'ARCHIVED' }));
+    renderShell(makeSummary({ status: 'ARCHIVED' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByLabelText('estimate-finalize-action')).toBeNull();
+  });
+});
+
+describe('Stage 10G.3D — finalize confirmation gating', () => {
+  it('requires explicit confirmation before calling finalize', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm'));
+    expect(estimatesApi.finalizeEstimate).not.toHaveBeenCalled();
+  });
+
+  it('Anuluj cancels without calling finalize', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-cancel'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-cancel'));
+    expect(screen.queryByLabelText('estimate-finalize-confirm')).toBeNull();
+    expect(estimatesApi.finalizeEstimate).not.toHaveBeenCalled();
+  });
+
+  it('confirming calls finalizeEstimate with the correct project and estimate ids', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'FINAL' }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+    await waitFor(() => {
+      expect(estimatesApi.finalizeEstimate).toHaveBeenCalledWith(PROJECT_ID, ESTIMATE_ID);
+    });
+  });
+});
+
+describe('Stage 10G.3D — finalize failure (unresolved price)', () => {
+  it('an unresolved-price failure keeps the Estimate in DRAFT, shows a localized (not raw English) error inline, and stays recoverable', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockRejectedValue(
+      new Error('Cannot finalize: 1 line(s) have no price set (Do ustalenia). Set prices in the Price Book or add line overrides.'),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+    const errorText = screen.getByLabelText('estimate-finalize-error').textContent ?? '';
+    expect(errorText).not.toContain('Cannot finalize');
+    expect(errorText).toBe(
+      'Nie można sfinalizować kosztorysu. 1 pozycji nie ma ustalonej ceny. Uzupełnij ceny pozycji oznaczonych „Do ustalenia” i spróbuj ponownie.',
+    );
+    expect(screen.getByLabelText('estimate-shell-status').textContent).toBe('Szkic');
+    expect(screen.getByLabelText('estimate-finalize-confirm')).toBeTruthy();
+    expect(screen.getByLabelText('estimate-lines')).toBeTruthy();
+  });
+
+  it('retrying finalize after a failure remains possible', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate)
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce(makeDetail([makeLine()], { status: 'FINAL' }));
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([makeLine()]))
+      .mockResolvedValueOnce(makeDetail([makeLine({ unit_price: '35.00' })], { status: 'FINAL' }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+    await waitFor(() => expect(estimatesApi.finalizeEstimate).toHaveBeenCalledTimes(2));
+  });
+
+  it('extracts the real backend count, not a hardcoded number (e.g. 4, not 6)', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockRejectedValue(
+      new Error('Cannot finalize: 4 line(s) have no price set (Do ustalenia). Set prices in the Price Book or add line overrides.'),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+    expect(screen.getByLabelText('estimate-finalize-error').textContent).toBe(
+      'Nie można sfinalizować kosztorysu. 4 pozycji nie ma ustalonej ceny. Uzupełnij ceny pozycji oznaczonych „Do ustalenia” i spróbuj ponownie.',
+    );
+  });
+
+  it('shows the RU localized unresolved-price message, not raw English, with the real count', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(estimatesApi.finalizeEstimate).mockRejectedValue(
+      new Error('Cannot finalize: 6 line(s) have no price set (Do ustalenia). Set prices in the Price Book or add line overrides.'),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+    const errorText = screen.getByLabelText('estimate-finalize-error').textContent ?? '';
+    expect(errorText).not.toContain('Cannot finalize');
+    expect(errorText).toBe(
+      'Невозможно зафиксировать смету. У 6 позиций не указана цена. Заполните цены у позиций «Цена уточняется» и повторите попытку.',
+    );
+  });
+
+  it('falls back to the generic finalize error for a malformed/unexpected error shape, without inventing a count', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockRejectedValue(
+      new Error('Cannot finalize: something unexpected happened'),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+    // Does not match the known "Cannot finalize: N line(s)..." shape, so the
+    // raw (non-localized) message passes through the existing fallback path
+    // unchanged rather than being misclassified as the unresolved-price case.
+    expect(screen.getByLabelText('estimate-finalize-error').textContent).toBe(
+      'Cannot finalize: something unexpected happened',
+    );
+  });
+
+  it('does not misclassify an unrelated error (e.g. a 409-style conflict) as the unresolved-price case', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockRejectedValue(
+      new Error('Only DRAFT estimates can be finalized; estimate is FINAL'),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+    expect(screen.getByLabelText('estimate-finalize-error').textContent).toBe(
+      'Only DRAFT estimates can be finalized; estimate is FINAL',
+    );
+  });
+
+  it('a network/non-Error rejection uses the generic localized fallback', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockRejectedValue('network down');
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+    expect(screen.getByLabelText('estimate-finalize-error').textContent).toBe(
+      'Nie udało się sfinalizować kosztorysu.',
+    );
+  });
+});
+
+describe('Stage 10G.3D — successful finalization', () => {
+  it('refetches the authoritative Estimate and updates the status badge to Finalny', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'FINAL' }));
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([makeLine()]))
+      .mockResolvedValueOnce(makeDetail([makeLine({ unit_price: '35.00' })], { status: 'FINAL' }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(2));
+    expect(screen.getByLabelText('estimate-shell-status').textContent).toBe('Finalny');
+  });
+
+  it('all mutation controls disappear after a successful finalization: Dodaj pozycję, Sprawdź zmiany, Edytuj, and Finalizuj itself; read-only drill-down remains', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'FINAL' }));
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([makeLine({ unit_price: '35.00' })]))
+      .mockResolvedValueOnce(makeDetail([makeLine({ unit_price: '35.00' })], { status: 'FINAL' }));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('estimate-add-manual-line-action')).toBeTruthy();
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+    expect(screen.getByLabelText('line-edit-action-1')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => expect(screen.queryByLabelText('estimate-finalize-action')).toBeNull());
+    expect(screen.queryByLabelText('estimate-add-manual-line-action')).toBeNull();
+    expect(screen.queryByLabelText('estimate-check-changes-action')).toBeNull();
+    expect(screen.queryByLabelText('line-edit-action-1')).toBeNull();
+    // Read-only drill-down remains available.
+    expect(screen.getByLabelText('estimate-lines')).toBeTruthy();
+    expect(screen.getByLabelText('line-quantity-1')).toBeTruthy();
+  });
+
+  it('group-level Opcje disappears from the grouped summary after finalization', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockResolvedValue(makeDetail([makeLine()], { status: 'FINAL' }));
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([makeLine({ unit_price: '35.00' })]))
+      .mockResolvedValueOnce(makeDetail([makeLine({ unit_price: '35.00' })], { status: 'FINAL' }));
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('group-options-0')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => expect(screen.queryByLabelText('group-options-0')).toBeNull());
+    expect(screen.getByLabelText('estimate-groups')).toBeTruthy();
+  });
+
+  it('Usuń pozycję disappears from a manual line after finalization', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockResolvedValue(makeDetail([makeManualLine()], { status: 'FINAL' }));
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([makeManualLine({ unit_price: '250.00', amount: '250.00' })]))
+      .mockResolvedValueOnce(
+        makeDetail([makeManualLine({ unit_price: '250.00', amount: '250.00' })], { status: 'FINAL' }),
+      );
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-delete-action-1')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => expect(screen.queryByLabelText('line-delete-action-1')).toBeNull());
+  });
+});
+
+describe('Stage 10G.3D — FINAL remains fully readable', () => {
+  it('a FINAL estimate still shows quantity, price, amount, provenance, and total', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ unit_price: '35.00' })], makeSummary({ status: 'FINAL', total: '437.50' })),
+    );
+    renderShell(makeSummary({ status: 'FINAL', total: '437.50' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.500');
+    expect(screen.getByLabelText('line-unit-price-1').textContent).toContain('35.00');
+    expect(screen.getByLabelText('line-amount-1').textContent).toContain('437.50');
+    expect(screen.getByLabelText('line-provenance-1').textContent).toBe('Salon — Ściana 1');
+    expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('437.50 PLN');
+  });
+
+  it('a FINAL estimate still allows navigating back to the grouped summary', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ unit_price: '35.00' })], { status: 'FINAL' }),
+    );
+    const onGroupKeyChange = vi.fn();
+    render(
+      <I18nProvider>
+        <EstimateShell
+          estimate={makeSummary({ status: 'FINAL' })}
+          onBack={vi.fn()}
+          selectedGroupKey={PLANNED_SURFACE_KEY}
+          onGroupKeyChange={onGroupKeyChange}
+        />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-detail-back'));
+    fireEvent.click(screen.getByLabelText('estimate-detail-back'));
+    expect(onGroupKeyChange).toHaveBeenCalledWith(null);
+  });
+});
+
+describe('Stage 10G.3D — state isolation across estimate/version switches', () => {
+  it('switching to a different estimate (unmount + fresh mount, matching real navigation) never leaks stale edit/detail state', async () => {
+    // A DRAFT v2 with a line mid-edit.
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValueOnce(
+      makeDetail([makeLine()], makeSummary({ version: 2 })),
+    );
+    const { unmount } = render(
+      <I18nProvider>
+        <EstimateShell
+          estimate={makeSummary({ version: 2 })}
+          onBack={vi.fn()}
+          selectedGroupKey={PLANNED_SURFACE_KEY}
+          onGroupKeyChange={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    await waitFor(() => screen.getByLabelText('line-edit-panel-1'));
+    expect(screen.getByLabelText('line-edit-panel-1')).toBeTruthy();
+    // Matches real navigation: ProjectWorkspace's onBack sets selectedEstimate
+    // to null, fully unmounting EstimateShell before any other estimate opens.
+    unmount();
+
+    // Opening a different, FINAL v1 estimate must start completely fresh.
+    const finalSummary = makeSummary({ version: 1, status: 'FINAL' });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValueOnce(
+      makeDetail([makeLine({ unit_price: '35.00' })], finalSummary),
+    );
+    render(
+      <I18nProvider>
+        <EstimateShell
+          estimate={finalSummary}
+          onBack={vi.fn()}
+          selectedGroupKey={PLANNED_SURFACE_KEY}
+          onGroupKeyChange={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('estimate-shell-status').textContent).toBe('Finalny');
+    expect(screen.queryByLabelText('line-edit-panel-1')).toBeNull();
+    expect(screen.queryByLabelText('line-edit-action-1')).toBeNull(); // FINAL: no edit action at all
+  });
+
+  it('a manual-line form left open in one estimate never leaks into a freshly-opened different estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValueOnce(makeDetail([makeLine()]));
+    const { unmount } = render(
+      <I18nProvider>
+        <EstimateShell estimate={makeSummary()} onBack={vi.fn()} selectedGroupKey={null} onGroupKeyChange={vi.fn()} />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    await waitFor(() => screen.getByLabelText('estimate-manual-line-form'));
+    unmount();
+
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValueOnce(makeDetail([makeLine()]));
+    render(
+      <I18nProvider>
+        <EstimateShell estimate={makeSummary()} onBack={vi.fn()} selectedGroupKey={null} onGroupKeyChange={vi.fn()} />
+      </I18nProvider>,
+    );
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.queryByLabelText('estimate-manual-line-form')).toBeNull();
+    expect(screen.getByLabelText('estimate-add-manual-line-action')).toBeTruthy();
+  });
+});
+
+describe('Stage 10G.3D regression — accepted 10G.2/10G.3A/10G.3B/10G.3C behavior untouched', () => {
+  it('regeneration preview still works alongside the new finalize action', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(makePreview());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('estimate-finalize-action')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-no-changes'));
+  });
+
+  it('manual line creation still works alongside the new finalize action', async () => {
+    vi.mocked(estimatesApi.addManualEstimateLine).mockResolvedValue(makeManualLine());
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-add-manual-line-action'));
+    fireEvent.change(screen.getByLabelText('manual-line-description'), { target: { value: 'Transport' } });
+    fireEvent.click(screen.getByLabelText('manual-line-price-unresolved'));
+    fireEvent.click(screen.getByLabelText('estimate-manual-line-save'));
+    await waitFor(() => expect(estimatesApi.addManualEstimateLine).toHaveBeenCalledTimes(1));
+  });
+
+  it('NULL price still renders "Do ustalenia" (never 0.00) for a FINAL estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ unit_price: null, amount: null })], { status: 'FINAL' }),
+    );
+    renderShell(makeSummary({ status: 'FINAL' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-unit-price-1').textContent).toBe('Do ustalenia');
+    expect(screen.getByLabelText('line-amount-1').textContent).toBe('—');
+  });
+
+  it('explicit 0.00 still renders as zero (never "Do ustalenia") for a FINAL estimate', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ unit_price: '0.00', amount: '0.00' })], { status: 'FINAL' }),
+    );
+    renderShell(makeSummary({ status: 'FINAL' }));
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-unit-price-1').textContent).toContain('0.00');
+    expect(screen.getByLabelText('line-unit-price-1').textContent).not.toBe('Do ustalenia');
+  });
+
+  it('no JS Number financial arithmetic is introduced by the finalize confirmation panel', async () => {
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    const panel = await waitFor(() => screen.getByLabelText('estimate-finalize-confirm'));
+    // The confirmation panel renders no amount/quantity/price fields at all —
+    // it never touches Estimate financial values, only calls the backend.
+    expect(within(panel).queryByLabelText(/line-amount|line-unit-price|line-quantity/)).toBeNull();
   });
 });

@@ -78,3 +78,17 @@ export function deleteEstimateLine(
     method: 'DELETE',
   });
 }
+
+// Stage 10G.3D — DRAFT -> FINAL. Rejected (422) if any line still has an
+// unresolved (NULL) unit_price. Like every other mutation endpoint, the
+// response itself is not provenance-enriched — callers must follow up with
+// getEstimate() for authoritative, enriched data rather than trusting this
+// response directly.
+export function finalizeEstimate(
+  projectId: string,
+  estimateId: string,
+): Promise<EstimateRead> {
+  return apiRequest(`${estimatesPath(projectId)}/${estimateId}/finalize`, {
+    method: 'POST',
+  });
+}
