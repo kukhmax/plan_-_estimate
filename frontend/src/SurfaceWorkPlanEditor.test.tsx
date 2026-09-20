@@ -23,6 +23,7 @@ vi.mock('./api/priceItems', async (importOriginal) => {
   return {
     ...actual,
     fetchPriceItems: vi.fn(),
+    createPriceItem: vi.fn(),
   };
 });
 
@@ -1025,5 +1026,171 @@ describe('SurfaceWorkPlanEditor', () => {
     const finalRows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
     expect(finalRows[0]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
     expect(finalRows[1]).toHaveTextContent('Pierwsza praca');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Inline Price Book item creation from the picker (Stage 10G.4 follow-up)
+  // ---------------------------------------------------------------------------
+
+  describe('inline Price Book item creation', () => {
+    async function openPickerPanel() {
+      renderEditor();
+      await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+      fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+      return screen.findByLabelText(`picker-panel-${surfaceId}`);
+    }
+
+    it('shows "+ Dodaj nową pracę do cennika" at the bottom of the picker', async () => {
+      const panel = await openPickerPanel();
+      expect(within(panel).getByLabelText(`create-price-item-${surfaceId}`)).toHaveTextContent(
+        'Dodaj nową pracę do cennika',
+      );
+    });
+
+    it('opens the inline creation form and hides the search/list', async () => {
+      const panel = await openPickerPanel();
+      fireEvent.click(within(panel).getByLabelText(`create-price-item-${surfaceId}`));
+
+      expect(
+        await screen.findByLabelText(`work-plan-new-price-item-${surfaceId}-form`),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText(`picker-search-${surfaceId}`)).toBeNull();
+    });
+
+    it('does NOT lock the category — the full category selector remains available, matching the picker\'s own unrestricted contract', async () => {
+      const panel = await openPickerPanel();
+      fireEvent.click(within(panel).getByLabelText(`create-price-item-${surfaceId}`));
+      const form = await screen.findByLabelText(`work-plan-new-price-item-${surfaceId}-form`);
+
+      const category = within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-category`);
+      expect(category.tagName).toBe('SELECT');
+      expect(category).toHaveValue('PREPARATION');
+      fireEvent.change(category, { target: { value: 'PLASTER' } });
+      expect(category).toHaveValue('PLASTER');
+    });
+
+    it('creating an item persists it via the Price Book API and immediately adds it to the draft, closing the picker', async () => {
+      const created = makePriceItem({
+        id: 'created-1',
+        display_name: 'Nowa praca powierzchniowa',
+        category: 'SKIM_COAT',
+        unit: 'M2',
+        price: '22.00',
+      });
+      vi.mocked(priceItemsApi.createPriceItem).mockResolvedValue(created);
+
+      const panel = await openPickerPanel();
+      fireEvent.click(within(panel).getByLabelText(`create-price-item-${surfaceId}`));
+      const form = await screen.findByLabelText(`work-plan-new-price-item-${surfaceId}-form`);
+
+      fireEvent.change(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-display-name`), {
+        target: { value: 'Nowa praca powierzchniowa' },
+      });
+      fireEvent.change(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-category`), {
+        target: { value: 'SKIM_COAT' },
+      });
+      fireEvent.change(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-price`), {
+        target: { value: '22.00' },
+      });
+      fireEvent.submit(form);
+
+      await waitFor(() =>
+        expect(priceItemsApi.createPriceItem).toHaveBeenCalledWith(
+          expect.objectContaining({
+            display_name: 'Nowa praca powierzchniowa',
+            category: 'SKIM_COAT',
+            unit: 'M2',
+            price: '22.00',
+          }),
+        ),
+      );
+
+      expect(screen.queryByLabelText(`picker-panel-${surfaceId}`)).toBeNull();
+      const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+      expect(rows[rows.length - 1]).toHaveTextContent('Nowa praca powierzchniowa');
+    });
+
+    it('never sends a Surface Work Plan PUT merely because a Price Book item was created', async () => {
+      const created = makePriceItem({ id: 'created-nosave', display_name: 'Nowa praca' });
+      vi.mocked(priceItemsApi.createPriceItem).mockResolvedValue(created);
+
+      const panel = await openPickerPanel();
+      fireEvent.click(within(panel).getByLabelText(`create-price-item-${surfaceId}`));
+      const form = await screen.findByLabelText(`work-plan-new-price-item-${surfaceId}-form`);
+      fireEvent.change(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-display-name`), {
+        target: { value: 'Nowa praca' },
+      });
+      fireEvent.change(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-price`), {
+        target: { value: '5' },
+      });
+      fireEvent.submit(form);
+
+      await waitFor(() => expect(priceItemsApi.createPriceItem).toHaveBeenCalled());
+      expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
+    });
+
+    it('creating an item with "Cena do ustalenia" sends price: null and immediately enters the draft', async () => {
+      const created = makePriceItem({ id: 'created-null', display_name: 'Cena do ustalenia', price: null });
+      vi.mocked(priceItemsApi.createPriceItem).mockResolvedValue(created);
+
+      const panel = await openPickerPanel();
+      fireEvent.click(within(panel).getByLabelText(`create-price-item-${surfaceId}`));
+      const form = await screen.findByLabelText(`work-plan-new-price-item-${surfaceId}-form`);
+      fireEvent.change(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-display-name`), {
+        target: { value: 'Cena do ustalenia' },
+      });
+      fireEvent.click(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-price-unresolved`));
+      expect(within(form).queryByLabelText(`work-plan-new-price-item-${surfaceId}-price`)).toBeNull();
+      fireEvent.submit(form);
+
+      await waitFor(() =>
+        expect(priceItemsApi.createPriceItem).toHaveBeenCalledWith(
+          expect.objectContaining({ price: null }),
+        ),
+      );
+      expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
+      const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+      expect(rows[rows.length - 1]).toHaveTextContent('Do ustalenia');
+    });
+
+    it('cancelling the creation form persists nothing and returns to the picker list', async () => {
+      const panel = await openPickerPanel();
+      fireEvent.click(within(panel).getByLabelText(`create-price-item-${surfaceId}`));
+      const form = await screen.findByLabelText(`work-plan-new-price-item-${surfaceId}-form`);
+      fireEvent.change(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-display-name`), {
+        target: { value: 'Nigdy nie zapisane' },
+      });
+
+      fireEvent.click(within(form).getByRole('button', { name: 'Anuluj' }));
+
+      expect(priceItemsApi.createPriceItem).not.toHaveBeenCalled();
+      expect(screen.queryByLabelText(`work-plan-new-price-item-${surfaceId}-form`)).toBeNull();
+      expect(await screen.findByLabelText(`picker-search-${surfaceId}`)).toBeInTheDocument();
+      expect(screen.queryByText('Nigdy nie zapisane')).toBeNull();
+    });
+
+    it('a creation failure preserves the entered values and shows a recoverable error', async () => {
+      vi.mocked(priceItemsApi.createPriceItem).mockRejectedValue(new Error('server down'));
+      const panel = await openPickerPanel();
+      fireEvent.click(within(panel).getByLabelText(`create-price-item-${surfaceId}`));
+      const form = await screen.findByLabelText(`work-plan-new-price-item-${surfaceId}-form`);
+      fireEvent.change(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-display-name`), {
+        target: { value: 'Praca z błędem' },
+      });
+      fireEvent.change(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-price`), {
+        target: { value: '7' },
+      });
+      fireEvent.submit(form);
+
+      expect(await screen.findByText('Nie udało się zapisać pozycji.')).toBeInTheDocument();
+      expect(within(form).getByLabelText(`work-plan-new-price-item-${surfaceId}-display-name`)).toHaveValue(
+        'Praca z błędem',
+      );
+    });
+
+    it('the create action meets the 44px minimum touch target', async () => {
+      const panel = await openPickerPanel();
+      expect(within(panel).getByLabelText(`create-price-item-${surfaceId}`).className).toContain('min-h-11');
+    });
   });
 });

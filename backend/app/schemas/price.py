@@ -18,14 +18,21 @@ from app.models.price_item import PriceCategory, PriceScope, PriceUnit
 
 
 class PriceItemCreate(BaseModel):
-    """Owner-authored catalog row; the semantic ``code`` is always server-generated."""
+    """Owner-authored catalog row; the semantic ``code`` is always server-generated.
+
+    ``price`` is nullable (Stage 10G.4 correction): an on-site owner must be
+    able to create a catalog row before a price has been agreed. ``null`` means
+    "Do ustalenia / Цена уточняется" — the same seeded-row semantics used
+    throughout the app — and is never collapsed into ``0.00``, a distinct,
+    fully valid explicit price.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     display_name: str = Field(min_length=1, max_length=255)
     category: PriceCategory
     unit: PriceUnit
-    price: Decimal
+    price: Decimal | None = None
     currency: str = Field(default="PLN", max_length=3)
     price_scope: PriceScope = PriceScope.LABOR
     quality_level: QualityLevel | None = None

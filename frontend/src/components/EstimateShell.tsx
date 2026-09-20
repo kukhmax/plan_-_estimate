@@ -6,6 +6,7 @@ import { PRICE_UNITS, type PriceScopeValue, type PriceUnitValue } from '../types
 import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatDecimalMoney } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
+import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 
 // Stage 10G.3C — the backend rejects LABOR_AND_MATERIAL for MANUAL lines (no
@@ -34,35 +35,6 @@ interface EstimateGroup {
   lineCount: number;
   hasOverrides: boolean;
   lines: EstimateLineRead[];
-}
-
-// Deterministic, stable surface_id → subtle-tint mapping for atomic drill-down
-// cards. Must depend only on surface_id (never array index / sort position),
-// so the same surface always renders the same tint regardless of line order.
-const SURFACE_TINT_PALETTE: readonly { bg: string; border: string }[] = [
-  { bg: 'bg-blue-50', border: 'border-blue-100' },
-  { bg: 'bg-emerald-50', border: 'border-emerald-100' },
-  { bg: 'bg-amber-50', border: 'border-amber-100' },
-  { bg: 'bg-rose-50', border: 'border-rose-100' },
-  { bg: 'bg-violet-50', border: 'border-violet-100' },
-  { bg: 'bg-teal-50', border: 'border-teal-100' },
-];
-
-const NEUTRAL_CARD_TINT = { bg: 'bg-white', border: 'border-slate-200' };
-
-// FNV-1a 32-bit — cheap, stable, well-distributed for short UUID strings.
-function hashSurfaceId(surfaceId: string): number {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < surfaceId.length; i++) {
-    hash ^= surfaceId.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
-}
-
-function surfaceCardTint(surfaceId: string | null): { bg: string; border: string } {
-  if (surfaceId === null) return NEUTRAL_CARD_TINT;
-  return SURFACE_TINT_PALETTE[hashSurfaceId(surfaceId) % SURFACE_TINT_PALETTE.length];
 }
 
 // Client-side shape guard only — never converts to Number. The backend
@@ -574,7 +546,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // UPDATED entry's quantity/price didn't actually change (e.g. only the
   // description changed) instead of showing "X -> X".
   const changeQuantityDisplay = (entry: LineChangeEntry): string => {
-    const fmt = (v: string | null) => (v !== null ? `${v} ${entry.unit}` : '—');
+    const fmt = (v: string | null) => (v !== null ? `${v} ${unitLabel(entry.unit)}` : '—');
     if (entry.change_type === 'ADDED') return fmt(entry.new_source_quantity);
     if (entry.change_type === 'REMOVED') return fmt(entry.old_source_quantity);
     if (entry.old_source_quantity === entry.new_source_quantity) return fmt(entry.new_source_quantity);
@@ -627,6 +599,14 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     if (scope === 'LABOR_AND_MATERIAL') return t.estimates.scope_labor_and_material;
     return scope;
   };
+
+  // Centralized presentation-only unit label — reuses the same canonical
+  // pricebook.units map every other unit-rendering component already uses
+  // (Price Book, Surface/Reveal Work pickers). The internal PriceUnit enum
+  // (e.g. "LM") is never changed; only what the owner sees is localized
+  // (PL "mb", RU "пог. м").
+  const unitLabel = (unit: string): string =>
+    t.pricebook.units[unit as PriceUnitValue] ?? unit;
 
   // The `estimate` prop is a point-in-time EstimateSummaryRead handed down by
   // the parent (e.g. from the version list) and is never refreshed by this
@@ -700,17 +680,16 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     );
   }
 
-  if (!detail || detail.lines.length === 0) {
+  // Defensive only — loading/error above already cover the normal lifecycle,
+  // so `detail` is populated by the time we reach here. This never gates on
+  // line count: an empty DRAFT must still reach regenerationSection /
+  // manualLineSection / finalizeSection below, exactly like a non-empty one
+  // (Stage 10G.4 empty-DRAFT-recovery correction — see the grouped summary
+  // view's own empty-lines branch further down for the actual empty message).
+  if (!detail) {
     return (
       <article aria-label="estimate-shell" className="space-y-3">
         {header}
-        <div
-          aria-label="estimate-lines-empty"
-          className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1"
-        >
-          <p className="text-sm font-medium text-slate-700">{t.estimates.lines_empty_title}</p>
-          <p className="text-xs text-slate-500">{t.estimates.lines_empty_description}</p>
-        </div>
       </article>
     );
   }
@@ -1123,6 +1102,32 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     </div>
   );
 
+  // Empty estimate (0 lines) — Stage 10G.4 empty-DRAFT-recovery correction.
+  // Independent of which view (grouped summary / group detail) would
+  // otherwise be selected: with zero lines there is nothing to group or
+  // drill into, so this always takes priority. Crucially, regenerationSection
+  // / manualLineSection / finalizeSection are the SAME shared elements used
+  // by the non-empty views below — an empty DRAFT reaches the exact same
+  // "Sprawdź zmiany" / "+ Dodaj pozycję" / "Finalizuj kosztorys" actions,
+  // already correctly gated to DRAFT-only by their own definitions above.
+  if (groups.length === 0) {
+    return (
+      <article aria-label="estimate-shell" className="space-y-3">
+        {header}
+        {regenerationSection}
+        {manualLineSection}
+        {finalizeSection}
+        <div
+          aria-label="estimate-lines-empty"
+          className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1"
+        >
+          <p className="text-sm font-medium text-slate-700">{t.estimates.lines_empty_title}</p>
+          <p className="text-xs text-slate-500">{t.estimates.lines_empty_description}</p>
+        </div>
+      </article>
+    );
+  }
+
   // Detail view: show individual lines for the selected group
   if (selectedGroupKey !== null) {
     const selectedGroup = groups.find((g) => g.key === selectedGroupKey);
@@ -1215,7 +1220,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                 <div className="text-xs text-slate-600 space-y-0.5">
                   <div className="flex items-baseline gap-1 flex-wrap min-w-0">
                     <span aria-label={`line-quantity-${line.position}`} className="shrink-0">
-                      {line.quantity} {line.unit}
+                      {line.quantity} {unitLabel(line.unit)}
                     </span>
                     <span className="text-slate-400 shrink-0">×</span>
                     <span aria-label={`line-unit-price-${line.position}`} className="shrink-0">
@@ -1238,7 +1243,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                     <p>{t.estimates.quantity_overridden}</p>
                     {line.source_quantity !== null && (
                       <p className="text-slate-400">
-                        {t.estimates.source_quantity}: {line.source_quantity} {line.unit}
+                        {t.estimates.source_quantity}: {line.source_quantity} {unitLabel(line.unit)}
                       </p>
                     )}
                   </div>
@@ -1273,7 +1278,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                               onChange={(e) => setEditQuantity(e.target.value)}
                               className="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
                             />
-                            <span className="text-slate-400 shrink-0">{line.unit}</span>
+                            <span className="text-slate-400 shrink-0">{unitLabel(line.unit)}</span>
                           </div>
                         </label>
 
@@ -1497,7 +1502,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                     {group.quantity !== null && (
                       <div className="flex items-baseline gap-1 flex-wrap min-w-0">
                         <span aria-label={`group-quantity-${index}`} className="shrink-0">
-                          {group.quantity} {group.unit}
+                          {group.quantity} {group.unit !== null ? unitLabel(group.unit) : ''}
                         </span>
                         {group.unitPrice !== null && (
                           <>

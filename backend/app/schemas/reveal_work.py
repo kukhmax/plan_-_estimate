@@ -33,3 +33,14 @@ class RevealWorkSetRequest(BaseModel):
     price_item_ids: list[uuid.UUID] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
+
+
+class RevealWorkApplyResult(BaseModel):
+    """Result of atomically copying a source opening's reveal work selection
+    to every other reveal-enabled, non-archived opening in the same room
+    (Stage 10G.4). Only the ordered PriceItem selection was copied — target
+    geometry/quantities remain entirely their own and backend-authoritative.
+    """
+    source_opening_id: uuid.UUID
+    target_count: int
+    target_opening_ids: list[uuid.UUID]

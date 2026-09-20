@@ -91,7 +91,8 @@ export interface PriceItemCreatePayload {
   display_name: string;
   category: PriceCategoryValue;
   unit: PriceUnitValue;
-  price: string;
+  /** null = "Do ustalenia" (Stage 10G.4); a real price is a Decimal string, never 0.00 by default. */
+  price: string | null;
   price_scope: PriceScopeValue;
   quality_level: QualityLevelValue | null;
 }
@@ -100,7 +101,8 @@ export interface PriceItemUpdatePayload {
   display_name?: string;
   category?: PriceCategoryValue;
   unit?: PriceUnitValue;
-  price?: string;
+  /** Omit to leave unchanged; null explicitly clears an existing price back to "Do ustalenia". */
+  price?: string | null;
   price_scope?: PriceScopeValue;
   quality_level?: QualityLevelValue | null;
 }

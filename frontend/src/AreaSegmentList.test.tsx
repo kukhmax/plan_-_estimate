@@ -642,3 +642,41 @@ describe('AreaSegmentList plane-card parity (10C.1B)', () => {
     expect(screen.getAllByText(/Razem: 12\.21 m²/)).toHaveLength(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Stage 10G.4 — deterministic surface-type card tints (FLOOR/CEILING)
+// ---------------------------------------------------------------------------
+
+describe('AreaSegmentList — surface type card tints (Stage 10G.4)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(canonicalPlanes);
+  });
+
+  it('gives the FLOOR card a warm/sand tint family', async () => {
+    renderAreaSegments();
+    const floorCard = await screen.findByLabelText('floor-segments');
+    expect(floorCard.className).toContain('bg-orange-50');
+    expect(floorCard.className).toContain('border-orange-100');
+  });
+
+  it('gives the CEILING card a cool gray-blue tint family, distinct from FLOOR and WALL', async () => {
+    renderAreaSegments();
+    const ceilingCard = await screen.findByLabelText('ceiling-segments');
+    expect(ceilingCard.className).toContain('bg-slate-100');
+    expect(ceilingCard.className).toContain('border-slate-300');
+    expect(ceilingCard.className).not.toContain('bg-orange-50');
+    expect(ceilingCard.className).not.toContain('bg-blue-50');
+  });
+
+  it('preserves existing Opcje/Rodzaje prac i jakość actions on the tinted FLOOR/CEILING cards', async () => {
+    renderAreaSegments();
+    await screen.findByLabelText('floor-segments');
+    expect(screen.getByLabelText('options-toggle-floor')).toBeInTheDocument();
+    expect(screen.getByLabelText(`work-plan-${floorSurfaceId}`)).toBeInTheDocument();
+    expect(screen.getByLabelText('options-toggle-ceiling')).toBeInTheDocument();
+    expect(screen.getByLabelText(`work-plan-${ceilingSurfaceId}`)).toBeInTheDocument();
+  });
+});

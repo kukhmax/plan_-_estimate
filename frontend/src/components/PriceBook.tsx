@@ -1,4 +1,4 @@
-import React, {
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -7,7 +7,6 @@ import React, {
 } from 'react';
 import {
   archivePriceItem,
-  createPriceItem,
   fetchPriceItems,
   restorePriceItem,
   updatePriceItem,
@@ -17,11 +16,7 @@ import { useMarketEvidence } from '../hooks/useMarketEvidence';
 import { QualityLevelValue } from '../types/checklist';
 import {
   PRICE_CATEGORIES,
-  PRICE_QUALITY_LEVELS,
-  PRICE_SCOPES,
-  PRICE_UNITS,
   PriceItem,
-  PriceItemCreatePayload,
   PriceCategoryValue,
   PriceScopeValue,
   PriceUnitValue,
@@ -29,26 +24,9 @@ import {
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice, normalizePriceInput } from '../utils/priceFormat';
 import { PriceBookMarket } from './PriceBookMarket';
+import { PriceItemForm } from './PriceItemForm';
 
 type Tab = 'active' | 'archived';
-
-interface PriceFormState {
-  display_name: string;
-  category: PriceCategoryValue;
-  unit: PriceUnitValue;
-  price: string;
-  price_scope: PriceScopeValue;
-  quality_level: QualityLevelValue | '';
-}
-
-const DEFAULT_FORM: PriceFormState = {
-  display_name: '',
-  category: 'PREPARATION',
-  unit: 'M2',
-  price: '',
-  price_scope: 'LABOR',
-  quality_level: '',
-};
 
 /** display_name > localized name_key > em-dash. Never the machine code. */
 function resolveDisplayName(item: PriceItem, t: Record<string, unknown>): string {
@@ -83,10 +61,6 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<PriceItem | null>(null);
-  const [form, setForm] = useState<PriceFormState>(DEFAULT_FORM);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formPriceError, setFormPriceError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
   // Inline owner-price editor for catalog rows (Stage 9E.8). Catalog rows carry
   // canonical metadata (name, unit, category, quality), so only the commercial
@@ -136,8 +110,6 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
   useEffect(() => {
     if (resetSignal) {
       setShowForm(false);
-      setFormError(null);
-      setFormPriceError(null);
       setInlineId(null);
       setInlineError(null);
     }
@@ -148,16 +120,6 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
   const unitLabel = (value: PriceUnitValue) => t.pricebook.units[value];
   const scopeLabel = (value: PriceScopeValue) => t.pricebook.scopes[value];
   const qualityLabel = (value: QualityLevelValue) => t.pricebook.quality[value];
-
-  const formFromItem = (item: PriceItem): PriceFormState => ({
-    display_name: item.display_name ?? '',
-    category: item.category,
-    unit: item.unit,
-    // Seed rows bootstrap with price = null; editing lets the owner enter a price.
-    price: item.price ?? '',
-    price_scope: item.price_scope,
-    quality_level: item.quality_level ?? '',
-  });
 
   const closeInline = () => {
     setInlineId(null);
@@ -206,79 +168,23 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
   const openCreate = () => {
     closeInline();
     setEditing(null);
-    setForm(DEFAULT_FORM);
-    setFormError(null);
-    setFormPriceError(null);
     setShowForm(true);
   };
 
   const openEdit = (item: PriceItem) => {
     closeInline();
     setEditing(item);
-    setForm(formFromItem(item));
-    setFormError(null);
-    setFormPriceError(null);
     setShowForm(true);
   };
 
   const closeForm = () => {
     setShowForm(false);
     setEditing(null);
-    setFormError(null);
-    setFormPriceError(null);
   };
 
-  const handleFormChange = (field: keyof PriceFormState, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-    if (field === 'price') setFormPriceError(null);
-    setFormError(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const priceState = normalizePriceInput(form.price);
-    if (!priceState.ok) {
-      setFormPriceError(
-        priceState.reason === 'empty'
-          ? t.pricebook.validation_price_required
-          : priceState.reason === 'precision'
-            ? t.pricebook.validation_price_precision
-            : priceState.reason === 'negative'
-              ? t.pricebook.validation_price_negative
-              : t.pricebook.validation_price_format,
-      );
-      return;
-    }
-    // This form only creates or edits owner rows, which always need a name.
-    if (form.display_name.trim() === '') {
-      setFormError(t.pricebook.validation_name_required);
-      return;
-    }
-
-    setSaving(true);
-    setFormError(null);
-    setFormPriceError(null);
-    const payload: PriceItemCreatePayload = {
-      display_name: form.display_name.trim(),
-      category: form.category,
-      unit: form.unit,
-      price: priceState.value ?? '',
-      price_scope: form.price_scope,
-      quality_level: form.quality_level === '' ? null : form.quality_level,
-    };
-    try {
-      if (editing) {
-        await updatePriceItem(editing.id, payload);
-      } else {
-        await createPriceItem(payload);
-      }
-      closeForm();
-      void load();
-    } catch {
-      setFormError(t.pricebook.error_save);
-    } finally {
-      setSaving(false);
-    }
+  const handleFormSaved = () => {
+    closeForm();
+    void load();
   };
 
   const handleArchive = async (item: PriceItem) => {
@@ -306,9 +212,6 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
     }
   };
 
-  const priceState = normalizePriceInput(form.price);
-  const invalidPrice =
-    !priceState.ok && priceState.reason !== 'empty';
   const inlineState = normalizePriceInput(inlinePrice);
   const invalidInlinePrice = !inlineState.ok && inlineState.reason !== 'empty';
   const emptyMessage = search.trim()
@@ -391,146 +294,12 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
       </button>
 
       {showForm && (
-        <form
+        <PriceItemForm
           ref={formRef}
-          aria-label="price-item-form"
-          onSubmit={handleSubmit}
-          className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm space-y-3"
-        >
-          <h3 className="font-semibold text-slate-900">
-            {editing ? t.pricebook.edit_item : t.pricebook.add_item}
-          </h3>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1" htmlFor="price-item-display-name">
-              {t.pricebook.display_name}
-            </label>
-            <input
-              id="price-item-display-name"
-              aria-label="price-item-display-name"
-              maxLength={255}
-              placeholder={t.pricebook.display_name}
-              value={form.display_name}
-              onChange={(e) => handleFormChange('display_name', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-            />
-            <p className="text-xs text-slate-400 mt-1">{t.pricebook.name_required_hint}</p>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1" htmlFor="price-item-category">
-              {t.pricebook.category}
-            </label>
-            <select
-              id="price-item-category"
-              aria-label="price-item-category"
-              value={form.category}
-              onChange={(e) => handleFormChange('category', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-            >
-              {PRICE_CATEGORIES.map((value) => (
-                <option key={value} value={value}>{categoryLabel(value)}</option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs text-slate-500 mb-1" htmlFor="price-item-unit">
-                {t.pricebook.unit}
-              </label>
-              <select
-                id="price-item-unit"
-                aria-label="price-item-unit"
-                value={form.unit}
-                onChange={(e) => handleFormChange('unit', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm"
-              >
-                {PRICE_UNITS.map((value) => (
-                  <option key={value} value={value}>{unitLabel(value)}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-slate-500 mb-1" htmlFor="price-item-scope">
-                {t.pricebook.price_scope}
-              </label>
-              <select
-                id="price-item-scope"
-                aria-label="price-item-scope"
-                value={form.price_scope}
-                onChange={(e) => handleFormChange('price_scope', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm"
-              >
-                {PRICE_SCOPES.map((value) => (
-                  <option key={value} value={value}>{scopeLabel(value)}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1" htmlFor="price-item-price">
-              {t.pricebook.price}
-            </label>
-            <input
-              id="price-item-price"
-              aria-label="price-item-price"
-              type="text"
-              inputMode="decimal"
-              placeholder={t.pricebook.price_placeholder}
-              value={form.price}
-              onChange={(e) => handleFormChange('price', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-            />
-            {formPriceError && (
-              <p role="alert" className="text-sm text-red-600 font-medium mt-1">
-                {formPriceError}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1" htmlFor="price-item-quality">
-              {t.pricebook.quality_level}
-            </label>
-            <select
-              id="price-item-quality"
-              aria-label="price-item-quality"
-              value={form.quality_level}
-              onChange={(e) => handleFormChange('quality_level', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="">{t.pricebook.quality_none}</option>
-              <optgroup label={t.pricebook.quality_group_s}>
-                {PRICE_QUALITY_LEVELS.filter((value) => value.startsWith('S')).map((value) => (
-                  <option key={value} value={value}>{qualityLabel(value)}</option>
-                ))}
-              </optgroup>
-              <optgroup label={t.pricebook.quality_group_q}>
-                {PRICE_QUALITY_LEVELS.filter((value) => value.startsWith('Q')).map((value) => (
-                  <option key={value} value={value}>{qualityLabel(value)}</option>
-                ))}
-              </optgroup>
-            </select>
-            <p className="text-xs text-slate-400 mt-1">{t.pricebook.quality_helper}</p>
-          </div>
-          <p className="text-xs text-slate-400">{t.pricebook.currency_note}</p>
-          {formError && (
-            <p role="alert" className="text-sm text-red-600 font-medium">{formError}</p>
-          )}
-          <div className="flex gap-2 justify-end">
-            <button
-              type="button"
-              onClick={closeForm}
-              className="min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
-            >
-              {t.common.cancel}
-            </button>
-            <button
-              type="submit"
-              disabled={saving || invalidPrice}
-              className="min-h-11 px-3 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
-            >
-              {saving ? t.common.saving : t.common.save}
-            </button>
-          </div>
-        </form>
+          initialItem={editing}
+          onCancel={closeForm}
+          onSaved={handleFormSaved}
+        />
       )}
 
       {notice && <p role="status" className="text-sm text-emerald-700 mb-3">{notice}</p>}

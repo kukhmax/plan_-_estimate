@@ -8,6 +8,8 @@ export interface ClientType {
   phone: string | null;
   email: string | null;
   nip: string | null;
+  /** Contact field only — never Telegram Mini App auth identity. Stored as "@username". */
+  telegram_username: string | null;
   notes: string | null;
   is_archived: boolean;
   created_at: string;
@@ -27,6 +29,7 @@ export interface ClientCreatePayload {
   phone?: string;
   email?: string;
   nip?: string;
+  telegram_username?: string;
   notes?: string;
 }
 
@@ -38,5 +41,7 @@ export interface ClientUpdatePayload {
   phone?: string;
   email?: string;
   nip?: string;
+  /** null explicitly clears it back to unset; omit to leave unchanged. */
+  telegram_username?: string | null;
   notes?: string;
 }

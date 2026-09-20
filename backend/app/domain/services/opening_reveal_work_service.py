@@ -190,6 +190,80 @@ class OpeningRevealWorkService:
         await self.db.commit()
         return await self._fetch_works(opening_id)
 
+    async def apply_to_room_openings(
+        self,
+        project_id: uuid.UUID,
+        room_id: uuid.UUID,
+        source_opening_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> list[Opening]:
+        """Atomically copy a source opening's reveal work selection to every
+        other reveal-enabled, non-archived opening in the same room
+        (Stage 10G.4 — analogous to SurfaceWorkPlanService.apply_to_room_walls).
+
+        Only the ordered PriceItem selection is copied. Geometry, reveal
+        depth/sides, and every Estimate-derived quantity (REVEAL_LENGTH /
+        REVEAL_AREA) stay entirely opening-specific and backend-authoritative
+        — never copied from the source. The whole batch commits together or
+        not at all: every source-side validation runs before any target
+        mutation, so a failed apply cannot leave half the room updated.
+
+        Precedent-consistent with apply_to_room_walls: the source opening
+        itself is excluded from targets (it already holds this exact state).
+        """
+        from app.models.surface import Surface
+
+        source = await self._fetch_opening(
+            source_opening_id, owner_id,
+            project_id=project_id, room_id=room_id,
+        )
+        if not source.reveal_enabled:
+            raise OpeningRevealWorkValidationError(
+                f"Opening {source_opening_id} does not have reveal enabled; "
+                "enable reveal geometry before applying reveal works to the room"
+            )
+        if source.is_archived:
+            raise OpeningRevealWorkValidationError(
+                "an archived opening cannot start apply-to-room-openings"
+            )
+
+        source_works = await self._fetch_works(source.id)
+
+        # New target rows must never silently reference an archived catalog
+        # item — mirrors the existing SurfaceWorkPlan apply-to-room-walls
+        # rule exactly, and rejects the whole batch atomically rather than
+        # partially applying.
+        validated_items: list[PriceItem] = []
+        for work in source_works:
+            item = work.price_item
+            if item is None or item.is_archived:
+                raise OpeningRevealWorkValidationError(
+                    f"Source reveal work references an archived price item "
+                    f"{work.price_item_id}; update the source selection first"
+                )
+            validated_items.append(item)
+
+        targets = (
+            await self.db.execute(
+                select(Opening)
+                .join(Surface, Opening.surface_id == Surface.id)
+                .where(
+                    Surface.room_id == room_id,
+                    Opening.id != source.id,
+                    Opening.reveal_enabled.is_(True),
+                    Opening.is_archived.is_(False),
+                    Surface.is_archived.is_(False),
+                )
+                .order_by(Opening.created_at)
+            )
+        ).scalars().all()
+
+        for target in targets:
+            await self._rewrite_works(target.id, validated_items)
+
+        await self.db.commit()
+        return list(targets)
+
     async def clear_works(
         self,
         opening_id: uuid.UUID,

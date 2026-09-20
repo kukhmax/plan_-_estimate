@@ -467,15 +467,20 @@ class PriceBookService:
         *,
         category: PriceCategory,
         unit: PriceUnit,
-        price: Decimal,
+        price: Decimal | None,
         display_name: str,
         price_scope: PriceScope = PriceScope.LABOR,
         quality_level: QualityLevel | None = None,
         currency: str = "PLN",
     ) -> PriceItem:
-        """Create a user-authored item with a generated, immutable CUSTOM_* code."""
+        """Create a user-authored item with a generated, immutable CUSTOM_* code.
+
+        ``price=None`` is a fully valid "Do ustalenia / Цена уточняется" row,
+        identical in meaning to a seeded row that has not yet been priced
+        (Stage 10G.4). It is never coerced to ``0.00``, a distinct explicit price.
+        """
         validate_currency(currency)
-        validated_price = validate_price(price)
+        validated_price = validate_price(price) if price is not None else None
         name = validate_custom_name(display_name)
         code = await self.generate_custom_code(owner_id)
         item = PriceItem(
@@ -498,7 +503,7 @@ class PriceBookService:
         owner_id: uuid.UUID,
         item_id: uuid.UUID,
         *,
-        price: Decimal | None = None,
+        price: Decimal | None = _UNSET,
         display_name: str | None = None,
         category: PriceCategory | None = None,
         unit: PriceUnit | None = None,
@@ -511,8 +516,10 @@ class PriceBookService:
 
         ``display_name`` blank clears a seeded row's override (reverting to its
         ``name_key`` identity) but is rejected for custom rows, which require a
-        name. ``quality_level`` distinguishes omitted (sentinel) from an explicit
-        clear-to-null.
+        name. ``price`` and ``quality_level`` both distinguish omitted (sentinel,
+        left unchanged) from an explicit clear-to-null (Stage 10G.4 correction
+        for ``price``: an explicit ``price=None`` now actually clears an existing
+        price back to "Do ustalenia", rather than being a silent no-op).
         """
         item = (
             await self.db.execute(
@@ -525,8 +532,8 @@ class PriceBookService:
         if item is None:
             raise PriceItemNotFoundError(f"Price item {item_id} not found")
 
-        if price is not None:
-            item.price = validate_price(price)
+        if price is not _UNSET:
+            item.price = validate_price(price) if price is not None else None
         if currency is not None:
             validate_currency(currency)
             item.currency = currency

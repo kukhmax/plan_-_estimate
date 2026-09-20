@@ -37,6 +37,10 @@ class Client(Base):
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     nip: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Contact field only — never used for Telegram Mini App authentication
+    # (that identity lives on User.telegram_user_id). Stored normalized as
+    # "@username" (Stage 10G.4 client contact correction).
+    telegram_username: Mapped[str | None] = mapped_column(String(64), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(4096), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(

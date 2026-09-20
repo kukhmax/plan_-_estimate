@@ -133,6 +133,157 @@ async def test_update_client(async_client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
+# Test: telegram_username contact field (Stage 10G.4)
+# ---------------------------------------------------------------------------
+
+async def test_create_with_telegram_username(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Wasyl", "telegram_username": "vasiya"},
+        headers=auth_header(token),
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["telegram_username"] == "@vasiya"
+
+
+async def test_create_without_telegram_username(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Ola"},
+        headers=auth_header(token),
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["telegram_username"] is None
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("vasiya", "@vasiya"),
+        ("@vasiya", "@vasiya"),
+        ("  @vasiya  ", "@vasiya"),
+        ("  vasiya  ", "@vasiya"),
+        ("", None),
+        ("   ", None),
+    ],
+)
+async def test_telegram_username_normalization_on_create(
+    async_client: AsyncClient, raw: str, expected
+):
+    token = await get_token(async_client, VALID_USER)
+    resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Test", "telegram_username": raw},
+        headers=auth_header(token),
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["telegram_username"] == expected
+
+
+async def test_get_returns_telegram_username(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    create_resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Nina", "telegram_username": "nina_k"},
+        headers=auth_header(token),
+    )
+    client_id = create_resp.json()["id"]
+
+    get_resp = await async_client.get(f"/api/clients/{client_id}", headers=auth_header(token))
+    assert get_resp.status_code == 200
+    assert get_resp.json()["telegram_username"] == "@nina_k"
+
+
+async def test_update_telegram_username(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    create_resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Piotr"},
+        headers=auth_header(token),
+    )
+    client_id = create_resp.json()["id"]
+
+    patch_resp = await async_client.patch(
+        f"/api/clients/{client_id}",
+        json={"telegram_username": "@piotr99"},
+        headers=auth_header(token),
+    )
+    assert patch_resp.status_code == 200, patch_resp.text
+    assert patch_resp.json()["telegram_username"] == "@piotr99"
+
+
+async def test_clear_telegram_username_back_to_null(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    create_resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Ewa", "telegram_username": "ewa"},
+        headers=auth_header(token),
+    )
+    client_id = create_resp.json()["id"]
+    assert create_resp.json()["telegram_username"] == "@ewa"
+
+    patch_resp = await async_client.patch(
+        f"/api/clients/{client_id}",
+        json={"telegram_username": None},
+        headers=auth_header(token),
+    )
+    assert patch_resp.status_code == 200, patch_resp.text
+    assert patch_resp.json()["telegram_username"] is None
+
+
+async def test_update_telegram_username_preserves_other_fields(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    create_resp = await async_client.post(
+        "/api/clients",
+        json={
+            "client_type": "PRIVATE_PERSON",
+            "first_name": "Marek",
+            "last_name": "Nowak",
+            "phone": "500111222",
+            "email": "marek@example.pl",
+            "telegram_username": "marek",
+        },
+        headers=auth_header(token),
+    )
+    client_id = create_resp.json()["id"]
+
+    patch_resp = await async_client.patch(
+        f"/api/clients/{client_id}",
+        json={"telegram_username": "marek_new"},
+        headers=auth_header(token),
+    )
+    assert patch_resp.status_code == 200, patch_resp.text
+    data = patch_resp.json()
+    assert data["telegram_username"] == "@marek_new"
+    assert data["first_name"] == "Marek"
+    assert data["last_name"] == "Nowak"
+    assert data["phone"] == "500111222"
+    assert data["email"] == "marek@example.pl"
+
+
+async def test_omitting_telegram_username_on_update_leaves_it_unchanged(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    create_resp = await async_client.post(
+        "/api/clients",
+        json={"client_type": "PRIVATE_PERSON", "first_name": "Kasia", "telegram_username": "kasia"},
+        headers=auth_header(token),
+    )
+    client_id = create_resp.json()["id"]
+
+    patch_resp = await async_client.patch(
+        f"/api/clients/{client_id}",
+        json={"phone": "500999888"},
+        headers=auth_header(token),
+    )
+    assert patch_resp.status_code == 200, patch_resp.text
+    data = patch_resp.json()
+    assert data["telegram_username"] == "@kasia"
+    assert data["phone"] == "500999888"
+
+
+# ---------------------------------------------------------------------------
 # Test: archive client
 # ---------------------------------------------------------------------------
 

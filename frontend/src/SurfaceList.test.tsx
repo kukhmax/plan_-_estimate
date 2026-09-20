@@ -5,7 +5,9 @@ import * as surfacesApi from './api/surfaces';
 import * as workPlansApi from './api/workPlans';
 import { SurfaceList } from './components/SurfaceList';
 import { I18nProvider } from './hooks/useI18n';
+import { OpeningType } from './types/opening';
 import { SurfaceType } from './types/surface';
+import { surfaceCardTint } from './utils/surfaceColorTint';
 
 vi.mock('./api/surfaces', () => ({
   fetchSurfaces: vi.fn(),
@@ -820,5 +822,359 @@ describe('SurfaceList canonical plane filtering (10C.1C finding 3)', () => {
     await waitFor(() => expect(screen.getByLabelText('custom-wall-entry')).toBeInTheDocument());
     expect(screen.getByText('Ściana 1')).toBeInTheDocument();
     expect(screen.queryAllByLabelText(/^surface-item-/)).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 10G.4 — deterministic surface-type card tints (mobile navigation)
+// ---------------------------------------------------------------------------
+
+describe('SurfaceList — surface type card tints (Stage 10G.4)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('renders each WALL card with the tint the shared deterministic per-id helper computes', async () => {
+    const wallA: SurfaceType = { ...surface, id: 'wall-a', name: 'Ściana A' };
+    const wallB: SurfaceType = { ...surface, id: 'wall-b', name: 'Ściana B' };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallA, wallB], total: 2 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana A')).toBeInTheDocument());
+    const cardA = screen.getByLabelText('surface-item-wall-a');
+    const cardB = screen.getByLabelText('surface-item-wall-b');
+    const tintA = surfaceCardTint('wall-a');
+    const tintB = surfaceCardTint('wall-b');
+    expect(cardA.className).toContain(tintA.bg);
+    expect(cardA.className).toContain(tintA.border);
+    expect(cardB.className).toContain(tintB.bg);
+    expect(cardB.className).toContain(tintB.border);
+  });
+
+  it('two different surface IDs can receive different palette tints, independent of array order', async () => {
+    const idOne = 'wall-a';
+    const idTwo = 'wall-b';
+    const tintOne = surfaceCardTint(idOne);
+    const tintTwo = surfaceCardTint(idTwo);
+    // Self-check: these two fixture ids must actually hash to different tints,
+    // otherwise this test would pass for the wrong reason.
+    expect(tintOne.bg).not.toBe(tintTwo.bg);
+
+    // Reversed array order vs. the id order itself — tint must depend only on id.
+    const wallReversedFirst: SurfaceType = { ...surface, id: idTwo, name: 'Ściana Two' };
+    const wallReversedSecond: SurfaceType = { ...surface, id: idOne, name: 'Ściana One' };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({
+      items: [wallReversedFirst, wallReversedSecond],
+      total: 2,
+    });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana Two')).toBeInTheDocument());
+    expect(screen.getByLabelText(`surface-item-${idOne}`).className).toContain(tintOne.bg);
+    expect(screen.getByLabelText(`surface-item-${idTwo}`).className).toContain(tintTwo.bg);
+  });
+
+  it('the same surface_id always maps to the same tint result', () => {
+    const first = surfaceCardTint(surface.id);
+    const second = surfaceCardTint(surface.id);
+    expect(second).toEqual(first);
+  });
+
+  it('preserves existing card actions (Opcje, Rodzaje prac i jakość, archive) alongside the tint', async () => {
+    const wall: SurfaceType = { ...surface, width: 5, height: 2.7, gross_area: '13.500' };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wall], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    const tint = surfaceCardTint(wall.id);
+    const card = screen.getByLabelText(`surface-item-${wall.id}`);
+    expect(card.className).toContain(tint.bg);
+    expect(screen.getByLabelText(`options-toggle-${wall.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`work-plan-${wall.id}`)).toBeInTheDocument();
+    expect(screen.getByText('Rodzaje prac i jakość')).toBeInTheDocument();
+  });
+
+  it('remains readable and horizontally unconstrained at 320px (no fixed width forcing overflow)', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [surface], total: 1 });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    const card = screen.getByLabelText(`surface-item-${surface.id}`);
+    expect(card.className).not.toMatch(/\bw-\[\d/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 10G.4 follow-up — Opcje placement, deduction context, reveal row, units
+// ---------------------------------------------------------------------------
+
+function makeOpening(overrides: Partial<OpeningType> = {}): OpeningType {
+  return {
+    id: 'opening-1',
+    surface_id: surface.id,
+    opening_type: 'WINDOW',
+    name: null,
+    width: '1.200',
+    height: '1.400',
+    quantity: 1,
+    single_area: '1.680',
+    total_area: '1.680',
+    description: null,
+    reveal_enabled: false,
+    reveal_depth: null,
+    reveal_left: true,
+    reveal_right: true,
+    reveal_top: true,
+    reveal_bottom: false,
+    reveal_single_length: null,
+    reveal_single_area: null,
+    reveal_total_length: null,
+    reveal_total_area: null,
+    is_archived: false,
+    created_at: '2026-09-01T00:00:00Z',
+    updated_at: '2026-09-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+const measuredWallWithDeduction = (): SurfaceType => ({
+  ...surface,
+  width: 5,
+  height: 2.7,
+  gross_area: '13.500',
+  deduction_area: '1.680',
+  net_area: '11.820',
+});
+
+describe('SurfaceList — compact upper-right Opcje (Stage 10G.4 follow-up)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  it('renders Opcje in the surface header, and it still opens/closes the existing options grid', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+
+    const header = screen.getByText('Ściana północna').closest('div')!;
+    const opcjeButton = screen.getByLabelText(`options-toggle-${surface.id}`);
+    expect(header.parentElement).toContainElement(opcjeButton);
+    expect(opcjeButton).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+
+    fireEvent.click(opcjeButton);
+    expect(opcjeButton).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+
+    fireEvent.click(opcjeButton);
+    expect(opcjeButton).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+  });
+
+  it('meets the ~44px touch target as a compact button', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(screen.getByLabelText(`options-toggle-${surface.id}`).className).toContain('min-h-11');
+  });
+
+  it('no duplicate full-width Opcje button remains on the card', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(screen.getAllByLabelText(`options-toggle-${surface.id}`)).toHaveLength(1);
+  });
+
+  it('a long surface name wraps instead of colliding with the Opcje button', async () => {
+    const longNamed: SurfaceType = {
+      ...measuredWallWithDeduction(),
+      name: 'Bardzo długa nazwa ściany opisująca cały zakres pomieszczenia od podłogi do sufitu',
+    };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [longNamed], total: 1 });
+    renderSurfaces();
+    const nameEl = await screen.findByText(/Bardzo długa nazwa ściany/);
+    expect(nameEl.className).toContain('break-words');
+    expect(screen.getByLabelText(`options-toggle-${longNamed.id}`)).toBeInTheDocument();
+  });
+});
+
+describe('SurfaceList — deduction context row (Stage 10G.4 follow-up)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('describes a single WINDOW deduction with its dimensions, localized', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [makeOpening({ opening_type: 'WINDOW', width: '1.200', height: '1.400' })],
+      total: 1,
+    });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    const row = await screen.findByText(/okno 1[,.]20/);
+    expect(row.textContent).toContain('okno');
+    expect(row.textContent).toContain('1.40');
+    // The authoritative numeric deduction value is untouched by the context text.
+    expect(screen.getByText('1.68 m²')).toBeInTheDocument();
+  });
+
+  it('describes a single DOOR deduction with its dimensions, localized', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [makeOpening({ opening_type: 'DOOR', width: '0.900', height: '2.000' })],
+      total: 1,
+    });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    const row = await screen.findByText(/drzwi 0[,.]90/);
+    expect(row.textContent).toContain('drzwi');
+  });
+
+  it('uses a compact "N × type" summary for multiple openings of the same type', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [
+        makeOpening({ id: 'o1', opening_type: 'WINDOW' }),
+        makeOpening({ id: 'o2', opening_type: 'WINDOW' }),
+      ],
+      total: 2,
+    });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(await screen.findByText(/2 × okno/)).toBeInTheDocument();
+  });
+
+  it('uses a compact "type + type" summary for a mix of opening types', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [
+        makeOpening({ id: 'o1', opening_type: 'WINDOW' }),
+        makeOpening({ id: 'o2', opening_type: 'DOOR' }),
+      ],
+      total: 2,
+    });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(await screen.findByText(/okno \+ drzwi/)).toBeInTheDocument();
+  });
+
+  it('the numeric deduction amount always remains the authoritative backend value, unaffected by context', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [makeOpening({ opening_type: 'WINDOW' })],
+      total: 1,
+    });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    await screen.findByText(/okno/);
+    expect(screen.getByText('1.68 m²')).toBeInTheDocument();
+  });
+
+  it('shows the plain deduction label with no invented context before openings have loaded / when there are none', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    await waitFor(() => expect(openingsApi.fetchOpenings).toHaveBeenCalled());
+    expect(screen.getByText('Odliczenia')).toBeInTheDocument();
+  });
+});
+
+describe('SurfaceList — Ościeża reveal row (Stage 10G.4 follow-up)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('renders the existing backend-authoritative reveal total length + area, localized as "mb"', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [
+        makeOpening({
+          id: 'o1', opening_type: 'WINDOW', reveal_enabled: true,
+          reveal_total_length: '4.300', reveal_total_area: '0.860',
+        }),
+        makeOpening({
+          id: 'o2', opening_type: 'DOOR', reveal_enabled: true,
+          reveal_total_length: '3.100', reveal_total_area: '0.620',
+        }),
+      ],
+      total: 2,
+    });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+
+    const row = await screen.findByText('Ościeża');
+    const rowContent = row.closest('div')!.parentElement!.textContent ?? '';
+    // 4.300 + 3.100 = 7.400 mb ; 0.860 + 0.620 = 1.480 m² — exact decimal-string sums, no float math.
+    expect(rowContent).toContain('7.40');
+    expect(rowContent).toContain('mb');
+    expect(rowContent).toContain('1.48');
+    expect(rowContent).toContain('m²');
+    expect(rowContent).not.toMatch(/\bLM\b/);
+  });
+
+  it('hides the Ościeża row entirely when no opening has reveal enabled (least-noisy presentation)', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [makeOpening({ opening_type: 'WINDOW', reveal_enabled: false })],
+      total: 1,
+    });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    await waitFor(() => expect(openingsApi.fetchOpenings).toHaveBeenCalled());
+    expect(screen.queryByText('Ościeża')).not.toBeInTheDocument();
+  });
+
+  it('never recalculates reveal geometry — uses the opening totals verbatim, not width/height/depth', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [makeOpening({
+        opening_type: 'WINDOW', width: '1.200', height: '1.400', reveal_depth: '0.250',
+        reveal_enabled: true, reveal_total_length: '4.300', reveal_total_area: '1.290',
+      })],
+      total: 1,
+    });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    const row = await screen.findByText('Ościeża');
+    const rowContent = row.closest('div')!.parentElement!.textContent ?? '';
+    // Exactly the backend reveal_total_length/area — never re-derived from width/height/depth.
+    expect(rowContent).toContain('4.30');
+    expect(rowContent).toContain('1.29');
+  });
+});
+
+describe('SurfaceList — regression: existing behavior remains untouched', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  it('Surface Work Plan toggle still works', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue({
+      id: 'plan-1', surface_id: surface.id, substrate: 'CONCRETE', quality_target: 'S2', planned_works: [],
+    });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`work-plan-${surface.id}`));
+    expect(screen.getByLabelText(`work-plan-${surface.id}`)).toHaveAttribute('aria-expanded', 'true');
+    await waitFor(() => expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalled());
+  });
+
+  it('Opening UI (toggle-openings) still works after Opcje is expanded', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
+    fireEvent.click(screen.getByLabelText(`toggle-openings-${surface.id}`));
+    await waitFor(() => {
+      expect(openingsApi.fetchOpenings).toHaveBeenCalledWith(projectId, roomId, surface.id, false);
+    });
   });
 });

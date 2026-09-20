@@ -71,6 +71,8 @@
     "phone": "Телефон",
     "email": "E-mail",
     "nip": "NIP",
+    "telegram": "Telegram / ник",
+    "telegram_placeholder": "@username",
     "notes": "Заметки",
     "client_type": "Тип клиента",
     "save": "Сохранить",
@@ -81,7 +83,11 @@
     "loading": "Загрузка клиентов...",
     "error": "Ошибка при загрузке клиентов",
     "validation_private_name": "Укажите имя или фамилию",
-    "validation_company_name": "Название компании обязательно"
+    "validation_company_name": "Название компании обязательно",
+    "card_nip_label": "NIP:",
+    "card_phone_label": "тел.:",
+    "card_email_label": "e-mail:",
+    "card_telegram_label": "Telegram:"
   },
   "projects": {
     "title": "Объекты",
@@ -165,6 +171,11 @@
     "gross_area": "Площадь брутто",
     "deduction_area": "Вычеты",
     "net_area": "Площадь нетто",
+    "deduction_type_window": "окно",
+    "deduction_type_door": "дверь",
+    "deduction_type_other": "другой проём",
+    "deduction_openings_generic": "проёмов",
+    "reveal_row_label": "Откосы",
     "manage_openings": "Управление проемами",
     "openings_count": "Проемы",
     "options": "Опции",
@@ -212,7 +223,8 @@
     "apply_confirm_yes": "Скопировать",
     "applying": "Копирование плана...",
     "apply_success": "План работ скопирован на {count} стен(ы).",
-    "apply_error": "Не удалось скопировать план работ."
+    "apply_error": "Не удалось скопировать план работ.",
+    "create_new_item": "+ Добавить новую работу в прайс"
   },
   "openings": {
     "title": "Проемы в стене",
@@ -680,6 +692,7 @@
     "unit": "Единица",
     "price": "Цена (PLN)",
     "price_placeholder": "0,00",
+    "price_unresolved": "Цена уточняется",
     "price_scope": "Цена включает",
     "quality_level": "Класс качества",
     "quality_none": "Без класса",
@@ -827,7 +840,20 @@
     "summary_title": "Откосы",
     "summary_windows": "Окна",
     "summary_doors": "Двери",
-    "summary_combined": "Всего"
+    "summary_combined": "Всего",
+    "work_section_title": "Работы по откосам",
+    "work_loading": "Загрузка работ по откосу...",
+    "work_error_load": "Не удалось загрузить работы по откосу.",
+    "work_no_works": "Нет работ для этого откоса.",
+    "work_saved": "Работы по откосу сохранены.",
+    "work_error_save": "Не удалось сохранить работы по откосу.",
+    "apply_to_openings": "Сохранить для всех откосов",
+    "apply_confirm": "Применить эти работы ко всем откосам в этом помещении? Списки работ будут заменены для {count} проёмов. Геометрия откосов не изменится.",
+    "apply_confirm_empty": "Список работ пуст. Применение очистит списки работ для {count} проёмов в этом помещении. Геометрия откосов не изменится. Вы уверены?",
+    "apply_confirm_yes": "Применить",
+    "applying": "Применение...",
+    "apply_success": "Работы применены к {count} проёмам.",
+    "apply_error": "Не удалось применить работы к другим проёмам."
   },
   "estimates": {
     "title": "Смета",

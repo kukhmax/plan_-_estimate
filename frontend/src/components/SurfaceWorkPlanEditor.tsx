@@ -17,6 +17,7 @@ import {
 import { localizeApiError } from '../utils/apiErrors';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice } from '../utils/priceFormat';
+import { PriceItemForm } from './PriceItemForm';
 
 interface SurfaceWorkPlanEditorProps {
   projectId: string;
@@ -133,6 +134,8 @@ export function SurfaceWorkPlanEditor({
   const [allPriceItems, setAllPriceItems] = useState<PriceItem[]>([]);
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
+  // Inline "+ Dodaj nową pracę do cennika" creation, shown inside the picker.
+  const [creatingPriceItem, setCreatingPriceItem] = useState(false);
 
   const loadGeneration = useRef(0);
 
@@ -268,6 +271,7 @@ export function SurfaceWorkPlanEditor({
     setPickerState('loading');
     setPickerSearch('');
     setPickerError(null);
+    setCreatingPriceItem(false);
     try {
       // Load ALL active items in one shot — avoid N+1; filter client-side.
       const resp = await fetchPriceItems({ archived: 'active' });
@@ -282,9 +286,10 @@ export function SurfaceWorkPlanEditor({
   const closePicker = () => {
     setPickerState('closed');
     setPickerSearch('');
+    setCreatingPriceItem(false);
   };
 
-  const handlePickerSelect = (item: PriceItem) => {
+  const addItemToDraft = (item: PriceItem) => {
     const occurrence: DraftOccurrence = {
       draftKey: nextDraftKey(),
       priceItemId: item.id,
@@ -303,9 +308,25 @@ export function SurfaceWorkPlanEditor({
       },
     };
     setDraftOccurrences((prev) => [...prev, occurrence]);
-    closePicker();
     setSaveError(null);
     setSaved(false);
+  };
+
+  const handlePickerSelect = (item: PriceItem) => {
+    addItemToDraft(item);
+    closePicker();
+  };
+
+  // Inline Price Book creation from the picker (Stage 10G.4 follow-up). The
+  // new item is persisted through the normal Price Book API and immediately
+  // added to this draft — the Surface Work Plan itself is never auto-saved;
+  // the owner still presses the existing Save button explicitly. Category is
+  // NOT locked here: this picker already spans every active category (no
+  // server-side or client-side category restriction exists for surfaces), so
+  // locking would contradict the picker's own existing contract.
+  const handlePriceItemCreated = (item: PriceItem) => {
+    addItemToDraft(item);
+    closePicker();
   };
 
   const handleRemoveOccurrence = (draftKey: string) => {
@@ -435,6 +456,7 @@ export function SurfaceWorkPlanEditor({
       )}
 
       {loadState === 'ready' && (
+        <>
         <form aria-label={`work-plan-form-${surfaceId}`} onSubmit={(event) => void handleSubmit(event)} className="space-y-3">
           {!hasPlan && (
             <p className="text-sm text-[var(--tg-theme-hint-color)]">{t.work_plan.no_plan}</p>
@@ -567,88 +589,6 @@ export function SurfaceWorkPlanEditor({
             </button>
           </div>
 
-          {/* Price Book Picker — inline panel */}
-          {pickerState !== 'closed' && (
-            <div
-              aria-label={`picker-panel-${surfaceId}`}
-              role="dialog"
-              aria-modal="false"
-              className="w-full min-w-0 rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-bg-color)] p-3 space-y-2"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <h6 className="text-sm font-semibold text-[var(--tg-theme-text-color)] break-words">
-                  {t.work_plan.picker_title}
-                </h6>
-                <button
-                  type="button"
-                  aria-label={`close-picker-${surfaceId}`}
-                  onClick={closePicker}
-                  className="min-h-11 min-w-11 flex items-center justify-center text-sm text-[var(--tg-theme-hint-color)]"
-                >
-                  {t.work_plan.picker_close}
-                </button>
-              </div>
-
-              {pickerState === 'loading' && (
-                <p role="status" className="py-3 text-sm text-center text-[var(--tg-theme-hint-color)]">
-                  {t.work_plan.picker_loading}
-                </p>
-              )}
-
-              {pickerState === 'error' && (
-                <p role="alert" className="text-sm text-[var(--tg-theme-destructive-text-color)]">
-                  {pickerError ?? t.work_plan.picker_error}
-                </p>
-              )}
-
-              {pickerState === 'ready' && (
-                <>
-                  <input
-                    type="search"
-                    aria-label={`picker-search-${surfaceId}`}
-                    placeholder={t.work_plan.picker_search}
-                    value={pickerSearch}
-                    onChange={(e) => setPickerSearch(e.target.value)}
-                    className="w-full min-h-11 rounded-xl border px-3 py-2 text-sm bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)]"
-                  />
-
-                  {filteredPickerItems.length === 0 ? (
-                    <p className="py-3 text-sm text-center text-[var(--tg-theme-hint-color)]">
-                      {pickerSearch.trim() ? t.work_plan.picker_no_results : t.work_plan.picker_empty}
-                    </p>
-                  ) : (
-                    <ul aria-label={`picker-list-${surfaceId}`} className="space-y-1 max-h-64 overflow-y-auto">
-                      {filteredPickerItems.map((item) => (
-                        <li key={item.id}>
-                          <button
-                            type="button"
-                            aria-label={`picker-item-${item.id}`}
-                            onClick={() => handlePickerSelect(item)}
-                            className="w-full min-h-11 text-left px-3 py-2 rounded-lg hover:bg-[var(--tg-theme-secondary-bg-color)] active:bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)]"
-                          >
-                            <div className="text-sm font-semibold break-words">
-                              {priceItemDisplayName(item)}
-                            </div>
-                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-[var(--tg-theme-hint-color)]">
-                              <span>{t.pricebook.categories[item.category]}</span>
-                              <span>{t.pricebook.units[item.unit]}</span>
-                              <span>{t.pricebook.scopes[item.price_scope]}</span>
-                              <span>
-                                {item.price === null
-                                  ? t.pricebook.price_not_set
-                                  : `${formatPrice(item.price)} ${item.currency === 'PLN' ? t.pricebook.currency_symbol : item.currency}`}
-                              </span>
-                            </div>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
           {saveError && (
             <div role="alert" className="space-y-1">
               <p className="text-sm font-semibold text-[var(--tg-theme-destructive-text-color)]">
@@ -757,6 +697,109 @@ export function SurfaceWorkPlanEditor({
             </div>
           )}
         </form>
+
+        {/* Rendered as a SIBLING of the form above, never nested inside it —
+            the inline Price Book creation form below embeds its own <form>,
+            and a <form> inside a <form> is invalid HTML (unpredictable
+            submit/Enter-key behavior in real browsers). */}
+        {pickerState !== 'closed' && (
+          <div
+            aria-label={`picker-panel-${surfaceId}`}
+            role="dialog"
+            aria-modal="false"
+            className="w-full min-w-0 rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-bg-color)] p-3 space-y-2 mt-2"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h6 className="text-sm font-semibold text-[var(--tg-theme-text-color)] break-words">
+                {t.work_plan.picker_title}
+              </h6>
+              <button
+                type="button"
+                aria-label={`close-picker-${surfaceId}`}
+                onClick={closePicker}
+                className="min-h-11 min-w-11 flex items-center justify-center text-sm text-[var(--tg-theme-hint-color)]"
+              >
+                {t.work_plan.picker_close}
+              </button>
+            </div>
+
+            {pickerState === 'loading' && (
+              <p role="status" className="py-3 text-sm text-center text-[var(--tg-theme-hint-color)]">
+                {t.work_plan.picker_loading}
+              </p>
+            )}
+
+            {pickerState === 'error' && (
+              <p role="alert" className="text-sm text-[var(--tg-theme-destructive-text-color)]">
+                {pickerError ?? t.work_plan.picker_error}
+              </p>
+            )}
+
+            {pickerState === 'ready' && (
+              creatingPriceItem ? (
+                <PriceItemForm
+                  idPrefix={`work-plan-new-price-item-${surfaceId}`}
+                  onCancel={() => setCreatingPriceItem(false)}
+                  onSaved={handlePriceItemCreated}
+                />
+              ) : (
+                <>
+                  <input
+                    type="search"
+                    aria-label={`picker-search-${surfaceId}`}
+                    placeholder={t.work_plan.picker_search}
+                    value={pickerSearch}
+                    onChange={(e) => setPickerSearch(e.target.value)}
+                    className="w-full min-h-11 rounded-xl border px-3 py-2 text-sm bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)]"
+                  />
+
+                  {filteredPickerItems.length === 0 ? (
+                    <p className="py-3 text-sm text-center text-[var(--tg-theme-hint-color)]">
+                      {pickerSearch.trim() ? t.work_plan.picker_no_results : t.work_plan.picker_empty}
+                    </p>
+                  ) : (
+                    <ul aria-label={`picker-list-${surfaceId}`} className="space-y-1 max-h-64 overflow-y-auto">
+                      {filteredPickerItems.map((item) => (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            aria-label={`picker-item-${item.id}`}
+                            onClick={() => handlePickerSelect(item)}
+                            className="w-full min-h-11 text-left px-3 py-2 rounded-lg hover:bg-[var(--tg-theme-secondary-bg-color)] active:bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)]"
+                          >
+                            <div className="text-sm font-semibold break-words">
+                              {priceItemDisplayName(item)}
+                            </div>
+                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-[var(--tg-theme-hint-color)]">
+                              <span>{t.pricebook.categories[item.category]}</span>
+                              <span>{t.pricebook.units[item.unit]}</span>
+                              <span>{t.pricebook.scopes[item.price_scope]}</span>
+                              <span>
+                                {item.price === null
+                                  ? t.pricebook.price_not_set
+                                  : `${formatPrice(item.price)} ${item.currency === 'PLN' ? t.pricebook.currency_symbol : item.currency}`}
+                              </span>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <button
+                    type="button"
+                    aria-label={`create-price-item-${surfaceId}`}
+                    onClick={() => setCreatingPriceItem(true)}
+                    className="w-full min-h-11 px-3 rounded-xl border border-dashed border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm"
+                  >
+                    {t.work_plan.create_new_item}
+                  </button>
+                </>
+              )
+            )}
+          </div>
+        )}
+        </>
       )}
     </section>
   );

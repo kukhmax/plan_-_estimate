@@ -32,6 +32,7 @@ from app.domain.exceptions import (
 )
 from app.domain.services.estimate_service import EstimateService
 from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
+from app.domain.services.price_book_service import PriceBookService
 from app.models.checklist import QualityLevel, Substrate
 from app.models.estimate import (
     Estimate,
@@ -487,6 +488,301 @@ class TestF_DuplicatesAndIndependence:
         works_b = await service.get_works(opening_b.id, user.id)
         assert [w.price_item_id for w in works_a] == [item_x.id]
         assert [w.price_item_id for w in works_b] == [item_y.id, item_x.id]
+
+
+# ---------------------------------------------------------------------------
+# TestF2 — apply-to-room-openings bulk reveal work copy (Stage 10G.4)
+# ---------------------------------------------------------------------------
+
+
+class TestF2_ApplyToRoomOpenings:
+    async def test_copies_ordered_selection_to_other_reveal_enabled_openings_in_room(
+        self, db_session
+    ):
+        user = await _make_user(db_session, 24101)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id)
+        target = await _make_opening(db_session, surface.id)
+        item_a = await _make_reveal_item(db_session, user.id)
+        item_b = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item_b.id, item_a.id])
+
+        targets = await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        assert [t.id for t in targets] == [target.id]
+        target_works = await service.get_works(target.id, user.id)
+        assert [w.price_item_id for w in target_works] == [item_b.id, item_a.id]
+
+    async def test_spans_multiple_surfaces_in_the_same_room(self, db_session):
+        user = await _make_user(db_session, 24102)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface_a = await _make_surface(db_session, room.id)
+        surface_b = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface_a.id)
+        target = await _make_opening(db_session, surface_b.id)
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item.id])
+
+        targets = await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        assert [t.id for t in targets] == [target.id]
+
+    async def test_source_is_excluded_from_targets_and_left_unchanged(self, db_session):
+        user = await _make_user(db_session, 24103)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id)
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item.id])
+
+        targets = await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        assert source.id not in {t.id for t in targets}
+        source_works = await service.get_works(source.id, user.id)
+        assert [w.price_item_id for w in source_works] == [item.id]
+
+    async def test_excludes_reveal_disabled_openings(self, db_session):
+        user = await _make_user(db_session, 24104)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id)
+        disabled = await _make_opening(db_session, surface.id, reveal_enabled=False, reveal_depth=None)
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item.id])
+
+        targets = await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        assert disabled.id not in {t.id for t in targets}
+        disabled_works = await service.get_works(disabled.id, user.id)
+        assert disabled_works == []
+
+    async def test_excludes_archived_openings(self, db_session):
+        user = await _make_user(db_session, 24105)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id)
+        archived_target = await _make_opening(db_session, surface.id)
+        archived_target.is_archived = True
+        await db_session.commit()
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item.id])
+
+        targets = await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        assert archived_target.id not in {t.id for t in targets}
+
+    async def test_rejects_archived_source_opening(self, db_session):
+        user = await _make_user(db_session, 24106)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id)
+        source.is_archived = True
+        await db_session.commit()
+        service = OpeningRevealWorkService(db_session)
+
+        with pytest.raises(OpeningRevealWorkValidationError):
+            await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+    async def test_rejects_reveal_disabled_source(self, db_session):
+        user = await _make_user(db_session, 24107)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id, reveal_enabled=False, reveal_depth=None)
+        service = OpeningRevealWorkService(db_session)
+
+        with pytest.raises(OpeningRevealWorkValidationError, match="reveal"):
+            await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+    async def test_window_and_door_both_eligible_as_targets(self, db_session):
+        user = await _make_user(db_session, 24108)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id, opening_type=OpeningType.WINDOW)
+        door_target = await _make_opening(db_session, surface.id, opening_type=OpeningType.DOOR)
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item.id])
+
+        targets = await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        assert door_target.id in {t.id for t in targets}
+
+    async def test_duplicate_selection_is_preserved_on_apply(self, db_session):
+        user = await _make_user(db_session, 24109)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id)
+        target = await _make_opening(db_session, surface.id)
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item.id, item.id])
+
+        await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        target_works = await service.get_works(target.id, user.id)
+        assert [w.price_item_id for w in target_works] == [item.id, item.id]
+
+    async def test_empty_source_clears_target_reveal_works(self, db_session):
+        user = await _make_user(db_session, 24110)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id)
+        target = await _make_opening(db_session, surface.id)
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(target.id, user.id, [item.id])  # target starts non-empty
+        # source has no reveal works at all
+
+        await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        assert await service.get_works(target.id, user.id) == []
+
+    async def test_target_geometry_is_never_touched_by_apply(self, db_session):
+        user = await _make_user(db_session, 24111)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id, width="1.200", height="1.400")
+        target = await _make_opening(db_session, surface.id, width="0.900", height="2.000")
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item.id])
+
+        await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        await db_session.refresh(target)
+        assert target.width == Decimal("0.900")
+        assert target.height == Decimal("2.000")
+
+    async def test_archived_price_item_in_source_rejects_whole_batch_atomically(self, db_session):
+        user = await _make_user(db_session, 24112)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id)
+        target = await _make_opening(db_session, surface.id)
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item.id])
+        item.is_archived = True
+        await db_session.commit()
+
+        with pytest.raises(OpeningRevealWorkValidationError):
+            await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        # No partial mutation — target remains exactly as before the failed apply.
+        assert await service.get_works(target.id, user.id) == []
+
+    async def test_excludes_openings_on_archived_surfaces(self, db_session):
+        """An opening's own is_archived flag is independent of its parent
+        surface's; archiving a surface never cascades to its openings. Bulk
+        apply must still exclude such openings, consistent with every other
+        "active opening" query in this codebase (estimate_service,
+        room_service, surface_service all AND Opening.is_archived and
+        Surface.is_archived together)."""
+        user = await _make_user(db_session, 24114)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        source_surface = await _make_surface(db_session, room.id)
+        archived_surface = await _make_surface(db_session, room.id)
+        archived_surface.is_archived = True
+        await db_session.commit()
+        source = await _make_opening(db_session, source_surface.id)
+        target_on_archived_surface = await _make_opening(db_session, archived_surface.id)
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item.id])
+
+        targets = await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        assert target_on_archived_surface.id not in {t.id for t in targets}
+
+    async def test_non_reveal_room_opening_without_reveal_enabled_is_excluded(self, db_session):
+        """OTHER-type openings can never have reveal_enabled=True; confirms
+        they are naturally excluded without a special-case type filter."""
+        user = await _make_user(db_session, 24113)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        source = await _make_opening(db_session, surface.id)
+        other = await _make_opening(
+            db_session, surface.id, opening_type=OpeningType.OTHER,
+            reveal_enabled=False, reveal_depth=None,
+        )
+        item = await _make_reveal_item(db_session, user.id)
+        service = OpeningRevealWorkService(db_session)
+        await service.set_works(source.id, user.id, [item.id])
+
+        targets = await service.apply_to_room_openings(project.id, room.id, source.id, user.id)
+
+        assert other.id not in {t.id for t in targets}
+
+
+# ---------------------------------------------------------------------------
+# TestF3 — inline-created NULL-priced custom item flows through to Estimate
+# (Stage 10G.4 null-price-creation follow-up)
+# ---------------------------------------------------------------------------
+
+
+class TestF3_NullPricedCustomItemEstimate:
+    async def test_null_priced_reveal_item_gets_real_quantity_and_null_money(
+        self, db_session
+    ):
+        """A custom PriceItem created with price=None (the exact contract used
+        by inline Price Book creation) must still drive a normal, non-zero
+        EstimateLine.quantity from the opening's own reveal geometry — only
+        unit_price/amount are NULL. Quantity and price are independent."""
+        user = await _make_user(db_session, 25101)
+        project = await _make_project(db_session, user.id)
+        room = await _make_room(db_session, project.id)
+        surface = await _make_surface(db_session, room.id)
+        opening = await _make_opening(
+            db_session, surface.id,
+            reveal_enabled=True, reveal_depth="0.250",
+            reveal_left=True, reveal_right=True, reveal_top=True, reveal_bottom=False,
+        )
+
+        price_book = PriceBookService(db_session)
+        unresolved_item = await price_book.create_custom_item(
+            user.id,
+            category=PriceCategory.REVEAL,
+            unit=PriceUnit.M2,
+            price=None,
+            display_name="Szpachlowanie ościeży",
+        )
+        assert unresolved_item.price is None
+
+        reveal_service = OpeningRevealWorkService(db_session)
+        await reveal_service.set_works(opening.id, user.id, [unresolved_item.id])
+
+        estimate = await EstimateService(db_session).generate_estimate(project.id, user.id)
+        reveal_lines = [
+            ln for ln in estimate.lines if ln.price_item_id == unresolved_item.id
+        ]
+        assert len(reveal_lines) == 1
+        line = reveal_lines[0]
+        assert line.quantity > Decimal("0.000")
+        assert line.unit_price is None
+        assert line.amount is None
+
+        with pytest.raises(EstimateValidationError, match="price"):
+            await EstimateService(db_session).finalize(estimate.id, user.id)
 
 
 # ---------------------------------------------------------------------------

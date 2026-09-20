@@ -17,6 +17,7 @@ import {
 import { SurfaceType } from '../types/surface';
 import { formatMetric } from '../utils/format';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
+import { surfaceTypeTint } from '../utils/surfaceTypeTint';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 
 interface AreaSegmentListProps {
@@ -252,17 +253,20 @@ export function AreaSegmentList({
       ? getSurfaceDisplayName(planeSurface, surfaceDisplayLabels)
       : planeLabel(plane);
     const isWorkPlanOpen = activeWorkPlanPlane === plane;
+    const tint = surfaceTypeTint(plane);
 
     return (
       <section
         key={plane}
         aria-label={`${planeKey}-segments`}
-        className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2.5"
+        className={`${tint.bg} border ${tint.border} rounded-2xl p-4 shadow-sm space-y-2.5`}
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h4 className="text-sm font-semibold text-slate-900">{displayName}</h4>
           {hasPlaneArea && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
+            // White background regardless of plane tint — a colored-on-colored
+            // badge (e.g. FLOOR's own emerald tint) would lose contrast.
+            <span className="text-xs px-2 py-0.5 rounded-full bg-white text-emerald-700 font-semibold">
               {t.area_segments.total}: {formatMetric(totals.net)} {t.common.unit_m2}
             </span>
           )}

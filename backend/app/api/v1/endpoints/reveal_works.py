@@ -22,6 +22,7 @@ from app.domain.exceptions import (
 from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
 from app.models.user import User
 from app.schemas.reveal_work import (
+    RevealWorkApplyResult,
     RevealWorkItemRead,
     RevealWorkListResponse,
     RevealWorkSetRequest,
@@ -136,3 +137,43 @@ async def clear_reveal_works(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Opening not found"
         )
+
+
+# ---------------------------------------------------------------------------
+# POST apply-to-room-openings (Stage 10G.4 — atomic bulk apply)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    f"{_OPENING_PREFIX}/apply-to-room-openings",
+    response_model=RevealWorkApplyResult,
+    status_code=status.HTTP_200_OK,
+    summary=(
+        "Atomically copy this opening's reveal work selection to every "
+        "other reveal-enabled opening in the room"
+    ),
+)
+async def apply_reveal_works_to_room(
+    project_id: uuid.UUID,
+    room_id: uuid.UUID,
+    surface_id: uuid.UUID,
+    opening_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    service: OpeningRevealWorkService = Depends(get_reveal_work_service),
+) -> RevealWorkApplyResult:
+    try:
+        targets = await service.apply_to_room_openings(
+            project_id, room_id, opening_id, current_user.id,
+        )
+    except OpeningNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Opening not found"
+        )
+    except OpeningRevealWorkValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
+    return RevealWorkApplyResult(
+        source_opening_id=opening_id,
+        target_count=len(targets),
+        target_opening_ids=[t.id for t in targets],
+    )

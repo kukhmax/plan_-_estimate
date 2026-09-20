@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { ClientType, ClientCreatePayload } from '../types/client';
+import { ClientType, ClientCreatePayload, ClientUpdatePayload } from '../types/client';
 import {
   fetchClients,
   createClient,
+  updateClient,
   archiveClient,
   restoreClient,
 } from '../api/clients';
@@ -16,6 +17,7 @@ interface ClientFormState {
   phone: string;
   email: string;
   nip: string;
+  telegram_username: string;
   notes: string;
 }
 
@@ -27,8 +29,23 @@ const DEFAULT_FORM: ClientFormState = {
   phone: '',
   email: '',
   nip: '',
+  telegram_username: '',
   notes: '',
 };
+
+function formFromClient(c: ClientType): ClientFormState {
+  return {
+    client_type: c.client_type,
+    first_name: c.first_name ?? '',
+    last_name: c.last_name ?? '',
+    company_name: c.company_name ?? '',
+    phone: c.phone ?? '',
+    email: c.email ?? '',
+    nip: c.nip ?? '',
+    telegram_username: c.telegram_username ?? '',
+    notes: c.notes ?? '',
+  };
+}
 
 export const ClientList: React.FC = () => {
   const { t } = useI18n();
@@ -39,6 +56,7 @@ export const ClientList: React.FC = () => {
   const [search, setSearch] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingClient, setEditingClient] = useState<ClientType | null>(null);
   const [form, setForm] = useState<ClientFormState>(DEFAULT_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -75,6 +93,32 @@ export const ClientList: React.FC = () => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const openCreate = () => {
+    if (showForm && editingClient === null) {
+      setShowForm(false);
+      setFormError(null);
+      return;
+    }
+    setEditingClient(null);
+    setForm(DEFAULT_FORM);
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (client: ClientType) => {
+    setEditingClient(client);
+    setForm(formFromClient(client));
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingClient(null);
+    setForm(DEFAULT_FORM);
+    setFormError(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -91,19 +135,37 @@ export const ClientList: React.FC = () => {
 
     setSaving(true);
     try {
-      const payload: ClientCreatePayload = {
-        client_type: form.client_type,
-        first_name: form.first_name || undefined,
-        last_name: form.last_name || undefined,
-        company_name: form.company_name || undefined,
-        phone: form.phone || undefined,
-        email: form.email || undefined,
-        nip: form.nip || undefined,
-        notes: form.notes || undefined,
-      };
-      await createClient(payload);
-      setShowForm(false);
-      setForm(DEFAULT_FORM);
+      if (editingClient) {
+        const payload: ClientUpdatePayload = {
+          client_type: form.client_type,
+          first_name: form.first_name || undefined,
+          last_name: form.last_name || undefined,
+          company_name: form.company_name || undefined,
+          phone: form.phone || undefined,
+          email: form.email || undefined,
+          nip: form.nip || undefined,
+          // Explicit clear-to-null: an empty field here means the owner
+          // deliberately removed it, unlike the other fields above where
+          // empty simply means "leave unchanged" (existing convention).
+          telegram_username: form.telegram_username.trim() === '' ? null : form.telegram_username,
+          notes: form.notes || undefined,
+        };
+        await updateClient(editingClient.id, payload);
+      } else {
+        const payload: ClientCreatePayload = {
+          client_type: form.client_type,
+          first_name: form.first_name || undefined,
+          last_name: form.last_name || undefined,
+          company_name: form.company_name || undefined,
+          phone: form.phone || undefined,
+          email: form.email || undefined,
+          nip: form.nip || undefined,
+          telegram_username: form.telegram_username || undefined,
+          notes: form.notes || undefined,
+        };
+        await createClient(payload);
+      }
+      closeForm();
       load();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Error');
@@ -123,7 +185,7 @@ export const ClientList: React.FC = () => {
         <h2 className="text-lg font-bold text-slate-900">{t.clients.title}</h2>
         <button
           aria-label="add-client"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={openCreate}
           className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
         >
           {t.clients.add_client}
@@ -157,6 +219,10 @@ export const ClientList: React.FC = () => {
           onSubmit={handleSubmit}
           className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm space-y-3"
         >
+          <h3 className="font-semibold text-slate-900 text-sm">
+            {editingClient ? t.clients.edit : t.clients.add_client}
+          </h3>
+
           {/* Client type */}
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">{t.clients.client_type}</label>
@@ -223,6 +289,16 @@ export const ClientList: React.FC = () => {
             onChange={(e) => handleFormChange('email', e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.clients.telegram}</label>
+            <input
+              aria-label="telegram-username"
+              placeholder={t.clients.telegram_placeholder}
+              value={form.telegram_username}
+              onChange={(e) => handleFormChange('telegram_username', e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
 
           {formError && (
             <p className="text-sm text-red-600 font-medium">{formError}</p>
@@ -231,7 +307,7 @@ export const ClientList: React.FC = () => {
           <div className="flex gap-2 justify-end">
             <button
               type="button"
-              onClick={() => { setShowForm(false); setForm(DEFAULT_FORM); setFormError(null); }}
+              onClick={closeForm}
               className="px-3 py-1.5 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
             >
               {t.clients.cancel}
@@ -263,11 +339,11 @@ export const ClientList: React.FC = () => {
             <li
               key={c.id}
               aria-label={`client-item-${c.id}`}
-              className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3"
+              className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-3"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-slate-900 text-sm truncate">{displayName(c)}</span>
+                  <span className="font-semibold text-slate-900 text-sm break-words">{displayName(c)}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
                     {c.client_type === 'COMPANY' ? t.clients.company : t.clients.private_person}
                   </span>
@@ -277,9 +353,39 @@ export const ClientList: React.FC = () => {
                     </span>
                   )}
                 </div>
-                {c.phone && <p className="text-xs text-slate-500 mt-0.5">{c.phone}</p>}
+                {(c.nip || c.phone || c.email || c.telegram_username) && (
+                  <div aria-label={`client-contact-${c.id}`} className="mt-1 space-y-0.5 min-w-0">
+                    {c.nip && (
+                      <p className="text-xs text-slate-500 break-words min-w-0">
+                        <span className="text-slate-400">{t.clients.card_nip_label}</span> {c.nip}
+                      </p>
+                    )}
+                    {c.phone && (
+                      <p className="text-xs text-slate-500 break-words min-w-0">
+                        <span className="text-slate-400">{t.clients.card_phone_label}</span> {c.phone}
+                      </p>
+                    )}
+                    {c.email && (
+                      <p className="text-xs text-slate-500 break-words min-w-0">
+                        <span className="text-slate-400">{t.clients.card_email_label}</span> {c.email}
+                      </p>
+                    )}
+                    {c.telegram_username && (
+                      <p className="text-xs text-slate-500 break-words min-w-0">
+                        <span className="text-slate-400">{t.clients.card_telegram_label}</span> {c.telegram_username}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="flex gap-1.5 flex-shrink-0">
+              <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
+                <button
+                  aria-label={`edit-${c.id}`}
+                  onClick={() => openEdit(c)}
+                  className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                >
+                  {t.clients.edit}
+                </button>
                 {c.is_archived ? (
                   <button
                     aria-label={`restore-${c.id}`}

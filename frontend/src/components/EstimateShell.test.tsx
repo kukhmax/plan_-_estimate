@@ -297,6 +297,112 @@ describe('empty estimate', () => {
   });
 });
 
+// ─── Stage 10G.4 — empty DRAFT recovery correction ───────────────────────────
+//
+// An Estimate is a snapshot: generating it before any Work Plans exist is a
+// legitimate outcome, not corruption. The bug was purely that the empty-state
+// branch previously short-circuited BEFORE regenerationSection / manualLineSection
+// / finalizeSection were reached, so an empty DRAFT had no way to reach the
+// exact same "Sprawdź zmiany" workflow a non-empty DRAFT already has. No new
+// preview/regeneration flow is introduced here — these tests exercise the
+// SAME shared sections and the SAME existing API functions.
+
+describe('Stage 10G.4 — empty DRAFT reaches the shared regeneration/manual/finalize actions', () => {
+  it('an empty DRAFT shows the empty message together with Sprawdź zmiany (grouped view)', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([]));
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+  });
+
+  it('an empty DRAFT shows Sprawdź zmiany even when selectedGroupKey is stale (detail view default)', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([]));
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
+    expect(screen.getByLabelText('estimate-check-changes-action')).toBeTruthy();
+  });
+
+  it('clicking Sprawdź zmiany on an empty DRAFT calls the existing preview endpoint and renders ADDED entries', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([]));
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 2, changes: [
+        makeChange({ change_type: 'ADDED', description: 'pricebook.seed.skim_2l' }),
+        makeChange({ change_type: 'ADDED', planned_work_id: 'pw-new-2', description: 'pricebook.seed.paint_2k' }),
+      ] }),
+    );
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
+
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+
+    await waitFor(() => {
+      expect(estimatesApi.previewEstimateRegeneration).toHaveBeenCalledWith(PROJECT_ID, ESTIMATE_ID);
+    });
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-category-ADDED'));
+    expect(screen.getByLabelText('estimate-regeneration-change-ADDED-0')).toBeTruthy();
+    expect(screen.getByLabelText('estimate-regeneration-change-ADDED-1')).toBeTruthy();
+  });
+
+  it('confirming regeneration on an empty DRAFT calls the existing regenerate endpoint, refetches authoritatively, and the newly returned lines + total render', async () => {
+    const summary = makeSummary({ total: null });
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([], summary))
+      .mockResolvedValueOnce(makeDetail([makeLine()], { ...summary, total: '4375.00' }));
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange()] }),
+    );
+    vi.mocked(estimatesApi.regenerateEstimate).mockResolvedValue(makePreview({ added: 1 }));
+
+    renderShell(summary, null);
+    await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
+    expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('—');
+    expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-confirm'));
+    fireEvent.click(screen.getByLabelText('estimate-regeneration-confirm'));
+
+    await waitFor(() => {
+      expect(estimatesApi.regenerateEstimate).toHaveBeenCalledWith(PROJECT_ID, ESTIMATE_ID);
+    });
+    await waitFor(() => expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(2));
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('4375.00 PLN');
+  });
+
+  it('"+ Dodaj pozycję" remains reachable on an empty DRAFT', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([]));
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
+    expect(screen.getByLabelText('estimate-add-manual-line-action')).toBeTruthy();
+  });
+
+  it('"Finalizuj kosztorys" remains reachable on an empty DRAFT (backend already permits finalizing zero lines)', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([]));
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
+    expect(screen.getByLabelText('estimate-finalize-action')).toBeTruthy();
+  });
+
+  it.each(['FINAL', 'ACCEPTED', 'ARCHIVED'] as const)(
+    'an empty %s estimate exposes no regeneration/manual-line/finalize controls',
+    async (status) => {
+      vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([], { status }));
+      renderShell(makeSummary({ status }), null);
+      await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
+      expect(screen.queryByLabelText('estimate-check-changes-action')).toBeNull();
+      expect(screen.queryByLabelText('estimate-add-manual-line-action')).toBeNull();
+      expect(screen.queryByLabelText('estimate-finalize-action')).toBeNull();
+    },
+  );
+
+  it('a non-empty DRAFT is unaffected — grouped view still renders groups, not the empty message', async () => {
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.queryByLabelText('estimate-lines-empty')).toBeNull();
+  });
+});
+
 describe('line card basics (detail view)', () => {
   it('renders estimate-lines container with lines', async () => {
     renderShell();
@@ -331,7 +437,7 @@ describe('line card basics (detail view)', () => {
     renderShell();
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.500');
-    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('M2');
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('m²');
   });
 
   it('renders unit_price with currency', async () => {
@@ -538,7 +644,7 @@ describe('override indicators', () => {
     renderShell();
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     expect(screen.getByLabelText('line-qty-override-1').textContent).toContain('10.000');
-    expect(screen.getByLabelText('line-qty-override-1').textContent).toContain('M2');
+    expect(screen.getByLabelText('line-qty-override-1').textContent).toContain('m²');
   });
 
   it('does not show qty override indicator when quantity_overridden is false', async () => {
@@ -906,7 +1012,7 @@ describe('grouped view (selectedGroupKey === null)', () => {
     renderGrouped(lines);
     await waitFor(() => screen.getByLabelText('estimate-groups'));
     expect(screen.getByLabelText('group-quantity-0').textContent).toContain('15.750');
-    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('M2');
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('m²');
   });
 
   it('group quantity not shown when lines have mixed units', async () => {
@@ -2732,7 +2838,7 @@ describe('Stage 10G.3B — change category rendering', () => {
     expect(screen.getByLabelText('estimate-regeneration-change-description-ADDED-0').textContent).toBe(
       'Gładź szpachlowa — 2 warstwy (pakiet)',
     );
-    expect(screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0').textContent).toContain('12.400 M2');
+    expect(screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0').textContent).toContain('12.400 m²');
     expect(screen.getByLabelText('estimate-regeneration-change-price-ADDED-0').textContent).toContain('35.00 PLN');
   });
 
@@ -2755,7 +2861,7 @@ describe('Stage 10G.3B — change category rendering', () => {
     await waitFor(() => screen.getByLabelText('estimate-regeneration-category-REMOVED'));
 
     expect(screen.getByLabelText('estimate-regeneration-category-REMOVED').textContent).toContain('Usunięto');
-    expect(screen.getByLabelText('estimate-regeneration-change-quantity-REMOVED-0').textContent).toContain('8.000 M2');
+    expect(screen.getByLabelText('estimate-regeneration-change-quantity-REMOVED-0').textContent).toContain('8.000 m²');
     expect(screen.getByLabelText('estimate-regeneration-change-price-REMOVED-0').textContent).toContain('30.00 PLN');
   });
 
@@ -2779,8 +2885,8 @@ describe('Stage 10G.3B — change category rendering', () => {
 
     expect(screen.getByLabelText('estimate-regeneration-category-UPDATED').textContent).toContain('Zmieniono');
     const qty = screen.getByLabelText('estimate-regeneration-change-quantity-UPDATED-0').textContent ?? '';
-    expect(qty).toContain('10.000 M2');
-    expect(qty).toContain('12.400 M2');
+    expect(qty).toContain('10.000 m²');
+    expect(qty).toContain('12.400 m²');
     expect(qty).toContain('→');
     // price unchanged -> collapsed to a single value, never "35.00 PLN → 35.00 PLN"
     expect(screen.getByLabelText('estimate-regeneration-change-price-UPDATED-0').textContent).toBe('35.00 PLN');
@@ -4381,5 +4487,85 @@ describe('Stage 10G.3D regression — accepted 10G.2/10G.3A/10G.3B/10G.3C behavi
     // The confirmation panel renders no amount/quantity/price fields at all —
     // it never touches Estimate financial values, only calls the backend.
     expect(within(panel).queryByLabelText(/line-amount|line-unit-price|line-quantity/)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 10G.4 — localized PriceUnit.LM presentation ("mb" / "пог. м")
+// ---------------------------------------------------------------------------
+
+describe('Stage 10G.4 — localized LM unit label', () => {
+  function renderShellRu(
+    summary: EstimateSummaryRead = makeSummary(),
+    selectedGroupKey: string | null = PLANNED_SURFACE_KEY,
+  ) {
+    localStorage.setItem('locale', 'ru');
+    return render(
+      <I18nProvider>
+        <EstimateShell estimate={summary} onBack={vi.fn()} selectedGroupKey={selectedGroupKey} onGroupKeyChange={vi.fn()} />
+      </I18nProvider>,
+    );
+  }
+
+  it('PL renders an LM line as "mb", never raw "LM"', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ unit: 'LM', quantity: '10.540' })]),
+    );
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
+    expect(text).toContain('mb');
+    expect(text).not.toMatch(/\bLM\b/);
+  });
+
+  it('RU renders an LM line as "пог. м", never raw "LM"', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ unit: 'LM', quantity: '10.540' })]),
+    );
+    renderShellRu(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
+    expect(text).toContain('пог. м');
+    expect(text).not.toMatch(/\bLM\b/);
+  });
+
+  it('a REVEAL-origin LM line in the grouped summary view also shows "mb"', async () => {
+    const revealLine = makeLine({
+      id: 'reveal-1',
+      unit: 'LM',
+      quantity: '5.040',
+      opening_id: 'opening-1',
+      surface_id: null,
+    });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([revealLine]));
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
+    expect(text).toContain('mb');
+    expect(text).not.toMatch(/\bLM\b/);
+  });
+
+  it('the "Sprawdź zmiany" preview shows "mb" for an LM change entry, never raw "LM"', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({ added: 1, changes: [makeChange({ change_type: 'ADDED', unit: 'LM', new_source_quantity: '3.200' })] }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-category-ADDED'));
+    const text = screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0').textContent ?? '';
+    expect(text).toContain('mb');
+    expect(text).not.toMatch(/\bLM\b/);
+  });
+
+  it('M2 remains localized as "m²" — unaffected by the LM fix', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ unit: 'M2', quantity: '10.540' })]),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
+    expect(text).toContain('m²');
+    expect(text).not.toMatch(/\bM2\b/);
   });
 });

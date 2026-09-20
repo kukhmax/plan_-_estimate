@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './api/http';
 import * as openingsApi from './api/openings';
+import * as revealWorksApi from './api/revealWorks';
+import * as priceItemsApi from './api/priceItems';
 import { OpeningList } from './components/OpeningList';
 import { I18nProvider } from './hooks/useI18n';
 import { OpeningType } from './types/opening';
@@ -13,6 +15,23 @@ vi.mock('./api/openings', () => ({
   archiveOpening: vi.fn(),
   restoreOpening: vi.fn(),
 }));
+
+vi.mock('./api/revealWorks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./api/revealWorks')>();
+  return {
+    ...actual,
+    fetchRevealWorks: vi.fn(),
+    putRevealWorks: vi.fn(),
+  };
+});
+
+vi.mock('./api/priceItems', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./api/priceItems')>();
+  return {
+    ...actual,
+    fetchPriceItems: vi.fn(),
+  };
+});
 
 const projectId = '11111111-1111-1111-1111-111111111111';
 const roomId = '22222222-2222-2222-2222-222222222222';
@@ -596,8 +615,28 @@ describe('OpeningList reveals (Stage 5F)', () => {
     await waitFor(() => expect(screen.getByLabelText(`opening-item-${openingWindow.id}`)).toBeInTheDocument());
     const card = screen.getByLabelText(`opening-item-${openingWindow.id}`);
     expect(card).toHaveTextContent('Ościeża');
-    expect(card).toHaveTextContent('4.30 m');
+    // Stage 10G.4 follow-up — reveal length renders localized "mb", never raw "LM"/plain "m".
+    expect(card).toHaveTextContent('4.30 mb');
     expect(card).toHaveTextContent('0.65 m²');
+    expect(card.textContent).not.toMatch(/\bLM\b/);
+  });
+
+  it('shows the reveal length as "м.п." in RU (Stage 10G.4 follow-up)', async () => {
+    localStorage.setItem('locale', 'ru');
+    const openingWithReveal: OpeningType = {
+      ...openingWindow,
+      reveal_enabled: true,
+      reveal_depth: '0.150',
+      reveal_total_length: '4.300',
+      reveal_total_area: '0.645',
+    };
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [openingWithReveal], total: 1 });
+    renderOpenings();
+
+    await waitFor(() => expect(screen.getByLabelText(`opening-item-${openingWindow.id}`)).toBeInTheDocument());
+    const card = screen.getByLabelText(`opening-item-${openingWindow.id}`);
+    expect(card).toHaveTextContent('4.30 пог. м');
+    expect(card.textContent).not.toMatch(/\bLM\b/);
   });
 
   it('does not show reveal section on card when reveal is disabled', async () => {
@@ -607,5 +646,86 @@ describe('OpeningList reveals (Stage 5F)', () => {
     await waitFor(() => expect(screen.getByLabelText(`opening-item-${openingDoor.id}`)).toBeInTheDocument());
     const card = screen.getByLabelText(`opening-item-${openingDoor.id}`);
     expect(card).not.toHaveTextContent('Ościeża');
+  });
+});
+
+// Stage 10G.4 — reveal work planning toggle per opening.
+describe('OpeningList — reveal work planning entry', () => {
+  const openingWithReveal: OpeningType = {
+    ...openingWindow,
+    reveal_enabled: true,
+    reveal_depth: '0.150',
+    reveal_total_length: '4.300',
+    reveal_total_area: '0.645',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(revealWorksApi.fetchRevealWorks).mockResolvedValue({ opening_id: openingWithReveal.id, items: [] });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  it('shows the "Prace na ościeżach" toggle only when reveal_enabled is true', async () => {
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [openingWithReveal], total: 1 });
+    renderOpenings();
+    await waitFor(() => screen.getByLabelText(`opening-item-${openingWithReveal.id}`));
+    expect(screen.getByLabelText(`reveal-work-toggle-${openingWithReveal.id}`)).toBeInTheDocument();
+  });
+
+  it('does not show the reveal work toggle when reveal_enabled is false', async () => {
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [openingDoor], total: 1 });
+    renderOpenings();
+    await waitFor(() => screen.getByLabelText(`opening-item-${openingDoor.id}`));
+    expect(screen.queryByLabelText(`reveal-work-toggle-${openingDoor.id}`)).toBeNull();
+  });
+
+  it('opens the RevealWorkPlanEditor for that exact opening on click, and closes it on toggle again', async () => {
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [openingWithReveal], total: 1 });
+    renderOpenings();
+    await waitFor(() => screen.getByLabelText(`opening-item-${openingWithReveal.id}`));
+
+    fireEvent.click(screen.getByLabelText(`reveal-work-toggle-${openingWithReveal.id}`));
+    expect(await screen.findByLabelText(`reveal-work-editor-${openingWithReveal.id}`)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(revealWorksApi.fetchRevealWorks).toHaveBeenCalledWith(
+        projectId, roomId, surfaceId, openingWithReveal.id,
+      );
+    });
+
+    fireEvent.click(screen.getByLabelText(`reveal-work-toggle-${openingWithReveal.id}`));
+    expect(screen.queryByLabelText(`reveal-work-editor-${openingWithReveal.id}`)).toBeNull();
+  });
+
+  it('passes the backend-authoritative reveal geometry through to the editor unchanged', async () => {
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [openingWithReveal], total: 1 });
+    renderOpenings();
+    await waitFor(() => screen.getByLabelText(`opening-item-${openingWithReveal.id}`));
+    fireEvent.click(screen.getByLabelText(`reveal-work-toggle-${openingWithReveal.id}`));
+
+    const geometry = await screen.findByLabelText(`reveal-geometry-${openingWithReveal.id}`);
+    expect(geometry.textContent).toContain('4.30');
+    expect(geometry.textContent).toContain('0.65');
+  });
+
+  it('only one reveal work editor is open at a time across multiple reveal-enabled openings', async () => {
+    const secondOpening: OpeningType = {
+      ...openingWithReveal,
+      id: '77777777-7777-7777-7777-777777777777',
+      name: 'Drugie okno',
+    };
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [openingWithReveal, secondOpening],
+      total: 2,
+    });
+    renderOpenings();
+    await waitFor(() => screen.getByLabelText(`opening-item-${openingWithReveal.id}`));
+
+    fireEvent.click(screen.getByLabelText(`reveal-work-toggle-${openingWithReveal.id}`));
+    await screen.findByLabelText(`reveal-work-editor-${openingWithReveal.id}`);
+
+    fireEvent.click(screen.getByLabelText(`reveal-work-toggle-${secondOpening.id}`));
+    await screen.findByLabelText(`reveal-work-editor-${secondOpening.id}`);
+    expect(screen.queryByLabelText(`reveal-work-editor-${openingWithReveal.id}`)).toBeNull();
   });
 });

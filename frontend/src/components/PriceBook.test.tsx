@@ -922,3 +922,153 @@ describe('PriceBook — localized error states', () => {
     expect(screen.queryByText(/500/)).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Stage 10G.4 — explicit "Cena do ustalenia" (unresolved price) toggle
+// ---------------------------------------------------------------------------
+
+describe('PriceBook — Cena do ustalenia toggle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(priceItemsApi.createPriceItem).mockResolvedValue({ ...custom, price: null });
+  });
+
+  it('is unchecked by default and requires a numeric price', async () => {
+    renderBook();
+    fireEvent.click(await screen.findByLabelText('add-price-item'));
+    expect(screen.getByLabelText('price-item-price-unresolved')).not.toBeChecked();
+    expect(screen.getByLabelText('price-item-price')).toBeInTheDocument();
+  });
+
+  it('checking it hides the numeric price input and sends price: null', async () => {
+    renderBook();
+    fireEvent.click(await screen.findByLabelText('add-price-item'));
+    fireEvent.change(screen.getByLabelText('price-item-display-name'), {
+      target: { value: 'Szpachlowanie ościeży' },
+    });
+
+    fireEvent.click(screen.getByLabelText('price-item-price-unresolved'));
+    expect(screen.queryByLabelText('price-item-price')).toBeNull();
+
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
+
+    await waitFor(() =>
+      expect(priceItemsApi.createPriceItem).toHaveBeenCalledWith(
+        expect.objectContaining({ price: null }),
+      ),
+    );
+  });
+
+  it('an explicit 0.00 still sends a real zero, never null', async () => {
+    vi.mocked(priceItemsApi.createPriceItem).mockResolvedValue({ ...custom, price: '0.00' });
+    renderBook();
+    fireEvent.click(await screen.findByLabelText('add-price-item'));
+    fireEvent.change(screen.getByLabelText('price-item-display-name'), {
+      target: { value: 'Zero cenowe' },
+    });
+    fireEvent.change(screen.getByLabelText('price-item-price'), { target: { value: '0.00' } });
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
+
+    await waitFor(() =>
+      expect(priceItemsApi.createPriceItem).toHaveBeenCalledWith(
+        expect.objectContaining({ price: '0.00' }),
+      ),
+    );
+  });
+
+  it('an empty numeric price without the toggle remains a validation error, never sent as null', async () => {
+    renderBook();
+    fireEvent.click(await screen.findByLabelText('add-price-item'));
+    fireEvent.change(screen.getByLabelText('price-item-display-name'), {
+      target: { value: 'Bez ceny' },
+    });
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
+
+    expect(await screen.findByText('Podaj cenę.')).toBeInTheDocument();
+    expect(priceItemsApi.createPriceItem).not.toHaveBeenCalled();
+  });
+
+  it('switching the toggle back off restores the numeric-price requirement', async () => {
+    renderBook();
+    fireEvent.click(await screen.findByLabelText('add-price-item'));
+    fireEvent.change(screen.getByLabelText('price-item-display-name'), {
+      target: { value: 'Praca' },
+    });
+
+    const toggle = screen.getByLabelText('price-item-price-unresolved');
+    fireEvent.click(toggle); // on — price hidden
+    fireEvent.click(toggle); // off — price required again
+    expect(screen.getByLabelText('price-item-price')).toBeInTheDocument();
+
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
+    expect(await screen.findByText('Podaj cenę.')).toBeInTheDocument();
+    expect(priceItemsApi.createPriceItem).not.toHaveBeenCalled();
+  });
+
+  it('an existing custom item with price=null opens the edit form pre-checked "Cena do ustalenia"', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [{ ...custom, price: null }],
+      total: 1,
+    });
+    renderBook();
+    fireEvent.click(await screen.findByLabelText(`edit-price-item-${custom.id}`));
+
+    expect(screen.getByLabelText('price-item-price-unresolved')).toBeChecked();
+    expect(screen.queryByLabelText('price-item-price')).toBeNull();
+  });
+
+  it('explicitly re-checking "Cena do ustalenia" on an already-priced custom item clears it back to null via PATCH', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [custom],
+      total: 1,
+    });
+    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValue({ ...custom, price: null });
+    renderBook();
+    fireEvent.click(await screen.findByLabelText(`edit-price-item-${custom.id}`));
+
+    fireEvent.click(screen.getByLabelText('price-item-price-unresolved'));
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
+
+    await waitFor(() =>
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith(
+        custom.id,
+        expect.objectContaining({ price: null }),
+      ),
+    );
+  });
+
+  it('labels the toggle "Cena do ustalenia" in PL and "Цена уточняется" in RU', async () => {
+    renderBook();
+    fireEvent.click(await screen.findByLabelText('add-price-item'));
+    expect(screen.getByText('Cena do ustalenia')).toBeInTheDocument();
+
+    localStorage.setItem('locale', 'ru');
+    renderBook();
+    fireEvent.click((await screen.findAllByLabelText('add-price-item'))[1]);
+    expect(screen.getByText('Цена уточняется')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 10G.4 — localized LM unit label on the Cennik card
+// ---------------------------------------------------------------------------
+
+describe('PriceBook — localized LM unit label', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('renders an LM item as "mb" on the card, never raw "LM"', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
+      items: [archived],
+      total: 1,
+    });
+    renderBook();
+    const card = await screen.findByLabelText(`price-item-${archived.id}`);
+    expect(card.textContent).toContain('mb');
+    expect(card.textContent).not.toMatch(/\bLM\b/);
+  });
+});

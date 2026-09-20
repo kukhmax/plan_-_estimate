@@ -1740,6 +1740,116 @@ async def test_cross_owner_opening_isolation(async_client: AsyncClient, db_sessi
 
 
 # ===========================================================================
+# Reveal works apply-to-room-openings (Stage 10G.4 bulk apply)
+# ===========================================================================
+
+def _apply_reveal(project_id, room_id, surface_id, opening_id) -> str:
+    return f"{_reveal(project_id, room_id, surface_id, opening_id)}/apply-to-room-openings"
+
+
+async def test_apply_reveal_works_to_room_copies_to_eligible_targets(
+    async_client: AsyncClient, db_session
+):
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project, room, surface, source = await _reveal_setup(db_session, owner)
+    target = await _make_opening(
+        db_session, surface.id, reveal_enabled=True, reveal_depth="15.000"
+    )
+    item = await _make_reveal_item(db_session, owner.id)
+
+    await async_client.put(
+        _reveal(project.id, room.id, surface.id, source.id),
+        headers=auth(token),
+        json={"price_item_ids": [str(item.id)]},
+    )
+
+    resp = await async_client.post(
+        _apply_reveal(project.id, room.id, surface.id, source.id), headers=auth(token)
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["source_opening_id"] == str(source.id)
+    assert data["target_count"] == 1
+    assert data["target_opening_ids"] == [str(target.id)]
+
+    target_resp = await async_client.get(
+        _reveal(project.id, room.id, surface.id, target.id), headers=auth(token)
+    )
+    assert [it["price_item_id"] for it in target_resp.json()["items"]] == [str(item.id)]
+
+
+async def test_apply_reveal_works_rejects_reveal_disabled_source(
+    async_client: AsyncClient, db_session
+):
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project, room, surface, _ = await _reveal_setup(db_session, owner)
+    disabled_source = await _make_opening(db_session, surface.id, reveal_enabled=False)
+
+    resp = await async_client.post(
+        _apply_reveal(project.id, room.id, surface.id, disabled_source.id),
+        headers=auth(token),
+    )
+    assert resp.status_code == 422
+
+
+async def test_apply_reveal_works_rejects_archived_source_item(
+    async_client: AsyncClient, db_session
+):
+    token = await get_token(async_client, VALID_USER)
+    owner = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one()
+    project, room, surface, source = await _reveal_setup(db_session, owner)
+    target = await _make_opening(
+        db_session, surface.id, reveal_enabled=True, reveal_depth="15.000"
+    )
+    item = await _make_reveal_item(db_session, owner.id)
+    await async_client.put(
+        _reveal(project.id, room.id, surface.id, source.id),
+        headers=auth(token),
+        json={"price_item_ids": [str(item.id)]},
+    )
+    item.is_archived = True
+    await db_session.commit()
+
+    resp = await async_client.post(
+        _apply_reveal(project.id, room.id, surface.id, source.id), headers=auth(token)
+    )
+    assert resp.status_code == 422
+
+    # No partial mutation on the target.
+    target_resp = await async_client.get(
+        _reveal(project.id, room.id, surface.id, target.id), headers=auth(token)
+    )
+    assert target_resp.json()["items"] == []
+
+
+async def test_apply_reveal_works_cross_owner_isolation(
+    async_client: AsyncClient, db_session
+):
+    token_b = await get_token(async_client, OTHER_USER)
+    owner_a = (await db_session.execute(
+        select(User).where(User.telegram_user_id == VALID_USER["id"])
+    )).scalar_one_or_none()
+    if owner_a is None:
+        owner_a = User(telegram_user_id=VALID_USER["id"], username="owner_a_rev_apply")
+        db_session.add(owner_a)
+        await db_session.commit()
+    project, room, surface, source = await _reveal_setup(db_session, owner_a)
+
+    resp = await async_client.post(
+        _apply_reveal(project.id, room.id, surface.id, source.id), headers=auth(token_b)
+    )
+    assert resp.status_code == 404
+
+
+# ===========================================================================
 # Unauthenticated access guard
 # ===========================================================================
 
@@ -1751,6 +1861,11 @@ async def test_cross_owner_opening_isolation(async_client: AsyncClient, db_sessi
     ("POST",   "/api/projects/{p}/estimates/{e}/lines"),
     ("PATCH",  "/api/projects/{p}/estimates/{e}/lines/{l}"),
     ("DELETE", "/api/projects/{p}/estimates/{e}/lines/{l}"),
+    (
+        "POST",
+        "/api/projects/{p}/rooms/{p}/surfaces/{p}/openings/{p}/reveal-works"
+        "/apply-to-room-openings",
+    ),
 ])
 async def test_unauthenticated_estimates_401(
     async_client: AsyncClient, method: str, path_tmpl: str
@@ -1790,6 +1905,7 @@ def test_reveal_work_routes_registered():
         "/surfaces/{surface_id}/openings/{opening_id}/reveal-works"
     )
     assert reveal_path in paths
+    assert f"{reveal_path}/apply-to-room-openings" in paths
 
 
 # ===========================================================================

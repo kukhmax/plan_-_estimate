@@ -71,6 +71,8 @@
     "phone": "Telefon",
     "email": "E-mail",
     "nip": "NIP",
+    "telegram": "Telegram / nick",
+    "telegram_placeholder": "@username",
     "notes": "Notatki",
     "client_type": "Typ klienta",
     "save": "Zapisz",
@@ -81,7 +83,11 @@
     "loading": "Ładowanie klientów...",
     "error": "Błąd podczas ładowania klientów",
     "validation_private_name": "Podaj imię lub nazwisko",
-    "validation_company_name": "Nazwa firmy jest wymagana"
+    "validation_company_name": "Nazwa firmy jest wymagana",
+    "card_nip_label": "NIP:",
+    "card_phone_label": "tel.:",
+    "card_email_label": "e-mail:",
+    "card_telegram_label": "Telegram:"
   },
   "projects": {
     "title": "Obiekty",
@@ -165,6 +171,11 @@
     "gross_area": "Powierzchnia brutto",
     "deduction_area": "Odliczenia",
     "net_area": "Powierzchnia netto",
+    "deduction_type_window": "okno",
+    "deduction_type_door": "drzwi",
+    "deduction_type_other": "inny otwór",
+    "deduction_openings_generic": "otworów",
+    "reveal_row_label": "Ościeża",
     "manage_openings": "Zarządzaj otworami",
     "openings_count": "Otwory",
     "options": "Opcje",
@@ -212,7 +223,8 @@
     "apply_confirm_yes": "Kopiuj",
     "applying": "Kopiowanie planu...",
     "apply_success": "Plan prac skopiowano na {count} ścian(y).",
-    "apply_error": "Nie udało się skopiować planu prac."
+    "apply_error": "Nie udało się skopiować planu prac.",
+    "create_new_item": "+ Dodaj nową pracę do cennika"
   },
   "openings": {
     "title": "Otwory w ścianie",
@@ -680,6 +692,7 @@
     "unit": "Jednostka",
     "price": "Cena (PLN)",
     "price_placeholder": "0,00",
+    "price_unresolved": "Cena do ustalenia",
     "price_scope": "Cena obejmuje",
     "quality_level": "Poziom jakości",
     "quality_none": "Bez poziomu",
@@ -827,7 +840,20 @@
     "summary_title": "Ościeża",
     "summary_windows": "Okna",
     "summary_doors": "Drzwi",
-    "summary_combined": "Razem"
+    "summary_combined": "Razem",
+    "work_section_title": "Prace na ościeżach",
+    "work_loading": "Ładowanie prac na ościeżu...",
+    "work_error_load": "Nie udało się załadować prac na ościeżu.",
+    "work_no_works": "Brak prac na tym ościeżu.",
+    "work_saved": "Prace na ościeżu zostały zapisane.",
+    "work_error_save": "Nie udało się zapisać prac na ościeżu.",
+    "apply_to_openings": "Zapisz dla wszystkich ościeży",
+    "apply_confirm": "Zastosować te prace do wszystkich ościeży w tym pomieszczeniu? Zostaną zastąpione listy prac dla {count} otworów. Geometria ościeży nie zostanie zmieniona.",
+    "apply_confirm_empty": "Lista prac jest pusta. Zastosowanie wyczyści listy prac dla {count} otworów w tym pomieszczeniu. Geometria ościeży nie zostanie zmieniona. Czy na pewno?",
+    "apply_confirm_yes": "Zastosuj",
+    "applying": "Stosowanie...",
+    "apply_success": "Prace zastosowano do {count} otworów.",
+    "apply_error": "Nie udało się zastosować prac do innych otworów."
   },
   "estimates": {
     "title": "Kosztorys",

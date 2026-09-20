@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { fetchOpenings } from '../api/openings';
 import {
   archiveSurface,
   createSurface,
@@ -8,17 +9,24 @@ import {
   updateSurface,
 } from '../api/surfaces';
 import { useI18n } from '../hooks/useI18n';
-import { OpeningTypeValue } from '../types/opening';
+import { OpeningType, OpeningTypeValue } from '../types/opening';
 import {
   SurfaceCreatePayload,
   SurfaceType,
   SurfaceTypeValue,
   SurfaceUpdatePayload,
 } from '../types/surface';
+import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatMetric } from '../utils/format';
+import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
+import { surfaceTypeTint } from '../utils/surfaceTypeTint';
 import { OpeningList } from './OpeningList';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
+
+/** Header type-pill: a single neutral style legible against any card tint
+ * (WALL cards no longer share one fixed background — see surfaceColorTint). */
+const TYPE_BADGE_CLASS = 'bg-white text-slate-700';
 
 interface SurfaceListProps {
   projectId: string;
@@ -61,6 +69,7 @@ const EMPTY_FORM: SurfaceFormState = {
   height: '',
 };
 
+
 export function SurfaceList({
   projectId,
   roomId,
@@ -95,6 +104,12 @@ export function SurfaceList({
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [pendingQuickOpening, setPendingQuickOpening] = useState<PendingQuickOpening | null>(null);
   const quickActionKeyRef = useRef(0);
+  // Stage 10G.4 — active (non-archived) openings per WALL surface, fetched
+  // eagerly (read-only, existing endpoint) so the always-visible calculation
+  // panel can explain the deduction and show the reveal aggregate without
+  // requiring the owner to expand "Otwory" first. Independent from
+  // OpeningList's own lazy fetch on expand — this is a display-only summary.
+  const [wallOpeningsById, setWallOpeningsById] = useState<Record<string, OpeningType[]>>({});
 
   const roomHeightNum =
     roomHeight !== null && roomHeight !== undefined ? Number(roomHeight) : NaN;
@@ -132,6 +147,42 @@ export function SurfaceList({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Stage 10G.4 — fetch active openings for every measured WALL so the
+  // deduction/reveal summary rows have real data to describe. Best-effort
+  // per surface: one wall's fetch failing never blocks the others or the
+  // surface list itself (the calculation panel simply falls back to the
+  // plain, context-free deduction row for that wall).
+  useEffect(() => {
+    let cancelled = false;
+    const walls = surfaces.filter(
+      (s) => s.surface_type === 'WALL' && !s.is_archived &&
+        s.width !== null && s.width !== undefined &&
+        s.height !== null && s.height !== undefined,
+    );
+    void Promise.all(
+      walls.map(async (wall) => {
+        try {
+          const resp = await fetchOpenings(projectId, roomId, wall.id);
+          return [wall.id, resp.items] as const;
+        } catch {
+          return [wall.id, null] as const;
+        }
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      setWallOpeningsById((current) => {
+        const next = { ...current };
+        for (const [id, items] of results) {
+          if (items !== null) next[id] = items;
+        }
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [surfaces, projectId, roomId]);
 
   const toggleOptions = (surfaceId: string) => {
     setExpandedOptions((current) => ({
@@ -328,6 +379,51 @@ export function SurfaceList({
   const visibleSurfaces = surfaces.filter(
     (s) => s.surface_type !== 'FLOOR' && s.surface_type !== 'CEILING',
   );
+
+  const openingTypeWord = (type: OpeningTypeValue): string => {
+    if (type === 'WINDOW') return t.surfaces.deduction_type_window;
+    if (type === 'DOOR') return t.surfaces.deduction_type_door;
+    return t.surfaces.deduction_type_other;
+  };
+
+  // Explains WHAT the existing backend-derived deduction_area is subtracting
+  // — never recomputes it. Uses only already-fetched, active (non-archived)
+  // Opening rows; the numeric value on the row always stays surface.deduction_area.
+  const describeDeductionContext = (openings: OpeningType[] | undefined): string | null => {
+    if (!openings || openings.length === 0) return null;
+    if (openings.length === 1) {
+      const o = openings[0];
+      return `${openingTypeWord(o.opening_type)} ${formatMetric(o.width)} × ${formatMetric(o.height)}`;
+    }
+    const counts = new Map<OpeningTypeValue, number>();
+    for (const o of openings) counts.set(o.opening_type, (counts.get(o.opening_type) ?? 0) + 1);
+    const types = Array.from(counts.keys());
+    if (types.length === 1) {
+      return `${openings.length} × ${openingTypeWord(types[0])}`;
+    }
+    // Many openings, mixed types: a compact count beats a long join list.
+    if (openings.length > 6) {
+      return `${openings.length} ${t.surfaces.deduction_openings_generic}`;
+    }
+    return types.map((ty) => openingTypeWord(ty)).join(' + ');
+  };
+
+  // Sums already-authoritative per-opening reveal totals for display only —
+  // never recomputes reveal geometry. null when no reveal-enabled opening
+  // exists on this wall (row is hidden entirely in that case).
+  const describeRevealAggregate = (
+    openings: OpeningType[] | undefined,
+  ): { length: string; area: string } | null => {
+    if (!openings) return null;
+    const withReveal = openings.filter(
+      (o) => o.reveal_enabled && o.reveal_total_length != null,
+    );
+    if (withReveal.length === 0) return null;
+    return {
+      length: sumDecimalStrings(withReveal.map((o) => String(o.reveal_total_length))),
+      area: sumDecimalStrings(withReveal.map((o) => String(o.reveal_total_area ?? '0'))),
+    };
+  };
 
   return (
     <section aria-label="surfaces-section" className="w-full mt-5">
@@ -560,24 +656,43 @@ export function SurfaceList({
             const isOptionsOpen = !!expandedOptions[surface.id];
             const isWorkPlanOpen = activeWorkPlanSurfaceId === surface.id;
             const displayName = getSurfaceDisplayName(surface, surfaceDisplayLabels);
+            // WALL: deterministic per-surface-id hash tint (Stage 10G.2 helper,
+            // extracted/reused — every wall gets its own stable color, never
+            // shared across walls). Non-WALL (OTHER): stable type-only tint.
+            const tint = isWall ? surfaceCardTint(surface.id) : surfaceTypeTint(surface.surface_type);
+            const wallOpenings = wallOpeningsById[surface.id];
+            const deductionContext = isWall ? describeDeductionContext(wallOpenings) : null;
+            const revealAggregate = isWall ? describeRevealAggregate(wallOpenings) : null;
 
             return (
               <li
                 key={surface.id}
                 aria-label={`surface-item-${surface.id}`}
-                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2.5"
+                className={`${tint.bg} border ${tint.border} rounded-2xl p-4 shadow-sm space-y-2.5`}
               >
-                {/* Header: name + badges */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-slate-900 text-sm min-w-0 break-words">{displayName}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
-                    {typeLabel(surface.surface_type)}
-                  </span>
-                  {surface.is_archived && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                      {t.common.archived_badge}
+                {/* Header: name + badges (left) and compact Opcje (upper-right). */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-slate-900 text-sm min-w-0 break-words">{displayName}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_BADGE_CLASS}`}>
+                      {typeLabel(surface.surface_type)}
                     </span>
-                  )}
+                    {surface.is_archived && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                        {t.common.archived_badge}
+                      </span>
+                    )}
+                  </div>
+                  {/* Progressive disclosure: Opcje reveals the card's action grid. */}
+                  <button
+                    type="button"
+                    aria-label={`options-toggle-${surface.id}`}
+                    aria-expanded={isOptionsOpen}
+                    onClick={() => toggleOptions(surface.id)}
+                    className="shrink-0 min-h-11 px-3 text-sm rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
+                  >
+                    {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
+                  </button>
                 </div>
 
                 {hasDimensions && (
@@ -600,14 +715,28 @@ export function SurfaceList({
                           </strong>
                         </div>
                         <div className="flex items-center justify-between gap-2">
-                          <span className="flex items-center gap-1 text-[11px] text-slate-500">
-                            <span aria-hidden="true">−</span>
-                            <span>{t.surfaces.deduction_area}</span>
+                          <span className="flex items-center gap-1 text-[11px] text-slate-500 min-w-0">
+                            <span aria-hidden="true" className="shrink-0">−</span>
+                            <span className="break-words">
+                              {t.surfaces.deduction_area}
+                              {deductionContext && ` (${deductionContext})`}
+                            </span>
                           </span>
-                          <strong className="text-slate-700 text-xs font-semibold">
+                          <strong className="text-slate-700 text-xs font-semibold shrink-0">
                             {formatMetric(surface.deduction_area ?? '0.000')} {t.common.unit_m2}
                           </strong>
                         </div>
+                        {revealAggregate && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                              <span aria-hidden="true">−</span>
+                              <span>{t.surfaces.reveal_row_label}</span>
+                            </span>
+                            <strong className="text-slate-700 text-xs font-semibold shrink-0">
+                              {formatMetric(revealAggregate.length)} {t.pricebook.units.LM} / {formatMetric(revealAggregate.area)} {t.common.unit_m2}
+                            </strong>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-200/60 rounded-lg px-2 py-1.5">
                           <span className="flex items-center gap-1 text-[11px] text-emerald-800 font-medium">
                             <span aria-hidden="true">=</span>
@@ -625,17 +754,6 @@ export function SurfaceList({
                     )}
 
                     {surface.description && <p className="text-xs text-slate-500">{surface.description}</p>}
-
-                    {/* Progressive disclosure: Opcje reveals the card's action grid. */}
-                    <button
-                      type="button"
-                      aria-label={`options-toggle-${surface.id}`}
-                      aria-expanded={isOptionsOpen}
-                      onClick={() => toggleOptions(surface.id)}
-                      className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
-                    >
-                      {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
-                    </button>
 
                     <button
                       type="button"
@@ -754,17 +872,6 @@ export function SurfaceList({
                       </p>
                     )}
                     {surface.description && <p className="text-xs text-slate-500">{surface.description}</p>}
-
-                    {/* Progressive disclosure: Opcje reveals the card's action grid. */}
-                    <button
-                      type="button"
-                      aria-label={`options-toggle-${surface.id}`}
-                      aria-expanded={isOptionsOpen}
-                      onClick={() => toggleOptions(surface.id)}
-                      className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
-                    >
-                      {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
-                    </button>
 
                     <button
                       type="button"

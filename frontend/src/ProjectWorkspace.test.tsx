@@ -97,6 +97,7 @@ const client: ClientType = {
   phone: null,
   email: null,
   nip: null,
+  telegram_username: null,
   notes: null,
   is_archived: false,
   created_at: '2026-09-09T10:00:00Z',

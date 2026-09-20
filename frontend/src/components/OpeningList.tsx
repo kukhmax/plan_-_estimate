@@ -8,6 +8,7 @@ import {
 } from '../api/openings';
 import { useI18n } from '../hooks/useI18n';
 import { DefaultableOpeningType, useOpeningDefaults } from '../hooks/useOpeningDefaults';
+import { RevealWorkPlanEditor } from './RevealWorkPlanEditor';
 import {
   OpeningCreatePayload,
   OpeningType,
@@ -75,6 +76,12 @@ export function OpeningList({
   const [saving, setSaving] = useState(false);
   const [useAsDefault, setUseAsDefault] = useState(false);
   const { defaults, setTypeDefault } = useOpeningDefaults(projectId);
+  // Stage 10G.4 — single-open-at-a-time reveal work editor per opening,
+  // matching the existing SurfaceWorkPlanEditor toggle convention.
+  const [activeRevealWorkOpeningId, setActiveRevealWorkOpeningId] = useState<string | null>(null);
+  const toggleRevealWork = (openingId: string) => {
+    setActiveRevealWorkOpeningId((current) => (current === openingId ? null : openingId));
+  };
 
   const isDefaultable = (type: OpeningTypeValue): type is DefaultableOpeningType =>
     type === 'DOOR' || type === 'WINDOW';
@@ -519,8 +526,9 @@ export function OpeningList({
             <li
               key={opening.id}
               aria-label={`opening-item-${opening.id}`}
-              className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-start justify-between gap-2"
+              className="bg-slate-50 border border-slate-200 rounded-xl p-2.5"
             >
+              <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 text-xs">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-semibold text-slate-800">
@@ -558,7 +566,7 @@ export function OpeningList({
                 {opening.reveal_enabled && opening.reveal_total_length != null && (
                   <div className="text-slate-500 mt-0.5 text-[11px]">
                     {t.reveals.summary_title}:{' '}
-                    <strong className="text-slate-700">{formatMetric(opening.reveal_total_length)} {t.common.unit_m}</strong>
+                    <strong className="text-slate-700">{formatMetric(opening.reveal_total_length)} {t.pricebook.units.LM}</strong>
                     {' · '}
                     <strong className="text-slate-700">{formatMetric(opening.reveal_total_area)} {t.common.unit_m2}</strong>
                   </div>
@@ -583,6 +591,37 @@ export function OpeningList({
                   {opening.is_archived ? t.common.restore : t.common.archive}
                 </button>
               </div>
+              </div>
+
+              {/* Stage 10G.4 — reveal work planning per opening; never shown
+                  when reveal is disabled, and never silently enables it. */}
+              {opening.reveal_enabled && (
+                <div className="pt-2 mt-2 border-t border-slate-200">
+                  <button
+                    type="button"
+                    aria-label={`reveal-work-toggle-${opening.id}`}
+                    aria-expanded={activeRevealWorkOpeningId === opening.id}
+                    aria-controls={`reveal-work-editor-${opening.id}`}
+                    onClick={() => toggleRevealWork(opening.id)}
+                    className="w-full min-h-[44px] px-3 py-2 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition text-left"
+                  >
+                    {t.reveals.work_section_title}
+                  </button>
+
+                  {activeRevealWorkOpeningId === opening.id && (
+                    <RevealWorkPlanEditor
+                      projectId={projectId}
+                      roomId={roomId}
+                      surfaceId={surfaceId}
+                      openingId={opening.id}
+                      openingLabel={`${typeLabel(opening.opening_type)}${opening.name ? ` (${opening.name})` : ''}`}
+                      revealTotalLength={opening.reveal_total_length}
+                      revealTotalArea={opening.reveal_total_area}
+                      onClose={() => setActiveRevealWorkOpeningId(null)}
+                    />
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>

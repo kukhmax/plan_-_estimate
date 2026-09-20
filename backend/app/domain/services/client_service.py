@@ -71,6 +71,7 @@ class ClientService:
             phone=payload.phone,
             email=payload.email,
             nip=payload.nip,
+            telegram_username=payload.telegram_username,
             notes=payload.notes,
         )
         self.db.add(client)
