@@ -32,6 +32,7 @@ import {
 } from '../types/inspection';
 import { formatMetric } from '../utils/format';
 import { RiskPanel } from './RiskPanel';
+import { RecommendationPanel } from './RecommendationPanel';
 import { CommunicationPanel } from './CommunicationPanel';
 
 export interface InspectionFlowProps {
@@ -702,6 +703,11 @@ export function InspectionFlow({
           ) : (
             <>
               <RiskPanel
+                projectId={projectId}
+                roomId={roomId}
+                inspectionId={inspection.id}
+              />
+              <RecommendationPanel
                 projectId={projectId}
                 roomId={roomId}
                 inspectionId={inspection.id}

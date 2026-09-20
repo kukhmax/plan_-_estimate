@@ -5,6 +5,7 @@ import * as communicationsApi from '../api/communications';
 import * as inspectionsApi from '../api/inspections';
 import { ApiError } from '../api/http';
 import * as risksApi from '../api/risks';
+import * as workRecommendationsApi from '../api/workRecommendations';
 import { I18nProvider } from '../hooks/useI18n';
 import { ChecklistTemplate } from '../types/checklist';
 import {
@@ -36,6 +37,12 @@ vi.mock('../api/communications', () => ({
   fetchCommunications: vi.fn(),
   evaluateCommunications: vi.fn(),
   fetchCommunicationDetail: vi.fn(),
+}));
+vi.mock('../api/workRecommendations', () => ({
+  fetchWorkRecommendations: vi.fn(),
+  evaluateWorkRecommendations: vi.fn(),
+  dismissWorkRecommendation: vi.fn(),
+  reconsiderWorkRecommendation: vi.fn(),
 }));
 
 const template: ChecklistTemplate = {
@@ -218,6 +225,18 @@ describe('InspectionFlow substrate step', () => {
     vi.mocked(communicationsApi.fetchCommunicationDetail).mockRejectedValue(
       new Error('not found'),
     );
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+    vi.mocked(workRecommendationsApi.evaluateWorkRecommendations).mockResolvedValue({
+      created: 0,
+      reactivated: 0,
+      unchanged: 0,
+      resolved: 0,
+      items: [],
+      total: 0,
+    });
   });
 
   it('shows the risk evaluation action only for COMPLETED inspections (ENTRY)', async () => {
@@ -230,7 +249,9 @@ describe('InspectionFlow substrate step', () => {
     vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue(completed);
     renderFlow({ inspectionId: 'ins-1' });
     expect(await screen.findByLabelText('Oceń ryzyka')).toBeInTheDocument();
-    // The communication section joins the completed vertical flow after risks.
+    // The recommendation and communication sections join the completed
+    // vertical flow after risks.
+    expect(screen.getByText('Zalecane prace')).toBeInTheDocument();
     expect(screen.getByText('Co powiedzieć klientowi')).toBeInTheDocument();
     expect(inspectionsApi.fetchInspection).toHaveBeenCalled();
   });
@@ -244,7 +265,9 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Przejrzyj i zakończ'));
     await screen.findByText('Podsumowanie odpowiedzi');
     expect(screen.queryByLabelText('Oceń ryzyka')).not.toBeInTheDocument();
-    // The communication section must never render while the inspection is a DRAFT.
+    // The recommendation and communication sections must never render while
+    // the inspection is a DRAFT.
+    expect(screen.queryByText('Zalecane prace')).not.toBeInTheDocument();
     expect(screen.queryByText('Co powiedzieć klientowi')).not.toBeInTheDocument();
   });
 
