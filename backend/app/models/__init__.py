@@ -39,6 +39,13 @@ from app.models.room import Room
 from app.models.surface import Surface
 from app.models.user import User
 from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
+from app.models.work_recommendation import (
+    WorkRecommendation,
+    WorkRecommendationRule,
+    WorkRecommendationStatus,
+    WorkRecommendationTargetKind,
+    WorkRecommendationTriggerType,
+)
 
 __all__ = [
     "AnswerType",
@@ -83,4 +90,9 @@ __all__ = [
     "SurfacePlannedWork",
     "SurfaceWorkPlan",
     "User",
+    "WorkRecommendation",
+    "WorkRecommendationRule",
+    "WorkRecommendationStatus",
+    "WorkRecommendationTargetKind",
+    "WorkRecommendationTriggerType",
 ]
