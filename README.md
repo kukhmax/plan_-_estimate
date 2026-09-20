@@ -181,8 +181,8 @@ See [`docs/development-progress.md`](docs/development-progress.md) for the detai
 ## Roadmap / status
 
 - **Stages 0–9**: COMPLETE (engineering foundation, auth, Clients, Projects, Rooms/Surfaces/measurements, Inspection Checklist Engine, Risk Rules Engine, Client Communication Assistant, editable Price Book).
-- **Stage 10 (Estimate / Kosztorys)**: 10A–10G COMPLETE and owner-accepted; **10H — Final Gate: automated verification PASS, awaiting the owner's final manual walkthrough** before Stage 10 is declared closed. See [`docs/stage-10-architecture.md`](docs/stage-10-architecture.md) and [`docs/development-progress.md`](docs/development-progress.md) for the full sub-stage history.
-- **Stage 11 (Inspection → recommended work → Estimate)**: not started — next stage after Stage 10 closes, pending explicit owner approval.
+- **Stage 10 (Estimate / Kosztorys)**: **COMPLETE — OWNER ACCEPTED** after the final real-Telegram production walkthrough. See [`docs/stage-10-architecture.md`](docs/stage-10-architecture.md) and [`docs/development-progress.md`](docs/development-progress.md) for the full sub-stage history.
+- **Stage 11 (Inspection → recommended work → Estimate)**: not started — next stage, pending explicit owner approval.
 - Stages 12–20: pending, not started.
 
 ## Telegram Mini App development
