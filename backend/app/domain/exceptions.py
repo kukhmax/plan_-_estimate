@@ -147,3 +147,11 @@ class OpeningRevealWorkNotFoundError(Exception):
 
 class OpeningRevealWorkValidationError(Exception):
     """Raised when reveal work input violates a domain rule (wrong category, disabled reveal)."""
+
+
+class WorkRecommendationNotFoundError(Exception):
+    """Raised when a work recommendation is not found within an owned project."""
+
+
+class WorkRecommendationStateError(Exception):
+    """Raised when an operation is invalid for the current recommendation status."""

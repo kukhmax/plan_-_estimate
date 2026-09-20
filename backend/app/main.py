@@ -17,6 +17,7 @@ from app.api.v1.endpoints.risks import router as risks_router
 from app.api.v1.endpoints.rooms import router as rooms_router
 from app.api.v1.endpoints.surfaces import router as surfaces_router
 from app.api.v1.endpoints.work_plans import router as work_plan_router
+from app.api.v1.endpoints.work_recommendations import router as work_recommendations_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -50,3 +51,4 @@ app.include_router(pricebook_router, prefix="/api", tags=["price-items"])
 app.include_router(work_plan_router, prefix="/api", tags=["work-plans"])
 app.include_router(estimates_router, prefix="/api", tags=["estimates"])
 app.include_router(reveal_works_router, prefix="/api", tags=["reveal-works"])
+app.include_router(work_recommendations_router, prefix="/api", tags=["work-recommendations"])
