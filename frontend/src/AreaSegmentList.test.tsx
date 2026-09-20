@@ -163,6 +163,16 @@ describe('AreaSegmentList', () => {
     expect(screen.getByLabelText('add-ceiling-subtraction')).toBeInTheDocument();
   });
 
+  it('renders the section title with the theme-aware text color, not a hardcoded dark slate class (Stage 10H.1)', async () => {
+    // Regression: a hardcoded `text-slate-900` on page-level (non-card) text
+    // never adapts to Telegram's dark theme, where the page background is
+    // itself dark — the heading became invisible dark-on-dark.
+    renderAreaSegments();
+    const heading = await screen.findByText('Podłoga i sufit');
+    expect(heading.className).toContain('text-[var(--tg-theme-text-color)]');
+    expect(heading.className).not.toContain('text-slate-900');
+  });
+
   it('shows empty states when a plane has no segments', async () => {
     renderAreaSegments();
 

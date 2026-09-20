@@ -408,7 +408,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   return (
     <section aria-label="projects-workspace" className="w-full mt-4">
       {selectedProject && (
-        <nav aria-label="hierarchy-navigation" className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500 mb-3">
+        <nav aria-label="hierarchy-navigation" className="flex items-center gap-1.5 flex-wrap text-xs text-[var(--tg-theme-hint-color)] mb-3">
           <button
             type="button"
             aria-label="back-to-projects"
@@ -434,7 +434,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
               {selectedProject.name}
             </button>
           ) : (
-            <span className="font-medium text-slate-700">{selectedProject.name}</span>
+            <span className="font-medium text-[var(--tg-theme-text-color)]">{selectedProject.name}</span>
           )}
           <span>/</span>
           {showEstimates && selectedEstimate ? (
@@ -448,12 +448,12 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
                 {t.estimates.back_to_list}
               </button>
               <span>/</span>
-              <span className="font-medium text-slate-700">
+              <span className="font-medium text-[var(--tg-theme-text-color)]">
                 {t.estimates.version} {selectedEstimate.version}
               </span>
             </>
           ) : showEstimates ? (
-            <span className="font-medium text-slate-700">{t.estimates.title}</span>
+            <span className="font-medium text-[var(--tg-theme-text-color)]">{t.estimates.title}</span>
           ) : selectedRoom ? (
             <>
               <button
@@ -469,7 +469,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
                 {t.rooms.title}
               </button>
               <span>/</span>
-              <span className="font-medium text-slate-700">{selectedRoom.name}</span>
+              <span className="font-medium text-[var(--tg-theme-text-color)]">{selectedRoom.name}</span>
               <span>/</span>
               <span>{t.surfaces.title}</span>
             </>
@@ -481,7 +481,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
 
       {!selectedRoom && !showEstimates && (
         <div className="flex items-center justify-between gap-3 mb-3">
-          <h2 className="text-lg font-bold text-slate-900">
+          <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">
             {selectedProject ? selectedProject.name : t.projects.title}
           </h2>
           <button
@@ -661,7 +661,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
       {selectedProject && !selectedRoom && showEstimates && !selectedEstimate && (
         <>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-slate-900">{t.estimates.title}</h2>
+            <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{t.estimates.title}</h2>
           </div>
           <EstimateList
             projectId={selectedProject.id}

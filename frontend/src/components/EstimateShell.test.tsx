@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as estimatesApi from '../api/estimates';
 import { I18nProvider } from '../hooks/useI18n';
 import type { EstimateLineRead, EstimateRead, EstimateSummaryRead, LineChangeEntry, RegenerationPreviewResponse } from '../types/estimate';
+import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { EstimateShell } from './EstimateShell';
 
 vi.mock('../api/estimates', () => ({
@@ -382,6 +383,33 @@ describe('Stage 10G.4 — empty DRAFT reaches the shared regeneration/manual/fin
     renderShell(makeSummary(), null);
     await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
     expect(screen.getByLabelText('estimate-finalize-action')).toBeTruthy();
+  });
+
+  it('gives the three DRAFT actions distinct subtle backgrounds and a compact collapsed height (Stage 10H.1)', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([]));
+    renderShell(makeSummary(), null);
+    await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
+
+    const checkChanges = screen.getByLabelText('estimate-check-changes-action');
+    const addManualLine = screen.getByLabelText('estimate-add-manual-line-action');
+    const finalize = screen.getByLabelText('estimate-finalize-action');
+
+    // Distinct semantic backgrounds — never the same class for all three.
+    expect(checkChanges.className).toContain('bg-blue-50');
+    expect(addManualLine.className).toContain('bg-violet-50');
+    expect(finalize.className).toContain('bg-emerald-50');
+
+    // Still a full ~44px touch target...
+    for (const action of [checkChanges, addManualLine, finalize]) {
+      expect(action.className).toContain('min-h-[44px]');
+      expect(action.className).toContain('w-full');
+    }
+
+    // ...but the collapsed wrapper carries no extra card padding, so three
+    // stacked actions don't each cost a full white-card's worth of height.
+    expect(checkChanges.parentElement?.className).not.toContain('p-3');
+    expect(addManualLine.parentElement?.className).not.toContain('p-3');
+    expect(finalize.parentElement?.className).not.toContain('p-3');
   });
 
   it.each(['FINAL', 'ACCEPTED', 'ARCHIVED'] as const)(
@@ -901,6 +929,37 @@ describe('grouped view (selectedGroupKey === null)', () => {
     );
     return { onGroupKeyChange };
   }
+
+  it('gives each group card a deterministic tint keyed by group identity, not array position (Stage 10H.1)', async () => {
+    const surfaceLine = makeLine();
+    const manualLine = makeLine({
+      id: 'line-2',
+      origin: 'MANUAL',
+      description: 'Robocizna dodatkowa',
+      price_item_id: null,
+      plan_id: null,
+      planned_work_id: null,
+    });
+    renderGrouped([surfaceLine, manualLine]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+
+    const surfaceTint = surfaceCardTint(PLANNED_SURFACE_KEY);
+    const manualTint = surfaceCardTint('manual::line-2');
+    // Guard: the fixture's two group identities must actually hash to
+    // different palette entries for this assertion to be meaningful.
+    expect(surfaceTint.bg).not.toBe(manualTint.bg);
+
+    const card0 = screen.getByLabelText('estimate-group-0').parentElement?.parentElement;
+    const card1 = screen.getByLabelText('estimate-group-1').parentElement?.parentElement;
+    expect(card0?.className).toContain(surfaceTint.bg);
+    expect(card0?.className).toContain(surfaceTint.border);
+    expect(card1?.className).toContain(manualTint.bg);
+    expect(card1?.className).toContain(manualTint.border);
+
+    // Preserved: scope badges remain rendered on the tinted cards.
+    expect(screen.getByLabelText('group-scope-0')).toBeInTheDocument();
+    expect(screen.getByLabelText('group-scope-1')).toBeInTheDocument();
+  });
 
   it('renders estimate-groups container when selectedGroupKey is null', async () => {
     renderGrouped();

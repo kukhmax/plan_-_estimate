@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { ClientType, ClientCreatePayload, ClientUpdatePayload } from '../types/client';
 import {
   fetchClients,
@@ -8,6 +8,21 @@ import {
   restoreClient,
 } from '../api/clients';
 import { useI18n } from '../hooks/useI18n';
+import { copyTextToClipboard } from '../utils/clipboard';
+
+/** Digits and a single leading '+' only — a safe `tel:` href from a
+ * human-readable stored phone value (spaces/dashes/parens stripped). */
+function toTelHref(phone: string): string {
+  const trimmed = phone.trim();
+  const leadingPlus = trimmed.startsWith('+') ? '+' : '';
+  return `tel:${leadingPlus}${trimmed.replace(/[^\d]/g, '')}`;
+}
+
+/** Stored value is canonicalized with exactly one leading '@' — the t.me
+ * path must never include it. */
+function toTelegramHref(username: string): string {
+  return `https://t.me/${username.replace(/^@+/, '')}`;
+}
 
 interface ClientFormState {
   client_type: 'PRIVATE_PERSON' | 'COMPANY';
@@ -60,6 +75,11 @@ export const ClientList: React.FC = () => {
   const [form, setForm] = useState<ClientFormState>(DEFAULT_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Tapping a client's e-mail copies it (never opens a mail composer as the
+  // primary action) — small self-clearing inline confirmation, same pattern
+  // as the existing Stage 8C CommunicationPanel copy-to-clipboard action.
+  const [copiedEmail, setCopiedEmail] = useState<{ id: string; ok: boolean } | null>(null);
+  const copyEmailTimerRef = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -87,6 +107,15 @@ export const ClientList: React.FC = () => {
   const handleRestore = async (id: string) => {
     await restoreClient(id);
     load();
+  };
+
+  const handleCopyEmail = (client: ClientType) => {
+    if (!client.email) return;
+    if (copyEmailTimerRef.current !== null) window.clearTimeout(copyEmailTimerRef.current);
+    void copyTextToClipboard(client.email).then((ok) => {
+      setCopiedEmail({ id: client.id, ok });
+      copyEmailTimerRef.current = window.setTimeout(() => setCopiedEmail(null), 2500);
+    });
   };
 
   const handleFormChange = (field: keyof ClientFormState, value: string) => {
@@ -182,7 +211,7 @@ export const ClientList: React.FC = () => {
   return (
     <section aria-label="clients-section" className="w-full mt-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-bold text-slate-900">{t.clients.title}</h2>
+        <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{t.clients.title}</h2>
         <button
           aria-label="add-client"
           onClick={openCreate}
@@ -362,17 +391,49 @@ export const ClientList: React.FC = () => {
                     )}
                     {c.phone && (
                       <p className="text-xs text-slate-500 break-words min-w-0">
-                        <span className="text-slate-400">{t.clients.card_phone_label}</span> {c.phone}
+                        <span className="text-slate-400">{t.clients.card_phone_label}</span>{' '}
+                        <a
+                          href={toTelHref(c.phone)}
+                          aria-label={`call-${c.id}`}
+                          className="inline-block py-1.5 -my-1.5 text-blue-700 underline underline-offset-2"
+                        >
+                          {c.phone}
+                        </a>
                       </p>
                     )}
                     {c.email && (
                       <p className="text-xs text-slate-500 break-words min-w-0">
-                        <span className="text-slate-400">{t.clients.card_email_label}</span> {c.email}
+                        <span className="text-slate-400">{t.clients.card_email_label}</span>{' '}
+                        <button
+                          type="button"
+                          aria-label={`copy-email-${c.id}`}
+                          onClick={() => handleCopyEmail(c)}
+                          className="inline-block py-1.5 -my-1.5 text-blue-700 underline underline-offset-2 text-left"
+                        >
+                          {c.email}
+                        </button>
+                        {copiedEmail && copiedEmail.id === c.id && (
+                          <span
+                            role="status"
+                            className={`ml-1.5 ${copiedEmail.ok ? 'text-emerald-700' : 'text-red-600'}`}
+                          >
+                            {copiedEmail.ok ? t.clients.email_copied : t.clients.email_copy_failed}
+                          </span>
+                        )}
                       </p>
                     )}
                     {c.telegram_username && (
                       <p className="text-xs text-slate-500 break-words min-w-0">
-                        <span className="text-slate-400">{t.clients.card_telegram_label}</span> {c.telegram_username}
+                        <span className="text-slate-400">{t.clients.card_telegram_label}</span>{' '}
+                        <a
+                          href={toTelegramHref(c.telegram_username)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`open-telegram-${c.id}`}
+                          className="inline-block py-1.5 -my-1.5 text-blue-700 underline underline-offset-2"
+                        >
+                          {c.telegram_username}
+                        </a>
                       </p>
                     )}
                   </div>

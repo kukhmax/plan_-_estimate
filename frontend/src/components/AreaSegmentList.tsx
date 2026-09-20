@@ -502,7 +502,7 @@ export function AreaSegmentList({
 
   return (
     <section aria-label="area-segments-section" className="w-full mt-5 space-y-3">
-      <h3 className="text-lg font-bold text-slate-900">{t.area_segments.title}</h3>
+      <h3 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{t.area_segments.title}</h3>
       {success && <p role="status" className="text-sm text-emerald-700">{success}</p>}
       {loading && (
         <p className="text-sm text-slate-500 text-center py-4">{t.area_segments.loading}</p>

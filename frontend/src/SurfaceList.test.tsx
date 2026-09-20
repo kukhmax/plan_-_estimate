@@ -99,6 +99,16 @@ describe('SurfaceList', () => {
     expect(screen.getByText('Przy oknie')).toBeInTheDocument();
   });
 
+  it('renders the section title with the theme-aware text color, not a hardcoded dark slate class (Stage 10H.1)', async () => {
+    // Regression: a hardcoded `text-slate-900` on page-level (non-card) text
+    // never adapts to Telegram's dark theme, where the page background is
+    // itself dark — the heading became invisible dark-on-dark.
+    renderSurfaces();
+    const heading = await screen.findByText('Powierzchnie');
+    expect(heading.className).toContain('text-[var(--tg-theme-text-color)]');
+    expect(heading.className).not.toContain('text-slate-900');
+  });
+
   it('does not show a redundant generic add-surface control or shape-mode selector in rectangle mode', async () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
     renderSurfaces();
@@ -495,7 +505,9 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     expandOptions(surface.id);
 
-    expect(screen.getByText('Ukryj opcje')).toBeInTheDocument();
+    // The top toggle and the bottom collapse action (Stage 10H.1) both show
+    // the "Ukryj opcje" label while expanded.
+    expect(screen.getAllByText('Ukryj opcje')).toHaveLength(2);
     expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
@@ -503,6 +515,31 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     expect(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`)).toBeInTheDocument();
     expect(screen.getByLabelText(`add-opening-${surface.id}-OTHER`)).toBeInTheDocument();
     expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toBeInTheDocument();
+  });
+
+  it('renders a bottom "Ukryj opcje" collapse action so a long expanded openings panel never needs a scroll back to the top (Stage 10H.1)', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+
+    // Not present while collapsed.
+    expect(screen.queryByLabelText(`options-toggle-bottom-${surface.id}`)).not.toBeInTheDocument();
+
+    expandOptions(surface.id);
+
+    const bottomToggle = screen.getByLabelText(`options-toggle-bottom-${surface.id}`);
+    expect(bottomToggle).toBeInTheDocument();
+    expect(bottomToggle).toHaveTextContent('Ukryj opcje');
+    expect(bottomToggle.className).toContain('min-h-11');
+    expect(bottomToggle.className).toContain('w-full');
+
+    // Reuses the exact same toggle handler/state as the top action — no
+    // separate collapse state is introduced.
+    fireEvent.click(bottomToggle);
+    expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText(`options-toggle-bottom-${surface.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
   });
 
   it('collapses the action grid again when tapping Ukryj opcje', async () => {
@@ -682,7 +719,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     expect(screen.getByText('Виды работ и качество')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
-    expect(screen.getByText('Скрыть опции')).toBeInTheDocument();
+    expect(screen.getAllByText('Скрыть опции')).toHaveLength(2);
     expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
   });
 

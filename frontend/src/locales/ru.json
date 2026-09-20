@@ -87,7 +87,9 @@
     "card_nip_label": "NIP:",
     "card_phone_label": "тел.:",
     "card_email_label": "e-mail:",
-    "card_telegram_label": "Telegram:"
+    "card_telegram_label": "Telegram:",
+    "email_copied": "E-mail скопирован",
+    "email_copy_failed": "Не удалось скопировать e-mail"
   },
   "projects": {
     "title": "Объекты",

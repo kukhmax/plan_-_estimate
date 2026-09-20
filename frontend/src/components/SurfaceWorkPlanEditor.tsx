@@ -799,6 +799,19 @@ export function SurfaceWorkPlanEditor({
             )}
           </div>
         )}
+
+        {/* Bottom close mirrors the top action exactly — same handler, no
+            separate state — so a tall editor with several planned works
+            never forces a scroll back to the top to close it. */}
+        <button
+          type="button"
+          aria-label={`close-work-plan-bottom-${surfaceId}`}
+          onClick={onClose}
+          disabled={saving}
+          className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)] font-semibold disabled:opacity-60"
+        >
+          {t.common.close}
+        </button>
         </>
       )}
     </section>

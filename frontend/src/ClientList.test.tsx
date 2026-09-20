@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ClientList } from './components/ClientList';
 import { I18nProvider } from './hooks/useI18n';
 import * as clientsApi from './api/clients';
+import * as clipboardUtil from './utils/clipboard';
 
 vi.mock('./api/clients', () => ({
   fetchClients: vi.fn(),
@@ -11,6 +12,10 @@ vi.mock('./api/clients', () => ({
   restoreClient: vi.fn(),
   fetchClient: vi.fn(),
   updateClient: vi.fn(),
+}));
+
+vi.mock('./utils/clipboard', () => ({
+  copyTextToClipboard: vi.fn(),
 }));
 
 const mockClient = (overrides = {}) => ({
@@ -90,6 +95,17 @@ describe('ClientList component', () => {
     await waitFor(() => {
       expect(screen.getByText('Podaj imię lub nazwisko')).toBeInTheDocument();
     });
+  });
+
+  it('renders the section title with the theme-aware text color, not a hardcoded dark slate class (Stage 10H.1)', async () => {
+    // Regression: a hardcoded `text-slate-900` on page-level (non-card) text
+    // never adapts to Telegram's dark theme, where the page background is
+    // itself dark — the heading became invisible dark-on-dark.
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({ items: [], total: 0 });
+    renderWithI18n(<ClientList />);
+    const heading = await screen.findByText('Klienci');
+    expect(heading.className).toContain('text-[var(--tg-theme-text-color)]');
+    expect(heading.className).not.toContain('text-slate-900');
   });
 });
 
@@ -305,5 +321,77 @@ describe('ClientList — client card contact details', () => {
     expect(screen.getByLabelText('archive-11111111-0000-0000-0000-000000000001')).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('archive-11111111-0000-0000-0000-000000000001'));
     await waitFor(() => expect(clientsApi.archiveClient).toHaveBeenCalledWith('11111111-0000-0000-0000-000000000001'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 10H.1 — actionable client contact interactions
+// ---------------------------------------------------------------------------
+
+describe('ClientList — actionable contact interactions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('renders the phone as a tel: link built from the stored value', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({
+      items: [mockClient({ phone: '+48 500 600 700' })],
+      total: 1,
+    });
+    renderWithI18n(<ClientList />);
+    await waitFor(() => screen.getByText('Jan Kowalski'));
+
+    const link = screen.getByLabelText('call-11111111-0000-0000-0000-000000000001');
+    expect(link.tagName).toBe('A');
+    expect(link).toHaveAttribute('href', 'tel:+48500600700');
+    // Human-readable value is preserved exactly as stored.
+    expect(link).toHaveTextContent('+48 500 600 700');
+  });
+
+  it('renders the Telegram username as a t.me link without a duplicated leading @', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({
+      items: [mockClient({ telegram_username: '@vasiya' })],
+      total: 1,
+    });
+    renderWithI18n(<ClientList />);
+    await waitFor(() => screen.getByText('Jan Kowalski'));
+
+    const link = screen.getByLabelText('open-telegram-11111111-0000-0000-0000-000000000001');
+    expect(link.tagName).toBe('A');
+    expect(link).toHaveAttribute('href', 'https://t.me/vasiya');
+    expect(link).toHaveTextContent('@vasiya');
+  });
+
+  it('tapping the e-mail copies it and shows a localized confirmation, without opening a mail composer', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({
+      items: [mockClient({ email: 'jan@example.pl' })],
+      total: 1,
+    });
+    vi.mocked(clipboardUtil.copyTextToClipboard).mockResolvedValue(true);
+    renderWithI18n(<ClientList />);
+    await waitFor(() => screen.getByText('Jan Kowalski'));
+
+    const button = screen.getByLabelText('copy-email-11111111-0000-0000-0000-000000000001');
+    expect(button.tagName).toBe('BUTTON');
+    fireEvent.click(button);
+
+    await waitFor(() => expect(clipboardUtil.copyTextToClipboard).toHaveBeenCalledWith('jan@example.pl'));
+    expect(await screen.findByText('Skopiowano e-mail')).toBeInTheDocument();
+    // Never a mailto: href / mail composer as the primary action.
+    expect(button).not.toHaveAttribute('href');
+  });
+
+  it('shows a localized failure message when the clipboard copy fails', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({
+      items: [mockClient({ email: 'jan@example.pl' })],
+      total: 1,
+    });
+    vi.mocked(clipboardUtil.copyTextToClipboard).mockResolvedValue(false);
+    renderWithI18n(<ClientList />);
+    await waitFor(() => screen.getByText('Jan Kowalski'));
+
+    fireEvent.click(screen.getByLabelText('copy-email-11111111-0000-0000-0000-000000000001'));
+    expect(await screen.findByText('Nie udało się skopiować e-maila')).toBeInTheDocument();
   });
 });

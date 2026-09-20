@@ -202,6 +202,7 @@ function makeApplyResult(overrides: Partial<RevealWorkApplyResult> = {}): Reveal
 function renderEditor(overrides: Partial<{
   revealTotalLength: string | number | null;
   revealTotalArea: string | number | null;
+  onClose: () => void;
 }> = {}) {
   return render(
     <I18nProvider>
@@ -213,7 +214,7 @@ function renderEditor(overrides: Partial<{
         openingLabel="Okno (Okno łazienkowe)"
         revealTotalLength={overrides.revealTotalLength ?? '4.300'}
         revealTotalArea={overrides.revealTotalArea ?? '1.290'}
-        onClose={vi.fn()}
+        onClose={overrides.onClose ?? vi.fn()}
       />
     </I18nProvider>,
   );
@@ -241,6 +242,20 @@ describe('RevealWorkPlanEditor', () => {
     const geometry = await screen.findByLabelText(`reveal-geometry-${openingId}`);
     expect(geometry.textContent).toContain('4.30');
     expect(geometry.textContent).toContain('1.29');
+  });
+
+  it('renders a bottom close action that reuses the exact same onClose handler as the top action (Stage 10H.1)', async () => {
+    const onClose = vi.fn();
+    renderEditor({ onClose });
+
+    const bottomClose = await screen.findByLabelText(`close-reveal-work-bottom-${openingId}`);
+    expect(bottomClose).toHaveTextContent('Zamknij');
+    expect(bottomClose.className).toContain('w-full');
+
+    fireEvent.click(bottomClose);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // No save is triggered merely by closing — dirty-change contract preserved.
+    expect(revealWorksApi.putRevealWorks).not.toHaveBeenCalled();
   });
 
   it('localizes the reveal length as "mb", never raw "LM" (Stage 10G.4 follow-up)', async () => {

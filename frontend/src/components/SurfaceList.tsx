@@ -427,7 +427,7 @@ export function SurfaceList({
 
   return (
     <section aria-label="surfaces-section" className="w-full mt-5">
-      <h3 className="text-lg font-bold text-slate-900 mb-3">{t.surfaces.title}</h3>
+      <h3 className="text-lg font-bold text-[var(--tg-theme-text-color)] mb-3">{t.surfaces.title}</h3>
 
       {effectiveWallMode === 'RECTANGLE' && hasRoomDimensions && (
         <div className="mb-3">
@@ -860,6 +860,18 @@ export function SurfaceList({
                             onOpeningChanged={handleOpeningChanged}
                           />
                         )}
+
+                        {/* Bottom collapse mirrors the top Opcje toggle so a long
+                            expanded openings panel never forces a scroll back up. */}
+                        <button
+                          type="button"
+                          aria-label={`options-toggle-bottom-${surface.id}`}
+                          aria-expanded={isOptionsOpen}
+                          onClick={() => toggleOptions(surface.id)}
+                          className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
+                        >
+                          {t.surfaces.hide_options}
+                        </button>
                       </>
                     )}
                   </>

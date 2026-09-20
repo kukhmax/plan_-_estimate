@@ -753,14 +753,18 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const regenerationSection = detail.status === 'DRAFT' && (
     <div
       aria-label="estimate-regeneration"
-      className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2"
+      // Collapsed state is a single compact action — the full card chrome
+      // (padding/border/shadow) is reserved for the open panel below, so
+      // three stacked actions don't each cost an extra card's worth of
+      // height (Stage 10H.1 mobile density fix).
+      className={previewOpen ? 'bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2' : ''}
     >
       {!previewOpen ? (
         <button
           type="button"
           aria-label="estimate-check-changes-action"
           onClick={() => void openPreview()}
-          className="w-full min-h-[44px] px-3 text-sm font-medium text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"
+          className="w-full min-h-[44px] px-3 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition"
         >
           {t.estimates.check_changes_action}
         </button>
@@ -921,14 +925,14 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const manualLineSection = detail.status === 'DRAFT' && (
     <div
       aria-label="estimate-manual-line"
-      className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2"
+      className={manualFormOpen ? 'bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2' : ''}
     >
       {!manualFormOpen ? (
         <button
           type="button"
           aria-label="estimate-add-manual-line-action"
           onClick={openManualForm}
-          className="w-full min-h-[44px] px-3 text-sm font-medium text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"
+          className="w-full min-h-[44px] px-3 text-sm font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-xl hover:bg-violet-100 transition"
         >
           {t.estimates.add_manual_line_action}
         </button>
@@ -1050,14 +1054,14 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const finalizeSection = detail.status === 'DRAFT' && (
     <div
       aria-label="estimate-finalize"
-      className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2"
+      className={finalizeConfirmOpen ? 'bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2' : ''}
     >
       {!finalizeConfirmOpen ? (
         <button
           type="button"
           aria-label="estimate-finalize-action"
           onClick={openFinalizeConfirm}
-          className="w-full min-h-[44px] px-3 text-sm font-medium text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50"
+          className="w-full min-h-[44px] px-3 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition"
         >
           {t.estimates.finalize_action}
         </button>
@@ -1458,11 +1462,15 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           const supportsPriceReset = group.origin !== 'MANUAL';
           const optionsOpen = optionsOpenGroupKey === group.key;
           const isGroupBusy = groupActionBusyKey === group.key;
+          // Deterministic per-group-identity tint (Stage 10H.1) — reuses the
+          // same hash-based palette as Surface cards, keyed by the group's
+          // own stable `key`, never the array index.
+          const tint = surfaceCardTint(group.key);
 
           return (
             <div
               key={group.key}
-              className="bg-white border border-slate-200 rounded-2xl shadow-sm p-3 space-y-1.5"
+              className={`${tint.bg} border ${tint.border} rounded-2xl shadow-sm p-3 space-y-1.5`}
             >
               {/* Stage 10G.3A polish — Opcje sits top-right, beside the
                   work title/header, per owner-approved placement. The

@@ -705,6 +705,19 @@ export function RevealWorkPlanEditor({
             )}
           </div>
         )}
+
+        {/* Bottom close mirrors the top action exactly — same handler, no
+            separate state — so a tall editor with several planned works
+            never forces a scroll back to the top to close it. */}
+        <button
+          type="button"
+          aria-label={`close-reveal-work-bottom-${openingId}`}
+          onClick={onClose}
+          disabled={saving}
+          className="w-full min-h-[44px] px-3 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold text-sm disabled:opacity-60"
+        >
+          {t.common.close}
+        </button>
         </>
       )}
     </section>

@@ -264,6 +264,25 @@ describe('ProjectWorkspace', () => {
     expect(screen.getByText('Planowanie')).toBeInTheDocument();
   });
 
+  it('renders the breadcrumb nav and project title with theme-aware colors, not hardcoded dark slate classes (Stage 10H.1)', async () => {
+    // Regression: hardcoded `text-slate-500`/`text-slate-700`/`text-slate-900`
+    // on page-level (non-card) text never adapts to Telegram's dark theme,
+    // where the page background is itself dark — this text became invisible
+    // dark-on-dark in the owner's real Telegram walkthrough.
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByText('Mieszkanie Mokotów')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+
+    const nav = await screen.findByLabelText('hierarchy-navigation');
+    expect(nav.className).toContain('text-[var(--tg-theme-hint-color)]');
+    expect(nav.className).not.toContain('text-slate-500');
+
+    const title = screen.getByRole('heading', { name: project.name });
+    expect(title.className).toContain('text-[var(--tg-theme-text-color)]');
+    expect(title.className).not.toContain('text-slate-900');
+  });
+
   it('creates a project and opens its room view', async () => {
     const created = { ...project, client_id: null, name: 'Nowy obiekt' };
     vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });

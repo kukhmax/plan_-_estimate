@@ -39,6 +39,16 @@ describe('RoomList', () => {
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
   });
 
+  it('renders the section title with the theme-aware text color, not a hardcoded dark slate class (Stage 10H.1)', async () => {
+    // Regression: a hardcoded `text-slate-900` on page-level (non-card) text
+    // never adapts to Telegram's dark theme, where the page background is
+    // itself dark — the heading became invisible dark-on-dark.
+    renderRooms();
+    const heading = await screen.findByText('Pomieszczenia');
+    expect(heading.className).toContain('text-[var(--tg-theme-text-color)]');
+    expect(heading.className).not.toContain('text-slate-900');
+  });
+
   it('renders rooms and opens the selected room', async () => {
     const onOpenRoom = vi.fn();
     renderRooms(onOpenRoom);
@@ -160,6 +170,45 @@ describe('RoomList', () => {
     await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
     expect(screen.getByText(/5\.00 × 4\.90 × 2\.70 m/)).toBeInTheDocument();
     expect(screen.getByText(/53\.46 m²/)).toBeInTheDocument();
+  });
+
+  it('renders backend-computed totals for a CUSTOM room with no L/W/H instead of "not measured" (Stage 10H.1)', async () => {
+    // Regression: a free-form/CUSTOM room has null length/width/height by
+    // design (its geometry comes from wall/area segments, not a formula),
+    // but the card gated its whole calculations summary on those three
+    // fields — so a room with real backend-computed totals still showed
+    // "Brak wprowadzonych wymiarów" (not measured).
+    const customRoom: RoomType = {
+      ...room,
+      length: null,
+      width: null,
+      height: null,
+      calculations: {
+        floor_area: null,
+        ceiling_area: null,
+        total_wall_area: '12.500',
+        wall_area_length: null,
+        wall_area_width: null,
+        perimeter: null,
+        total_deduction_area: null,
+        net_wall_area: null,
+        wall_count: 3,
+      },
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [customRoom], total: 1 });
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
+    expect(screen.queryByText('Brak wprowadzonych wymiarów')).not.toBeInTheDocument();
+    expect(screen.getByText(/12\.50 m²/)).toBeInTheDocument();
+  });
+
+  it('still shows "not measured" for a room with neither L/W/H nor calculations (Stage 10H.1)', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
+    expect(screen.getByText('Brak wprowadzonych wymiarów')).toBeInTheDocument();
   });
 
   it('archives an active room and reloads the list', async () => {

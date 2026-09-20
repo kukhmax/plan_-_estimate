@@ -214,6 +214,33 @@ describe('SurfaceWorkPlanEditor', () => {
     expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
   });
 
+  it('renders a bottom close action that reuses the exact same onClose handler as the top action (Stage 10H.1)', async () => {
+    const onClose = vi.fn();
+    render(
+      <I18nProvider>
+        <SurfaceWorkPlanEditor
+          projectId={projectId}
+          roomId={roomId}
+          surfaceId={surfaceId}
+          surfaceName="Ściana północna"
+          isWall={true}
+          otherActiveWallCount={3}
+          onClose={onClose}
+        />
+      </I18nProvider>,
+    );
+
+    const bottomClose = await screen.findByLabelText(`close-work-plan-bottom-${surfaceId}`);
+    expect(bottomClose).toHaveTextContent('Zamknij');
+    expect(bottomClose.className).toContain('w-full');
+    expect(bottomClose.className).toContain('min-h-11');
+
+    fireEvent.click(bottomClose);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // No save is triggered merely by closing — dirty-change contract preserved.
+    expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
+  });
+
   it('treats only the exact no-plan 404 as an editable empty state without creating a plan', async () => {
     vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(
       new ApiError('Surface work plan not found', 404),

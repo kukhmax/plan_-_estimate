@@ -206,7 +206,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
   return (
     <section aria-label="rooms-section" className="w-full mt-5">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <h3 className="text-lg font-bold text-slate-900">{t.rooms.title}</h3>
+        <h3 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{t.rooms.title}</h3>
         <button
           type="button"
           aria-label="add-room"
@@ -381,9 +381,13 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
       {!loading && !error && rooms.length > 0 && (
         <ul aria-label="rooms-list" className="space-y-2">
           {rooms.map((room) => {
-            const hasDimensions = room.length !== null && room.length !== undefined &&
+            const hasFormulaDimensions = room.length !== null && room.length !== undefined &&
                                   room.width !== null && room.width !== undefined &&
                                   room.height !== null && room.height !== undefined;
+            // A CUSTOM/free-form room has no L/W/H but can still have backend-
+            // computed totals from its wall/area segments — the card must not
+            // claim "not measured" once that data exists (Stage 10H.1).
+            const hasCalculations = !!room.calculations;
 
             return (
               <li
@@ -400,14 +404,16 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   )}
                 </div>
 
-                {hasDimensions ? (
+                {hasFormulaDimensions || hasCalculations ? (
                   <p className="text-xs text-slate-600 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
-                    <span className="min-w-0">
-                      {t.rooms.dimensions}: <strong>{formatMetric(room.length)} × {formatMetric(room.width)} × {formatMetric(room.height)} {t.common.unit_m}</strong>
-                    </span>
+                    {hasFormulaDimensions && (
+                      <span className="min-w-0">
+                        {t.rooms.dimensions}: <strong>{formatMetric(room.length)} × {formatMetric(room.width)} × {formatMetric(room.height)} {t.common.unit_m}</strong>
+                      </span>
+                    )}
                     {room.calculations && (
                       <>
-                        <span>•</span>
+                        {hasFormulaDimensions && <span>•</span>}
                         <span>
                           {t.rooms.total_wall_area}: <strong className="text-slate-800">{formatMetric(room.calculations.total_wall_area)} {t.common.unit_m2}</strong>
                         </span>
