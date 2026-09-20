@@ -10,7 +10,7 @@ Surface -> Room -> Project -> Owner, so no tenancy columns exist on the plan.
 import uuid
 from collections import Counter
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -133,6 +133,63 @@ class SurfaceWorkPlanService:
                     position=position,
                 )
             )
+
+    async def lock_plan(self, surface_id: uuid.UUID) -> SurfaceWorkPlan | None:
+        """Acquire a row-level exclusive lock on the surface's plan, if any.
+
+        Used by Stage 11 recommendation acceptance to serialize concurrent
+        appends to the same plan before computing the next occurrence's
+        position (see append_one_planned_work_no_commit). Mirrors the
+        existing EstimateService._lock_project row-lock precedent. Returns
+        None (never creates) when the surface has no plan yet -- callers
+        must not invent one.
+        """
+        stmt = (
+            select(SurfaceWorkPlan)
+            .where(SurfaceWorkPlan.surface_id == surface_id)
+            .with_for_update()
+        )
+        return (await self.db.execute(stmt)).scalar_one_or_none()
+
+    async def append_one_planned_work_no_commit(
+        self,
+        plan: SurfaceWorkPlan,
+        price_item: PriceItem,
+    ) -> SurfacePlannedWork:
+        """Append exactly one new occurrence, additive-only, never committing.
+
+        Unlike set_plan/replace_planned_works/apply_to_room_walls, this never
+        calls _rewrite_works: no existing row is deleted, renumbered, or
+        otherwise touched, and substrate/quality_target are left exactly as
+        they are. The caller MUST already hold plan's row lock (lock_plan
+        above) before calling this, so the MAX(position) read below is safe
+        under concurrent appends to the same plan. Duplicates are allowed by
+        design (Stage 10 invariant) -- this never checks whether price_item
+        already appears in the plan. The caller owns the transaction: this
+        method only adds and flushes, it never commits.
+        """
+        if price_item.is_archived:
+            raise SurfaceWorkPlanValidationError(
+                f"Archived price item {price_item.id} cannot be selected "
+                "for a work plan"
+            )
+        max_position = (
+            await self.db.execute(
+                select(func.max(SurfacePlannedWork.position)).where(
+                    SurfacePlannedWork.work_plan_id == plan.id
+                )
+            )
+        ).scalar_one()
+        next_position = 0 if max_position is None else max_position + 1
+
+        work = SurfacePlannedWork(
+            work_plan_id=plan.id,
+            price_item_id=price_item.id,
+            position=next_position,
+        )
+        self.db.add(work)
+        await self.db.flush()
+        return work
 
     async def _fetch_plan(self, surface_id: uuid.UUID) -> SurfaceWorkPlan | None:
         stmt = (

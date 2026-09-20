@@ -17,16 +17,21 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import (
+    PriceItemNotFoundError,
     ProjectNotFoundError,
     RoomNotFoundError,
+    SurfaceWorkPlanNotFoundError,
+    SurfaceWorkPlanValidationError,
     WorkRecommendationNotFoundError,
     WorkRecommendationStateError,
+    WorkRecommendationTargetError,
 )
 from app.domain.rules.risk_rules import compute_source_signature, derive_target_type
 from app.domain.services.canonical_planes import find_active_plane_surface
+from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.models.area_segment import AreaPlane
 from app.models.inspection import Inspection, InspectionFinding, InspectionStatus
-from app.models.price_item import PriceItem
+from app.models.price_item import PriceCategory, PriceItem
 from app.models.project import Project
 from app.models.risk import Risk
 from app.models.room import Room
@@ -122,6 +127,34 @@ class WorkRecommendationService:
                 Room.project_id == project_id,
                 Project.owner_id == owner_id,
             )
+        )
+        recommendation = (await self.db.execute(stmt)).scalar_one_or_none()
+        if recommendation is None:
+            raise WorkRecommendationNotFoundError(
+                f"WorkRecommendation {recommendation_id} not found"
+            )
+        return recommendation
+
+    async def _get_owned_recommendation_for_update(
+        self, project_id: uuid.UUID, recommendation_id: uuid.UUID, owner_id: uuid.UUID
+    ) -> WorkRecommendation:
+        """Same ownership resolution as `_get_owned_recommendation`, but
+        acquires a PostgreSQL row lock (`SELECT ... FOR UPDATE OF
+        work_recommendations`) on the recommendation itself -- never on the
+        joined Room/Project rows -- so two simultaneous accept requests for
+        the SAME recommendation cannot both observe PENDING and append
+        twice. Mirrors the existing EstimateService._lock_project precedent.
+        """
+        stmt = (
+            select(WorkRecommendation)
+            .join(Room, WorkRecommendation.room_id == Room.id)
+            .join(Project, Room.project_id == Project.id)
+            .where(
+                WorkRecommendation.id == recommendation_id,
+                Room.project_id == project_id,
+                Project.owner_id == owner_id,
+            )
+            .with_for_update(of=WorkRecommendation)
         )
         recommendation = (await self.db.execute(stmt)).scalar_one_or_none()
         if recommendation is None:
@@ -460,6 +493,22 @@ class WorkRecommendationService:
         )
         return items, len(items)
 
+    async def get_price_item_by_id(
+        self, owner_id: uuid.UUID, price_item_id: uuid.UUID
+    ) -> PriceItem | None:
+        """Owner-scoped lookup by id -- used only to render the accept
+        response's snapshot preview (resolved_price_item_id), never to
+        resolve a recommendation's semantic code (see
+        resolve_current_price_items for that).
+        """
+        return (
+            await self.db.execute(
+                select(PriceItem).where(
+                    PriceItem.id == price_item_id, PriceItem.owner_id == owner_id
+                )
+            )
+        ).scalar_one_or_none()
+
     async def resolve_current_price_items(
         self, owner_id: uuid.UUID, recommendations: list[WorkRecommendation]
     ) -> dict[str, PriceItem]:
@@ -520,4 +569,131 @@ class WorkRecommendationService:
         recommendation.status = WorkRecommendationStatus.PENDING
         recommendation.dismissed_at = None
         await self.db.commit()
+        return recommendation
+
+    # -- Accept (Stage 11C.1) -----------------------------------------------------
+
+    async def _resolve_accept_price_item(
+        self,
+        owner_id: uuid.UUID,
+        recommendation: WorkRecommendation,
+        explicit_price_item_id: uuid.UUID | None,
+    ) -> PriceItem:
+        """Resolve the PriceItem to append, fresh, at accept time.
+
+        No explicit id -> semantic resolution by (owner_id, recommended_
+        work_code). Explicit id -> owner-validated manual override/fallback,
+        which may legitimately have a different code than
+        recommended_work_code (recommended_work_code is never overwritten).
+        Never reads market/reference price; never substitutes another
+        owner's item.
+        """
+        if explicit_price_item_id is not None:
+            item = (
+                await self.db.execute(
+                    select(PriceItem).where(
+                        PriceItem.id == explicit_price_item_id,
+                        PriceItem.owner_id == owner_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if item is None:
+                raise PriceItemNotFoundError(
+                    f"Price item {explicit_price_item_id} not found"
+                )
+        else:
+            item = (
+                await self.db.execute(
+                    select(PriceItem).where(
+                        PriceItem.owner_id == owner_id,
+                        PriceItem.code == recommendation.recommended_work_code,
+                    )
+                )
+            ).scalar_one_or_none()
+            if item is None:
+                raise PriceItemNotFoundError(
+                    "No price item with code "
+                    f"{recommendation.recommended_work_code!r} found for the "
+                    "current owner"
+                )
+
+        # Stage-11-only guard: not a Stage 10 SurfaceWorkPlan invariant, and
+        # must never affect the existing manual Work Plan picker (which
+        # deliberately has no category restriction). Opening/reveal
+        # recommendation acceptance is explicitly deferred (D1), so a REVEAL
+        # item can never be a valid Surface-recommendation resolution.
+        if item.category == PriceCategory.REVEAL:
+            raise SurfaceWorkPlanValidationError(
+                f"Price item {item.id} is a REVEAL-category item; Stage 11 "
+                "surface recommendation acceptance does not support REVEAL "
+                "items"
+            )
+        return item
+
+    async def accept_recommendation(
+        self,
+        project_id: uuid.UUID,
+        recommendation_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        *,
+        price_item_id: uuid.UUID | None = None,
+    ) -> WorkRecommendation:
+        """Explicit, atomic acceptance.
+
+        append exactly one SurfacePlannedWork occurrence + recommendation
+        PENDING -> ACCEPTED + resolved_price_item_id + accepted_at, all in
+        ONE commit. Never mutates Estimate/EstimateLine, never auto-creates
+        a SurfaceWorkPlan, never reactivates is_active (only evaluation
+        does that), and never renumbers or deletes existing planned works.
+
+        Lock ordering is deterministic and must never be inverted:
+        1. WorkRecommendation row (same-recommendation idempotency)
+        2. SurfaceWorkPlan row (same-plan position-assignment safety)
+        """
+        recommendation = await self._get_owned_recommendation_for_update(
+            project_id, recommendation_id, owner_id
+        )
+
+        if recommendation.status == WorkRecommendationStatus.ACCEPTED:
+            # Idempotent: the original acceptance snapshot wins, untouched,
+            # even if this retry supplies a different manual price_item_id.
+            return recommendation
+        if recommendation.status == WorkRecommendationStatus.DISMISSED:
+            raise WorkRecommendationStateError(
+                "Cannot accept a dismissed recommendation; reconsider it first"
+            )
+
+        if (
+            recommendation.target_kind == WorkRecommendationTargetKind.ROOM
+            or recommendation.surface_id is None
+        ):
+            raise WorkRecommendationTargetError(
+                "ROOM-level recommendations are advisory-only and cannot be "
+                "accepted directly into a Surface work plan"
+            )
+
+        work_plan_service = SurfaceWorkPlanService(self.db)
+        plan = await work_plan_service.lock_plan(recommendation.surface_id)
+        if plan is None:
+            raise SurfaceWorkPlanNotFoundError(
+                f"Surface {recommendation.surface_id} has no work plan yet"
+            )
+
+        selected_item = await self._resolve_accept_price_item(
+            owner_id, recommendation, price_item_id
+        )
+
+        # PENDING, active or inactive/resolved, is accepted as-is (settled
+        # in docs/stage-11-architecture.md Sec 6) -- acceptance never
+        # touches is_active/resolved_at; only evaluation does.
+        await work_plan_service.append_one_planned_work_no_commit(
+            plan, selected_item
+        )
+
+        recommendation.status = WorkRecommendationStatus.ACCEPTED
+        recommendation.resolved_price_item_id = selected_item.id
+        recommendation.accepted_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(recommendation)
         return recommendation

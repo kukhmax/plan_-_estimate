@@ -4,15 +4,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_current_user, get_work_recommendation_service
 from app.domain.exceptions import (
+    PriceItemNotFoundError,
     ProjectNotFoundError,
     RoomNotFoundError,
+    SurfaceWorkPlanNotFoundError,
+    SurfaceWorkPlanValidationError,
     WorkRecommendationNotFoundError,
     WorkRecommendationStateError,
+    WorkRecommendationTargetError,
 )
 from app.domain.services.work_recommendation_service import WorkRecommendationService
 from app.models.user import User
 from app.models.work_recommendation import WorkRecommendation
 from app.schemas.work_recommendation import (
+    WorkRecommendationAcceptRequest,
     WorkRecommendationEvaluateResponse,
     WorkRecommendationListResponse,
     WorkRecommendationRead,
@@ -128,6 +133,64 @@ async def dismiss_work_recommendation(
             detail=str(exc),
         )
     await _attach_current_price_items(service, current_user.id, [recommendation])
+    return WorkRecommendationRead.model_validate(recommendation)
+
+
+@router.post(
+    "/projects/{project_id}/work-recommendations/{recommendation_id}/accept",
+    response_model=WorkRecommendationRead,
+    status_code=status.HTTP_200_OK,
+    summary="Accept a PENDING work recommendation into its target Surface work plan (idempotent)",
+)
+async def accept_work_recommendation(
+    project_id: uuid.UUID,
+    recommendation_id: uuid.UUID,
+    payload: WorkRecommendationAcceptRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    service: WorkRecommendationService = Depends(get_work_recommendation_service),
+) -> WorkRecommendationRead:
+    price_item_id = payload.price_item_id if payload is not None else None
+    try:
+        recommendation = await service.accept_recommendation(
+            project_id,
+            recommendation_id,
+            owner_id=current_user.id,
+            price_item_id=price_item_id,
+        )
+    except (ProjectNotFoundError, WorkRecommendationNotFoundError):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Work recommendation not found",
+        )
+    except SurfaceWorkPlanNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Target surface has no work plan yet",
+        )
+    except PriceItemNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Price item not found",
+        )
+    except WorkRecommendationStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        )
+    except (WorkRecommendationTargetError, SurfaceWorkPlanValidationError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        )
+    # ACCEPTED: show the item actually snapshotted at acceptance
+    # (resolved_price_item_id), never a re-resolution by recommended_work_code
+    # -- those can legitimately differ after a manual fallback override.
+    if recommendation.resolved_price_item_id is not None:
+        recommendation.current_price_item = await service.get_price_item_by_id(
+            current_user.id, recommendation.resolved_price_item_id
+        )
+    else:
+        await _attach_current_price_items(service, current_user.id, [recommendation])
     return WorkRecommendationRead.model_validate(recommendation)
 
 

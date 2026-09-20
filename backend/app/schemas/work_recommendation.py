@@ -13,7 +13,7 @@ substituted here or anywhere else.
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.work_recommendation import (
     WorkRecommendationStatus,
@@ -44,6 +44,20 @@ class WorkRecommendationRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     current_price_item: SurfacePriceItemSummaryRead | None = None
+
+
+class WorkRecommendationAcceptRequest(BaseModel):
+    """Optional manual PriceItem override/fallback for acceptance.
+
+    `price_item_id` omitted/null -> resolve the owner's current PriceItem by
+    `recommended_work_code`. Supplied -> explicit owner override; it may
+    legitimately have a different `code` than `recommended_work_code` (that
+    field is never overwritten -- it stays the original semantic snapshot).
+    """
+
+    price_item_id: uuid.UUID | None = Field(default=None)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class WorkRecommendationListResponse(BaseModel):

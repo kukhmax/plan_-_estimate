@@ -284,8 +284,10 @@ action for ROOM cards.
 **PriceItem resolution** (§ per D3):
 1. If the request supplies `price_item_id` explicitly, use it (still subject to the checks below).
 2. Otherwise, resolve `owner_id + recommended_work_code` against `PriceItem.code` (unique per owner).
-3. No matching `PriceItem` → **422**, `code: RECOMMENDATION_UNRESOLVED` — no silent substitution, no
-   fallback to a market/reference price under any circumstances.
+3. No matching `PriceItem` (missing semantic code, or a supplied `price_item_id` that doesn't exist or
+   belongs to another owner) → **404**, reusing the existing `PriceItemNotFoundError` verbatim (corrected
+   here from an earlier, invented `422 RECOMMENDATION_UNRESOLVED` draft that didn't reuse an existing
+   exception) — no silent substitution, no fallback to a market/reference price under any circumstances.
 4. Matching `PriceItem` is `is_archived = True` → **422** — the existing Stage 10 "archived item cannot be a
    *new* addition" guard applies unchanged; the response signals this distinctly from "unresolved" so a
    future UI can offer "restore it" vs. "pick a different item."
@@ -294,27 +296,52 @@ action for ROOM cards.
 6. `price = 0.00` → treated as any other valid explicit price; no special handling.
 
 **Target existence**: the target Surface must already have a `SurfaceWorkPlan` (i.e., the owner has already
-set a substrate). If none exists yet, accept fails with **409** and an actionable message — the command
-never invents a `substrate`, since that is a required, owner-declared field Stage 11 has no authority to
-guess (matches D5's "must not... apply automatically").
+set a substrate). If none exists yet, accept fails with **404** (reusing the existing `SurfaceWorkPlanNotFoundError`
+verbatim — the same exception and HTTP mapping `work_plans.py`'s own `apply_to_room_walls` endpoint already
+uses for an identical "no plan yet" case; corrected here from an earlier, factually mismatched **409** draft)
+— the command never invents a `substrate`, since that is a required, owner-declared field Stage 11 has no
+authority to guess (matches D5's "must not... apply automatically").
 
-**Mutation**: exactly one new planned-work occurrence is appended to the *current* ordered list (read the
-live plan, append the resolved `PriceItem`, reuse the *validation and row-rewrite* logic that
-`replace_planned_works` already implements — `_resolve_owned_items` + `_rewrite_works`,
-`work_plan_service.py:72-135`) — regardless of how many times that `PriceItem` already appears in the plan.
-No global deduplication, ever (Stage 10 duplicate semantics stay fully valid, per D5).
+**Mutation (as implemented, 11C.1)**: exactly one new planned-work occurrence is appended via a new,
+additive-only primitive — `SurfaceWorkPlanService.append_one_planned_work_no_commit(plan, price_item)` —
+which never calls `_rewrite_works` and never deletes/renumbers any existing row (unlike `set_plan`/
+`replace_planned_works`/`apply_to_room_walls`, which all still fully replace the child rows exactly as
+before — that full-replace behavior is completely unchanged by 11C). The new primitive reuses only the
+archived-item check's *outcome* (an item being newly added can never be archived), not `_resolve_owned_items`
+itself (that helper is list/Counter-oriented for a full replacement batch; a single additive append needed
+its own equally strict but simpler check). No global deduplication, ever (Stage 10 duplicate semantics stay
+fully valid, per D5) — two different recommendations may each append the same `PriceItem` independently.
 
-**Transaction boundary — verified implementation constraint for 11C**: `replace_planned_works` and
-`set_plan` both call `await self.db.commit()` **internally** (`work_plan_service.py:205`, `:236`) as their
-final step. The accept command cannot simply call `replace_planned_works` and then separately commit the
-`WorkRecommendation` transition — that would already be **two commits**, not one atomic transaction; a
-crash between them would leave the WorkPlan mutated but the recommendation still `PENDING` (or vice versa
-if the ordering were reversed), which D5 explicitly forbids ("must succeed or fail atomically"). **11C must
-add a transaction-safe internal primitive** — e.g. a variant of the existing validate-and-rewrite logic that
-stops short of calling `commit()`, callable from a single outer transaction that also updates the
-`WorkRecommendation` row and commits once. This is **not implemented in 11B.0** (no application code
-changes in this sub-stage); it is recorded here so 11C's implementation does not silently reuse
-`replace_planned_works` verbatim and reintroduce a two-commit race.
+**Transaction boundary and locking (as implemented, 11C.1)**: `set_plan`/`replace_planned_works`/
+`apply_to_room_walls` still each call `await self.db.commit()` internally, exactly as before — the accept
+command never calls any of them. Instead, `WorkRecommendationService.accept_recommendation` performs the
+entire flow (lock recommendation → validate status/target → lock plan → resolve/validate PriceItem → append
+one work, flush-only → update recommendation snapshot) and calls `await self.db.commit()` **exactly once**,
+at the very end. Two `SELECT ... FOR UPDATE` row locks are acquired, in this fixed, never-inverted order:
+1. **`WorkRecommendation` row** (`SELECT ... FOR UPDATE OF work_recommendations`) — acquired first, and only
+   on that one table even though the ownership query joins `Room`/`Project`. Protects same-recommendation
+   idempotency: two simultaneous accept requests for the same recommendation cannot both observe `PENDING`
+   and both append: the loser blocks until the winner commits, then re-reads `status = ACCEPTED` and takes
+   the idempotent no-op path. Verified against the real local PostgreSQL instance with two genuinely
+   concurrent connections (not just reasoned about) — the second request's lock acquisition measurably
+   blocked until the first committed, and exactly one `SurfacePlannedWork` row resulted.
+2. **`SurfaceWorkPlan` row** (`SELECT ... FOR UPDATE`, via the new `SurfaceWorkPlanService.lock_plan`) —
+   acquired second, only after the recommendation is confirmed actionable. Protects a *different* invariant:
+   two *different* recommendations targeting the *same* plan, accepted concurrently, must never compute the
+   same next `position` (the DB's `UniqueConstraint(work_plan_id, position)` is the last-resort backstop;
+   this lock prevents the race from ever reaching it in the normal case).
+Both locks mirror the exact, already-accepted `EstimateService._lock_project` precedent (`SELECT ...
+FOR UPDATE` to serialize a specific row's concurrent writers) rather than inventing a new mechanism.
+
+**REVEAL-category guard (Stage-11-acceptance-specific, not a Stage 10 invariant)**: if the resolved (semantic
+or manual-fallback) `PriceItem.category == REVEAL`, acceptance is rejected — **422**. This check lives
+entirely inside `WorkRecommendationService._resolve_accept_price_item`, never inside
+`SurfaceWorkPlanService`. The existing, deliberately permissive Stage 10 manual Work Plan picker
+(`set_plan`/`replace_planned_works`, used by `SurfaceWorkPlanEditor.tsx`) has no category restriction at
+all and is **unchanged** — an owner can still manually add a REVEAL item to a Surface plan through the
+existing picker exactly as before; only the *automated, recommendation-driven* acceptance path introduced
+by Stage 11 rejects it, because Opening/reveal recommendation acceptance is explicitly deferred (D1) and a
+REVEAL item's pricing/quantity semantics do not match a Surface's area-based quantity derivation.
 
 **No Estimate interaction of any kind** (§8) — the accept command never touches `Estimate`/`EstimateLine`.
 

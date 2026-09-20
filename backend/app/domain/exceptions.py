@@ -155,3 +155,7 @@ class WorkRecommendationNotFoundError(Exception):
 
 class WorkRecommendationStateError(Exception):
     """Raised when an operation is invalid for the current recommendation status."""
+
+
+class WorkRecommendationTargetError(Exception):
+    """Raised when a recommendation's target is not actionable (e.g. ROOM advisory-only)."""
