@@ -613,10 +613,17 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
         <>
           <article aria-label="project-detail" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
+              {/* This card is an intentionally always-white surface (never
+                  theme-aware) — its value text needs an explicit dark
+                  color. Without one it silently inherits `body`'s
+                  Telegram-theme-driven color, which is light in dark
+                  theme and becomes invisible on this white background
+                  (Stage 10H.2). The `dt` labels already had an explicit
+                  color and were never affected. */}
               <dl className="space-y-1 text-sm min-w-0">
-                <div><dt className="inline text-slate-500">{t.projects.address}: </dt><dd className="inline font-medium">{selectedProject.address}, {selectedProject.postal_code} {selectedProject.city}</dd></div>
-                <div><dt className="inline text-slate-500">{t.projects.status}: </dt><dd className="inline font-medium">{statusLabel(selectedProject.status)}</dd></div>
-                <div><dt className="inline text-slate-500">{t.projects.client}: </dt><dd className="inline font-medium">{assignedClientName(selectedProject)}</dd></div>
+                <div><dt className="inline text-slate-500">{t.projects.address}: </dt><dd className="inline font-medium text-slate-900">{selectedProject.address}, {selectedProject.postal_code} {selectedProject.city}</dd></div>
+                <div><dt className="inline text-slate-500">{t.projects.status}: </dt><dd className="inline font-medium text-slate-900">{statusLabel(selectedProject.status)}</dd></div>
+                <div><dt className="inline text-slate-500">{t.projects.client}: </dt><dd className="inline font-medium text-slate-900">{assignedClientName(selectedProject)}</dd></div>
               </dl>
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 {selectedProject.is_archived && (

@@ -283,6 +283,33 @@ describe('ProjectWorkspace', () => {
     expect(title.className).not.toContain('text-slate-900');
   });
 
+  it('keeps the project-detail white card value text an explicit dark color, never a theme variable (Stage 10H.2)', async () => {
+    // Regression: the bare-page breadcrumb/title correctly use Telegram
+    // theme variables (see the previous test), but this card is a fixed
+    // white surface regardless of theme. Its `dd` values previously had NO
+    // explicit color at all, so they silently inherited `body`'s
+    // theme-driven color — light/near-white in Telegram dark theme —
+    // becoming invisible on this always-white card. A theme variable would
+    // be equally wrong here: it must stay an explicit dark color in both
+    // themes, unlike the page-level text above.
+    renderWorkspace();
+
+    await waitFor(() => expect(screen.getByText('Mieszkanie Mokotów')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+
+    const card = await screen.findByLabelText('project-detail');
+    expect(card.className).toContain('bg-white');
+
+    const addressValue = within(card).getByText(/ul\. Dobra 10/);
+    const statusValue = within(card).getByText('Planowanie');
+    const clientValue = within(card).getByText(/Jan Kowalski/);
+
+    for (const value of [addressValue, statusValue, clientValue]) {
+      expect(value.className).toContain('text-slate-900');
+      expect(value.className).not.toContain('var(--tg-theme');
+    }
+  });
+
   it('creates a project and opens its room view', async () => {
     const created = { ...project, client_id: null, name: 'Nowy obiekt' };
     vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });

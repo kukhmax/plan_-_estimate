@@ -211,6 +211,94 @@ describe('RoomList', () => {
     expect(screen.getByText('Brak wprowadzonych wymiarów')).toBeInTheDocument();
   });
 
+  it('renders floor, ceiling, and wall totals together for a CUSTOM room (Stage 10H.2)', async () => {
+    // Regression: the room-card summary only ever rendered total_wall_area,
+    // never floor_area/ceiling_area, even when the backend already provides
+    // them (e.g. from FLOOR/CEILING area segments on a CUSTOM room).
+    const customRoom: RoomType = {
+      ...room,
+      length: null,
+      width: null,
+      height: null,
+      calculations: {
+        floor_area: '6.000',
+        ceiling_area: '6.000',
+        total_wall_area: '30.580',
+        wall_area_length: null,
+        wall_area_width: null,
+        perimeter: null,
+        total_deduction_area: null,
+        net_wall_area: null,
+      },
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [customRoom], total: 1 });
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
+    expect(screen.queryByText('Brak wprowadzonych wymiarów')).not.toBeInTheDocument();
+    expect(screen.getByText(/Powierzchnia podłogi/)).toBeInTheDocument();
+    expect(screen.getByText(/Powierzchnia sufitu/)).toBeInTheDocument();
+    expect(screen.getByText(/Powierzchnia ścian \(brutto\)/)).toBeInTheDocument();
+    expect(screen.getAllByText(/6\.00 m²/)).toHaveLength(2);
+    expect(screen.getByText(/30\.58 m²/)).toBeInTheDocument();
+  });
+
+  it('never fabricates a "0" for a calculated value that is genuinely null — the row is simply omitted (Stage 10H.2)', async () => {
+    const customRoom: RoomType = {
+      ...room,
+      length: null,
+      width: null,
+      height: null,
+      calculations: {
+        floor_area: null,
+        ceiling_area: null,
+        total_wall_area: '30.580',
+        wall_area_length: null,
+        wall_area_width: null,
+        perimeter: null,
+        total_deduction_area: null,
+        net_wall_area: null,
+      },
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [customRoom], total: 1 });
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
+    expect(screen.queryByText(/Powierzchnia podłogi/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Powierzchnia sufitu/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0\.00 m²/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Powierzchnia ścian \(brutto\)/)).toBeInTheDocument();
+  });
+
+  it('still renders L × W × H dimensions alongside floor/ceiling/wall totals for a RECTANGLE room (Stage 10H.2)', async () => {
+    const measuredRoom: RoomType = {
+      ...room,
+      length: 3,
+      width: 2,
+      height: 2.5,
+      calculations: {
+        floor_area: '6.000',
+        ceiling_area: '6.000',
+        total_wall_area: '25.000',
+        wall_area_length: '10.000',
+        wall_area_width: '25.000',
+        perimeter: '10.000',
+        total_deduction_area: null,
+        net_wall_area: null,
+      },
+    };
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
+    renderRooms();
+
+    await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
+    expect(screen.getByText(/3\.00 × 2\.00 × 2\.50 m/)).toBeInTheDocument();
+    expect(screen.getByText(/Powierzchnia podłogi/)).toBeInTheDocument();
+    expect(screen.getByText(/Powierzchnia sufitu/)).toBeInTheDocument();
+    expect(screen.getByText(/Powierzchnia ścian \(brutto\)/)).toBeInTheDocument();
+    expect(screen.getAllByText(/6\.00 m²/)).toHaveLength(2);
+    expect(screen.getByText(/25\.00 m²/)).toBeInTheDocument();
+  });
+
   it('archives an active room and reloads the list', async () => {
     vi.mocked(roomsApi.archiveRoom).mockResolvedValue({ ...room, is_archived: true });
     renderRooms();

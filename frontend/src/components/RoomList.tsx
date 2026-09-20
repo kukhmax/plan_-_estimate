@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, ReactNode, useCallback, useEffect, useState } from 'react';
 import {
   archiveRoom,
   createRoom,
@@ -384,10 +384,47 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
             const hasFormulaDimensions = room.length !== null && room.length !== undefined &&
                                   room.width !== null && room.width !== undefined &&
                                   room.height !== null && room.height !== undefined;
-            // A CUSTOM/free-form room has no L/W/H but can still have backend-
-            // computed totals from its wall/area segments — the card must not
-            // claim "not measured" once that data exists (Stage 10H.1).
-            const hasCalculations = !!room.calculations;
+
+            // A CUSTOM/free-form room has no L/W/H but can still have
+            // backend-authoritative floor/ceiling/wall totals from its area
+            // segments — the card shows whichever of these actually exist,
+            // for both RECTANGLE and CUSTOM rooms, and never fabricates a
+            // value (or a "0") for one that is genuinely null (Stage 10H.2).
+            const summaryParts: { key: string; node: ReactNode }[] = [];
+            if (hasFormulaDimensions) {
+              summaryParts.push({
+                key: 'dimensions',
+                node: (
+                  <span className="min-w-0">
+                    {t.rooms.dimensions}: <strong>{formatMetric(room.length)} × {formatMetric(room.width)} × {formatMetric(room.height)} {t.common.unit_m}</strong>
+                  </span>
+                ),
+              });
+            }
+            if (room.calculations?.floor_area != null) {
+              summaryParts.push({
+                key: 'floor',
+                node: (
+                  <span>{t.rooms.floor_area}: <strong className="text-slate-800">{formatMetric(room.calculations.floor_area)} {t.common.unit_m2}</strong></span>
+                ),
+              });
+            }
+            if (room.calculations?.ceiling_area != null) {
+              summaryParts.push({
+                key: 'ceiling',
+                node: (
+                  <span>{t.rooms.ceiling_area}: <strong className="text-slate-800">{formatMetric(room.calculations.ceiling_area)} {t.common.unit_m2}</strong></span>
+                ),
+              });
+            }
+            if (room.calculations?.total_wall_area != null) {
+              summaryParts.push({
+                key: 'walls',
+                node: (
+                  <span>{t.rooms.total_wall_area}: <strong className="text-slate-800">{formatMetric(room.calculations.total_wall_area)} {t.common.unit_m2}</strong></span>
+                ),
+              });
+            }
 
             return (
               <li
@@ -404,21 +441,14 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   )}
                 </div>
 
-                {hasFormulaDimensions || hasCalculations ? (
+                {summaryParts.length > 0 ? (
                   <p className="text-xs text-slate-600 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
-                    {hasFormulaDimensions && (
-                      <span className="min-w-0">
-                        {t.rooms.dimensions}: <strong>{formatMetric(room.length)} × {formatMetric(room.width)} × {formatMetric(room.height)} {t.common.unit_m}</strong>
+                    {summaryParts.map((part, i) => (
+                      <span key={part.key} className="flex items-center gap-x-1.5 min-w-0">
+                        {i > 0 && <span aria-hidden="true">•</span>}
+                        {part.node}
                       </span>
-                    )}
-                    {room.calculations && (
-                      <>
-                        {hasFormulaDimensions && <span>•</span>}
-                        <span>
-                          {t.rooms.total_wall_area}: <strong className="text-slate-800">{formatMetric(room.calculations.total_wall_area)} {t.common.unit_m2}</strong>
-                        </span>
-                      </>
-                    )}
+                    ))}
                   </p>
                 ) : (
                   <p className="text-xs text-slate-400 italic">
