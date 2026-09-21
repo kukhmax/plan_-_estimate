@@ -1,8 +1,16 @@
-"""Estimate and EstimateLine entities (Stage 10D).
+"""Estimate and EstimateLine entities (Stage 10D / 12E).
 
 An Estimate is a versioned, project-level commercial document. Each line is a
 snapshot — the Price Book, geometry, and reveal geometry can change after line
 creation without affecting the line. FINAL/ACCEPTED documents are immutable.
+
+Stage 12E adds two nullable snapshot columns for planned-work coefficient
+pricing: `base_unit_price` (PriceItem.price captured at generation time,
+before coefficient adjustment) and `coefficient_snapshot` (the immutable
+selected-coefficient configuration used for that generated line). Both stay
+NULL for lines never touched by 12E-aware generation/regeneration (legacy
+rows, MANUAL lines, PRICE_BOOK lines) -- never fabricated. `unit_price` keeps
+its existing meaning unchanged: the effective, commercially-used price.
 """
 import enum
 import uuid
@@ -21,10 +29,17 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import JSON as GenericJSON
 
 from app.core.database import Base
 from app.models.price_item import PriceScope, PriceUnit
+
+# JSONB on PostgreSQL (production), plain JSON on SQLite (tests) -- the
+# repository's first JSON column, so no prior convention to match beyond the
+# existing Uuid-model/postgresql.UUID-migration split used for every FK.
+_JSONVariant = JSONB().with_variant(GenericJSON(), "sqlite")
 
 
 class EstimateStatus(str, enum.Enum):
@@ -213,10 +228,40 @@ class EstimateLine(Base):
     )
 
     # Price snapshot
+    base_unit_price: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2),
+        nullable=True,
+        comment=(
+            "Stage 12E: PriceItem.price captured at generation/regeneration "
+            "time, before coefficient adjustment. NULL for lines never "
+            "touched by 12E-aware generation (legacy, MANUAL, PRICE_BOOK) -- "
+            "never fabricated from unit_price."
+        ),
+    )
+    coefficient_snapshot: Mapped[list | None] = mapped_column(
+        _JSONVariant,
+        nullable=True,
+        comment=(
+            "Stage 12E: immutable list of the selected CoefficientOption "
+            "configuration used to compute this line's unit_price, captured "
+            "at generation/regeneration time. Each entry carries "
+            "group/option id+code+name+percentage so historical Estimates "
+            "remain explainable after the live catalog is renamed, edited, "
+            "or archived. NULL for lines never touched by 12E-aware "
+            "generation; [] for a coefficient-bearing occurrence with no "
+            "options selected."
+        ),
+    )
     unit_price: Mapped[Decimal | None] = mapped_column(
         Numeric(12, 2),
         nullable=True,
-        comment="NULL = Do ustalenia; 0.00 = explicit zero",
+        comment=(
+            "Effective, commercially-used unit price. NULL = Do ustalenia; "
+            "0.00 = explicit zero. For a non-overridden coefficient-bearing "
+            "PLANNED_WORK line this is base_unit_price adjusted by "
+            "coefficient_snapshot; for a price_override=True line this is "
+            "the owner's manually chosen effective price."
+        ),
     )
     price_override: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False

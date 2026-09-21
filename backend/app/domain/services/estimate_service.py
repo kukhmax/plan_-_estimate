@@ -1,4 +1,4 @@
-"""Estimate domain service (Stage 10D).
+"""Estimate domain service (Stage 10D / 12E).
 
 Implements generation, regeneration, totals, version sequencing, and FINAL
 validation for the Estimate aggregate. No public API routes here (Stage 10E).
@@ -11,6 +11,20 @@ Key invariants enforced:
 - FINAL/ACCEPTED documents are never silently regenerated
 - Manual lines survive DRAFT regeneration untouched
 - Owner-set quantity and price overrides survive DRAFT regeneration
+
+Stage 12E integrates Stage 12D planned-work coefficient assignments into
+this SAME engine -- no second pricing system. For a PLANNED_WORK occurrence
+with a non-empty coefficient selection, `unit_price` (when not manually
+overridden) is `PriceItem.price` (the "base") adjusted by the ADDITIVE sum
+of the selected percentages, never compounded:
+
+    effective = base * (1 + sum(percentages) / 100)
+
+`base_unit_price`/`coefficient_snapshot` on EstimateLine record the exact
+facts used to compute that `effective` value, so a historical Estimate stays
+explainable after the live catalog changes. See `_resolve_occurrence_pricing`
+and `_calculate_effective_unit_price` below for the arithmetic, and
+`docs/stage-12-architecture.md` for the full canonical contract.
 """
 import uuid
 from dataclasses import dataclass, field
@@ -46,12 +60,20 @@ from app.models.estimate import (
     QuantitySource,
 )
 from app.models.opening import Opening, OpeningType
-from app.models.opening_reveal_planned_work import OpeningRevealPlannedWork
-from app.models.price_item import PriceItem, PriceUnit
+from app.models.opening_reveal_planned_work import (
+    OpeningRevealPlannedWork,
+    OpeningRevealPlannedWorkCoefficientAssignment,
+)
+from app.models.price_coefficient import CoefficientOption
+from app.models.price_item import PriceItem, PriceScope, PriceUnit
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
-from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
+from app.models.work_plan import (
+    SurfacePlannedWork,
+    SurfacePlannedWorkCoefficientAssignment,
+    SurfaceWorkPlan,
+)
 
 _AMOUNT_PRECISION = Decimal("0.01")
 
@@ -74,6 +96,11 @@ class LineChangeEntry:
     new_unit_price: Decimal | None
     quantity_overridden: bool
     price_override: bool
+    # Stage 12E: coefficient/base-price provenance for this change (Sec 15).
+    old_base_unit_price: Decimal | None = None
+    new_base_unit_price: Decimal | None = None
+    old_coefficient_snapshot: list[dict] | None = None
+    new_coefficient_snapshot: list[dict] | None = None
     # Presentation-only provenance (Stage 10G.3B follow-up), resolved live from
     # current DB records analogous to EstimateLineRead's enrichment — never
     # part of the change identity. surface_id/opening_id/planned_work_id above
@@ -116,13 +143,130 @@ def _compute_amount(
     return (quantity * unit_price).quantize(_AMOUNT_PRECISION, rounding=ROUND_HALF_UP)
 
 
+# ---------------------------------------------------------------------------
+# Stage 12E — coefficient pricing
+#
+# Percentages are ADDITIVE relative to the base price, never compounded:
+#   effective = base * (1 + sum(selected percentages) / 100)
+# All arithmetic stays exact Decimal; the effective unit price is quantized
+# ONCE, at the end, to the same 0.01 precision as every other money value in
+# this module. No individual coefficient, and no intermediate percentage
+# sum, is ever separately rounded.
+# ---------------------------------------------------------------------------
+
+def _coefficient_label(name_key: str | None, display_name: str | None, code: str) -> str:
+    """Mirrors `_item_description`'s precedence (display_name > name_key > code)."""
+    if display_name:
+        return display_name
+    if name_key:
+        return name_key
+    return code
+
+
+def _serialize_coefficient_option(option: "CoefficientOption") -> dict:
+    """One immutable snapshot entry -- Decimal-safe (percentage stored as a
+    string, never through float) and independent of the live catalog: a
+    later rename/percentage-change/archive of this exact option never
+    mutates an already-generated line's historical explanation."""
+    group = option.group
+    return {
+        "group_id": str(group.id),
+        "group_code": group.code,
+        "group_name": _coefficient_label(group.name_key, group.display_name, group.code),
+        "option_id": str(option.id),
+        "option_code": option.code,
+        "option_name": _coefficient_label(option.name_key, option.display_name, option.code),
+        "percentage": str(option.percentage),
+        "is_base": option.is_base,
+    }
+
+
+def _build_coefficient_snapshot(options: list["CoefficientOption"]) -> list[dict]:
+    """Deterministic order (mirrors `SurfacePlannedWork.coefficient_options` /
+    `OpeningRevealPlannedWork.coefficient_options`, which already sort by
+    group.position/option.position/id) -- ``options`` is expected pre-sorted."""
+    return [_serialize_coefficient_option(o) for o in options]
+
+
+def _aggregate_percentage(options: list["CoefficientOption"]) -> Decimal:
+    total = Decimal("0")
+    for option in options:
+        total += option.percentage
+    return total
+
+
+def _calculate_effective_unit_price(
+    base_price: Decimal | None,
+    options: list["CoefficientOption"],
+    *,
+    item_code: str | None = None,
+) -> Decimal | None:
+    """Apply the additive coefficient formula to a base price.
+
+    NULL base stays NULL (Sec 9) -- coefficients never turn an unresolved
+    price into a resolved one, and the aggregate-validity check below never
+    runs for a NULL base since no arithmetic is being performed at all. A
+    resolved base of exactly 0.00 (Sec 10) is still checked: 0 times any
+    multiplier is 0, but a corrupt aggregate (< -100%) is rejected here
+    regardless of the current base value, so a catalog misconfiguration is
+    caught even while the base happens to be zero or unset-then-set-later.
+    """
+    if base_price is None:
+        return None
+    total_pct = _aggregate_percentage(options)
+    multiplier = Decimal("1") + (total_pct / Decimal("100"))
+    if multiplier < 0:
+        raise EstimateValidationError(
+            f"Aggregate coefficient adjustment of {total_pct}% on price item "
+            f"{item_code or '?'} would produce a negative effective unit "
+            "price; the sum of selected coefficient percentages must not be "
+            "below -100%."
+        )
+    return (base_price * multiplier).quantize(_AMOUNT_PRECISION, rounding=ROUND_HALF_UP)
+
+
+def _resolve_occurrence_pricing(
+    item: "PriceItem", options: list["CoefficientOption"]
+) -> tuple[Decimal | None, Decimal | None, list[dict]]:
+    """Return (base_unit_price, effective_unit_price, coefficient_snapshot)
+    for one planned-work occurrence. Defense-in-depth (Sec 11): a
+    coefficient-bearing occurrence whose PriceItem is not LABOR-scoped is an
+    impossible state under normal Stage 12D validation (assignment is
+    LABOR-only at write time) but could arise if the item's price_scope was
+    edited afterward via the Price Book -- raised as a domain integrity
+    error rather than silently priced.
+    """
+    if options and item.price_scope != PriceScope.LABOR:
+        raise EstimateValidationError(
+            f"Price item {item.code} has price_scope={item.price_scope.value} "
+            "but carries a coefficient assignment; coefficient pricing is "
+            "LABOR-only (data integrity violation)"
+        )
+    base = item.price
+    snapshot = _build_coefficient_snapshot(options)
+    effective = _calculate_effective_unit_price(base, options, item_code=item.code)
+    return base, effective, snapshot
+
+
 def _snapshot_would_change(
     line: "EstimateLine",
     item: "PriceItem",
     new_source_qty: Decimal | None,
     qty_source: "QuantitySource",
+    new_base_price: Decimal | None,
+    new_effective_price: Decimal | None,
+    new_snapshot: list[dict],
 ) -> bool:
-    """Return True if regeneration would change any generated (non-override) field."""
+    """Return True if regeneration would change any generated (non-override) field.
+
+    base_unit_price/coefficient_snapshot are compared unconditionally (even
+    for a price_override=True line): they represent the live pricing
+    configuration, independent of whatever effective price the owner
+    currently pins (Sec 18) -- so preview can flag "the underlying
+    configuration changed" without ever implying the owner's override would
+    be silently replaced. The final unit_price comparison stays gated by
+    price_override exactly as before.
+    """
     if new_source_qty != line.source_quantity:
         return True
     if qty_source != line.quantity_source:
@@ -135,7 +279,11 @@ def _snapshot_would_change(
         return True
     if item.currency != line.currency:
         return True
-    if not line.price_override and item.price != line.unit_price:
+    if new_base_price != line.base_unit_price:
+        return True
+    if new_snapshot != (line.coefficient_snapshot or []):
+        return True
+    if not line.price_override and new_effective_price != line.unit_price:
         return True
     return False
 
@@ -219,6 +367,54 @@ class EstimateService:
                 f"Price item {price_item_id} no longer exists; cannot reset price override"
             )
         return item
+
+    async def _load_current_occurrence(
+        self, line: "EstimateLine"
+    ) -> tuple["PriceItem", list["CoefficientOption"]] | None:
+        """Resolve the LIVE Surface/Reveal planned-work occurrence (and its
+        current PriceItem + coefficient selection) referenced by an
+        EstimateLine's provenance -- used by reset_price_override (Sec 19)
+        so a reset always derives from CURRENT live pricing, not a stale
+        snapshot.
+
+        Returns None when there is no occurrence to resolve: a PRICE_BOOK/
+        MANUAL line (`planned_work_id` is NULL by construction, Sec 22-23),
+        or a Surface/Reveal occurrence whose id no longer exists because its
+        WorkPlan/Reveal was edited since this line was generated -- Stage
+        10/12D occurrence ids are not durable across an edit, so the old id
+        being gone is an honest, expected outcome, not an error. Callers
+        fall back to a plain PriceItem reload (pre-12E behavior) in that case.
+        """
+        if line.planned_work_id is None:
+            return None
+        if line.opening_id is not None:
+            stmt = (
+                select(OpeningRevealPlannedWork)
+                .where(OpeningRevealPlannedWork.id == line.planned_work_id)
+                .options(
+                    selectinload(OpeningRevealPlannedWork.price_item),
+                    selectinload(OpeningRevealPlannedWork.coefficient_assignments)
+                    .selectinload(
+                        OpeningRevealPlannedWorkCoefficientAssignment.coefficient_option
+                    )
+                    .selectinload(CoefficientOption.group),
+                )
+            )
+        else:
+            stmt = (
+                select(SurfacePlannedWork)
+                .where(SurfacePlannedWork.id == line.planned_work_id)
+                .options(
+                    selectinload(SurfacePlannedWork.price_item),
+                    selectinload(SurfacePlannedWork.coefficient_assignments)
+                    .selectinload(SurfacePlannedWorkCoefficientAssignment.coefficient_option)
+                    .selectinload(CoefficientOption.group),
+                )
+            )
+        work = (await self.db.execute(stmt)).scalar_one_or_none()
+        if work is None:
+            return None
+        return work.price_item, work.coefficient_options
 
     async def _fetch_estimate(
         self,
@@ -329,7 +525,17 @@ class EstimateService:
     async def _load_surface_planned_works(
         self, project_id: uuid.UUID
     ) -> list[tuple[SurfacePlannedWork, SurfaceWorkPlan, Surface, Room]]:
-        """Return all planned works for a project in surface.position/work.position order."""
+        """Return all planned works for a project in surface.position/work.position order.
+
+        Deliberately no `populate_existing=True` (unlike SurfaceWorkPlanService's
+        own coefficient-chain loaders): this query also selects `SurfaceWorkPlan`
+        as a top-level entity, and populate_existing would force-refresh any
+        already identity-mapped plan object in this session, expiring its
+        `planned_works` collection when this query's loader options don't
+        re-populate it -- observed to break callers that hold a `SurfaceWorkPlan`
+        fetched earlier in the same session. Within one generate/regenerate/
+        preview call this data is read fresh regardless.
+        """
         stmt = (
             select(SurfacePlannedWork, SurfaceWorkPlan, Surface, Room)
             .join(SurfaceWorkPlan, SurfacePlannedWork.work_plan_id == SurfaceWorkPlan.id)
@@ -339,7 +545,15 @@ class EstimateService:
                 Room.project_id == project_id,
                 Surface.is_archived.is_(False),
             )
-            .options(selectinload(SurfacePlannedWork.price_item))
+            .options(
+                selectinload(SurfacePlannedWork.price_item),
+                # Stage 12E: eager-load the full coefficient chain so
+                # SurfacePlannedWork.coefficient_options (a plain property)
+                # never triggers an implicit lazy load during pricing.
+                selectinload(SurfacePlannedWork.coefficient_assignments)
+                .selectinload(SurfacePlannedWorkCoefficientAssignment.coefficient_option)
+                .selectinload(CoefficientOption.group),
+            )
             .order_by(
                 Surface.position.nulls_last(),
                 Surface.id,
@@ -364,7 +578,15 @@ class EstimateService:
                 Opening.is_archived.is_(False),
                 Surface.is_archived.is_(False),
             )
-            .options(selectinload(OpeningRevealPlannedWork.price_item))
+            .options(
+                selectinload(OpeningRevealPlannedWork.price_item),
+                # Stage 12E: same coefficient chain as Surface, above.
+                selectinload(OpeningRevealPlannedWork.coefficient_assignments)
+                .selectinload(
+                    OpeningRevealPlannedWorkCoefficientAssignment.coefficient_option
+                )
+                .selectinload(CoefficientOption.group),
+            )
             .order_by(
                 Surface.position.nulls_last(),
                 Surface.id,
@@ -395,7 +617,10 @@ class EstimateService:
         else:
             quantity = source_qty
 
-        amount = _compute_amount(quantity, item.price)
+        base_price, effective_price, snapshot = _resolve_occurrence_pricing(
+            item, work.coefficient_options
+        )
+        amount = _compute_amount(quantity, effective_price)
         return EstimateLine(
             estimate_id=estimate_id,
             origin=LineOrigin.PLANNED_WORK,
@@ -415,7 +640,9 @@ class EstimateService:
             quantity=quantity,
             quantity_source=qty_source,
             quantity_overridden=False,
-            unit_price=item.price,
+            base_unit_price=base_price,
+            coefficient_snapshot=snapshot,
+            unit_price=effective_price,
             price_override=False,
             amount=amount,
         )
@@ -443,7 +670,10 @@ class EstimateService:
             qty_source = QuantitySource.MANUAL
 
         quantity = source_qty if source_qty is not None else Decimal("0.000")
-        amount = _compute_amount(quantity, item.price)
+        base_price, effective_price, snapshot = _resolve_occurrence_pricing(
+            item, work.coefficient_options
+        )
+        amount = _compute_amount(quantity, effective_price)
         return EstimateLine(
             estimate_id=estimate_id,
             origin=LineOrigin.PLANNED_WORK,
@@ -463,7 +693,9 @@ class EstimateService:
             quantity=quantity,
             quantity_source=qty_source,
             quantity_overridden=False,
-            unit_price=item.price,
+            base_unit_price=base_price,
+            coefficient_snapshot=snapshot,
+            unit_price=effective_price,
             price_override=False,
             amount=amount,
         )
@@ -617,12 +849,21 @@ class EstimateService:
                 QuantitySource.SURFACE_NET_AREA if is_m2 else QuantitySource.MANUAL
             )
 
+            base_price, effective_price, snapshot = _resolve_occurrence_pricing(
+                item, work.coefficient_options
+            )
+
             if work.id in existing_by_pwid:
                 line = existing_by_pwid[work.id]
                 # Capture old values before modification for change entry
                 old_src_qty = line.source_quantity
                 old_unit_price = line.unit_price
-                changed = _snapshot_would_change(line, item, source_qty, qty_source)
+                old_base_price = line.base_unit_price
+                old_snapshot = line.coefficient_snapshot
+                changed = _snapshot_would_change(
+                    line, item, source_qty, qty_source,
+                    base_price, effective_price, snapshot,
+                )
 
                 # Refresh snapshot, preserve overrides
                 line.position = position
@@ -638,8 +879,10 @@ class EstimateService:
                 line.quantity_source = qty_source
                 if not line.quantity_overridden:
                     line.quantity = source_qty if source_qty is not None else Decimal("0.000")
+                line.base_unit_price = base_price
+                line.coefficient_snapshot = snapshot
                 if not line.price_override:
-                    line.unit_price = item.price
+                    line.unit_price = effective_price
                 line.amount = _compute_amount(line.quantity, line.unit_price)
                 new_lines.append(line)
 
@@ -660,6 +903,10 @@ class EstimateService:
                         new_unit_price=line.unit_price,
                         quantity_overridden=line.quantity_overridden,
                         price_override=line.price_override,
+                        old_base_unit_price=old_base_price,
+                        new_base_unit_price=base_price,
+                        old_coefficient_snapshot=old_snapshot,
+                        new_coefficient_snapshot=snapshot,
                     ))
             else:
                 quantity = source_qty if source_qty is not None else Decimal("0.000")
@@ -682,9 +929,11 @@ class EstimateService:
                     quantity=quantity,
                     quantity_source=qty_source,
                     quantity_overridden=False,
-                    unit_price=item.price,
+                    base_unit_price=base_price,
+                    coefficient_snapshot=snapshot,
+                    unit_price=effective_price,
                     price_override=False,
-                    amount=_compute_amount(quantity, item.price),
+                    amount=_compute_amount(quantity, effective_price),
                 )
                 self.db.add(line)
                 new_lines.append(line)
@@ -701,9 +950,13 @@ class EstimateService:
                     old_source_quantity=None,
                     new_source_quantity=source_qty,
                     old_unit_price=None,
-                    new_unit_price=item.price,
+                    new_unit_price=effective_price,
                     quantity_overridden=False,
                     price_override=False,
+                    old_base_unit_price=None,
+                    new_base_unit_price=base_price,
+                    old_coefficient_snapshot=None,
+                    new_coefficient_snapshot=snapshot,
                 ))
             position += 1
 
@@ -724,11 +977,20 @@ class EstimateService:
                 source_qty = None
                 qty_source = QuantitySource.MANUAL
 
+            base_price, effective_price, snapshot = _resolve_occurrence_pricing(
+                item, work.coefficient_options
+            )
+
             if work.id in existing_by_pwid:
                 line = existing_by_pwid[work.id]
                 old_src_qty = line.source_quantity
                 old_unit_price = line.unit_price
-                changed = _snapshot_would_change(line, item, source_qty, qty_source)
+                old_base_price = line.base_unit_price
+                old_snapshot = line.coefficient_snapshot
+                changed = _snapshot_would_change(
+                    line, item, source_qty, qty_source,
+                    base_price, effective_price, snapshot,
+                )
 
                 line.position = position
                 line.surface_id = surface.id
@@ -743,8 +1005,10 @@ class EstimateService:
                 line.quantity_source = qty_source
                 if not line.quantity_overridden:
                     line.quantity = source_qty if source_qty is not None else Decimal("0.000")
+                line.base_unit_price = base_price
+                line.coefficient_snapshot = snapshot
                 if not line.price_override:
-                    line.unit_price = item.price
+                    line.unit_price = effective_price
                 line.amount = _compute_amount(line.quantity, line.unit_price)
                 new_lines.append(line)
 
@@ -765,6 +1029,10 @@ class EstimateService:
                         new_unit_price=line.unit_price,
                         quantity_overridden=line.quantity_overridden,
                         price_override=line.price_override,
+                        old_base_unit_price=old_base_price,
+                        new_base_unit_price=base_price,
+                        old_coefficient_snapshot=old_snapshot,
+                        new_coefficient_snapshot=snapshot,
                     ))
             else:
                 quantity = source_qty if source_qty is not None else Decimal("0.000")
@@ -787,9 +1055,11 @@ class EstimateService:
                     quantity=quantity,
                     quantity_source=qty_source,
                     quantity_overridden=False,
-                    unit_price=item.price,
+                    base_unit_price=base_price,
+                    coefficient_snapshot=snapshot,
+                    unit_price=effective_price,
                     price_override=False,
-                    amount=_compute_amount(quantity, item.price),
+                    amount=_compute_amount(quantity, effective_price),
                 )
                 self.db.add(line)
                 new_lines.append(line)
@@ -806,9 +1076,13 @@ class EstimateService:
                     old_source_quantity=None,
                     new_source_quantity=source_qty,
                     old_unit_price=None,
-                    new_unit_price=item.price,
+                    new_unit_price=effective_price,
                     quantity_overridden=False,
                     price_override=False,
+                    old_base_unit_price=None,
+                    new_base_unit_price=base_price,
+                    old_coefficient_snapshot=None,
+                    new_coefficient_snapshot=snapshot,
                 ))
             position += 1
 
@@ -830,6 +1104,10 @@ class EstimateService:
                     new_unit_price=None,
                     quantity_overridden=line.quantity_overridden,
                     price_override=line.price_override,
+                    old_base_unit_price=line.base_unit_price,
+                    new_base_unit_price=None,
+                    old_coefficient_snapshot=line.coefficient_snapshot,
+                    new_coefficient_snapshot=None,
                 ))
                 await self.db.delete(line)
                 result.removed += 1
@@ -925,6 +1203,8 @@ class EstimateService:
                 "quantity": ln.quantity,
                 "quantity_source": ln.quantity_source,
                 "quantity_overridden": ln.quantity_overridden,
+                "base_unit_price": ln.base_unit_price,
+                "coefficient_snapshot": ln.coefficient_snapshot,
                 "unit_price": ln.unit_price,
                 "price_override": ln.price_override,
                 "amount": ln.amount,
@@ -1036,11 +1316,18 @@ class EstimateService:
             source_qty = net_area if is_m2 else None
             qty_source = QuantitySource.SURFACE_NET_AREA if is_m2 else QuantitySource.MANUAL
 
+            base_price, effective_price, snapshot = _resolve_occurrence_pricing(
+                item, work.coefficient_options
+            )
+
             if work.id in existing_by_pwid:
                 line = existing_by_pwid[work.id]
-                if _snapshot_would_change(line, item, source_qty, qty_source):
+                if _snapshot_would_change(
+                    line, item, source_qty, qty_source,
+                    base_price, effective_price, snapshot,
+                ):
                     result.updated += 1
-                    new_unit_price = line.unit_price if line.price_override else item.price
+                    new_unit_price = line.unit_price if line.price_override else effective_price
                     result.changes.append(LineChangeEntry(
                         change_type="UPDATED",
                         estimate_line_id=line.id,
@@ -1056,6 +1343,10 @@ class EstimateService:
                         new_unit_price=new_unit_price,
                         quantity_overridden=line.quantity_overridden,
                         price_override=line.price_override,
+                        old_base_unit_price=line.base_unit_price,
+                        new_base_unit_price=base_price,
+                        old_coefficient_snapshot=line.coefficient_snapshot,
+                        new_coefficient_snapshot=snapshot,
                     ))
             else:
                 result.added += 1
@@ -1071,9 +1362,13 @@ class EstimateService:
                     old_source_quantity=None,
                     new_source_quantity=source_qty,
                     old_unit_price=None,
-                    new_unit_price=item.price,
+                    new_unit_price=effective_price,
                     quantity_overridden=False,
                     price_override=False,
+                    old_base_unit_price=None,
+                    new_base_unit_price=base_price,
+                    old_coefficient_snapshot=None,
+                    new_coefficient_snapshot=snapshot,
                 ))
 
         reveal_works = await self._load_reveal_planned_works(estimate.project_id)
@@ -1091,11 +1386,18 @@ class EstimateService:
                 source_qty = None
                 qty_source = QuantitySource.MANUAL
 
+            base_price, effective_price, snapshot = _resolve_occurrence_pricing(
+                item, work.coefficient_options
+            )
+
             if work.id in existing_by_pwid:
                 line = existing_by_pwid[work.id]
-                if _snapshot_would_change(line, item, source_qty, qty_source):
+                if _snapshot_would_change(
+                    line, item, source_qty, qty_source,
+                    base_price, effective_price, snapshot,
+                ):
                     result.updated += 1
-                    new_unit_price = line.unit_price if line.price_override else item.price
+                    new_unit_price = line.unit_price if line.price_override else effective_price
                     result.changes.append(LineChangeEntry(
                         change_type="UPDATED",
                         estimate_line_id=line.id,
@@ -1111,6 +1413,10 @@ class EstimateService:
                         new_unit_price=new_unit_price,
                         quantity_overridden=line.quantity_overridden,
                         price_override=line.price_override,
+                        old_base_unit_price=line.base_unit_price,
+                        new_base_unit_price=base_price,
+                        old_coefficient_snapshot=line.coefficient_snapshot,
+                        new_coefficient_snapshot=snapshot,
                     ))
             else:
                 result.added += 1
@@ -1126,9 +1432,13 @@ class EstimateService:
                     old_source_quantity=None,
                     new_source_quantity=source_qty,
                     old_unit_price=None,
-                    new_unit_price=item.price,
+                    new_unit_price=effective_price,
                     quantity_overridden=False,
                     price_override=False,
+                    old_base_unit_price=None,
+                    new_base_unit_price=base_price,
+                    old_coefficient_snapshot=None,
+                    new_coefficient_snapshot=snapshot,
                 ))
 
         for pw_id, line in existing_by_pwid.items():
@@ -1149,6 +1459,10 @@ class EstimateService:
                     new_unit_price=None,
                     quantity_overridden=line.quantity_overridden,
                     price_override=line.price_override,
+                    old_base_unit_price=line.base_unit_price,
+                    new_base_unit_price=None,
+                    old_coefficient_snapshot=line.coefficient_snapshot,
+                    new_coefficient_snapshot=None,
                 ))
 
         await self._enrich_change_provenance(result.changes)
@@ -1349,8 +1663,29 @@ class EstimateService:
                 raise EstimateValidationError(
                     "line has no price item reference; cannot reset price override"
                 )
-            item = await self._load_price_item(line.price_item_id, owner_id)
-            line.unit_price = item.price
+            # Stage 12E Sec 19: reset re-derives from the CURRENT live base
+            # price AND current coefficient assignments/values -- never the
+            # historical snapshot -- so a resolved override always reflects
+            # today's WorkPlan configuration, not the one active at
+            # generation time.
+            occurrence = await self._load_current_occurrence(line)
+            if occurrence is not None:
+                item, options = occurrence
+                base_price, effective_price, snapshot = _resolve_occurrence_pricing(
+                    item, options
+                )
+            else:
+                # No live occurrence to resolve (PRICE_BOOK/MANUAL line, or a
+                # Surface/Reveal occurrence recreated with a new id since
+                # generation -- Sec 19 fallback): the base price is still
+                # rereadable via price_item_id, but which coefficients (if
+                # any) currently apply is genuinely not determinable, so the
+                # snapshot is honestly None rather than a fabricated [].
+                item = await self._load_price_item(line.price_item_id, owner_id)
+                base_price, effective_price, snapshot = item.price, item.price, None
+            line.base_unit_price = base_price
+            line.coefficient_snapshot = snapshot
+            line.unit_price = effective_price
             line.price_override = False
             recalc = True
 

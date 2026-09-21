@@ -55,6 +55,8 @@ class EstimateLineRead(BaseModel):
     quantity: Decimal
     quantity_source: QuantitySource
     quantity_overridden: bool
+    base_unit_price: Decimal | None = None
+    coefficient_snapshot: list[dict] | None = None
     unit_price: Decimal | None = None
     price_override: bool
     amount: Decimal | None = None
@@ -114,6 +116,15 @@ class LineChangeEntryRead(BaseModel):
     new_unit_price: Decimal | None = None
     quantity_overridden: bool
     price_override: bool
+    # Stage 12E: coefficient/base-price provenance for this change, so a
+    # future UI can explain WHY a price changed (base moved vs. coefficient
+    # config moved) without a separate diff mechanism. old_* is None for a
+    # REMOVED entry's already-deleted line or a legacy line never touched by
+    # 12E-aware generation; new_* is None for a REMOVED entry (nothing new).
+    old_base_unit_price: Decimal | None = None
+    new_base_unit_price: Decimal | None = None
+    old_coefficient_snapshot: list[dict] | None = None
+    new_coefficient_snapshot: list[dict] | None = None
     # Presentation-only provenance (Stage 10G.3B follow-up), resolved live from
     # current DB records — analogous to EstimateLineRead's enrichment. Never
     # part of change identity; nullable because a REMOVED entry's referenced

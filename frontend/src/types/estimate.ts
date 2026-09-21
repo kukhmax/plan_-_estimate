@@ -2,6 +2,21 @@ export type EstimateStatusValue = 'DRAFT' | 'FINAL' | 'ACCEPTED' | 'ARCHIVED';
 export type LineOriginValue = 'PLANNED_WORK' | 'MANUAL';
 export type QuantitySourceValue = 'SURFACE_NET_AREA' | 'REVEAL_LENGTH' | 'REVEAL_AREA' | 'MANUAL';
 
+// Stage 12E — one selected CoefficientOption captured at generation time.
+// Immutable: renaming/re-percentaging/archiving the live catalog option
+// never changes an already-generated line's historical snapshot entries.
+// percentage is a Decimal-as-string, never a number (never through float).
+export interface CoefficientSnapshotEntry {
+  group_id: string;
+  group_code: string;
+  group_name: string;
+  option_id: string;
+  option_code: string;
+  option_name: string;
+  percentage: string;
+  is_base: boolean;
+}
+
 export interface EstimateSummaryRead {
   id: string;
   project_id: string;
@@ -33,6 +48,11 @@ export interface EstimateLineRead {
   quantity: string;
   quantity_source: QuantitySourceValue;
   quantity_overridden: boolean;
+  // Stage 12E — provenance for a coefficient-priced PLANNED_WORK line.
+  // Both stay null for lines never touched by 12E-aware generation (legacy
+  // rows, MANUAL lines, PRICE_BOOK lines) — never fabricated.
+  base_unit_price?: string | null;
+  coefficient_snapshot?: CoefficientSnapshotEntry[] | null;
   unit_price: string | null;
   price_override: boolean;
   amount: string | null;
@@ -90,6 +110,13 @@ export interface LineChangeEntry {
   new_unit_price: string | null;
   quantity_overridden: boolean;
   price_override: boolean;
+  // Stage 12E — coefficient/base-price provenance for this change, so a
+  // future UI can explain WHY a price changed (base moved vs. coefficient
+  // config moved).
+  old_base_unit_price?: string | null;
+  new_base_unit_price?: string | null;
+  old_coefficient_snapshot?: CoefficientSnapshotEntry[] | null;
+  new_coefficient_snapshot?: CoefficientSnapshotEntry[] | null;
   // Stage 10G.3B provenance follow-up — resolved live from current DB
   // records, analogous to EstimateLineRead's presentation fields. Optional
   // AND nullable: some response-construction paths may omit these keys
