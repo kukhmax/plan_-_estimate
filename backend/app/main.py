@@ -10,6 +10,7 @@ from app.api.v1.endpoints.estimates import router as estimates_router
 from app.api.v1.endpoints.inspections import router as inspections_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.openings import router as openings_router
+from app.api.v1.endpoints.price_coefficients import router as price_coefficients_router
 from app.api.v1.endpoints.pricebook import router as pricebook_router
 from app.api.v1.endpoints.projects import router as projects_router
 from app.api.v1.endpoints.reveal_works import router as reveal_works_router
@@ -48,6 +49,7 @@ app.include_router(inspections_router, prefix="/api", tags=["inspections"])
 app.include_router(risks_router, prefix="/api", tags=["risks"])
 app.include_router(communications_router, prefix="/api", tags=["communications"])
 app.include_router(pricebook_router, prefix="/api", tags=["price-items"])
+app.include_router(price_coefficients_router, prefix="/api", tags=["price-coefficients"])
 app.include_router(work_plan_router, prefix="/api", tags=["work-plans"])
 app.include_router(estimates_router, prefix="/api", tags=["estimates"])
 app.include_router(reveal_works_router, prefix="/api", tags=["reveal-works"])

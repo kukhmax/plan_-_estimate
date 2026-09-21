@@ -15,6 +15,7 @@ from app.domain.services.inspection_service import InspectionService
 from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
 from app.domain.services.opening_service import OpeningService
 from app.domain.services.price_book_service import PriceBookService
+from app.domain.services.price_coefficient_service import PriceCoefficientService
 from app.domain.services.project_service import ProjectService
 from app.domain.services.risk_service import RiskService
 from app.domain.services.room_service import RoomService
@@ -130,6 +131,12 @@ async def get_price_book_service(
     db: AsyncSession = Depends(get_db),
 ) -> PriceBookService:
     return PriceBookService(db)
+
+
+async def get_price_coefficient_service(
+    db: AsyncSession = Depends(get_db),
+) -> PriceCoefficientService:
+    return PriceCoefficientService(db)
 
 
 async def get_work_plan_service(

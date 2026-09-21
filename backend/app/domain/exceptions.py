@@ -159,3 +159,15 @@ class WorkRecommendationStateError(Exception):
 
 class WorkRecommendationTargetError(Exception):
     """Raised when a recommendation's target is not actionable (e.g. ROOM advisory-only)."""
+
+
+class CoefficientGroupNotFoundError(Exception):
+    """Raised when a price coefficient group is not found within an owned catalog."""
+
+
+class CoefficientOptionNotFoundError(Exception):
+    """Raised when a price coefficient option is not found within an owned group."""
+
+
+class PriceCoefficientValidationError(Exception):
+    """Raised when coefficient catalog input violates a domain rule."""
