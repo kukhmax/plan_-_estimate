@@ -22,6 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.checklist import QualityLevel, Substrate
+from app.models.price_coefficient import CoefficientOption
 
 
 class SurfaceWorkPlan(Base):
@@ -112,6 +113,10 @@ class SurfacePlannedWork(Base):
         back_populates="planned_works"
     )
     price_item: Mapped["PriceItem"] = relationship()
+    coefficient_assignments: Mapped[list["SurfacePlannedWorkCoefficientAssignment"]] = relationship(
+        back_populates="surface_planned_work",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         UniqueConstraint(
@@ -123,5 +128,80 @@ class SurfacePlannedWork(Base):
             "ix_surface_planned_works_plan_position",
             "work_plan_id",
             "position",
+        ),
+    )
+
+    @property
+    def coefficient_options(self) -> list["CoefficientOption"]:
+        """Selected coefficient options for this occurrence, in a stable,
+        deterministic read order (CoefficientGroup.position, then
+        CoefficientOption.position, then id as a tie-breaker) -- independent
+        of whatever order the client submitted them in (Stage 12
+        architecture Sec 13). Requires `coefficient_assignments` (and each
+        assignment's `coefficient_option.group`) to already be eager-loaded;
+        never triggers a lazy load itself.
+        """
+        return sorted(
+            (a.coefficient_option for a in self.coefficient_assignments),
+            key=lambda o: (o.group.position, o.position, str(o.id)),
+        )
+
+
+class SurfacePlannedWorkCoefficientAssignment(Base):
+    """One selected `CoefficientOption` applied to one specific planned-work
+    OCCURRENCE (Stage 12D) -- never to a `PriceItem`, Surface, Room, or
+    Project. Deliberately stores no percentage/display-name snapshot and no
+    effective price: those are live configuration, re-read fresh at every
+    Estimate generation (Stage 12E); this row is pure assignment.
+
+    Per Stage 12B architecture Option C, this table has NO durable identity
+    concern of its own: it is always deleted and recreated atomically
+    together with its parent `SurfacePlannedWork` row on every ordinary
+    WorkPlan replace (`ondelete="CASCADE"` on `surface_planned_work_id`),
+    exactly like `SurfacePlannedWork` itself is deleted/recreated relative to
+    `SurfaceWorkPlan`. `coefficient_option_id` uses `ondelete="RESTRICT"`
+    (mirrors `SurfacePlannedWork.price_item_id`) since a `CoefficientOption`
+    is only ever soft-archived, never hard-deleted.
+    """
+
+    __tablename__ = "surface_planned_work_coefficient_assignments"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    surface_planned_work_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("surface_planned_works.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    coefficient_option_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("coefficient_options.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    surface_planned_work: Mapped["SurfacePlannedWork"] = relationship(
+        back_populates="coefficient_assignments"
+    )
+    coefficient_option: Mapped["CoefficientOption"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint(
+            "surface_planned_work_id",
+            "coefficient_option_id",
+            name="uq_surface_planned_work_coefficient_option",
         ),
     )

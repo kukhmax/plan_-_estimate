@@ -1,8 +1,13 @@
-"""Price coefficient catalog domain service (Stage 12C).
+"""Price coefficient catalog domain service (Stage 12C/12D).
 
-Catalog persistence only: no planned-work assignment (Stage 12D), no
-Estimate calculation/snapshot (Stage 12E). See `docs/stage-12-architecture.md`
-for the full canonical contract this module implements.
+Catalog persistence (12C) plus `resolve_assignment_options` (12D), the
+single shared validation entry point `SurfaceWorkPlanService` and
+`OpeningRevealWorkService` both call to validate a proposed coefficient
+selection for one planned-work occurrence -- mirrors how Stage 11's
+`accept_recommendation` composes `SurfaceWorkPlanService` directly rather
+than duplicating its logic. No Estimate calculation/snapshot exists yet
+(Stage 12E). See `docs/stage-12-architecture.md` for the full canonical
+contract this module implements.
 
 Bootstrap mirrors `WorkRecommendationService._ensure_bootstrapped` verbatim:
 lazy, idempotent, no Alembic data seed. The shipped baseline is intentionally
@@ -28,6 +33,7 @@ from app.models.price_coefficient import (
     CoefficientOption,
     CoefficientSelectionMode,
 )
+from app.models.price_item import PriceItem, PriceScope
 
 # Serializes concurrent first-call bootstraps within the process; the
 # (owner_id, code) / (group_id, code) unique constraints guarantee
@@ -472,3 +478,95 @@ class PriceCoefficientService:
         option.is_archived = False
         await self.db.commit()
         return option
+
+    # -- Planned-work assignment validation (Stage 12D) -----------------------
+
+    async def resolve_assignment_options(
+        self,
+        owner_id: uuid.UUID,
+        price_item: PriceItem,
+        coefficient_option_ids: list[uuid.UUID],
+    ) -> list[CoefficientOption]:
+        """Validate a proposed coefficient selection for ONE planned-work
+        occurrence and return the resolved, owner-scoped `CoefficientOption`
+        rows (each with `.group` eager-loaded). Called by
+        `SurfaceWorkPlanService`/`OpeningRevealWorkService` BEFORE any
+        WorkPlan mutation begins -- never after -- so an invalid selection
+        never leaves a partially-mutated plan (Stage 12 architecture Sec 14).
+
+        Never persists anything and never commits; this is a pure read/
+        validate step. Performs NO arithmetic (no percentage sum, no
+        effective price) -- that is Stage 12E's job entirely.
+
+        Raises `PriceCoefficientValidationError` for:
+        - a `price_item` whose `price_scope` is not `LABOR` (D3 -- both
+          `MATERIAL` and `LABOR_AND_MATERIAL` are rejected in this cut,
+          since no reliable labor/material price split exists today); an
+          EMPTY `coefficient_option_ids` is always valid regardless of
+          scope (only *assigning* a coefficient is scope-gated, never
+          planning a MATERIAL/mixed work item as such)
+        - a duplicate id in the same selection
+        - two options from the same `SINGLE_SELECT` group
+        - an archived option, or an option whose group is archived
+
+        Raises `CoefficientOptionNotFoundError` for an id that does not
+        resolve to an ACTIVE option owned by `owner_id` -- this uniformly
+        covers a nonexistent id, an option belonging to a different owner,
+        and (except where explicitly allowed by a caller) any other
+        resolution failure, per the project's uniform not-found convention.
+        """
+        if not coefficient_option_ids:
+            return []
+
+        if price_item.price_scope != PriceScope.LABOR:
+            raise PriceCoefficientValidationError(
+                "coefficient assignment requires a LABOR price item "
+                f"(price item {price_item.id} has price_scope="
+                f"{price_item.price_scope.value})"
+            )
+
+        if len(set(coefficient_option_ids)) != len(coefficient_option_ids):
+            raise PriceCoefficientValidationError(
+                "duplicate coefficient_option_id in the same planned-work selection"
+            )
+
+        stmt = (
+            select(CoefficientOption)
+            .options(selectinload(CoefficientOption.group))
+            .join(CoefficientGroup, CoefficientOption.group_id == CoefficientGroup.id)
+            .where(
+                CoefficientOption.id.in_(coefficient_option_ids),
+                CoefficientGroup.owner_id == owner_id,
+            )
+        )
+        rows = (await self.db.execute(stmt)).scalars().all()
+        by_id = {row.id: row for row in rows}
+
+        resolved: list[CoefficientOption] = []
+        selected_group_option: dict[uuid.UUID, uuid.UUID] = {}
+        for option_id in coefficient_option_ids:
+            option = by_id.get(option_id)
+            if option is None:
+                raise CoefficientOptionNotFoundError(
+                    f"Coefficient option {option_id} not found"
+                )
+            if option.is_archived:
+                raise PriceCoefficientValidationError(
+                    f"Coefficient option {option_id} is archived and cannot "
+                    "be newly assigned"
+                )
+            if option.group.is_archived:
+                raise PriceCoefficientValidationError(
+                    f"Coefficient option {option_id}'s group is archived and "
+                    "cannot be newly assigned"
+                )
+            if option.group.selection_mode == CoefficientSelectionMode.SINGLE_SELECT:
+                existing = selected_group_option.get(option.group_id)
+                if existing is not None and existing != option.id:
+                    raise PriceCoefficientValidationError(
+                        f"Only one option from group {option.group_id} may be "
+                        "selected per planned-work occurrence"
+                    )
+                selected_group_option[option.group_id] = option.id
+            resolved.append(option)
+        return resolved

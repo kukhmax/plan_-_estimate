@@ -1,4 +1,4 @@
-"""Surface Work Plan domain service (Stage 10B.1).
+"""Surface Work Plan domain service (Stage 10B.1 / 12D).
 
 A SurfaceWorkPlan is the planning configuration for exactly one Surface:
 the substrate, the agreed quality target, and an ordered list of Price Book
@@ -6,13 +6,20 @@ references. The plan never snapshots prices and never mutates a PriceItem;
 archiving prevents its occurrence count from increasing while existing
 occurrences may survive replacement. Ownership always resolves through
 Surface -> Room -> Project -> Owner, so no tenancy columns exist on the plan.
+
+Stage 12D adds an optional coefficient selection PER OCCURRENCE (never per
+PriceItem). Per the approved Stage 12B architecture (Option C), a selection
+has no identity of its own: it is validated in full BEFORE any mutation, then
+deleted/recreated atomically together with its parent `SurfacePlannedWork`
+row on every ordinary replace -- exactly like the row itself already is.
+This requires no change to Stage 10's full-replace contract.
 """
 import uuid
 from collections import Counter
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import attributes, selectinload
 
 from app.domain.exceptions import (
     PriceItemNotFoundError,
@@ -23,13 +30,23 @@ from app.domain.exceptions import (
     SurfaceWorkPlanValidationError,
 )
 from app.domain.rules.inspection_rules import assert_quality_scale_valid
+from app.domain.services.price_coefficient_service import PriceCoefficientService
 from app.models.checklist import QualityLevel, Substrate
+from app.models.price_coefficient import CoefficientOption
 from app.models.price_item import PriceItem
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
-from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
+from app.models.work_plan import (
+    SurfacePlannedWork,
+    SurfacePlannedWorkCoefficientAssignment,
+    SurfaceWorkPlan,
+)
 from app.schemas.work_plan import OrderedPriceItemSelection
+
+# One resolved planned-work occurrence: the validated PriceItem plus its
+# validated, owner-scoped, order-preserved CoefficientOption selection.
+ResolvedOccurrence = tuple[PriceItem, list[CoefficientOption]]
 
 
 class SurfaceWorkPlanService:
@@ -74,8 +91,10 @@ class SurfaceWorkPlanService:
         owner_id: uuid.UUID,
         selection: list[OrderedPriceItemSelection],
         existing_counts: Counter[uuid.UUID],
-    ) -> list[PriceItem]:
-        """Validate every selection row and return it in the given order.
+    ) -> list[ResolvedOccurrence]:
+        """Validate every selection row (PriceItem AND its coefficient
+        selection) and return it in the given order. Called BEFORE any
+        mutation, so any raised error leaves the existing plan untouched.
 
         Active items may be selected freely. An archived item's requested count
         cannot exceed the count already persisted on this same plan. Duplicate
@@ -89,7 +108,8 @@ class SurfaceWorkPlanService:
             await self.db.execute(select(PriceItem).where(PriceItem.id.in_(ids)))
         ).scalars().all()
         by_id = {item.id: item for item in items}
-        validated: list[PriceItem] = []
+        coefficient_service = PriceCoefficientService(self.db)
+        validated: list[ResolvedOccurrence] = []
         for row in selection:
             item = by_id.get(row.price_item_id)
             if item is None or item.owner_id != owner_id:
@@ -104,19 +124,32 @@ class SurfaceWorkPlanService:
                     f"Archived price item {row.price_item_id} cannot be selected "
                     "for a work plan"
                 )
-            validated.append(item)
+            options = await coefficient_service.resolve_assignment_options(
+                owner_id, item, row.coefficient_option_ids
+            )
+            validated.append((item, options))
         return validated
 
     async def _rewrite_works(
         self,
         plan: SurfaceWorkPlan,
-        selection: list[PriceItem],
+        selection: list[ResolvedOccurrence],
     ) -> None:
-        """Atomically replace the plan's works, appending position from 0.
+        """Atomically replace the plan's works (and their coefficient
+        assignments), appending position from 0.
 
         The old rows are deleted with an immediate statement: SQLAlchemy's unit
         of work inserts new rows before deleting cleared orphans, which would
-        collide on the unique (work_plan_id, position).
+        collide on the unique (work_plan_id, position). Deleting
+        SurfacePlannedWork cascades to its own coefficient_assignments rows
+        (ON DELETE CASCADE). `plan.planned_works` may already hold the old,
+        eager-loaded work/assignment objects (e.g. from `_fetch_plan` in
+        `set_plan`); resetting it via `set_committed_value` -- rather than
+        `.clear()` -- forgets them without walking the delete-orphan cascade,
+        so the ORM never re-issues a DELETE for rows the raw statement (and
+        the DB's own cascade) already removed. The freshly-appended rows'
+        assignments are created via the relationship, atomically, in the
+        same commit.
         """
         if plan.id is not None:
             await self.db.execute(
@@ -124,15 +157,20 @@ class SurfaceWorkPlanService:
                     SurfacePlannedWork.work_plan_id == plan.id
                 )
             )
-        plan.planned_works.clear()
-        for position, item in enumerate(selection):
-            plan.planned_works.append(
-                SurfacePlannedWork(
-                    work_plan_id=plan.id,
-                    price_item_id=item.id,
-                    position=position,
-                )
+        attributes.set_committed_value(plan, "planned_works", [])
+        for position, (item, options) in enumerate(selection):
+            work = SurfacePlannedWork(
+                work_plan_id=plan.id,
+                price_item_id=item.id,
+                position=position,
             )
+            for option in options:
+                work.coefficient_assignments.append(
+                    SurfacePlannedWorkCoefficientAssignment(
+                        coefficient_option_id=option.id
+                    )
+                )
+            plan.planned_works.append(work)
 
     async def lock_plan(self, surface_id: uuid.UUID) -> SurfaceWorkPlan | None:
         """Acquire a row-level exclusive lock on the surface's plan, if any.
@@ -198,7 +236,17 @@ class SurfaceWorkPlanService:
             .options(
                 selectinload(SurfaceWorkPlan.planned_works).selectinload(
                     SurfacePlannedWork.price_item
-                )
+                ),
+                # Eager-load the full coefficient chain so
+                # SurfacePlannedWork.coefficient_options (a plain property)
+                # never triggers an implicit lazy load during serialization
+                # (async sessions disallow it) -- populate_existing forces a
+                # fresh reload even for an already identity-mapped plan
+                # (mirrors PriceCoefficientService's own precedent).
+                selectinload(SurfaceWorkPlan.planned_works)
+                .selectinload(SurfacePlannedWork.coefficient_assignments)
+                .selectinload(SurfacePlannedWorkCoefficientAssignment.coefficient_option)
+                .selectinload(CoefficientOption.group),
             )
             .execution_options(populate_existing=True)
         )
@@ -301,15 +349,19 @@ class SurfaceWorkPlanService:
         owner_id: uuid.UUID,
     ) -> list[SurfaceWorkPlan]:
         """Atomically copy a source wall's planning configuration to every
-        other active WALL surface in the same room (Stage 10B.2).
+        other active WALL surface in the same room (Stage 10B.2 / 12D).
 
-        Only planning configuration is copied: substrate, quality target, and
-        the ordered planned works. Geometry, openings/deductions, inspections,
-        findings, risks, photos, archive state, and every Price Book row are
-        never touched. Each target receives its own persisted plan rows, so the
-        walls stay independent afterwards. The whole batch commits together or
-        not at all — every source-side validation runs before any mutation, so
-        a failed apply cannot leave half the room updated.
+        Only planning configuration is copied: substrate, quality target, the
+        ordered planned works, AND each occurrence's coefficient selection
+        (Stage 12 architecture Sec 15 -- a coefficient is part of the
+        occurrence's own pricing configuration, so it travels with it exactly
+        like the PriceItem reference does). Geometry, openings/deductions,
+        inspections, findings, risks, photos, archive state, and every Price
+        Book/coefficient catalog row are never touched. Each target receives
+        its own persisted plan rows, so the walls stay independent
+        afterwards. The whole batch commits together or not at all — every
+        source-side validation runs before any mutation, so a failed apply
+        cannot leave half the room updated.
         """
         source = await self._ensure_surface_owned(
             project_id, room_id, source_surface_id, owner_id
@@ -331,7 +383,11 @@ class SurfaceWorkPlanService:
         # New target rows must never silently reference an archived catalog
         # item; NULL commercial prices are fine (planning is independent of
         # commercial completeness). The source plan itself is never mutated.
-        validated_items: list[PriceItem] = []
+        # An archived coefficient option/group is rejected the same way an
+        # archived PriceItem already is -- copying stale configuration into
+        # fresh target rows would be surprising; the owner must resolve the
+        # source occurrence first.
+        validated_items: list[ResolvedOccurrence] = []
         for work in source_plan.planned_works:
             item = work.price_item
             if item is None or item.is_archived:
@@ -339,7 +395,14 @@ class SurfaceWorkPlanService:
                     f"Source plan references an archived price item "
                     f"{work.price_item_id}; update the source plan first"
                 )
-            validated_items.append(item)
+            options = work.coefficient_options
+            for option in options:
+                if option.is_archived or option.group.is_archived:
+                    raise SurfaceWorkPlanValidationError(
+                        f"Source plan references an archived coefficient "
+                        f"option {option.id}; update the source plan first"
+                    )
+            validated_items.append((item, options))
 
         targets = (
             await self.db.execute(

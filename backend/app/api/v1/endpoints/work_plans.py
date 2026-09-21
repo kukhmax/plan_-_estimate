@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user, get_work_plan_service
 from app.domain.exceptions import (
+    CoefficientOptionNotFoundError,
+    PriceCoefficientValidationError,
     PriceItemNotFoundError,
     ProjectNotFoundError,
     QualityScaleMismatchError,
@@ -83,6 +85,12 @@ async def put_work_plan(
     current_user: User = Depends(get_current_user),
     work_plan_service: SurfaceWorkPlanService = Depends(get_work_plan_service),
 ) -> SurfaceWorkPlanRead:
+    planned_works = payload.planned_works
+    if planned_works is None:
+        planned_works = [
+            OrderedPriceItemSelection(price_item_id=item_id)
+            for item_id in payload.price_item_ids
+        ]
     try:
         plan = await work_plan_service.set_plan(
             project_id,
@@ -91,10 +99,7 @@ async def put_work_plan(
             current_user.id,
             substrate=payload.substrate,
             quality_target=payload.quality_target,
-            planned_works=[
-                OrderedPriceItemSelection(price_item_id=item_id)
-                for item_id in payload.price_item_ids
-            ],
+            planned_works=planned_works,
         )
     except ProjectNotFoundError:
         raise HTTPException(
@@ -112,11 +117,16 @@ async def put_work_plan(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Price item not found"
         )
+    except CoefficientOptionNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coefficient option not found",
+        )
     except QualityScaleMismatchError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
-    except SurfaceWorkPlanValidationError as e:
+    except (SurfaceWorkPlanValidationError, PriceCoefficientValidationError) as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )

@@ -24,7 +24,10 @@ from app.models.inspection import (
 )
 from app.models.market_evidence import PriceMarketReference, PriceSource, SourceType
 from app.models.opening import Opening, OpeningType
-from app.models.opening_reveal_planned_work import OpeningRevealPlannedWork
+from app.models.opening_reveal_planned_work import (
+    OpeningRevealPlannedWork,
+    OpeningRevealPlannedWorkCoefficientAssignment,
+)
 from app.models.price_coefficient import (
     CoefficientGroup,
     CoefficientOption,
@@ -43,7 +46,11 @@ from app.models.risk import (
 from app.models.room import Room
 from app.models.surface import Surface
 from app.models.user import User
-from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
+from app.models.work_plan import (
+    SurfacePlannedWork,
+    SurfacePlannedWorkCoefficientAssignment,
+    SurfaceWorkPlan,
+)
 from app.models.work_recommendation import (
     WorkRecommendation,
     WorkRecommendationRule,
@@ -75,6 +82,7 @@ __all__ = [
     "LineOrigin",
     "Opening",
     "OpeningRevealPlannedWork",
+    "OpeningRevealPlannedWorkCoefficientAssignment",
     "OpeningType",
     "PriceCategory",
     "PriceItem",
@@ -96,6 +104,7 @@ __all__ = [
     "Substrate",
     "Surface",
     "SurfacePlannedWork",
+    "SurfacePlannedWorkCoefficientAssignment",
     "SurfaceWorkPlan",
     "User",
     "WorkRecommendation",

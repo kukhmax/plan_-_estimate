@@ -15,8 +15,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user, get_reveal_work_service
 from app.domain.exceptions import (
+    CoefficientOptionNotFoundError,
     OpeningNotFoundError,
     OpeningRevealWorkValidationError,
+    PriceCoefficientValidationError,
     PriceItemNotFoundError,
 )
 from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
@@ -88,10 +90,19 @@ async def set_reveal_works(
     current_user: User = Depends(get_current_user),
     service: OpeningRevealWorkService = Depends(get_reveal_work_service),
 ) -> RevealWorkListResponse:
+    if payload.planned_works is not None:
+        price_item_ids = [sel.price_item_id for sel in payload.planned_works]
+        coefficient_option_ids = [
+            sel.coefficient_option_ids for sel in payload.planned_works
+        ]
+    else:
+        price_item_ids = payload.price_item_ids
+        coefficient_option_ids = None
     try:
         works = await service.set_works(
-            opening_id, current_user.id, payload.price_item_ids,
+            opening_id, current_user.id, price_item_ids,
             project_id=project_id, room_id=room_id, surface_id=surface_id,
+            coefficient_option_ids=coefficient_option_ids,
         )
     except OpeningNotFoundError:
         raise HTTPException(
@@ -101,7 +112,12 @@ async def set_reveal_works(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Price item not found"
         )
-    except OpeningRevealWorkValidationError as e:
+    except CoefficientOptionNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coefficient option not found",
+        )
+    except (OpeningRevealWorkValidationError, PriceCoefficientValidationError) as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )

@@ -10,16 +10,25 @@ data).
 import uuid
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.checklist import QualityLevel, Substrate
 from app.models.price_item import PriceCategory, PriceScope, PriceUnit
 
 
 class OrderedPriceItemSelection(BaseModel):
-    """One Price Book row ordered into the plan; list order defines position."""
+    """One Price Book row ordered into the plan; list order defines position.
+
+    `coefficient_option_ids` (Stage 12D) selects zero or more
+    `CoefficientOption` rows to assign to THIS SPECIFIC occurrence -- never
+    to the `PriceItem` itself, so two duplicate occurrences of the same
+    Price Book row may carry independent selections. Defaults to an empty
+    list, so every pre-Stage-12D caller/test that constructs this schema
+    without the field is unaffected.
+    """
 
     price_item_id: uuid.UUID
+    coefficient_option_ids: list[uuid.UUID] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -47,12 +56,34 @@ class SurfacePriceItemSummaryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PlannedWorkCoefficientOptionRead(BaseModel):
+    """One selected coefficient option on a planned-work occurrence
+    (Stage 12D). Denormalized just enough to render without a separate
+    catalog lookup (`group_code` via `CoefficientOption.group_code`) --
+    never the whole catalog (Stage 12 architecture Sec 5). No percentage
+    arithmetic is performed anywhere in this schema; Stage 12E owns that.
+    """
+
+    id: uuid.UUID
+    group_id: uuid.UUID
+    group_code: str
+    code: str
+    display_name: str | None = None
+    percentage: Decimal
+    is_base: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SurfacePlannedWorkRead(BaseModel):
     id: uuid.UUID
     work_plan_id: uuid.UUID
     price_item_id: uuid.UUID
     position: int
     price_item: SurfacePriceItemSummaryRead | None = None
+    coefficient_options: list[PlannedWorkCoefficientOptionRead] = Field(
+        default_factory=list
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -74,17 +105,36 @@ class SurfaceWorkPlanUpdate(BaseModel):
 
 
 class SurfaceWorkPlanUpsert(BaseModel):
-    """PUT body for the Work Plan sub-resource (Stage 10B.2).
+    """PUT body for the Work Plan sub-resource (Stage 10B.2 / 12D).
 
-    ``price_item_ids`` is an ordered list and duplicates are meaningful (e.g.
-    two coat rows of the same catalog item) — the service preserves them.
+    ``price_item_ids`` is the original, coefficient-less contract: an
+    ordered list of bare ids, duplicates meaningful (e.g. two coat rows of
+    the same catalog item). Every existing client sends this field and MUST
+    keep working unchanged (Stage 12 architecture: no frontend change
+    required in 12D) -- it is equivalent to sending ``planned_works`` with
+    an empty ``coefficient_option_ids`` on every entry.
+
+    ``planned_works`` (Stage 12D) is the richer, optional replacement that
+    additionally carries each occurrence's coefficient selection. A request
+    provides EITHER field, never both non-empty at once (ambiguous intent is
+    rejected rather than silently preferring one).
     """
 
     substrate: Substrate
     quality_target: QualityLevel | None = None
     price_item_ids: list[uuid.UUID] = Field(default_factory=list)
+    planned_works: list[OrderedPriceItemSelection] | None = None
 
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _check_exclusive_selection(self) -> "SurfaceWorkPlanUpsert":
+        if self.planned_works is not None and self.price_item_ids:
+            raise ValueError(
+                "provide either price_item_ids (legacy) or planned_works "
+                "(supports coefficients), not both"
+            )
+        return self
 
 
 class SurfaceWorkPlanRead(BaseModel):

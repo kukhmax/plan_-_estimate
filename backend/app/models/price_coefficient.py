@@ -185,3 +185,12 @@ class CoefficientOption(Base):
         ),
         Index("ix_coefficient_options_group_archived", "group_id", "is_archived"),
     )
+
+    @property
+    def group_code(self) -> str:
+        """Convenience accessor (Stage 12D) so a planned-work occurrence's
+        selected-option read model can be serialized directly via Pydantic
+        `from_attributes` without a separate catalog lookup (Stage 12
+        architecture Sec 5). Requires `group` to already be eager-loaded;
+        never triggers a lazy load itself."""
+        return self.group.code
