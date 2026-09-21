@@ -10,6 +10,8 @@ Client
       → Room
           → Surface (WALL / FLOOR / CEILING)
               → Opening (DOOR / WINDOW / OTHER) + reveal geometry
+              → Inspection (substrate checklist) → Findings → Risks → Work Recommendations
+                  → explicit owner acceptance → appended to Surface Work Plan
           → Surface Work Plan (substrate, quality, ordered Price Book works)
       → Price Book (owner catalog, editable, market evidence)
       → Estimate (line-item kosztorys generated from the plans above)
@@ -38,6 +40,10 @@ One ordered Work Plan per physical surface: substrate, quality target (S1–S4 /
 ### Reveal Work Planning
 
 Per-opening ordered Price Book work selection (category `REVEAL`), reorder/remove/duplicates, "Zapisz dla wszystkich ościeży" (atomic bulk apply to every other eligible reveal-enabled opening in the room — the ordered work selection only, never geometry), and inline creation of a missing REVEAL work from the picker. `LM` (running metre) items price the reveal length; `M2` items price the reveal area.
+
+### Inspections, Risks & Work Recommendations
+
+A Surface (or a ROOM/FLOOR/CEILING plane) can be inspected: a versioned substrate-diagnostic checklist records factual findings (moisture, cracks, unevenness, substrate condition, and more). Completed findings feed a deterministic Risk Rules engine (no AI/LLM) that flags technical risks with severity, explanation, mitigation, and warranty-exclusion guidance, and a client-communication phrase catalog (PL/RU) for explaining them. A small, explicit `WorkRecommendationRule` catalog then maps specific fired Risk Rules (and, where useful, findings) to a suggested Price Book work; the owner explicitly evaluates ("Oceń zalecenia") and, per recommendation, accepts it ("Dodaj do prac") — with a manual Price Book fallback when no item currently resolves — or dismisses it. **A recommendation is never a planned work by itself**: nothing is appended to the Surface Work Plan until the owner explicitly accepts it, and accepting one never silently regenerates the Estimate — the existing "Sprawdź zmiany" / "Aktualizuj kosztorys" flow remains the only way to bring an Estimate DRAFT up to date. Starting a new Inspection on a surface that already has a saved Work Plan reuses its substrate/quality instead of asking the same setup questions again.
 
 ### Price Book (Cennik)
 
@@ -139,7 +145,7 @@ The PostgreSQL data lives in the named `postgres_data` volume and survives `dock
 Schema changes are Alembic migrations under `backend/alembic/versions/`; the current head is:
 
 ```
-0021_client_telegram
+0022_work_recommendations
 ```
 
 Migrations apply automatically on container start (`alembic upgrade head`, see above). No credentials or connection strings are stored in this repository — `DATABASE_URL` and all secrets live only in the untracked `.env` file.
@@ -182,8 +188,9 @@ See [`docs/development-progress.md`](docs/development-progress.md) for the detai
 
 - **Stages 0–9**: COMPLETE (engineering foundation, auth, Clients, Projects, Rooms/Surfaces/measurements, Inspection Checklist Engine, Risk Rules Engine, Client Communication Assistant, editable Price Book).
 - **Stage 10 (Estimate / Kosztorys)**: **COMPLETE — OWNER ACCEPTED** after the final real-Telegram production walkthrough. See [`docs/stage-10-architecture.md`](docs/stage-10-architecture.md) and [`docs/development-progress.md`](docs/development-progress.md) for the full sub-stage history.
-- **Stage 11 (Inspection → recommended work → Estimate)**: not started — next stage, pending explicit owner approval.
-- Stages 12–20: pending, not started.
+- **Stage 11 (Inspection → recommended work → Estimate)**: **COMPLETE — OWNER ACCEPTED** after production deployment and the real Telegram Mini App owner walkthrough; integrated into `main`. See [`docs/stage-11-architecture.md`](docs/stage-11-architecture.md) and [`docs/development-progress.md`](docs/development-progress.md) for the full sub-stage history.
+- **Stage 12 (Price coefficients)**: not started — next planned stage, pending explicit owner approval.
+- Stages 13–20: pending, not started.
 
 ## Telegram Mini App development
 
