@@ -6,6 +6,7 @@ import * as inspectionsApi from '../api/inspections';
 import { ApiError } from '../api/http';
 import * as risksApi from '../api/risks';
 import * as workRecommendationsApi from '../api/workRecommendations';
+import * as workPlansApi from '../api/workPlans';
 import { I18nProvider } from '../hooks/useI18n';
 import { ChecklistTemplate } from '../types/checklist';
 import {
@@ -43,6 +44,13 @@ vi.mock('../api/workRecommendations', () => ({
   evaluateWorkRecommendations: vi.fn(),
   dismissWorkRecommendation: vi.fn(),
   reconsiderWorkRecommendation: vi.fn(),
+  acceptWorkRecommendation: vi.fn(),
+}));
+vi.mock('../api/priceItems', () => ({
+  fetchPriceItems: vi.fn(),
+}));
+vi.mock('../api/workPlans', () => ({
+  fetchSurfaceWorkPlan: vi.fn(),
 }));
 
 const template: ChecklistTemplate = {
@@ -237,6 +245,11 @@ describe('InspectionFlow substrate step', () => {
       items: [],
       total: 0,
     });
+    // Default: no saved WorkPlan for the surface, matching the existing
+    // (pre-prefill) wizard behavior unless a test overrides this.
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(
+      new ApiError('Surface work plan not found', 404),
+    );
   });
 
   it('shows the risk evaluation action only for COMPLETED inspections (ENTRY)', async () => {
@@ -1251,5 +1264,125 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
     expect(screen.getByLabelText('Nowe badanie')).toHaveClass('min-h-11');
+  });
+});
+
+describe('InspectionFlow WorkPlan prefill (11D.2 manual UX defect #1)', () => {
+  const surfaceTarget: InspectionTarget = {
+    kind: 'surface',
+    surfaceId: 'surf-1',
+    surfaceName: 'Ściana północna',
+  };
+
+  function makePlan(overrides: {
+    substrate: 'CONCRETE' | 'GYPSUM_PLASTER' | 'CEMENT_LIME_PLASTER' | 'GYPSUM_BOARD' | 'PAINTED' | 'OTHER';
+    quality_target: 'S1' | 'S2' | 'S3' | 'S4' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | null;
+  }) {
+    return {
+      id: 'plan-1',
+      surface_id: 'surf-1',
+      planned_works: [],
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(checklistsApi.fetchChecklistTemplates).mockResolvedValue({
+      items: [template],
+      total: 1,
+    });
+    vi.mocked(checklistsApi.fetchChecklistTemplate).mockResolvedValue(template);
+    vi.mocked(inspectionsApi.createInspection).mockResolvedValue(draftInspection);
+    vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue({
+      ...draftInspection,
+      answers: [],
+    });
+    vi.mocked(inspectionsApi.fetchInspectionFindings).mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+    vi.mocked(risksApi.fetchRisks).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(communicationsApi.fetchCommunications).mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+  });
+
+  it('skips both substrate and quality screens and creates immediately when both are saved on the WorkPlan (CASE A)', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(
+      makePlan({ substrate: 'GYPSUM_PLASTER', quality_target: 'S3' }),
+    );
+    renderFlow({ target: surfaceTarget, inspectionId: null });
+
+    expect(screen.queryByText('Wybierz podłoże')).not.toBeInTheDocument();
+    expect(screen.queryByText('Klasa jakości')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(inspectionsApi.createInspection).toHaveBeenCalledWith('proj-1', 'room-1', {
+        template_id: template.id,
+        substrate: 'GYPSUM_PLASTER',
+        quality_target: 'S3',
+        surface_id: 'surf-1',
+        plane: null,
+      }),
+    );
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+  });
+
+  it('reuses the saved substrate and skips only the substrate screen when quality_target is absent (CASE B)', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(
+      makePlan({ substrate: 'CEMENT_LIME_PLASTER', quality_target: null }),
+    );
+    renderFlow({ target: surfaceTarget, inspectionId: null });
+
+    await screen.findByText('Klasa jakości');
+    expect(screen.queryByText('Wybierz podłoże')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Pomiń'));
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await waitFor(() =>
+      expect(inspectionsApi.createInspection).toHaveBeenCalledWith('proj-1', 'room-1', {
+        template_id: template.id,
+        substrate: 'CEMENT_LIME_PLASTER',
+        quality_target: null,
+        surface_id: 'surf-1',
+        plane: null,
+      }),
+    );
+  });
+
+  it('preserves the unchanged substrate wizard when the surface has no saved WorkPlan (CASE C)', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(
+      new ApiError('Surface work plan not found', 404),
+    );
+    renderFlow({ target: surfaceTarget, inspectionId: null });
+
+    await screen.findByText('Wybierz podłoże');
+    expect(screen.getByLabelText('Beton')).toBeInTheDocument();
+  });
+
+  it('falls back to the unchanged wizard on any other WorkPlan lookup failure', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(new Error('network down'));
+    renderFlow({ target: surfaceTarget, inspectionId: null });
+
+    await screen.findByText('Wybierz podłoże');
+    expect(screen.getByLabelText('Beton')).toBeInTheDocument();
+  });
+
+  it('never looks up a WorkPlan for a room/plane target', async () => {
+    renderFlow({ target: roomTarget, inspectionId: null });
+    await screen.findByText('Wybierz podłoże');
+    expect(workPlansApi.fetchSurfaceWorkPlan).not.toHaveBeenCalled();
+  });
+
+  it('never looks up a WorkPlan when opening an existing inspection (historical record stays independent)', async () => {
+    renderFlow({ target: surfaceTarget, inspectionId: 'ins-1' });
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+    expect(workPlansApi.fetchSurfaceWorkPlan).not.toHaveBeenCalled();
+    // The existing inspection's own stored values are used, never the WorkPlan.
+    expect(inspectionsApi.fetchInspection).toHaveBeenCalledWith('proj-1', 'room-1', 'ins-1');
   });
 });

@@ -15,6 +15,7 @@ import {
   putInspectionAnswers,
   reopenInspection,
 } from '../api/inspections';
+import { fetchSurfaceWorkPlan } from '../api/workPlans';
 import {
   ChecklistOption,
   ChecklistQuestion,
@@ -143,6 +144,11 @@ export function InspectionFlow({
   onCreated,
 }: InspectionFlowProps) {
   const { t } = useI18n();
+  // A brand-new inspection on a surface may inherit substrate/quality_target
+  // from that surface's saved SurfaceWorkPlan, skipping the redundant wizard
+  // steps for values the owner already agreed. Loading stays true until that
+  // one-time lookup resolves, so the wizard never flashes then jumps.
+  const isNewSurfaceInspection = inspectionId === null && target.kind === 'surface';
   const [step, setStep] = useState<Step>(inspectionId === null ? 'substrate' : 'active');
   const [substrate, setSubstrate] = useState<SubstrateValue | null>(null);
   const [quality, setQuality] = useState<QualityLevelValue | null>(null);
@@ -163,7 +169,9 @@ export function InspectionFlow({
     // inspection the id arrives later (onCreated) after the DRAFT already exists
     // in local state, so we must not reload or we would clobber draft answers.
     if (inspectionId === null || inspection !== null) {
-      setLoading(false);
+      // A new surface inspection defers to the WorkPlan-prefill effect below,
+      // which owns `loading` until its own one-time lookup resolves.
+      if (!isNewSurfaceInspection) setLoading(false);
       return;
     }
     const targetId = inspectionId;
@@ -205,6 +213,39 @@ export function InspectionFlow({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, roomId, inspectionId]);
+
+  useEffect(() => {
+    if (!isNewSurfaceInspection || target.kind !== 'surface') return;
+    let cancelled = false;
+    const surfaceId = target.surfaceId;
+    async function loadWorkPlan() {
+      try {
+        const plan = await fetchSurfaceWorkPlan(projectId, roomId, surfaceId);
+        if (cancelled) return;
+        if (plan.quality_target != null) {
+          // Both values already agreed on the WorkPlan: skip both wizard
+          // screens entirely and go straight into creating the inspection.
+          await beginInspection({ substrate: plan.substrate, quality: plan.quality_target });
+        } else {
+          // Substrate known, quality not yet agreed: skip only the substrate
+          // screen and let the owner still pick (or skip) quality.
+          setSubstrate(plan.substrate);
+          setStep('quality');
+        }
+      } catch {
+        // No saved WorkPlan (404) or any other lookup failure: this is a
+        // creation-time convenience only, so fail open to the unchanged
+        // substrate/quality wizard rather than blocking inspection start.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void loadWorkPlan();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, roomId, isNewSurfaceInspection]);
 
   const questions = useMemo(() => {
     const entries: { question: ChecklistQuestion; options: ChecklistOption[] }[] = [];
@@ -328,12 +369,20 @@ export function InspectionFlow({
     return { ok: true, payload };
   }
 
-  async function beginInspection(): Promise<void> {
-    if (!substrate) return;
+  // `override` lets the WorkPlan-prefill effect start the inspection with
+  // inherited values immediately, without waiting on a setState/render cycle
+  // for `substrate`/`quality` to settle first. The manual "Start" button
+  // (quality step) omits it and uses current wizard state as before.
+  async function beginInspection(
+    override?: { substrate: SubstrateValue; quality: QualityLevelValue | null },
+  ): Promise<void> {
+    const chosenSubstrate = override?.substrate ?? substrate;
+    if (!chosenSubstrate) return;
+    const chosenQuality = override ? override.quality : quality;
     setSaving(true);
     setError(null);
     try {
-      const list = await fetchChecklistTemplates(substrate);
+      const list = await fetchChecklistTemplates(chosenSubstrate);
       const tpl = list.items.find((candidate) => candidate.active) ?? list.items[0];
       if (!tpl) {
         setError(t.inspections.error_start);
@@ -341,8 +390,8 @@ export function InspectionFlow({
       }
       const payload: InspectionCreatePayload = {
         template_id: tpl.id,
-        substrate,
-        quality_target: quality,
+        substrate: chosenSubstrate,
+        quality_target: chosenQuality,
         surface_id: target.kind === 'surface' ? target.surfaceId : null,
         plane: target.kind === 'plane' ? target.plane : null,
       };
@@ -353,6 +402,8 @@ export function InspectionFlow({
       const tplDetail = await fetchChecklistTemplate(created.template_id);
       setTemplate(tplDetail);
       setInspection(created);
+      setSubstrate(chosenSubstrate);
+      setQuality(chosenQuality);
       setAnswers({});
       setStep('active');
       onCreated(created.id);

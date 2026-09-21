@@ -1181,7 +1181,21 @@ class EstimateService:
     ) -> Estimate:
         """Transition a DRAFT estimate to FINAL.
 
-        Blocked if any line has unit_price=NULL (Do ustalenia).
+        Blocked if any line has unit_price=NULL (Do ustalenia), OR if any
+        PLANNED_WORK line has an unresolved quantity -- generated with no
+        applicable geometry (quantity_source=MANUAL, source_quantity=NULL)
+        and never confirmed by the owner (quantity_overridden=False). The
+        generated Decimal("0.000") fallback in that state is a placeholder,
+        never a resolved quantity; an owner who explicitly overrides to
+        0.000 (quantity_overridden=True) has a legitimate, resolved zero and
+        is never blocked. The check is scoped to origin=PLANNED_WORK only: a
+        freeform MANUAL-origin line (`add_manual_line`) always carries this
+        same (quantity_source=MANUAL, source_quantity=NULL,
+        quantity_overridden=False) fingerprint by construction -- the owner
+        already typed its quantity at creation time, so it is resolved by
+        definition and must never be misclassified as unresolved. Both
+        checks are independent: either, both, or neither may fire, and a
+        message names whichever blocker(s) actually apply.
         """
         estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
         if estimate.status != EstimateStatus.DRAFT:
@@ -1190,11 +1204,28 @@ class EstimateService:
                 f"estimate {estimate_id} is {estimate.status.value}"
             )
         unpriced = [ln for ln in estimate.lines if ln.unit_price is None]
-        if unpriced:
-            raise EstimateValidationError(
-                f"Cannot finalize: {len(unpriced)} line(s) have no price set "
-                "(Do ustalenia). Set prices in the Price Book or add line overrides."
-            )
+        unresolved_quantity = [
+            ln
+            for ln in estimate.lines
+            if ln.origin == LineOrigin.PLANNED_WORK
+            and ln.quantity_source == QuantitySource.MANUAL
+            and ln.source_quantity is None
+            and not ln.quantity_overridden
+        ]
+        if unpriced or unresolved_quantity:
+            messages = []
+            if unpriced:
+                messages.append(
+                    f"Cannot finalize: {len(unpriced)} line(s) have no price set "
+                    "(Do ustalenia). Set prices in the Price Book or add line overrides."
+                )
+            if unresolved_quantity:
+                messages.append(
+                    f"Cannot finalize: {len(unresolved_quantity)} line(s) have "
+                    "unresolved quantity (Ilość do ustalenia). Set quantities via "
+                    "line overrides."
+                )
+            raise EstimateValidationError(" ".join(messages))
         estimate.status = EstimateStatus.FINAL
         await self.db.commit()
         return await self._fetch_estimate(estimate_id, owner_id)

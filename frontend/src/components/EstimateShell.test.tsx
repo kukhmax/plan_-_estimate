@@ -35,6 +35,7 @@ const ESTIMATE_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const PLANNED_SURFACE_KEY = 'planned::pi-1::LABOR::M2::surface';
 const PLANNED_REVEAL_KEY = 'planned::pi-1::LABOR::M2::reveal';
 const MANUAL_KEY = 'manual::line-1';
+const PLANNED_SURFACE_LM_KEY = 'planned::pi-1::LABOR::LM::surface';
 
 function makeSummary(overrides: Partial<EstimateSummaryRead> = {}): EstimateSummaryRead {
   return {
@@ -4312,6 +4313,331 @@ describe('Stage 10G.3D — finalize failure (unresolved price)', () => {
     expect(screen.getByLabelText('estimate-finalize-error').textContent).toBe(
       'Nie udało się sfinalizować kosztorysu.',
     );
+  });
+});
+
+describe('Stage 10H.1 — unresolved MANUAL quantity display', () => {
+  function unresolvedLine(overrides: Partial<EstimateLineRead> = {}): EstimateLineRead {
+    return makeLine({
+      unit: 'LM',
+      quantity: '0.000',
+      source_quantity: null,
+      quantity_source: 'MANUAL',
+      quantity_overridden: false,
+      description: 'Naprawa rys i pęknięć (poszerzenie, wypełnienie)',
+      ...overrides,
+    });
+  }
+
+  it('shows "Ilość do ustalenia" instead of the generated 0.000 fallback', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([unresolvedLine()]));
+    renderShell(makeSummary(), PLANNED_SURFACE_LM_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
+    expect(text).toContain('Ilość do ustalenia');
+    expect(text).toContain('mb');
+    expect(text).not.toContain('0.000');
+  });
+
+  it('the quantity edit action remains available for an unresolved line', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([unresolvedLine()]));
+    renderShell(makeSummary(), PLANNED_SURFACE_LM_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-edit-action-1')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(
+      () => screen.getByLabelText('line-edit-quantity-1'),
+    )) as HTMLInputElement;
+    // Prefilled with the stored 0.000, exactly like any other line — the
+    // owner is expected to type over it, nothing new here.
+    expect(input.value).toBe('0.000');
+  });
+
+  it('entering 4.5 and saving shows 4.500 mb, no longer unresolved, after the authoritative refetch', async () => {
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(makeDetail([unresolvedLine()]))
+      .mockResolvedValueOnce(
+        makeDetail([unresolvedLine({ quantity: '4.500', quantity_overridden: true })]),
+      );
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(
+      unresolvedLine({ quantity: '4.500', quantity_overridden: true }),
+    );
+    renderShell(makeSummary(), PLANNED_SURFACE_LM_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+
+    fireEvent.click(screen.getByLabelText('line-edit-action-1'));
+    const input = (await waitFor(
+      () => screen.getByLabelText('line-edit-quantity-1'),
+    )) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '4.5' } });
+    fireEvent.click(screen.getByLabelText('line-edit-save-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { quantity: '4.5' },
+      );
+    });
+    await waitFor(() => {
+      const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
+      expect(text).toContain('4.500');
+      expect(text).toContain('mb');
+      expect(text).not.toContain('Ilość do ustalenia');
+    });
+  });
+
+  it('an explicit owner-confirmed 0.000 (quantity_overridden=true) displays as 0.000 mb, never as unresolved', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([unresolvedLine({ quantity: '0.000', quantity_overridden: true })]),
+    );
+    renderShell(makeSummary(), PLANNED_SURFACE_LM_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
+    expect(text).toContain('0.000');
+    expect(text).toContain('mb');
+    expect(text).not.toContain('Ilość do ustalenia');
+    // The distinct "manually changed" annotation still applies, as for any override.
+    expect(screen.getByLabelText('line-qty-override-1')).toBeTruthy();
+  });
+
+  it('resetting an overridden quantity restores the unresolved display', async () => {
+    vi.mocked(estimatesApi.getEstimate)
+      .mockResolvedValueOnce(
+        makeDetail([unresolvedLine({ quantity: '4.500', quantity_overridden: true })]),
+      )
+      .mockResolvedValueOnce(makeDetail([unresolvedLine()]));
+    vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(unresolvedLine());
+    renderShell(makeSummary(), PLANNED_SURFACE_LM_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('4.500');
+
+    fireEvent.click(screen.getByLabelText('line-reset-quantity-1'));
+
+    await waitFor(() => {
+      expect(estimatesApi.patchEstimateLine).toHaveBeenCalledWith(
+        PROJECT_ID, ESTIMATE_ID, 'line-1', { reset_quantity_override: true },
+      );
+    });
+    await waitFor(() => {
+      const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
+      expect(text).toContain('Ilość do ustalenia');
+      expect(text).not.toContain('4.500');
+    });
+  });
+
+  it('an auto-derived Surface M2 quantity (e.g. 1.284 m²) displays normally, unaffected', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([
+        makeLine({
+          unit: 'M2',
+          quantity: '1.284',
+          source_quantity: '1.284',
+          quantity_source: 'SURFACE_NET_AREA',
+          quantity_overridden: false,
+          description: 'Gruntowanie gruntem penetrującym',
+        }),
+      ]),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
+    expect(text).toContain('1.284');
+    expect(text).toContain('m²');
+    expect(text).not.toContain('Ilość do ustalenia');
+  });
+
+  it('a freeform MANUAL-origin line is never shown as unresolved, even though it shares the same underlying fingerprint', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([
+        makeLine({
+          origin: 'MANUAL',
+          unit: 'FLAT',
+          quantity: '1.000',
+          source_quantity: null,
+          quantity_source: 'MANUAL',
+          quantity_overridden: false,
+          price_item_id: null,
+          description: 'Transport materiałów',
+        }),
+      ]),
+    );
+    renderShell(makeSummary(), MANUAL_KEY);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
+    expect(text).toContain('1.000');
+    expect(text).not.toContain('Ilość do ustalenia');
+  });
+});
+
+describe('Stage 10H.1 defect #4 — main estimate card/list quantity parity', () => {
+  function unresolvedGroupLine(overrides: Partial<EstimateLineRead> = {}): EstimateLineRead {
+    return makeLine({
+      unit: 'LM',
+      quantity: '0.000',
+      source_quantity: null,
+      quantity_source: 'MANUAL',
+      quantity_overridden: false,
+      description: 'Naprawa rys i pęknięć (poszerzenie, wypełnienie)',
+      ...overrides,
+    });
+  }
+
+  it('the main card/list view shows "Ilość do ustalenia" for an unresolved group, not 0.000 (the reported defect)', async () => {
+    renderGroupedShell([unresolvedGroupLine()]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
+    expect(text).toContain('Ilość do ustalenia');
+    expect(text).toContain('mb');
+    expect(text).not.toContain('0.000');
+  });
+
+  it('an explicit owner-confirmed 0.000 in the main card/list view still shows 0.000, not unresolved', async () => {
+    renderGroupedShell([unresolvedGroupLine({ quantity_overridden: true })]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
+    expect(text).toContain('0.000');
+    expect(text).toContain('mb');
+    expect(text).not.toContain('Ilość do ustalenia');
+  });
+
+  it('a freeform MANUAL-origin line in the main card/list view is never classified as unresolved', async () => {
+    renderGroupedShell([
+      makeLine({
+        origin: 'MANUAL', unit: 'FLAT', quantity: '1.000', source_quantity: null,
+        quantity_source: 'MANUAL', quantity_overridden: false, price_item_id: null,
+        description: 'Transport materiałów',
+      }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
+    expect(text).toContain('1.000');
+    expect(text).not.toContain('Ilość do ustalenia');
+  });
+
+  it('an auto-derived Surface M2 group quantity displays numerically, unaffected', async () => {
+    renderGroupedShell([
+      makeLine({
+        unit: 'M2', quantity: '1.284', source_quantity: '1.284',
+        quantity_source: 'SURFACE_NET_AREA', quantity_overridden: false,
+        description: 'Gruntowanie gruntem penetrującym',
+      }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
+    expect(text).toContain('1.284');
+    expect(text).not.toContain('Ilość do ustalenia');
+  });
+
+  it('an auto-derived Reveal LM group quantity displays numerically, unaffected', async () => {
+    renderGroupedShell([
+      makeLine({
+        unit: 'LM', quantity: '4.000', source_quantity: '4.000',
+        quantity_source: 'REVEAL_LENGTH', quantity_overridden: false,
+        opening_id: 'opening-uuid', description: 'Praca na ościeżu',
+      }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
+    expect(text).toContain('4.000');
+    expect(text).not.toContain('Ilość do ustalenia');
+  });
+
+  it('an auto-derived Reveal M2 group quantity displays numerically, unaffected', async () => {
+    renderGroupedShell([
+      makeLine({
+        unit: 'M2', quantity: '1.000', source_quantity: '1.000',
+        quantity_source: 'REVEAL_AREA', quantity_overridden: false,
+        opening_id: 'opening-uuid', description: 'Praca na ościeżu',
+      }),
+    ]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
+    expect(text).toContain('1.000');
+    expect(text).not.toContain('Ilość do ustalenia');
+  });
+
+});
+
+// Detail-view parity for the same unresolved line (drilled-down, not the
+// group card) is already covered by 'Stage 10H.1 — unresolved MANUAL
+// quantity display' above, via renderShell(..., PLANNED_SURFACE_LM_KEY).
+
+describe('Stage 10H.1 — finalize blocked by unresolved quantity', () => {
+  it('shows the localized, actionable PL message for an unresolved-quantity-only rejection', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockRejectedValue(
+      new Error(
+        'Cannot finalize: 1 line(s) have unresolved quantity (Ilość do ustalenia). Set quantities via line overrides.',
+      ),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+    const errorText = screen.getByLabelText('estimate-finalize-error').textContent ?? '';
+    expect(errorText).not.toContain('Cannot finalize');
+    expect(errorText).toBe(
+      'Nie można sfinalizować kosztorysu. 1 pozycji ma nieustaloną ilość. Uzupełnij ilości prac oznaczonych jako „Ilość do ustalenia” przed finalizacją kosztorysu.',
+    );
+  });
+
+  it('shows the localized RU message for an unresolved-quantity-only rejection', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(estimatesApi.finalizeEstimate).mockRejectedValue(
+      new Error(
+        'Cannot finalize: 2 line(s) have unresolved quantity (Ilość do ustalenia). Set quantities via line overrides.',
+      ),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+    const errorText = screen.getByLabelText('estimate-finalize-error').textContent ?? '';
+    expect(errorText).toBe(
+      'Невозможно зафиксировать смету. У 2 позиций не определено количество. Укажите объём работ, отмеченных как «Количество не определено», перед финализацией сметы.',
+    );
+  });
+
+  it('presents both blockers together when price AND quantity are both unresolved', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockRejectedValue(
+      new Error(
+        'Cannot finalize: 1 line(s) have no price set (Do ustalenia). Set prices in the Price Book or add line overrides. ' +
+          'Cannot finalize: 1 line(s) have unresolved quantity (Ilość do ustalenia). Set quantities via line overrides.',
+      ),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+    const errorText = screen.getByLabelText('estimate-finalize-error').textContent ?? '';
+    expect(errorText).not.toContain('Cannot finalize');
+    expect(errorText).toContain('nie ma ustalonej ceny');
+    expect(errorText).toContain('nieustaloną ilość');
+  });
+
+  it('price-unresolved-only behavior is unaffected by the new quantity blocker', async () => {
+    vi.mocked(estimatesApi.finalizeEstimate).mockRejectedValue(
+      new Error('Cannot finalize: 1 line(s) have no price set (Do ustalenia). Set prices in the Price Book or add line overrides.'),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-action'));
+    await waitFor(() => screen.getByLabelText('estimate-finalize-confirm-yes'));
+    fireEvent.click(screen.getByLabelText('estimate-finalize-confirm-yes'));
+
+    await waitFor(() => screen.getByLabelText('estimate-finalize-error'));
+    const errorText = screen.getByLabelText('estimate-finalize-error').textContent ?? '';
+    expect(errorText).toBe(
+      'Nie można sfinalizować kosztorysu. 1 pozycji nie ma ustalonej ceny. Uzupełnij ceny pozycji oznaczonych „Do ustalenia” i spróbuj ponownie.',
+    );
+    expect(errorText).not.toContain('nieustaloną ilość');
   });
 });
 

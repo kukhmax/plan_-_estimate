@@ -34,6 +34,12 @@ interface EstimateGroup {
   currency: string;
   lineCount: number;
   hasOverrides: boolean;
+  // Stage 10H.1 defect #4 — true when ANY line in this group is an
+  // unresolved PLANNED_WORK/MANUAL quantity (see isUnresolvedQuantity). A
+  // numeric sum that silently includes an unresolved 0.000 fallback would
+  // itself be misleading, so the whole group aggregate is shown as
+  // unresolved rather than averaged/summed away.
+  hasUnresolvedQuantity: boolean;
   lines: EstimateLineRead[];
 }
 
@@ -51,10 +57,37 @@ function isValidDecimalString(value: string): boolean {
 // Estimate financial value — Number() here is safe and unrelated to the
 // Decimal-string quantity/price/amount invariant.
 function extractUnresolvedPriceCount(message: string): number | null {
-  const match = /^Cannot finalize: (\d+) line/.exec(message);
+  const match = /Cannot finalize: (\d+) line\(s\) have no price set/.exec(message);
   if (match === null) return null;
   const count = Number(match[1]);
   return Number.isFinite(count) ? count : null;
+}
+
+// Stage 10H.1 — the backend's second, independent FINAL blocker (unresolved
+// MANUAL quantity). Not anchored to the string's start: both blockers can
+// appear together in one EstimateValidationError message, in either order.
+function extractUnresolvedQuantityCount(message: string): number | null {
+  const match = /Cannot finalize: (\d+) line\(s\) have unresolved quantity/.exec(message);
+  if (match === null) return null;
+  const count = Number(match[1]);
+  return Number.isFinite(count) ? count : null;
+}
+
+// Stage 10H.1 — a PLANNED_WORK line generated with no applicable geometry
+// (e.g. an LM-unit item on a plain Surface, no reveal) gets
+// quantity_source=MANUAL, source_quantity=NULL, and a Decimal("0.000")
+// storage fallback that is a placeholder, never a resolved quantity. Scoped
+// to origin=PLANNED_WORK: a freeform MANUAL-origin line always carries this
+// same fingerprint by construction (the owner already typed its quantity at
+// creation), so it must never be shown as unresolved. Mirrors
+// EstimateService.finalize()'s blocker predicate exactly.
+function isUnresolvedQuantity(line: EstimateLineRead): boolean {
+  return (
+    line.origin === 'PLANNED_WORK' &&
+    line.quantity_source === 'MANUAL' &&
+    line.source_quantity === null &&
+    !line.quantity_overridden
+  );
 }
 
 type PriceEditMode = 'value' | 'unresolved';
@@ -123,6 +156,7 @@ function buildGroups(lines: EstimateLineRead[]): EstimateGroup[] {
       currency: first.currency,
       lineCount: gLines.length,
       hasOverrides: gLines.some((l) => l.quantity_overridden || l.price_override),
+      hasUnresolvedQuantity: gLines.some(isUnresolvedQuantity),
       lines: gLines,
     };
   });
@@ -522,11 +556,27 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
       setFinalizeConfirmOpen(false);
     } catch (err) {
       const rawMessage = err instanceof Error ? err.message : '';
-      const unresolvedCount = extractUnresolvedPriceCount(rawMessage);
-      if (unresolvedCount !== null) {
-        setFinalizeError(
-          t.estimates.finalize_unresolved_price_error.replace('{count}', String(unresolvedCount)),
-        );
+      const unresolvedPriceCount = extractUnresolvedPriceCount(rawMessage);
+      const unresolvedQuantityCount = extractUnresolvedQuantityCount(rawMessage);
+      if (unresolvedPriceCount !== null || unresolvedQuantityCount !== null) {
+        const parts: string[] = [];
+        if (unresolvedPriceCount !== null) {
+          parts.push(
+            t.estimates.finalize_unresolved_price_error.replace(
+              '{count}',
+              String(unresolvedPriceCount),
+            ),
+          );
+        }
+        if (unresolvedQuantityCount !== null) {
+          parts.push(
+            t.estimates.finalize_unresolved_quantity_error.replace(
+              '{count}',
+              String(unresolvedQuantityCount),
+            ),
+          );
+        }
+        setFinalizeError(parts.join(' '));
       } else {
         setFinalizeError(err instanceof Error ? err.message : t.estimates.finalize_error);
       }
@@ -607,6 +657,16 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // (PL "mb", RU "пог. м").
   const unitLabel = (unit: string): string =>
     t.pricebook.units[unit as PriceUnitValue] ?? unit;
+
+  // Stage 10H.1 defect #4 — single shared formatter for every user-visible
+  // quantity display (individual line AND group aggregate), so the
+  // unresolved-vs-numeric decision is made in exactly one place. `unresolved`
+  // must always come from `isUnresolvedQuantity` (per-line) or
+  // `group.hasUnresolvedQuantity` (aggregate) — never re-derived here.
+  const quantityDisplay = (quantity: string, unit: string | null, unresolved: boolean): string => {
+    const unitText = unit !== null ? unitLabel(unit) : '';
+    return unresolved ? `${t.estimates.quantity_unresolved} / ${unitText}` : `${quantity} ${unitText}`;
+  };
 
   // The `estimate` prop is a point-in-time EstimateSummaryRead handed down by
   // the parent (e.g. from the version list) and is never refreshed by this
@@ -1224,7 +1284,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                 <div className="text-xs text-slate-600 space-y-0.5">
                   <div className="flex items-baseline gap-1 flex-wrap min-w-0">
                     <span aria-label={`line-quantity-${line.position}`} className="shrink-0">
-                      {line.quantity} {unitLabel(line.unit)}
+                      {quantityDisplay(line.quantity, line.unit, isUnresolvedQuantity(line))}
                     </span>
                     <span className="text-slate-400 shrink-0">×</span>
                     <span aria-label={`line-unit-price-${line.position}`} className="shrink-0">
@@ -1510,7 +1570,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                     {group.quantity !== null && (
                       <div className="flex items-baseline gap-1 flex-wrap min-w-0">
                         <span aria-label={`group-quantity-${index}`} className="shrink-0">
-                          {group.quantity} {group.unit !== null ? unitLabel(group.unit) : ''}
+                          {quantityDisplay(group.quantity, group.unit, group.hasUnresolvedQuantity)}
                         </span>
                         {group.unitPrice !== null && (
                           <>

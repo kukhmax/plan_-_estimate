@@ -1,5 +1,6 @@
 import { apiRequest } from './http';
 import {
+  WorkRecommendationAcceptRequest,
   WorkRecommendationActivityValue,
   WorkRecommendationEvaluateResponse,
   WorkRecommendationListResponse,
@@ -51,5 +52,16 @@ export function reconsiderWorkRecommendation(
 ): Promise<WorkRecommendationRead> {
   return apiRequest(`${recommendationPath(projectId, recommendationId)}/reconsider`, {
     method: 'POST',
+  });
+}
+
+export function acceptWorkRecommendation(
+  projectId: string,
+  recommendationId: string,
+  payload: WorkRecommendationAcceptRequest = {},
+): Promise<WorkRecommendationRead> {
+  return apiRequest(`${recommendationPath(projectId, recommendationId)}/accept`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 }

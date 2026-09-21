@@ -50,3 +50,10 @@ export interface WorkRecommendationEvaluateResponse {
   items: WorkRecommendationRead[];
   total: number;
 }
+
+/** Omitted/undefined `price_item_id` (or `null`) resolves semantically by
+ * `recommended_work_code`; an explicit id is an owner-selected manual
+ * fallback and may legitimately carry a different `code`. */
+export interface WorkRecommendationAcceptRequest {
+  price_item_id?: string | null;
+}

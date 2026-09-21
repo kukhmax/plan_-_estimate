@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice } from '../utils/priceFormat';
+import { ApiError } from '../api/http';
 import {
+  acceptWorkRecommendation,
   dismissWorkRecommendation,
   evaluateWorkRecommendations,
   fetchWorkRecommendations,
@@ -13,6 +15,7 @@ import {
   WorkRecommendationRead,
   WorkRecommendationStatusValue,
 } from '../types/workRecommendation';
+import { RecommendationPriceItemPicker } from './RecommendationPriceItemPicker';
 
 export interface RecommendationPanelProps {
   projectId: string;
@@ -49,6 +52,28 @@ function localizedServiceError(
   return fallback;
 }
 
+function localizedAcceptError(
+  t: ReturnType<typeof useI18n>['t'],
+  err: unknown,
+  fallback: string,
+): string {
+  if (err instanceof ApiError) {
+    if (err.status === 404 && err.message === 'Target surface has no work plan yet') {
+      return t.recommendations.missing_work_plan;
+    }
+    if (err.status === 404) {
+      return t.recommendations.error_not_found;
+    }
+    if (err.status === 409) {
+      return t.recommendations.error_conflict;
+    }
+    if (err.status === 422) {
+      return t.recommendations.error_invalid_selection;
+    }
+  }
+  return fallback;
+}
+
 function activityLabel(
   t: ReturnType<typeof useI18n>['t'],
   value: WorkRecommendationActivityValue,
@@ -77,9 +102,17 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
   const [items, setItems] = useState<WorkRecommendationRead[]>([]);
   const [optionsOpen, setOptionsOpen] = useState<string[]>([]);
   const [pending, setPending] = useState<string[]>([]);
+  const [fallbackOpen, setFallbackOpen] = useState<string[]>([]);
+  const [accepting, setAccepting] = useState<string[]>([]);
+  const [justAccepted, setJustAccepted] = useState<string[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Session-local only (never persisted): distinguishes "never evaluated
+  // yet" from "evaluated successfully and found zero" so the primary action
+  // doesn't look like it silently did nothing. Reset on remount (a fresh
+  // inspection panel), not carried across inspections.
+  const [hasEvaluated, setHasEvaluated] = useState(false);
 
   function forThisInspection(all: WorkRecommendationRead[]): WorkRecommendationRead[] {
     return all.filter((item) => item.inspection_id === inspectionId);
@@ -133,6 +166,7 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
       const response = await evaluateWorkRecommendations(projectId, roomId);
       setItems(forThisInspection(response.items));
       setActivity('active');
+      setHasEvaluated(true);
     } catch (err) {
       setError(localizedServiceError(t, err, t.recommendations.error_evaluate));
     } finally {
@@ -170,6 +204,38 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
     } finally {
       setPending((prev) => prev.filter((entry) => entry !== id));
     }
+  }
+
+  async function handleAccept(id: string, priceItemId?: string): Promise<void> {
+    setPending((prev) => [...prev, id]);
+    setAccepting((prev) => [...prev, id]);
+    setError(null);
+    try {
+      // Backend owns the atomic WorkPlan append; the frontend never fetches
+      // or mutates the SurfaceWorkPlan itself, only submits the recommendation
+      // id and (optionally) the owner's manual PriceItem selection.
+      const updated = await acceptWorkRecommendation(
+        projectId,
+        id,
+        priceItemId ? { price_item_id: priceItemId } : {},
+      );
+      setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      setJustAccepted((prev) => [...prev, id]);
+      setFallbackOpen((prev) => prev.filter((entry) => entry !== id));
+    } catch (err) {
+      setError(localizedAcceptError(t, err, t.recommendations.error_accept));
+    } finally {
+      setPending((prev) => prev.filter((entry) => entry !== id));
+      setAccepting((prev) => prev.filter((entry) => entry !== id));
+    }
+  }
+
+  function openFallback(id: string): void {
+    setFallbackOpen((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }
+
+  function closeFallback(id: string): void {
+    setFallbackOpen((prev) => prev.filter((entry) => entry !== id));
   }
 
   const anyActive = items.some((item) => item.is_active);
@@ -225,7 +291,11 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
       {listLoading ? (
         <p className="text-sm text-neutral-500">{t.recommendations.loading}</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-neutral-500">{t.recommendations.no_recommendations}</p>
+        <p className="text-sm text-neutral-500">
+          {hasEvaluated && activity === 'active'
+            ? t.recommendations.no_recommendations_after_evaluate
+            : t.recommendations.no_recommendations}
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
@@ -234,9 +304,15 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
               recommendation={item}
               optionsOpen={optionsOpen.includes(item.id)}
               pending={pending.includes(item.id)}
+              accepting={accepting.includes(item.id)}
+              fallbackOpen={fallbackOpen.includes(item.id)}
+              justAccepted={justAccepted.includes(item.id)}
               onToggleOptions={toggleOptions}
               onDismiss={handleDismiss}
               onReconsider={handleReconsider}
+              onAccept={handleAccept}
+              onOpenFallback={openFallback}
+              onCloseFallback={closeFallback}
               t={t}
             />
           ))}
@@ -250,17 +326,29 @@ function RecommendationCard({
   recommendation,
   optionsOpen,
   pending,
+  accepting,
+  fallbackOpen,
+  justAccepted,
   onToggleOptions,
   onDismiss,
   onReconsider,
+  onAccept,
+  onOpenFallback,
+  onCloseFallback,
   t,
 }: {
   recommendation: WorkRecommendationRead;
   optionsOpen: boolean;
   pending: boolean;
+  accepting: boolean;
+  fallbackOpen: boolean;
+  justAccepted: boolean;
   onToggleOptions: (id: string) => void;
   onDismiss: (id: string) => void;
   onReconsider: (id: string) => void;
+  onAccept: (id: string, priceItemId?: string) => void;
+  onOpenFallback: (id: string) => void;
+  onCloseFallback: (id: string) => void;
   t: ReturnType<typeof useI18n>['t'];
 }) {
   const isRoomAdvisory = recommendation.target_kind === 'ROOM';
@@ -272,6 +360,16 @@ function RecommendationCard({
     : null;
   const hasLifecycleAction =
     recommendation.status === 'PENDING' || recommendation.status === 'DISMISSED';
+
+  const isPending = recommendation.status === 'PENDING';
+  const isActionableTarget = !isRoomAdvisory;
+  const canAcceptNormally =
+    isPending &&
+    isActionableTarget &&
+    summary !== null &&
+    !summary.is_archived &&
+    summary.category !== 'REVEAL';
+  const needsFallback = isPending && isActionableTarget && !canAcceptNormally;
 
   return (
     <li className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3 text-sm">
@@ -318,6 +416,46 @@ function RecommendationCard({
 
       {inactiveSince ? (
         <p className="text-xs text-neutral-500">{inactiveSince}</p>
+      ) : null}
+
+      {needsFallback && summary !== null ? (
+        <p className="text-xs text-neutral-500">{t.recommendations.action_unavailable}</p>
+      ) : null}
+
+      {recommendation.status === 'ACCEPTED' && justAccepted ? (
+        <p className="text-xs text-green-700">{t.recommendations.accept_success}</p>
+      ) : null}
+
+      {canAcceptNormally ? (
+        <button
+          type="button"
+          aria-label={`${title} — ${t.recommendations.accept}`}
+          className="min-h-11 rounded-lg bg-blue-600 px-3 font-medium text-white disabled:opacity-50"
+          disabled={pending}
+          onClick={() => onAccept(recommendation.id)}
+        >
+          {accepting ? t.recommendations.accepting : t.recommendations.accept}
+        </button>
+      ) : null}
+
+      {needsFallback ? (
+        fallbackOpen ? (
+          <RecommendationPriceItemPicker
+            disabled={pending}
+            onCancel={() => onCloseFallback(recommendation.id)}
+            onConfirm={(item) => onAccept(recommendation.id, item.id)}
+          />
+        ) : (
+          <button
+            type="button"
+            aria-label={`${title} — ${t.recommendations.fallback_button}`}
+            className="min-h-10 self-start rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 disabled:opacity-50"
+            disabled={pending}
+            onClick={() => onOpenFallback(recommendation.id)}
+          >
+            {t.recommendations.fallback_button}
+          </button>
+        )
       ) : null}
 
       {hasLifecycleAction ? (

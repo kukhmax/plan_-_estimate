@@ -141,6 +141,14 @@ already encode that context on the *trigger* side (a `RiskRule.code` is already 
 relevant); duplicating that restriction on the mapping row would be a redundant condition, which D4
 explicitly forbids this table from evaluating.
 
+**Baseline data (Stage 11B.1.1)**: this table ships empty from Stage 11B.1's migration; a small,
+owner-approved, HIGH-confidence-only starter catalog lives in `app/domain/data/work_recommendation_rules.py`
+(mirroring `app/domain/data/risk_rules.py`'s shape and its lazy, idempotent bootstrap pattern via
+`WorkRecommendationService._ensure_bootstrapped()`, not an Alembic data migration). It intentionally does not
+cover every Stage 7 risk rule — see that module's docstring and the Stage 11B.1.1 entry in
+`docs/development-progress.md` for the full 15-rule candidate audit and which mappings remain deliberately
+unapproved.
+
 ---
 
 ## 4. `WorkRecommendation` — the materialized, actionable record

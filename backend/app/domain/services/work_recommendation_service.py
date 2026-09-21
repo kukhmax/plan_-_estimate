@@ -9,6 +9,7 @@ docs/stage-11-architecture.md. `dismiss`/`reconsider` are explicit owner
 commands. Nothing in this module ever mutates a `SurfaceWorkPlan`,
 `OpeningRevealPlannedWork`, or `Estimate` -- acceptance is Stage 11C.
 """
+import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import uuid
@@ -16,6 +17,9 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.data.work_recommendation_rules import (
+    build_baseline_work_recommendation_rules,
+)
 from app.domain.exceptions import (
     PriceItemNotFoundError,
     ProjectNotFoundError,
@@ -45,6 +49,12 @@ from app.models.work_recommendation import (
 )
 
 Identity = tuple[uuid.UUID, WorkRecommendationTriggerType, str, str, str]
+
+# Serializes concurrent first-call bootstraps within the process; the
+# (trigger_type, trigger_code, recommended_work_code) unique constraint
+# guarantees correctness even without it -- mirrors RiskService's own
+# _bootstrap_lock precedent.
+_bootstrap_lock = asyncio.Lock()
 
 
 @dataclass
@@ -162,6 +172,49 @@ class WorkRecommendationService:
                 f"WorkRecommendation {recommendation_id} not found"
             )
         return recommendation
+
+    # -- Baseline catalog bootstrap (Stage 11B.1.1) -----------------------------
+
+    async def _ensure_bootstrapped(self) -> None:
+        """Materialize every missing baseline `WorkRecommendationRule` row
+        exactly once. Mirrors `RiskService._ensure_bootstrapped` verbatim:
+        lazy, idempotent, no Alembic data migration, no manual seed step --
+        the owner's currently running application picks it up automatically
+        the next time recommendations are listed or evaluated.
+        """
+        async with _bootstrap_lock:
+            existing_rows = (
+                await self.db.execute(
+                    select(
+                        WorkRecommendationRule.trigger_type,
+                        WorkRecommendationRule.trigger_code,
+                        WorkRecommendationRule.recommended_work_code,
+                    )
+                )
+            ).all()
+            existing = {
+                (row.trigger_type, row.trigger_code, row.recommended_work_code)
+                for row in existing_rows
+            }
+            missing = [
+                data
+                for data in build_baseline_work_recommendation_rules()
+                if (data.trigger_type, data.trigger_code, data.recommended_work_code)
+                not in existing
+            ]
+            if not missing:
+                return
+
+            for data in missing:
+                self.db.add(
+                    WorkRecommendationRule(
+                        trigger_type=data.trigger_type,
+                        trigger_code=data.trigger_code,
+                        recommended_work_code=data.recommended_work_code,
+                        active=True,
+                    )
+                )
+            await self.db.commit()
 
     # -- Identity lookup (Stage 11B.1) ----------------------------------------
 
@@ -281,6 +334,7 @@ class WorkRecommendationService:
         Never mutates a SurfaceWorkPlan/OpeningRevealPlannedWork/Estimate.
         """
         await self._ensure_room_owned(project_id, room_id, owner_id)
+        await self._ensure_bootstrapped()
 
         active_rules = list(
             (
@@ -474,6 +528,7 @@ class WorkRecommendationService:
     ) -> tuple[list[WorkRecommendation], int]:
         """List a room's recommendations. Never materializes or mutates."""
         await self._ensure_room_owned(project_id, room_id, owner_id)
+        await self._ensure_bootstrapped()
 
         stmt = select(WorkRecommendation).where(WorkRecommendation.room_id == room_id)
         if activity == "resolved":

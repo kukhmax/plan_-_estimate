@@ -499,6 +499,7 @@
     "reevaluate": "Oceń ponownie",
     "evaluate_hint": "Oceń zalecane prace dla całego pomieszczenia na podstawie zakończonych badań.",
     "no_recommendations": "Brak zaleceń.",
+    "no_recommendations_after_evaluate": "Nie znaleziono zaleceń dla zakończonych badań.",
     "loading": "Wczytywanie zaleceń…",
     "error_load": "Nie udało się wczytać zaleceń. Spróbuj ponownie.",
     "error_evaluate": "Nie udało się ocenić zaleceń. Spróbuj ponownie.",
@@ -506,7 +507,7 @@
     "error_not_found": "Nie znaleziono badania do oceny zaleceń.",
     "error_dismiss": "Nie udało się odrzucić zalecenia. Spróbuj ponownie.",
     "error_reconsider": "Nie udało się przywrócić zalecenia. Spróbuj ponownie.",
-    "error_conflict": "Tej operacji nie można wykonać dla zaakceptowanego zalecenia.",
+    "error_conflict": "Ta operacja nie jest teraz możliwa. Odśwież listę zaleceń.",
     "status_active": "Aktywne",
     "status_resolved": "Rozwiązane",
     "status_all": "Wszystkie",
@@ -518,10 +519,27 @@
     "room_advisory_badge": "Informacja ogólna (pomieszczenie)",
     "room_advisory_hint": "To zalecenie dotyczy całego pomieszczenia i ma charakter informacyjny.",
     "price_item_missing": "Brak pozycji cennika dla tej pracy.",
+    "action_unavailable": "Nie można dodać tej pracy automatycznie. Wybierz pozycję ręcznie.",
     "options": "Opcje",
     "hide_options": "Ukryj opcje",
     "dismiss": "Odrzuć",
-    "reconsider": "Rozważ ponownie"
+    "reconsider": "Rozważ ponownie",
+    "accept": "Dodaj do prac",
+    "accepting": "Dodawanie…",
+    "accept_success": "Praca dodana do planu. Kosztorys nie został jeszcze zaktualizowany.",
+    "error_accept": "Nie udało się dodać pracy do planu. Spróbuj ponownie.",
+    "error_invalid_selection": "Wybrana pozycja nie jest obsługiwana dla tego zalecenia.",
+    "missing_work_plan": "Najpierw skonfiguruj „Rodzaje prac i jakość” dla tej powierzchni.",
+    "fallback_button": "Wybierz pozycję ręcznie",
+    "picker_title": "Wybierz pozycję cennika",
+    "picker_cancel": "Anuluj",
+    "picker_loading": "Wczytywanie cennika…",
+    "picker_error": "Nie udało się wczytać cennika.",
+    "picker_search": "Szukaj w cenniku",
+    "picker_empty": "Brak wyników",
+    "picker_list": "Lista pozycji cennika",
+    "picker_item_prefix": "Wybierz pozycję",
+    "picker_confirm": "Potwierdź wybór"
   },
   "communication": {
     "section_title": "Co powiedzieć klientowi",
@@ -918,6 +936,7 @@
     "lines_empty_title": "Brak pozycji w kosztorysie.",
     "lines_empty_description": "Dodaj zaplanowane prace do powierzchni, aby pojawiły się tutaj.",
     "price_not_set": "Do ustalenia",
+    "quantity_unresolved": "Ilość do ustalenia",
     "quantity_overridden": "Ilość zmieniona ręcznie",
     "source_quantity": "Źródło",
     "price_overridden": "Cena zmieniona ręcznie",
@@ -989,6 +1008,7 @@
     "finalize_confirm_yes": "Finalizuj",
     "finalize_finalizing": "Finalizowanie...",
     "finalize_error": "Nie udało się sfinalizować kosztorysu.",
-    "finalize_unresolved_price_error": "Nie można sfinalizować kosztorysu. {count} pozycji nie ma ustalonej ceny. Uzupełnij ceny pozycji oznaczonych „Do ustalenia” i spróbuj ponownie."
+    "finalize_unresolved_price_error": "Nie można sfinalizować kosztorysu. {count} pozycji nie ma ustalonej ceny. Uzupełnij ceny pozycji oznaczonych „Do ustalenia” i spróbuj ponownie.",
+    "finalize_unresolved_quantity_error": "Nie można sfinalizować kosztorysu. {count} pozycji ma nieustaloną ilość. Uzupełnij ilości prac oznaczonych jako „Ilość do ustalenia” przed finalizacją kosztorysu."
   }
 }
