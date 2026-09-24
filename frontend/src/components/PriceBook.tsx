@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -23,9 +25,14 @@ import {
 } from '../types/priceItem';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice, normalizePriceInput } from '../utils/priceFormat';
-import { CoefficientCatalogManager } from './CoefficientCatalogManager';
 import { PriceBookMarket } from './PriceBookMarket';
 import { PriceItemForm } from './PriceItemForm';
+
+// Secondary screen, only shown on the "Współczynniki" tab — kept out of the
+// main bundle.
+const CoefficientCatalogManager = lazy(() =>
+  import('./CoefficientCatalogManager').then((m) => ({ default: m.CoefficientCatalogManager })),
+);
 
 type Tab = 'active' | 'archived';
 type MainTab = 'items' | 'coefficients';
@@ -260,7 +267,13 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
       </div>
 
       {mainTab === 'coefficients' ? (
-        <CoefficientCatalogManager />
+        <Suspense
+          fallback={
+            <div className="py-8 text-center text-sm text-slate-500">{t.coefficients.loading}</div>
+          }
+        >
+          <CoefficientCatalogManager />
+        </Suspense>
       ) : (
         <>
 

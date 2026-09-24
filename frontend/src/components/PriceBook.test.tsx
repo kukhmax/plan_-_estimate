@@ -1091,7 +1091,11 @@ describe('PriceBook — coefficient tab (Stage 12F)', () => {
     expect(coefficientsApi.fetchCoefficientGroups).not.toHaveBeenCalled();
 
     fireEvent.click(coefficientsTab);
-    expect(await screen.findByText('Brak zdefiniowanych grup współczynników.')).toBeInTheDocument();
+    // Lazy-loaded tab: wait for the settled catalog, not a transient pre-fetch render.
+    await waitFor(() => expect(coefficientsApi.fetchCoefficientGroups).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByText('Brak zdefiniowanych grup współczynników.')).toBeInTheDocument(),
+    );
     expect(screen.queryByLabelText('pricebook-tabs')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('pricebook-maintab-items'));
