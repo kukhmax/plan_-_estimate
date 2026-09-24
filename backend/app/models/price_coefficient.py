@@ -75,14 +75,9 @@ class CoefficientGroup(Base):
         nullable=True,
         comment="Owner-authored name; overrides name_key when set",
     )
-    description: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
-        comment=(
-            "Owner-editable explanatory text (Stage 12G); decision help only, "
-            "never a pricing input"
-        ),
-    )
+    # Owner-editable explanatory text (Stage 12G); decision help only, never
+    # a pricing input. No DB comment: migration 0026 adds a plain column.
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     selection_mode: Mapped[CoefficientSelectionMode] = mapped_column(
         Enum(CoefficientSelectionMode, name="coefficientselectionmode"),
         nullable=False,
@@ -150,14 +145,9 @@ class CoefficientOption(Base):
     )
     name_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    description: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
-        comment=(
-            "Owner-editable explanatory text (Stage 12G); decision help only, "
-            "never a pricing input"
-        ),
-    )
+    # Owner-editable explanatory text (Stage 12G); decision help only, never
+    # a pricing input. No DB comment: migration 0026 adds a plain column.
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     percentage: Mapped[Decimal] = mapped_column(
         Numeric(6, 3),
         nullable=False,

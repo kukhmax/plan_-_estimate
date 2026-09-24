@@ -390,4 +390,41 @@ describe('CoefficientAssignmentModal', () => {
       expect(screen.queryByText('Доступ к поверхности')).not.toBeInTheDocument();
     });
   });
+
+  it('drops an archived option on Zastosuj so an occurrence can be repaired (Stage 12H)', async () => {
+    const withArchived: CoefficientGroupRead[] = [
+      {
+        ...groups[0],
+        options: [
+          groups[0].options[0],
+          { ...groups[0].options[1], is_archived: true },
+        ],
+      },
+      groups[1],
+    ];
+    vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({ items: withArchived, total: 2 });
+    const { props } = renderModal({ initialOptionIds: ['opt-high', 'opt-furnished'] });
+    // The archived option is not offered; its group falls back to "Brak".
+    await screen.findByRole('radio', { name: /umeblowane/ });
+    expect(screen.queryByRole('radio', { name: /wysoka/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('radio', { name: /Brak/ })[0]).toBeChecked();
+    expect(screen.getByRole('radio', { name: /umeblowane/ })).toBeChecked();
+
+    fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
+    expect(vi.mocked(props.onApply).mock.calls[0][0].map((o) => o.id)).toEqual(['opt-furnished']);
+  });
+
+  it('shows the warning just above +50% (Stage 12H boundary)', async () => {
+    const boundary: CoefficientGroupRead[] = [
+      { ...groups[0], id: 'g1', options: [makeOption({ id: 'x', group_id: 'g1', display_name: 'x', percentage: '50.000' })] },
+      { ...groups[0], id: 'g2', options: [makeOption({ id: 'y', group_id: 'g2', display_name: 'y', percentage: '0.001' })] },
+    ];
+    vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({ items: boundary, total: 2 });
+    renderModal();
+    fireEvent.click(await screen.findByRole('radio', { name: /^x/ }));
+    expect(screen.queryByLabelText('coefficient-high-total-warning')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /^y/ }));
+    expect(screen.getByLabelText('coefficient-high-total-warning')).toHaveTextContent('+50.001%');
+    expect(screen.getByLabelText('coefficient-modal-apply')).toBeEnabled();
+  });
 });

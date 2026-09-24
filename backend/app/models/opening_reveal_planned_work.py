@@ -105,13 +105,11 @@ class OpeningRevealPlannedWorkCoefficientAssignment(Base):
         Uuid,
         ForeignKey("opening_reveal_planned_works.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     coefficient_option_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         ForeignKey("coefficient_options.id", ondelete="RESTRICT"),
         nullable=False,
-        index=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -134,4 +132,8 @@ class OpeningRevealPlannedWorkCoefficientAssignment(Base):
             "coefficient_option_id",
             name="uq_opening_reveal_planned_work_coefficient_option",
         ),
+        # Explicit names match migration 0024, which shortened the
+        # auto-generated names to fit PostgreSQL's 63-byte identifier limit.
+        Index("ix_opening_reveal_coefficient_assignments_work_id", "opening_reveal_planned_work_id"),
+        Index("ix_opening_reveal_coefficient_assignments_option_id", "coefficient_option_id"),
     )
