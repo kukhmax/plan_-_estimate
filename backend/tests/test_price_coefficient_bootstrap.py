@@ -1,12 +1,10 @@
 """Focused Stage 12C tests: coefficient catalog bootstrap mechanism.
 
-The production baseline (`app/domain/data/price_coefficients.py`) ships
-intentionally EMPTY -- Stage 12B forbids seeding any Q/S/PSG or other
-percentage before Stage 12G defines and the owner approves real default
-values. These tests prove the underlying idempotent-bootstrap MECHANISM
-itself is correct (mirrors the Stage 11 `WorkRecommendationRule` bootstrap
-precedent) using a small, clearly-fake, test-only baseline injected via
-monkeypatch -- never real catalog data.
+These tests prove the underlying idempotent-bootstrap MECHANISM itself is
+correct (mirrors the Stage 11 `WorkRecommendationRule` bootstrap precedent)
+using a small, clearly-fake, test-only baseline injected via monkeypatch.
+The real Stage 12G v1 catalog content is covered by
+`test_price_coefficient_defaults.py`.
 """
 from decimal import Decimal
 
@@ -46,26 +44,19 @@ def _patch_baseline(monkeypatch, baseline=FAKE_BASELINE):
     )
 
 
-class TestProductionBaselineIsEmpty:
-    def test_shipped_baseline_has_no_entries(self):
-        """Guards the Stage 12B gate directly: this must fail loudly if
-        anyone adds a real entry to the production data module without an
-        explicit, separate owner-approved specification (Stage 12G)."""
+class TestProductionBaselineIsV1Catalog:
+    def test_shipped_baseline_is_the_approved_v1_catalog(self):
+        """Guards the Stage 12G approval gate: exactly the four approved
+        groups ship (docs/stage-12-architecture.md Sec 27.3); see
+        test_price_coefficient_defaults.py for the full content checks."""
         from app.domain.data.price_coefficients import build_baseline_price_coefficients
 
-        assert build_baseline_price_coefficients() == []
-
-    async def test_bootstrap_is_a_no_op_against_the_real_production_baseline(self, db_session):
-        user = await _make_user(db_session, 12100)
-        service = PriceCoefficientService(db_session)
-        created = await service.ensure_owner_catalog(user.id)
-        assert created == []
-        rows = (
-            await db_session.execute(
-                select(CoefficientGroup).where(CoefficientGroup.owner_id == user.id)
-            )
-        ).scalars().all()
-        assert rows == []
+        assert [g.code for g in build_baseline_price_coefficients()] == [
+            "WYSOKOSC_PRACY",
+            "DOSTEP_DO_POWIERZCHNI",
+            "ZLOZONOSC_POWIERZCHNI",
+            "ORGANIZACJA_PRACY",
+        ]
 
 
 class TestBootstrapMechanism:

@@ -76,7 +76,14 @@ async def test_first_list_bootstraps_without_error(async_client: AsyncClient):
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body == {"items": [], "total": 0}
+    # Stage 12G: the first list lazily installs the four v1 default groups.
+    assert body["total"] == 4
+    assert [g["code"] for g in body["items"]] == [
+        "WYSOKOSC_PRACY",
+        "DOSTEP_DO_POWIERZCHNI",
+        "ZLOZONOSC_POWIERZCHNI",
+        "ORGANIZACJA_PRACY",
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -461,4 +468,7 @@ async def test_second_owners_list_is_independent(async_client: AsyncClient):
             "/api/price-coefficient-groups", headers=auth_header(other_token)
         )
     ).json()
-    assert other_list == {"items": [], "total": 0}
+    # The other owner sees only their own four program defaults.
+    assert other_list["total"] == 4
+    assert "Owner Group" not in [g["display_name"] for g in other_list["items"]]
+    assert all(not g["code"].startswith("CUSTOM_") for g in other_list["items"])

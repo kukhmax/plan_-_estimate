@@ -10,9 +10,8 @@ than duplicating its logic. No Estimate calculation/snapshot exists yet
 contract this module implements.
 
 Bootstrap mirrors `WorkRecommendationService._ensure_bootstrapped` verbatim:
-lazy, idempotent, no Alembic data seed. The shipped baseline is intentionally
-empty (`app/domain/data/price_coefficients.py`) until Stage 12G defines
-owner-approved default percentages.
+lazy, idempotent, no Alembic data seed. The shipped baseline is the Stage 12G
+owner-approved v1 default catalog (`app/domain/data/price_coefficients.py`).
 """
 import asyncio
 from decimal import Decimal
@@ -79,6 +78,12 @@ def validate_percentage(value: Decimal) -> Decimal:
     return value
 
 
+def normalize_description(description: str | None) -> str | None:
+    """Stage 12G: descriptions are optional free text; blank means "none"."""
+    text = (description or "").strip()
+    return text or None
+
+
 def validate_display_name(display_name: str | None) -> str:
     name = (display_name or "").strip()
     if not name:
@@ -101,10 +106,10 @@ class PriceCoefficientService:
         bootstrap precedent exactly: inserts only a `(owner_id, code)` group
         (and, within it, a `(group_id, code)` option) that does not already
         exist; never re-inserts, never overwrites an owner edit, never
-        reactivates an archived row. The current baseline is empty (see
-        `app/domain/data/price_coefficients.py`), so today this is a no-op in
-        production -- the mechanism exists and is tested so Stage 12G's
-        eventual owner-approved defaults roll out automatically.
+        reactivates an archived row. Stage 12G ships the owner-approved v1
+        default catalog (`app/domain/data/price_coefficients.py`); an
+        existing row's name, description, percentage, `is_base` and archive
+        state are never touched once it exists.
         """
         async with _bootstrap_lock:
             baseline = build_baseline_price_coefficients()
@@ -123,7 +128,7 @@ class PriceCoefficientService:
 
             created: list[CoefficientGroup] = []
             changed = False
-            for group_data in baseline:
+            for group_position, group_data in enumerate(baseline):
                 group = groups_by_code.get(group_data.code)
                 if group is None:
                     # A brand-new group trivially has no options yet -- never
@@ -136,7 +141,9 @@ class PriceCoefficientService:
                         code=group_data.code,
                         name_key=group_data.name_key,
                         display_name=group_data.display_name,
+                        description=group_data.description,
                         selection_mode=CoefficientSelectionMode.SINGLE_SELECT,
+                        position=group_position,
                     )
                     self.db.add(group)
                     await self.db.flush()
@@ -144,20 +151,31 @@ class PriceCoefficientService:
                     created.append(group)
                     changed = True
                     existing_option_codes: set[str] = set()
+                    has_active_base = False
                 else:
                     existing_option_codes = {option.code for option in group.options}
+                    has_active_base = any(
+                        option.is_base and not option.is_archived
+                        for option in group.options
+                    )
 
                 for position, option_data in enumerate(group_data.options):
                     if option_data.code in existing_option_codes:
                         continue
+                    # Never create a second active base: if the owner already
+                    # has one in this group (their own choice), a newly
+                    # inserted default joins as an ordinary option.
+                    is_base = option_data.is_base and not has_active_base
+                    has_active_base = has_active_base or is_base
                     self.db.add(
                         CoefficientOption(
                             group_id=group.id,
                             code=option_data.code,
                             name_key=option_data.name_key,
                             display_name=option_data.display_name,
+                            description=option_data.description,
                             percentage=Decimal(option_data.percentage),
-                            is_base=option_data.is_base,
+                            is_base=is_base,
                             position=position,
                         )
                     )
@@ -250,6 +268,7 @@ class PriceCoefficientService:
         owner_id: uuid.UUID,
         *,
         display_name: str,
+        description: str | None = None,
     ) -> CoefficientGroup:
         """Create an owner-authored group with a generated, immutable code.
 
@@ -262,6 +281,7 @@ class PriceCoefficientService:
             owner_id=owner_id,
             code=code,
             display_name=name,
+            description=normalize_description(description),
             selection_mode=CoefficientSelectionMode.SINGLE_SELECT,
         )
         self.db.add(group)
@@ -274,6 +294,7 @@ class PriceCoefficientService:
         group_id: uuid.UUID,
         *,
         display_name: str | None = None,
+        description: str | None | object = _UNSET,
         position: int | None = None,
     ) -> CoefficientGroup:
         """Update editable group fields; `code`/`selection_mode` are immutable
@@ -283,6 +304,8 @@ class PriceCoefficientService:
             group.display_name = self._resolve_display_name(
                 group.name_key, display_name
             )
+        if description is not _UNSET:
+            group.description = normalize_description(description)  # type: ignore[arg-type]
         if position is not None:
             group.position = position
         await self.db.commit()
@@ -367,6 +390,7 @@ class PriceCoefficientService:
         display_name: str,
         percentage: Decimal,
         is_base: bool = False,
+        description: str | None = None,
     ) -> CoefficientOption:
         """Create an option within an owned, active group.
 
@@ -394,6 +418,7 @@ class PriceCoefficientService:
             group_id=group.id,
             code=code,
             display_name=name,
+            description=normalize_description(description),
             percentage=validated_percentage,
             is_base=is_base,
             position=next_position,
@@ -408,6 +433,7 @@ class PriceCoefficientService:
         option_id: uuid.UUID,
         *,
         display_name: str | None = None,
+        description: str | None | object = _UNSET,
         percentage: Decimal | None = None,
         is_base: bool | None = None,
         position: int | None = None,
@@ -425,6 +451,8 @@ class PriceCoefficientService:
             option.display_name = self._resolve_display_name(
                 option.name_key, display_name
             )
+        if description is not _UNSET:
+            option.description = normalize_description(description)  # type: ignore[arg-type]
         if percentage is not None:
             option.percentage = validate_percentage(percentage)
         if is_base is not None:

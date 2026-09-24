@@ -56,6 +56,16 @@ export function sumPercentages(percentages: string[]): string {
 }
 
 /**
+ * Exact comparison of two percentage strings: true when `percentage` is
+ * strictly greater than `threshold` (e.g. "50.01" vs "50" -> true, "50.00" vs
+ * "50" -> false).
+ */
+export function isPercentageAbove(percentage: string, threshold: string): boolean {
+  const scale = 4;
+  return parseSignedDecimal(percentage, scale) > parseSignedDecimal(threshold, scale);
+}
+
+/**
  * Format a percentage for user display, e.g. "+20%", "-5%", "0%".
  */
 export function formatPercentageDisplay(percentage: string): string {

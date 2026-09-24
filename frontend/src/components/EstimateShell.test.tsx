@@ -5026,4 +5026,27 @@ describe('Stage 12F — coefficient provenance', () => {
     expect(text).toContain('+20%');
     expect(text).toContain('+30%');
   });
+
+  it('renders stored snapshot names verbatim regardless of UI locale (Stage 12G)', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([
+        makeLine({
+          base_unit_price: '40.00',
+          coefficient_snapshot: [
+            {
+              group_id: 'g', group_code: 'WYSOKOSC_PRACY', group_name: 'Wysokość pracy',
+              option_id: 'o', option_code: 'PODWYZSZONA', option_name: 'Podwyższona',
+              percentage: '15.000', is_base: false,
+            },
+          ],
+        }),
+      ]),
+    );
+    renderShell();
+    const block = await screen.findByLabelText('line-coefficient-snapshot-1');
+    expect(block).toHaveTextContent('Wysokość pracy');
+    expect(block).toHaveTextContent('Podwyższona');
+    expect(block).not.toHaveTextContent('Высота работ');
+  });
 });

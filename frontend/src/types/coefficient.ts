@@ -6,6 +6,7 @@ export interface CoefficientOptionRead {
   code: string;
   name_key: string | null;
   display_name: string | null;
+  description: string | null;
   percentage: string;
   is_base: boolean;
   position: number;
@@ -19,6 +20,7 @@ export interface CoefficientGroupRead {
   code: string;
   name_key: string | null;
   display_name: string | null;
+  description: string | null;
   selection_mode: CoefficientSelectionMode;
   position: number;
   is_archived: boolean;
@@ -34,21 +36,25 @@ export interface CoefficientGroupListResponse {
 
 export interface CoefficientGroupCreatePayload {
   display_name: string;
+  description?: string | null;
 }
 
 export interface CoefficientGroupUpdatePayload {
   display_name?: string;
+  description?: string | null;
   position?: number;
 }
 
 export interface CoefficientOptionCreatePayload {
   display_name: string;
+  description?: string | null;
   percentage: string;
   is_base?: boolean;
 }
 
 export interface CoefficientOptionUpdatePayload {
   display_name?: string;
+  description?: string | null;
   percentage?: string;
   is_base?: boolean;
 }

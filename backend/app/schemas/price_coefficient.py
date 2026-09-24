@@ -21,6 +21,7 @@ class CoefficientOptionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     display_name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=4000)
     percentage: Decimal
     is_base: bool = False
 
@@ -35,6 +36,8 @@ class CoefficientOptionUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     display_name: str | None = Field(default=None, min_length=1, max_length=255)
+    # Omitted = unchanged; explicit null or blank = clear (Stage 12G).
+    description: str | None = Field(default=None, max_length=4000)
     percentage: Decimal | None = None
     is_base: bool | None = None
 
@@ -45,6 +48,7 @@ class CoefficientOptionRead(BaseModel):
     code: str
     name_key: str | None = None
     display_name: str | None = None
+    description: str | None = None
     percentage: Decimal
     is_base: bool
     position: int
@@ -62,6 +66,7 @@ class CoefficientGroupCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     display_name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=4000)
 
 
 class CoefficientGroupUpdate(BaseModel):
@@ -70,6 +75,8 @@ class CoefficientGroupUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     display_name: str | None = Field(default=None, min_length=1, max_length=255)
+    # Omitted = unchanged; explicit null or blank = clear (Stage 12G).
+    description: str | None = Field(default=None, max_length=4000)
     position: int | None = None
 
 
@@ -78,6 +85,7 @@ class CoefficientGroupRead(BaseModel):
     code: str
     name_key: str | None = None
     display_name: str | None = None
+    description: str | None = None
     selection_mode: CoefficientSelectionMode
     position: int
     is_archived: bool

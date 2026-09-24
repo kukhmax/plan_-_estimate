@@ -21,6 +21,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     Uuid,
 )
@@ -73,6 +74,14 @@ class CoefficientGroup(Base):
         String(255),
         nullable=True,
         comment="Owner-authored name; overrides name_key when set",
+    )
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Owner-editable explanatory text (Stage 12G); decision help only, "
+            "never a pricing input"
+        ),
     )
     selection_mode: Mapped[CoefficientSelectionMode] = mapped_column(
         Enum(CoefficientSelectionMode, name="coefficientselectionmode"),
@@ -141,6 +150,14 @@ class CoefficientOption(Base):
     )
     name_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Owner-editable explanatory text (Stage 12G); decision help only, "
+            "never a pricing input"
+        ),
+    )
     percentage: Mapped[Decimal] = mapped_column(
         Numeric(6, 3),
         nullable=False,

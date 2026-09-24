@@ -52,6 +52,7 @@ def _group_read(
         code=group.code,
         name_key=group.name_key,
         display_name=group.display_name,
+        description=group.description,
         selection_mode=group.selection_mode,
         position=group.position,
         is_archived=group.is_archived,
@@ -102,7 +103,9 @@ async def create_coefficient_group(
 ) -> CoefficientGroupRead:
     try:
         created = await service.create_group(
-            current_user.id, display_name=payload.display_name
+            current_user.id,
+            display_name=payload.display_name,
+            description=payload.description,
         )
     except PriceCoefficientValidationError as e:
         raise HTTPException(
@@ -230,6 +233,7 @@ async def create_coefficient_option(
             current_user.id,
             group_id,
             display_name=payload.display_name,
+            description=payload.description,
             percentage=payload.percentage,
             is_base=payload.is_base,
         )

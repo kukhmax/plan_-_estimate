@@ -3,6 +3,7 @@ import {
   calculateEffectivePrice,
   formatCoefficientSummary,
   formatPercentageDisplay,
+  isPercentageAbove,
   sumPercentages,
 } from './coefficientCalculations';
 
@@ -99,6 +100,17 @@ describe('coefficientCalculations', () => {
           { percentage: '10.00', is_base: false },
         ]),
       ).toBe('+30%');
+    });
+  });
+
+  describe('isPercentageAbove (Stage 12G warning threshold)', () => {
+    it('is strictly greater-than with exact decimals', () => {
+      expect(isPercentageAbove('50', '50')).toBe(false);
+      expect(isPercentageAbove('50.00', '50')).toBe(false);
+      expect(isPercentageAbove('50.001', '50')).toBe(true);
+      expect(isPercentageAbove('55.00', '50')).toBe(true);
+      expect(isPercentageAbove('49.999', '50')).toBe(false);
+      expect(isPercentageAbove('-60.00', '50')).toBe(false);
     });
   });
 });

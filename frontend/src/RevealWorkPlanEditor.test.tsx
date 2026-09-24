@@ -950,17 +950,17 @@ describe('RevealWorkPlanEditor — coefficients (Stage 12F)', () => {
     vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({
       items: [
         {
-          id: 'grp-height', code: 'HEIGHT', name_key: null, display_name: 'Wysokość',
+          id: 'grp-height', code: 'HEIGHT', name_key: null, display_name: 'Wysokość', description: null,
           selection_mode: 'SINGLE_SELECT', position: 0, is_archived: false,
           created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
           options: [
             {
-              id: 'opt-normal', group_id: 'grp-height', code: 'NORMAL', name_key: null, display_name: 'normalna',
+              id: 'opt-normal', group_id: 'grp-height', code: 'NORMAL', name_key: null, display_name: 'normalna', description: null,
               percentage: '0.00', is_base: true, position: 0, is_archived: false,
               created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
             },
             {
-              id: 'opt-high', group_id: 'grp-height', code: 'HIGH', name_key: null, display_name: 'wysoka',
+              id: 'opt-high', group_id: 'grp-height', code: 'HIGH', name_key: null, display_name: 'wysoka', description: null,
               percentage: '20.00', is_base: false, position: 1, is_archived: false,
               created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
             },
@@ -1013,5 +1013,25 @@ describe('RevealWorkPlanEditor — coefficients (Stage 12F)', () => {
     await waitFor(() => expect(revealWorksApi.putRevealWorks).toHaveBeenCalled());
     const payload = vi.mocked(revealWorksApi.putRevealWorks).mock.calls[0][4];
     expect(payload.planned_works?.[0].coefficient_option_ids).toEqual(['opt-normal']);
+  });
+
+  it('opening a coefficient description never persists or dirties the plan (Stage 12G)', async () => {
+    const described = await coefficientsApi.fetchCoefficientGroups();
+    vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({
+      ...described,
+      items: described.items.map((g, i) => (i === 0 ? { ...g, description: 'Opis grupy' } : g)),
+    });
+    const buttons = await assignButtons();
+    fireEvent.click(buttons[0]);
+    fireEvent.click(await screen.findByTestId('coefficient-group-info-grp-height'));
+    expect(screen.getByTestId('coefficient-description-sheet')).toHaveTextContent('Opis grupy');
+    fireEvent.click(
+      within(screen.getByTestId('coefficient-description-sheet')).getAllByRole('button', { name: 'Zamknij' })[0],
+    );
+    expect(screen.queryByTestId('coefficient-description-sheet')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('coefficient-modal-cancel'));
+
+    expect(revealWorksApi.putRevealWorks).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(`save-reveal-work-${openingId}`)).toBeDisabled();
   });
 });

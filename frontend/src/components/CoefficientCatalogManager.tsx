@@ -13,17 +13,24 @@ import {
 import { useI18n } from '../hooks/useI18n';
 import { CoefficientGroupRead, CoefficientOptionRead } from '../types/coefficient';
 import { formatPercentageDisplay } from '../utils/coefficientCalculations';
+import {
+  coefficientGroupDescription,
+  coefficientGroupName,
+  coefficientOptionDescription,
+  coefficientOptionName,
+} from '../utils/coefficientLabels';
 
 export const CoefficientCatalogManager: React.FC = () => {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [groups, setGroups] = useState<CoefficientGroupRead[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Group creation form modal state
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDescription, setNewGroupDescription] = useState('');
   const [savingGroup, setSavingGroup] = useState(false);
 
   // Option creation modal state
@@ -31,17 +38,23 @@ export const CoefficientCatalogManager: React.FC = () => {
   const [newOptionName, setNewOptionName] = useState('');
   const [newOptionPercentage, setNewOptionPercentage] = useState('');
   const [newOptionIsBase, setNewOptionIsBase] = useState(false);
+  const [newOptionDescription, setNewOptionDescription] = useState('');
   const [savingOption, setSavingOption] = useState(false);
 
   // Editing state for group
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState('');
+  const [editGroupDescription, setEditGroupDescription] = useState('');
 
   // Editing state for option
   const [editingOption, setEditingOption] = useState<CoefficientOptionRead | null>(null);
   const [editOptionName, setEditOptionName] = useState('');
   const [editOptionPercentage, setEditOptionPercentage] = useState('');
   const [editOptionIsBase, setEditOptionIsBase] = useState(false);
+  const [editOptionDescription, setEditOptionDescription] = useState('');
+
+  // Blank description means "no description" (the backend normalizes too).
+  const descriptionPayload = (text: string): string | null => text.trim() || null;
 
   const loadData = () => {
     setLoading(true);
@@ -71,8 +84,12 @@ export const CoefficientCatalogManager: React.FC = () => {
     setSavingGroup(true);
     setError(null);
     try {
-      await createCoefficientGroup({ display_name: newGroupName.trim() });
+      await createCoefficientGroup({
+        display_name: newGroupName.trim(),
+        description: descriptionPayload(newGroupDescription),
+      });
       setNewGroupName('');
+      setNewGroupDescription('');
       setIsAddGroupOpen(false);
       loadData();
     } catch (err) {
@@ -85,7 +102,10 @@ export const CoefficientCatalogManager: React.FC = () => {
   const handleUpdateGroup = async (groupId: string) => {
     if (!editGroupName.trim()) return;
     try {
-      await updateCoefficientGroup(groupId, { display_name: editGroupName.trim() });
+      await updateCoefficientGroup(groupId, {
+        display_name: editGroupName.trim(),
+        description: descriptionPayload(editGroupDescription),
+      });
       setEditingGroupId(null);
       loadData();
     } catch (err) {
@@ -121,11 +141,13 @@ export const CoefficientCatalogManager: React.FC = () => {
         display_name: newOptionName.trim(),
         percentage: newOptionPercentage.trim().replace(',', '.'),
         is_base: newOptionIsBase,
+        description: descriptionPayload(newOptionDescription),
       });
       setAddingOptionGroupId(null);
       setNewOptionName('');
       setNewOptionPercentage('');
       setNewOptionIsBase(false);
+      setNewOptionDescription('');
       loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : t.coefficients.error_save);
@@ -142,6 +164,7 @@ export const CoefficientCatalogManager: React.FC = () => {
         display_name: editOptionName.trim(),
         percentage: editOptionPercentage.trim().replace(',', '.'),
         is_base: editOptionIsBase,
+        description: descriptionPayload(editOptionDescription),
       });
       setEditingOption(null);
       loadData();
@@ -248,6 +271,15 @@ export const CoefficientCatalogManager: React.FC = () => {
                         className="min-w-0 flex-1 basis-40 min-h-[44px] px-2 py-1 border border-slate-300 rounded text-sm font-semibold"
                         autoFocus
                       />
+                      <textarea
+                        aria-label="coefficient-group-description-edit"
+                        value={editGroupDescription}
+                        onChange={(e) => setEditGroupDescription(e.target.value)}
+                        placeholder={t.coefficients.description_placeholder}
+                        rows={4}
+                        maxLength={4000}
+                        className="w-full min-h-[88px] px-2 py-1 border border-slate-300 rounded text-sm"
+                      />
                       <button
                         type="button"
                         onClick={() => handleUpdateGroup(group.id)}
@@ -266,12 +298,17 @@ export const CoefficientCatalogManager: React.FC = () => {
                   ) : (
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="min-w-0 text-base font-bold text-slate-900 break-words">
-                        {group.display_name || group.code}
+                        {coefficientGroupName(group, t)}
                       </h3>
                       {group.is_archived && (
                         <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
                           {t.coefficients.archived_badge}
                         </span>
+                      )}
+                      {group.description && (
+                        <p className="w-full text-xs text-slate-500 whitespace-pre-line break-words line-clamp-3">
+                          {coefficientGroupDescription(group, t)}
+                        </p>
                       )}
                     </div>
                   )}
@@ -285,6 +322,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                         onClick={() => {
                           setEditingGroupId(group.id);
                           setEditGroupName(group.display_name || '');
+                          setEditGroupDescription(group.description || '');
                         }}
                         className="min-h-[44px] px-2 py-1 text-xs text-slate-600 hover:text-blue-600"
                       >
@@ -321,7 +359,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                   >
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="min-w-0 font-medium text-slate-800 break-words">
-                        {opt.display_name || opt.code}
+                        {coefficientOptionName(group.code, opt, t)}
                       </span>
                       {opt.is_base && (
                         <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">
@@ -337,6 +375,11 @@ export const CoefficientCatalogManager: React.FC = () => {
                         {formatPercentageDisplay(opt.percentage)}
                       </span>
                     </div>
+                    {opt.description && (
+                      <p className="text-xs text-slate-500 whitespace-pre-line break-words line-clamp-2">
+                        {coefficientOptionDescription(group.code, opt, t)}
+                      </p>
+                    )}
 
                     <div className="flex flex-wrap items-center gap-2">
                       {!opt.is_archived && !group.is_archived && (
@@ -347,6 +390,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                             setEditOptionName(opt.display_name || '');
                             setEditOptionPercentage(opt.percentage);
                             setEditOptionIsBase(opt.is_base);
+                            setEditOptionDescription(opt.description || '');
                           }}
                           className="min-h-[44px] px-2 text-xs text-slate-600 hover:text-blue-600"
                         >
@@ -384,6 +428,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                     setNewOptionName('');
                     setNewOptionPercentage('');
                     setNewOptionIsBase(false);
+                    setNewOptionDescription('');
                   }}
                   className="w-full min-h-[44px] px-3 py-2 border border-dashed border-slate-300 hover:border-blue-500 hover:text-blue-600 text-slate-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
                 >
@@ -397,7 +442,7 @@ export const CoefficientCatalogManager: React.FC = () => {
       {/* Add Group Modal */}
       {isAddGroupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden p-4 space-y-4">
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-4 space-y-4">
             <h3 className="text-base font-bold text-slate-900">
               {t.coefficients.add_group}
             </h3>
@@ -414,6 +459,20 @@ export const CoefficientCatalogManager: React.FC = () => {
                   className="w-full min-h-[44px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   required
                   autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {t.coefficients.description_optional}
+                </label>
+                <textarea
+                  aria-label="coefficient-group-description-input"
+                  value={newGroupDescription}
+                  onChange={(e) => setNewGroupDescription(e.target.value)}
+                  placeholder={t.coefficients.description_placeholder}
+                  rows={4}
+                  maxLength={4000}
+                  className="w-full min-h-[88px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
               <div className="flex items-center gap-2 pt-2">
@@ -440,7 +499,7 @@ export const CoefficientCatalogManager: React.FC = () => {
       {/* Add Option Modal */}
       {addingOptionGroupId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden p-4 space-y-4">
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-4 space-y-4">
             <h3 className="text-base font-bold text-slate-900">
               {t.coefficients.add_option}
             </h3>
@@ -468,9 +527,23 @@ export const CoefficientCatalogManager: React.FC = () => {
                   inputMode="decimal"
                   value={newOptionPercentage}
                   onChange={(e) => setNewOptionPercentage(e.target.value)}
-                  placeholder="np. 20 lub -10"
+                  placeholder={t.coefficients.percentage_placeholder}
                   className="w-full min-h-[44px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {t.coefficients.description_optional}
+                </label>
+                <textarea
+                  aria-label="coefficient-option-description-input"
+                  value={newOptionDescription}
+                  onChange={(e) => setNewOptionDescription(e.target.value)}
+                  placeholder={t.coefficients.description_placeholder}
+                  rows={4}
+                  maxLength={4000}
+                  className="w-full min-h-[88px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -509,7 +582,7 @@ export const CoefficientCatalogManager: React.FC = () => {
       {/* Edit Option Modal */}
       {editingOption && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden p-4 space-y-4">
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-4 space-y-4">
             <h3 className="text-base font-bold text-slate-900">
               {t.coefficients.edit}
             </h3>
@@ -538,6 +611,20 @@ export const CoefficientCatalogManager: React.FC = () => {
                   onChange={(e) => setEditOptionPercentage(e.target.value)}
                   className="w-full min-h-[44px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {t.coefficients.description_optional}
+                </label>
+                <textarea
+                  aria-label="coefficient-option-description-edit"
+                  value={editOptionDescription}
+                  onChange={(e) => setEditOptionDescription(e.target.value)}
+                  placeholder={t.coefficients.description_placeholder}
+                  rows={4}
+                  maxLength={4000}
+                  className="w-full min-h-[88px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
               <div className="flex items-center gap-2">

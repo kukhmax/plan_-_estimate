@@ -1053,6 +1053,86 @@
     "error_load": "Nie udało się załadować współczynników.",
     "error_save": "Nie udało się zapisać zmian.",
     "validation_name_required": "Nazwa jest wymagana.",
-    "validation_percentage_required": "Wartość procentowa jest wymagana."
+    "validation_percentage_required": "Wartość procentowa jest wymagana.",
+    "description": "Opis",
+    "description_placeholder": "Kiedy stosować, przykłady, kiedy nie stosować",
+    "description_optional": "Opis (opcjonalnie)",
+    "show_description": "Pokaż opis: {name}",
+    "high_total_warning": "Wysoka łączna korekta ceny ({percent}).\nSprawdź, czy wybrane współczynniki opisują niezależne utrudnienia oraz czy ich wpływ nie został już uwzględniony w cenie bazowej lub innych pozycjach kosztorysu.",
+    "percentage_placeholder": "np. 20 lub -10",
+    "builtin": {
+      "WYSOKOSC_PRACY": {
+        "name": "Wysokość pracy",
+        "description": "Korekta robocizny za rzeczywisty spadek wydajności spowodowany wysokością, na której wykonywana jest praca.\n\nStosuj, gdy cena bazowa zakłada pracę z podłogi lub niskiej drabiny, a ta konkretna praca wymaga pracy wyżej (np. wysokie ściany i sufity, klatki schodowe, antresole).\n\nNie stosuj, jeżeli wysokość jest już uwzględniona w cenie bazowej pozycji. Koszt rusztowania, podestu lub wynajmu sprzętu NIE jest częścią tego współczynnika — rozlicz go osobno (osobna pozycja lub dopłata do zlecenia).",
+        "options": {
+          "STANDARDOWA": {
+            "name": "Standardowa",
+            "description": "Wysokość zakładana w cenie bazowej — praca z podłogi lub niskiej drabiny/podestu. Bez korekty ceny. Wybór tej opcji zapisuje świadomą decyzję, że wysokość nie utrudnia pracy."
+          },
+          "PODWYZSZONA": {
+            "name": "Podwyższona",
+            "description": "Praca wyraźnie wyżej niż zakłada cena bazowa, wymagająca częstego wchodzenia i przestawiania drabiny lub podestu, co obniża wydajność. Sam koszt sprzętu rozlicz osobno."
+          },
+          "WYSOKA": {
+            "name": "Wysoka",
+            "description": "Praca na dużej wysokości (np. z rusztowania), gdzie wydajność spada znacząco przez ograniczony zasięg i przemieszczanie się. Koszt rusztowania lub wynajmu sprzętu NIE jest wliczony — rozlicz go osobno."
+          }
+        }
+      },
+      "DOSTEP_DO_POWIERZCHNI": {
+        "name": "Dostęp do powierzchni",
+        "description": "Korekta robocizny za ograniczenie dostępu do powierzchni, które utrzymuje się przez cały czas wykonywania pracy.\n\nStosuj, gdy nie da się swobodnie podejść lub operować narzędziem, np. wąskie przejścia, powierzchnie za zabudową lub instalacjami, praca w ciasnych pomieszczeniach, stała zabudowa lub wyposażenie, którego nie można usunąć.\n\nNie stosuj za jednorazowe przesunięcie mebli lub wyposażenia — jeżeli jest płatne, rozlicz je jako osobną pozycję. Nie łącz z pozycjami, w których utrudniony dostęp jest już wyceniony.",
+        "options": {
+          "SWOBODNY": {
+            "name": "Swobodny",
+            "description": "Swobodny dostęp do całej powierzchni, zakładany w cenie bazowej. Bez korekty ceny."
+          },
+          "UTRUDNIONY": {
+            "name": "Utrudniony",
+            "description": "Dostęp częściowo ograniczony przez cały czas pracy (np. wąskie przejście, elementy stałej zabudowy przy powierzchni), co zauważalnie spowalnia pracę."
+          },
+          "BARDZO_UTRUDNIONY": {
+            "name": "Bardzo utrudniony",
+            "description": "Dostęp mocno ograniczony przez cały czas pracy (np. praca w bardzo ciasnej przestrzeni, za instalacjami, w niewygodnej pozycji). Nie dotyczy jednorazowego przestawienia mebli."
+          }
+        }
+      },
+      "ZLOZONOSC_POWIERZCHNI": {
+        "name": "Złożoność powierzchni",
+        "description": "Korekta robocizny za spadek wydajności wynikający z kształtu i rozdrobnienia powierzchni: wiele małych fragmentów, dojść, krawędzi lub częste zmiany kierunku pracy.\n\nStosuj np. przy powierzchniach podzielonych na wąskie pasy, wielu załamaniach, skosach, podciągach lub drobnych fragmentach między otworami.\n\nNie stosuj do ponownego wyceniania elementów, które są już osobnymi pozycjami cennika (np. ościeża, narożniki lub inne oddzielnie mierzone prace) — to byłoby podwójne naliczenie.",
+        "options": {
+          "STANDARDOWA": {
+            "name": "Standardowa",
+            "description": "Typowa, w większości jednolita powierzchnia zakładana w cenie bazowej. Bez korekty ceny."
+          },
+          "ZLOZONA": {
+            "name": "Złożona",
+            "description": "Powierzchnia z wieloma załamaniami, krawędziami lub małymi fragmentami, które wyraźnie spowalniają pracę. Nie dotyczy elementów wycenianych osobno (ościeża, narożniki)."
+          },
+          "BARDZO_ZLOZONA": {
+            "name": "Bardzo złożona",
+            "description": "Powierzchnia silnie rozdrobniona — przeważają małe fragmenty, dojścia i częste zmiany kierunku pracy. Nie łącz z osobnymi pozycjami za te same elementy."
+          }
+        }
+      },
+      "ORGANIZACJA_PRACY": {
+        "name": "Organizacja pracy",
+        "description": "Korekta robocizny za spadek wydajności spowodowany organizacją realizacji, a nie samą powierzchnią.\n\nStosuj np. przy ograniczonych godzinach dostępu, pracy w zamieszkanym lub czynnym obiekcie, wielokrotnym udostępnianiu stref albo konieczności regularnego przerywania i wznawiania pracy.\n\nNie obejmuje dodatkowych czynności, takich jak zabezpieczenie, przenoszenie wyposażenia czy dodatkowe sprzątanie — jeżeli są płatne, rozlicz je jako osobne pozycje. Praca nocna, weekendowa lub pilna to dopłata do zlecenia, nie ten współczynnik.",
+        "options": {
+          "CIAGLA": {
+            "name": "Ciągła",
+            "description": "Praca ciągła, bez ograniczeń organizacyjnych, zakładana w cenie bazowej. Bez korekty ceny."
+          },
+          "OGRANICZONA": {
+            "name": "Ograniczona",
+            "description": "Praca w ograniczonych godzinach lub w obiekcie czynnym / zamieszkanym, co zmniejsza efektywny czas pracy."
+          },
+          "ETAPOWA": {
+            "name": "Etapowa / przerywana",
+            "description": "Praca prowadzona etapami lub regularnie przerywana i wznawiana (np. wielokrotne udostępnianie stref). Zabezpieczenie i sprzątanie rozliczaj osobno."
+          }
+        }
+      }
+    }
   }
 }

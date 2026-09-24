@@ -6,8 +6,23 @@ import { PlannedWorkCoefficientOptionRead } from '../types/workPlan';
 import {
   calculateEffectivePrice,
   formatPercentageDisplay,
+  isPercentageAbove,
   sumPercentages,
 } from '../utils/coefficientCalculations';
+import {
+  coefficientGroupDescription,
+  coefficientGroupName,
+  coefficientOptionDescription,
+  coefficientOptionName,
+} from '../utils/coefficientLabels';
+
+// Stage 12G: above this additive total the modal shows a non-blocking hint.
+const HIGH_TOTAL_WARNING_THRESHOLD = '50';
+
+interface DescriptionSheetContent {
+  title: string;
+  text: string;
+}
 
 export interface CoefficientAssignmentModalProps {
   isOpen: boolean;
@@ -35,6 +50,8 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
 
   // Map of groupId -> selectedOptionId | null (null = "Brak")
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string | null>>({});
+  // Read-only description overlay; never touches the selection above.
+  const [descriptionSheet, setDescriptionSheet] = useState<DescriptionSheetContent | null>(null);
 
   // Keyed by content, not array identity: parents rebuild `initialOptionIds`
   // on every render, which must not refetch and reset the local selection.
@@ -101,7 +118,27 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
     return calculateEffectivePrice(basePrice, totalPercentage);
   }, [basePrice, totalPercentage]);
 
+  const showHighTotalWarning = isPercentageAbove(totalPercentage, HIGH_TOTAL_WARNING_THRESHOLD);
+
   if (!isOpen) return null;
+
+  const renderInfoButton = (title: string, text: string | null, testId: string) =>
+    text ? (
+      <button
+        type="button"
+        aria-label={t.coefficients.show_description.replace('{name}', title)}
+        data-testid={testId}
+        onClick={() => setDescriptionSheet({ title, text })}
+        className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-blue-700 hover:bg-blue-50 active:bg-blue-100"
+      >
+        <span
+          aria-hidden="true"
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-blue-300 text-xs font-bold italic"
+        >
+          i
+        </span>
+      </button>
+    ) : null;
 
   const handleSelectOption = (groupId: string, optionId: string | null) => {
     setSelectedByGroup((prev) => ({
@@ -132,7 +169,10 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
       aria-modal="true"
       aria-labelledby="coefficient-modal-title"
     >
-      <div className="w-full max-w-lg bg-[var(--tg-theme-bg-color,#ffffff)] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[90vh] overflow-hidden">
+      <div
+        aria-hidden={descriptionSheet ? true : undefined}
+        className="w-full max-w-lg bg-[var(--tg-theme-bg-color,#ffffff)] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[90vh] overflow-hidden"
+      >
         {/* Header */}
         <div className="p-4 border-b border-slate-200 flex items-start justify-between">
           <div className="flex-1 min-w-0 pr-2">
@@ -214,8 +254,15 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
 
               return (
                 <div key={group.id} className="space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">
-                    {group.display_name || group.code}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 text-xs font-semibold uppercase tracking-wider text-slate-600 break-words">
+                      {coefficientGroupName(group, t)}
+                    </div>
+                    {renderInfoButton(
+                      coefficientGroupName(group, t),
+                      coefficientGroupDescription(group, t),
+                      `coefficient-group-info-${group.id}`,
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     {/* "Brak" option */}
@@ -241,15 +288,17 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
                     {/* Active options */}
                     {activeOptions.map((option) => {
                       const isSelected = currentSelectedId === option.id;
+                      const optionName = coefficientOptionName(group.code, option, t);
                       return (
-                        <label
+                        <div
                           key={option.id}
-                          className={`flex min-h-[44px] items-center justify-between p-2.5 rounded-lg border text-sm cursor-pointer transition-colors ${
+                          className={`flex min-h-[44px] items-center rounded-lg border text-sm transition-colors ${
                             isSelected
                               ? 'border-blue-500 bg-blue-50/50 text-blue-900 font-medium'
                               : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                           }`}
                         >
+                        <label className="flex min-h-[44px] min-w-0 flex-1 items-center justify-between p-2.5 cursor-pointer">
                           <div className="flex items-center space-x-2.5 min-w-0">
                             <input
                               type="radio"
@@ -258,9 +307,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
                               onChange={() => handleSelectOption(group.id, option.id)}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                             />
-                            <span className="truncate">
-                              {option.display_name || option.code}
-                            </span>
+                            <span className="truncate">{optionName}</span>
                             {option.is_base && (
                               <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
                                 {t.coefficients.base_badge}
@@ -275,6 +322,12 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
                             {formatPercentageDisplay(option.percentage)}
                           </span>
                         </label>
+                        {renderInfoButton(
+                          optionName,
+                          coefficientOptionDescription(group.code, option, t),
+                          `coefficient-option-info-${option.id}`,
+                        )}
+                        </div>
                       );
                     })}
                   </div>
@@ -282,6 +335,19 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
               );
             })}
         </div>
+
+        {showHighTotalWarning && (
+          <div
+            role="status"
+            aria-label="coefficient-high-total-warning"
+            className="mx-4 mb-2 mt-1 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 whitespace-pre-line break-words"
+          >
+            {t.coefficients.high_total_warning.replace(
+              '{percent}',
+              formatPercentageDisplay(totalPercentage),
+            )}
+          </div>
+        )}
 
         {/* Footer actions */}
         <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center gap-3">
@@ -306,6 +372,50 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
           </button>
         </div>
       </div>
+
+      {descriptionSheet && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="coefficient-description-title"
+          data-testid="coefficient-description-sheet"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDescriptionSheet(null);
+          }}
+        >
+          <div className="w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl bg-[var(--tg-theme-bg-color,#ffffff)] shadow-xl">
+            <div className="flex items-start justify-between gap-2 border-b border-slate-200 p-4">
+              <h3
+                id="coefficient-description-title"
+                className="min-w-0 text-base font-semibold text-[var(--tg-theme-text-color,#0f172a)] break-words"
+              >
+                {descriptionSheet.title}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setDescriptionSheet(null)}
+                aria-label={t.coefficients.close}
+                className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 text-sm text-[var(--tg-theme-text-color,#0f172a)] whitespace-pre-line break-words">
+              {descriptionSheet.text}
+            </div>
+            <div className="border-t border-slate-200 p-4">
+              <button
+                type="button"
+                onClick={() => setDescriptionSheet(null)}
+                className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                {t.coefficients.close}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
