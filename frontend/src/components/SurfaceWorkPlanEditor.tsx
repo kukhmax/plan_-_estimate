@@ -10,13 +10,21 @@ import { useI18n } from '../hooks/useI18n';
 import { QualityLevelValue, SubstrateValue } from '../types/checklist';
 import { PriceItem } from '../types/priceItem';
 import {
+  PlannedWorkCoefficientOptionRead,
   SurfacePlannedWorkRead,
   SurfacePriceItemSummaryRead,
   SurfaceWorkPlanRead,
+  SurfaceWorkPlanUpsert,
 } from '../types/workPlan';
 import { localizeApiError } from '../utils/apiErrors';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice } from '../utils/priceFormat';
+import {
+  calculateEffectivePrice,
+  formatCoefficientSummary,
+  sumPercentages,
+} from '../utils/coefficientCalculations';
+import { CoefficientAssignmentModal } from './CoefficientAssignmentModal';
 import { PriceItemForm } from './PriceItemForm';
 
 interface SurfaceWorkPlanEditorProps {
@@ -40,6 +48,8 @@ interface WorkPlanBaseline {
   qualityTarget: QualityLevelValue | null;
   /** Occurrence IDs as committed by the last successful save/load. */
   occurrenceIds: string[];
+  /** Coefficient option id lists per occurrence, same ordering. */
+  coefficientOptionIdLists: string[][];
 }
 
 /** A draft occurrence: may be persisted (has work_plan_id) or local-only. */
@@ -50,6 +60,8 @@ interface DraftOccurrence {
   priceItemId: string;
   /** Full summary snapshot for display — may be null for unavailable items. */
   summary: SurfacePriceItemSummaryRead | null;
+  /** Currently assigned coefficient options (draft-local, not yet persisted). */
+  coefficientOptions: PlannedWorkCoefficientOptionRead[];
 }
 
 const SUBSTRATES: readonly SubstrateValue[] = [
@@ -92,6 +104,7 @@ function workToDraft(work: SurfacePlannedWorkRead): DraftOccurrence {
     draftKey: nextDraftKey(),
     priceItemId: work.price_item_id,
     summary: work.price_item,
+    coefficientOptions: work.coefficient_options ?? [],
   };
 }
 
@@ -122,6 +135,7 @@ export function SurfaceWorkPlanEditor({
     substrate: '',
     qualityTarget: null,
     occurrenceIds: [],
+    coefficientOptionIdLists: [],
   });
 
   // Apply-to-all-walls state (WALL surfaces only)
@@ -137,16 +151,24 @@ export function SurfaceWorkPlanEditor({
   // Inline "+ Dodaj nową pracę do cennika" creation, shown inside the picker.
   const [creatingPriceItem, setCreatingPriceItem] = useState(false);
 
+  // Coefficient assignment modal state
+  const [coefficientModalOpen, setCoefficientModalOpen] = useState(false);
+  const [coefficientModalDraftKey, setCoefficientModalDraftKey] = useState<string | null>(null);
+
   const loadGeneration = useRef(0);
 
   const editorId = `work-plan-editor-${surfaceId}`;
   const qualityLevels = qualityLevelsForSubstrate(substrate);
 
   const currentOccurrenceIds = draftOccurrences.map((o) => o.priceItemId);
+  const currentCoefficientLists = draftOccurrences.map((o) =>
+    o.coefficientOptions.map((c) => c.id),
+  );
   const dirty =
     substrate !== baseline.substrate ||
     qualityTarget !== baseline.qualityTarget ||
-    JSON.stringify(currentOccurrenceIds) !== JSON.stringify(baseline.occurrenceIds);
+    JSON.stringify(currentOccurrenceIds) !== JSON.stringify(baseline.occurrenceIds) ||
+    JSON.stringify(currentCoefficientLists) !== JSON.stringify(baseline.coefficientOptionIdLists);
 
   const describeError = (error: unknown, fallback: string): string => {
     const detail = localizeApiError(error, t);
@@ -158,11 +180,19 @@ export function SurfaceWorkPlanEditor({
     const nextQuality = plan?.quality_target ?? null;
     const nextOccurrences = (plan?.planned_works ?? []).map(workToDraft);
     const nextIds = nextOccurrences.map((o) => o.priceItemId);
+    const nextCoefficientLists = nextOccurrences.map((o) =>
+      o.coefficientOptions.map((c) => c.id),
+    );
     setHasPlan(plan !== null);
     setSubstrate(nextSubstrate);
     setQualityTarget(nextQuality);
     setDraftOccurrences(nextOccurrences);
-    setBaseline({ substrate: nextSubstrate, qualityTarget: nextQuality, occurrenceIds: nextIds });
+    setBaseline({
+      substrate: nextSubstrate,
+      qualityTarget: nextQuality,
+      occurrenceIds: nextIds,
+      coefficientOptionIdLists: nextCoefficientLists,
+    });
   };
 
   useEffect(() => {
@@ -229,12 +259,27 @@ export function SurfaceWorkPlanEditor({
     setSaveError(null);
     setSaved(false);
     try {
-      const plan = await putSurfaceWorkPlan(projectId, roomId, surfaceId, {
-        substrate,
-        quality_target: qualityTarget,
-        // PUT is full replacement; occurrence order and duplicates must remain exact.
-        price_item_ids: draftOccurrences.map((o) => o.priceItemId),
-      });
+      const hasAnyCoefficients = draftOccurrences.some(
+        (o) => o.coefficientOptions.length > 0,
+      );
+      let payload: SurfaceWorkPlanUpsert;
+      if (hasAnyCoefficients) {
+        payload = {
+          substrate,
+          quality_target: qualityTarget,
+          planned_works: draftOccurrences.map((o) => ({
+            price_item_id: o.priceItemId,
+            coefficient_option_ids: o.coefficientOptions.map((c) => c.id),
+          })),
+        };
+      } else {
+        payload = {
+          substrate,
+          quality_target: qualityTarget,
+          price_item_ids: draftOccurrences.map((o) => o.priceItemId),
+        };
+      }
+      const plan = await putSurfaceWorkPlan(projectId, roomId, surfaceId, payload);
       hydrate(plan);
       setSaved(true);
     } catch (error) {
@@ -306,6 +351,7 @@ export function SurfaceWorkPlanEditor({
         is_archived: item.is_archived,
         quality_level: item.quality_level,
       },
+      coefficientOptions: [],
     };
     setDraftOccurrences((prev) => [...prev, occurrence]);
     setSaveError(null);
@@ -359,6 +405,43 @@ export function SurfaceWorkPlanEditor({
     });
     setSaveError(null);
     setSaved(false);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Coefficient assignment modal (Stage 12F)
+  // ---------------------------------------------------------------------------
+
+  const activeModalOccurrence = coefficientModalDraftKey
+    ? draftOccurrences.find((o) => o.draftKey === coefficientModalDraftKey) ?? null
+    : null;
+
+  const openCoefficientModal = (draftKey: string) => {
+    setCoefficientModalDraftKey(draftKey);
+    setCoefficientModalOpen(true);
+  };
+
+  const closeCoefficientModal = () => {
+    setCoefficientModalOpen(false);
+    setCoefficientModalDraftKey(null);
+  };
+
+  const handleApplyCoefficients = (
+    selectedOptions: PlannedWorkCoefficientOptionRead[],
+  ) => {
+    if (!coefficientModalDraftKey) {
+      closeCoefficientModal();
+      return;
+    }
+    setDraftOccurrences((prev) =>
+      prev.map((o) =>
+        o.draftKey === coefficientModalDraftKey
+          ? { ...o, coefficientOptions: selectedOptions }
+          : o,
+      ),
+    );
+    setSaveError(null);
+    setSaved(false);
+    closeCoefficientModal();
   };
 
   // ---------------------------------------------------------------------------
@@ -509,6 +592,17 @@ export function SurfaceWorkPlanEditor({
               <ol aria-label={`planned-works-${surfaceId}`} className="space-y-2">
                 {draftOccurrences.map((occurrence, index) => {
                   const item = occurrence.summary;
+                  const isLabor = item?.price_scope === 'LABOR';
+                  const coefSummary = formatCoefficientSummary(occurrence.coefficientOptions);
+                  const basePrice = item?.price ?? null;
+                  const currency = item?.currency ?? 'PLN';
+                  const totalPercentage = sumPercentages(
+                    occurrence.coefficientOptions.map((o) => o.percentage),
+                  );
+                  const effectivePrice =
+                    occurrence.coefficientOptions.length > 0
+                      ? calculateEffectivePrice(basePrice, totalPercentage)
+                      : basePrice;
                   return (
                     <li
                       key={occurrence.draftKey}
@@ -516,9 +610,26 @@ export function SurfaceWorkPlanEditor({
                       className="min-w-0 rounded-lg border border-[var(--tg-control-border-color)] p-2"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <span className="min-w-0 text-sm font-semibold text-[var(--tg-theme-text-color)] break-words">
-                          {occurrenceDisplayName(item)}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span className="min-w-0 text-sm font-semibold text-[var(--tg-theme-text-color)] break-words block">
+                            {occurrenceDisplayName(item)}
+                          </span>
+                          {coefSummary && (
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+                              <span
+                                aria-label={`occurrence-coefficient-summary-${occurrence.draftKey}`}
+                                className="px-1.5 py-0.5 rounded font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                              >
+                                {t.estimates.coefficient_adjustment}: {coefSummary}
+                              </span>
+                              {effectivePrice !== basePrice && effectivePrice !== null && (
+                                <span className="text-[var(--tg-theme-hint-color)]">
+                                  → {formatPrice(effectivePrice)} {currency === 'PLN' ? t.pricebook.currency_symbol : currency}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {item?.is_archived && (
                             <span className="text-xs text-[var(--tg-theme-destructive-text-color)] mr-1">
@@ -557,16 +668,30 @@ export function SurfaceWorkPlanEditor({
                         </div>
                       </div>
                       {item ? (
-                        <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--tg-theme-hint-color)]">
-                          <span>{t.pricebook.categories[item.category]}</span>
-                          <span>{t.pricebook.units[item.unit]}</span>
-                          <span>{t.pricebook.scopes[item.price_scope]}</span>
-                          {item.quality_level && <span>{t.pricebook.quality[item.quality_level]}</span>}
-                          <span>
-                            {item.price === null
-                              ? t.pricebook.price_not_set
-                              : `${formatPrice(item.price)} ${item.currency === 'PLN' ? t.pricebook.currency_symbol : item.currency}`}
-                          </span>
+                        <div className="mt-1 space-y-1">
+                          <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--tg-theme-hint-color)]">
+                            <span>{t.pricebook.categories[item.category]}</span>
+                            <span>{t.pricebook.units[item.unit]}</span>
+                            <span>{t.pricebook.scopes[item.price_scope]}</span>
+                            {item.quality_level && <span>{t.pricebook.quality[item.quality_level]}</span>}
+                            <span>
+                              {item.price === null
+                                ? t.pricebook.price_not_set
+                                : `${formatPrice(item.price)} ${item.currency === 'PLN' ? t.pricebook.currency_symbol : item.currency}`}
+                            </span>
+                          </div>
+                          {isLabor && (
+                            <button
+                              type="button"
+                              aria-label={`assign-coefficient-${occurrence.draftKey}`}
+                              onClick={() => openCoefficientModal(occurrence.draftKey)}
+                              disabled={saving}
+                              className="mt-1 w-full min-h-[44px] px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 active:bg-blue-200 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                            >
+                              {t.work_plan.coefficient_action}
+                              {coefSummary && <span className="font-mono">({coefSummary})</span>}
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <p className="mt-1 text-xs text-[var(--tg-theme-hint-color)]">{t.work_plan.unavailable_item}</p>
@@ -813,6 +938,19 @@ export function SurfaceWorkPlanEditor({
           {t.common.close}
         </button>
         </>
+      )}
+
+      {/* Coefficient assignment modal — position:fixed, rendered as sibling of content */}
+      {activeModalOccurrence && (
+        <CoefficientAssignmentModal
+          isOpen={coefficientModalOpen}
+          occurrenceName={occurrenceDisplayName(activeModalOccurrence.summary)}
+          basePrice={activeModalOccurrence.summary?.price ?? null}
+          currency={activeModalOccurrence.summary?.currency ?? 'PLN'}
+          initialOptionIds={activeModalOccurrence.coefficientOptions.map((o) => o.id)}
+          onApply={handleApplyCoefficients}
+          onCancel={closeCoefficientModal}
+        />
       )}
     </section>
   );

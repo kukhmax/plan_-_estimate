@@ -2,9 +2,11 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as workPlansApi from './api/workPlans';
 import * as priceItemsApi from './api/priceItems';
+import * as coefficientsApi from './api/coefficients';
 import { ApiError } from './api/http';
 import { SurfaceWorkPlanEditor } from './components/SurfaceWorkPlanEditor';
 import { I18nProvider } from './hooks/useI18n';
+import { CoefficientGroupRead } from './types/coefficient';
 import { PriceItem, PriceItemListResponse } from './types/priceItem';
 import { SurfaceWorkPlanApplyResult, SurfaceWorkPlanRead } from './types/workPlan';
 
@@ -26,6 +28,10 @@ vi.mock('./api/priceItems', async (importOriginal) => {
     createPriceItem: vi.fn(),
   };
 });
+
+vi.mock('./api/coefficients', () => ({
+  fetchCoefficientGroups: vi.fn(),
+}));
 
 const projectId = '11111111-1111-1111-1111-111111111111';
 const roomId = '22222222-2222-2222-2222-222222222222';
@@ -1218,6 +1224,178 @@ describe('SurfaceWorkPlanEditor', () => {
     it('the create action meets the 44px minimum touch target', async () => {
       const panel = await openPickerPanel();
       expect(within(panel).getByLabelText(`create-price-item-${surfaceId}`).className).toContain('min-h-11');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 12F — coefficient assignment on planned-work occurrences
+// ---------------------------------------------------------------------------
+
+const coefficientGroups: CoefficientGroupRead[] = [
+  {
+    id: 'grp-height',
+    code: 'HEIGHT',
+    name_key: null,
+    display_name: 'Wysokość',
+    selection_mode: 'SINGLE_SELECT',
+    position: 0,
+    is_archived: false,
+    created_at: '2026-09-01T00:00:00Z',
+    updated_at: '2026-09-01T00:00:00Z',
+    options: [
+      {
+        id: 'opt-normal', group_id: 'grp-height', code: 'NORMAL', name_key: null, display_name: 'normalna',
+        percentage: '0.00', is_base: true, position: 0, is_archived: false,
+        created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
+      },
+      {
+        id: 'opt-high', group_id: 'grp-height', code: 'HIGH', name_key: null, display_name: 'wysoka',
+        percentage: '20.00', is_base: false, position: 1, is_archived: false,
+        created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
+      },
+    ],
+  },
+  {
+    id: 'grp-furniture',
+    code: 'FURNITURE',
+    name_key: null,
+    display_name: 'Umeblowanie',
+    selection_mode: 'SINGLE_SELECT',
+    position: 1,
+    is_archived: false,
+    created_at: '2026-09-01T00:00:00Z',
+    updated_at: '2026-09-01T00:00:00Z',
+    options: [
+      {
+        id: 'opt-furnished', group_id: 'grp-furniture', code: 'FURNISHED', name_key: null, display_name: 'umeblowane',
+        percentage: '10.00', is_base: false, position: 0, is_archived: false,
+        created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
+      },
+    ],
+  },
+];
+
+describe('SurfaceWorkPlanEditor — coefficients (Stage 12F)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(makePlan());
+    vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(makePlan());
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([]));
+    vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({
+      items: coefficientGroups,
+      total: coefficientGroups.length,
+    });
+  });
+
+  async function assignButtons() {
+    renderEditor();
+    await screen.findByLabelText(`planned-works-${surfaceId}`);
+    return screen.getAllByLabelText(/^assign-coefficient-/);
+  }
+
+  it('offers the coefficient action only on LABOR occurrences', async () => {
+    // occurrence-1 and occurrence-3 are LABOR; LABOR_AND_MATERIAL and unavailable items get none.
+    const buttons = await assignButtons();
+    expect(buttons).toHaveLength(2);
+    const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(within(rows[1]).queryByLabelText(/^assign-coefficient-/)).not.toBeInTheDocument();
+    buttons.forEach((b) => expect(b.className).toContain('min-h-[44px]'));
+  });
+
+  it('Apply updates only the local draft; persistence happens on the outer Save with planned_works', async () => {
+    const [first] = await assignButtons();
+    fireEvent.click(first);
+    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
+    fireEvent.click(screen.getByRole('radio', { name: /umeblowane/ }));
+    fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
+    const summaries = screen.getAllByLabelText(/^occurrence-coefficient-summary-/);
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toHaveTextContent('+30%');
+
+    const save = screen.getByLabelText(`save-work-plan-${surfaceId}`);
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledWith(projectId, roomId, surfaceId, {
+        substrate: 'CONCRETE',
+        quality_target: 'S3',
+        planned_works: [
+          { price_item_id: 'price-shared', coefficient_option_ids: ['opt-high', 'opt-furnished'] },
+          { price_item_id: 'price-localized', coefficient_option_ids: [] },
+          // Duplicate PriceItem occurrence stays independent.
+          { price_item_id: 'price-shared', coefficient_option_ids: [] },
+          { price_item_id: 'price-unavailable', coefficient_option_ids: [] },
+        ],
+      });
+    });
+  });
+
+  it('persists an explicit is_base 0% option id rather than collapsing it to "Brak"', async () => {
+    const buttons = await assignButtons();
+    fireEvent.click(buttons[1]);
+    fireEvent.click(await screen.findByRole('radio', { name: /normalna/ }));
+    fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
+
+    expect(screen.getAllByLabelText(/^occurrence-coefficient-summary-/)[0]).toHaveTextContent('0%');
+    fireEvent.click(screen.getByLabelText(`save-work-plan-${surfaceId}`));
+
+    await waitFor(() => expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalled());
+    const payload = vi.mocked(workPlansApi.putSurfaceWorkPlan).mock.calls[0][3];
+    expect(payload.planned_works?.map((w) => w.coefficient_option_ids)).toEqual([
+      [], [], ['opt-normal'], [],
+    ]);
+  });
+
+  it('Cancel leaves the draft untouched and the plan clean', async () => {
+    const [first] = await assignButtons();
+    fireEvent.click(first);
+    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
+    fireEvent.click(screen.getByLabelText('coefficient-modal-cancel'));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^occurrence-coefficient-summary-/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(`save-work-plan-${surfaceId}`)).toBeDisabled();
+    expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
+  });
+
+  it('hydrates saved coefficients and clearing them all falls back to legacy price_item_ids', async () => {
+    const withCoefficients = plannedWorks.map((w, i) =>
+      i === 0
+        ? {
+            ...w,
+            coefficient_options: [
+              {
+                id: 'opt-high', group_id: 'grp-height', group_code: 'HEIGHT', code: 'HIGH',
+                display_name: 'wysoka', percentage: '20.00', is_base: false,
+              },
+            ],
+          }
+        : w,
+    );
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(makePlan({ planned_works: withCoefficients }));
+    const [first] = await assignButtons();
+    expect(screen.getAllByLabelText(/^occurrence-coefficient-summary-/)[0]).toHaveTextContent('+20%');
+    // 45.50 × 1.20 = 54.60
+    expect(screen.getByText(/54,60|54\.60/)).toBeInTheDocument();
+
+    fireEvent.click(first);
+    expect(await screen.findByRole('radio', { name: /wysoka/ })).toBeChecked();
+    fireEvent.click(screen.getAllByRole('radio', { name: /Brak/ })[0]);
+    fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
+    fireEvent.click(screen.getByLabelText(`save-work-plan-${surfaceId}`));
+
+    await waitFor(() => {
+      expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledWith(projectId, roomId, surfaceId, {
+        substrate: 'CONCRETE',
+        quality_target: 'S3',
+        price_item_ids: ['price-shared', 'price-localized', 'price-shared', 'price-unavailable'],
+      });
     });
   });
 });

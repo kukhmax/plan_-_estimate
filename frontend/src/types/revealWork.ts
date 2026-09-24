@@ -1,4 +1,4 @@
-import { SurfacePriceItemSummaryRead } from './workPlan';
+import { OrderedPriceItemSelection, PlannedWorkCoefficientOptionRead, SurfacePriceItemSummaryRead } from './workPlan';
 
 // Stage 10G.4 — Opening reveal work planning (Stage 10E contract). The
 // backend reuses the exact same SurfacePriceItemSummaryRead shape as the
@@ -9,6 +9,7 @@ export interface RevealWorkItemRead {
   position: number;
   price_item_id: string;
   price_item: SurfacePriceItemSummaryRead;
+  coefficient_options?: PlannedWorkCoefficientOptionRead[];
 }
 
 export interface RevealWorkListResponse {
@@ -19,8 +20,10 @@ export interface RevealWorkListResponse {
 // PUT is a full replacement of the ordered list — duplicates allowed, empty
 // list clears all works (equivalent to DELETE), per the existing backend
 // contract (OpeningRevealWorkService.set_works).
+// Stage 12D/12F: accepts either price_item_ids or planned_works (with coefficients).
 export interface RevealWorkSetPayload {
-  price_item_ids: string[];
+  price_item_ids?: string[];
+  planned_works?: OrderedPriceItemSelection[];
 }
 
 // Stage 10G.4 — result of atomically copying a source opening's reveal work

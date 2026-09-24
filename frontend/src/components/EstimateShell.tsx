@@ -4,6 +4,7 @@ import { useI18n } from '../hooks/useI18n';
 import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue, LineChangeEntry, LineChangeTypeValue, ManualLineCreatePayload, RegenerationPreviewResponse } from '../types/estimate';
 import { PRICE_UNITS, type PriceScopeValue, type PriceUnitValue } from '../types/priceItem';
 import { sumDecimalStrings } from '../utils/decimalArithmetic';
+import { formatPercentageDisplay, sumPercentages } from '../utils/coefficientCalculations';
 import { formatDecimalMoney } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
 import { surfaceCardTint } from '../utils/surfaceColorTint';
@@ -928,11 +929,76 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                           {(entry.quantity_overridden || entry.price_override) && (
                             <div
                               aria-label={`estimate-regeneration-change-override-${changeType}-${i}`}
-                              className="text-xs text-amber-700 space-y-0.5"
+                              className="space-y-0.5 text-xs"
                             >
-                              {entry.quantity_overridden && <p>{t.estimates.quantity_overridden}</p>}
-                              {entry.price_override && <p>{t.estimates.price_overridden}</p>}
+                              {entry.quantity_overridden && (
+                                <p className="text-amber-700">{t.estimates.quantity_overridden}</p>
+                              )}
+                              {entry.price_override && (
+                                <div className="flex items-center gap-1.5 flex-wrap text-amber-700">
+                                  <p>{t.estimates.price_overridden}</p>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                    {t.estimates.price_override_badge}
+                                  </span>
+                                </div>
+                              )}
                             </div>
+                          )}
+                          {changeType === 'UPDATED' && (
+                            (() => {
+                              const baseChanged =
+                                (entry.old_base_unit_price ?? null) !== (entry.new_base_unit_price ?? null);
+                              const oldSnap = entry.old_coefficient_snapshot ?? null;
+                              const newSnap = entry.new_coefficient_snapshot ?? null;
+                              const snapChanged =
+                                oldSnap !== null || newSnap !== null
+                                  ? JSON.stringify(oldSnap ?? []) !== JSON.stringify(newSnap ?? [])
+                                  : false;
+                              if (!baseChanged && !snapChanged) return null;
+                              return (
+                                <div
+                                  aria-label={`estimate-regeneration-change-coefficients-${changeType}-${i}`}
+                                  className="space-y-0.5"
+                                >
+                                  <div className="flex items-center gap-1 flex-wrap text-xs">
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                                      {t.estimates.preview_coefficients_changed}
+                                    </span>
+                                    {baseChanged && (
+                                      <span className="text-slate-500">
+                                        {t.estimates.base_unit_price}
+                                        {' '}
+                                        {entry.old_base_unit_price !== null && entry.old_base_unit_price !== undefined
+                                          ? formatDecimalMoney(entry.old_base_unit_price)
+                                          : '—'}
+                                        {' → '}
+                                        {entry.new_base_unit_price !== null && entry.new_base_unit_price !== undefined
+                                          ? formatDecimalMoney(entry.new_base_unit_price)
+                                          : '—'}
+                                      </span>
+                                    )}
+                                    {snapChanged && oldSnap && oldSnap.length > 0 && (
+                                      <span className="font-mono text-slate-500">
+                                        {formatPercentageDisplay(sumPercentages(oldSnap.map((e) => e.percentage)))}
+                                      </span>
+                                    )}
+                                    {snapChanged && (
+                                      <span className="text-slate-400">→</span>
+                                    )}
+                                    {snapChanged && newSnap && newSnap.length > 0 && (
+                                      <span className="font-mono font-semibold text-blue-700">
+                                        {formatPercentageDisplay(sumPercentages(newSnap.map((e) => e.percentage)))}
+                                      </span>
+                                    )}
+                                    {snapChanged && newSnap && newSnap.length === 0 && (
+                                      <span className="text-slate-400 text-[11px]">
+                                        {t.coefficients?.none_option ?? '—'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()
                           )}
                         </div>
                         );
@@ -1314,12 +1380,54 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                 )}
 
                 {line.price_override && (
-                  <p
+                  <div
                     aria-label={`line-price-override-${line.position}`}
-                    className="text-xs text-amber-700 pt-0.5"
+                    className="mt-1 flex items-center gap-1.5 flex-wrap text-xs text-amber-700"
                   >
-                    {t.estimates.price_overridden}
-                  </p>
+                    <p>{t.estimates.price_overridden}</p>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                      {t.estimates.price_override_badge}
+                    </span>
+                  </div>
+                )}
+
+                {line.coefficient_snapshot && line.coefficient_snapshot.length > 0 && (
+                  <div
+                    aria-label={`line-coefficient-snapshot-${line.position}`}
+                    className="mt-1 pt-1 border-t border-slate-200/60 space-y-1 text-xs"
+                  >
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                        {t.estimates.coefficients_applied}
+                      </span>
+                      <span className="font-mono font-semibold text-blue-700">
+                        {formatPercentageDisplay(sumPercentages(line.coefficient_snapshot.map((e) => e.percentage)))}
+                      </span>
+                    </div>
+                    {line.base_unit_price !== undefined && line.base_unit_price !== null && (
+                      <div className="flex justify-between gap-2 text-slate-500">
+                        <span>{t.estimates.base_unit_price}</span>
+                        <span className="font-mono text-slate-600">{formatDecimalMoney(line.base_unit_price)} {line.currency}</span>
+                      </div>
+                    )}
+                    {line.coefficient_snapshot.map((entry, idx) => (
+                      <div key={`${entry.option_id}-${idx}`} className="flex justify-between gap-2 text-slate-500 pl-2">
+                        <span className="min-w-0 break-words">
+                          <span className="text-slate-400">{entry.group_name}:</span>{' '}
+                          <span className="text-slate-600">{entry.option_name}</span>
+                        </span>
+                        <span className="shrink-0 font-mono text-slate-600">
+                          {formatPercentageDisplay(entry.percentage)}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between gap-2 text-slate-700 font-medium pt-0.5 border-t border-slate-100">
+                      <span>{t.estimates.coefficient_adjustment}</span>
+                      <span className="font-mono">
+                        {formatPercentageDisplay(sumPercentages(line.coefficient_snapshot.map((e) => e.percentage)))}
+                      </span>
+                    </div>
+                  </div>
                 )}
 
                 {/* Stage 10G.3A — draft-only editing. Never rendered (not just

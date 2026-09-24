@@ -226,7 +226,8 @@
     "applying": "Копирование плана...",
     "apply_success": "План работ скопирован на {count} стен(ы).",
     "apply_error": "Не удалось скопировать план работ.",
-    "create_new_item": "+ Добавить новую работу в прайс"
+    "create_new_item": "+ Добавить новую работу в прайс",
+    "coefficient_action": "Коэффициент"
   },
   "openings": {
     "title": "Проемы в стене",
@@ -904,7 +905,8 @@
     "apply_confirm_yes": "Применить",
     "applying": "Применение...",
     "apply_success": "Работы применены к {count} проёмам.",
-    "apply_error": "Не удалось применить работы к другим проёмам."
+    "apply_error": "Не удалось применить работы к другим проёмам.",
+    "work_coefficient_action": "Коэффициент"
   },
   "estimates": {
     "title": "Смета",
@@ -1009,6 +1011,48 @@
     "finalize_finalizing": "Фиксация...",
     "finalize_error": "Не удалось зафиксировать смету.",
     "finalize_unresolved_price_error": "Невозможно зафиксировать смету. У {count} позиций не указана цена. Заполните цены у позиций «Цена уточняется» и повторите попытку.",
-    "finalize_unresolved_quantity_error": "Невозможно зафиксировать смету. У {count} позиций не определено количество. Укажите объём работ, отмеченных как «Количество не определено», перед финализацией сметы."
+    "finalize_unresolved_quantity_error": "Невозможно зафиксировать смету. У {count} позиций не определено количество. Укажите объём работ, отмеченных как «Количество не определено», перед финализацией сметы.",
+    "base_unit_price": "Базовая цена",
+    "coefficients_applied": "Коэффициенты",
+    "coefficient_adjustment": "Корректировка",
+    "price_override_badge": "Ручная цена",
+    "preview_coefficients_changed": "Коэффициенты"
+  },
+  "coefficients": {
+    "title": "Ценовые коэффициенты",
+    "modal_title": "Коэффициенты для позиции",
+    "base_price": "Базовая цена",
+    "adjustment": "Корректировка",
+    "effective_price": "Итоговая цена",
+    "unresolved_price": "Уточняется",
+    "none_option": "Нет",
+    "base_badge": "База",
+    "apply": "Применить",
+    "cancel": "Отмена",
+    "close": "Закрыть",
+    "save": "Сохранить",
+    "saving": "Сохранение...",
+    "edit": "Редактировать",
+    "archive": "В архив",
+    "restore": "Восстановить",
+    "no_groups": "Группы коэффициентов не определены.",
+    "add_group": "+ Добавить группу",
+    "add_option": "+ Добавить опцию",
+    "group_name": "Название группы",
+    "group_name_placeholder": "напр. Сложные условия, Уровень качества",
+    "option_name": "Название опции",
+    "option_name_placeholder": "напр. Высотные работы > 3м",
+    "percentage": "Значение (%)",
+    "is_base_label": "Базовая опция (0%)",
+    "archived_badge": "В архиве",
+    "active_tab": "Активные",
+    "archived_tab": "В архиве",
+    "tab_items": "Позиции прайса",
+    "tab_coefficients": "Коэффициенты",
+    "loading": "Загрузка коэффициентов...",
+    "error_load": "Не удалось загрузить коэффициенты.",
+    "error_save": "Не удалось сохранить изменения.",
+    "validation_name_required": "Название обязательно.",
+    "validation_percentage_required": "Процентное значение обязательно."
   }
 }

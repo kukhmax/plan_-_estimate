@@ -327,4 +327,61 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
       expect(plChecklist.has(bare)).toBe(true);
     }
   });
+
+  it('has identical coefficients key structure in PL and RU (Stage 12F)', () => {
+    const plCoefficients = keySet(pl.coefficients);
+    const ruCoefficients = keySet(ru.coefficients);
+    expect(plCoefficients).toEqual(ruCoefficients);
+
+    for (const key of [
+      'title',
+      'modal_title',
+      'base_price',
+      'adjustment',
+      'effective_price',
+      'unresolved_price',
+      'none_option',
+      'base_badge',
+      'apply',
+      'cancel',
+      'close',
+      'save',
+      'saving',
+      'edit',
+      'archive',
+      'restore',
+      'no_groups',
+      'add_group',
+      'add_option',
+      'group_name',
+      'group_name_placeholder',
+      'option_name',
+      'option_name_placeholder',
+      'percentage',
+      'is_base_label',
+      'archived_badge',
+      'active_tab',
+      'archived_tab',
+      'tab_items',
+      'tab_coefficients',
+      'loading',
+      'error_load',
+      'error_save',
+      'validation_name_required',
+      'validation_percentage_required',
+    ]) {
+      expect(plCoefficients.has(key)).toBe(true);
+    }
+
+    expect((pl.work_plan as Dict).coefficient_action).toBeDefined();
+    expect((ru.work_plan as Dict).coefficient_action).toBeDefined();
+    expect((pl.reveals as Dict).work_coefficient_action).toBeDefined();
+    expect((ru.reveals as Dict).work_coefficient_action).toBeDefined();
+    expect((pl.estimates as Dict).base_unit_price).toBeDefined();
+    expect((ru.estimates as Dict).base_unit_price).toBeDefined();
+    expect((pl.estimates as Dict).coefficients_applied).toBeDefined();
+    expect((ru.estimates as Dict).coefficients_applied).toBeDefined();
+    expect((pl.estimates as Dict).price_override_badge).toBeDefined();
+    expect((ru.estimates as Dict).price_override_badge).toBeDefined();
+  });
 });

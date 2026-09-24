@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as coefficientsApi from '../api/coefficients';
 import * as priceItemsApi from '../api/priceItems';
 import { I18nProvider } from '../hooks/useI18n';
 import { PriceItem } from '../types/priceItem';
@@ -11,6 +12,10 @@ vi.mock('../api/priceItems', () => ({
   updatePriceItem: vi.fn(),
   archivePriceItem: vi.fn(),
   restorePriceItem: vi.fn(),
+}));
+
+vi.mock('../api/coefficients', () => ({
+  fetchCoefficientGroups: vi.fn(),
 }));
 
 const seedPrep: PriceItem = {
@@ -1070,5 +1075,26 @@ describe('PriceBook — localized LM unit label', () => {
     const card = await screen.findByLabelText(`price-item-${archived.id}`);
     expect(card.textContent).toContain('mb');
     expect(card.textContent).not.toMatch(/\bLM\b/);
+  });
+});
+describe('PriceBook — coefficient tab (Stage 12F)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  it('switches between price items and the coefficient catalog', async () => {
+    renderBook();
+    const coefficientsTab = screen.getByLabelText('pricebook-maintab-coefficients');
+    expect(coefficientsTab.className).toContain('min-h-11');
+    expect(coefficientsApi.fetchCoefficientGroups).not.toHaveBeenCalled();
+
+    fireEvent.click(coefficientsTab);
+    expect(await screen.findByText('Brak zdefiniowanych grup współczynników.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('pricebook-tabs')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('pricebook-maintab-items'));
+    expect(screen.getByLabelText('pricebook-tabs')).toBeInTheDocument();
   });
 });

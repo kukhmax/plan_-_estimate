@@ -4954,3 +4954,76 @@ describe('Stage 10G.4 — localized LM unit label', () => {
     expect(text).not.toMatch(/\bM2\b/);
   });
 });
+
+describe('Stage 12F — coefficient provenance', () => {
+  const snapshot = [
+    {
+      group_id: 'grp-height', group_code: 'HEIGHT', group_name: 'Wysokość',
+      option_id: 'opt-high', option_code: 'HIGH', option_name: 'wysoka',
+      percentage: '20.00', is_base: false,
+    },
+    {
+      group_id: 'grp-furniture', group_code: 'FURNITURE', group_name: 'Umeblowanie',
+      option_id: 'opt-furnished', option_code: 'FURNISHED', option_name: 'umeblowane',
+      percentage: '10.00', is_base: false,
+    },
+  ];
+
+  it('renders the stored snapshot: base price, each adjustment and the additive total', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ base_unit_price: '40.00', unit_price: '52.00', coefficient_snapshot: snapshot })]),
+    );
+    renderShell();
+    const block = await screen.findByLabelText('line-coefficient-snapshot-1');
+    const text = block.textContent ?? '';
+    expect(text).toContain('Cena bazowa');
+    expect(text).toContain('40.00');
+    expect(text).toContain('Wysokość');
+    expect(text).toContain('wysoka');
+    expect(text).toContain('+20%');
+    expect(text).toContain('umeblowane');
+    expect(text).toContain('+10%');
+    expect(text).toContain('+30%');
+  });
+
+  it('shows no coefficient block for lines without a snapshot', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine({ coefficient_snapshot: null })]));
+    renderShell();
+    await screen.findByLabelText('estimate-lines');
+    expect(screen.queryByLabelText('line-coefficient-snapshot-1')).toBeNull();
+  });
+
+  it('distinguishes a manually overridden price from a calculated one', async () => {
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
+      makeDetail([makeLine({ price_override: true, base_unit_price: '40.00', coefficient_snapshot: snapshot })]),
+    );
+    renderShell();
+    const override = await screen.findByLabelText('line-price-override-1');
+    expect(override.textContent).toContain('Cena zmieniona ręcznie');
+    expect(override.textContent).toContain('Cena ręczna');
+  });
+
+  it('shows coefficient changes in the regeneration preview', async () => {
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
+      makePreview({
+        updated: 1,
+        changes: [
+          makeChange({
+            change_type: 'UPDATED',
+            old_base_unit_price: '40.00',
+            new_base_unit_price: '40.00',
+            old_coefficient_snapshot: [snapshot[0]],
+            new_coefficient_snapshot: snapshot,
+          }),
+        ],
+      }),
+    );
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    const block = await screen.findByLabelText('estimate-regeneration-change-coefficients-UPDATED-0');
+    const text = block.textContent ?? '';
+    expect(text).toContain('+20%');
+    expect(text).toContain('+30%');
+  });
+});

@@ -226,7 +226,8 @@
     "applying": "Kopiowanie planu...",
     "apply_success": "Plan prac skopiowano na {count} ścian(y).",
     "apply_error": "Nie udało się skopiować planu prac.",
-    "create_new_item": "+ Dodaj nową pracę do cennika"
+    "create_new_item": "+ Dodaj nową pracę do cennika",
+    "coefficient_action": "Współczynnik"
   },
   "openings": {
     "title": "Otwory w ścianie",
@@ -904,7 +905,8 @@
     "apply_confirm_yes": "Zastosuj",
     "applying": "Stosowanie...",
     "apply_success": "Prace zastosowano do {count} otworów.",
-    "apply_error": "Nie udało się zastosować prac do innych otworów."
+    "apply_error": "Nie udało się zastosować prac do innych otworów.",
+    "work_coefficient_action": "Współczynnik"
   },
   "estimates": {
     "title": "Kosztorys",
@@ -1009,6 +1011,48 @@
     "finalize_finalizing": "Finalizowanie...",
     "finalize_error": "Nie udało się sfinalizować kosztorysu.",
     "finalize_unresolved_price_error": "Nie można sfinalizować kosztorysu. {count} pozycji nie ma ustalonej ceny. Uzupełnij ceny pozycji oznaczonych „Do ustalenia” i spróbuj ponownie.",
-    "finalize_unresolved_quantity_error": "Nie można sfinalizować kosztorysu. {count} pozycji ma nieustaloną ilość. Uzupełnij ilości prac oznaczonych jako „Ilość do ustalenia” przed finalizacją kosztorysu."
+    "finalize_unresolved_quantity_error": "Nie można sfinalizować kosztorysu. {count} pozycji ma nieustaloną ilość. Uzupełnij ilości prac oznaczonych jako „Ilość do ustalenia” przed finalizacją kosztorysu.",
+    "base_unit_price": "Cena bazowa",
+    "coefficients_applied": "Współczynniki",
+    "coefficient_adjustment": "Korekta",
+    "price_override_badge": "Cena ręczna",
+    "preview_coefficients_changed": "Współczynniki"
+  },
+  "coefficients": {
+    "title": "Współczynniki cenowe",
+    "modal_title": "Współczynniki dla pozycji",
+    "base_price": "Cena bazowa",
+    "adjustment": "Korekta",
+    "effective_price": "Cena efektywna",
+    "unresolved_price": "Do ustalenia",
+    "none_option": "Brak",
+    "base_badge": "Baza",
+    "apply": "Zastosuj",
+    "cancel": "Anuluj",
+    "close": "Zamknij",
+    "save": "Zapisz",
+    "saving": "Zapisywanie...",
+    "edit": "Edytuj",
+    "archive": "Archiwizuj",
+    "restore": "Przywróć",
+    "no_groups": "Brak zdefiniowanych grup współczynników.",
+    "add_group": "+ Dodaj grupę",
+    "add_option": "+ Dodaj opcję",
+    "group_name": "Nazwa grupy",
+    "group_name_placeholder": "np. Warunki trudne, Poziom jakości",
+    "option_name": "Nazwa opcji",
+    "option_name_placeholder": "np. Prace na wysokości > 3m",
+    "percentage": "Wartość (%)",
+    "is_base_label": "Opcja bazowa (0%)",
+    "archived_badge": "Zarchiwizowana",
+    "active_tab": "Aktywne",
+    "archived_tab": "Zarchiwizowane",
+    "tab_items": "Pozycje cennika",
+    "tab_coefficients": "Współczynniki",
+    "loading": "Ładowanie współczynników...",
+    "error_load": "Nie udało się załadować współczynników.",
+    "error_save": "Nie udało się zapisać zmian.",
+    "validation_name_required": "Nazwa jest wymagana.",
+    "validation_percentage_required": "Wartość procentowa jest wymagana."
   }
 }

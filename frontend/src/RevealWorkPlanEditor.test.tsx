@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as revealWorksApi from './api/revealWorks';
 import * as priceItemsApi from './api/priceItems';
+import * as coefficientsApi from './api/coefficients';
 import * as surfacesApi from './api/surfaces';
 import * as openingsApi from './api/openings';
 import { RevealWorkPlanEditor } from './components/RevealWorkPlanEditor';
@@ -20,6 +21,10 @@ vi.mock('./api/revealWorks', async (importOriginal) => {
     applyRevealWorksToRoom: vi.fn(),
   };
 });
+
+vi.mock('./api/coefficients', () => ({
+  fetchCoefficientGroups: vi.fn(),
+}));
 
 vi.mock('./api/priceItems', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./api/priceItems')>();
@@ -926,5 +931,87 @@ describe('RevealWorkPlanEditor', () => {
       const form = await screen.findByLabelText(`reveal-new-price-item-${openingId}-form`);
       expect(within(form).getByRole('button', { name: 'Zapisz' }).className).toContain('min-h-11');
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 12F — coefficient assignment on reveal occurrences
+// ---------------------------------------------------------------------------
+
+describe('RevealWorkPlanEditor — coefficients (Stage 12F)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(revealWorksApi.fetchRevealWorks).mockResolvedValue(makeList());
+    vi.mocked(revealWorksApi.putRevealWorks).mockResolvedValue(makeList());
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([]));
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(makeSurfacesResponse([makeSurface()]));
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue(makeOpeningsResponse([]));
+    vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({
+      items: [
+        {
+          id: 'grp-height', code: 'HEIGHT', name_key: null, display_name: 'Wysokość',
+          selection_mode: 'SINGLE_SELECT', position: 0, is_archived: false,
+          created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
+          options: [
+            {
+              id: 'opt-normal', group_id: 'grp-height', code: 'NORMAL', name_key: null, display_name: 'normalna',
+              percentage: '0.00', is_base: true, position: 0, is_archived: false,
+              created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
+            },
+            {
+              id: 'opt-high', group_id: 'grp-height', code: 'HIGH', name_key: null, display_name: 'wysoka',
+              percentage: '20.00', is_base: false, position: 1, is_archived: false,
+              created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+      total: 1,
+    });
+  });
+
+  async function assignButtons() {
+    renderEditor();
+    await screen.findByLabelText(`reveal-works-${openingId}`);
+    return screen.getAllByLabelText(/^reveal-assign-coefficient-/);
+  }
+
+  it('offers the coefficient action only on LABOR reveal occurrences', async () => {
+    // rw-1 and rw-3 are LABOR; rw-2 is MATERIAL.
+    expect(await assignButtons()).toHaveLength(2);
+  });
+
+  it('Apply is draft-only; Save sends planned_works keeping duplicate occurrences independent', async () => {
+    const buttons = await assignButtons();
+    fireEvent.click(buttons[1]);
+    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
+    fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
+
+    expect(revealWorksApi.putRevealWorks).not.toHaveBeenCalled();
+    expect(screen.getAllByLabelText(/^reveal-coefficient-summary-/)).toHaveLength(1);
+
+    fireEvent.click(screen.getByLabelText(`save-reveal-work-${openingId}`));
+    await waitFor(() => {
+      expect(revealWorksApi.putRevealWorks).toHaveBeenCalledWith(projectId, roomId, surfaceId, openingId, {
+        planned_works: [
+          { price_item_id: 'price-shared', coefficient_option_ids: [] },
+          { price_item_id: 'price-localized', coefficient_option_ids: [] },
+          { price_item_id: 'price-shared', coefficient_option_ids: ['opt-high'] },
+        ],
+      });
+    });
+  });
+
+  it('persists an explicit is_base 0% option id', async () => {
+    const [first] = await assignButtons();
+    fireEvent.click(first);
+    fireEvent.click(await screen.findByRole('radio', { name: /normalna/ }));
+    fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
+    fireEvent.click(screen.getByLabelText(`save-reveal-work-${openingId}`));
+
+    await waitFor(() => expect(revealWorksApi.putRevealWorks).toHaveBeenCalled());
+    const payload = vi.mocked(revealWorksApi.putRevealWorks).mock.calls[0][4];
+    expect(payload.planned_works?.[0].coefficient_option_ids).toEqual(['opt-normal']);
   });
 });

@@ -9,12 +9,21 @@ import {
 import { fetchSurfaces } from '../api/surfaces';
 import { useI18n } from '../hooks/useI18n';
 import { PriceItem } from '../types/priceItem';
-import { RevealWorkItemRead } from '../types/revealWork';
-import { SurfacePriceItemSummaryRead } from '../types/workPlan';
+import { RevealWorkItemRead, RevealWorkSetPayload } from '../types/revealWork';
+import {
+  PlannedWorkCoefficientOptionRead,
+  SurfacePriceItemSummaryRead,
+} from '../types/workPlan';
 import { localizeApiError } from '../utils/apiErrors';
+import {
+  calculateEffectivePrice,
+  formatCoefficientSummary,
+  sumPercentages,
+} from '../utils/coefficientCalculations';
 import { formatMetric } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice } from '../utils/priceFormat';
+import { CoefficientAssignmentModal } from './CoefficientAssignmentModal';
 import { PriceItemForm } from './PriceItemForm';
 
 interface RevealWorkPlanEditorProps {
@@ -41,6 +50,8 @@ interface DraftOccurrence {
   draftKey: string;
   priceItemId: string;
   summary: SurfacePriceItemSummaryRead | null;
+  /** Currently assigned coefficient options (draft-local, not yet persisted). */
+  coefficientOptions: PlannedWorkCoefficientOptionRead[];
 }
 
 let draftKeyCounter = 0;
@@ -53,6 +64,7 @@ function workToDraft(work: RevealWorkItemRead): DraftOccurrence {
     draftKey: nextDraftKey(),
     priceItemId: work.price_item_id,
     summary: work.price_item,
+    coefficientOptions: work.coefficient_options ?? [],
   };
 }
 
@@ -77,6 +89,7 @@ export function RevealWorkPlanEditor({
   // Draft occurrences — independent stable list, preserves order + duplicates.
   const [draftOccurrences, setDraftOccurrences] = useState<DraftOccurrence[]>([]);
   const [baselineIds, setBaselineIds] = useState<string[]>([]);
+  const [baselineCoefficientLists, setBaselineCoefficientLists] = useState<string[][]>([]);
 
   // Price Book picker state — REVEAL category only.
   const [pickerState, setPickerState] = useState<PickerState>('closed');
@@ -85,6 +98,10 @@ export function RevealWorkPlanEditor({
   const [pickerSearch, setPickerSearch] = useState('');
   // Inline "+ Dodaj nową pracę do cennika" creation, shown inside the picker.
   const [creatingPriceItem, setCreatingPriceItem] = useState(false);
+
+  // Coefficient assignment modal state
+  const [coefficientModalOpen, setCoefficientModalOpen] = useState(false);
+  const [coefficientModalDraftKey, setCoefficientModalDraftKey] = useState<string | null>(null);
 
   // Apply-to-room-openings bulk copy state (Stage 10G.4).
   const [applyState, setApplyState] = useState<ApplyState>('idle');
@@ -95,7 +112,12 @@ export function RevealWorkPlanEditor({
   const loadGeneration = useRef(0);
 
   const currentIds = draftOccurrences.map((o) => o.priceItemId);
-  const dirty = JSON.stringify(currentIds) !== JSON.stringify(baselineIds);
+  const currentCoefficientLists = draftOccurrences.map((o) =>
+    o.coefficientOptions.map((c) => c.id),
+  );
+  const dirty =
+    JSON.stringify(currentIds) !== JSON.stringify(baselineIds) ||
+    JSON.stringify(currentCoefficientLists) !== JSON.stringify(baselineCoefficientLists);
 
   const describeError = (error: unknown, fallback: string): string => {
     const detail = localizeApiError(error, t);
@@ -106,6 +128,9 @@ export function RevealWorkPlanEditor({
     const nextOccurrences = items.map(workToDraft);
     setDraftOccurrences(nextOccurrences);
     setBaselineIds(nextOccurrences.map((o) => o.priceItemId));
+    setBaselineCoefficientLists(
+      nextOccurrences.map((o) => o.coefficientOptions.map((c) => c.id)),
+    );
   };
 
   useEffect(() => {
@@ -142,10 +167,23 @@ export function RevealWorkPlanEditor({
     setSaveError(null);
     setSaved(false);
     try {
-      const response = await putRevealWorks(projectId, roomId, surfaceId, openingId, {
-        // PUT is full replacement; occurrence order and duplicates must remain exact.
-        price_item_ids: draftOccurrences.map((o) => o.priceItemId),
-      });
+      const hasAnyCoefficients = draftOccurrences.some(
+        (o) => o.coefficientOptions.length > 0,
+      );
+      let payload: RevealWorkSetPayload;
+      if (hasAnyCoefficients) {
+        payload = {
+          planned_works: draftOccurrences.map((o) => ({
+            price_item_id: o.priceItemId,
+            coefficient_option_ids: o.coefficientOptions.map((c) => c.id),
+          })),
+        };
+      } else {
+        payload = {
+          price_item_ids: draftOccurrences.map((o) => o.priceItemId),
+        };
+      }
+      const response = await putRevealWorks(projectId, roomId, surfaceId, openingId, payload);
       hydrate(response.items);
       setSaved(true);
     } catch (error) {
@@ -217,6 +255,7 @@ export function RevealWorkPlanEditor({
         is_archived: item.is_archived,
         quality_level: item.quality_level,
       },
+      coefficientOptions: [],
     };
     setDraftOccurrences((prev) => [...prev, occurrence]);
     setSaveError(null);
@@ -267,6 +306,43 @@ export function RevealWorkPlanEditor({
     });
     setSaveError(null);
     setSaved(false);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Coefficient assignment modal (Stage 12F)
+  // ---------------------------------------------------------------------------
+
+  const activeModalOccurrence = coefficientModalDraftKey
+    ? draftOccurrences.find((o) => o.draftKey === coefficientModalDraftKey) ?? null
+    : null;
+
+  const openCoefficientModal = (draftKey: string) => {
+    setCoefficientModalDraftKey(draftKey);
+    setCoefficientModalOpen(true);
+  };
+
+  const closeCoefficientModal = () => {
+    setCoefficientModalOpen(false);
+    setCoefficientModalDraftKey(null);
+  };
+
+  const handleApplyCoefficients = (
+    selectedOptions: PlannedWorkCoefficientOptionRead[],
+  ) => {
+    if (!coefficientModalDraftKey) {
+      closeCoefficientModal();
+      return;
+    }
+    setDraftOccurrences((prev) =>
+      prev.map((o) =>
+        o.draftKey === coefficientModalDraftKey
+          ? { ...o, coefficientOptions: selectedOptions }
+          : o,
+      ),
+    );
+    setSaveError(null);
+    setSaved(false);
+    closeCoefficientModal();
   };
 
   // ---------------------------------------------------------------------------
@@ -412,6 +488,17 @@ export function RevealWorkPlanEditor({
               <ol aria-label={`reveal-works-${openingId}`} className="space-y-2">
                 {draftOccurrences.map((occurrence, index) => {
                   const item = occurrence.summary;
+                  const isLabor = item?.price_scope === 'LABOR';
+                  const coefSummary = formatCoefficientSummary(occurrence.coefficientOptions);
+                  const basePrice = item?.price ?? null;
+                  const currency = item?.currency ?? 'PLN';
+                  const totalPercentage = sumPercentages(
+                    occurrence.coefficientOptions.map((o) => o.percentage),
+                  );
+                  const effectivePrice =
+                    occurrence.coefficientOptions.length > 0
+                      ? calculateEffectivePrice(basePrice, totalPercentage)
+                      : basePrice;
                   return (
                     <li
                       key={occurrence.draftKey}
@@ -419,9 +506,26 @@ export function RevealWorkPlanEditor({
                       className="min-w-0 rounded-lg border border-slate-200 p-2"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <span className="min-w-0 text-sm font-semibold text-slate-800 break-words">
-                          {occurrenceDisplayName(item)}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span className="min-w-0 text-sm font-semibold text-slate-800 break-words block">
+                            {occurrenceDisplayName(item)}
+                          </span>
+                          {coefSummary && (
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+                              <span
+                                aria-label={`reveal-coefficient-summary-${occurrence.draftKey}`}
+                                className="px-1.5 py-0.5 rounded font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                              >
+                                {t.estimates.coefficient_adjustment}: {coefSummary}
+                              </span>
+                              {effectivePrice !== basePrice && effectivePrice !== null && (
+                                <span className="text-slate-500">
+                                  → {formatPrice(effectivePrice)} {currency === 'PLN' ? t.pricebook.currency_symbol : currency}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1 shrink-0">
                           {item?.is_archived && (
                             <span className="text-xs text-red-600 mr-1">
@@ -460,14 +564,28 @@ export function RevealWorkPlanEditor({
                         </div>
                       </div>
                       {item ? (
-                        <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-slate-500">
-                          <span>{t.pricebook.units[item.unit]}</span>
-                          <span>{t.pricebook.scopes[item.price_scope]}</span>
-                          <span aria-label={`reveal-occurrence-price-${occurrence.draftKey}`}>
-                            {item.price === null
-                              ? t.pricebook.price_not_set
-                              : `${formatPrice(item.price)} ${item.currency === 'PLN' ? t.pricebook.currency_symbol : item.currency}`}
-                          </span>
+                        <div className="mt-1 space-y-1">
+                          <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-slate-500">
+                            <span>{t.pricebook.units[item.unit]}</span>
+                            <span>{t.pricebook.scopes[item.price_scope]}</span>
+                            <span aria-label={`reveal-occurrence-price-${occurrence.draftKey}`}>
+                              {item.price === null
+                                ? t.pricebook.price_not_set
+                                : `${formatPrice(item.price)} ${item.currency === 'PLN' ? t.pricebook.currency_symbol : item.currency}`}
+                            </span>
+                          </div>
+                          {isLabor && (
+                            <button
+                              type="button"
+                              aria-label={`reveal-assign-coefficient-${occurrence.draftKey}`}
+                              onClick={() => openCoefficientModal(occurrence.draftKey)}
+                              disabled={saving}
+                              className="mt-1 w-full min-h-[44px] px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 active:bg-blue-200 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                            >
+                              {t.reveals.work_coefficient_action}
+                              {coefSummary && <span className="font-mono">({coefSummary})</span>}
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <p className="mt-1 text-xs text-slate-500">{t.work_plan.unavailable_item}</p>
@@ -719,6 +837,18 @@ export function RevealWorkPlanEditor({
           {t.common.close}
         </button>
         </>
+      )}
+
+      {activeModalOccurrence && (
+        <CoefficientAssignmentModal
+          isOpen={coefficientModalOpen}
+          occurrenceName={occurrenceDisplayName(activeModalOccurrence.summary)}
+          basePrice={activeModalOccurrence.summary?.price ?? null}
+          currency={activeModalOccurrence.summary?.currency ?? 'PLN'}
+          initialOptionIds={activeModalOccurrence.coefficientOptions.map((o) => o.id)}
+          onApply={handleApplyCoefficients}
+          onCancel={closeCoefficientModal}
+        />
       )}
     </section>
   );

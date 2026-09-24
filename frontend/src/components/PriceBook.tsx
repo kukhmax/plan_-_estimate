@@ -23,10 +23,12 @@ import {
 } from '../types/priceItem';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice, normalizePriceInput } from '../utils/priceFormat';
+import { CoefficientCatalogManager } from './CoefficientCatalogManager';
 import { PriceBookMarket } from './PriceBookMarket';
 import { PriceItemForm } from './PriceItemForm';
 
 type Tab = 'active' | 'archived';
+type MainTab = 'items' | 'coefficients';
 
 /** display_name > localized name_key > em-dash. Never the machine code. */
 function resolveDisplayName(item: PriceItem, t: Record<string, unknown>): string {
@@ -49,6 +51,7 @@ interface PriceBookProps {
 
 export function PriceBook({ resetSignal }: PriceBookProps) {
   const { t } = useI18n();
+  const [mainTab, setMainTab] = useState<MainTab>('items');
   const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<PriceCategoryValue | ''>('');
@@ -224,10 +227,42 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
     <section aria-label="price-book-section" className="w-full mt-4">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-lg font-bold text-slate-900">{t.pricebook.title}</h2>
-        {total > 0 && (
+        {mainTab === 'items' && total > 0 && (
           <span className="text-xs text-slate-400">{total}</span>
         )}
       </div>
+
+      <div className="flex gap-2 mb-3">
+        <button
+          type="button"
+          aria-label="pricebook-maintab-items"
+          onClick={() => setMainTab('items')}
+          className={`min-h-11 px-4 text-sm font-semibold rounded-xl transition ${
+            mainTab === 'items'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          {t.coefficients.tab_items}
+        </button>
+        <button
+          type="button"
+          aria-label="pricebook-maintab-coefficients"
+          onClick={() => setMainTab('coefficients')}
+          className={`min-h-11 px-4 text-sm font-semibold rounded-xl transition ${
+            mainTab === 'coefficients'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          {t.coefficients.tab_coefficients}
+        </button>
+      </div>
+
+      {mainTab === 'coefficients' ? (
+        <CoefficientCatalogManager />
+      ) : (
+        <>
 
       <div
         role="tablist"
@@ -459,6 +494,8 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
             </li>
           ))}
         </ul>
+      )}
+        </>
       )}
     </section>
   );
