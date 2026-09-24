@@ -4,26 +4,31 @@
 - **Branch / HEAD**: `main` @ `e0a73d5` (Stage 11 COMPLETE / OWNER ACCEPTED / INTEGRATED TO MAIN)
 - **Sub-stage**: 12B (architecture specification) — **documentation only**
 - **Scope guardrails**: no application code, no Alembic migration, no `stage-12` branch, no runtime behavior change in this sub-stage. 12C must not start without explicit owner approval of this document.
+- **Stage 12G update (2026-09-24)**: the owner-approved canonical pricing model is recorded in **§27**, which
+  **supersedes** any earlier wording in this document that treated `S1–S4`/`Q1–Q4`/`PSG1–PSG4` quality as a
+  coefficient group or used quality/furniture as coefficient examples. Earlier illustrative examples have been
+  reconciled with §27.
 
 ## 0. Purpose
 
 This record settles the architecture of **Stage 12 — Price Coefficients**: letting the owner adjust the
-**labor** unit price of a specific planned-work occurrence for explicitly selected job conditions (quality
-tier, height, access, room condition, geometry, and similar), without duplicating the Price Book, without
+**labor** unit price of a specific planned-work occurrence for explicitly selected execution conditions
+(working height, access, surface complexity, work organization — §27), without duplicating the Price Book, without
 mutating `SurfaceWorkPlan`/`OpeningRevealPlannedWork` price data (which Stage 10 explicitly forbids), and
 without breaking the Estimate's snapshot/explicit-regeneration contract that Stages 10 and 11 already
 established and the owner already accepted in production.
 
-**Product question Stage 12 answers**: *"This particular wall's plastering is genuinely harder than my
-catalog price assumes — quality is higher, the ceiling is high, the room is furnished — how much extra
-should THIS line cost, and let me see exactly why before it goes into the Estimate?"*
+**Product question Stage 12 answers**: *"This particular wall's plastering is genuinely harder to execute
+than my catalog price assumes — the working height is high, access stays restricted while working — how much
+extra should THIS line cost, and let me see exactly why before it goes into the Estimate?"* (Quality targets
+are **not** coefficients — a higher `S`/`Q` target means different/additional operations, see §27.)
 
 **What Stage 12 is NOT** (boundary): a second Price Book (Stage 9 remains the sole base-price authority), a
 condition-detection rules engine (Stage 7 remains the sole deterministic risk/condition authority; nothing
 here evaluates a condition automatically), an automatic-proposal engine (reserved, at earliest, for a future
 Stage 13 extension — Stage 12 is 100% explicit owner selection), a fixed-surcharge catalog (Stage 12 reuses
-the existing MANUAL `EstimateLine` mechanism unchanged), or a redefinition of the Q/S/PSG quality-level
-business meaning (deferred to a dedicated follow-up, §21).
+the existing MANUAL `EstimateLine` mechanism unchanged), or a pricing mechanism for Q/S/PSG quality targets
+(quality targets are not coefficients; Stage 13 maps them to required operations/PriceItems — §21, §27).
 
 This document supersedes the Stage 12A read-only audit's provisional model comparison, resolving it against
 the owner-approved D1–D11 decisions below.
@@ -43,8 +48,8 @@ calculation time (§10), deterministically, in one place.
 
 A coefficient selection belongs to **one specific planned-work occurrence** — never automatically to a whole
 Project, Room, or Surface merely because a condition exists there. Coefficient *options* are organized into
-**groups** (e.g. `QUALITY`, `HEIGHT`, `ROOM_CONDITION`, `GEOMETRY`, `ACCESS`, `COLOUR_COMPLEXITY`,
-`PROTECTION_COMPLEXITY`); a group is `SINGLE_SELECT` for Stage 12's first cut — at most one option from a
+**groups** (the canonical v1 default groups are `WYSOKOSC_PRACY`, `DOSTEP_DO_POWIERZCHNI`,
+`ZLOZONOSC_POWIERZCHNI`, `ORGANIZACJA_PRACY` — §27; quality is never a group); a group is `SINGLE_SELECT` for Stage 12's first cut — at most one option from a
 given group may be selected per occurrence, but different groups combine freely on the same occurrence (see
 §5, §10).
 
@@ -105,22 +110,25 @@ coefficient by stable code; Stage 12 implements no such proposal path (§20).
 ### D11 — Base level / 0% is catalog-relative, never a universal hardcode
 
 A group's `0%` option represents *"the condition already assumed by this owner's current Price Book base
-price"* — it is a **per-owner catalog configuration fact**, not a permanent universal statement that
-`S2`/`Q2` always means zero. If an owner's pricing already assumes `S3` as the baseline, their own catalog
-may configure `S2` as negative and `S3` as `0%`. The architecture must never hardcode which option is "the"
-base beyond what the owner's own catalog row says (§6, §21).
+price"* — it is a **per-owner catalog configuration fact**, not a permanent universal statement. If an
+owner's base prices already assume, say, raised working height, their own catalog may re-mark which
+`WYSOKOSC_PRACY` option is `is_base` or edit its percentages. The architecture must never hardcode which
+option is "the" base beyond what the owner's own catalog row says (§6, §27). (Quality targets are not
+coefficient groups at all — §27.)
 
 ---
 
-## 2. Boundary: Q/S/PSG business definitions are explicitly deferred
+## 2. Boundary: Q/S/PSG quality targets are not coefficients (resolved in 12G)
 
-Stage 12B does **not** define the finished-result meaning, substrate prerequisites, preparation requirements,
-acceptance criteria, or final percentage adjustments for `S1–S4`, `Q1–Q4`, or `PSG1–PSG4`. Every percentage
-appearing anywhere in this document (`+10%`, `+20%`, `40.00 PLN`, etc.) is an **illustrative example only**,
-never a canonical default. A dedicated follow-up (§21) will define each class's business meaning and propose
-default coefficients for explicit owner approval before any such value is ever seeded. Stage 12's
-architecture must *support* quality-tied groups/options generically — it must not *bake in* any unverified
-business percentage.
+*Original 12B wording deferred Q/S/PSG definitions and anticipated quality-tied coefficient groups. That
+anticipation is **withdrawn** by the Stage 12G owner decision (§27).*
+
+`S1–S4` (the contractor's internal "Standard Wykończenia Powierzchni" for continuous substrates) and
+`Q1–Q4`/`PSG1–PSG4` (the separate gypsum-board industry quality levels) are **quality targets**
+(`quality_target`), never percentage coefficients, and no quality coefficient group is ever seeded. A higher
+quality target is reached through different or additional operations; Stage 13 will translate
+`quality_target` into required technological operations/PriceItems. The only canonical default percentages
+are the four v1 execution-condition groups in §27; any other percentage in this document is illustrative.
 
 ---
 
@@ -134,17 +142,17 @@ Price Book base labor unit price (PriceItem.price, LABOR or LABOR_AND_MATERIAL-e
 effective labor unit price × quantity  =  EstimateLine.amount   (unchanged Stage 10 arithmetic)
 ```
 
-Worked example (**illustrative only — not canonical**):
+Worked example (canonical v1 catalog values, §27):
 
 ```
 base = 40.00 PLN/m²
-QUALITY:   S3            +10%
-HEIGHT:    high ceiling  +20%
-ROOM_CONDITION: furnished +10%
-total adjustment = 10 + 20 + 10 = +40%
-effective = 40.00 × (1 + 0.40) = 56.00 PLN/m²
+WYSOKOSC_PRACY:         PODWYZSZONA   +15%
+DOSTEP_DO_POWIERZCHNI:  UTRUDNIONY    +10%
+ZLOZONOSC_POWIERZCHNI:  ZLOZONA       +10%
+total adjustment = 15 + 10 + 10 = +35%   (additive, never compounded)
+effective = 40.00 × (1 + 0.35) = 54.00 PLN/m²
 quantity  = 100 m²
-amount    = 5600.00 PLN
+amount    = 5400.00 PLN
 ```
 
 ---
@@ -165,6 +173,7 @@ conventions:
 | `selection_mode` | `SINGLE_SELECT` for Stage 12 (only mode implemented; the field exists so a future mode is additive, not a breaking migration) |
 | `position` | Owner-controlled display ordering |
 | `is_archived` | Archive-not-delete, mirrors `PriceItem.is_archived` |
+| `description` | **Stage 12G addition.** Nullable, owner-editable explanatory text (§27.7) |
 
 ### `CoefficientOption` (conceptual)
 
@@ -178,14 +187,15 @@ conventions:
 | `is_base` | **Explicit boolean**, not inferred from `percentage == 0` — see rationale below |
 | `position` | Owner-controlled ordering within the group |
 | `is_archived` | Archive-not-delete |
+| `description` | **Stage 12G addition.** Nullable, owner-editable explanatory text (§27.7) |
 
 **Why an explicit `is_base` flag, not `percentage == 0`**: D11 establishes that "base" is a *catalog
 configuration fact* about which option corresponds to the owner's already-priced assumption, not a
 mathematical coincidence. Two different reasons an option could show `0%` must remain distinguishable:
 "this is the owner's declared base assumption" (`is_base = true`) vs. "this condition happens to carry no
-adjustment right now, but isn't the conceptual base" (`is_base = false`, `percentage = 0`) — e.g., a
-`PROTECTION_COMPLEXITY` group's "standard" option could be priced at `0%` without being semantically "the
-Price Book's own quality assumption" the way a `QUALITY` group's base level is. Collapsing this into
+adjustment right now, but isn't the conceptual base" (`is_base = false`, `percentage = 0`) — e.g., an
+owner-created group could contain a `0%` option that is not the condition their base prices assume.
+Collapsing this into
 `percentage == 0` would silently lose that distinction and make future UI/reporting ("show the base level
 distinctly from a merely-zero level") impossible without a schema change later. `is_base` costs one boolean
 column now; recovering the distinction later would cost a migration and a data-backfill guess.
@@ -217,18 +227,16 @@ guarantees "insert only what's missing, by stable code, never touch what exists"
 non-destructive-customization property, proven correct in production by Stage 11.
 
 Concretely (design intent, not implementation): `CoefficientGroup`/`CoefficientOption` rows for the
-**structure only** (group codes like `QUALITY`, `HEIGHT`, …, with placeholder-safe or genuinely-approved
-percentages once §21 concludes) are defined in a `app/domain/data/price_coefficients.py`-style module
+**structure only** (12C shipped an empty baseline; Stage 12G defines the approved v1 content — §27.3) are defined in a `app/domain/data/price_coefficients.py`-style module
 (mirroring `risk_rules.py`/`work_recommendation_rules.py`), and a `_ensure_bootstrapped()` method on the new
 service inserts any `(owner_id, code)` combination not yet present. Archived owner choices are never silently
 reactivated (the bootstrap only *inserts missing rows*; it never flips `is_archived` back to `false` on an
 existing row). Display names remain editable (`display_name` overrides `name_key`, same precedence as
 `PriceItem`); percentages remain owner-editable at all times, including on seeded rows.
 
-**Do not seed final Q/S percentages** in 12C. If a structural bootstrap ships before §21 concludes, it must
-ship with a **clearly non-production-implying** structure (e.g. an empty/minimal default set, or explicitly
-owner-opt-in) rather than guessed numbers presented as if approved — this exact concern is why §21 exists as
-a separate, gated follow-up.
+**Never seed Q/S/PSG percentages** — quality targets are not coefficients (§27). 12C shipped an empty
+baseline; the Stage 12G implementation seeds only the owner-approved v1 execution-condition groups in §27.3
+(with descriptions), through this same lazy, insert-missing-only bootstrap.
 
 ---
 
@@ -471,33 +479,31 @@ localized later). Tapping it opens a **modal / mobile bottom sheet** overlaying 
 --------------------------------
 Współczynnik ceny
 
-Szpachlowanie S3
+Szpachlowanie
 Cena bazowa: 40.00 zł/m²
 
-JAKOŚĆ
-○ S2 / Q2        0%
-● S3 / Q3      +10%
-○ S4 / Q4      +20%
+WYSOKOŚĆ PRACY  ⓘ
+○ Brak
+○ Standardowa     0%
+● Podwyższona   +15%
+○ Wysoka        +25%
 
-WYSOKOŚĆ
-● normalna        0%
-○ średnia       +10%
-○ wysoka        +20%
-
-POMIESZCZENIE
-● puste           0%
-○ umeblowane    +20%
+DOSTĘP DO POWIERZCHNI  ⓘ
+○ Brak
+○ Swobodny        0%
+● Utrudniony    +10%
+○ Bardzo utrudniony +20%
 
 + Dodaj współczynnik
 
-Łączna korekta: +30%
-Cena po korekcie: 52.00 zł/m²
+Łączna korekta: +25%
+Cena po korekcie: 50.00 zł/m²
 
 [Anuluj]              [Zastosuj]
 --------------------------------
 ```
 
-*(All percentages/labels above are illustrative examples only — not approved catalog values, §2/§21.)*
+*(Uses the canonical v1 catalog, §27. ⓘ = description control added in Stage 12G, §27.7.)*
 
 **Mobile constraints** (standing project rule, unchanged): optimized for 390/412px, functional 320–480px, no
 horizontal scrolling, touch targets ≥ 44px, the overlay must not let the underlying WorkPlan screen receive
@@ -556,18 +562,18 @@ adjustment, the total adjustment, the effective price, quantity, and the resulti
 `quantity_overridden`/`price_override` amber-annotation-row pattern):
 
 ```
-Collapsed:            52.00 zł/m²   ·   +30% korekta
+Collapsed:            50.00 zł/m²   ·   +25% korekta
 Expanded/detail:
   Cena bazowa:             40.00 zł/m²
-  Wysokość:                  +20%
-  Umeblowanie:               +10%
-  Łączna korekta:            +30%
-  Cena po korekcie:        52.00 zł/m²
+  Wysokość pracy:            +15%
+  Dostęp do powierzchni:     +10%
+  Łączna korekta:            +25%
+  Cena po korekcie:        50.00 zł/m²
   Ilość:                    100 m²
-  Razem:                  5200.00 zł
+  Razem:                  5000.00 zł
 ```
 
-*(Percentages/values illustrative only.)*
+*(Canonical v1 catalog values, §27.)*
 
 A **manually overridden** effective price must remain visually distinguishable from a **calculated** one,
 reusing the existing manual-change annotation pattern (`t.estimates.price_overridden`/the amber row already
@@ -600,11 +606,18 @@ Stage 12 implements no such proposal path (D10).
 
 ---
 
-## 21. Q/S/PSG quality-level definition — explicit follow-up (backlog, gated)
+## 21. Q/S/PSG quality-level definition — RESOLVED by Stage 12G (§27)
 
-Before any production default percentage for a quality-tied coefficient group ships, a **separate,
-explicitly-approved** specification task must define, for each of `S1–S4` (concrete/plaster) and `Q1–Q4`/
-`PSG1–PSG4` (gypsum-board):
+*Resolution:* the owner decided that quality targets are **not** coefficients and that no quality-tied
+coefficient group is ever seeded (§27.1). `S1–S4` is defined in §27.1 as an internal contractor
+classification of finish-surface quality (not a Polish norm, not geometry, no millimetre tolerances).
+Translating a `quality_target` into required operations/PriceItems is Stage 13 scope. The checklist below is
+the **original 12B wording**, kept for history; its "proposed default percentage adjustment" item is
+withdrawn.
+
+*Original 12B text:* Before any production default percentage for a quality-tied coefficient group ships, a
+**separate, explicitly-approved** specification task must define, for each of `S1–S4` (concrete/plaster) and
+`Q1–Q4`/`PSG1–PSG4` (gypsum-board):
 
 - the intended finished result;
 - substrate prerequisites;
@@ -626,8 +639,8 @@ approval of the resulting percentages before they are ever seeded as defaults fo
 
 | Entity | Purpose | Key fields (illustrative) |
 |---|---|---|
-| `CoefficientGroup` | Owner-scoped catalog group | `id, owner_id, code, name_key, display_name, selection_mode, position, is_archived` |
-| `CoefficientOption` | One selectable level within a group | `id, group_id, code, name_key, display_name, percentage, is_base, position, is_archived` |
+| `CoefficientGroup` | Owner-scoped catalog group | `id, owner_id, code, name_key, display_name, description (12G), selection_mode, position, is_archived` |
+| `CoefficientOption` | One selectable level within a group | `id, group_id, code, name_key, display_name, description (12G), percentage, is_base, position, is_archived` |
 | `SurfacePlannedWorkCoefficient` (or reveal equivalent) | Assignment of option(s) to one planned-work occurrence, created/replaced **atomically together with** its parent occurrence row (§6.3) | `id, surface_planned_work_id (or opening_reveal_planned_work_id), coefficient_option_id` |
 | `EstimateLine` additions | Immutable generation-time snapshot | `base_unit_price` (nullable Decimal), `coefficient_snapshot` (nullable JSON) |
 
@@ -675,17 +688,13 @@ existing full-replace transaction would reintroduce exactly the "stale reference
 
 ---
 
-## 25. Default catalog categories (structure only — not final values)
+## 25. Default catalog categories — superseded by §27.3
 
-The following **categories** are expected to be researched/approved later (§21 for `QUALITY` specifically;
-the others may be simpler and approved sooner, but no percentage in any of them is approved yet):
-
-`QUALITY` · `HEIGHT` · `FURNITURE_OCCUPANCY` · `ACCESS` · `GEOMETRY` · `COLOUR_COMPLEXITY` ·
-`PROTECTION_COMPLEXITY`
-
-Additional categories may be added to this list as backlog without architectural impact — the group/option
-model (§4) places no limit on the number or kind of groups. **No percentage value for any category above is
-approved by this document.**
+*The 12B candidate list (`QUALITY`, `HEIGHT`, `FURNITURE_OCCUPANCY`, `ACCESS`, `GEOMETRY`,
+`COLOUR_COMPLEXITY`, `PROTECTION_COMPLEXITY`) is withdrawn.* The owner-approved v1 default catalog is exactly
+the four groups in §27.3. Quality, furniture, ceiling, colour, small-job and urgency/night/weekend are
+explicitly **not** default coefficient groups (§27.3). The group/option model (§4) still places no limit on
+owner-created groups.
 
 ---
 
@@ -699,10 +708,158 @@ approved by this document.**
 | **12D** | Durable planned-work coefficient assignment (§6.3): extend `OrderedPriceItemSelection`/WorkPlan PUT (and the Reveal equivalent per §7's backend-first scope) to persist assignments atomically with their occurrence. Backend + ownership/validation (§24) only, no Estimate integration yet. |
 | **12E** | Estimate coefficient snapshot/calculation: `base_unit_price`/`coefficient_snapshot` columns + migration, generation/regeneration computation with NULL/zero-safety (§11), `reset_price_override` extended (§13), preview-diff extension (§19). No frontend yet. |
 | **12F** | Frontend: coefficient catalog settings screen, WorkPlan-editor "Współczynnik" modal/bottom-sheet (§14–§16), Estimate line/group/preview presentation (§18), PL/RU, mobile acceptance (320–480px, 390/412px primary). |
-| **12G** | Quality-level/default catalog definition (§21): `S1–S4`/`Q1–Q4`/`PSG1–PSG4` business specification and proposed default percentages, submitted for explicit owner approval before any seed ships. |
+| **12F** status | **COMPLETE** — pushed to `origin/stage-12` (`c5e4f78`, `ba1f592`). |
+| **12G** | Canonical pricing model (§27) — **business model defined 2026-09-24 (documentation)**; implementation pending owner approval: seed the v1 default catalog with descriptions (§27.3), add nullable `CoefficientGroup.description`/`CoefficientOption.description` + migration + owner editing (§27.7), mobile description bottom sheet (§27.7), non-blocking `> +50%` total-correction warning (§27.6). No quality coefficient, no new surcharge architecture. |
 | **12H** | Adversarial/hardening tests (mirrors Stage 10F's own precedent) + full mobile acceptance + real Telegram owner walkthrough + production deployment, only after explicit owner approval. |
 
 Every implementation sub-stage (12C onward) follows the standing gate exactly: Implementation → focused
 tests → full relevant tests → PASS/FAIL → commit → **owner approval** → push. No sub-stage is combined merely
 for convenience. Production deployment occurs only after 12H and explicit owner approval, mirroring Stage
 11's own closure sequence.
+
+---
+
+## 27. Stage 12G — Canonical pricing model (owner-approved 2026-09-24)
+
+This section is authoritative. Where earlier sections conflict with it, this section wins. The user-facing
+Polish explanation lives in `README.md` ("Model wyceny: jakość powierzchni, współczynniki i dopłaty").
+
+### 27.0 Four separate pricing concepts
+
+| Concept | Scope | Mechanism |
+|---|---|---|
+| Surface quality target (`S1–S4`, `Q1–Q4`/`PSG1–PSG4`) | Surface / WorkPlan `quality_target` | Not priced by percentage; Stage 13 maps it to required operations |
+| Technological operations | Planned-work occurrences | `PriceItem` (Price Book base price) |
+| Price coefficients | One planned-work occurrence | Explicit `CoefficientOption` selection (this stage) |
+| Surcharges / commercial adjustments | Whole order | Future concern; v1 uses a manual `EstimateLine` |
+
+**Anti-double-counting rule.** If a cost:
+
+1. is already included in the base price → no coefficient;
+2. is an additional operation → `PriceItem`;
+3. reduces productivity of the existing operation → coefficient;
+4. concerns the whole order or commercial terms → surcharge/commercial adjustment.
+
+Multiple coefficient groups may be combined only when they represent **independent** causes of productivity
+loss.
+
+### 27.1 Surface quality S1–S4 (internal contractor classification)
+
+"Standard Wykończenia Powierzchni S1–S4" — **Wewnętrzna klasyfikacja wykonawcy.** It is **not** a Polish
+normative quality designation.
+
+- **S1 — Przygotowanie podstawowe**: technical preparation for the next intended operation; not necessarily
+  a finished paint-ready visual surface.
+- **S2 — Standard malarski**: normal residential paint-ready visual standard for ordinary interior painting
+  under normal use conditions and diffuse lighting.
+- **S3 — Podwyższony standard wizualny**: higher visual uniformity for more demanding interiors, large smooth
+  surfaces, or more demanding visual conditions.
+- **S4 — Indywidualnie uzgodniony standard premium**: special high visual requirements; the relevant visual/
+  lighting conditions must be agreed before work.
+
+S1–S4 describes **finish-surface quality, not geometry**: it does not define plane, verticality,
+horizontality or angles, and carries no millimetre tolerances. Geometry is inspected and scoped separately.
+Gypsum-board finishing keeps the separate industry levels `Q1–Q4`/`PSG1–PSG4`. **Neither S nor Q/PSG is ever
+a default percentage coefficient.**
+
+### 27.2 Definition of a coefficient
+
+A coefficient is a correction of the base **labor** price caused by execution conditions that differ from the
+conditions the owner assumed in the base `PriceItem` price. It is **not** an additional technological
+operation. Coefficients apply to one specific planned-work occurrence, are explicitly selected by the owner,
+affect `LABOR` only (never `MATERIAL`; `LABOR_AND_MATERIAL` remains rejected in v1), and are never assigned
+automatically by Inspection, Risk Rules or Stage 11 Recommendations (D10 unchanged). If a difficulty is
+already included in the base price, the coefficient must not be applied again.
+
+### 27.3 Default coefficient catalog v1
+
+All groups are `SINGLE_SELECT`. Codes are stable identifiers; display names are Polish.
+
+| Group code | Option code | Display | Percentage | `is_base` |
+|---|---|---|---|---|
+| `WYSOKOSC_PRACY` | `STANDARDOWA` | Standardowa | 0% | true |
+| | `PODWYZSZONA` | Podwyższona | +15% | false |
+| | `WYSOKA` | Wysoka | +25% | false |
+| `DOSTEP_DO_POWIERZCHNI` | `SWOBODNY` | Swobodny | 0% | true |
+| | `UTRUDNIONY` | Utrudniony | +10% | false |
+| | `BARDZO_UTRUDNIONY` | Bardzo utrudniony | +20% | false |
+| `ZLOZONOSC_POWIERZCHNI` | `STANDARDOWA` | Standardowa | 0% | true |
+| | `ZLOZONA` | Złożona | +10% | false |
+| | `BARDZO_ZLOZONA` | Bardzo złożona | +20% | false |
+| `ORGANIZACJA_PRACY` | `CIAGLA` | Ciągła | 0% | true |
+| | `OGRANICZONA` | Ograniczona | +10% | false |
+| | `ETAPOWA` | Etapowa / przerywana | +20% | false |
+
+Meaning of each group:
+
+- **`WYSOKOSC_PRACY`**: real productivity loss caused specifically by working height. Scaffolding/platform/
+  equipment cost is separate and not part of this coefficient.
+- **`DOSTEP_DO_POWIERZCHNI`**: an access restriction that remains while the operation is performed. One-time
+  furniture moving is not a reason to use it; charge that as a separate operation if chargeable.
+- **`ZLOZONOSC_POWIERZCHNI`**: productivity loss from surface shape/fragmentation, many small areas, edges,
+  approaches or frequent direction changes. It must not double-charge separately priced elements such as
+  reveals, corners or other separately measured PriceItems.
+- **`ORGANIZACJA_PRACY`**: productivity loss from execution organization, e.g. limited access hours, occupied/
+  operating premises, repeated release of work zones, regular interruption/resumption. It does not include
+  separately chargeable protection, furniture moving, cleaning, etc.
+
+**Explicitly not seeded:** quality S/Q/PSG groups, negative default coefficients, furniture, ceiling, colour,
+small-job, urgency/night/weekend coefficients.
+
+Seeding reuses the existing lazy, idempotent, insert-missing-only bootstrap (§5). It never overwrites or
+reactivates owner edits or archives.
+
+### 27.4 Explicit 0% base vs. no selection
+
+An explicit `0%` option with `is_base=true` is a real persisted selection: its option id is stored and
+remains provenance in the Estimate snapshot. No selection ("Brak") persists no option id for that group.
+`is_base` is never inferred from `percentage == 0` (unchanged from §4).
+
+### 27.5 Calculation (unchanged)
+
+`effective_unit_price = base_unit_price × (1 + Σ selected_percentage_deltas)`: additive across groups, never
+compounded, exact `Decimal`, never float, with the final effective unit price rounded under the existing
+Estimate Engine rules (§10). Example: base 40.00; height +15%, access +10%, complexity +10% → Σ = +35% →
+40.00 × 1.35 = 54.00.
+
+### 27.6 High-correction warning (UI only)
+
+When the selected total is **> +50%**, the UI shows a **non-blocking** warning:
+
+> "Wysoka łączna korekta ceny (+X%).
+> Sprawdź, czy wybrane współczynniki opisują niezależne utrudnienia oraz czy ich wpływ nie został już
+> uwzględniony w cenie bazowej lub innych pozycjach kosztorysu."
+
+It is informational only: not backend validation, not an extra confirmation gate, not a prohibition. (RU
+equivalent required for PL/RU parity.)
+
+### 27.7 Descriptions (Stage 12G scope)
+
+Add nullable, owner-editable `CoefficientGroup.description` and `CoefficientOption.description` (Alembic
+migration required). Owner-created entries may leave them empty; program-provided defaults **must** carry
+useful descriptions explaining what the group/option means, when to use it, typical examples, when **not** to
+use it, and double-counting risks where relevant.
+
+Mobile UI: an information control appears beside a group/option only when a description exists; tapping it
+opens a mobile bottom sheet/modal (never a hover tooltip). The underlying page is non-interactive while it is
+open. It must work at 320–480 px (acceptance at 390/412 px), with touch targets ≥ 44 px and no horizontal
+scrolling. Opening a description never mutates the WorkPlan draft or persisted state.
+
+### 27.8 Negative coefficients
+
+The data model keeps supporting signed percentages. No negative program defaults ship, there are no automatic
+large-job discounts, and the owner may create a custom negative coefficient if it matches their own Price Book
+assumptions.
+
+### 27.9 What is not a coefficient
+
+Additional operations remain `PriceItem`s: extra skim coat, extra paint coat, primer, crack repair, mold/oil
+contamination treatment, fiberglass/fleece, reveals, separately measured corners, protection, furniture
+moving. S1–S4 and Q1–Q4/PSG1–PSG4 are quality targets, not coefficients.
+
+### 27.10 Surcharges / commercial adjustments
+
+Order-level/commercial items (minimum/small-job charge, night or weekend work, travel, scaffolding/equipment
+rental, commercial discount, negotiated price, repeat-client discount, large-contract adjustment) are a
+separate future concern. Stage 12G adds **no** surcharge architecture; a fixed surcharge may continue to use
+a manual `EstimateLine` (§9, §17).

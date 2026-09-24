@@ -25,9 +25,9 @@ git@github.com:kukhmax/plan_-_estimate.git
 6. **Substrate Inspections (`Badania Podłoża`)**: Moisture, adhesion, absorption, flatness.
 7. **Photos (`Zdjęcia`)**: Before/after, defects, progress, concealed works (*roboty zanikające*).
 8. **Risks (`Ryzyka`)**: Deterministic technical warnings, risk score, mitigation requirements.
-9. **Quality Levels (`Klasy Jakości`)**: Agreed standards (S1-S4, Q1-Q4 / PSG1-PSG4).
+9. **Quality Levels (`Klasy Jakości`)**: Agreed quality targets (S1-S4 internal contractor classification, Q1-Q4 / PSG1-PSG4) — not price coefficients.
 10. **Price Book (`Katalog Cen`)**: Contractor base prices, labor rates, materials, surcharges.
-11. **Estimates (`Kosztorysy`)**: Line-item calculations by surface, substrate, and quality tier.
+11. **Estimates (`Kosztorysy`)**: Line-item calculations by surface, substrate, and the operations required by the quality target.
 12. **Contracts (`Umowy`)**: Legally binding agreements, stages, deadlines, payments, warranties.
 13. **Technical Protocols (`Protokoły Techniczne`)**: Site handover, concealed works, final acceptance.
 14. **Work Execution (`Realizacja Prac`)**: Task tracking, checklists, technological drying times.
@@ -53,7 +53,7 @@ git@github.com:kukhmax/plan_-_estimate.git
 - Inne (other - gazobeton, silikat, ceramika)
 
 ### Quality Standards:
-- **Tynki i beton**: Klasy S1 – S4
+- **Tynki i beton**: Standard Wykończenia Powierzchni S1 – S4 — wewnętrzna klasyfikacja wykonawcy (nie klasa normowa); jakość wykończenia, nie geometria. Definicje: `docs/stage-12-architecture.md` §27.1.
 - **Płyty g-k / sucha zabudowa**: Klasy Q1 – Q4 / PSG1 – PSG4
 
 ### Languages:

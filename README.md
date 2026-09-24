@@ -189,7 +189,7 @@ See [`docs/development-progress.md`](docs/development-progress.md) for the detai
 - **Stages 0–9**: COMPLETE (engineering foundation, auth, Clients, Projects, Rooms/Surfaces/measurements, Inspection Checklist Engine, Risk Rules Engine, Client Communication Assistant, editable Price Book).
 - **Stage 10 (Estimate / Kosztorys)**: **COMPLETE — OWNER ACCEPTED** after the final real-Telegram production walkthrough. See [`docs/stage-10-architecture.md`](docs/stage-10-architecture.md) and [`docs/development-progress.md`](docs/development-progress.md) for the full sub-stage history.
 - **Stage 11 (Inspection → recommended work → Estimate)**: **COMPLETE — OWNER ACCEPTED** after production deployment and the real Telegram Mini App owner walkthrough; integrated into `main`. See [`docs/stage-11-architecture.md`](docs/stage-11-architecture.md) and [`docs/development-progress.md`](docs/development-progress.md) for the full sub-stage history.
-- **Stage 12 (Price coefficients)**: not started — next planned stage, pending explicit owner approval.
+- **Stage 12 (Price coefficients)**: **IN PROGRESS** on branch `stage-12` — 12C–12F (coefficient catalog, per-occurrence assignment, Estimate calculation/snapshot, mobile UI) implemented and pushed; **12G canonical pricing model defined** (see [Model wyceny](#model-wyceny-jakość-powierzchni-współczynniki-i-dopłaty) below and [`docs/stage-12-architecture.md`](docs/stage-12-architecture.md) §27), its implementation pending; 12H (hardening + production) pending. Not yet deployed or merged to `main`.
 - Stages 13–20: pending, not started.
 
 ## Telegram Mini App development
@@ -203,3 +203,319 @@ Real Telegram testing requires:
 - `MOCK_TELEGRAM_AUTH=false` and `VITE_DEV_MOCK_AUTH=false`.
 
 The frontend shell loads the official Telegram WebApp runtime, calls `ready()` and `expand()`, and forwards raw real `initData` unchanged to the backend for validation. It fails safely when the runtime or authentication data is unavailable.
+
+
+=================================================
+=================================================
+
+## Model wyceny: jakość powierzchni, współczynniki i dopłaty
+
+System rozdziela cztery niezależne elementy wyceny:
+
+1. **Standard jakości powierzchni** (`quality_target`: S1–S4, Q1–Q4 /
+   PSG1–PSG4) — jaki efekt końcowy ma zostać osiągnięty.
+2. **Operacje technologiczne** (PriceItems w planie prac) — co faktycznie
+   trzeba wykonać, żeby ten efekt osiągnąć.
+3. **Współczynniki ceny** (dla konkretnego wystąpienia planned work) — w
+   jakich warunkach dana operacja jest wykonywana.
+4. **Dopłaty i korekty komercyjne** (dla całego zlecenia) — warunki
+   handlowe i koszty dotyczące całego zlecenia.
+
+Nie należy zastępować dodatkowej operacji technologicznej współczynnikiem
+procentowym.
+
+### 1. Standard Wykończenia Powierzchni S1–S4
+
+**Wewnętrzna klasyfikacja wykonawcy.**
+
+S1–S4 jest wewnętrzną klasyfikacją wykonawcy dla powierzchni ciągłych,
+np. tynków i betonu. Nie jest oznaczeniem klasy jakości według Polskiej
+Normy ani żadnej innej normy.
+
+S1 — Przygotowanie podstawowe
+Powierzchnia przygotowana technicznie do kolejnej przewidzianej operacji.
+Nie oznacza pełnego standardu powierzchni gotowej do malowania.
+
+S2 — Standard malarski
+Typowy standard powierzchni przygotowanej do zwykłego malowania
+wnętrz farbą matową w normalnych warunkach użytkowych i przy świetle
+rozproszonym.
+
+S3 — Podwyższony standard wizualny
+Podwyższona jednorodność wizualna dla bardziej wymagających wnętrz,
+dużych jednolitych powierzchni lub bardziej wymagających warunków
+oświetleniowych.
+
+S4 — Indywidualnie uzgodniony standard premium
+Standard dla powierzchni o szczególnych wymaganiach wizualnych,
+uzgadnianych przed rozpoczęciem prac, w tym warunków oświetleniowych.
+
+S1–S4 określa standard wykończenia powierzchni, a nie jej geometrię.
+Nie określa pionu, poziomu, płaszczyzny ani kątów i nie przypisuje
+żadnych tolerancji milimetrowych.
+
+Geometria powierzchni jest oceniana i rozliczana oddzielnie.
+
+S1–S4 NIE jest współczynnikiem ceny i nie ma domyślnego procentu.
+Docelowo Stage 13 mapuje quality target na wymagane operacje
+technologiczne / PriceItems.
+
+Dla zabudowy gipsowo-kartonowej stosowane są oddzielnie poziomy
+Q1–Q4 / PSG1–PSG4 — odrębny, branżowy system poziomów jakości. Nie należy
+utożsamiać ich z wewnętrzną klasyfikacją S1–S4. Q1–Q4 / PSG1–PSG4 również
+nie są współczynnikami ceny.
+
+### 2. Cena bazowa
+
+Cena PriceItem jest ceną bazową dla określonej operacji.
+
+Cena bazowa powinna odpowiadać normalnym warunkom przyjętym przez
+właściciela cennika.
+
+Współczynnik służy wyłącznie do korekty ceny bazowej, gdy warunki
+wykonania konkretnej pracy odbiegają od warunków założonych w cenie
+bazowej.
+
+Nie wolno stosować współczynnika, jeżeli dane utrudnienie zostało już
+uwzględnione w cenie bazowej.
+
+### 3. Współczynniki ceny
+
+**Definicja:** współczynnik to korekta ceny bazowej robocizny wynikająca
+z warunków wykonania, które odbiegają od warunków założonych przez
+właściciela w cenie bazowej PriceItem.
+
+Współczynnik NIE jest dodatkową operacją technologiczną.
+
+Współczynniki dotyczą wyłącznie robocizny.
+
+Nie zmieniają ceny materiałów.
+
+Dla pozycji LABOR_AND_MATERIAL przypisanie współczynników pozostaje
+niedozwolone w v1, ponieważ system nie zna wiarygodnego podziału ceny
+na robociznę i materiał.
+
+Współczynniki przypisywane są jawnie przez użytkownika do konkretnego
+wystąpienia planned work.
+
+Inspection, Risk Rules i Recommendations nie przypisują współczynników
+automatycznie.
+
+Domyślny katalog v1 zawiera cztery grupy opisane poniżej. Każda grupa jest
+typu SINGLE_SELECT (dla jednego wystąpienia pracy można wybrać najwyżej
+jedną opcję z grupy). Opcja 0% w każdej grupie jest opcją bazową
+(`is_base=true`). Opcje z różnych grup można łączyć.
+
+#### WYSOKOSC_PRACY
+
+Standardowa — 0%
+Podwyższona — +15%
+Wysoka — +25%
+
+Koryguje cenę, gdy wysokość powoduje rzeczywisty spadek wydajności
+konkretnej pracy.
+
+Koszt rusztowania, podestu, wynajmu sprzętu itp. nie jest częścią tego
+współczynnika i powinien być rozliczony oddzielnie.
+
+#### DOSTEP_DO_POWIERZCHNI
+
+Swobodny — 0%
+Utrudniony — +10%
+Bardzo utrudniony — +20%
+
+Dotyczy ograniczenia dostępu pozostającego podczas wykonywania pracy.
+
+Jednorazowe przesunięcie mebli lub wyposażenia nie jest podstawą do
+zastosowania tego współczynnika i powinno być rozliczane jako oddzielna
+operacja, jeżeli jest płatne.
+
+#### ZLOZONOSC_POWIERZCHNI
+
+Standardowa — 0%
+Złożona — +10%
+Bardzo złożona — +20%
+
+Dotyczy spadku wydajności wynikającego z kształtu, rozdrobnienia,
+liczby małych fragmentów, dojść, krawędzi lub częstych zmian kierunku
+pracy.
+
+Nie należy używać współczynnika do ponownego wyceniania elementów,
+które zostały już ujęte jako oddzielne PriceItems, np. ościeży,
+narożników lub innych oddzielnie mierzonych prac.
+
+#### ORGANIZACJA_PRACY
+
+Ciągła — 0%
+Ograniczona — +10%
+Etapowa / przerywana — +20%
+
+Dotyczy spadku wydajności spowodowanego organizacją realizacji,
+np. ograniczonymi godzinami dostępu, pracą w czynnym obiekcie,
+wielokrotnym udostępnianiem stref lub koniecznością regularnego
+przerywania i wznawiania pracy.
+
+Nie obejmuje dodatkowych czynności takich jak zabezpieczenie,
+przenoszenie wyposażenia lub dodatkowe sprzątanie, jeśli są one
+rozliczane oddzielnie.
+
+#### Czego domyślny katalog celowo NIE zawiera
+
+- grup jakości S1–S4 / Q1–Q4 / PSG1–PSG4 (to quality target, nie
+  współczynnik),
+- domyślnych ujemnych współczynników,
+- współczynnika umeblowania,
+- współczynnika sufitu,
+- współczynnika koloru,
+- współczynnika małego zlecenia,
+- współczynnika pilności / pracy nocnej / weekendowej (to dopłaty
+  dotyczące zlecenia, patrz punkt 10).
+
+Właściciel może samodzielnie dodawać własne grupy i opcje oraz edytować
+lub archiwizować domyślne.
+
+### 4. Poziom bazowy 0%
+
+Opcja 0% jest rzeczywistą opcją katalogu z `is_base=true`.
+
+Wybranie np. "Standardowa 0%" zapisuje świadomą decyzję użytkownika
+i jej provenance.
+
+Nie jest to to samo co brak wyboru (`Brak`).
+
+Brak wyboru nie zapisuje CoefficientOption.
+
+### 5. Obliczanie współczynników
+
+Współczynniki z różnych grup sumują się addytywnie.
+
+Nie są kapitalizowane / mnożone jeden przez drugi.
+
+effective_unit_price =
+base_unit_price × (1 + suma_procentów)
+
+Przykład:
+
+Cena bazowa: 40,00 zł/m²
+
+Wysokość: +15%
+Dostęp: +10%
+Złożoność: +10%
+
+Łączna korekta: +35%
+
+40,00 × 1,35 = 54,00 zł/m²
+
+Obliczenia używają Decimal, nigdy float.
+
+Zaokrąglenie ceny następuje zgodnie z zasadami Estimate Engine
+do 0,01 zł.
+
+### 6. Wysoka łączna korekta
+
+System nie blokuje wysokiej korekty.
+
+Jeżeli suma współczynników przekracza +50%, UI powinno pokazać
+ostrzeżenie:
+
+"Wysoka łączna korekta ceny (+X%).
+Sprawdź, czy wybrane współczynniki opisują niezależne utrudnienia oraz
+czy ich wpływ nie został już uwzględniony w cenie bazowej lub innych
+pozycjach kosztorysu."
+
+Ostrzeżenie jest informacyjne.
+Nie jest błędem walidacji i nie wymaga dodatkowego potwierdzenia.
+
+### 7. Opisy współczynników
+
+CoefficientGroup i CoefficientOption mogą posiadać edytowalne pole
+`description` (dodawane w Stage 12G).
+
+Dla grup i opcji tworzonych przez właściciela opis jest opcjonalny.
+Domyślne grupy i opcje dostarczane przez aplikację muszą mieć
+szczegółowe opisy.
+
+Opis powinien wyjaśniać:
+
+- co oznacza współczynnik,
+- kiedy go stosować,
+- typowe przykłady,
+- kiedy go NIE stosować,
+- ryzyko podwójnego naliczenia kosztu.
+
+W mobilnym UI obok grupy i opcji, które mają opis, dostępna jest ikona
+informacji (obszar dotyku co najmniej 44 px; nie jest to mały tooltip
+wyświetlany po najechaniu kursorem).
+
+Po jej naciśnięciu otwierany jest mobilny bottom sheet / modal
+z opisem. Strona pod spodem nie reaguje na dotyk, dopóki opis jest
+otwarty. Otwarcie opisu nigdy nie zmienia planu prac.
+
+Opis jest pomocą decyzyjną, a nie automatyczną regułą wyceny.
+
+### 8. Ujemne współczynniki
+
+Model danych dopuszcza współczynniki ujemne.
+
+Aplikacja nie dostarcza jednak domyślnych ujemnych współczynników.
+
+Właściciel może utworzyć własny współczynnik, np. dla powtarzalnej,
+wysokowydajnej realizacji, jeśli odpowiada to jego modelowi cenowemu.
+
+System nie przyznaje automatycznych rabatów za duży metraż.
+
+### 9. Co NIE jest współczynnikiem
+
+Dodatkowa operacja technologiczna powinna być PriceItem, a nie
+współczynnikiem.
+
+Przykłady:
+
+- dodatkowa warstwa gładzi,
+- dodatkowa warstwa farby,
+- gruntowanie,
+- naprawa pęknięcia,
+- usuwanie pleśni lub tłustych zabrudzeń,
+- włóknina / siatka / fiberglass,
+- ościeża,
+- dodatkowe narożniki,
+- zabezpieczenie,
+- przenoszenie wyposażenia.
+
+S1–S4 oraz Q1–Q4 / PSG1–PSG4 również nie są współczynnikami.
+
+### 10. Dopłaty i korekty komercyjne
+
+Współczynnik planned work nie powinien zastępować dopłat dotyczących
+całego zlecenia lub warunków handlowych.
+
+Przykłady przyszłych Dopłat:
+
+- minimalna wartość / mały zakres zlecenia,
+- praca nocna,
+- praca weekendowa,
+- dojazd,
+- rusztowanie / wynajem sprzętu.
+
+Rabaty handlowe, negocjacje, stały klient lub duży kontrakt również
+nie powinny być automatycznie modelowane jako warunki technologiczne
+konkretnej pracy.
+
+W v1 fixed surcharge może nadal być reprezentowany przez manual
+EstimateLine.
+
+Rozbudowany mechanizm Dopłat pozostaje osobnym przyszłym zakresem.
+
+### 11. Zasada przeciw podwójnemu naliczaniu
+
+Każdy koszt powinien mieć jedno uzasadnienie.
+
+Jeżeli utrudnienie:
+- jest już zawarte w cenie bazowej — nie dodawaj współczynnika;
+- jest osobną operacją — użyj PriceItem;
+- zmniejsza wydajność istniejącej operacji — użyj współczynnika;
+- dotyczy całego zlecenia lub warunków handlowych — użyj Dopłaty /
+  korekty komercyjnej.
+
+Współczynniki z różnych grup mogą być łączone tylko wtedy, gdy opisują
+niezależne przyczyny spadku wydajności.

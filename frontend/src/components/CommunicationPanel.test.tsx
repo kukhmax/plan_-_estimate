@@ -339,7 +339,7 @@ describe('CommunicationPanel (Stage 8C)', () => {
     renderPanel();
     expect(
       await screen.findByText(
-        'Podłoże: tynk gipsowy, poziom S3 — przygotuję powierzchnię gładką, szlifowaną pod malowanie matowe.',
+        'Podłoże: tynk gipsowy, poziom S3 — przygotuję powierzchnię o podwyższonej jednorodności wizualnej, pod bardziej wymagające wnętrza, duże jednolite powierzchnie lub trudniejsze oświetlenie.',
       ),
     ).toBeInTheDocument();
     fireEvent.click(

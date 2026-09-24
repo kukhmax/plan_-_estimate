@@ -15,9 +15,9 @@ All data structures, inspections, measurements, and contractual artifacts derive
 6. **Substrate Inspections (`Badania Podłoża`)**: On-site technical diagnostics before work commencement (humidity, absorption, cohesion, flatness).
 7. **Photos (`Zdjęcia`)**: Visual evidence of existing conditions, defects, progress milestones, and concealed works (*roboty zanikające*).
 8. **Risks (`Ryzyka`)**: Deterministic technical warnings, risk score, and required mitigation steps (e.g., priming, fiber fleece, mesh reinforcement).
-9. **Quality Levels (`Klasy Jakości`)**: Explicit standards agreed with the client (S1-S4, Q1-Q4 / PSG1-PSG4).
+9. **Quality Levels (`Klasy Jakości`)**: Explicit quality targets agreed with the client (S1-S4 — internal contractor classification; Q1-Q4 / PSG1-PSG4 for gypsum board). Quality targets are not price coefficients.
 10. **Price Book (`Katalog Cen / Baza Cenowa`)**: Contractor's base rates for labor, materials, equipment, and difficulty surcharges.
-11. **Estimates (`Kosztorysy`)**: Detailed line-item calculations based on surface areas, substrates, and chosen quality levels.
+11. **Estimates (`Kosztorysy`)**: Detailed line-item calculations based on surface areas, substrates, and the operations required by the chosen quality targets.
 12. **Contracts (`Umowy`)**: Binding legal agreement between contractor and client, defining scope, timeline, stages, payments, and warranties.
 13. **Technical Protocols (`Protokoły Techniczne`)**: Handover of site (*protokół przekazania terenu*), acceptance of concealed works (*odbiór robót ulegających zakryciu*), and final acceptance (*protokół odbioru końcowego*).
 14. **Work Execution (`Realizacja Prac`)**: Stage completion tracking, checklist verification, deviation notes.
@@ -59,13 +59,17 @@ All inspections and works must classify the substrate into:
 
 ## 5. Quality Standards & Levels
 
-### A. Tynki tradycyjne i beton: Klasy S1 – S4
-- **S1 (Podstawowa)**: Powierzchnia zgrubna, dopuszczalne widoczne ziarno i drobne nierówności, pod okładziny ceramiczne lub tapety strukturalne.
-- **S2 (Standardowa)**: Standard deweloperski, szpachlowanie jedno- lub dwuwarstwowe, dopuszczalne drobne ślady narzędzi widoczne pod światło boczne.
-- **S3 (Podwyższona)**: Powierzchnia gładka, wielowarstwowa, szlifowana pod oświetlenie rozproszone, pod farby matowe.
-- **S4 (Najwyższa / Luksusowa)**: Powierzchnia idealnie gładka, sprawdzana lampą smugową (np. Festool Syslite / Smuga), pod farby satynowe, połysk, oświetlenie ledowe przypodłogowe lub sufitowe.
+### A. Tynki i beton (powierzchnie ciągłe): Standard Wykończenia Powierzchni S1 – S4
+**Wewnętrzna klasyfikacja wykonawcy.** Nie jest to normowa (PN) klasyfikacja S1–S4. Canonical definition: `docs/stage-12-architecture.md` §27.1 and `README.md` ("Model wyceny").
+- **S1 — Przygotowanie podstawowe**: Powierzchnia przygotowana technicznie do kolejnej przewidzianej operacji; niekoniecznie gotowa wizualnie do malowania.
+- **S2 — Standard malarski**: Typowy standard powierzchni gotowej do zwykłego malowania wnętrz w normalnych warunkach użytkowych i przy świetle rozproszonym.
+- **S3 — Podwyższony standard wizualny**: Podwyższona jednorodność wizualna dla bardziej wymagających wnętrz, dużych jednolitych powierzchni lub bardziej wymagających warunków oświetleniowych.
+- **S4 — Indywidualnie uzgodniony standard premium**: Szczególne wymagania wizualne; odpowiednie warunki wizualne i oświetleniowe (w tym warunki odbioru) muszą zostać uzgodnione dla danego projektu przed rozpoczęciem prac.
+
+S1–S4 opisuje jakość wykończenia powierzchni, a nie jej geometrię (pion, poziom, płaszczyzna, kąty) — geometria jest oceniana i rozliczana oddzielnie; S1–S4 nie ma przypisanych tolerancji milimetrowych. S1–S4 nie jest współczynnikiem ceny; Stage 13 przełoży quality target na wymagane operacje technologiczne / PriceItems.
 
 ### B. Sucha zabudowa (Płyty G-K): Klasy Q1 – Q4 (PSG1 – PSG4)
+Odrębny, branżowy system poziomów jakości dla zabudowy g-k — niezależny od wewnętrznej klasyfikacji S1–S4 i również niebędący współczynnikiem ceny.
 - **Q1 / PSG1**: Podstawowe spoinowanie połączeń płyt g-k z wtopieniem taśmy zbrojącej (papierowej lub z włókna szklanego).
 - **Q2 / PSG2**: Standardowe szpachlowanie spoin z łagodnym przejściem do powierzchni płyty; pod tapety o grubej strukturze lub tynki strukturalne.
 - **Q3 / PSG3**: Podwyższone szpachlowanie: spoinowanie Q2 + szerokie szpachlowanie spoin oraz cienkowarstwowe przeciągnięcie gładzią całej powierzchni w celu ujednolicenia chłonności i faktury.
