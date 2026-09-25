@@ -36,6 +36,22 @@ def _pcts(line) -> list[str]:
     return sorted(entry["percentage"] for entry in (line.coefficient_snapshot or []))
 
 
+async def _current_keys(db, surface_id):
+    """occurrence_keys of the surface's current plan, in position order --
+    what the editor echoes on an ordinary (key-preserving) save (13E.2B)."""
+    from sqlalchemy import select as _select
+
+    from app.models.work_plan import SurfacePlannedWork as _SPW, SurfaceWorkPlan as _SWP
+
+    rows = await db.execute(
+        _select(_SPW.occurrence_key)
+        .join(_SWP, _SPW.work_plan_id == _SWP.id)
+        .where(_SWP.surface_id == surface_id)
+        .order_by(_SPW.position)
+    )
+    return list(rows.scalars().all())
+
+
 async def _override_price(service, project, estimate, user, line, value):
     return await service.patch_line(
         project.id, estimate.id, user.id, line.id,
@@ -256,8 +272,9 @@ class TestSurfaceOverridePreservation:
         estimate = await service.generate_estimate(project.id, user.id)
         line = estimate.lines[0]
         await _override_price(service, project, estimate, user, line, "30.00")
+        (key,) = await _current_keys(db_session, surface.id)
         await self._save(plans, project, room, surface, user, [
-            Sel(price_item_id=item.id, coefficient_option_ids=[opts[2].id]),
+            Sel(price_item_id=item.id, occurrence_key=key, coefficient_option_ids=[opts[2].id]),
         ])
         await service.regenerate_draft(estimate.id, user.id, project.id)
         after = (await _detail(service, project, estimate, user)).lines[0]
@@ -276,8 +293,9 @@ class TestSurfaceOverridePreservation:
             project.id, estimate.id, user.id, line.id,
             provided_fields={"quantity"}, quantity=Decimal("9.000"),
         )
+        (key,) = await _current_keys(db_session, surface.id)
         await self._save(plans, project, room, surface, user, [
-            Sel(price_item_id=item.id, coefficient_option_ids=[opts[1].id]),
+            Sel(price_item_id=item.id, occurrence_key=key, coefficient_option_ids=[opts[1].id]),
         ])
         await service.regenerate_draft(estimate.id, user.id, project.id)
         after = (await _detail(service, project, estimate, user)).lines[0]
@@ -299,10 +317,11 @@ class TestSurfaceOverridePreservation:
             project.id, estimate.id, user.id, second.id,
             provided_fields={"quantity"}, quantity=Decimal("3.000"),
         )
-        # Re-save identically (all occurrence ids change).
+        # Re-save identically, echoing the keys (all occurrence ids change).
+        k1, k2 = await _current_keys(db_session, surface.id)
         await self._save(plans, project, room, surface, user, [
-            Sel(price_item_id=item.id, coefficient_option_ids=[opts[1].id]),
-            Sel(price_item_id=item.id, coefficient_option_ids=[opts[2].id]),
+            Sel(price_item_id=item.id, occurrence_key=k1, coefficient_option_ids=[opts[1].id]),
+            Sel(price_item_id=item.id, occurrence_key=k2, coefficient_option_ids=[opts[2].id]),
         ])
         result = await service.regenerate_draft(estimate.id, user.id, project.id)
         assert (result.added, result.removed) == (0, 0)
@@ -323,7 +342,8 @@ class TestSurfaceOverridePreservation:
         estimate = await service.generate_estimate(project.id, user.id)
         first, second = sorted(estimate.lines, key=lambda ln: ln.position)
         await _override_price(service, project, estimate, user, first, "30.00")
-        await self._save(plans, project, room, surface, user, [Sel(price_item_id=item.id)])
+        k1, _k2 = await _current_keys(db_session, surface.id)
+        await self._save(plans, project, room, surface, user, [Sel(price_item_id=item.id, occurrence_key=k1)])
         result = await service.regenerate_draft(estimate.id, user.id, project.id)
         assert (result.added, result.removed) == (0, 1)
         lines = (await _detail(service, project, estimate, user)).lines

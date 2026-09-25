@@ -69,6 +69,10 @@ from app.models.price_item import PriceCategory, PriceItem, PriceScope, PriceUni
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
+from app.models.workflow_template import (
+    SurfaceWorkPlanTemplateApplication,
+    TemplateApplicationMode,
+)
 from app.models.work_plan import (
     SurfacePlannedWork,
     SurfacePlannedWorkCoefficientAssignment,
@@ -391,6 +395,74 @@ def _match_existing_lines(
     return matched
 
 
+def _is_surface_line(line: "EstimateLine") -> bool:
+    """A Surface PLANNED_WORK line (plan header set, no opening). Reveal lines
+    have `plan_id` NULL and an `opening_id`; they keep Stage 12 matching."""
+    return line.opening_id is None and line.plan_id is not None
+
+
+def _match_surface_lines(
+    existing: list["EstimateLine"],
+    current: list[tuple[uuid.UUID, uuid.UUID, uuid.UUID, tuple]],
+    legacy_blocked_plan_ids: set[uuid.UUID],
+) -> dict[uuid.UUID, "EstimateLine"]:
+    """Pair current Surface occurrences with existing Surface PLANNED_WORK
+    lines (Stage 13E.2B occurrence identity).
+
+    `current` is [(occurrence id, occurrence_key, plan id, (surface_id,
+    price_item_id))] in generation order. Precedence:
+
+    1. exact occurrence id (the plan was not re-saved since the line was
+       made or last regenerated);
+    2. the same `occurrence_key` -- the same logical work even though an
+       ordinary full-replace save recreated its row. A KEYED line never goes
+       further: a different key is different work, so its overrides never
+       migrate to it, whatever the surface/PriceItem/order;
+    3. legacy fallback, only for lines with NO key (pre-0028) on plans without
+       a template REPLACE record: the Stage 12 logical key (surface,
+       PriceItem), duplicates paired by line position / generation order.
+       Regeneration then stores the key, so legacy lines converge to step 2.
+    """
+    matched: dict[uuid.UUID, EstimateLine] = {}
+    used: set[uuid.UUID] = set()
+    by_work_id = {line.planned_work_id: line for line in existing}
+    for work_id, _key, _plan_id, _logical in current:
+        line = by_work_id.get(work_id)
+        if line is not None and line.id not in used:
+            matched[work_id] = line
+            used.add(line.id)
+    by_key = {
+        line.occurrence_key: line
+        for line in existing
+        if line.occurrence_key is not None and line.id not in used
+    }
+    for work_id, key, _plan_id, _logical in current:
+        if work_id in matched:
+            continue
+        line = by_key.get(key)
+        if line is not None and line.id not in used:
+            matched[work_id] = line
+            used.add(line.id)
+    pool: dict[tuple, list[EstimateLine]] = {}
+    for line in sorted(existing, key=lambda ln: ln.position):
+        if (
+            line.id in used
+            or line.occurrence_key is not None
+            or line.plan_id in legacy_blocked_plan_ids
+        ):
+            continue
+        pool.setdefault((line.surface_id, line.price_item_id), []).append(line)
+    for work_id, _key, plan_id, logical in current:
+        if work_id in matched or plan_id in legacy_blocked_plan_ids:
+            continue
+        candidates = pool.get(logical)
+        if candidates:
+            line = candidates.pop(0)
+            matched[work_id] = line
+            used.add(line.id)
+    return matched
+
+
 class EstimateService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -481,16 +553,42 @@ class EstimateService:
                 )
             )
         else:
+            options = (
+                selectinload(SurfacePlannedWork.price_item),
+                selectinload(SurfacePlannedWork.coefficient_assignments)
+                .selectinload(SurfacePlannedWorkCoefficientAssignment.coefficient_option)
+                .selectinload(CoefficientOption.group),
+            )
             stmt = (
                 select(SurfacePlannedWork)
                 .where(SurfacePlannedWork.id == line.planned_work_id)
-                .options(
-                    selectinload(SurfacePlannedWork.price_item),
-                    selectinload(SurfacePlannedWork.coefficient_assignments)
-                    .selectinload(SurfacePlannedWorkCoefficientAssignment.coefficient_option)
-                    .selectinload(CoefficientOption.group),
-                )
+                .options(*options)
             )
+            work = (await self.db.execute(stmt)).scalar_one_or_none()
+            if (
+                work is None
+                and line.occurrence_key is not None
+                and line.surface_id is not None
+            ):
+                # Stage 13E.2B: the row was recreated by an ordinary save; the
+                # same logical occurrence is found by its key, confined to the
+                # line's own surface (owner context is the estimate's project).
+                stmt = (
+                    select(SurfacePlannedWork)
+                    .join(
+                        SurfaceWorkPlan,
+                        SurfacePlannedWork.work_plan_id == SurfaceWorkPlan.id,
+                    )
+                    .where(
+                        SurfacePlannedWork.occurrence_key == line.occurrence_key,
+                        SurfaceWorkPlan.surface_id == line.surface_id,
+                    )
+                    .options(*options)
+                )
+                work = (await self.db.execute(stmt)).scalar_one_or_none()
+            if work is None:
+                return None
+            return work.price_item, work.coefficient_options
         work = (await self.db.execute(stmt)).scalar_one_or_none()
         if work is None:
             return None
@@ -602,6 +700,52 @@ class EstimateService:
         totals = calculate_plane_totals(pairs, base_area)
         return totals.net_area if totals is not None else None
 
+    async def _legacy_blocked_plan_ids(
+        self, plan_ids: set[uuid.UUID]
+    ) -> set[uuid.UUID]:
+        """Plans with a recorded template REPLACE: their legacy (key-less)
+        lines may not fall back to logical matching (Stage 13E.2B)."""
+        if not plan_ids:
+            return set()
+        stmt = select(SurfaceWorkPlanTemplateApplication.work_plan_id).where(
+            SurfaceWorkPlanTemplateApplication.work_plan_id.in_(plan_ids),
+            SurfaceWorkPlanTemplateApplication.mode == TemplateApplicationMode.REPLACE,
+        )
+        return set((await self.db.execute(stmt)).scalars().all())
+
+    async def _match_all_lines(
+        self,
+        existing_by_pwid: dict[uuid.UUID, "EstimateLine"],
+        surface_works: list,
+        reveal_works: list,
+    ) -> dict[uuid.UUID, "EstimateLine"]:
+        """Surface lines use occurrence-identity matching; reveal (and any
+        other non-surface PLANNED_WORK) lines keep the exact Stage 12 pairing.
+        The two pools never shared a logical key (opening_id differs), so
+        splitting them leaves reveal behaviour unchanged."""
+        surface_lines = [ln for ln in existing_by_pwid.values() if _is_surface_line(ln)]
+        other_lines = {
+            pwid: ln for pwid, ln in existing_by_pwid.items() if not _is_surface_line(ln)
+        }
+        plan_ids = {plan.id for _w, plan, _s, _r in surface_works}
+        plan_ids.update(ln.plan_id for ln in surface_lines)
+        blocked = await self._legacy_blocked_plan_ids(plan_ids)
+        matched = _match_surface_lines(
+            surface_lines,
+            [
+                (w.id, w.occurrence_key, plan.id, (s.id, w.price_item_id))
+                for w, plan, s, _r in surface_works
+            ],
+            blocked,
+        )
+        matched.update(
+            _match_existing_lines(
+                other_lines,
+                [(w.id, (s.id, o.id, w.price_item_id)) for w, o, s, _r in reveal_works],
+            )
+        )
+        return matched
+
     async def _load_surface_planned_works(
         self, project_id: uuid.UUID
     ) -> list[tuple[SurfacePlannedWork, SurfaceWorkPlan, Surface, Room]]:
@@ -705,6 +849,7 @@ class EstimateService:
             position=position,
             plan_id=plan.id,
             planned_work_id=work.id,
+            occurrence_key=work.occurrence_key,
             surface_id=surface.id,
             room_id=room.id,
             opening_id=None,
@@ -900,10 +1045,7 @@ class EstimateService:
         # Build current surface lines
         surface_works = await self._load_surface_planned_works(project_id)
         reveal_works = await self._load_reveal_planned_works(project_id)
-        matched = _match_existing_lines(existing_by_pwid, [
-            *((w.id, (s.id, None, w.price_item_id)) for w, _p, s, _r in surface_works),
-            *((w.id, (s.id, o.id, w.price_item_id)) for w, o, s, _r in reveal_works),
-        ])
+        matched = await self._match_all_lines(existing_by_pwid, surface_works, reveal_works)
         net_area_cache: dict[uuid.UUID, Decimal | None] = {}
         new_lines: list[EstimateLine] = []
         position = 0
@@ -936,6 +1078,9 @@ class EstimateService:
                 # Refresh snapshot, preserve overrides; re-point to the current
                 # occurrence so a later reset reads its live configuration.
                 line.planned_work_id = work.id
+                # Snapshot (or upgrade a legacy line to) the logical identity;
+                # never reported as a change on its own.
+                line.occurrence_key = work.occurrence_key
                 line.position = position
                 line.plan_id = plan.id
                 line.surface_id = surface.id
@@ -986,6 +1131,7 @@ class EstimateService:
                     position=position,
                     plan_id=plan.id,
                     planned_work_id=work.id,
+                    occurrence_key=work.occurrence_key,
                     surface_id=surface.id,
                     room_id=room.id,
                     opening_id=None,
@@ -1367,10 +1513,7 @@ class EstimateService:
         surface_works = await self._load_surface_planned_works(estimate.project_id)
         reveal_works = await self._load_reveal_planned_works(estimate.project_id)
         # Same pairing as regeneration; preview never mutates any line.
-        matched = _match_existing_lines(existing_by_pwid, [
-            *((w.id, (s.id, None, w.price_item_id)) for w, _p, s, _r in surface_works),
-            *((w.id, (s.id, o.id, w.price_item_id)) for w, o, s, _r in reveal_works),
-        ])
+        matched = await self._match_all_lines(existing_by_pwid, surface_works, reveal_works)
         for work, _plan, surface, _room in surface_works:
             if surface.id not in net_area_cache:
                 net_area_cache[surface.id] = await self._surface_net_area(surface)

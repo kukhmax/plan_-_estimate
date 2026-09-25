@@ -763,3 +763,85 @@ the owner's Price Book, then inserts only templates whose code the owner does no
 - Optional recipe steps must start **unselected** in the apply preview.
 - Provenance snapshots for an untouched default record `template_name` = its `name_key` (no display name
   is seeded). The UI resolves it through the locale.
+
+---
+
+## 24. Stage 13E.2B — Estimate occurrence identity (migration 0028)
+
+Owner decisions D13E-1 (server-side apply endpoint), D13E-2 (template REPLACE = genuinely new work, no
+override migration) and D13E-3 (quality target required before applying) are approved. 13E.2B implements
+only the Estimate identity foundation. Template application, preview and the 13E UI are **not** implemented.
+
+### 24.1 Identity rule
+
+- `SurfacePlannedWork.id` is the physical row identity; it changes on every full-replace save.
+- `SurfacePlannedWork.occurrence_key` is the stable logical identity of an actual planned-work occurrence.
+- `EstimateLine.occurrence_key` (new, nullable, **no foreign key**) is a historical snapshot linking a
+  Surface Estimate line to that logical occurrence. It outlives the occurrence.
+- **Same key:** an ordinary re-save preserves the line's manual price/quantity overrides.
+  **Different key:** different work, so old overrides never migrate automatically.
+
+### 24.2 Migration `0028_estimate_occurrence_key`
+
+The file is `0028_estimate_line_occurrence_key.py`; the revision id is shortened because `version_num` is
+VARCHAR(32).
+
+1. Add `estimate_lines.occurrence_key UUID NULL`.
+2. Backfill **only** exact pairings: DRAFT estimate, PLANNED_WORK, `opening_id IS NULL`, `planned_work_id`
+   resolving to an existing `surface_planned_works` row with the same `price_item_id`, and that
+   `planned_work_id` not duplicated inside the estimate.
+   - Stale ids, PriceItem mismatch, reveal, MANUAL, PRICE_BOOK, FINAL, ACCEPTED and ambiguous duplicates
+     stay NULL.
+   - Nothing is inferred from PriceItem, surface or order.
+3. Create partial unique index `uq_estimate_lines_estimate_occurrence_key (estimate_id, occurrence_key)
+   WHERE occurrence_key IS NOT NULL` (declared identically in the ORM for PostgreSQL and SQLite).
+
+Downgrade drops the index and the column.
+
+### 24.3 Matching
+
+A Surface line is `opening_id IS NULL AND plan_id IS NOT NULL`. Reveal (and any other planned-work) lines
+keep the exact Stage 12 pairing in their own pool, so reveal behaviour is unchanged. MANUAL lines stay
+outside matching.
+
+Surface precedence:
+1. **Exact row id.**
+2. **Same `occurrence_key`.** A keyed line never falls back.
+3. **Legacy fallback**, only for lines with NULL key, on plans **without** a template REPLACE record in
+   `surface_work_plan_template_applications`: Stage 12 logical key (surface, PriceItem), duplicates by
+   line position / generation order.
+4. **Leftovers:** unmatched lines are REMOVED (deleted on regeneration); unmatched occurrences are ADDED.
+
+**Regeneration** re-points `planned_work_id` and stores `occurrence_key` on every matched Surface line. This
+upgrades legacy lines, so the fallback is transitional and self-upgrading. A key write alone is never
+reported as a change. New Surface lines snapshot the key.
+
+**Preview** uses the same pairing and persists nothing.
+
+**Reset override** for a Surface line resolves the live occurrence by `planned_work_id`, then by
+`occurrence_key` within the line's surface, then falls back to the PriceItem. Reveal lines are unchanged.
+
+FINAL/ACCEPTED estimates are never regenerated. Template application never touches an Estimate.
+
+### 24.4 Release gate (important)
+
+From 13E.2B on, only a **key-preserving** save keeps Estimate overrides. A legacy key-less save — which is
+what the current pre-13E Mini App editor sends — creates new occurrences, so the next regeneration drops
+the overrides of re-saved lines (REMOVED + ADDED).
+
+Stage 12 tests that modelled "re-save" as key-less now echo the loaded keys, and a test documents the
+key-less behaviour.
+
+**13E.2B must not reach production without the 13E editor fix:** the editor must always send
+`planned_works` with `occurrence_key`, `wait_after_hours` and `coefficient_option_ids`.
+
+**Status: 13E.2B COMPLETE / OWNER ACCEPTED — NOT SAFE TO DEPLOY ALONE.**
+
+- Stage 13E.2B must ship with the WorkPlan editor identity compatibility fix. Until that fix is present,
+  the existing frontend omits `occurrence_key` on ordinary saves. Under the new identity model that
+  correctly means "new occurrence", so old Estimate manual overrides can become REMOVED/ADDED on a later
+  regeneration.
+- A WorkPlan save itself never regenerates an Estimate, so nothing is lost at save time. The commercial
+  effect appears only on a later explicit Estimate preview/regeneration.
+- Production remains on the pre-13E release. Migration 0028 must not be applied independently.
+- Stage 13E overall remains IN PROGRESS. The next substage is **13E.2C — editor identity compatibility**.

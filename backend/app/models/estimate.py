@@ -29,6 +29,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
 )
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON as GenericJSON
@@ -138,6 +139,14 @@ class EstimateLine(Base):
     Reveal PLANNED_WORK:  planned_work_id + surface_id + room_id + opening_id set;
                           plan_id = NULL (OpeningRevealPlannedWork has no header).
     PRICE_BOOK / MANUAL:  all provenance refs NULL (MANUAL may omit price_item_id).
+
+    Stage 13E.2B: `occurrence_key` is a nullable identity SNAPSHOT of the
+    Surface planned-work occurrence (`SurfacePlannedWork.occurrence_key`) a
+    Surface PLANNED_WORK line was priced from. No foreign key: it must outlive
+    the occurrence. Same key = same logical work (overrides survive ordinary
+    row recreation); a different key is different work (no override
+    migration). Reveal, PRICE_BOOK and MANUAL lines keep it NULL; NULL on a
+    Surface line means a legacy (pre-0028) line.
     """
 
     __tablename__ = "estimate_lines"
@@ -164,6 +173,7 @@ class EstimateLine(Base):
     # Provenance (traceability only — never recomputed from these refs)
     plan_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     planned_work_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    occurrence_key: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     surface_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid,
         ForeignKey("surfaces.id", ondelete="SET NULL"),
@@ -285,3 +295,15 @@ class EstimateLine(Base):
     )
 
     estimate: Mapped["Estimate"] = relationship(back_populates="lines")
+
+    __table_args__ = (
+        # One line per logical occurrence per estimate (migration 0028).
+        Index(
+            "uq_estimate_lines_estimate_occurrence_key",
+            "estimate_id",
+            "occurrence_key",
+            unique=True,
+            postgresql_where=text("occurrence_key IS NOT NULL"),
+            sqlite_where=text("occurrence_key IS NOT NULL"),
+        ),
+    )

@@ -52,6 +52,22 @@ async def _make_work_plan_with_coefficients(
     )
 
 
+async def _current_keys(db, surface_id):
+    """occurrence_keys of the surface's current plan, in position order --
+    what the editor echoes on an ordinary (key-preserving) save (13E.2B)."""
+    from sqlalchemy import select as _select
+
+    from app.models.work_plan import SurfacePlannedWork as _SPW, SurfaceWorkPlan as _SWP
+
+    rows = await db.execute(
+        _select(_SPW.occurrence_key)
+        .join(_SWP, _SPW.work_plan_id == _SWP.id)
+        .where(_SWP.surface_id == surface_id)
+        .order_by(_SPW.position)
+    )
+    return list(rows.scalars().all())
+
+
 async def _generate(db, project_id, owner_id):
     return await EstimateService(db).generate_estimate(project_id, owner_id)
 
@@ -638,10 +654,10 @@ class TestE_Preview:
 
     async def test_preview_detects_selection_change(self, db_session):
         """Changing a selection requires a full WorkPlan replace, which (per
-        Stage 12D Option C) recreates the occurrence row with a new id.
-        Regeneration pairs the line with the re-created occurrence by logical
-        key (owner walkthrough fix), so this is one UPDATED entry -- never
-        ADDED + REMOVED, which used to drop manual overrides."""
+        Stage 12D Option C) recreates the occurrence row with a new id. An
+        ordinary save keeps the occurrence_key (13E.2B), so regeneration pairs
+        the line with the re-created occurrence by key: one UPDATED entry --
+        never ADDED + REMOVED, which would drop manual overrides."""
         user, project, room, surface, item, group, options, estimate = (
             await self._setup_draft(db_session, 5000052)
         )
@@ -650,10 +666,11 @@ class TestE_Preview:
         )
         from app.domain.services.work_plan_service import SurfaceWorkPlanService
 
+        (key,) = await _current_keys(db_session, surface.id)
         await SurfaceWorkPlanService(db_session).replace_planned_works(
             project.id, room.id, surface.id, user.id,
             planned_works=[OrderedPriceItemSelection(
-                price_item_id=item.id,
+                price_item_id=item.id, occurrence_key=key,
                 coefficient_option_ids=[options[1].id, more_options[1].id],
             )],
         )
@@ -666,15 +683,16 @@ class TestE_Preview:
 
     async def test_preview_detects_coefficient_removed(self, db_session):
         """Removing the coefficient is also a full replace; the line is
-        paired by logical key and surfaces as one UPDATED entry."""
+        paired by occurrence_key and surfaces as one UPDATED entry."""
         user, project, room, surface, item, group, options, estimate = (
             await self._setup_draft(db_session, 5000053)
         )
         from app.domain.services.work_plan_service import SurfaceWorkPlanService
 
+        (key,) = await _current_keys(db_session, surface.id)
         await SurfaceWorkPlanService(db_session).replace_planned_works(
             project.id, room.id, surface.id, user.id,
-            planned_works=[OrderedPriceItemSelection(price_item_id=item.id)],
+            planned_works=[OrderedPriceItemSelection(price_item_id=item.id, occurrence_key=key)],
         )
         result = await EstimateService(db_session).preview_regeneration(
             project.id, estimate.id, user.id
@@ -699,10 +717,11 @@ class TestE_Preview:
         )
         from app.domain.services.work_plan_service import SurfaceWorkPlanService
 
+        (key,) = await _current_keys(db_session, surface.id)
         await SurfaceWorkPlanService(db_session).replace_planned_works(
             project.id, room.id, surface.id, user.id,
             planned_works=[OrderedPriceItemSelection(
-                price_item_id=item.id, coefficient_option_ids=[options[1].id]
+                price_item_id=item.id, occurrence_key=key, coefficient_option_ids=[options[1].id]
             )],
         )
         result = await EstimateService(db_session).preview_regeneration(
@@ -780,17 +799,18 @@ class TestF_Regeneration:
 
         from app.domain.services.work_plan_service import SurfaceWorkPlanService
 
+        (key,) = await _current_keys(db_session, surface.id)
         await SurfaceWorkPlanService(db_session).replace_planned_works(
             project.id, room.id, surface.id, user.id,
             planned_works=[OrderedPriceItemSelection(
-                price_item_id=item.id, coefficient_option_ids=[options[1].id]
+                price_item_id=item.id, occurrence_key=key, coefficient_option_ids=[options[1].id]
             )],
         )
         service = EstimateService(db_session)
         result = await service.regenerate_draft(estimate.id, user.id, project.id)
         # The WorkPlan replace recreated the occurrence with a new id
-        # (Stage 12D Option C); regeneration pairs it by logical key, so the
-        # existing line is UPDATED in place (overrides would survive).
+        # (Stage 12D Option C) but kept its occurrence_key; regeneration pairs
+        # it by key, so the existing line is UPDATED in place.
         assert (result.added, result.removed, result.updated) == (0, 0, 1)
         refetched = await service.get_estimate_detail(project.id, estimate.id, user.id)
         assert len(refetched.lines) == 1

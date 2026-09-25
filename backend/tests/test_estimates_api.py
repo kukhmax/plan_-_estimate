@@ -493,8 +493,19 @@ async def test_regeneration_confirm_mutates_draft(async_client: AsyncClient, db_
     estimate = await svc.generate_estimate(project.id, owner.id)
     assert len(estimate.lines) == 1
 
-    # Replace work plan with two items, then confirm regeneration
-    await _make_work_plan(db_session, project.id, room.id, surface.id, owner.id, [item_a, item_b])
+    # Ordinary re-save that keeps item_a's occurrence_key (13E.2B) and adds
+    # item_b, then confirm regeneration.
+    from app.models.work_plan import SurfacePlannedWork
+
+    (key_a,) = (await db_session.execute(select(SurfacePlannedWork.occurrence_key))).scalars().all()
+    await SurfaceWorkPlanService(db_session).set_plan(
+        project.id, room.id, surface.id, owner.id,
+        substrate=Substrate.GYPSUM_PLASTER,
+        planned_works=[
+            OrderedPriceItemSelection(price_item_id=item_a.id, occurrence_key=key_a),
+            OrderedPriceItemSelection(price_item_id=item_b.id),
+        ],
+    )
     resp = await async_client.post(
         f"{_est_id(project.id, estimate.id)}/regenerate",
         headers=auth(token),
@@ -502,8 +513,8 @@ async def test_regeneration_confirm_mutates_draft(async_client: AsyncClient, db_
     assert resp.status_code == 200, resp.text
     data = resp.json()
     # set_plan replaces all SurfacePlannedWork rows with fresh IDs; the
-    # existing item_a line is paired by logical key and kept unchanged (so any
-    # owner override would survive), and only item_b is new.
+    # existing item_a line is paired by its occurrence_key and kept unchanged
+    # (so any owner override would survive), and only item_b is new.
     assert data["added"] == 1
     assert data["removed"] == 0
     assert data["updated"] == 0
