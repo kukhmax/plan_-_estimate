@@ -51,6 +51,12 @@ from app.models.work_plan import (
     SurfacePlannedWorkCoefficientAssignment,
     SurfaceWorkPlan,
 )
+from app.models.workflow_template import (
+    SurfaceWorkPlanTemplateApplication,
+    TemplateApplicationMode,
+    WorkflowTemplate,
+    WorkflowTemplateStep,
+)
 from app.models.work_recommendation import (
     WorkRecommendation,
     WorkRecommendationRule,
@@ -106,10 +112,14 @@ __all__ = [
     "SurfacePlannedWork",
     "SurfacePlannedWorkCoefficientAssignment",
     "SurfaceWorkPlan",
+    "SurfaceWorkPlanTemplateApplication",
+    "TemplateApplicationMode",
     "User",
     "WorkRecommendation",
     "WorkRecommendationRule",
     "WorkRecommendationStatus",
     "WorkRecommendationTargetKind",
     "WorkRecommendationTriggerType",
+    "WorkflowTemplate",
+    "WorkflowTemplateStep",
 ]

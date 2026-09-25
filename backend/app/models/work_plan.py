@@ -5,11 +5,17 @@ substrate, the agreed quality target, and an ordered list of planned works.
 The plan stores only references to Price Book items — never a price snapshot —
 and carries no tenancy fields; ownership always resolves through
 Surface -> Room -> Project -> Owner.
+
+Stage 13B (D13) gives every planned-work occurrence two identities: `id` is
+the database row and may change on every full-replace save; `occurrence_key`
+is the stable logical identity of that occurrence and survives such saves
+(see docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md §22).
 """
 import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
@@ -63,6 +69,12 @@ class SurfaceWorkPlan(Base):
         cascade="all, delete-orphan",
         order_by="SurfacePlannedWork.position",
     )
+    # Stage 13 historical provenance (D7); never loaded implicitly.
+    template_applications: Mapped[list["SurfaceWorkPlanTemplateApplication"]] = relationship(
+        back_populates="work_plan",
+        cascade="all, delete-orphan",
+        order_by="SurfaceWorkPlanTemplateApplication.applied_at",
+    )
 
     __table_args__ = (
         UniqueConstraint("surface_id", name="uq_surface_work_plans_surface_id"),
@@ -99,6 +111,18 @@ class SurfacePlannedWork(Base):
         nullable=False,
         comment="Ordinal position within the plan, appended from 0",
     )
+    # Stable logical occurrence identity (D13): server-generated, globally
+    # unique, preserved across full-replace saves; never derived from the
+    # PriceItem, position, plan or a template step.
+    occurrence_key: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        nullable=False,
+        default=uuid.uuid4,
+    )
+    # Minimum technological/drying break AFTER this occurrence, in whole
+    # hours (D9): NULL = none. Plan configuration only -- not billable, not a
+    # PriceItem property, ignored by the Estimate, not a reminder.
+    wait_after_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -128,6 +152,15 @@ class SurfacePlannedWork(Base):
             "ix_surface_planned_works_plan_position",
             "work_plan_id",
             "position",
+        ),
+        Index(
+            "uq_surface_planned_works_occurrence_key",
+            "occurrence_key",
+            unique=True,
+        ),
+        CheckConstraint(
+            "wait_after_hours IS NULL OR wait_after_hours >= 1",
+            name="ck_surface_planned_works_wait_after_hours",
         ),
     )
 

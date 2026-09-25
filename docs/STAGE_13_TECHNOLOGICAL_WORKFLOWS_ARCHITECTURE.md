@@ -630,3 +630,24 @@ Server fallback for legacy API clients/old payloads during transition:
 - **Provenance (D7)** — unchanged. `surface_work_plan_template_applications` remains the snapshot history
   on the durable `SurfaceWorkPlan`; `occurrence_key` does not replace it, and occurrences keep no live
   template-step FK.
+
+### 22.8 Implementation clarifications (13B)
+
+Factual notes from the 13B implementation; D1–D13 unchanged.
+
+- No tombstones are kept for removed keys, so a stale key, another plan's/owner's key and an invented key
+  are indistinguishable by design. All three return the same **409** conflict, which also guarantees no
+  existence disclosure. A duplicate key in one payload and a known key sent with a different PriceItem
+  return **422**.
+- `wait_after_hours` is NULL (no break) or a whole number of hours **>= 1** (as §14.B) on both
+  `workflow_template_steps` and `surface_planned_works`: 0 and negatives are rejected by the Pydantic
+  schema, the template service and a DB `CHECK` constraint.
+- Because the WorkPlan service consumes `OrderedPriceItemSelection`, the optional `occurrence_key` /
+  `wait_after_hours` fields are already accepted by `PUT …/work-plan` and returned by `GET` from 13B
+  (additive; the current Mini App ignores them, so every current save is the legacy key-less path of
+  §22.6). Frontend types, template CRUD API and contract hardening remain 13C.
+- **Transitional client behaviour (must be resolved before 13H).** The current pre-13C/pre-13E Mini App
+  does not echo `occurrence_key`, so every WorkPlan save from it is treated as sending new occurrences and
+  receives new keys. This is intentional backward compatibility, **not** the final Stage 13 identity
+  behaviour; the frontend is not changed in 13B. 13C/13E must make the editor round-trip keys, and this
+  must be resolved before execution tracking is built in 13H.

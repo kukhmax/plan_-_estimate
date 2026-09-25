@@ -25,10 +25,18 @@ class OrderedPriceItemSelection(BaseModel):
     Price Book row may carry independent selections. Defaults to an empty
     list, so every pre-Stage-12D caller/test that constructs this schema
     without the field is unaffected.
+
+    `occurrence_key` (Stage 13B, D13) echoes the stable logical identity of an
+    EXISTING occurrence of this plan, so it survives the full-replace save;
+    omit it for a new occurrence and the server generates one. Keys are never
+    client-generated. `wait_after_hours` (D9) is the optional technological
+    break after this occurrence, in whole hours (>= 1; omitted = none).
     """
 
     price_item_id: uuid.UUID
     coefficient_option_ids: list[uuid.UUID] = Field(default_factory=list)
+    occurrence_key: uuid.UUID | None = None
+    wait_after_hours: int | None = Field(default=None, ge=1)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -80,6 +88,8 @@ class SurfacePlannedWorkRead(BaseModel):
     work_plan_id: uuid.UUID
     price_item_id: uuid.UUID
     position: int
+    occurrence_key: uuid.UUID
+    wait_after_hours: int | None = None
     price_item: SurfacePriceItemSummaryRead | None = None
     coefficient_options: list[PlannedWorkCoefficientOptionRead] = Field(
         default_factory=list

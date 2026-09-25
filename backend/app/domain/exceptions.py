@@ -171,3 +171,18 @@ class CoefficientOptionNotFoundError(Exception):
 
 class PriceCoefficientValidationError(Exception):
     """Raised when coefficient catalog input violates a domain rule."""
+
+
+class SurfaceWorkPlanOccurrenceConflictError(Exception):
+    """Raised when a Work Plan save names an occurrence_key that is not a
+    current occurrence of that plan (stale draft, foreign or invented key).
+    Deliberately one error for all three cases: nothing about other plans'
+    occurrences is disclosed (Stage 13 D13)."""
+
+
+class WorkflowTemplateNotFoundError(Exception):
+    """Raised when a workflow template does not exist or is not owned."""
+
+
+class WorkflowTemplateValidationError(Exception):
+    """Raised when workflow template input violates a Stage 13 domain rule."""

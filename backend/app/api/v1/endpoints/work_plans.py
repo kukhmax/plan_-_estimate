@@ -20,6 +20,7 @@ from app.domain.exceptions import (
     RoomNotFoundError,
     SurfaceNotFoundError,
     SurfaceWorkPlanNotFoundError,
+    SurfaceWorkPlanOccurrenceConflictError,
     SurfaceWorkPlanValidationError,
 )
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
@@ -126,6 +127,8 @@ async def put_work_plan(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+    except SurfaceWorkPlanOccurrenceConflictError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except (SurfaceWorkPlanValidationError, PriceCoefficientValidationError) as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)

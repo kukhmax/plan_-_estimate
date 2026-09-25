@@ -13,9 +13,18 @@ has no identity of its own: it is validated in full BEFORE any mutation, then
 deleted/recreated atomically together with its parent `SurfacePlannedWork`
 row on every ordinary replace -- exactly like the row itself already is.
 This requires no change to Stage 10's full-replace contract.
+
+Stage 13B (D13) adds a stable logical `occurrence_key` per occurrence. Rows
+are still deleted and recreated on every replace, but a payload entry that
+echoes a CURRENT key of this plan (for the same PriceItem) is recreated with
+that same key; an entry without a key is a new occurrence and gets a fresh,
+server-generated key. Keys are validated in full before any mutation. The
+technological break `wait_after_hours` (D9) is carried the same way as the
+coefficient selection.
 """
 import uuid
 from collections import Counter
+from dataclasses import dataclass, field
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +36,7 @@ from app.domain.exceptions import (
     RoomNotFoundError,
     SurfaceNotFoundError,
     SurfaceWorkPlanNotFoundError,
+    SurfaceWorkPlanOccurrenceConflictError,
     SurfaceWorkPlanValidationError,
 )
 from app.domain.rules.inspection_rules import assert_quality_scale_valid
@@ -44,9 +54,18 @@ from app.models.work_plan import (
 )
 from app.schemas.work_plan import OrderedPriceItemSelection
 
-# One resolved planned-work occurrence: the validated PriceItem plus its
-# validated, owner-scoped, order-preserved CoefficientOption selection.
-ResolvedOccurrence = tuple[PriceItem, list[CoefficientOption]]
+
+@dataclass(frozen=True)
+class ResolvedOccurrence:
+    """One validated planned-work occurrence ready to be (re)written: the
+    PriceItem, its owner-scoped, order-preserved CoefficientOption selection,
+    the existing `occurrence_key` to preserve (None = new occurrence, the
+    server generates a key) and the technological break."""
+
+    item: PriceItem
+    options: list[CoefficientOption] = field(default_factory=list)
+    occurrence_key: uuid.UUID | None = None
+    wait_after_hours: int | None = None
 
 
 class SurfaceWorkPlanService:
@@ -138,8 +157,61 @@ class SurfaceWorkPlanService:
             options = await coefficient_service.resolve_assignment_options(
                 owner_id, item, row.coefficient_option_ids
             )
-            validated.append((item, options))
+            validated.append(
+                ResolvedOccurrence(
+                    item=item,
+                    options=options,
+                    occurrence_key=row.occurrence_key,
+                    wait_after_hours=row.wait_after_hours,
+                )
+            )
         return validated
+
+    @staticmethod
+    def _validate_occurrence_keys(
+        plan: SurfaceWorkPlan | None,
+        selection: list[OrderedPriceItemSelection],
+    ) -> None:
+        """Validate every echoed `occurrence_key` BEFORE any mutation (D13).
+
+        - the same key twice in one payload -> validation error (two
+          occurrences cannot share one logical identity);
+        - a key that is not a CURRENT occurrence of this plan -> conflict. A
+          stale draft's removed key, another plan's/owner's key and an
+          invented key are deliberately indistinguishable, so nothing about
+          other occurrences is disclosed and a removed key is never reused;
+        - a known key with a different PriceItem -> validation error
+          (changing the operation means remove + add).
+        Omitted keys are new occurrences and need no validation.
+        """
+        keys = [row.occurrence_key for row in selection if row.occurrence_key is not None]
+        if not keys:
+            return
+        duplicates = sorted(str(key) for key, n in Counter(keys).items() if n > 1)
+        if duplicates:
+            raise SurfaceWorkPlanValidationError(
+                "occurrence_key used more than once in one work plan: "
+                + ", ".join(duplicates)
+            )
+        current = (
+            {work.occurrence_key: work.price_item_id for work in plan.planned_works}
+            if plan is not None
+            else {}
+        )
+        for row in selection:
+            key = row.occurrence_key
+            if key is None:
+                continue
+            if key not in current:
+                raise SurfaceWorkPlanOccurrenceConflictError(
+                    f"occurrence_key {key} is not a current occurrence of this "
+                    "work plan; reload the plan and try again"
+                )
+            if current[key] != row.price_item_id:
+                raise SurfaceWorkPlanValidationError(
+                    f"occurrence_key {key} belongs to a different price item; "
+                    "remove the occurrence and add a new one instead"
+                )
 
     async def _rewrite_works(
         self,
@@ -169,13 +241,18 @@ class SurfaceWorkPlanService:
                 )
             )
         attributes.set_committed_value(plan, "planned_works", [])
-        for position, (item, options) in enumerate(selection):
+        for position, occurrence in enumerate(selection):
             work = SurfacePlannedWork(
                 work_plan_id=plan.id,
-                price_item_id=item.id,
+                price_item_id=occurrence.item.id,
                 position=position,
+                # Preserved (already validated) or freshly server-generated;
+                # safe under the global unique index because the old rows
+                # were deleted above, in this same transaction.
+                occurrence_key=occurrence.occurrence_key or uuid.uuid4(),
+                wait_after_hours=occurrence.wait_after_hours,
             )
-            for option in options:
+            for option in occurrence.options:
                 work.coefficient_assignments.append(
                     SurfacePlannedWorkCoefficientAssignment(
                         coefficient_option_id=option.id
@@ -207,6 +284,8 @@ class SurfaceWorkPlanService:
     ) -> SurfacePlannedWork:
         """Append exactly one new occurrence, additive-only, never committing.
 
+        The new occurrence gets a fresh occurrence_key and no technological
+        break (Stage 13 D13/D9); nothing is taken from any template.
         Unlike set_plan/replace_planned_works/apply_to_room_walls, this never
         calls _rewrite_works: no existing row is deleted, renumbered, or
         otherwise touched, and substrate/quality_target are left exactly as
@@ -235,6 +314,7 @@ class SurfaceWorkPlanService:
             work_plan_id=plan.id,
             price_item_id=price_item.id,
             position=next_position,
+            occurrence_key=uuid.uuid4(),
         )
         self.db.add(work)
         await self.db.flush()
@@ -306,6 +386,7 @@ class SurfaceWorkPlanService:
         validated = await self._resolve_owned_items(
             owner_id, selection, existing_counts
         )
+        self._validate_occurrence_keys(plan, selection)
 
         if plan is None:
             plan = SurfaceWorkPlan(
@@ -348,6 +429,7 @@ class SurfaceWorkPlanService:
         validated = await self._resolve_owned_items(
             owner_id, planned_works, existing_counts
         )
+        self._validate_occurrence_keys(plan, planned_works)
         await self._rewrite_works(plan, validated)
         await self.db.commit()
         return await self._fetch_plan(surface_id)
@@ -370,9 +452,13 @@ class SurfaceWorkPlanService:
         inspections, findings, risks, photos, archive state, and every Price
         Book/coefficient catalog row are never touched. Each target receives
         its own persisted plan rows, so the walls stay independent
-        afterwards. The whole batch commits together or not at all — every
-        source-side validation runs before any mutation, so a failed apply
-        cannot leave half the room updated.
+        afterwards. Each copied occurrence is a distinct occurrence with its
+        own NEW occurrence_key (the source key is never copied); its
+        technological break (wait_after_hours) is plan configuration and is
+        copied like the coefficient selection (Stage 13 D13/D9). The whole
+        batch commits together or not at all — every source-side validation
+        runs before any mutation, so a failed apply cannot leave half the
+        room updated.
         """
         source = await self._ensure_surface_owned(
             project_id, room_id, source_surface_id, owner_id
@@ -420,7 +506,14 @@ class SurfaceWorkPlanService:
                         f"Source plan references an archived coefficient "
                         f"option {option.id}; update the source plan first"
                     )
-            validated_items.append((item, options))
+            validated_items.append(
+                ResolvedOccurrence(
+                    item=item,
+                    options=options,
+                    occurrence_key=None,
+                    wait_after_hours=work.wait_after_hours,
+                )
+            )
 
         targets = (
             await self.db.execute(
