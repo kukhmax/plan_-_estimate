@@ -25,6 +25,7 @@ coefficient selection.
 import uuid
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,6 +39,8 @@ from app.domain.exceptions import (
     SurfaceWorkPlanNotFoundError,
     SurfaceWorkPlanOccurrenceConflictError,
     SurfaceWorkPlanValidationError,
+    TemplateApplicationConflictError,
+    WorkflowTemplateNotFoundError,
 )
 from app.domain.rules.inspection_rules import assert_quality_scale_valid
 from app.domain.services.price_coefficient_service import PriceCoefficientService
@@ -52,7 +55,12 @@ from app.models.work_plan import (
     SurfacePlannedWorkCoefficientAssignment,
     SurfaceWorkPlan,
 )
-from app.schemas.work_plan import OrderedPriceItemSelection
+from app.models.workflow_template import (
+    SurfaceWorkPlanTemplateApplication,
+    TemplateApplicationMode,
+    WorkflowTemplate,
+)
+from app.schemas.work_plan import OrderedPriceItemSelection, TemplateApplicationIntent
 
 
 @dataclass(frozen=True)
@@ -213,6 +221,106 @@ class SurfaceWorkPlanService:
                     "remove the occurrence and add a new one instead"
                 )
 
+    async def _resolve_template_applications(
+        self,
+        owner_id: uuid.UUID,
+        plan: SurfaceWorkPlan | None,
+        selection: list[OrderedPriceItemSelection],
+        intents: list[TemplateApplicationIntent],
+    ) -> list[SurfaceWorkPlanTemplateApplication]:
+        """Validate template-application provenance intents BEFORE any
+        mutation (Stage 13C) and return the history rows to record.
+
+        - templates must belong to the owner (else not found, no disclosure);
+        - snapshot code/name and applied_at come from the server, never the
+          client;
+        - `application_id` is the idempotency key and becomes the record id:
+          an id already recorded for THIS plan with the same template, mode
+          and count is a retry and is not recorded again; any other reuse is
+          a conflict;
+        - a REPLACE removes every previous occurrence, so the saved plan may
+          not echo any existing occurrence_key alongside it;
+        - the applied step counts cannot exceed the payload's new (key-less)
+          occurrences -- materialised steps are always new occurrences.
+        """
+        if not intents:
+            return []
+        app_ids = [intent.application_id for intent in intents]
+        if len(set(app_ids)) != len(app_ids):
+            raise SurfaceWorkPlanValidationError(
+                "application_id used more than once in one work plan save"
+            )
+        echoed = any(row.occurrence_key is not None for row in selection)
+        if echoed and any(i.mode == TemplateApplicationMode.REPLACE for i in intents):
+            raise SurfaceWorkPlanValidationError(
+                "a REPLACE template application removes all previous occurrences; "
+                "the saved plan cannot keep existing occurrence_keys"
+            )
+        new_occurrences = sum(1 for row in selection if row.occurrence_key is None)
+        if sum(i.steps_applied for i in intents) > new_occurrences:
+            raise SurfaceWorkPlanValidationError(
+                "steps_applied exceeds the number of new occurrences in this save"
+            )
+
+        template_ids = {intent.template_id for intent in intents}
+        templates = {
+            t.id: t
+            for t in (
+                await self.db.execute(
+                    select(WorkflowTemplate).where(
+                        WorkflowTemplate.id.in_(template_ids),
+                        WorkflowTemplate.owner_id == owner_id,
+                    )
+                )
+            ).scalars().all()
+        }
+        missing = template_ids - templates.keys()
+        if missing:
+            raise WorkflowTemplateNotFoundError(
+                f"Workflow template {sorted(str(m) for m in missing)[0]} not found"
+            )
+
+        existing = {
+            row.id: row
+            for row in (
+                await self.db.execute(
+                    select(SurfaceWorkPlanTemplateApplication).where(
+                        SurfaceWorkPlanTemplateApplication.id.in_(app_ids)
+                    )
+                )
+            ).scalars().all()
+        }
+        applied_at = datetime.now(timezone.utc)
+        records: list[SurfaceWorkPlanTemplateApplication] = []
+        for intent in intents:
+            recorded = existing.get(intent.application_id)
+            if recorded is not None:
+                if (
+                    plan is not None
+                    and recorded.work_plan_id == plan.id
+                    and recorded.template_id == intent.template_id
+                    and recorded.mode == intent.mode
+                    and recorded.steps_applied == intent.steps_applied
+                ):
+                    continue  # retry of an already-recorded application
+                raise TemplateApplicationConflictError(
+                    f"application_id {intent.application_id} cannot be recorded "
+                    "for this save; generate a new one for a new application"
+                )
+            template = templates[intent.template_id]
+            records.append(
+                SurfaceWorkPlanTemplateApplication(
+                    id=intent.application_id,
+                    template_id=template.id,
+                    template_code=template.code,
+                    template_name=template.display_name or template.name_key or template.code,
+                    mode=intent.mode,
+                    steps_applied=intent.steps_applied,
+                    applied_at=applied_at,
+                )
+            )
+        return records
+
     async def _rewrite_works(
         self,
         plan: SurfaceWorkPlan,
@@ -338,6 +446,7 @@ class SurfaceWorkPlanService:
                 .selectinload(SurfacePlannedWork.coefficient_assignments)
                 .selectinload(SurfacePlannedWorkCoefficientAssignment.coefficient_option)
                 .selectinload(CoefficientOption.group),
+                selectinload(SurfaceWorkPlan.template_applications),
             )
             .execution_options(populate_existing=True)
         )
@@ -364,8 +473,13 @@ class SurfaceWorkPlanService:
         substrate: Substrate,
         quality_target: QualityLevel | None = None,
         planned_works: list[OrderedPriceItemSelection] | None = None,
+        template_applications: list[TemplateApplicationIntent] | None = None,
     ) -> SurfaceWorkPlan:
         """Create or fully replace the surface's plan in one atomic commit.
+
+        Optional template-application intents (Stage 13C) are validated with
+        everything else before any mutation and recorded in the same commit,
+        so provenance exists only if the plan save itself succeeds.
 
         Setting a plan is an explicit owner action: the substrate and quality
         target are validated together (S/Q scale compatibility reuses the
@@ -387,6 +501,9 @@ class SurfaceWorkPlanService:
             owner_id, selection, existing_counts
         )
         self._validate_occurrence_keys(plan, selection)
+        applications = await self._resolve_template_applications(
+            owner_id, plan, selection, template_applications or []
+        )
 
         if plan is None:
             plan = SurfaceWorkPlan(
@@ -399,6 +516,9 @@ class SurfaceWorkPlanService:
             plan.substrate = substrate
             plan.quality_target = quality_target
         await self._rewrite_works(plan, validated)
+        for record in applications:
+            record.work_plan = plan
+            self.db.add(record)
         await self.db.commit()
         return await self._fetch_plan(surface_id)
 

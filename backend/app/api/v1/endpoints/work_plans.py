@@ -22,6 +22,8 @@ from app.domain.exceptions import (
     SurfaceWorkPlanNotFoundError,
     SurfaceWorkPlanOccurrenceConflictError,
     SurfaceWorkPlanValidationError,
+    TemplateApplicationConflictError,
+    WorkflowTemplateNotFoundError,
 )
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.models.user import User
@@ -101,6 +103,7 @@ async def put_work_plan(
             substrate=payload.substrate,
             quality_target=payload.quality_target,
             planned_works=planned_works,
+            template_applications=payload.template_applications,
         )
     except ProjectNotFoundError:
         raise HTTPException(
@@ -127,7 +130,11 @@ async def put_work_plan(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
-    except SurfaceWorkPlanOccurrenceConflictError as e:
+    except WorkflowTemplateNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow template not found"
+        )
+    except (SurfaceWorkPlanOccurrenceConflictError, TemplateApplicationConflictError) as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except (SurfaceWorkPlanValidationError, PriceCoefficientValidationError) as e:
         raise HTTPException(

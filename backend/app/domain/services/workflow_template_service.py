@@ -15,7 +15,14 @@ Rules enforced here:
   the WorkPlan rule;
 - `wait_after_hours` is NULL (no break) or a whole number of hours >= 1;
 - steps are replaced as a whole; positions are renumbered from 0;
-- templates are soft-archived / restored, never hard-deleted here.
+- templates are soft-archived / restored, never hard-deleted here;
+- quality filters must fit the substrate filter's quality scale, reusing the
+  existing S/Q rule (`assert_quality_scale_valid`) -- no new rule.
+
+Listing (13C) filters by context for the future picker: a template matches a
+requested substrate / quality target / surface type when its filter for that
+dimension is empty ("any") or contains the requested value. This is selection
+assistance only; nothing is ever applied automatically.
 """
 import uuid
 from collections import Counter
@@ -28,9 +35,11 @@ from sqlalchemy.orm import selectinload
 
 from app.domain.exceptions import (
     PriceItemNotFoundError,
+    QualityScaleMismatchError,
     WorkflowTemplateNotFoundError,
     WorkflowTemplateValidationError,
 )
+from app.domain.rules.inspection_rules import assert_quality_scale_valid
 from app.models.checklist import QualityLevel, Substrate
 from app.models.price_item import PriceCategory, PriceItem
 from app.models.surface import SurfaceType
@@ -60,6 +69,32 @@ def _filter_values(values: list[Enum] | None) -> list[str] | None:
     if not values:
         return None
     return list(dict.fromkeys(v.value for v in values))
+
+
+def validate_filter_scales(
+    substrates: list[Substrate] | None, qualities: list[QualityLevel] | None
+) -> None:
+    """Every quality in the filter must be valid for at least one substrate
+    in the filter (existing S/Q rule; PAINTED/OTHER stay unrestricted). An
+    empty substrate filter ("any") accepts any quality."""
+    if not substrates or not qualities:
+        return
+    for quality in qualities:
+        errors = []
+        for substrate in substrates:
+            try:
+                assert_quality_scale_valid(substrate, quality)
+            except QualityScaleMismatchError as exc:
+                errors.append(str(exc))
+        if len(errors) == len(substrates):
+            raise WorkflowTemplateValidationError(
+                f"Quality target {quality.value} does not fit any substrate in the "
+                "template filter: " + "; ".join(errors)
+            )
+
+
+def _filter_matches(values: list[str] | None, requested: Enum | None) -> bool:
+    return requested is None or not values or requested.value in values
 
 
 def validate_wait_after_hours(value: int | None) -> int | None:
@@ -134,6 +169,7 @@ class WorkflowTemplateService:
             raise WorkflowTemplateValidationError(
                 "owner-created templates require a display_name"
             )
+        validate_filter_scales(applies_to_substrates, applies_to_quality)
         resolved = await self._resolve_steps(owner_id, steps or [], Counter())
         template = WorkflowTemplate(
             owner_id=owner_id,
@@ -159,10 +195,22 @@ class WorkflowTemplateService:
         applies_to_substrates: list[Substrate] | None | object = _UNSET,
         applies_to_quality: list[QualityLevel] | None | object = _UNSET,
         applies_to_surface_types: list[SurfaceType] | None | object = _UNSET,
+        position: int | None = None,
     ) -> WorkflowTemplate:
         """Update editable fields; `code` is immutable. Never retroactive:
         no existing plan or provenance record is touched."""
         template = await self.get_owned_template(owner_id, template_id)
+        substrates = (
+            applies_to_substrates
+            if applies_to_substrates is not _UNSET
+            else [Substrate(v) for v in template.applies_to_substrates or []]
+        )
+        qualities = (
+            applies_to_quality
+            if applies_to_quality is not _UNSET
+            else [QualityLevel(v) for v in template.applies_to_quality or []]
+        )
+        validate_filter_scales(substrates, qualities)  # type: ignore[arg-type]
         if display_name is not None:
             name = _normalize_text(display_name)
             if name is None and template.name_key is None:
@@ -178,6 +226,8 @@ class WorkflowTemplateService:
             template.applies_to_quality = _filter_values(applies_to_quality)  # type: ignore[arg-type]
         if applies_to_surface_types is not _UNSET:
             template.applies_to_surface_types = _filter_values(applies_to_surface_types)  # type: ignore[arg-type]
+        if position is not None:
+            template.position = position
         await self.db.commit()
         return await self.get_owned_template(owner_id, template_id)
 
@@ -199,6 +249,48 @@ class WorkflowTemplateService:
         self._append_steps(template, resolved)
         await self.db.commit()
         return await self.get_owned_template(owner_id, template_id)
+
+    async def list_owner_templates(
+        self,
+        owner_id: uuid.UUID,
+        *,
+        archived: str = "active",
+        substrate: Substrate | None = None,
+        quality_target: QualityLevel | None = None,
+        surface_type: SurfaceType | None = None,
+    ) -> list[WorkflowTemplate]:
+        """Return the owner's templates (steps eager-loaded), ordered by
+        position then creation. `archived`: "active" (default) / "archived" /
+        "all". Context filters match "any" (empty) or the requested value; the
+        owner catalog is small, so JSON list matching is done in Python
+        (portable across PostgreSQL and the SQLite test harness)."""
+        stmt = (
+            select(WorkflowTemplate)
+            .where(WorkflowTemplate.owner_id == owner_id)
+            .options(
+                selectinload(WorkflowTemplate.steps).selectinload(
+                    WorkflowTemplateStep.price_item
+                )
+            )
+            .order_by(
+                WorkflowTemplate.position,
+                WorkflowTemplate.created_at,
+                WorkflowTemplate.id,
+            )
+            .execution_options(populate_existing=True)
+        )
+        if archived == "active":
+            stmt = stmt.where(WorkflowTemplate.is_archived.is_(False))
+        elif archived == "archived":
+            stmt = stmt.where(WorkflowTemplate.is_archived.is_(True))
+        templates = (await self.db.execute(stmt)).scalars().all()
+        return [
+            t
+            for t in templates
+            if _filter_matches(t.applies_to_substrates, substrate)
+            and _filter_matches(t.applies_to_quality, quality_target)
+            and _filter_matches(t.applies_to_surface_types, surface_type)
+        ]
 
     async def archive_template(
         self, owner_id: uuid.UUID, template_id: uuid.UUID

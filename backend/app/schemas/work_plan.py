@@ -8,12 +8,14 @@ request per row; market research data is deliberately excluded (not Work Plan
 data).
 """
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.checklist import QualityLevel, Substrate
 from app.models.price_item import PriceCategory, PriceScope, PriceUnit
+from app.models.workflow_template import TemplateApplicationMode
 
 
 class OrderedPriceItemSelection(BaseModel):
@@ -114,6 +116,40 @@ class SurfaceWorkPlanUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class TemplateApplicationIntent(BaseModel):
+    """Provenance intent sent with a WorkPlan save (Stage 13C, D7).
+
+    It records that the owner applied a workflow template to the draft being
+    saved; it never applies anything itself -- the resulting occurrences are
+    already in `planned_works`. Only identifiers are client-supplied: the
+    template's code/name snapshot and `applied_at` are taken server-side from
+    the owner's own template at save time.
+
+    `application_id` is a UUID the client generates ONCE per apply action and
+    reuses on every retry of the same save; it becomes the history record's id,
+    so a retried save never records the application twice.
+    """
+
+    application_id: uuid.UUID
+    template_id: uuid.UUID
+    mode: TemplateApplicationMode
+    steps_applied: int = Field(ge=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class TemplateApplicationRead(BaseModel):
+    id: uuid.UUID
+    template_id: uuid.UUID | None = None
+    template_code: str
+    template_name: str
+    mode: TemplateApplicationMode
+    steps_applied: int
+    applied_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SurfaceWorkPlanUpsert(BaseModel):
     """PUT body for the Work Plan sub-resource (Stage 10B.2 / 12D).
 
@@ -134,6 +170,8 @@ class SurfaceWorkPlanUpsert(BaseModel):
     quality_target: QualityLevel | None = None
     price_item_ids: list[uuid.UUID] = Field(default_factory=list)
     planned_works: list[OrderedPriceItemSelection] | None = None
+    # Stage 13C: optional provenance of template applications in this save.
+    template_applications: list[TemplateApplicationIntent] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -153,6 +191,8 @@ class SurfaceWorkPlanRead(BaseModel):
     substrate: Substrate
     quality_target: QualityLevel | None = None
     planned_works: list[SurfacePlannedWorkRead] = Field(default_factory=list)
+    # Historical provenance (oldest first); snapshot, not current state.
+    template_applications: list[TemplateApplicationRead] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

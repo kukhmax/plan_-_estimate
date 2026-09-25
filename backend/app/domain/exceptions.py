@@ -180,6 +180,12 @@ class SurfaceWorkPlanOccurrenceConflictError(Exception):
     occurrences is disclosed (Stage 13 D13)."""
 
 
+class TemplateApplicationConflictError(Exception):
+    """Raised when a template-application intent reuses an application_id
+    that is already recorded for a different plan or with different content
+    (Stage 13C). Same response whatever the cause: nothing is disclosed."""
+
+
 class WorkflowTemplateNotFoundError(Exception):
     """Raised when a workflow template does not exist or is not owned."""
 

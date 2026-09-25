@@ -98,6 +98,24 @@ class TestTemplatePersistence:
             await db_session.flush()
         await db_session.rollback()
 
+    async def test_same_code_allowed_for_different_owners(self, db_session):
+        user, prime, skim, service = await _owner_with_items(db_session, 1302010)
+        other, _, _, _ = await _owner_with_items(db_session, 1302011)
+        db_session.add_all([
+            WorkflowTemplate(owner_id=user.id, code="SHARED", display_name="A"),
+            WorkflowTemplate(owner_id=other.id, code="SHARED", display_name="B"),
+        ])
+        await db_session.commit()
+
+    async def test_archive_does_not_free_code(self, db_session):
+        user, prime, skim, service = await _owner_with_items(db_session, 1302012)
+        template = await service.create_template(user.id, display_name="T")
+        await service.archive_template(user.id, template.id)
+        db_session.add(WorkflowTemplate(owner_id=user.id, code=template.code, display_name="Reuse"))
+        with pytest.raises(IntegrityError):
+            await db_session.flush()
+        await db_session.rollback()
+
     async def test_display_name_required(self, db_session):
         user, prime, skim, service = await _owner_with_items(db_session, 1302006)
         with pytest.raises(WorkflowTemplateValidationError):
