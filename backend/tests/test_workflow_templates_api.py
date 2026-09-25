@@ -63,6 +63,14 @@ async def _surface(db, owner_id):
     return project, room, surface
 
 
+async def _own_list(client, headers, **params) -> list[dict]:
+    """List templates, ignoring the Stage 13D program defaults (TECH_*) that
+    the list entry point bootstraps for every owner."""
+    resp = await client.get(T, headers=headers, params=params)
+    assert resp.status_code == 200, resp.text
+    return [i for i in resp.json()["items"] if not i["code"].startswith("TECH_")]
+
+
 async def _history_count(db) -> int:
     return (
         await db.execute(select(func.count()).select_from(SurfaceWorkPlanTemplateApplication))
@@ -98,8 +106,8 @@ class TestTemplateCrud:
         got = await async_client.get(f"{T}/{tid}", headers=headers)
         assert got.status_code == 200 and got.json() == created
 
-        listed = (await async_client.get(T, headers=headers)).json()
-        assert listed["total"] == 1 and listed["items"][0]["id"] == tid
+        listed = await _own_list(async_client, headers)
+        assert [i["id"] for i in listed] == [tid]
 
         upd = await async_client.patch(f"{T}/{tid}", headers=headers, json={"display_name": "Nowa", "position": 3})
         assert upd.status_code == 200, upd.text
@@ -108,8 +116,8 @@ class TestTemplateCrud:
 
         arch = await async_client.post(f"{T}/{tid}/archive", headers=headers)
         assert arch.status_code == 200 and arch.json()["is_archived"] is True
-        assert (await async_client.get(T, headers=headers)).json()["total"] == 0
-        assert (await async_client.get(T, headers=headers, params={"archived": "archived"})).json()["total"] == 1
+        assert await _own_list(async_client, headers) == []
+        assert [i["id"] for i in await _own_list(async_client, headers, archived="archived")] == [tid]
         assert (await async_client.get(f"{T}/{tid}", headers=headers)).status_code == 200  # still readable
         rest = await async_client.post(f"{T}/{tid}/restore", headers=headers)
         assert rest.status_code == 200 and rest.json()["is_archived"] is False
@@ -163,7 +171,7 @@ class TestOwnerIsolation:
             unknown = await async_client.request(method, f"{missing}{suffix}", headers=other_headers, json=body)
             assert foreign.status_code == unknown.status_code == 404, (method, suffix)
             assert foreign.json() == unknown.json()  # indistinguishable
-        assert (await async_client.get(T, headers=other_headers)).json()["total"] == 0
+        assert await _own_list(async_client, other_headers) == []
         after = (await async_client.get(f"{T}/{tid}", headers=headers)).json()
         assert after == created
 
@@ -179,7 +187,7 @@ class TestOwnerIsolation:
             "display_name": "T", "steps": [{"price_item_id": str(uuid.uuid4())}],
         })
         assert resp.status_code == 404
-        assert (await async_client.get(T, headers=headers)).json()["total"] == 0
+        assert await _own_list(async_client, headers) == []
 
 
 # ---------------------------------------------------------------------------
@@ -205,9 +213,7 @@ class TestFiltering:
         ))["id"]
 
         async def ids(**params):
-            resp = await async_client.get(T, headers=headers, params=params)
-            assert resp.status_code == 200, resp.text
-            return {item["id"] for item in resp.json()["items"]}
+            return {item["id"] for item in await _own_list(async_client, headers, **params)}
 
         assert await ids() == {generic, plaster_s2_wall, gk_q4, ceiling_only}
         assert await ids(substrate="GYPSUM_PLASTER", quality_target="S2", surface_type="WALL") == {generic, plaster_s2_wall}

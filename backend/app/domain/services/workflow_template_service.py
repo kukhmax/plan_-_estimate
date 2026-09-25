@@ -24,6 +24,7 @@ requested substrate / quality target / surface type when its filter for that
 dimension is empty ("any") or contains the requested value. This is selection
 assistance only; nothing is ever applied automatically.
 """
+import asyncio
 import uuid
 from collections import Counter
 from dataclasses import dataclass
@@ -39,13 +40,22 @@ from app.domain.exceptions import (
     WorkflowTemplateNotFoundError,
     WorkflowTemplateValidationError,
 )
+from app.domain.data.workflow_templates import (
+    SURFACE_TYPES,
+    build_default_workflow_templates,
+)
 from app.domain.rules.inspection_rules import assert_quality_scale_valid
+from app.domain.services.price_book_service import PriceBookService
 from app.models.checklist import QualityLevel, Substrate
 from app.models.price_item import PriceCategory, PriceItem
 from app.models.surface import SurfaceType
 from app.models.workflow_template import WorkflowTemplate, WorkflowTemplateStep
 
 _UNSET = object()
+
+# Serialises the lazy per-owner default bootstrap within one process (same
+# precedent as PriceBookService / PriceCoefficientService).
+_bootstrap_lock = asyncio.Lock()
 
 
 @dataclass(frozen=True)
@@ -127,6 +137,70 @@ class WorkflowTemplateService:
             ).scalar_one_or_none()
             if exists is None:
                 return code
+
+    async def ensure_owner_catalog(self, owner_id: uuid.UUID) -> list[WorkflowTemplate]:
+        """Materialize any missing program-default workflow (Stage 13D).
+
+        Insert-only, mirroring the Stage 11/12 precedent: a template whose
+        code already exists for the owner is never rewritten, re-stepped,
+        renamed or un-archived -- owner edits and archive state win. The
+        owner's Price Book is bootstrapped first, and every default step
+        references the OWNER'S own PriceItem with the step's code (codes are
+        immutable and price items cannot be hard-deleted, so it exists). A
+        referenced item the owner has archived is still referenced: the 13E
+        apply flow skips archived items with a warning (architecture §9).
+        Commits only when something was created.
+        """
+        await PriceBookService(self.db).ensure_owner_catalog(owner_id)
+        async with _bootstrap_lock:
+            existing_codes = set(
+                (
+                    await self.db.execute(
+                        select(WorkflowTemplate.code).where(
+                            WorkflowTemplate.owner_id == owner_id
+                        )
+                    )
+                ).scalars().all()
+            )
+            defaults = build_default_workflow_templates()
+            missing = [d for d in defaults if d.code not in existing_codes]
+            if not missing:
+                return []
+            items_by_code = {
+                item.code: item.id
+                for item in (
+                    await self.db.execute(
+                        select(PriceItem).where(PriceItem.owner_id == owner_id)
+                    )
+                ).scalars().all()
+            }
+            positions = {d.code: position for position, d in enumerate(defaults)}
+            created: list[WorkflowTemplate] = []
+            for data in missing:
+                template = WorkflowTemplate(
+                    owner_id=owner_id,
+                    code=data.code,
+                    name_key=data.name_key,
+                    description=data.description,
+                    applies_to_substrates=[data.substrate.value],
+                    applies_to_quality=[data.quality.value],
+                    applies_to_surface_types=[t.value for t in SURFACE_TYPES],
+                    position=positions[data.code],
+                )
+                for position, step in enumerate(data.steps):
+                    template.steps.append(
+                        WorkflowTemplateStep(
+                            position=position,
+                            price_item_id=items_by_code[step.price_item_code],
+                            is_optional=step.is_optional,
+                            note=step.note,
+                            wait_after_hours=None,
+                        )
+                    )
+                self.db.add(template)
+                created.append(template)
+            await self.db.commit()
+            return created
 
     async def get_owned_template(
         self, owner_id: uuid.UUID, template_id: uuid.UUID

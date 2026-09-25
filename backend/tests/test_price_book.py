@@ -198,7 +198,7 @@ class TestValidation:
         service = PriceBookService(db_session)
         await service.ensure_owner_catalog(user.id)
         items = await service.list_owner_items(user.id)
-        assert len(items) == 44
+        assert len(items) == 49
         for item in items:
             assert item.name_key is not None
             assert item.display_name is None  # seeded rows localize via name_key
@@ -212,14 +212,14 @@ class TestSeedBootstrap:
         service = PriceBookService(db_session)
         created = await service.ensure_owner_catalog(user.id)
         assert {i.code for i in created} == {s.code for s in build_approved_price_book_items()}
-        assert len(await service.list_owner_items(user.id)) == 44
+        assert len(await service.list_owner_items(user.id)) == 49
 
     async def test_second_materialization_is_idempotent(self, db_session):
         user = await _make_user(db_session, 3002)
         service = PriceBookService(db_session)
         await service.ensure_owner_catalog(user.id)
         assert await service.ensure_owner_catalog(user.id) == []
-        assert len(await service.list_owner_items(user.id)) == 44
+        assert len(await service.list_owner_items(user.id)) == 49
 
     async def test_owner_edit_preserved_on_rematerialize(self, db_session):
         user = await _make_user(db_session, 3003)
@@ -253,7 +253,7 @@ class TestSeedBootstrap:
         )
         created = await service.ensure_owner_catalog(user.id)
         assert [i.code for i in created] == ["CENNIK_PREP_EXTRA_M2"]
-        assert len(await service.list_owner_items(user.id)) == 45
+        assert len(await service.list_owner_items(user.id)) == 50
 
     async def test_no_cross_owner_leakage(self, db_session):
         user1 = await _make_user(db_session, 3005)

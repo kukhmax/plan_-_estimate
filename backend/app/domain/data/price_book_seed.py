@@ -1,4 +1,10 @@
-"""Approved 44-row Price Book catalog + market evidence seeds (Stage 9E.7).
+"""Approved Price Book catalog + market evidence seeds (Stage 9E.7, 13D).
+
+Stage 13D appends five owner-approved atomic rows used by the default
+technological workflows (49 rows in total: 28 MARKET_SUPPORTED + 21
+OWN_PRICE). They carry no market evidence (OWN_PRICE by convention) and no
+price. Existing rows -- including the legacy ``CENNIK_GK_JOINT-01`` (Q1/Q2) --
+are unchanged; the bootstrap is insert-only by code.
 
 Replaces the Stage 9B technical placeholder set (4 GENERIC rows with
 1.11/2.22/3.33/4.44 placeholder prices) with the owner-approved 9E.5 catalog:
@@ -100,7 +106,8 @@ def _item(
 
 
 def build_approved_price_book_items() -> list[PriceItemSeed]:
-    """Return the owner-approved 44-row catalog (28 MS / 16 OWN_PRICE).
+    """Return the owner-approved 49-row catalog (28 MS / 21 OWN_PRICE):
+    the 44-row 9E.5 catalog plus the five Stage 13D atomic rows.
 
     Every row seeds with ``price=None``; category/unit/scope come from the
     catalog §16.3 as amended by the 9E.5 decisions (§17.1–17.3). Quality is
@@ -233,6 +240,18 @@ def build_approved_price_book_items() -> list[PriceItemSeed]:
         _item("CENNIK_DEC_VEN_MAR-01", PriceCategory.DECORATIVE, PriceUnit.M2, "pricebook.seed.dec_ven_mar"),
         _item("CENNIK_DEC_CONC-01", PriceCategory.DECORATIVE, PriceUnit.M2, "pricebook.seed.dec_conc"),
         _item("CENNIK_DEC_GENERIC-01", PriceCategory.DECORATIVE, PriceUnit.M2, "pricebook.seed.dec_generic"),
+        # ---- Stage 13D additions (5, OWN_PRICE, owner-approved) ----
+        # Additional separately priced full-surface skim pass (on top of SKIM_2L).
+        _item("CENNIK_SKIM_ADD-01", PriceCategory.SKIM_COAT, PriceUnit.M2, "pricebook.seed.skim_add"),
+        # Atomic Q1 joint treatment used by the default GK workflows; the legacy
+        # CENNIK_GK_JOINT-01 (Q1/Q2) stays unchanged for manual use.
+        _item("CENNIK_GK_JOINT_Q1-01", PriceCategory.DRYWALL, PriceUnit.LM, "pricebook.seed.gk_joint_q1"),
+        # Q2 finishing pass, added on top of the Q1 treatment from Q2 upward.
+        _item("CENNIK_GK_JOINT_Q2-01", PriceCategory.DRYWALL, PriceUnit.LM, "pricebook.seed.gk_joint_q2"),
+        # Optional preparation of monolithic concrete.
+        _item("CENNIK_PREP_CONC-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.prep_conc"),
+        # Geometry/plane correction: seeded, never part of a default workflow.
+        _item("CENNIK_SKIM_LEVEL-01", PriceCategory.SKIM_COAT, PriceUnit.M2, "pricebook.seed.skim_level"),
     ]
 
 

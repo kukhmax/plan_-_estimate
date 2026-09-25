@@ -692,3 +692,74 @@ Factual notes from the 13C implementation; D1–D13 unchanged.
   request may surface a database uniqueness error. This is not a 13C blocker. Before 13H execution tracking,
   concurrency/stale-save semantics must be reviewed so that execution state is never lost or overwritten
   by an older WorkPlan editor state.
+
+---
+
+## 23. Stage 13D — program-default technological recipes (binding owner decisions)
+
+Implemented in 13D.2 as data (`app/domain/data/workflow_templates.py`, `price_book_seed.py`), materialized
+lazily and **insert-only** per owner. No migration (0027 already represents everything); no localization
+schema change.
+
+### 23.1 Price Book: 44 → 49 defaults
+
+Five owner-approved OWN_PRICE rows (no market evidence, price NULL, LABOR):
+
+| Code | Name (PL) | Category / unit |
+|---|---|---|
+| `CENNIK_SKIM_ADD-01` | Gładź szpachlowa — dodatkowa warstwa | SKIM_COAT / M2 |
+| `CENNIK_GK_JOINT_Q1-01` | Szpachlowanie konstrukcyjne spoin g-k z taśmą (Q1) | DRYWALL / LM |
+| `CENNIK_GK_JOINT_Q2-01` | Szpachlowanie spoin g-k — warstwa wykończeniowa (Q2) | DRYWALL / LM |
+| `CENNIK_PREP_CONC-01` | Usuwanie nadlewek i szlifowanie styków betonu | PREPARATION / M2 |
+| `CENNIK_SKIM_LEVEL-01` | Szpachlowanie wyrównawcze — korekta płaszczyzny | SKIM_COAT / M2 |
+
+The legacy `CENNIK_GK_JOINT-01` ("…z taśmą (Q1/Q2)") is unchanged (name, meaning, owner price, archive
+state) and stays available for manual use, but is **not** used by any default recipe.
+
+### 23.2 Sixteen default templates
+
+`TECH_{BETON|TYNK_GIPSOWY|TYNK_CW}_{S1..S4}-01` and `TECH_GK_{Q1..Q4}-01`:
+- one substrate (CONCRETE / GYPSUM_PLASTER / CEMENT_LIME_PLASTER / GYPSUM_BOARD) and one quality target each;
+- surface types WALL, CEILING, OTHER (never FLOOR);
+- names via `name_key` `workflow_templates.seed.*` (PL/RU locale).
+
+**Recipe rules:**
+- **S1–S4** = "Standard Wykończenia Powierzchni", *Wewnętrzna klasyfikacja wykonawcy*.
+  - Not normative, not a Q-equivalent, and never defined by a number of layers.
+  - S1 = basic technical preparation, no full-surface skim.
+  - S2 = paint-ready standard.
+  - S3 = higher visual standard.
+  - S4 = individually agreed premium standard with agreed viewing/lighting conditions.
+- **Q1–Q4 (PSG1–PSG4)** is the separate gypsum-board scale:
+  - Q1 = GK_JOINT_Q1;
+  - Q2 = Q1 + GK_JOINT_Q2;
+  - Q3 = Q2 + (opt) PRIM_STD + GK_FULL + SKIM_SAND;
+  - Q4 = Q2 + (opt) PRIM_STD + GK_Q4 + SKIM_SAND. Q4 never uses GK_FULL.
+- **Skim and sanding:** SKIM_2L stays the commercial two-layer package, and SKIM_SAND is sanding + dust
+  removal. SKIM_ADD is **optional** and appears only in S3/S4. SKIM_SQ is never used.
+- **Primers** are optional, condition-dependent alternatives: concrete ADH vs STD; cement-lime STD vs
+  HIGH. Notes say "nie oba". There is no "one-of" mechanism.
+- **Excluded from all recipes:**
+  - fleece and mesh (GF_*);
+  - geometry correction (SKIM_LEVEL is seeded but unused);
+  - painting and PRIM_PAINT / PAINT_MASK;
+  - REVEAL and GK_SCREW.
+- **End point:** every recipe ends with a surface ready for the next finishing/painting system.
+- **Waits and notes:**
+  - All `wait_after_hours` are NULL. Drying guidance is a canonical Polish note: "Kolejny etap po
+    całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie."
+  - Template descriptions and step notes are canonical Polish text. Once materialized they are owner data.
+
+### 23.3 Bootstrap
+
+`WorkflowTemplateService.ensure_owner_catalog` runs on `GET /api/workflow-templates`. It first bootstraps
+the owner's Price Book, then inserts only templates whose code the owner does not have.
+- An existing template is never renamed, re-described, re-stepped or un-archived, so owner edits win.
+- Steps reference the owner's own PriceItems by code. An item the owner has archived is still referenced
+  (and never restored); 13E skips it with a warning (§9).
+
+### 23.4 Invariants for 13E
+
+- Optional recipe steps must start **unselected** in the apply preview.
+- Provenance snapshots for an untouched default record `template_name` = its `name_key` (no display name
+  is seeded). The UI resolves it through the locale.

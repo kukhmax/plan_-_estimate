@@ -83,7 +83,7 @@ async def test_first_list_bootstraps_owner_catalog(async_client: AsyncClient):
     resp = await async_client.get("/api/price-items", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total"] == SEED_COUNT == 44
+    assert data["total"] == SEED_COUNT == 49
     assert {i["code"] for i in data["items"]} == SEED_CODES
     # Seed rows localize via name_key and carry no owner price yet (9E.7):
     # price null, no display_name override, never archived.
@@ -153,7 +153,7 @@ async def test_list_archived_filter(async_client: AsyncClient):
     active = (
         await async_client.get("/api/price-items", headers=headers)
     ).json()
-    assert active["total"] == SEED_COUNT - 1 + 1 == 44  # 43 active seeds + 1 custom
+    assert active["total"] == SEED_COUNT - 1 + 1 == 49  # 48 active seeds + 1 custom
     assert all(not i["is_archived"] for i in active["items"])
 
     archived = (
@@ -169,7 +169,7 @@ async def test_list_archived_filter(async_client: AsyncClient):
             "/api/price-items", headers=headers, params={"archived": "all"}
         )
     ).json()
-    assert all_items["total"] == SEED_COUNT + 1 == 45
+    assert all_items["total"] == SEED_COUNT + 1 == 50
 
 
 async def test_list_entity_filters(async_client: AsyncClient):
@@ -535,7 +535,7 @@ async def test_ownership_isolation(async_client: AsyncClient):
     headers_a = auth_header(token_a)
     headers_b = auth_header(token_b)
 
-    # A bootstraps its own catalog (44 seed rows).
+    # A bootstraps its own catalog (49 seed rows).
     resp = await async_client.get("/api/price-items", headers=headers_a)
     assert resp.json()["total"] == SEED_COUNT
     a_seed_ids = {i["id"] for i in resp.json()["items"]}
@@ -555,7 +555,7 @@ async def test_ownership_isolation(async_client: AsyncClient):
     a_item_id = created["id"]
     a_code = created["code"]
 
-    # A sees only its own rows (44 seeds + 1 custom).
+    # A sees only its own rows (49 seeds + 1 custom).
     assert (
         await async_client.get("/api/price-items", headers=headers_a)
     ).json()["total"] == SEED_COUNT + 1

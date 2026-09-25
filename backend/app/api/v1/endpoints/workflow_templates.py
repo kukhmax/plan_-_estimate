@@ -6,8 +6,8 @@ and price items (no existence disclosure), 422 for domain validation.
 
 Deliberately absent: an "apply template" endpoint (13E materialises steps into
 the local WorkPlan draft and saves through the existing WorkPlan PUT, sending
-a provenance intent), a hard-delete endpoint, and default-recipe bootstrap
-(13D).
+a provenance intent) and a hard-delete endpoint. The Stage 13D program-default
+recipes are materialized insert-only on the list entry point.
 """
 from typing import Literal
 import uuid
@@ -126,6 +126,9 @@ async def list_workflow_templates(
     current_user: User = Depends(get_current_user),
     service: WorkflowTemplateService = Depends(get_workflow_template_service),
 ) -> WorkflowTemplateListResponse:
+    # Bootstrap-on-access (Stage 13D): insert any missing program-default
+    # workflow (and the owner's Price Book first); insert-only, idempotent.
+    await service.ensure_owner_catalog(current_user.id)
     templates = await service.list_owner_templates(
         current_user.id,
         archived=archived,

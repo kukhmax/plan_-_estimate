@@ -876,7 +876,12 @@
       "dec_ven": "Stiuk wenecki — klasyczny",
       "dec_ven_mar": "Stiuk wenecki — efekt marmuru z żyłkowaniem",
       "dec_conc": "Efekt betonu / beton architektoniczny",
-      "dec_generic": "Tynk dekoracyjny — ogólny"
+      "dec_generic": "Tynk dekoracyjny — ogólny",
+      "skim_add": "Gładź szpachlowa — dodatkowa warstwa",
+      "gk_joint_q1": "Szpachlowanie konstrukcyjne spoin g-k z taśmą (Q1)",
+      "gk_joint_q2": "Szpachlowanie spoin g-k — warstwa wykończeniowa (Q2)",
+      "prep_conc": "Usuwanie nadlewek i szlifowanie styków betonu",
+      "skim_level": "Szpachlowanie wyrównawcze — korekta płaszczyzny"
     }
   },
   "reveals": {
@@ -1144,6 +1149,26 @@
           }
         }
       }
+    }
+  },
+  "workflow_templates": {
+    "seed": {
+      "tech_beton_s1": "Beton — S1 — przygotowanie podstawowe",
+      "tech_beton_s2": "Beton — S2 — standard malarski",
+      "tech_beton_s3": "Beton — S3 — podwyższony standard wizualny",
+      "tech_beton_s4": "Beton — S4 — standard premium (uzgadniany indywidualnie)",
+      "tech_tynk_gipsowy_s1": "Tynk gipsowy — S1 — przygotowanie podstawowe",
+      "tech_tynk_gipsowy_s2": "Tynk gipsowy — S2 — standard malarski",
+      "tech_tynk_gipsowy_s3": "Tynk gipsowy — S3 — podwyższony standard wizualny",
+      "tech_tynk_gipsowy_s4": "Tynk gipsowy — S4 — standard premium (uzgadniany indywidualnie)",
+      "tech_tynk_cw_s1": "Tynk cementowo-wapienny — S1 — przygotowanie podstawowe",
+      "tech_tynk_cw_s2": "Tynk cementowo-wapienny — S2 — standard malarski",
+      "tech_tynk_cw_s3": "Tynk cementowo-wapienny — S3 — podwyższony standard wizualny",
+      "tech_tynk_cw_s4": "Tynk cementowo-wapienny — S4 — standard premium (uzgadniany indywidualnie)",
+      "tech_gk_q1": "Płyta g-k — Q1",
+      "tech_gk_q2": "Płyta g-k — Q2",
+      "tech_gk_q3": "Płyta g-k — Q3",
+      "tech_gk_q4": "Płyta g-k — Q4"
     }
   }
 }
