@@ -1453,6 +1453,9 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     await waitFor(() => screen.getByLabelText('project-detail'));
     expect(screen.getByLabelText('open-estimates')).toBeInTheDocument();
     expect(screen.getByLabelText('open-estimates').textContent).toContain('Kosztorys');
+    // Owner walkthrough: a clearly accented primary entry, >=44px.
+    expect(screen.getByLabelText('open-estimates').className).toContain('bg-amber-500');
+    expect(screen.getByLabelText('open-estimates').className).toContain('min-h-11');
   });
 
   it('opens EstimateList when Kosztorys entry is tapped', async () => {

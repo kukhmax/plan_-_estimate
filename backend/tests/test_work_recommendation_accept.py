@@ -622,11 +622,12 @@ class TestPriceItemResolution:
         with pytest.raises(SurfaceWorkPlanValidationError):
             await service.accept_recommendation(project.id, rec.id, user.id)
 
-    async def test_stage10_manual_workplan_reveal_item_still_allowed_unchanged(self, db_session):
-        """The Stage 11 REVEAL guard lives only in the recommendation accept
-        path -- the existing, deliberately permissive Stage 10 manual Work
-        Plan picker (set_plan/replace_planned_works) must remain unchanged
-        and must NOT reject a REVEAL-category item.
+    async def test_manual_workplan_rejects_new_reveal_item(self, db_session):
+        """Stage 12 owner-walkthrough decision (supersedes the Stage 11-era
+        "Stage 10 picker stays permissive" contract): reveal work is planned
+        per opening (Stage 10 D19), so a manual Surface Work Plan may not
+        gain a new REVEAL-category occurrence either. Legacy occurrences are
+        covered in test_reveal_planning_placement.py.
         """
         user = await _make_user(db_session, 311063)
         project = await _make_project(db_session, user.id)
@@ -637,13 +638,12 @@ class TestPriceItemResolution:
         )
         service = SurfaceWorkPlanService(db_session)
 
-        plan = await service.set_plan(
-            project.id, room.id, wall.id, user.id,
-            substrate=Substrate.GYPSUM_PLASTER,
-            planned_works=[OrderedPriceItemSelection(price_item_id=reveal_item.id)],
-        )
-
-        assert plan.planned_works[0].price_item_id == reveal_item.id
+        with pytest.raises(SurfaceWorkPlanValidationError, match="reveal work belongs under an opening"):
+            await service.set_plan(
+                project.id, room.id, wall.id, user.id,
+                substrate=Substrate.GYPSUM_PLASTER,
+                planned_works=[OrderedPriceItemSelection(price_item_id=reveal_item.id)],
+            )
 
 
 class TestTransactionRollback:

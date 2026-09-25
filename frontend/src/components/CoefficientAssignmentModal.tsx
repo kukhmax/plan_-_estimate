@@ -52,6 +52,8 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string | null>>({});
   // Read-only description overlay; never touches the selection above.
   const [descriptionSheet, setDescriptionSheet] = useState<DescriptionSheetContent | null>(null);
+  // Accordion: at most one group expanded; purely presentational state.
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
 
   // Keyed by content, not array identity: parents rebuild `initialOptionIds`
   // on every render, which must not refetch and reset the local selection.
@@ -59,6 +61,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
 
   useEffect(() => {
     if (!isOpen) return;
+    setExpandedGroupId(null);
     const initialIds = initialOptionIdsKey ? initialOptionIdsKey.split(',') : [];
 
     let isMounted = true;
@@ -128,7 +131,10 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
         type="button"
         aria-label={t.coefficients.show_description.replace('{name}', title)}
         data-testid={testId}
-        onClick={() => setDescriptionSheet({ title, text })}
+        onClick={(e) => {
+          e.stopPropagation();
+          setDescriptionSheet({ title, text });
+        }}
         className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-blue-700 hover:bg-blue-50 active:bg-blue-100"
       >
         <span
@@ -227,7 +233,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
         </div>
 
         {/* Content body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {loading && (
             <div className="py-8 text-center text-sm text-[var(--tg-theme-hint-color,#64748b)]">
               {t.coefficients.loading}
@@ -252,19 +258,74 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
               const activeOptions = group.options.filter((o) => !o.is_archived);
               const currentSelectedId = selectedByGroup[group.id] ?? null;
 
+              const groupName = coefficientGroupName(group, t);
+              const selectedOption =
+                currentSelectedId === null
+                  ? null
+                  : activeOptions.find((o) => o.id === currentSelectedId) ?? null;
+              const isExpanded = expandedGroupId === group.id;
+              const panelId = `coefficient-group-panel-${group.id}`;
+
               return (
-                <div key={group.id} className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0 text-xs font-semibold uppercase tracking-wider text-slate-600 break-words">
-                      {coefficientGroupName(group, t)}
-                    </div>
+                <div key={group.id} className="rounded-lg border border-slate-200">
+                  <div className="flex items-stretch">
+                    <button
+                      type="button"
+                      data-testid={`coefficient-group-toggle-${group.id}`}
+                      aria-expanded={isExpanded}
+                      aria-controls={panelId}
+                      onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
+                      className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-slate-50 active:bg-slate-100"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-slate-800 break-words">
+                          {groupName}
+                        </span>
+                        <span
+                          data-testid={`coefficient-group-summary-${group.id}`}
+                          className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-slate-500 break-words"
+                        >
+                          {selectedOption ? (
+                            <>
+                              <span className="text-blue-800">
+                                {coefficientOptionName(group.code, selectedOption, t)}
+                              </span>
+                              {selectedOption.is_base && (
+                                <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
+                                  {t.coefficients.base_badge}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span>{t.coefficients.none_option}</span>
+                          )}
+                        </span>
+                      </span>
+                      <span
+                        data-testid={`coefficient-group-percent-${group.id}`}
+                        className={`shrink-0 font-mono text-xs ${
+                          selectedOption ? 'font-bold text-blue-700' : 'text-slate-400'
+                        }`}
+                      >
+                        {selectedOption ? formatPercentageDisplay(selectedOption.percentage) : '—'}
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className={`shrink-0 text-lg leading-none text-slate-400 transition-transform ${
+                          isExpanded ? 'rotate-90' : ''
+                        }`}
+                      >
+                        ›
+                      </span>
+                    </button>
                     {renderInfoButton(
-                      coefficientGroupName(group, t),
+                      groupName,
                       coefficientGroupDescription(group, t),
                       `coefficient-group-info-${group.id}`,
                     )}
                   </div>
-                  <div className="space-y-1.5">
+                  {isExpanded && (
+                  <div id={panelId} className="space-y-1.5 border-t border-slate-100 p-2">
                     {/* "Brak" option */}
                     <label
                       className={`flex min-h-[44px] items-center justify-between p-2.5 rounded-lg border text-sm cursor-pointer transition-colors ${
@@ -331,6 +392,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
                       );
                     })}
                   </div>
+                  )}
                 </div>
               );
             })}

@@ -21,8 +21,10 @@ import {
 } from '../utils/coefficientLabels';
 
 export const CoefficientCatalogManager: React.FC = () => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  // Accordion: at most one group expanded; purely presentational state.
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [groups, setGroups] = useState<CoefficientGroupRead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +58,22 @@ export const CoefficientCatalogManager: React.FC = () => {
   // Blank description means "no description" (the backend normalizes too).
   const descriptionPayload = (text: string): string | null => text.trim() || null;
 
+  const groupSummary = (group: CoefficientGroupRead): string => {
+    const count = group.options.length;
+    const category = new Intl.PluralRules(locale).select(count) as keyof typeof t.coefficients.option_count;
+    const countText = (t.coefficients.option_count[category] ?? t.coefficients.option_count.other).replace(
+      '{count}',
+      String(count),
+    );
+    const base = group.options.find((o) => o.is_base && !o.is_archived);
+    const baseText = base
+      ? t.coefficients.base_summary
+          .replace('{name}', coefficientOptionName(group.code, base, t))
+          .replace('{percent}', formatPercentageDisplay(base.percentage))
+      : t.coefficients.no_base_summary;
+    return `${countText} · ${baseText}`;
+  };
+
   const loadData = () => {
     setLoading(true);
     setError(null);
@@ -65,6 +83,8 @@ export const CoefficientCatalogManager: React.FC = () => {
     })
       .then((res) => {
         setGroups(res.items);
+        // Drop an expanded id whose group left this list (e.g. just archived).
+        setExpandedGroupId((prev) => (res.items.some((g) => g.id === prev) ? prev : null));
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : t.coefficients.error_load);
@@ -75,6 +95,7 @@ export const CoefficientCatalogManager: React.FC = () => {
   };
 
   useEffect(() => {
+    setExpandedGroupId(null);
     loadData();
   }, [activeTab]);
 
@@ -253,12 +274,52 @@ export const CoefficientCatalogManager: React.FC = () => {
       {!loading &&
         groups.map((group) => {
           const isEditing = editingGroupId === group.id;
+          const isExpanded = expandedGroupId === group.id;
+          const panelId = `coefficient-catalog-group-panel-${group.id}`;
 
           return (
             <div
               key={group.id}
-              className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3"
+              className="bg-white rounded-xl border border-slate-200 shadow-sm"
             >
+              <button
+                type="button"
+                data-testid={`coefficient-catalog-group-toggle-${group.id}`}
+                aria-expanded={isExpanded}
+                aria-controls={panelId}
+                onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
+                className="flex w-full min-h-[44px] items-center gap-2 rounded-xl p-4 text-left hover:bg-slate-50 active:bg-slate-100"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 text-base font-bold text-slate-900 break-words">
+                      {coefficientGroupName(group, t)}
+                    </span>
+                    {group.is_archived && (
+                      <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                        {t.coefficients.archived_badge}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    data-testid={`coefficient-catalog-group-summary-${group.id}`}
+                    className="mt-0.5 block text-xs text-slate-500 break-words"
+                  >
+                    {groupSummary(group)}
+                  </span>
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={`shrink-0 text-lg leading-none text-slate-400 transition-transform ${
+                    isExpanded ? 'rotate-90' : ''
+                  }`}
+                >
+                  ›
+                </span>
+              </button>
+
+              {isExpanded && (
+              <div id={panelId} className="space-y-3 border-t border-slate-100 p-4 pt-3">
               {/* Group header */}
               <div className="flex flex-col gap-1 border-b border-slate-100 pb-2">
                 <div className="flex-1 min-w-0">
@@ -297,14 +358,6 @@ export const CoefficientCatalogManager: React.FC = () => {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="min-w-0 text-base font-bold text-slate-900 break-words">
-                        {coefficientGroupName(group, t)}
-                      </h3>
-                      {group.is_archived && (
-                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
-                          {t.coefficients.archived_badge}
-                        </span>
-                      )}
                       {group.description && (
                         <p className="w-full text-xs text-slate-500 whitespace-pre-line break-words line-clamp-3">
                           {coefficientGroupDescription(group, t)}
@@ -434,6 +487,8 @@ export const CoefficientCatalogManager: React.FC = () => {
                 >
                   {t.coefficients.add_option}
                 </button>
+              )}
+              </div>
               )}
             </div>
           );

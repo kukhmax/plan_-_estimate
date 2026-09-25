@@ -88,6 +88,25 @@ function renderModal(overrides: Partial<CoefficientAssignmentModalProps> = {}) {
   return { ...utils, props };
 }
 
+function toggle(groupId: string) {
+  return screen.getByTestId(`coefficient-group-toggle-${groupId}`);
+}
+
+function summary(groupId: string) {
+  return screen.getByTestId(`coefficient-group-summary-${groupId}`);
+}
+
+function percent(groupId: string) {
+  return screen.getByTestId(`coefficient-group-percent-${groupId}`);
+}
+
+/** Expand the group (if collapsed) and pick the option by its visible name. */
+async function choose(groupId: string, name: RegExp) {
+  const button = await screen.findByTestId(`coefficient-group-toggle-${groupId}`);
+  if (button.getAttribute('aria-expanded') !== 'true') fireEvent.click(button);
+  fireEvent.click(screen.getByRole('radio', { name }));
+}
+
 describe('CoefficientAssignmentModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -97,18 +116,19 @@ describe('CoefficientAssignmentModal', () => {
 
   it('defaults every group to "Brak" and hides archived options', async () => {
     renderModal();
-    await screen.findByRole('radio', { name: /wysoka/ });
-    const none = screen.getAllByRole('radio', { name: /Brak/ });
-    expect(none).toHaveLength(2);
-    none.forEach((radio) => expect(radio).toBeChecked());
+    await screen.findByTestId('coefficient-group-toggle-grp-height');
+    expect(summary('grp-height')).toHaveTextContent('Brak');
+    expect(summary('grp-furniture')).toHaveTextContent('Brak');
+    fireEvent.click(toggle('grp-furniture'));
+    expect(screen.getByRole('radio', { name: /Brak/ })).toBeChecked();
     expect(screen.queryByText('stara opcja')).not.toBeInTheDocument();
     expect(coefficientsApi.fetchCoefficientGroups).toHaveBeenCalledWith({ archived: 'active' });
   });
 
   it('combines options from different groups additively and previews the effective price', async () => {
     const { props } = renderModal();
-    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
-    fireEvent.click(screen.getByRole('radio', { name: /umeblowane/ }));
+    await choose('grp-height', /wysoka/);
+    await choose('grp-furniture', /umeblowane/);
 
     // 40.00 × (1 + 30/100) = 52.00 — additive, never compounded (40 × 1.2 × 1.1 = 52.80).
     expect(screen.getByText('+30%')).toBeInTheDocument();
@@ -122,8 +142,8 @@ describe('CoefficientAssignmentModal', () => {
 
   it('keeps a single selection per SINGLE_SELECT group', async () => {
     const { props } = renderModal();
-    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
-    fireEvent.click(screen.getByRole('radio', { name: /normalna/ }));
+    await choose('grp-height', /wysoka/);
+    await choose('grp-height', /normalna/);
     fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
     const applied = vi.mocked(props.onApply).mock.calls[0][0];
     expect(applied.map((o) => o.id)).toEqual(['opt-normal']);
@@ -131,7 +151,7 @@ describe('CoefficientAssignmentModal', () => {
 
   it('preserves an explicit is_base 0% option as a real option id, distinct from "Brak"', async () => {
     const { props } = renderModal();
-    fireEvent.click(await screen.findByRole('radio', { name: /normalna/ }));
+    await choose('grp-height', /normalna/);
     fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
     const applied = vi.mocked(props.onApply).mock.calls[0][0];
     expect(applied).toEqual([
@@ -141,16 +161,18 @@ describe('CoefficientAssignmentModal', () => {
 
   it('applies an empty list when every group is "Brak"', async () => {
     const { props } = renderModal({ initialOptionIds: ['opt-high'] });
-    const high = await screen.findByRole('radio', { name: /wysoka/ });
-    expect(high).toBeChecked();
-    fireEvent.click(screen.getAllByRole('radio', { name: /Brak/ })[0]);
+    await screen.findByTestId('coefficient-group-toggle-grp-height');
+    expect(summary('grp-height')).toHaveTextContent('wysoka');
+    fireEvent.click(toggle('grp-height'));
+    expect(screen.getByRole('radio', { name: /wysoka/ })).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: /Brak/ }));
     fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
     expect(props.onApply).toHaveBeenCalledWith([]);
   });
 
   it('Cancel discards local changes without applying', async () => {
     const { props } = renderModal();
-    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
+    await choose('grp-height', /wysoka/);
     fireEvent.click(screen.getByLabelText('coefficient-modal-cancel'));
     expect(props.onCancel).toHaveBeenCalledTimes(1);
     expect(props.onApply).not.toHaveBeenCalled();
@@ -158,7 +180,7 @@ describe('CoefficientAssignmentModal', () => {
 
   it('keeps NULL base price unresolved instead of treating it as zero', async () => {
     renderModal({ basePrice: null });
-    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
+    await choose('grp-height', /wysoka/);
     expect(screen.getAllByText('Do ustalenia')).toHaveLength(2);
     expect(screen.queryByText(/0\.00 PLN/)).not.toBeInTheDocument();
   });
@@ -175,7 +197,7 @@ describe('CoefficientAssignmentModal', () => {
 
   it('does not refetch or reset local selection when re-rendered with an equal id list', async () => {
     const { props, rerender } = renderModal({ initialOptionIds: [] });
-    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
+    await choose('grp-height', /wysoka/);
     rerender(
       <I18nProvider>
         <CoefficientAssignmentModal {...props} initialOptionIds={[]} />
@@ -183,6 +205,71 @@ describe('CoefficientAssignmentModal', () => {
     );
     await waitFor(() => expect(coefficientsApi.fetchCoefficientGroups).toHaveBeenCalledTimes(1));
     expect(screen.getByRole('radio', { name: /wysoka/ })).toBeChecked();
+  });
+
+  describe('accordion (owner walkthrough UX)', () => {
+    it('renders every group collapsed initially with a compact summary', async () => {
+      renderModal({ initialOptionIds: ['opt-high'] });
+      await screen.findByTestId('coefficient-group-toggle-grp-height');
+      expect(toggle('grp-height')).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle('grp-furniture')).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryAllByRole('radio')).toHaveLength(0);
+      expect(toggle('grp-height').className).toContain('min-h-[44px]');
+      expect(summary('grp-height')).toHaveTextContent('wysoka');
+      expect(percent('grp-height')).toHaveTextContent('+20%');
+      expect(summary('grp-furniture')).toHaveTextContent('Brak');
+      expect(percent('grp-furniture')).toHaveTextContent('—');
+    });
+
+    it('expands one group at a time and collapses it on a second tap', async () => {
+      renderModal();
+      await screen.findByTestId('coefficient-group-toggle-grp-height');
+      fireEvent.click(toggle('grp-height'));
+      expect(toggle('grp-height')).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByRole('radio', { name: /wysoka/ })).toBeInTheDocument();
+
+      fireEvent.click(toggle('grp-furniture'));
+      expect(toggle('grp-height')).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle('grp-furniture')).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.queryByRole('radio', { name: /wysoka/ })).not.toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /umeblowane/ })).toBeInTheDocument();
+
+      fireEvent.click(toggle('grp-furniture'));
+      expect(toggle('grp-furniture')).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    });
+
+    it('updates the collapsed summary on selection and never changes the draft by toggling', async () => {
+      const { props } = renderModal();
+      await choose('grp-height', /wysoka/);
+      expect(summary('grp-height')).toHaveTextContent('wysoka');
+      expect(percent('grp-height')).toHaveTextContent('+20%');
+
+      for (let i = 0; i < 3; i += 1) {
+        fireEvent.click(toggle('grp-furniture'));
+        fireEvent.click(toggle('grp-height'));
+      }
+      expect(summary('grp-height')).toHaveTextContent('wysoka');
+      expect(summary('grp-furniture')).toHaveTextContent('Brak');
+      expect(props.onApply).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
+      expect(vi.mocked(props.onApply).mock.calls[0][0].map((o) => o.id)).toEqual(['opt-high']);
+    });
+
+    it('shows Brak distinctly from an explicit 0% base (0% · BAZA)', async () => {
+      renderModal();
+      await screen.findByTestId('coefficient-group-toggle-grp-height');
+      expect(summary('grp-height')).toHaveTextContent('Brak');
+      expect(summary('grp-height')).not.toHaveTextContent('Baza');
+      expect(percent('grp-height')).toHaveTextContent('—');
+
+      await choose('grp-height', /normalna/);
+      expect(summary('grp-height')).toHaveTextContent('normalna');
+      expect(summary('grp-height')).toHaveTextContent('Baza');
+      expect(summary('grp-height')).not.toHaveTextContent('Brak');
+      expect(percent('grp-height')).toHaveTextContent('0%');
+    });
   });
 
   describe('descriptions (Stage 12G)', () => {
@@ -209,8 +296,10 @@ describe('CoefficientAssignmentModal', () => {
       renderModal();
       expect(await screen.findByTestId('coefficient-group-info-grp-height')).toBeInTheDocument();
       expect(screen.queryByTestId('coefficient-group-info-grp-furniture')).not.toBeInTheDocument();
+      fireEvent.click(toggle('grp-height'));
       expect(screen.getByTestId('coefficient-option-info-opt-high')).toBeInTheDocument();
       expect(screen.queryByTestId('coefficient-option-info-opt-normal')).not.toBeInTheDocument();
+      fireEvent.click(toggle('grp-furniture'));
       expect(screen.queryByTestId('coefficient-option-info-opt-furnished')).not.toBeInTheDocument();
       expect(screen.getByTestId('coefficient-group-info-grp-height')).toHaveAccessibleName(
         'Pokaż opis: Wysokość',
@@ -218,26 +307,41 @@ describe('CoefficientAssignmentModal', () => {
       expect(screen.getByTestId('coefficient-group-info-grp-height').className).toContain('min-h-[44px]');
     });
 
-    it('opens and closes the description sheet without touching the draft', async () => {
+    it('group info does not toggle the accordion', async () => {
+      renderModal();
+      fireEvent.click(await screen.findByTestId('coefficient-group-info-grp-height'));
+      expect(screen.getByTestId('coefficient-description-sheet')).toHaveTextContent('Opis grupy wysokości');
+      expect(toggle('grp-height')).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(
+        within(screen.getByTestId('coefficient-description-sheet')).getAllByRole('button', { name: 'Zamknij' })[0],
+      );
+      expect(toggle('grp-height')).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('opens and closes the description sheet without touching the draft or accordion state', async () => {
       const { props } = renderModal();
-      fireEvent.click(await screen.findByRole('radio', { name: /umeblowane/ }));
+      await choose('grp-furniture', /umeblowane/);
+      fireEvent.click(toggle('grp-height'));
 
       fireEvent.click(screen.getByTestId('coefficient-option-info-opt-high'));
       const sheet = screen.getByTestId('coefficient-description-sheet');
       expect(sheet).toHaveTextContent('Opis opcji wysoka');
-      // Opening the info on "wysoka" must not select it.
       fireEvent.click(
-      within(screen.getByTestId('coefficient-description-sheet')).getAllByRole('button', { name: 'Zamknij' })[0],
-    );
+        within(screen.getByTestId('coefficient-description-sheet')).getAllByRole('button', { name: 'Zamknij' })[0],
+      );
       expect(screen.queryByTestId('coefficient-description-sheet')).not.toBeInTheDocument();
+      // Same group still expanded, "wysoka" not selected by opening its info.
+      expect(toggle('grp-height')).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByRole('radio', { name: /wysoka/ })).not.toBeChecked();
 
       fireEvent.click(screen.getByTestId('coefficient-group-info-grp-height'));
       expect(screen.getByTestId('coefficient-description-sheet')).toHaveTextContent('Opis grupy wysokości');
       fireEvent.click(screen.getByTestId('coefficient-description-sheet'));
       expect(screen.queryByTestId('coefficient-description-sheet')).not.toBeInTheDocument();
+      expect(toggle('grp-height')).toHaveAttribute('aria-expanded', 'true');
 
-      expect(screen.getByRole('radio', { name: /umeblowane/ })).toBeChecked();
-      expect(screen.getByRole('radio', { name: /wysoka/ })).not.toBeChecked();
+      expect(summary('grp-furniture')).toHaveTextContent('umeblowane');
+      expect(summary('grp-height')).toHaveTextContent('Brak');
       expect(props.onApply).not.toHaveBeenCalled();
       expect(props.onCancel).not.toHaveBeenCalled();
       expect(coefficientsApi.fetchCoefficientGroups).toHaveBeenCalledTimes(1);
@@ -284,12 +388,12 @@ describe('CoefficientAssignmentModal', () => {
 
     it('is absent at exactly +50% and present above it, without blocking Zastosuj', async () => {
       const { props } = renderModal();
-      fireEvent.click(await screen.findByRole('radio', { name: /a-30/ }));
-      fireEvent.click(screen.getByRole('radio', { name: /b-20\b/ }));
+      await choose('g-a', /a-30/);
+      await choose('g-b', /b-20\b/);
       expect(screen.getByText('+50%')).toBeInTheDocument();
       expect(screen.queryByLabelText('coefficient-high-total-warning')).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole('radio', { name: /b-205/ }));
+      await choose('g-b', /b-205/);
       const warning = screen.getByLabelText('coefficient-high-total-warning');
       expect(warning).toHaveTextContent('Wysoka łączna korekta ceny (+50.5%).');
       expect(warning).toHaveTextContent('czy ich wpływ nie został już uwzględniony w cenie bazowej');
@@ -302,26 +406,27 @@ describe('CoefficientAssignmentModal', () => {
 
     it('counts negative coefficients and the explicit 0% base additively', async () => {
       renderModal();
-      fireEvent.click(await screen.findByRole('radio', { name: /a-30/ }));
-      fireEvent.click(screen.getByRole('radio', { name: /b-205/ }));
+      await choose('g-a', /a-30/);
+      await choose('g-b', /b-205/);
       expect(screen.getByLabelText('coefficient-high-total-warning')).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole('radio', { name: /c-neg/ }));
+      await choose('g-c', /c-neg/);
       expect(screen.getByText('+40.5%')).toBeInTheDocument();
+      expect(percent('g-c')).toHaveTextContent('-10%');
       expect(screen.queryByLabelText('coefficient-high-total-warning')).not.toBeInTheDocument();
 
       // Explicit base (0%) replaces +30% in group A: 0 + 20.5 - 10 = +10.5%.
-      fireEvent.click(screen.getByRole('radio', { name: /a-base/ }));
+      await choose('g-a', /a-base/);
       expect(screen.getByText('+10.5%')).toBeInTheDocument();
       expect(screen.getByRole('radio', { name: /a-base/ })).toBeChecked();
-      expect(screen.getAllByRole('radio', { name: /Brak/ })[0]).not.toBeChecked();
+      expect(screen.getByRole('radio', { name: /Brak/ })).not.toBeChecked();
     });
 
     it('shows the Russian warning text', async () => {
       localStorage.setItem('locale', 'ru');
       renderModal();
-      fireEvent.click(await screen.findByRole('radio', { name: /a-30/ }));
-      fireEvent.click(screen.getByRole('radio', { name: /b-205/ }));
+      await choose('g-a', /a-30/);
+      await choose('g-b', /b-205/);
       expect(screen.getByLabelText('coefficient-high-total-warning')).toHaveTextContent(
         'Высокая суммарная корректировка цены (+50.5%).',
       );
@@ -360,6 +465,8 @@ describe('CoefficientAssignmentModal', () => {
       localStorage.setItem('locale', 'ru');
       const { props } = renderModal();
       expect(await screen.findByText('Доступ к поверхности')).toBeInTheDocument();
+      expect(summary('grp-access')).toHaveTextContent('Нет');
+      fireEvent.click(toggle('grp-access'));
       expect(screen.getByRole('radio', { name: /Затруднённый/ })).toBeInTheDocument();
       expect(screen.getByRole('radio', { name: /Własna opcja/ })).toBeInTheDocument();
 
@@ -373,6 +480,7 @@ describe('CoefficientAssignmentModal', () => {
 
       // The applied draft keeps the stored (canonical) catalog values.
       fireEvent.click(screen.getByRole('radio', { name: /Затруднённый/ }));
+      expect(summary('grp-access')).toHaveTextContent('Затруднённый');
       fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
       expect(vi.mocked(props.onApply).mock.calls[0][0][0]).toEqual(
         expect.objectContaining({ id: 'opt-hard', display_name: builtinPl.options.UTRUDNIONY.name }),
@@ -405,10 +513,12 @@ describe('CoefficientAssignmentModal', () => {
     vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({ items: withArchived, total: 2 });
     const { props } = renderModal({ initialOptionIds: ['opt-high', 'opt-furnished'] });
     // The archived option is not offered; its group falls back to "Brak".
-    await screen.findByRole('radio', { name: /umeblowane/ });
+    await screen.findByTestId('coefficient-group-toggle-grp-height');
+    expect(summary('grp-height')).toHaveTextContent('Brak');
+    expect(summary('grp-furniture')).toHaveTextContent('umeblowane');
+    fireEvent.click(toggle('grp-height'));
     expect(screen.queryByRole('radio', { name: /wysoka/ })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('radio', { name: /Brak/ })[0]).toBeChecked();
-    expect(screen.getByRole('radio', { name: /umeblowane/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /Brak/ })).toBeChecked();
 
     fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
     expect(vi.mocked(props.onApply).mock.calls[0][0].map((o) => o.id)).toEqual(['opt-furnished']);
@@ -421,9 +531,9 @@ describe('CoefficientAssignmentModal', () => {
     ];
     vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({ items: boundary, total: 2 });
     renderModal();
-    fireEvent.click(await screen.findByRole('radio', { name: /^x/ }));
+    await choose('g1', /^x/);
     expect(screen.queryByLabelText('coefficient-high-total-warning')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('radio', { name: /^y/ }));
+    await choose('g2', /^y/);
     expect(screen.getByLabelText('coefficient-high-total-warning')).toHaveTextContent('+50.001%');
     expect(screen.getByLabelText('coefficient-modal-apply')).toBeEnabled();
   });

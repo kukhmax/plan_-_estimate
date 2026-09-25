@@ -374,6 +374,9 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
       'description_optional',
       'show_description',
       'high_total_warning',
+      'option_count',
+      'base_summary',
+      'no_base_summary',
     ]) {
       expect(plCoefficients.has(key)).toBe(true);
     }

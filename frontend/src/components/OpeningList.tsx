@@ -201,6 +201,16 @@ export function OpeningList({
       quantity: quantityNum,
       description: form.description.trim() || null,
     };
+    if (
+      form.reveal_enabled &&
+      form.opening_type !== 'OTHER' &&
+      !(form.reveal_left || form.reveal_right || form.reveal_top || form.reveal_bottom)
+    ) {
+      // Without a side the reveal has no geometry to calculate.
+      setFormError(t.reveals.sides_required);
+      setSaving(false);
+      return;
+    }
     if (form.reveal_enabled && form.opening_type !== 'OTHER') {
       const depthNum = parseFloat(form.reveal_depth.trim());
       payload.reveal_enabled = true;
@@ -281,14 +291,6 @@ export function OpeningList({
         <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">
           {t.openings.title}
         </h5>
-        <button
-          type="button"
-          aria-label={`add-opening-${surfaceId}`}
-          onClick={() => startCreate()}
-          className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 font-semibold rounded-lg hover:bg-blue-100 transition"
-        >
-          + {t.openings.add}
-        </button>
       </div>
 
       <label className="flex items-center gap-1.5 text-xs text-slate-500 mb-2 cursor-pointer">
@@ -301,11 +303,141 @@ export function OpeningList({
         {t.common.show_archived}
       </label>
 
+      {success && <p role="status" className="text-xs text-emerald-700 mb-2">{success}</p>}
+      {loading && <p className="text-xs text-slate-400 py-2 text-center">{t.openings.loading}</p>}
+      {!loading && error && <p role="alert" className="text-xs text-red-600 py-2">{error}</p>}
+      {!loading && !error && openings.length === 0 && (
+        <p aria-label={`no-openings-${surfaceId}`} className="text-xs text-slate-400 py-2 italic text-center">
+          {t.openings.empty}
+        </p>
+      )}
+
+      {!loading && !error && openings.length > 0 && (
+        <ul aria-label={`openings-list-${surfaceId}`} className="space-y-1.5">
+          {openings.map((opening) => (
+            <li
+              key={opening.id}
+              aria-label={`opening-item-${opening.id}`}
+              className="bg-slate-50 border border-slate-200 rounded-xl p-2.5"
+            >
+              {/* Wraps: info keeps a readable minimum width and the actions
+                  drop below it only when both do not fit (e.g. 320px RU). */}
+              <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0 flex-1 basis-40 text-xs">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-semibold text-slate-800">
+                    {typeLabel(opening.opening_type)}
+                  </span>
+                  {opening.name && (
+                    <span className="text-slate-600 font-medium">({opening.name})</span>
+                  )}
+                  {opening.quantity > 1 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 font-bold">
+                      ×{opening.quantity}
+                    </span>
+                  )}
+                  {opening.is_archived && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-orange-100 text-orange-700 font-medium">
+                      {t.common.archived_badge}
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-slate-500 mt-1 space-x-2">
+                  <span>
+                    {formatMetric(opening.width)} × {formatMetric(opening.height)} {t.common.unit_m}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    {t.openings.total_area}: <strong className="text-slate-800">{formatMetric(opening.total_area)} {t.common.unit_m2}</strong>
+                  </span>
+                </div>
+
+                {opening.description && (
+                  <p className="text-slate-400 text-[11px] mt-0.5">{opening.description}</p>
+                )}
+
+                {opening.reveal_enabled && opening.reveal_total_length != null && (
+                  <div className="text-slate-500 mt-0.5 text-[11px]">
+                    {t.reveals.summary_title}:{' '}
+                    <strong className="text-slate-700">{formatMetric(opening.reveal_total_length)} {t.pricebook.units.LM}</strong>
+                    {' · '}
+                    <strong className="text-slate-700">{formatMetric(opening.reveal_total_area)} {t.common.unit_m2}</strong>
+                  </div>
+                )}
+              </div>
+
+              <div className="ml-auto flex items-center gap-1.5 flex-wrap justify-end">
+                <button
+                  type="button"
+                  aria-label={`edit-opening-${opening.id}`}
+                  onClick={() => startEdit(opening)}
+                  className="min-h-[44px] min-w-[44px] text-xs px-3 py-2 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                >
+                  {t.common.edit}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`${opening.is_archived ? 'restore' : 'archive'}-opening-${opening.id}`}
+                  onClick={() => void changeArchiveState(opening)}
+                  className="min-h-[44px] min-w-[44px] text-xs px-3 py-2 rounded-lg bg-slate-200 text-slate-700 font-medium hover:bg-slate-300 transition"
+                >
+                  {opening.is_archived ? t.common.restore : t.common.archive}
+                </button>
+              </div>
+              </div>
+
+              {/* Stage 10G.4 — reveal work planning per opening; never shown
+                  when reveal is disabled, and never silently enables it. */}
+              {opening.reveal_enabled && (
+                <div className="pt-2 mt-2 border-t border-slate-200">
+                  <button
+                    type="button"
+                    aria-label={`reveal-work-toggle-${opening.id}`}
+                    aria-expanded={activeRevealWorkOpeningId === opening.id}
+                    aria-controls={`reveal-work-editor-${opening.id}`}
+                    onClick={() => toggleRevealWork(opening.id)}
+                    className="w-full min-h-[44px] px-3 py-2 text-sm font-semibold rounded-lg bg-orange-700 text-white shadow-sm hover:bg-orange-800 active:bg-orange-900 transition text-center"
+                  >
+                    {t.reveals.work_section_title}
+                  </button>
+
+                  {activeRevealWorkOpeningId === opening.id && (
+                    <RevealWorkPlanEditor
+                      projectId={projectId}
+                      roomId={roomId}
+                      surfaceId={surfaceId}
+                      openingId={opening.id}
+                      openingLabel={`${typeLabel(opening.opening_type)}${opening.name ? ` (${opening.name})` : ''}`}
+                      revealTotalLength={opening.reveal_total_length}
+                      revealTotalArea={opening.reveal_total_area}
+                      onClose={() => setActiveRevealWorkOpeningId(null)}
+                    />
+                  )}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Controls for a NEW opening come after the existing openings. */}
+      {!showForm && (
+        <button
+          type="button"
+          aria-label={`add-opening-${surfaceId}`}
+          onClick={() => startCreate()}
+          className="mt-2 w-full min-h-[44px] px-3 py-2 text-xs font-semibold rounded-xl border border-dashed border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition"
+        >
+          + {t.openings.add}
+        </button>
+      )}
+
       {showForm && (
         <form
           aria-label={`opening-form-${surfaceId}`}
           onSubmit={handleSubmit}
-          className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-3 space-y-2.5"
+          className="bg-slate-50 border border-slate-200 rounded-xl p-3 mt-2 mb-3 space-y-2.5"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-900">
@@ -511,121 +643,6 @@ export function OpeningList({
         </form>
       )}
 
-      {success && <p role="status" className="text-xs text-emerald-700 mb-2">{success}</p>}
-      {loading && <p className="text-xs text-slate-400 py-2 text-center">{t.openings.loading}</p>}
-      {!loading && error && <p role="alert" className="text-xs text-red-600 py-2">{error}</p>}
-      {!loading && !error && openings.length === 0 && (
-        <p aria-label={`no-openings-${surfaceId}`} className="text-xs text-slate-400 py-2 italic text-center">
-          {t.openings.empty}
-        </p>
-      )}
-
-      {!loading && !error && openings.length > 0 && (
-        <ul aria-label={`openings-list-${surfaceId}`} className="space-y-1.5">
-          {openings.map((opening) => (
-            <li
-              key={opening.id}
-              aria-label={`opening-item-${opening.id}`}
-              className="bg-slate-50 border border-slate-200 rounded-xl p-2.5"
-            >
-              <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 text-xs">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-semibold text-slate-800">
-                    {typeLabel(opening.opening_type)}
-                  </span>
-                  {opening.name && (
-                    <span className="text-slate-600 font-medium">({opening.name})</span>
-                  )}
-                  {opening.quantity > 1 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 font-bold">
-                      ×{opening.quantity}
-                    </span>
-                  )}
-                  {opening.is_archived && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-orange-100 text-orange-700 font-medium">
-                      {t.common.archived_badge}
-                    </span>
-                  )}
-                </div>
-
-                <div className="text-slate-500 mt-1 space-x-2">
-                  <span>
-                    {formatMetric(opening.width)} × {formatMetric(opening.height)} {t.common.unit_m}
-                  </span>
-                  <span>•</span>
-                  <span>
-                    {t.openings.total_area}: <strong className="text-slate-800">{formatMetric(opening.total_area)} {t.common.unit_m2}</strong>
-                  </span>
-                </div>
-
-                {opening.description && (
-                  <p className="text-slate-400 text-[11px] mt-0.5">{opening.description}</p>
-                )}
-
-                {opening.reveal_enabled && opening.reveal_total_length != null && (
-                  <div className="text-slate-500 mt-0.5 text-[11px]">
-                    {t.reveals.summary_title}:{' '}
-                    <strong className="text-slate-700">{formatMetric(opening.reveal_total_length)} {t.pricebook.units.LM}</strong>
-                    {' · '}
-                    <strong className="text-slate-700">{formatMetric(opening.reveal_total_area)} {t.common.unit_m2}</strong>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
-                <button
-                  type="button"
-                  aria-label={`edit-opening-${opening.id}`}
-                  onClick={() => startEdit(opening)}
-                  className="text-xs px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
-                >
-                  {t.common.edit}
-                </button>
-                <button
-                  type="button"
-                  aria-label={`${opening.is_archived ? 'restore' : 'archive'}-opening-${opening.id}`}
-                  onClick={() => void changeArchiveState(opening)}
-                  className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-200 text-slate-700 font-medium hover:bg-slate-300 transition"
-                >
-                  {opening.is_archived ? t.common.restore : t.common.archive}
-                </button>
-              </div>
-              </div>
-
-              {/* Stage 10G.4 — reveal work planning per opening; never shown
-                  when reveal is disabled, and never silently enables it. */}
-              {opening.reveal_enabled && (
-                <div className="pt-2 mt-2 border-t border-slate-200">
-                  <button
-                    type="button"
-                    aria-label={`reveal-work-toggle-${opening.id}`}
-                    aria-expanded={activeRevealWorkOpeningId === opening.id}
-                    aria-controls={`reveal-work-editor-${opening.id}`}
-                    onClick={() => toggleRevealWork(opening.id)}
-                    className="w-full min-h-[44px] px-3 py-2 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition text-left"
-                  >
-                    {t.reveals.work_section_title}
-                  </button>
-
-                  {activeRevealWorkOpeningId === opening.id && (
-                    <RevealWorkPlanEditor
-                      projectId={projectId}
-                      roomId={roomId}
-                      surfaceId={surfaceId}
-                      openingId={opening.id}
-                      openingLabel={`${typeLabel(opening.opening_type)}${opening.name ? ` (${opening.name})` : ''}`}
-                      revealTotalLength={opening.reveal_total_length}
-                      revealTotalArea={opening.reveal_total_area}
-                      onClose={() => setActiveRevealWorkOpeningId(null)}
-                    />
-                  )}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

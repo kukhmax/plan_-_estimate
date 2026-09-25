@@ -319,8 +319,9 @@ export function SurfaceWorkPlanEditor({
     setCreatingPriceItem(false);
     try {
       // Load ALL active items in one shot — avoid N+1; filter client-side.
+      // Reveal work is planned per opening (Stage 10 D19), never on a surface.
       const resp = await fetchPriceItems({ archived: 'active' });
-      setAllPriceItems(resp.items);
+      setAllPriceItems(resp.items.filter((item) => item.category !== 'REVEAL'));
       setPickerState('ready');
     } catch {
       setPickerError(t.work_plan.picker_error);
@@ -367,9 +368,8 @@ export function SurfaceWorkPlanEditor({
   // new item is persisted through the normal Price Book API and immediately
   // added to this draft — the Surface Work Plan itself is never auto-saved;
   // the owner still presses the existing Save button explicitly. Category is
-  // NOT locked here: this picker already spans every active category (no
-  // server-side or client-side category restriction exists for surfaces), so
-  // locking would contradict the picker's own existing contract.
+  // not locked (the picker spans every surface category), but REVEAL is
+  // excluded: reveal work belongs under an opening.
   const handlePriceItemCreated = (item: PriceItem) => {
     addItemToDraft(item);
     closePicker();
@@ -680,6 +680,14 @@ export function SurfaceWorkPlanEditor({
                                 : `${formatPrice(item.price)} ${item.currency === 'PLN' ? t.pricebook.currency_symbol : item.currency}`}
                             </span>
                           </div>
+                          {item.category === 'REVEAL' && (
+                            <p
+                              aria-label={`legacy-reveal-note-${occurrence.draftKey}`}
+                              className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 break-words"
+                            >
+                              {t.work_plan.legacy_reveal_note}
+                            </p>
+                          )}
                           {isLabor && (
                             <button
                               type="button"
@@ -864,6 +872,7 @@ export function SurfaceWorkPlanEditor({
               creatingPriceItem ? (
                 <PriceItemForm
                   idPrefix={`work-plan-new-price-item-${surfaceId}`}
+                  excludedCategories={['REVEAL']}
                   onCancel={() => setCreatingPriceItem(false)}
                   onSaved={handlePriceItemCreated}
                 />

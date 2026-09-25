@@ -65,7 +65,7 @@ from app.models.opening_reveal_planned_work import (
     OpeningRevealPlannedWorkCoefficientAssignment,
 )
 from app.models.price_coefficient import CoefficientOption
-from app.models.price_item import PriceItem, PriceScope, PriceUnit
+from app.models.price_item import PriceCategory, PriceItem, PriceScope, PriceUnit
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
@@ -309,6 +309,86 @@ def _reveal_totals(opening: Opening) -> tuple[Decimal | None, Decimal | None]:
     if result is None:
         return None, None
     return result.total_length, result.total_area
+
+
+def _resolve_reveal_quantity(
+    item: "PriceItem", opening: Opening
+) -> tuple[Decimal | None, "QuantitySource"]:
+    """Quantity source for one opening-reveal planned-work occurrence.
+
+    LM takes the opening's total reveal length, M2 its total reveal area.
+    When that geometry cannot be derived (e.g. reveals enabled but no side
+    selected, or missing depth), the quantity is unresolved (MANUAL, NULL) --
+    never a REVEAL_* source with a 0.000 placeholder, which the finalize
+    check would accept as a real zero.
+    """
+    total_length, total_area = _reveal_totals(opening)
+    if item.unit == PriceUnit.LM and total_length is not None:
+        return total_length, QuantitySource.REVEAL_LENGTH
+    if item.unit == PriceUnit.M2 and total_area is not None:
+        return total_area, QuantitySource.REVEAL_AREA
+    return None, QuantitySource.MANUAL
+
+
+def _resolve_surface_quantity(
+    item: "PriceItem", net_area: Decimal | None
+) -> tuple[Decimal | None, "QuantitySource"]:
+    """Quantity source for one Surface planned-work occurrence.
+
+    Reveal work (stable `PriceCategory.REVEAL`, never display text) is
+    planned per opening (Stage 10 D19), where each opening's own reveal
+    geometry and coefficients apply. A legacy reveal occurrence left on a
+    Surface plan stays unresolved (MANUAL, NULL) for every unit -- never the
+    wall's net area and never an aggregate that could silently double-count
+    per-opening reveal lines -- so the owner resolves it explicitly and
+    finalization is blocked until then. Every other item keeps the Stage 10
+    rule: M2 from the surface net area, anything else unresolved.
+    """
+    if item.category == PriceCategory.REVEAL:
+        return None, QuantitySource.MANUAL
+    if item.unit == PriceUnit.M2:
+        return net_area, QuantitySource.SURFACE_NET_AREA
+    return None, QuantitySource.MANUAL
+
+
+def _match_existing_lines(
+    existing_by_pwid: dict[uuid.UUID, "EstimateLine"],
+    current: list[tuple[uuid.UUID, tuple]],
+) -> dict[uuid.UUID, "EstimateLine"]:
+    """Pair current planned-work occurrences with existing PLANNED_WORK lines.
+
+    `current` is [(occurrence id, logical key)] in generation order, where the
+    logical key is (surface_id, opening_id or None, price_item_id).
+
+    Occurrence ids are not durable: every WorkPlan / reveal-work save is a full
+    replace that recreates the rows (Stage 10 / 12D Option C). Matching only by
+    id therefore dropped every owner override (price and quantity) the moment
+    the plan was re-saved, e.g. to change a coefficient. Pairing is:
+
+    1. exact occurrence id (the plan was not re-saved since the line was made);
+    2. otherwise the same logical key, duplicates paired by order -- the k-th
+       unmatched current occurrence of a key takes the k-th unmatched existing
+       line of that key (by estimate position), so duplicates never collapse.
+    """
+    matched: dict[uuid.UUID, EstimateLine] = {}
+    used: set[uuid.UUID] = set()
+    for work_id, _key in current:
+        line = existing_by_pwid.get(work_id)
+        if line is not None:
+            matched[work_id] = line
+            used.add(line.id)
+    pool: dict[tuple, list[EstimateLine]] = {}
+    for line in sorted(existing_by_pwid.values(), key=lambda ln: ln.position):
+        if line.id in used:
+            continue
+        pool.setdefault((line.surface_id, line.opening_id, line.price_item_id), []).append(line)
+    for work_id, key in current:
+        if work_id in matched:
+            continue
+        candidates = pool.get(key)
+        if candidates:
+            matched[work_id] = candidates.pop(0)
+    return matched
 
 
 class EstimateService:
@@ -608,9 +688,7 @@ class EstimateService:
         net_area: Decimal | None,
     ) -> EstimateLine:
         item = work.price_item
-        is_m2 = item.unit == PriceUnit.M2
-        source_qty = net_area if is_m2 else None
-        qty_source = QuantitySource.SURFACE_NET_AREA if is_m2 else QuantitySource.MANUAL
+        source_qty, qty_source = _resolve_surface_quantity(item, net_area)
 
         if source_qty is None:
             quantity = Decimal("0.000")
@@ -657,17 +735,7 @@ class EstimateService:
         room: Room,
     ) -> EstimateLine:
         item = work.price_item
-        total_length, total_area = _reveal_totals(opening)
-
-        if item.unit == PriceUnit.LM:
-            source_qty = total_length
-            qty_source = QuantitySource.REVEAL_LENGTH
-        elif item.unit == PriceUnit.M2:
-            source_qty = total_area
-            qty_source = QuantitySource.REVEAL_AREA
-        else:
-            source_qty = None
-            qty_source = QuantitySource.MANUAL
+        source_qty, qty_source = _resolve_reveal_quantity(item, opening)
 
         quantity = source_qty if source_qty is not None else Decimal("0.000")
         base_price, effective_price, snapshot = _resolve_occurrence_pricing(
@@ -831,30 +899,30 @@ class EstimateService:
 
         # Build current surface lines
         surface_works = await self._load_surface_planned_works(project_id)
+        reveal_works = await self._load_reveal_planned_works(project_id)
+        matched = _match_existing_lines(existing_by_pwid, [
+            *((w.id, (s.id, None, w.price_item_id)) for w, _p, s, _r in surface_works),
+            *((w.id, (s.id, o.id, w.price_item_id)) for w, o, s, _r in reveal_works),
+        ])
         net_area_cache: dict[uuid.UUID, Decimal | None] = {}
-        current_pw_ids: set[uuid.UUID] = set()
         new_lines: list[EstimateLine] = []
         position = 0
 
         for work, plan, surface, room in surface_works:
-            current_pw_ids.add(work.id)
             if surface.id not in net_area_cache:
                 net_area_cache[surface.id] = await self._surface_net_area(surface)
-            net_area = net_area_cache[surface.id]
 
             item = work.price_item
-            is_m2 = item.unit == PriceUnit.M2
-            source_qty = net_area if is_m2 else None
-            qty_source = (
-                QuantitySource.SURFACE_NET_AREA if is_m2 else QuantitySource.MANUAL
+            source_qty, qty_source = _resolve_surface_quantity(
+                item, net_area_cache[surface.id]
             )
 
             base_price, effective_price, snapshot = _resolve_occurrence_pricing(
                 item, work.coefficient_options
             )
 
-            if work.id in existing_by_pwid:
-                line = existing_by_pwid[work.id]
+            if work.id in matched:
+                line = matched[work.id]
                 # Capture old values before modification for change entry
                 old_src_qty = line.source_quantity
                 old_unit_price = line.unit_price
@@ -865,7 +933,9 @@ class EstimateService:
                     base_price, effective_price, snapshot,
                 )
 
-                # Refresh snapshot, preserve overrides
+                # Refresh snapshot, preserve overrides; re-point to the current
+                # occurrence so a later reset reads its live configuration.
+                line.planned_work_id = work.id
                 line.position = position
                 line.plan_id = plan.id
                 line.surface_id = surface.id
@@ -961,28 +1031,16 @@ class EstimateService:
             position += 1
 
         # Reveal lines
-        reveal_works = await self._load_reveal_planned_works(project_id)
         for work, opening, surface, room in reveal_works:
-            current_pw_ids.add(work.id)
             item = work.price_item
-            total_length, total_area = _reveal_totals(opening)
-
-            if item.unit == PriceUnit.LM:
-                source_qty = total_length
-                qty_source = QuantitySource.REVEAL_LENGTH
-            elif item.unit == PriceUnit.M2:
-                source_qty = total_area
-                qty_source = QuantitySource.REVEAL_AREA
-            else:
-                source_qty = None
-                qty_source = QuantitySource.MANUAL
+            source_qty, qty_source = _resolve_reveal_quantity(item, opening)
 
             base_price, effective_price, snapshot = _resolve_occurrence_pricing(
                 item, work.coefficient_options
             )
 
-            if work.id in existing_by_pwid:
-                line = existing_by_pwid[work.id]
+            if work.id in matched:
+                line = matched[work.id]
                 old_src_qty = line.source_quantity
                 old_unit_price = line.unit_price
                 old_base_price = line.base_unit_price
@@ -992,6 +1050,7 @@ class EstimateService:
                     base_price, effective_price, snapshot,
                 )
 
+                line.planned_work_id = work.id
                 line.position = position
                 line.surface_id = surface.id
                 line.room_id = room.id
@@ -1086,9 +1145,10 @@ class EstimateService:
                 ))
             position += 1
 
-        # Remove lines whose planned_work_id is no longer present
+        # Remove lines no current occurrence was matched to
+        matched_line_ids = {line.id for line in matched.values()}
         for pw_id, line in existing_by_pwid.items():
-            if pw_id not in current_pw_ids:
+            if line.id not in matched_line_ids:
                 result.changes.append(LineChangeEntry(
                     change_type="REMOVED",
                     estimate_line_id=line.id,
@@ -1302,26 +1362,29 @@ class EstimateService:
             elif line.planned_work_id is not None:
                 existing_by_pwid[line.planned_work_id] = line
 
-        current_pw_ids: set[uuid.UUID] = set()
         net_area_cache: dict[uuid.UUID, Decimal | None] = {}
 
         surface_works = await self._load_surface_planned_works(estimate.project_id)
+        reveal_works = await self._load_reveal_planned_works(estimate.project_id)
+        # Same pairing as regeneration; preview never mutates any line.
+        matched = _match_existing_lines(existing_by_pwid, [
+            *((w.id, (s.id, None, w.price_item_id)) for w, _p, s, _r in surface_works),
+            *((w.id, (s.id, o.id, w.price_item_id)) for w, o, s, _r in reveal_works),
+        ])
         for work, _plan, surface, _room in surface_works:
-            current_pw_ids.add(work.id)
             if surface.id not in net_area_cache:
                 net_area_cache[surface.id] = await self._surface_net_area(surface)
-            net_area = net_area_cache[surface.id]
             item = work.price_item
-            is_m2 = item.unit == PriceUnit.M2
-            source_qty = net_area if is_m2 else None
-            qty_source = QuantitySource.SURFACE_NET_AREA if is_m2 else QuantitySource.MANUAL
+            source_qty, qty_source = _resolve_surface_quantity(
+                item, net_area_cache[surface.id]
+            )
 
             base_price, effective_price, snapshot = _resolve_occurrence_pricing(
                 item, work.coefficient_options
             )
 
-            if work.id in existing_by_pwid:
-                line = existing_by_pwid[work.id]
+            if work.id in matched:
+                line = matched[work.id]
                 if _snapshot_would_change(
                     line, item, source_qty, qty_source,
                     base_price, effective_price, snapshot,
@@ -1371,27 +1434,16 @@ class EstimateService:
                     new_coefficient_snapshot=snapshot,
                 ))
 
-        reveal_works = await self._load_reveal_planned_works(estimate.project_id)
         for work, opening, surface, _room in reveal_works:
-            current_pw_ids.add(work.id)
             item = work.price_item
-            total_length, total_area = _reveal_totals(opening)
-            if item.unit == PriceUnit.LM:
-                source_qty = total_length
-                qty_source = QuantitySource.REVEAL_LENGTH
-            elif item.unit == PriceUnit.M2:
-                source_qty = total_area
-                qty_source = QuantitySource.REVEAL_AREA
-            else:
-                source_qty = None
-                qty_source = QuantitySource.MANUAL
+            source_qty, qty_source = _resolve_reveal_quantity(item, opening)
 
             base_price, effective_price, snapshot = _resolve_occurrence_pricing(
                 item, work.coefficient_options
             )
 
-            if work.id in existing_by_pwid:
-                line = existing_by_pwid[work.id]
+            if work.id in matched:
+                line = matched[work.id]
                 if _snapshot_would_change(
                     line, item, source_qty, qty_source,
                     base_price, effective_price, snapshot,
@@ -1441,8 +1493,9 @@ class EstimateService:
                     new_coefficient_snapshot=snapshot,
                 ))
 
+        matched_line_ids = {line.id for line in matched.values()}
         for pw_id, line in existing_by_pwid.items():
-            if pw_id not in current_pw_ids:
+            if line.id not in matched_line_ids:
                 result.removed += 1
                 result.changes.append(LineChangeEntry(
                     change_type="REMOVED",

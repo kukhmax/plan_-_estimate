@@ -3,12 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as workPlansApi from './api/workPlans';
 import * as priceItemsApi from './api/priceItems';
 import * as coefficientsApi from './api/coefficients';
-import { ApiError } from './api/http';
+import { ApiError, domainErrorCodeFromMessage } from './api/http';
 import { SurfaceWorkPlanEditor } from './components/SurfaceWorkPlanEditor';
 import { I18nProvider } from './hooks/useI18n';
 import { CoefficientGroupRead } from './types/coefficient';
 import { PriceItem, PriceItemListResponse } from './types/priceItem';
 import { SurfaceWorkPlanApplyResult, SurfaceWorkPlanRead } from './types/workPlan';
+
+/** Stage 12 accordion: expand the coefficient group, then pick an option. */
+async function pickCoefficient(groupId: string, name: RegExp) {
+  const toggle = await screen.findByTestId(`coefficient-group-toggle-${groupId}`);
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle);
+  fireEvent.click(screen.getByRole('radio', { name }));
+}
 
 vi.mock('./api/workPlans', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./api/workPlans')>();
@@ -1309,8 +1316,8 @@ describe('SurfaceWorkPlanEditor — coefficients (Stage 12F)', () => {
   it('Apply updates only the local draft; persistence happens on the outer Save with planned_works', async () => {
     const [first] = await assignButtons();
     fireEvent.click(first);
-    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
-    fireEvent.click(screen.getByRole('radio', { name: /umeblowane/ }));
+    await pickCoefficient('grp-height', /wysoka/);
+    await pickCoefficient('grp-furniture', /umeblowane/);
     fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -1341,7 +1348,7 @@ describe('SurfaceWorkPlanEditor — coefficients (Stage 12F)', () => {
   it('persists an explicit is_base 0% option id rather than collapsing it to "Brak"', async () => {
     const buttons = await assignButtons();
     fireEvent.click(buttons[1]);
-    fireEvent.click(await screen.findByRole('radio', { name: /normalna/ }));
+    await pickCoefficient('grp-height', /normalna/);
     fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
 
     expect(screen.getAllByLabelText(/^occurrence-coefficient-summary-/)[0]).toHaveTextContent('0%');
@@ -1357,7 +1364,7 @@ describe('SurfaceWorkPlanEditor — coefficients (Stage 12F)', () => {
   it('Cancel leaves the draft untouched and the plan clean', async () => {
     const [first] = await assignButtons();
     fireEvent.click(first);
-    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
+    await pickCoefficient('grp-height', /wysoka/);
     fireEvent.click(screen.getByLabelText('coefficient-modal-cancel'));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -1387,8 +1394,9 @@ describe('SurfaceWorkPlanEditor — coefficients (Stage 12F)', () => {
     expect(screen.getByText(/54,60|54\.60/)).toBeInTheDocument();
 
     fireEvent.click(first);
-    expect(await screen.findByRole('radio', { name: /wysoka/ })).toBeChecked();
-    fireEvent.click(screen.getAllByRole('radio', { name: /Brak/ })[0]);
+    fireEvent.click(await screen.findByTestId('coefficient-group-toggle-grp-height'));
+    expect(screen.getByRole('radio', { name: /wysoka/ })).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: /Brak/ }));
     fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
     fireEvent.click(screen.getByLabelText(`save-work-plan-${surfaceId}`));
 
@@ -1419,5 +1427,92 @@ describe('SurfaceWorkPlanEditor — coefficients (Stage 12F)', () => {
 
     expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
     expect(screen.getByLabelText(`save-work-plan-${surfaceId}`)).toBeDisabled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Owner walkthrough: reveal work is planned per opening, not on a surface
+// ---------------------------------------------------------------------------
+
+describe('SurfaceWorkPlanEditor — reveal placement', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(makePlan({ planned_works: [] }));
+  });
+
+  it('never offers REVEAL-category items in the surface picker', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(
+      makePriceItemListResponse([
+        makePriceItem({ id: 'pi-reveal', display_name: 'Ościeża robocizna', category: 'REVEAL', unit: 'LM' }),
+        makePriceItem({ id: 'pi-paint', display_name: 'Malowanie', category: 'PAINTING' }),
+      ]),
+    );
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    await screen.findByLabelText(`picker-list-${surfaceId}`);
+    expect(screen.getByLabelText('picker-item-pi-paint')).toBeInTheDocument();
+    expect(screen.queryByLabelText('picker-item-pi-reveal')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ościeża robocizna')).not.toBeInTheDocument();
+  });
+
+  it('inline Price Book creation from the surface picker cannot choose REVEAL', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([]));
+    renderEditor();
+    await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    fireEvent.click(screen.getByLabelText(`open-picker-${surfaceId}`));
+    fireEvent.click(await screen.findByLabelText(`create-price-item-${surfaceId}`));
+    const select = await screen.findByLabelText(`work-plan-new-price-item-${surfaceId}-category`);
+    const values = within(select).getAllByRole('option').map((o) => (o as HTMLOptionElement).value);
+    expect(values).not.toContain('REVEAL');
+    expect(values).toContain('PAINTING');
+  });
+
+  it('keeps a legacy surface reveal occurrence visible with guidance and never auto-saves', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(
+      makePlan({
+        planned_works: [
+          {
+            id: 'legacy-1',
+            work_plan_id: 'plan-1',
+            price_item_id: 'pi-reveal',
+            position: 0,
+            price_item: {
+              id: 'pi-reveal', code: 'CENNIK_REV_WORK_LM-01', name_key: null,
+              display_name: 'Ościeża / obróbki', category: 'REVEAL', unit: 'LM',
+              price_scope: 'LABOR', price: '20.00', currency: 'PLN', is_archived: false,
+              quality_level: null,
+            },
+          },
+        ],
+      }),
+    );
+    renderEditor();
+    const rows = within(await screen.findByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent('Ościeża / obróbki');
+    expect(within(rows[0]).getByLabelText(/^legacy-reveal-note-/)).toHaveTextContent(
+      'dodaj ją w konkretnym otworze',
+    );
+    expect(screen.getByLabelText(`save-work-plan-${surfaceId}`)).toBeDisabled();
+    expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
+  });
+
+  it('shows the localized guard message if the backend rejects a surface reveal', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(makePlan());
+    const detail =
+      'Price item x: reveal work belongs under an opening (Prace na ościeżach), not on a surface work plan';
+    vi.mocked(workPlansApi.putSurfaceWorkPlan).mockRejectedValue(
+      new ApiError(detail, 422, domainErrorCodeFromMessage(detail)),
+    );
+    renderEditor();
+    fireEvent.change(await screen.findByLabelText(`work-plan-substrate-${surfaceId}`), {
+      target: { value: 'GYPSUM_PLASTER' },
+    });
+    fireEvent.click(screen.getByLabelText(`save-work-plan-${surfaceId}`));
+    expect(
+      await screen.findByText(/Prace na ościeżach dodaj w konkretnym otworze/),
+    ).toBeInTheDocument();
   });
 });

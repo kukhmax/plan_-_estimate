@@ -3,6 +3,10 @@ const API_BASE = import.meta.env.VITE_API_URL ?? '';
 // Map stable FastAPI domain-detail phrases without weakening backend validation.
 const DOMAIN_ERROR_PATTERNS: Array<{ pattern: RegExp; code: string }> = [
   {
+    pattern: /reveal work belongs under an opening/i,
+    code: 'reveal_work_requires_opening',
+  },
+  {
     pattern: /(?:total opening deductions|restoring opening with deduction)[\s\S]*would exceed wall gross area/i,
     code: 'openings_deductions_exceed_gross',
   },

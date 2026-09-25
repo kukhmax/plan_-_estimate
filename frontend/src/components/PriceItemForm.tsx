@@ -76,6 +76,9 @@ export interface PriceItemFormProps {
   lockedCategory?: PriceCategoryValue;
   /** Display text for the locked category value (localized by the caller). */
   lockedCategoryLabel?: string;
+  /** Categories this caller must never create (e.g. REVEAL on a Surface plan,
+   * where reveal work belongs under an opening). Ignored when locked. */
+  excludedCategories?: PriceCategoryValue[];
   /** aria-label / id prefix, so this form can be embedded more than once
    * across the app without colliding with Cennik's own form. */
   idPrefix?: string;
@@ -91,6 +94,7 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
       initialItem = null,
       lockedCategory,
       lockedCategoryLabel,
+      excludedCategories,
       idPrefix = 'price-item',
       titleOverride,
       onCancel,
@@ -232,7 +236,9 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
               onChange={(e) => handleFormChange('category', e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
             >
-              {PRICE_CATEGORIES.map((value) => (
+              {PRICE_CATEGORIES.filter(
+                (value) => value === form.category || !excludedCategories?.includes(value),
+              ).map((value) => (
                 <option key={value} value={value}>{categoryLabel(value)}</option>
               ))}
             </select>

@@ -729,3 +729,89 @@ describe('OpeningList — reveal work planning entry', () => {
     expect(screen.queryByLabelText(`reveal-work-editor-${openingWithReveal.id}`)).toBeNull();
   });
 });
+
+// Owner walkthrough polish: existing openings first, strong reveal action,
+// and a reveal needs at least one side.
+describe('OpeningList — owner walkthrough layout and reveal sides', () => {
+  const openingWithReveal: OpeningType = {
+    ...openingWindow,
+    reveal_enabled: true,
+    reveal_depth: '0.150',
+    reveal_total_length: '4.300',
+    reveal_total_area: '0.645',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(revealWorksApi.fetchRevealWorks).mockResolvedValue({ opening_id: openingWithReveal.id, items: [] });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [openingWithReveal], total: 1 });
+  });
+
+  const follows = (a: Element, b: Element) =>
+    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  it('shows existing openings (with geometry and reveal action) before the new-opening controls', async () => {
+    renderOpenings();
+    const item = await screen.findByLabelText(`opening-item-${openingWithReveal.id}`);
+    expect(item).toHaveTextContent('4.30');
+    const add = screen.getByLabelText(`add-opening-${surfaceId}`);
+    expect(follows(item, add)).toBe(true);
+    expect(add.className).toContain('min-h-[44px]');
+
+    fireEvent.click(add);
+    const form = screen.getByLabelText(`opening-form-${surfaceId}`);
+    expect(follows(item, form)).toBe(true);
+    expect(screen.queryByLabelText(`add-opening-${surfaceId}`)).not.toBeInTheDocument();
+  });
+
+  it('renders "Prace na ościeżach" as a strong 44px action', async () => {
+    renderOpenings();
+    const toggle = await screen.findByLabelText(`reveal-work-toggle-${openingWithReveal.id}`);
+    expect(toggle).toHaveTextContent('Prace na ościeżach');
+    expect(toggle.className).toContain('bg-orange-700');
+    expect(toggle.className).toContain('text-white');
+    expect(toggle.className).toContain('min-h-[44px]');
+  });
+
+  it('blocks saving a reveal with no side selected (localized)', async () => {
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    renderOpenings();
+    await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'WINDOW' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '1.5' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '1.4' } });
+    fireEvent.click(screen.getByLabelText(`reveal-toggle-${surfaceId}`));
+    fireEvent.change(screen.getByLabelText('reveal-depth'), { target: { value: '0.15' } });
+    fireEvent.click(screen.getByLabelText('reveal-left'));
+    fireEvent.click(screen.getByLabelText('reveal-right'));
+    fireEvent.click(screen.getByLabelText('reveal-top'));
+    fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
+    expect(await screen.findByText('Zaznacz co najmniej jedną stronę ościeżnicy.')).toBeInTheDocument();
+    expect(openingsApi.createOpening).not.toHaveBeenCalled();
+  });
+
+  it('gives Edytuj / Archiwizuj / Przywróć 44px targets and lets actions wrap below the info', async () => {
+    const archived: OpeningType = { ...openingDoor, id: 'op-archived', is_archived: true };
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [openingWithReveal, archived], total: 2 });
+    renderOpenings();
+    await screen.findByLabelText(`opening-item-${openingWithReveal.id}`);
+    for (const label of [
+      `edit-opening-${openingWithReveal.id}`,
+      `archive-opening-${openingWithReveal.id}`,
+      `edit-opening-${archived.id}`,
+      `restore-opening-${archived.id}`,
+    ]) {
+      const button = screen.getByLabelText(label);
+      expect(button.className).toContain('min-h-[44px]');
+      expect(button.className).toContain('min-w-[44px]');
+    }
+    expect(screen.getByLabelText(`restore-opening-${archived.id}`)).toHaveTextContent('Przywróć');
+    const actions = screen.getByLabelText(`edit-opening-${openingWithReveal.id}`).parentElement!;
+    const row = actions.parentElement!;
+    expect(row.className).toContain('flex-wrap');
+    expect((actions.previousElementSibling as HTMLElement).className).toContain('basis-40');
+  });
+});

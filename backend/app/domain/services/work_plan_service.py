@@ -33,7 +33,7 @@ from app.domain.rules.inspection_rules import assert_quality_scale_valid
 from app.domain.services.price_coefficient_service import PriceCoefficientService
 from app.models.checklist import QualityLevel, Substrate
 from app.models.price_coefficient import CoefficientOption
-from app.models.price_item import PriceItem
+from app.models.price_item import PriceCategory, PriceItem
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
@@ -97,8 +97,11 @@ class SurfaceWorkPlanService:
         mutation, so any raised error leaves the existing plan untouched.
 
         Active items may be selected freely. An archived item's requested count
-        cannot exceed the count already persisted on this same plan. Duplicate
-        references and exact payload order are preserved.
+        cannot exceed the count already persisted on this same plan. Reveal
+        (PriceCategory.REVEAL) work is planned per opening (Stage 10 D19), so a
+        Surface plan may keep legacy reveal occurrences it already has but never
+        gain new ones. Duplicate references and exact payload order are
+        preserved.
         """
         if not selection:
             return []
@@ -123,6 +126,14 @@ class SurfaceWorkPlanService:
                 raise SurfaceWorkPlanValidationError(
                     f"Archived price item {row.price_item_id} cannot be selected "
                     "for a work plan"
+                )
+            if (
+                item.category == PriceCategory.REVEAL
+                and requested_counts[item.id] > existing_counts[item.id]
+            ):
+                raise SurfaceWorkPlanValidationError(
+                    f"Price item {row.price_item_id}: reveal work belongs under an "
+                    "opening (Prace na ościeżach), not on a surface work plan"
                 )
             options = await coefficient_service.resolve_assignment_options(
                 owner_id, item, row.coefficient_option_ids
@@ -394,6 +405,13 @@ class SurfaceWorkPlanService:
                 raise SurfaceWorkPlanValidationError(
                     f"Source plan references an archived price item "
                     f"{work.price_item_id}; update the source plan first"
+                )
+            if item.category == PriceCategory.REVEAL:
+                # Copying would create new surface-level reveal occurrences.
+                raise SurfaceWorkPlanValidationError(
+                    f"Source plan contains price item {work.price_item_id}: "
+                    "reveal work belongs under an opening; remove it from the "
+                    "source plan first"
                 )
             options = work.coefficient_options
             for option in options:

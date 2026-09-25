@@ -651,10 +651,10 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
               setShowEstimates(true);
               setSelectedEstimate(null);
             }}
-            className="w-full min-h-11 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between hover:bg-slate-50 transition"
+            className="w-full min-h-11 bg-amber-500 border border-amber-600 rounded-2xl px-4 py-3 shadow-md flex items-center justify-between hover:bg-amber-400 active:bg-amber-600 transition"
           >
-            <span className="font-semibold text-slate-900 text-sm">{t.estimates.title}</span>
-            <span className="text-slate-400 text-sm">›</span>
+            <span className="font-bold text-slate-950 text-sm">{t.estimates.title}</span>
+            <span aria-hidden="true" className="text-slate-950 text-lg leading-none">›</span>
           </button>
 
           <RoomList

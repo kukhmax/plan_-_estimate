@@ -12,6 +12,13 @@ import { PriceItem, PriceItemListResponse } from './types/priceItem';
 import { RevealWorkApplyResult, RevealWorkItemRead, RevealWorkListResponse } from './types/revealWork';
 import { SurfaceListResponse, SurfaceType } from './types/surface';
 
+/** Stage 12 accordion: expand the coefficient group, then pick an option. */
+async function pickCoefficient(groupId: string, name: RegExp) {
+  const toggle = await screen.findByTestId(`coefficient-group-toggle-${groupId}`);
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle);
+  fireEvent.click(screen.getByRole('radio', { name }));
+}
+
 vi.mock('./api/revealWorks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./api/revealWorks')>();
   return {
@@ -985,7 +992,7 @@ describe('RevealWorkPlanEditor — coefficients (Stage 12F)', () => {
   it('Apply is draft-only; Save sends planned_works keeping duplicate occurrences independent', async () => {
     const buttons = await assignButtons();
     fireEvent.click(buttons[1]);
-    fireEvent.click(await screen.findByRole('radio', { name: /wysoka/ }));
+    await pickCoefficient('grp-height', /wysoka/);
     fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
 
     expect(revealWorksApi.putRevealWorks).not.toHaveBeenCalled();
@@ -1006,7 +1013,7 @@ describe('RevealWorkPlanEditor — coefficients (Stage 12F)', () => {
   it('persists an explicit is_base 0% option id', async () => {
     const [first] = await assignButtons();
     fireEvent.click(first);
-    fireEvent.click(await screen.findByRole('radio', { name: /normalna/ }));
+    await pickCoefficient('grp-height', /normalna/);
     fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
     fireEvent.click(screen.getByLabelText(`save-reveal-work-${openingId}`));
 

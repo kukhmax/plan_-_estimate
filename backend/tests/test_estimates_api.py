@@ -501,10 +501,11 @@ async def test_regeneration_confirm_mutates_draft(async_client: AsyncClient, db_
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()
-    # set_plan replaces all SurfacePlannedWork rows with fresh IDs, so both
-    # new rows are "added" and the stale old line is "removed".
-    assert data["added"] == 2
-    assert data["removed"] == 1
+    # set_plan replaces all SurfacePlannedWork rows with fresh IDs; the
+    # existing item_a line is paired by logical key and kept unchanged (so any
+    # owner override would survive), and only item_b is new.
+    assert data["added"] == 1
+    assert data["removed"] == 0
     assert data["updated"] == 0
 
     # Verify lines were actually updated (2 planned work lines now)

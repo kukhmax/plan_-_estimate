@@ -35,11 +35,22 @@ Private-person and company clients, phone, email, NIP, Telegram username (contac
 
 ### Surface Work Planning
 
-One ordered Work Plan per physical surface: substrate, quality target (S1–S4 / Q1–Q4), an ordered list of Price Book works (duplicates allowed, e.g. two coats), reorder/remove, "Zapisz dla wszystkich ścian" (copy one wall's plan to every other wall in the room), and inline creation of a missing Price Book work directly from the picker.
+One ordered Work Plan per physical surface: substrate, quality target (S1–S4 / Q1–Q4), an ordered list of Price Book works (duplicates allowed, e.g. two coats), reorder/remove, "Zapisz dla wszystkich ścian" (copy one wall's plan to every other wall in the room), and inline creation of a missing Price Book work directly from the picker. `REVEAL`-category work is not offered here — it belongs under a specific opening (below); a legacy reveal occurrence already saved on a Surface plan stays visible with guidance, cannot be duplicated or copied to other walls, and is an unresolved quantity in the Estimate until moved or set explicitly.
 
 ### Reveal Work Planning
 
-Per-opening ordered Price Book work selection (category `REVEAL`), reorder/remove/duplicates, "Zapisz dla wszystkich ościeży" (atomic bulk apply to every other eligible reveal-enabled opening in the room — the ordered work selection only, never geometry), and inline creation of a missing REVEAL work from the picker. `LM` (running metre) items price the reveal length; `M2` items price the reveal area.
+Per-opening ordered Price Book work selection (category `REVEAL`), reorder/remove/duplicates, "Zapisz dla wszystkich ościeży" (atomic bulk apply to every other eligible reveal-enabled opening in the room — the ordered work selection only, never geometry), and inline creation of a missing REVEAL work from the picker. `LM` (running metre) items price the reveal length; `M2` items price the reveal area. Surface and opening-reveal planning are separate: each opening keeps its own works and coefficients. Missing or incomplete reveal geometry (e.g. no reveal side selected) stays an unresolved quantity and blocks Estimate finalization; the opening form requires at least one reveal side when reveal calculation is enabled.
+
+### Price coefficients (Współczynniki)
+
+Explicit, owner-selected corrections of the base **LABOR** price for execution conditions that differ from what the Price Book price assumes (full model: [Model wyceny](#model-wyceny-jakość-powierzchni-współczynniki-i-dopłaty) below). They are **not** quality classes: S1–S4 and Q1–Q4 / PSG1–PSG4 remain quality targets, never coefficients.
+
+- Assigned per planned-work occurrence (Surface or opening reveal), never automatically; `MATERIAL` / `LABOR_AND_MATERIAL` items take no coefficient.
+- Default single-select groups: **Wysokość pracy**, **Dostęp do powierzchni**, **Złożoność powierzchni**, **Organizacja pracy**. Each has an explicit `0%` base option, which is a real recorded choice — different from **Brak** (no selection).
+- Groups combine **additively** with exact Decimal arithmetic: `effective = base × (1 + Σ%)`, never compounded; a combined correction above +50% shows an informational (non-blocking) warning.
+- The owner can create, edit, archive and restore groups/options (Cennik → Współczynniki); every default has a PL/RU description shown via an info button. Owner edits always take precedence over built-in translations.
+
+### Inspections, Risks & Work Recommendations
 
 ### Inspections, Risks & Work Recommendations
 
@@ -55,6 +66,8 @@ Owner-scoped, editable catalog with market/reference evidence shown for context 
 - Authoritative backend-computed totals; per-line quantity and price overrides with explicit reset; grouped bulk price editing; freeform manual lines (add/edit/delete, no Price Book row required).
 - Regeneration is always explicit: **"Sprawdź zmiany"** shows a mutation-free preview of what changed across every room, then **"Aktualizuj kosztorys"** confirms it. Nothing ever regenerates silently.
 - `NULL` price blocks finalization; an explicit `0.00` does not.
+- Each planned-work line stores its coefficient provenance (base price and the selected coefficients). A manual price override replaces the calculated price but keeps that provenance; **"Przywróć cenę z cennika"** recalculates from the *current* base price and *current* coefficients.
+- Manual price and quantity overrides survive re-saving a Work Plan (lines are matched logically, not only by the non-durable occurrence id); `FINAL` / `ACCEPTED` estimates are never changed.
 - **"Finalizuj kosztorys"** transitions a DRAFT to an immutable `FINAL` snapshot; a further commercial revision is made by generating the next DRAFT version, which is a **fresh** generation from the current plans (manual lines and overrides are not copied forward). Historical `FINAL` versions are never mutated by later planning changes.
 
 ## Snapshot model
@@ -189,7 +202,7 @@ See [`docs/development-progress.md`](docs/development-progress.md) for the detai
 - **Stages 0–9**: COMPLETE (engineering foundation, auth, Clients, Projects, Rooms/Surfaces/measurements, Inspection Checklist Engine, Risk Rules Engine, Client Communication Assistant, editable Price Book).
 - **Stage 10 (Estimate / Kosztorys)**: **COMPLETE — OWNER ACCEPTED** after the final real-Telegram production walkthrough. See [`docs/stage-10-architecture.md`](docs/stage-10-architecture.md) and [`docs/development-progress.md`](docs/development-progress.md) for the full sub-stage history.
 - **Stage 11 (Inspection → recommended work → Estimate)**: **COMPLETE — OWNER ACCEPTED** after production deployment and the real Telegram Mini App owner walkthrough; integrated into `main`. See [`docs/stage-11-architecture.md`](docs/stage-11-architecture.md) and [`docs/development-progress.md`](docs/development-progress.md) for the full sub-stage history.
-- **Stage 12 (Price coefficients)**: **IN PROGRESS** on branch `stage-12` — 12C–12F (coefficient catalog, per-occurrence assignment, Estimate calculation/snapshot, mobile UI) implemented and pushed; **12G canonical pricing model defined** (see [Model wyceny](#model-wyceny-jakość-powierzchni-współczynniki-i-dopłaty) below and [`docs/stage-12-architecture.md`](docs/stage-12-architecture.md) §27), its implementation pending; 12H (hardening + production) pending. Not yet deployed or merged to `main`.
+- **Stage 12 (Price coefficients)**: implementation **COMPLETE** on branch `stage-12` (12A–12H plus owner-walkthrough corrections; automated verification and local owner walkthrough PASS). **Production deployment, Telegram production walkthrough and owner acceptance: PENDING.** Not merged to `main`. See [`docs/stage-12-architecture.md`](docs/stage-12-architecture.md) and [`docs/development-progress.md`](docs/development-progress.md).
 - Stages 13–20: pending, not started.
 
 ## Telegram Mini App development

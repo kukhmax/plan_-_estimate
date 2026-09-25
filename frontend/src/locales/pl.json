@@ -31,6 +31,7 @@
     "pricebook": "Cennik"
   },
   "errors": {
+    "reveal_work_requires_opening": "Prace na ościeżach dodaj w konkretnym otworze (Prace na ościeżach), a nie w planie ściany.",
     "openings_deductions_exceed_gross": "Łączna powierzchnia otworów nie może przekraczać powierzchni ściany.",
     "openings_require_wall_surface": "Otwory można dodawać tylko do ścian.",
     "validation_required": "To pole jest wymagane.",
@@ -198,6 +199,7 @@
     "add_wall": "Dodaj ścianę"
   },
   "work_plan": {
+    "legacy_reveal_note": "Praca na ościeżach zapisana na ścianie (starsze ustawienie). Zalecane: dodaj ją w konkretnym otworze → Prace na ościeżach i usuń stąd. Ta pozycja nie ma automatycznej ilości.",
     "title": "Rodzaje prac i jakość",
     "loading": "Ładowanie planu prac...",
     "error_load": "Nie udało się załadować planu prac.",
@@ -878,6 +880,7 @@
     }
   },
   "reveals": {
+    "sides_required": "Zaznacz co najmniej jedną stronę ościeżnicy.",
     "toggle": "Oblicz ościeża",
     "depth": "Głębokość (m)",
     "sides": "Strony ościeżnicy",
@@ -1060,6 +1063,14 @@
     "show_description": "Pokaż opis: {name}",
     "high_total_warning": "Wysoka łączna korekta ceny ({percent}).\nSprawdź, czy wybrane współczynniki opisują niezależne utrudnienia oraz czy ich wpływ nie został już uwzględniony w cenie bazowej lub innych pozycjach kosztorysu.",
     "percentage_placeholder": "np. 20 lub -10",
+    "option_count": {
+      "one": "{count} opcja",
+      "few": "{count} opcje",
+      "many": "{count} opcji",
+      "other": "{count} opcji"
+    },
+    "base_summary": "Baza: {name} {percent}",
+    "no_base_summary": "Brak opcji bazowej",
     "builtin": {
       "WYSOKOSC_PRACY": {
         "name": "Wysokość pracy",

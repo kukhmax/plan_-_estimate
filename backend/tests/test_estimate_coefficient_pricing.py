@@ -638,10 +638,10 @@ class TestE_Preview:
 
     async def test_preview_detects_selection_change(self, db_session):
         """Changing a selection requires a full WorkPlan replace, which (per
-        Stage 12D Option C) always recreates the occurrence row with a new
-        id -- so the diff is ADDED (new occurrence, new coefficients) +
-        REMOVED (old occurrence), never UPDATED. This is the existing Stage
-        10 non-durable-occurrence-id behavior, unchanged by 12E."""
+        Stage 12D Option C) recreates the occurrence row with a new id.
+        Regeneration pairs the line with the re-created occurrence by logical
+        key (owner walkthrough fix), so this is one UPDATED entry -- never
+        ADDED + REMOVED, which used to drop manual overrides."""
         user, project, room, surface, item, group, options, estimate = (
             await self._setup_draft(db_session, 5000052)
         )
@@ -660,15 +660,13 @@ class TestE_Preview:
         result = await EstimateService(db_session).preview_regeneration(
             project.id, estimate.id, user.id
         )
-        assert result.added == 1
-        assert result.removed == 1
-        added = next(c for c in result.changes if c.change_type == "ADDED")
-        assert len(added.new_coefficient_snapshot) == 2
+        assert (result.added, result.removed, result.updated) == (0, 0, 1)
+        updated = next(c for c in result.changes if c.change_type == "UPDATED")
+        assert len(updated.new_coefficient_snapshot) == 2
 
     async def test_preview_detects_coefficient_removed(self, db_session):
-        """Same non-durable-id caveat as selection-change above: removing
-        the coefficient still requires a full replace, so this surfaces as
-        ADDED (new occurrence, no coefficients) + REMOVED (old occurrence)."""
+        """Removing the coefficient is also a full replace; the line is
+        paired by logical key and surfaces as one UPDATED entry."""
         user, project, room, surface, item, group, options, estimate = (
             await self._setup_draft(db_session, 5000053)
         )
@@ -681,10 +679,9 @@ class TestE_Preview:
         result = await EstimateService(db_session).preview_regeneration(
             project.id, estimate.id, user.id
         )
-        assert result.added == 1
-        assert result.removed == 1
-        added = next(c for c in result.changes if c.change_type == "ADDED")
-        assert added.new_coefficient_snapshot == []
+        assert (result.added, result.removed, result.updated) == (0, 0, 1)
+        updated = next(c for c in result.changes if c.change_type == "UPDATED")
+        assert updated.new_coefficient_snapshot == []
 
     async def test_preview_detects_coefficient_added(self, db_session):
         user = await _make_user(db_session, 5000054)
@@ -711,10 +708,9 @@ class TestE_Preview:
         result = await EstimateService(db_session).preview_regeneration(
             project.id, estimate.id, user.id
         )
-        assert result.added == 1
-        assert result.removed == 1
-        added = next(c for c in result.changes if c.change_type == "ADDED")
-        assert len(added.new_coefficient_snapshot) == 1
+        assert (result.added, result.removed, result.updated) == (0, 0, 1)
+        updated = next(c for c in result.changes if c.change_type == "UPDATED")
+        assert len(updated.new_coefficient_snapshot) == 1
 
     async def test_preview_invalid_aggregate_rejected_safely(self, db_session):
         user, project, room, surface, item, group, options, estimate = (
@@ -793,10 +789,9 @@ class TestF_Regeneration:
         service = EstimateService(db_session)
         result = await service.regenerate_draft(estimate.id, user.id, project.id)
         # The WorkPlan replace recreated the occurrence with a new id
-        # (Stage 12D Option C), so this is ADDED + REMOVED, not UPDATED --
-        # same established Stage 10 non-durable-occurrence-id behavior.
-        assert result.added == 1
-        assert result.removed == 1
+        # (Stage 12D Option C); regeneration pairs it by logical key, so the
+        # existing line is UPDATED in place (overrides would survive).
+        assert (result.added, result.removed, result.updated) == (0, 0, 1)
         refetched = await service.get_estimate_detail(project.id, estimate.id, user.id)
         assert len(refetched.lines) == 1
         assert refetched.lines[0].base_unit_price == Decimal("40.00")
