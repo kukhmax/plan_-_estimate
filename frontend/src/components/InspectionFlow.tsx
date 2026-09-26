@@ -163,6 +163,7 @@ export function InspectionFlow({
   const [numberErrors, setNumberErrors] = useState<Record<string, string>>({});
 
   const isCompleted = inspection?.status === 'COMPLETED';
+  const isFloorTarget = target.kind === 'plane' && target.plane === 'FLOOR';
 
   useEffect(() => {
     // Only load from the backend when a real inspection is requested. For a new
@@ -586,8 +587,14 @@ export function InspectionFlow({
               type="button"
               aria-label={t.inspections.next}
               className="min-h-11 flex-1 rounded-lg bg-blue-600 px-3 font-medium text-white disabled:opacity-50"
-              disabled={substrate === null}
-              onClick={() => setStep('quality')}
+              disabled={substrate === null || saving}
+              onClick={() => {
+                if (!substrate) return;
+                // 13F-PRE FIX.2: S1-S4 / Q1-Q4 are wall/ceiling finishing
+                // classes; a FLOOR inspection never asks for one.
+                if (isFloorTarget) void beginInspection({ substrate, quality: null });
+                else setStep('quality');
+              }}
             >
               {t.inspections.next}
             </button>
@@ -623,8 +630,16 @@ export function InspectionFlow({
           <button
             type="button"
             aria-label={t.inspections.skip}
-            className="min-h-10 self-start rounded-lg text-sm text-neutral-600 underline"
-            onClick={() => setQuality(null)}
+            className="min-h-11 px-3 self-start rounded-lg text-sm text-neutral-600 underline disabled:opacity-50"
+            disabled={saving || substrate === null}
+            onClick={() => {
+              // 13F-PRE FIX.2: Skip is a real transition -- start the
+              // inspection without a quality class (it used to only clear the
+              // selection and stay on this screen).
+              if (!substrate) return;
+              setQuality(null);
+              void beginInspection({ substrate, quality: null });
+            }}
           >
             {t.inspections.skip}
           </button>

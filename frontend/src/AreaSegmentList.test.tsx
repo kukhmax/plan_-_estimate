@@ -110,13 +110,14 @@ const canonicalPlanes: SurfaceListResponse = {
   total: 2,
 };
 
-function renderAreaSegments(onMeasurementChanged = vi.fn()) {
+function renderAreaSegments(onMeasurementChanged = vi.fn(), onInspectPlane?: (plane: 'FLOOR' | 'CEILING') => void) {
   return render(
     <I18nProvider>
       <AreaSegmentList
         projectId={projectId}
         roomId={roomId}
         onMeasurementChanged={onMeasurementChanged}
+        onInspectPlane={onInspectPlane}
       />
     </I18nProvider>,
   );
@@ -688,5 +689,53 @@ describe('AreaSegmentList — surface type card tints (Stage 10G.4)', () => {
     expect(screen.getByLabelText(`work-plan-${floorSurfaceId}`)).toBeInTheDocument();
     expect(screen.getByLabelText('options-toggle-ceiling')).toBeInTheDocument();
     expect(screen.getByLabelText(`work-plan-${ceilingSurfaceId}`)).toBeInTheDocument();
+  });
+});
+
+describe('AreaSegmentList plane inspection in Opcje (13F-PRE)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(canonicalPlanes);
+  });
+
+  it('CEILING inspection is reachable only inside CEILING Opcje; FLOOR offers none (FIX.2)', async () => {
+    const onInspectPlane = vi.fn();
+    renderAreaSegments(vi.fn(), onInspectPlane);
+    const floorToggle = await screen.findByLabelText('options-toggle-floor');
+    expect(screen.queryByLabelText('inspect-ceiling')).not.toBeInTheDocument();
+
+    fireEvent.click(floorToggle);
+    expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument(); // Opcje open
+    expect(screen.queryByLabelText('inspect-floor')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('options-toggle-ceiling'));
+    const ceilingButton = screen.getByLabelText('inspect-ceiling');
+    expect(ceilingButton).toHaveTextContent('Badanie sufitu');
+    fireEvent.click(ceilingButton);
+    expect(onInspectPlane).toHaveBeenCalledTimes(1);
+    expect(onInspectPlane).toHaveBeenCalledWith('CEILING');
+  });
+
+  it('touched plane Opcje controls meet the 44 px target class', async () => {
+    renderAreaSegments(vi.fn(), vi.fn());
+    fireEvent.click(await screen.findByLabelText('options-toggle-ceiling'));
+    for (const label of ['add-ceiling-rectangle', 'add-ceiling-subtraction', 'inspect-ceiling']) {
+      expect(screen.getByLabelText(label).className).toContain('min-h-11');
+    }
+  });
+
+  it('renders no inspection button when no handler is given', async () => {
+    renderAreaSegments();
+    fireEvent.click(await screen.findByLabelText('options-toggle-ceiling'));
+    expect(screen.queryByLabelText('inspect-ceiling')).not.toBeInTheDocument();
+  });
+
+  it('labels the plane inspection in Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    renderAreaSegments(vi.fn(), vi.fn());
+    fireEvent.click(await screen.findByLabelText('options-toggle-ceiling'));
+    expect(screen.getByLabelText('inspect-ceiling')).toHaveTextContent(/потолка/);
   });
 });

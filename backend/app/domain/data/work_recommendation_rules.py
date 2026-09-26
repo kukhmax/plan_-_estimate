@@ -34,7 +34,42 @@ price snapshot.
 """
 from dataclasses import dataclass
 
-from app.models.work_recommendation import WorkRecommendationTriggerType
+from app.models.work_recommendation import (
+    WorkRecommendationTargetKind,
+    WorkRecommendationTriggerType,
+)
+
+_T = WorkRecommendationTargetKind
+# Wall / ceiling finishing works: primers "pod szpachlowanie", skim-coat repairs.
+_WALL_CEILING = frozenset({_T.WALL, _T.CEILING, _T.ROOM})
+
+# Stage 13F-PRE: explicit catalog compatibility of each recommended work with
+# the inspection target it may be recommended for. The four baseline works
+# are wall/ceiling finishing operations (primer under skim coat, contact
+# primer, local skim repair, crack repair) -- none is a floor work, so a FLOOR
+# inspection gets no recommendation from them. ROOM stays allowed (advisory
+# only, never accepted into a plan). The current catalog has no FLOOR work
+# (e.g. floor primer, self-levelling screed): a documented future catalog
+# task, never substituted by a wall/ceiling item.
+RECOMMENDED_WORK_TARGET_KINDS: dict[str, frozenset[WorkRecommendationTargetKind]] = {
+    "CENNIK_PRIM_STD-01": _WALL_CEILING,
+    "CENNIK_PRIM_ADH-01": _WALL_CEILING,
+    "CENNIK_SKIM_LOCAL-01": _WALL_CEILING,
+    "CENNIK_SKIM_CRACK-01": _WALL_CEILING,
+}
+
+
+def recommended_work_allows_target(
+    recommended_work_code: str, target_kind: WorkRecommendationTargetKind
+) -> bool:
+    """True when the recommended work is explicitly compatible with the target.
+    A code without an explicit entry is never recommended for FLOOR (floor
+    compatibility must be declared, never inferred); other targets keep the
+    pre-13F-PRE behaviour."""
+    allowed = RECOMMENDED_WORK_TARGET_KINDS.get(recommended_work_code)
+    if allowed is None:
+        return target_kind is not WorkRecommendationTargetKind.FLOOR
+    return target_kind in allowed
 
 
 @dataclass(frozen=True)

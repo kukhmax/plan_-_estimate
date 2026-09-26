@@ -1283,3 +1283,39 @@ S1–S4 / Q1–Q4 / PSG1–PSG4 semantics unchanged.
   docstring now states the real apply behaviour for archived items (required blocks, optional
   unselectable, nothing skipped silently).
 - **No migration**; single Alembic head `0029_application_fingerprint`. Frontend unchanged in 13F.2.
+
+## 31. Stage 13F-PRE — room / surface / object corrections (not template management)
+
+Owner Telegram walkthrough fixes made before 13F.3, recorded separately from 13F. No migration, no model change.
+
+- **Wall generation CTA** — shown only when the room has no WALL surface, archived ones included (the
+  backend `generate_walls` creates a set whenever no ACTIVE wall exists, so archived walls would otherwise
+  invite a duplicate set). Backend generation rules unchanged.
+- **Room opening summary** — `RoomRead.opening_groups` (read-only): active openings on active surfaces,
+  grouped by type + exact Decimal width/height (`domain/rules/opening_summary.py`), quantities summed,
+  DOOR → WINDOW → OTHER.
+- **Inspection navigation** — FLOOR / CEILING inspection from the plane card's Opcje. The room-level entry is
+  kept: room-level inspections (`surface_id` and `plane` null) are genuinely room-scoped persisted data.
+- **FLOOR recommendations** — rules had no target compatibility; the baseline works are wall/ceiling works.
+  `RECOMMENDED_WORK_TARGET_KINDS` declares each work's compatible targets (FLOOR only when explicit),
+  applied at evaluation; accept refuses to auto-resolve an incompatible pre-fix row (manual choice allowed).
+  Missing FLOOR works (e.g. floor primer, self-levelling screed) are a future catalog task.
+- **Object summary** — `GET /projects/{id}/summary` (read-only): Decimal sums of active rooms' canonical
+  `RoomCalculations` + openings grouped across rooms; rendered after the room list. No frontend geometry.
+
+### 31.1 13F-PRE FIX.2 — inspection UX and wall section (owner walkthrough)
+
+- **No generic room-level inspection** (owner decision): the room workspace no longer offers "Badanie
+  pomieszczenia"; the standalone "Badania podłoża" section is removed. Historical room-level records are kept
+  in storage untouched; backend support is unchanged; no history UI is added.
+- **"Powierzchnie" → "Ściany"** for the wall-only room-workspace section (heading only).
+- **Checklist audit:** templates are substrate-keyed, target-agnostic wall/ceiling finishing checklists
+  (7 generic questions, +4 drywall for gypsum board). FLOOR and CEILING both receive them; there is no
+  floor checklist. Inspection `quality_target` feeds no risk/finding/recommendation (no QUALITY_IN /
+  TARGET_IN rule) and never changes WorkPlan quality.
+- **Availability:** FLOOR inspection is not offered and the wizard never asks FLOOR for S1–S4/Q1–Q4;
+  CEILING keeps its inspection and substrate-scoped S/Q step; WALL unchanged. "Pomiń" now starts the
+  inspection without a class (it previously only cleared the selection).
+- **Deferred — Floor Inspection & Floor Preparation Catalog:** floor substrates, flatness/level, cracks,
+  strength/cohesion, moisture, contamination/adhesion, existing coatings/adhesives, preparation
+  recommendations and FLOOR PriceItems, designed separately.

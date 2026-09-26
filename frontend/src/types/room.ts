@@ -1,3 +1,27 @@
+import { OpeningTypeValue } from './opening';
+
+/** One grouped opening row (backend Decimal strings, exact grouping). */
+export interface OpeningGroup {
+  opening_type: OpeningTypeValue;
+  width: string;
+  height: string;
+  quantity: number;
+}
+
+/** Object summary over active rooms (GET /projects/{id}/summary). Every
+ * value is a backend Decimal sum of canonical room calculations. */
+export interface ProjectSummary {
+  room_count: number;
+  floor_area: string | null;
+  ceiling_area: string | null;
+  total_wall_area: string | null;
+  total_deduction_area: string | null;
+  net_wall_area: string | null;
+  reveal_total_length: string | null;
+  reveal_total_area: string | null;
+  opening_groups: OpeningGroup[];
+}
+
 export interface RoomCalculations {
   floor_area: string | number | null;
   ceiling_area: string | number | null;
@@ -28,6 +52,8 @@ export interface RoomType {
   created_at: string;
   updated_at: string;
   calculations?: RoomCalculations | null;
+  /** Stage 13F-PRE: active openings on active surfaces, grouped server-side. */
+  opening_groups?: OpeningGroup[];
 }
 
 export interface RoomListResponse {

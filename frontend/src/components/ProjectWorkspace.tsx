@@ -27,6 +27,8 @@ import { EstimateShell } from './EstimateShell';
 import { InspectionFlow } from './InspectionFlow';
 import { InspectionList } from './InspectionList';
 import { RoomList } from './RoomList';
+import { OpeningGroupList } from './OpeningGroupList';
+import { ProjectSummaryCard } from './ProjectSummaryCard';
 import { SurfaceList } from './SurfaceList';
 
 interface ProjectFormState {
@@ -115,6 +117,8 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   const [listVersion, setListVersion] = useState(0);
 
   const [showEstimates, setShowEstimates] = useState(false);
+  // Bumped after a room change so the object summary reloads (13F-PRE).
+  const [summaryToken, setSummaryToken] = useState(0);
   const [selectedEstimate, setSelectedEstimate] = useState<EstimateSummaryRead | null>(null);
   const [selectedEstimateGroupKey, setSelectedEstimateGroupKey] = useState<string | null>(null);
 
@@ -683,8 +687,14 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
           <RoomList
             projectId={selectedProject.id}
             onOpenRoom={openRoom}
-            onRoomChanged={load}
+            onRoomChanged={() => {
+              load();
+              setSummaryToken((n) => n + 1);
+            }}
           />
+
+          {/* Stage 13F-PRE: object-level aggregate, after all room cards. */}
+          <ProjectSummaryCard projectId={selectedProject.id} refreshToken={summaryToken} />
         </>
       )}
 
@@ -864,6 +874,13 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
                     )}
                   </div>
                 )}
+
+                {/* Stage 13F-PRE: which openings stand behind the figures above. */}
+                {(selectedRoom.opening_groups ?? []).length > 0 && (
+                  <div className="pt-2 border-t border-slate-100 text-[11px]">
+                    <OpeningGroupList groups={selectedRoom.opening_groups ?? []} label="room-openings-summary" />
+                  </div>
+                )}
               </div>
             ) : (
               <div
@@ -985,43 +1002,15 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
             </form>
           )}
 
-          <section
-            aria-label="room-inspection-entry"
-            className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2.5"
-          >
-            <h4 className="text-sm font-semibold text-slate-900">{t.inspections.title}</h4>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                aria-label="inspect-room"
-                onClick={() => openInspectionList({ kind: 'room' })}
-                className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
-              >
-                {t.inspections.inspect_room}
-              </button>
-              <button
-                type="button"
-                aria-label="inspect-floor"
-                onClick={() => openInspectionList({ kind: 'plane', plane: 'FLOOR' })}
-                className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
-              >
-                {t.inspections.inspect_floor}
-              </button>
-              <button
-                type="button"
-                aria-label="inspect-ceiling"
-                onClick={() => openInspectionList({ kind: 'plane', plane: 'CEILING' })}
-                className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
-              >
-                {t.inspections.inspect_ceiling}
-              </button>
-            </div>
-          </section>
-
+          {/* Stage 13F-PRE FIX.2 (owner decision): no generic room-level
+              inspection workflow. Inspections follow the inspected surface:
+              WALL -> wall card Opcje, CEILING -> ceiling card Opcje. Historical
+              room-level records stay in storage untouched (not deleted/migrated). */}
           <AreaSegmentList
             projectId={selectedProject.id}
             roomId={selectedRoom.id}
             onMeasurementChanged={refreshSelectedRoom}
+            onInspectPlane={(plane) => openInspectionList({ kind: 'plane', plane })}
           />
 
           <SurfaceList

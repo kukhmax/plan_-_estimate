@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.data.work_recommendation_rules import (
     build_baseline_work_recommendation_rules,
+    recommended_work_allows_target,
 )
 from app.domain.exceptions import (
     PriceItemNotFoundError,
@@ -401,6 +402,8 @@ class WorkRecommendationService:
             for rule in rules_by_trigger.get(
                 (WorkRecommendationTriggerType.RISK_RULE, risk.rule_code), []
             ):
+                if not recommended_work_allows_target(rule.recommended_work_code, target_kind):
+                    continue  # 13F-PRE: e.g. a wall/ceiling work is never a FLOOR recommendation
                 desired = _Desired(
                     inspection_id=inspection.id,
                     trigger_type=WorkRecommendationTriggerType.RISK_RULE,
@@ -427,6 +430,8 @@ class WorkRecommendationService:
             for rule in rules_by_trigger.get(
                 (WorkRecommendationTriggerType.FINDING, finding.finding_key), []
             ):
+                if not recommended_work_allows_target(rule.recommended_work_code, target_kind):
+                    continue
                 desired = _Desired(
                     inspection_id=inspection.id,
                     trigger_type=WorkRecommendationTriggerType.FINDING,
@@ -725,6 +730,18 @@ class WorkRecommendationService:
             raise WorkRecommendationTargetError(
                 "ROOM-level recommendations are advisory-only and cannot be "
                 "accepted directly into a Surface work plan"
+            )
+
+        if price_item_id is None and not recommended_work_allows_target(
+            recommendation.recommended_work_code, recommendation.target_kind
+        ):
+            # A row materialized before 13F-PRE (e.g. a wall/ceiling work on
+            # FLOOR) must not auto-resolve into an incompatible work; the
+            # owner may still pick a price item manually.
+            raise WorkRecommendationTargetError(
+                f"Recommended work {recommendation.recommended_work_code} is not "
+                f"compatible with a {recommendation.target_kind.value} target; "
+                "choose a price item manually"
             )
 
         work_plan_service = SurfaceWorkPlanService(self.db)

@@ -47,3 +47,15 @@ export function summarizeOpenings(openings: OpeningType[] | undefined | null): O
 export function formatOpeningDimension(value: string): string {
   return Number(value).toFixed(2).replace('.', ',');
 }
+
+/**
+ * Display a backend Decimal dimension string exactly, without float math:
+ * at least 2 decimals, a significant 3rd decimal is kept, so two distinct
+ * server groups (1.700 vs 1.701) never render identically.
+ * "0.900" -> "0.90", "1.701" -> "1.701", "2" -> "2.00".
+ */
+export function formatExactDimension(value: string): string {
+  const [intPart, frac = ''] = value.split('.');
+  const trimmed = frac.replace(/0+$/, '');
+  return `${intPart}.${trimmed.length >= 2 ? trimmed : trimmed.padEnd(2, '0')}`;
+}

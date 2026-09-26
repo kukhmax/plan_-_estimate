@@ -6,7 +6,13 @@ from app.api.deps import get_current_user, get_room_service
 from app.domain.exceptions import ProjectNotFoundError, RoomNotFoundError
 from app.domain.services.room_service import RoomService
 from app.models.user import User
-from app.schemas.room import RoomCreate, RoomListResponse, RoomRead, RoomUpdate
+from app.schemas.room import (
+    ProjectSummaryRead,
+    RoomCreate,
+    RoomListResponse,
+    RoomRead,
+    RoomUpdate,
+)
 
 router = APIRouter()
 
@@ -38,6 +44,26 @@ async def list_rooms(
         items=[RoomRead.model_validate(room) for room in items],
         total=total,
     )
+
+
+@router.get(
+    "/projects/{project_id}/summary",
+    response_model=ProjectSummaryRead,
+    status_code=status.HTTP_200_OK,
+    summary="Read-only object summary over active rooms (areas, reveals, grouped openings)",
+)
+async def get_project_summary(
+    project_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    room_service: RoomService = Depends(get_room_service),
+) -> ProjectSummaryRead:
+    try:
+        return await room_service.get_project_summary(project_id, owner_id=current_user.id)
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
 
 
 @router.post(

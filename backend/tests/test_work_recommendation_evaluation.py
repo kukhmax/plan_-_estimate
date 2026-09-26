@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import uuid
 
+from app.domain.data.work_recommendation_rules import RECOMMENDED_WORK_TARGET_KINDS
 from app.domain.rules.risk_rules import compute_source_signature
 from app.domain.services.canonical_planes import ensure_canonical_plane_surfaces
 from app.domain.services.work_recommendation_service import WorkRecommendationService
@@ -610,7 +611,13 @@ class TestAFGH_TargetDerivation:
         assert result.recommendations[0].target_kind == WorkRecommendationTargetKind.WALL
         assert result.recommendations[0].surface_id == wall.id
 
-    async def test_floor_target_uses_canonical_floor_surface(self, db_session):
+    async def test_floor_target_uses_canonical_floor_surface(self, db_session, monkeypatch):
+        # 13F-PRE: FLOOR needs an explicitly FLOOR-compatible work; this test
+        # is about target derivation, so it declares a synthetic floor work.
+        monkeypatch.setitem(
+            RECOMMENDED_WORK_TARGET_KINDS, "FLOOR_LEVEL_TEST",
+            frozenset({WorkRecommendationTargetKind.FLOOR}),
+        )
         user = await _make_user(db_session, 211031)
         project = await _make_project(db_session, user.id)
         room = await _make_room(db_session, project.id)
@@ -623,7 +630,7 @@ class TestAFGH_TargetDerivation:
         await _make_finding(db_session, inspection.id, finding_key="floor_uneven")
         await _make_rule(
             db_session, trigger_type=WorkRecommendationTriggerType.FINDING,
-            trigger_code="floor_uneven",
+            trigger_code="floor_uneven", recommended_work_code="FLOOR_LEVEL_TEST",
         )
         service = WorkRecommendationService(db_session)
         result = await service.evaluate_recommendations(project.id, room.id, user.id)

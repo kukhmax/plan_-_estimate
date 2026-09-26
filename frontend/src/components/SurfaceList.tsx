@@ -102,6 +102,8 @@ export function SurfaceList({
   const [activeWorkPlanSurfaceId, setActiveWorkPlanSurfaceId] = useState<string | null>(null);
   const effectiveWallMode = wallMode ?? 'RECTANGLE';
   const [generating, setGenerating] = useState(false);
+  /** null = not known yet (CTA hidden until known). */
+  const [roomHasWalls, setRoomHasWalls] = useState<boolean | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [pendingQuickOpening, setPendingQuickOpening] = useState<PendingQuickOpening | null>(null);
   const quickActionKeyRef = useRef(0);
@@ -138,6 +140,19 @@ export function SurfaceList({
     try {
       const data = await fetchSurfaces(projectId, roomId, includeArchived);
       setSurfaces(data.items);
+      // Stage 13F-PRE: the 4-wall generation CTA is offered only when the
+      // room has no WALL surface at all -- archived ones included, because
+      // the backend would create a second set next to archived walls.
+      let hasWalls = data.items.some((s) => s.surface_type === 'WALL');
+      if (!hasWalls && !includeArchived) {
+        try {
+          const all = await fetchSurfaces(projectId, roomId, true);
+          hasWalls = all.items.some((s) => s.surface_type === 'WALL');
+        } catch {
+          hasWalls = true; // unknown -> never invite a possible duplicate set
+        }
+      }
+      setRoomHasWalls(hasWalls);
     } catch (err) {
       setError(err instanceof Error ? err.message : t.surfaces.error);
     } finally {
@@ -428,16 +443,16 @@ export function SurfaceList({
 
   return (
     <section aria-label="surfaces-section" className="w-full mt-5">
-      <h3 className="text-lg font-bold text-[var(--tg-theme-text-color)] mb-3">{t.surfaces.title}</h3>
+      <h3 className="text-lg font-bold text-[var(--tg-theme-text-color)] mb-3">{t.surfaces.walls_section_title}</h3>
 
-      {effectiveWallMode === 'RECTANGLE' && hasRoomDimensions && (
+      {effectiveWallMode === 'RECTANGLE' && hasRoomDimensions && roomHasWalls === false && (
         <div className="mb-3">
           <button
             type="button"
             aria-label="generate-walls"
             onClick={() => void handleGenerateWalls()}
             disabled={generating}
-            className="w-full px-3 py-2 text-sm bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition disabled:opacity-60"
+            className="w-full min-h-11 px-3 py-2 text-sm bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition disabled:opacity-60"
           >
             {generating ? t.common.saving : t.surfaces.generate_walls}
           </button>

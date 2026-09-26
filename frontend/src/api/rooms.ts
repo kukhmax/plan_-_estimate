@@ -1,5 +1,6 @@
 import { apiRequest } from './http';
 import {
+  ProjectSummary,
   RoomCreatePayload,
   RoomListResponse,
   RoomType,
@@ -13,6 +14,11 @@ function roomsPath(projectId: string): string {
 export function fetchRooms(projectId: string, includeArchived = false): Promise<RoomListResponse> {
   const query = includeArchived ? '?include_archived=true' : '';
   return apiRequest(`${roomsPath(projectId)}${query}`);
+}
+
+/** Read-only object summary over active rooms (Stage 13F-PRE). */
+export function fetchProjectSummary(projectId: string): Promise<ProjectSummary> {
+  return apiRequest(`/api/projects/${projectId}/summary`);
 }
 
 export function fetchRoom(projectId: string, roomId: string): Promise<RoomType> {

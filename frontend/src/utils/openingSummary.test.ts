@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { OpeningType } from '../types/opening';
-import { formatOpeningDimension, summarizeOpenings } from './openingSummary';
+import { formatExactDimension, formatOpeningDimension, summarizeOpenings } from './openingSummary';
 
 function opening(type: OpeningType['opening_type'], width: string, height: string, quantity = 1, archived = false): OpeningType {
   return {
@@ -43,5 +43,20 @@ describe('summarizeOpenings (13E.5B)', () => {
   it('formats dimensions with a decimal comma', () => {
     expect(formatOpeningDimension('0.900')).toBe('0,90');
     expect(formatOpeningDimension('2.070')).toBe('2,07');
+  });
+});
+
+describe('formatExactDimension (13F-PRE, string-only, no float math)', () => {
+  it('keeps two decimals and a significant third one', () => {
+    expect(formatExactDimension('0.900')).toBe('0.90');
+    expect(formatExactDimension('2.070')).toBe('2.07');
+    expect(formatExactDimension('1.701')).toBe('1.701');
+    expect(formatExactDimension('2.000')).toBe('2.00');
+    expect(formatExactDimension('2')).toBe('2.00');
+    expect(formatExactDimension('12.5')).toBe('12.50');
+  });
+
+  it('never renders two distinct Decimal groups identically', () => {
+    expect(formatExactDimension('1.700')).not.toBe(formatExactDimension('1.701'));
   });
 });

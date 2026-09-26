@@ -5,6 +5,7 @@ from decimal import Decimal
 from pydantic import BaseModel, Field, model_validator
 
 from app.domain.rules.room_geometry import calculate_room_geometry
+from app.models.opening import OpeningType
 
 
 class RoomCreate(BaseModel):
@@ -83,6 +84,18 @@ class RoomCalculations(BaseModel):
     reveal_total_area: Decimal | None = None
 
 
+class OpeningGroupRead(BaseModel):
+    """Read-only opening summary row (Stage 13F-PRE): active openings on
+    active surfaces grouped by type + exact width + height, quantities summed."""
+
+    opening_type: OpeningType
+    width: Decimal
+    height: Decimal
+    quantity: int
+
+    model_config = {"from_attributes": True}
+
+
 class RoomRead(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
@@ -95,6 +108,8 @@ class RoomRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     calculations: RoomCalculations | None = None
+    # Stage 13F-PRE: which openings stand behind the deduction/reveal figures.
+    opening_groups: list[OpeningGroupRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -124,3 +139,24 @@ class RoomRead(BaseModel):
 class RoomListResponse(BaseModel):
     items: list[RoomRead]
     total: int
+
+
+class ProjectSummaryRead(BaseModel):
+    """Object-level aggregate (Stage 13F-PRE) over ACTIVE rooms only.
+
+    Every area/length is the Decimal sum of the rooms' canonical
+    `RoomCalculations` values (the same read model the room screen shows);
+    nothing is recomputed. A metric is null when no active room provides it.
+    Per room net = gross - deductions exactly, so the sums keep that identity.
+    Reveal area is its own metric and never part of wall area.
+    """
+
+    room_count: int
+    floor_area: Decimal | None = None
+    ceiling_area: Decimal | None = None
+    total_wall_area: Decimal | None = None
+    total_deduction_area: Decimal | None = None
+    net_wall_area: Decimal | None = None
+    reveal_total_length: Decimal | None = None
+    reveal_total_area: Decimal | None = None
+    opening_groups: list[OpeningGroupRead] = Field(default_factory=list)

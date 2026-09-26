@@ -104,9 +104,18 @@ describe('SurfaceList', () => {
     // never adapts to Telegram's dark theme, where the page background is
     // itself dark — the heading became invisible dark-on-dark.
     renderSurfaces();
-    const heading = await screen.findByText('Powierzchnie');
+    const heading = await screen.findByText('Ściany'); // 13F-PRE FIX.2: wall-only section
     expect(heading.className).toContain('text-[var(--tg-theme-text-color)]');
     expect(heading.className).not.toContain('text-slate-900');
+  });
+
+  it('names the wall-only section "Стены" in Russian and keeps wall cards (13F-PRE FIX.2)', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [surface], total: 1 });
+    renderSurfaces();
+    expect(await screen.findByText('Стены')).toBeInTheDocument();
+    expect(screen.queryByText('Поверхности')).not.toBeInTheDocument();
+    expect(await screen.findByText('Ściana północna')).toBeInTheDocument();
   });
 
   it('does not show a redundant generic add-surface control or shape-mode selector in rectangle mode', async () => {
@@ -277,12 +286,14 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
       net_area: position % 2 === 0 ? '13.500' : '10.800',
     }));
     vi.mocked(surfacesApi.fetchSurfaces)
-      .mockResolvedValueOnce({ items: [], total: 0 })
-      .mockResolvedValueOnce({ items: generated, total: 4 });
+      .mockResolvedValueOnce({ items: [], total: 0 }) // active list
+      .mockResolvedValueOnce({ items: [], total: 0 }) // archived-walls check: genuinely empty room
+      .mockResolvedValue({ items: generated, total: 4 });
     vi.mocked(surfacesApi.generateWalls).mockResolvedValue({ items: generated, total: 4 });
     renderSurfaces({ hasRoomDimensions: true });
 
     await waitFor(() => expect(screen.getByLabelText('generate-walls')).toBeInTheDocument());
+    expect(surfacesApi.fetchSurfaces).toHaveBeenLastCalledWith(projectId, roomId, true);
     fireEvent.click(screen.getByLabelText('generate-walls'));
 
     await waitFor(() => {
@@ -291,22 +302,61 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     expect(await screen.findByText('Ściana 4')).toBeInTheDocument();
     expect(screen.getByLabelText('surfaces-list').querySelectorAll('li')).toHaveLength(4);
     expect(screen.getByText('Wygenerowano 4 ściany')).toBeInTheDocument();
+    // 13F-PRE: once walls exist the CTA disappears (no disabled button, no hint).
+    expect(screen.queryByLabelText('generate-walls')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Tworzy 4 ściany na podstawie wymiarów/)).not.toBeInTheDocument();
+    expect(surfacesApi.generateWalls).toHaveBeenCalledTimes(1);
   });
 
-  it('surfaces a 409 conflict message and leaves the list unchanged', async () => {
+  it('hides the CTA when the room already has walls (no conflict invitation)', async () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [surface], total: 1 });
+    renderSurfaces({ hasRoomDimensions: true });
+
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(screen.queryByLabelText('generate-walls')).not.toBeInTheDocument();
+    expect(surfacesApi.fetchSurfaces).toHaveBeenCalledTimes(1); // active walls known: no extra check
+  });
+
+  it('hides the CTA when only ARCHIVED walls exist, so no second set is invited', async () => {
+    const archivedWall = { ...surface, is_archived: true };
+    vi.mocked(surfacesApi.fetchSurfaces).mockImplementation(async (_p, _r, includeArchived) =>
+      includeArchived ? { items: [archivedWall], total: 1 } : { items: [], total: 0 },
+    );
+    renderSurfaces({ hasRoomDimensions: true });
+
+    await waitFor(() => expect(surfacesApi.fetchSurfaces).toHaveBeenCalledWith(projectId, roomId, true));
+    await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
+    expect(screen.queryByLabelText('generate-walls')).not.toBeInTheDocument();
+    expect(surfacesApi.generateWalls).not.toHaveBeenCalled();
+  });
+
+  it('hides the CTA when the archived-walls check fails (fail-safe)', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockImplementation(async (_p, _r, includeArchived) => {
+      if (includeArchived) throw new Error('network');
+      return { items: [], total: 0 };
+    });
+    renderSurfaces({ hasRoomDimensions: true });
+
+    await waitFor(() => expect(surfacesApi.fetchSurfaces).toHaveBeenCalledWith(projectId, roomId, true));
+    await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
+    expect(screen.queryByLabelText('generate-walls')).not.toBeInTheDocument();
+  });
+
+  it('shows a 409 conflict message from the server and leaves the list unchanged', async () => {
+    // e.g. walls were created in another session after this list was loaded
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(surfacesApi.generateWalls).mockRejectedValue(
       new Error('Room already contains walls that do not match the 4-wall rectangle; no walls were changed'),
     );
     renderSurfaces({ hasRoomDimensions: true });
 
-    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('generate-walls')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('generate-walls'));
 
     await waitFor(() => {
       expect(screen.getByText(/Room already contains walls that do not match/)).toBeInTheDocument();
     });
-    expect(screen.getByLabelText('surfaces-list').querySelectorAll('li')).toHaveLength(1);
+    expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument();
   });
 
   it('adds a custom wall sequentially with localized name, next position, width, and room height', async () => {
@@ -426,6 +476,7 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     const listResponse = { items: generated, total: 4 };
     vi.mocked(surfacesApi.fetchSurfaces)
       .mockResolvedValueOnce({ items: [], total: 0 })
+      .mockResolvedValueOnce({ items: [], total: 0 })
       .mockResolvedValue(listResponse);
     vi.mocked(surfacesApi.generateWalls).mockResolvedValue(listResponse);
     renderSurfaces({ hasRoomDimensions: true });
@@ -434,8 +485,9 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     fireEvent.click(screen.getByLabelText('generate-walls'));
     await waitFor(() => expect(screen.getByText('Ściana 4')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByLabelText('generate-walls'));
-    await waitFor(() => expect(surfacesApi.generateWalls).toHaveBeenCalledTimes(2));
+    // 13F-PRE: the CTA is gone after generation, so a second set cannot be requested.
+    expect(screen.queryByLabelText('generate-walls')).not.toBeInTheDocument();
+    expect(surfacesApi.generateWalls).toHaveBeenCalledTimes(1);
 
     expect(screen.getByLabelText('surfaces-list').querySelectorAll('li')).toHaveLength(4);
     expect(screen.getAllByText('Ściana 1')).toHaveLength(1);

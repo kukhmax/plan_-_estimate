@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import ProjectNotFoundError, RoomNotFoundError
+from app.domain.rules.opening_summary import group_openings
 from app.domain.rules.room_geometry import (
     AREA_PRECISION,
     PlaneAreaTotals,
@@ -24,7 +25,13 @@ from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
 from app.domain.services.canonical_planes import ensure_canonical_plane_surfaces
-from app.schemas.room import RoomCalculations, RoomCreate, RoomUpdate
+from app.schemas.room import (
+    OpeningGroupRead,
+    ProjectSummaryRead,
+    RoomCalculations,
+    RoomCreate,
+    RoomUpdate,
+)
 
 
 class RoomService:
@@ -213,6 +220,45 @@ class RoomService:
             door_area.quantize(AREA_PRECISION) if has_door else None,
         )
 
+    async def _load_opening_rows(
+        self,
+        *,
+        room_id: uuid.UUID | None = None,
+        project_id: uuid.UUID | None = None,
+        include_archived_rooms: bool = False,
+    ) -> list[tuple]:
+        """(room_id, type, width, height, quantity) of active openings on
+        active surfaces -- for one room or for a project's rooms (archived
+        rooms excluded unless requested). Same filters as the deduction sum."""
+        stmt = (
+            select(
+                Surface.room_id,
+                Opening.opening_type,
+                Opening.width,
+                Opening.height,
+                Opening.quantity,
+            )
+            .join(Surface, Opening.surface_id == Surface.id)
+            .join(Room, Surface.room_id == Room.id)
+            .where(Surface.is_archived.is_(False), Opening.is_archived.is_(False))
+        )
+        if room_id is not None:
+            stmt = stmt.where(Surface.room_id == room_id)
+        if project_id is not None:
+            stmt = stmt.where(Room.project_id == project_id)
+            if not include_archived_rooms:
+                stmt = stmt.where(Room.is_archived.is_(False))
+        return list((await self.db.execute(stmt)).all())
+
+    @staticmethod
+    def _opening_group_reads(rows) -> list[OpeningGroupRead]:
+        return [
+            OpeningGroupRead(
+                opening_type=g.opening_type, width=g.width, height=g.height, quantity=g.quantity
+            )
+            for g in group_openings((r[1], r[2], r[3], r[4]) for r in rows)
+        ]
+
     async def _attach_calculations(self, room: Room) -> None:
         deduction_stmt = (
             select(
@@ -246,6 +292,9 @@ class RoomService:
             window_reveal_total_area=w_area,
             door_reveal_total_length=d_len,
             door_reveal_total_area=d_area,
+        )
+        room.opening_groups = self._opening_group_reads(
+            await self._load_opening_rows(room_id=room.id)
         )
 
     async def list_rooms(
@@ -399,6 +448,12 @@ class RoomService:
                 acc["d_area"] += rev.total_area
                 has["door"] = True
 
+        opening_rows_by_room: dict[uuid.UUID, list[tuple]] = defaultdict(list)
+        for row in await self._load_opening_rows(
+            project_id=project_id, include_archived_rooms=include_archived
+        ):
+            opening_rows_by_room[row[0]].append(row)
+
         stmt = stmt.order_by(Room.created_at.desc())
         result = await self.db.execute(stmt)
         rows = result.all()
@@ -443,9 +498,44 @@ class RoomService:
                 door_reveal_total_length=d_len,
                 door_reveal_total_area=d_area,
             )
+            room.opening_groups = self._opening_group_reads(opening_rows_by_room.get(room.id, []))
             items.append(room)
 
         return items, total
+
+    async def get_project_summary(
+        self,
+        project_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> ProjectSummaryRead:
+        """Object summary over ACTIVE rooms (Stage 13F-PRE): Decimal sums of
+        each room's canonical calculations (list_rooms, archived rooms
+        excluded) plus openings grouped across rooms. Read-only."""
+        rooms, _ = await self.list_rooms(project_id, owner_id, include_archived=False)
+
+        def total(field: str) -> Decimal | None:
+            values = [
+                getattr(room.calculations, field)
+                for room in rooms
+                if room.calculations is not None and getattr(room.calculations, field) is not None
+            ]
+            if not values:
+                return None
+            return sum(values, Decimal("0.000")).quantize(AREA_PRECISION)
+
+        return ProjectSummaryRead(
+            room_count=len(rooms),
+            floor_area=total("floor_area"),
+            ceiling_area=total("ceiling_area"),
+            total_wall_area=total("total_wall_area"),
+            total_deduction_area=total("total_deduction_area"),
+            net_wall_area=total("net_wall_area"),
+            reveal_total_length=total("reveal_total_length"),
+            reveal_total_area=total("reveal_total_area"),
+            opening_groups=self._opening_group_reads(
+                await self._load_opening_rows(project_id=project_id)
+            ),
+        )
 
     async def create_room(
         self,

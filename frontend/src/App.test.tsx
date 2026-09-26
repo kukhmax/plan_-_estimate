@@ -32,6 +32,12 @@ vi.mock('./api/projects', () => ({
   restoreProject: vi.fn(),
 }));
 vi.mock('./api/rooms', () => ({
+  // Stage 13F-PRE object summary: empty by default (card hidden).
+  fetchProjectSummary: vi.fn(async () => ({
+    room_count: 0, floor_area: null, ceiling_area: null, total_wall_area: null,
+    total_deduction_area: null, net_wall_area: null, reveal_total_length: null,
+    reveal_total_area: null, opening_groups: [],
+  })),
   fetchRooms: vi.fn(),
   fetchRoom: vi.fn(),
   createRoom: vi.fn(),

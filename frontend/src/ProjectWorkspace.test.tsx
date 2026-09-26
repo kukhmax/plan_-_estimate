@@ -15,7 +15,7 @@ import { ClientType } from './types/client';
 import { Inspection } from './types/inspection';
 import { OpeningType } from './types/opening';
 import { ProjectType } from './types/project';
-import { RoomType } from './types/room';
+import { ProjectSummary, RoomType } from './types/room';
 import { SurfaceType } from './types/surface';
 
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
@@ -32,12 +32,26 @@ vi.mock('./api/projects', () => ({
   restoreProject: vi.fn(),
 }));
 vi.mock('./api/rooms', () => ({
+  // Stage 13F-PRE object summary: empty by default (card hidden).
+  fetchProjectSummary: vi.fn(async () => ({
+    room_count: 0, floor_area: null, ceiling_area: null, total_wall_area: null,
+    total_deduction_area: null, net_wall_area: null, reveal_total_length: null,
+    reveal_total_area: null, opening_groups: [],
+  })),
   fetchRooms: vi.fn(),
   fetchRoom: vi.fn(),
   createRoom: vi.fn(),
   updateRoom: vi.fn(),
   archiveRoom: vi.fn(),
   restoreRoom: vi.fn(),
+}));
+// Stage 13F-PRE: plane cards (FLOOR / CEILING "Opcje") need the segment API.
+vi.mock('./api/areaSegments', () => ({
+  fetchAreaSegments: vi.fn(async () => ({ items: [], total: 0 })),
+  createAreaSegment: vi.fn(),
+  updateAreaSegment: vi.fn(),
+  archiveAreaSegment: vi.fn(),
+  restoreAreaSegment: vi.fn(),
 }));
 vi.mock('./api/surfaces', () => ({
   fetchSurfaces: vi.fn(),
@@ -1163,7 +1177,9 @@ describe('ProjectWorkspace', () => {
     fireEvent.click(screen.getByLabelText(`open-room-${pokojRoom.id}`));
     await screen.findByLabelText('room-calculations-summary');
     expect(screen.queryByLabelText('room-unmeasured-notice')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('generate-walls')).toBeInTheDocument();
+    // 13F-PRE: walls exist now, so the generation CTA is gone for good.
+    await waitFor(() => expect(screen.getAllByLabelText(/surface-item-/)).toHaveLength(4));
+    expect(screen.queryByLabelText('generate-walls')).not.toBeInTheDocument();
   });
 
   it('regards a dimensioned RECTANGLE room as measured even when calculations payload is absent (Stage 7D.1 D3)', async () => {
@@ -1335,23 +1351,67 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
     await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
-    await screen.findByLabelText('room-inspection-entry');
+    await screen.findByLabelText('surfaces-section');
   };
 
-  it('exposes room, floor, ceiling, and wall inspection entry points (ENTRY)', async () => {
+  it('exposes only ceiling and wall inspection entry points; no room-level or floor inspection (13F-PRE FIX.2)', async () => {
     await openRoomView();
-    expect(screen.getByLabelText('inspect-room')).toBeInTheDocument();
-    expect(screen.getByLabelText('inspect-floor')).toBeInTheDocument();
+    // No standalone "Badania podłoża" section and no generic room inspection CTA.
+    expect(screen.queryByLabelText('room-inspection-entry')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('inspect-room')).not.toBeInTheDocument();
+    expect(screen.queryByText('Badanie pomieszczenia')).not.toBeInTheDocument();
+    // FLOOR: no real floor checklist yet -> no inspection offered, even in Opcje.
+    fireEvent.click(await screen.findByLabelText('options-toggle-floor'));
+    expect(screen.queryByLabelText('inspect-floor')).not.toBeInTheDocument();
+    expect(screen.queryByText('Badanie podłogi')).not.toBeInTheDocument();
+    // CEILING and WALL keep their inspection.
+    fireEvent.click(screen.getByLabelText('options-toggle-ceiling'));
     expect(screen.getByLabelText('inspect-ceiling')).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText(`options-toggle-${wallSurface.id}`));
     expect(screen.getByLabelText(`inspect-surface-${wallSurface.id}`)).toBeInTheDocument();
   });
 
-  it('opens a room-level inspection list filtered to room inspections (ENTRY)', async () => {
+  const floorDone: Inspection = {
+    ...inspection, id: 'ins-floor', plane: 'FLOOR', status: 'COMPLETED', completed_at: '2026-09-10T10:00:00Z',
+  };
+  const ceilingDone: Inspection = {
+    ...inspection, id: 'ins-ceiling', plane: 'CEILING', status: 'COMPLETED', completed_at: '2026-09-10T10:00:00Z',
+    substrate: 'GYPSUM_BOARD', quality_target: 'Q3',
+  };
+  const expectNoInspectionMutation = () => {
+    for (const mutation of [
+      inspectionsApi.createInspection, inspectionsApi.updateInspection, inspectionsApi.completeInspection,
+      inspectionsApi.reopenInspection, inspectionsApi.archiveInspection, inspectionsApi.putInspectionAnswers,
+    ]) {
+      expect(mutation).not.toHaveBeenCalled();
+    }
+  };
+
+  it('hiding the FLOOR inspection entry never touches stored floor inspections (13F-PRE FIX.2)', async () => {
+    vi.mocked(inspectionsApi.fetchInspections).mockResolvedValue({ items: [inspection, floorDone, ceilingDone], total: 3 });
     await openRoomView();
-    fireEvent.click(screen.getByLabelText('inspect-room'));
-    await screen.findByText('Badanie pomieszczenia');
-    expect(await screen.findByText('Beton')).toBeInTheDocument();
+    fireEvent.click(await screen.findByLabelText('options-toggle-floor'));
+    expect(screen.queryByLabelText('inspect-floor')).not.toBeInTheDocument();
+    expectNoInspectionMutation(); // records stay in storage; the UI simply offers no floor workflow
+  });
+
+  it('opens an existing COMPLETED ceiling inspection from CEILING Opcje without mutating it (13F-PRE)', async () => {
+    vi.mocked(inspectionsApi.fetchInspections).mockResolvedValue({ items: [inspection, floorDone, ceilingDone], total: 3 });
+    await openRoomView();
+    fireEvent.click(await screen.findByLabelText('options-toggle-ceiling'));
+    fireEvent.click(screen.getByLabelText('inspect-ceiling'));
+    await screen.findByText('Badanie sufitu');
+    expect(await screen.findByText('Płyta g-k')).toBeInTheDocument();
+    expect(screen.getByText('Zakończone')).toBeInTheDocument();
+    expect(screen.queryByText('Beton')).not.toBeInTheDocument();
+    expectNoInspectionMutation();
+  });
+
+  it('offers no way to start a NEW room-level inspection (13F-PRE FIX.2)', async () => {
+    await openRoomView();
+    expect(screen.queryByLabelText('inspect-room')).not.toBeInTheDocument();
+    expect(inspectionsApi.createInspection).not.toHaveBeenCalled();
+    expectNoInspectionMutation();
   });
 
   it('opens a wall-targeted inspection list from the wall card (ENTRY)', async () => {
@@ -1416,9 +1476,10 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
 
     await openRoomView();
 
-    // Open the room-level inspection list
-    fireEvent.click(screen.getByLabelText('inspect-room'));
-    await screen.findByText('Badanie pomieszczenia');
+    // Open the ceiling inspection list (13F-PRE: from the CEILING card Opcje)
+    fireEvent.click(await screen.findByLabelText('options-toggle-ceiling'));
+    fireEvent.click(screen.getByLabelText('inspect-ceiling'));
+    await screen.findByText('Badanie sufitu');
     // Start a new inspection -> flow (substrate step)
     fireEvent.click(screen.getByLabelText('Nowe badanie'));
     await screen.findByLabelText('Beton');
@@ -1427,13 +1488,13 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     act(() => {
       clickHandler?.();
     });
-    expect(await screen.findByText('Badanie pomieszczenia')).toBeInTheDocument();
+    expect(await screen.findByText('Badanie sufitu')).toBeInTheDocument();
 
     // Back from list -> room detail
     act(() => {
       clickHandler?.();
     });
-    expect(await screen.findByLabelText('room-inspection-entry')).toBeInTheDocument();
+    expect(await screen.findByLabelText('surfaces-section')).toBeInTheDocument();
 
     // Back from room -> rooms list
     act(() => {
@@ -1517,5 +1578,129 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
 
     await screen.findByLabelText('estimates-empty-state');
     expect(screen.getByLabelText('hierarchy-navigation').textContent).toContain('Kosztorys');
+  });
+});
+
+describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
+  const roomWithOpenings: RoomType = {
+    ...measuredRoom,
+    calculations: { ...measuredRoom.calculations!, total_deduction_area: '9.483', net_wall_area: '39.117' },
+    opening_groups: [
+      { opening_type: 'DOOR', width: '0.900', height: '2.070', quantity: 2 },
+      { opening_type: 'WINDOW', width: '1.700', height: '1.650', quantity: 3 },
+      { opening_type: 'WINDOW', width: '1.701', height: '1.650', quantity: 1 },
+      { opening_type: 'OTHER', width: '1.200', height: '2.000', quantity: 1 },
+    ],
+  };
+  const summary: ProjectSummary = {
+    room_count: 2,
+    floor_area: '76.380',
+    ceiling_area: '65.900',
+    total_wall_area: '149.340',
+    total_deduction_area: '18.420',
+    net_wall_area: '130.920',
+    reveal_total_length: '27.600',
+    reveal_total_area: '5.520',
+    opening_groups: [
+      { opening_type: 'DOOR', width: '0.800', height: '2.070', quantity: 3 },
+      { opening_type: 'DOOR', width: '0.900', height: '2.070', quantity: 2 },
+      { opening_type: 'WINDOW', width: '1.700', height: '1.650', quantity: 5 },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [project], total: 1 });
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client], total: 1 });
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [roomWithOpenings], total: 1 });
+    vi.mocked(roomsApi.fetchRoom).mockResolvedValue(roomWithOpenings);
+    vi.mocked(roomsApi.fetchProjectSummary).mockResolvedValue(summary);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallSurface], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(inspectionsApi.fetchInspections).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  const openProject = async () => {
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await screen.findByLabelText(`open-room-${roomWithOpenings.id}`);
+  };
+
+  it('room calculations list grouped openings per type with exact dimensions and quantities', async () => {
+    await openProject();
+    fireEvent.click(screen.getByLabelText(`open-room-${roomWithOpenings.id}`));
+    const block = await screen.findByLabelText('room-openings-summary');
+    expect(within(screen.getByLabelText('room-calculations-summary')).getByLabelText('room-openings-summary')).toBe(block);
+    expect(within(block).getByText('Otwory')).toBeInTheDocument();
+    const doors = within(block).getByLabelText('room-openings-summary-DOOR');
+    expect(doors).toHaveTextContent('Drzwi');
+    expect(doors).toHaveTextContent('0.90 × 2.07 m');
+    expect(doors).toHaveTextContent('× 2');
+    const windows = within(block).getByLabelText('room-openings-summary-WINDOW');
+    expect(windows).toHaveTextContent('Okna');
+    expect(within(windows).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      '1.70 × 1.65 m× 3',
+      '1.701 × 1.65 m× 1', // a distinct Decimal group is never rendered identically
+    ]);
+    expect(within(block).getByLabelText('room-openings-summary-OTHER')).toHaveTextContent('Inne');
+  });
+
+  it('object summary appears after all room cards with canonical totals and grouped openings', async () => {
+    await openProject();
+    const card = await screen.findByLabelText('object-summary');
+    const roomsList = screen.getByLabelText('rooms-list');
+    // DOM order: room cards first, then the object summary.
+    expect(roomsList.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(roomsApi.fetchProjectSummary).toHaveBeenCalledWith(project.id);
+    await within(card).findByText('Podsumowanie obiektu');
+    const value = (key: string) => within(card).getByLabelText(`object-summary-${key}`).textContent;
+    expect(value('floor')).toBe('Podłogi76.38 m²');
+    expect(value('ceiling')).toBe('Sufity65.90 m²');
+    expect(value('gross')).toBe('Ściany brutto149.34 m²');
+    expect(value('deductions')).toBe('Odjęcia otworów18.42 m²');
+    expect(value('net')).toBe('Ściany netto130.92 m²');
+    expect(value('reveals')).toBe('Ościeża27.60 mb / 5.52 m²');
+    const openings = within(card).getByLabelText('object-summary-openings');
+    expect(within(openings).getByLabelText('object-summary-openings-DOOR').textContent).toContain('0.80 × 2.07 m× 3');
+    expect(within(openings).getByLabelText('object-summary-openings-WINDOW').textContent).toContain('1.70 × 1.65 m× 5');
+    expect(within(openings).queryByLabelText('object-summary-openings-OTHER')).not.toBeInTheDocument();
+  });
+
+  it('object summary is not rendered for an object without active rooms', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(roomsApi.fetchProjectSummary).mockResolvedValue({
+      room_count: 0, floor_area: null, ceiling_area: null, total_wall_area: null, total_deduction_area: null,
+      net_wall_area: null, reveal_total_length: null, reveal_total_area: null, opening_groups: [],
+    });
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(roomsApi.fetchProjectSummary).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByLabelText('object-summary')).not.toBeInTheDocument());
+  });
+
+  it('object summary shows "—" for a metric no active room provides', async () => {
+    vi.mocked(roomsApi.fetchProjectSummary).mockResolvedValue({
+      ...summary, reveal_total_length: null, reveal_total_area: null, opening_groups: [],
+    });
+    await openProject();
+    const card = await screen.findByLabelText('object-summary');
+    await within(card).findByLabelText('object-summary-reveals');
+    expect(within(card).getByLabelText('object-summary-reveals').textContent).toBe('Ościeża—');
+    expect(within(card).queryByLabelText('object-summary-openings')).not.toBeInTheDocument();
+  });
+
+  it('object summary in Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    await openProject();
+    const card = await screen.findByLabelText('object-summary');
+    await within(card).findByText('Итоги объекта');
+    expect(card).toHaveTextContent('Площади');
+    expect(within(card).getByLabelText('object-summary-deductions').textContent).toBe('Вычеты проёмов18.42 м²');
+    expect(within(card).getByLabelText('object-summary-reveals').textContent).toBe('Откосы27.60 пог. м / 5.52 м²');
+    expect(within(card).getByLabelText('object-summary-openings-DOOR')).toHaveTextContent('Двери');
+    expect(within(card).getByLabelText('object-summary-openings-WINDOW')).toHaveTextContent('Окна');
   });
 });

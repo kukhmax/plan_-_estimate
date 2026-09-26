@@ -154,8 +154,26 @@
     "start_wall_measurement": "Rozpocznij pomiar ścian",
     "dimensions_required": "Podaj wszystkie trzy wymiary (długość, szerokość, wysokość) lub zostaw je puste, aby utworzyć pomieszczenie bez wymiarów."
   },
+  "object_summary": {
+    "title": "Podsumowanie obiektu",
+    "areas": "Powierzchnie",
+    "floors": "Podłogi",
+    "ceilings": "Sufity",
+    "walls_gross": "Ściany brutto",
+    "deductions": "Odjęcia otworów",
+    "walls_net": "Ściany netto",
+    "reveals": "Ościeża",
+    "unit_lm": "mb",
+    "openings": "Otwory",
+    "doors": "Drzwi",
+    "windows": "Okna",
+    "others": "Inne",
+    "loading": "Ładowanie podsumowania…",
+    "error": "Nie udało się załadować podsumowania obiektu."
+  },
   "surfaces": {
     "title": "Powierzchnie",
+    "walls_section_title": "Ściany",
     "add": "Dodaj powierzchnię",
     "edit": "Edytuj powierzchnię",
     "loading": "Ładowanie powierzchni...",

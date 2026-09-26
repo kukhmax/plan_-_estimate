@@ -24,6 +24,8 @@ interface AreaSegmentListProps {
   projectId: string;
   roomId: string;
   onMeasurementChanged?: () => void;
+  /** Stage 13F-PRE: FLOOR / CEILING inspection lives in the plane's Opcje. */
+  onInspectPlane?: (plane: AreaPlane) => void;
 }
 
 interface SegmentFormState {
@@ -35,6 +37,11 @@ interface SegmentFormState {
 }
 
 const PLANES: AreaPlane[] = ['FLOOR', 'CEILING'];
+/** Planes with a real inspection checklist (13F-PRE FIX.2). The substrate
+ * checklists are wall/ceiling finishing checklists; there is no floor
+ * checklist yet ("Floor Inspection & Floor Preparation Catalog", deferred),
+ * so FLOOR offers no inspection rather than a meaningless one. */
+const INSPECTABLE_PLANES: readonly AreaPlane[] = ['CEILING'];
 
 function segmentArea(segment: AreaSegmentType): number {
   const width = Number(segment.width);
@@ -62,6 +69,7 @@ export function AreaSegmentList({
   projectId,
   roomId,
   onMeasurementChanged,
+  onInspectPlane,
 }: AreaSegmentListProps) {
   const { t } = useI18n();
   const surfaceDisplayLabels = {
@@ -330,12 +338,22 @@ export function AreaSegmentList({
 
         {isOptionsOpen && (
           <>
+            {onInspectPlane && INSPECTABLE_PLANES.includes(plane) && (
+              <button
+                type="button"
+                aria-label={`inspect-${planeKey}`}
+                onClick={() => onInspectPlane(plane)}
+                className="w-full min-h-11 text-xs px-3 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
+              >
+                {plane === 'FLOOR' ? t.inspections.inspect_floor : t.inspections.inspect_ceiling}
+              </button>
+            )}
             <div className="flex gap-2 flex-wrap">
               <button
                 type="button"
                 aria-label={`add-${planeKey}-rectangle`}
                 onClick={() => startAdd(plane, 'ADD')}
-                className="text-xs px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
+                className="min-h-11 text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
               >
                 + {t.area_segments.add_rectangle}
               </button>
@@ -343,7 +361,7 @@ export function AreaSegmentList({
                 type="button"
                 aria-label={`add-${planeKey}-subtraction`}
                 onClick={() => startAdd(plane, 'SUBTRACT')}
-                className="text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 transition"
+                className="min-h-11 text-xs px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 transition"
               >
                 + {t.area_segments.add_subtraction}
               </button>

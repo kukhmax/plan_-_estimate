@@ -101,10 +101,12 @@ async def test_create_room_persists_minimal_fields(
         "width",
         "height",
         "calculations",
+        "opening_groups",  # Stage 13F-PRE read-only opening summary
         "is_archived",
         "created_at",
         "updated_at",
     }
+    assert data["opening_groups"] == []
     assert data["project_id"] == project["id"]
     assert data["name"] == "Łazienka"
     assert data["description"] == "Strefa mokra"
