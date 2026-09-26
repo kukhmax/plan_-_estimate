@@ -38,6 +38,34 @@ export interface WorkflowTemplateRead {
   steps: WorkflowTemplateStepRead[];
 }
 
+/** One step in a create payload (Stage 13F.4 duplicate copies them verbatim). */
+export interface WorkflowTemplateStepWrite {
+  price_item_id: string;
+  is_optional: boolean;
+  note: string | null;
+  wait_after_hours: number | null;
+}
+
+/** POST /workflow-templates. `code` is always server-generated (CUSTOM_*). */
+export interface WorkflowTemplateCreatePayload {
+  display_name: string;
+  description: string | null;
+  applies_to_substrates: SubstrateValue[];
+  applies_to_quality: QualityLevelValue[];
+  applies_to_surface_types: SurfaceTypeValue[];
+  steps: WorkflowTemplateStepWrite[];
+}
+
+/** PATCH /workflow-templates/{id}: only changed fields are sent. For
+ * `display_name` an explicit null clears a built-in's custom name. */
+export type WorkflowTemplateUpdatePayload = Partial<{
+  display_name: string | null;
+  description: string | null;
+  applies_to_substrates: SubstrateValue[];
+  applies_to_quality: QualityLevelValue[];
+  applies_to_surface_types: SurfaceTypeValue[];
+}>;
+
 export interface WorkflowTemplateListResponse {
   items: WorkflowTemplateRead[];
   total: number;

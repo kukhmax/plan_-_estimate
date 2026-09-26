@@ -1309,8 +1309,26 @@ S1–S4 / Q1–Q4 / PSG1–PSG4 semantics unchanged.
   before FIX.1/FIX.2, so the JSON had no keys); stored data matched canonical exactly. Added a captured,
   anonymized endpoint-serializer response of the seeded TECH_BETON_S4-01 as a frontend fixture, with a backend
   test asserting list/detail JSON keys equal the fixture.
-- **Status:** 13F.3 PASS / OWNER ACCEPTED (owner walkthrough PASS after backend rebuild, 2026-09-27); production
-  deployment pending. Next: 13F.4.
+- **Status:** 13F.3 PASS / OWNER ACCEPTED / PRODUCTION VERIFIED (commit `89e3b18`). Next: 13F.4.
+
+### 30.4 Stage 13F.4 — create / edit metadata / duplicate / archive / restore
+
+Frontend only, over the existing contracts (no backend change, no migration):
+- **Create** — `POST /workflow-templates` with metadata and `steps: []`; the code is always server-generated
+  (`CUSTOM_*`, immutable, unique per owner). The empty template is labelled "Brak kroków" and the detail explains
+  that steps are configured in the step editor (13F.5) and that it cannot be applied until then (D-F4).
+- **Edit metadata** — `PATCH` with changed fields only (last-write-wins, D-F2); built-in name may be cleared
+  (`null`) to restore the localized canonical name (D-F1); custom name required; description clearable; the
+  detail is re-fetched after save.
+- **Duplicate** — client-side via `POST` (D-F1): new custom template, new id/code, not default; metadata copied
+  (stored text, not the localized rendering) and steps copied in order with required/optional, stored note and
+  wait; repeated PriceItems preserved; source untouched; no coefficients. Blocked with an explanation when a
+  source step references an archived/unavailable PriceItem (the create contract rejects adding one).
+- **Archive / restore** — confirmed archive (plans, estimates and application history unchanged); restore
+  returns the template to the active list; no hard delete (D-F6).
+- **Status:** 13F.4 PASS / OWNER ACCEPTED (owner walkthrough PASS, 2026-09-27); awaiting commit / push /
+  production verification. No backend production change, no migration; Alembic head
+  `0029_application_fingerprint`. Next: 13F.5 (step editor, not started).
 
 ## 31. Stage 13F-PRE — room / surface / object corrections (not template management)
 

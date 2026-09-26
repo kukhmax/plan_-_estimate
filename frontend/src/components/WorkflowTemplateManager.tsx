@@ -1,5 +1,10 @@
-import { ReactNode, useEffect, useState } from 'react';
-import { fetchWorkflowTemplates } from '../api/workflowTemplates';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  archiveWorkflowTemplate,
+  classifyTemplateManagementError,
+  fetchWorkflowTemplates,
+  restoreWorkflowTemplate,
+} from '../api/workflowTemplates';
 import { useI18n } from '../hooks/useI18n';
 import { SubstrateValue } from '../types/checklist';
 import { SurfaceTypeValue } from '../types/surface';
@@ -7,13 +12,16 @@ import { SurfacePriceItemSummaryRead } from '../types/workPlan';
 import { WorkflowTemplateRead } from '../types/workflowTemplate';
 import { resolveKey } from '../utils/i18nKeys';
 import { templateDescription, templateStepNote } from '../utils/workflowTemplateText';
+import { TemplateFormMode, WorkflowTemplateForm } from './WorkflowTemplateForm';
 
 /**
- * Stage 13F.3 — Cennik → Procesy: read-only management of technological
- * workflow templates (list + detail). Presentation only: every value comes
- * from the canonical template API (steps, live PriceItem summaries, derived
- * `is_default`). Editing, archive/restore and duplication are later 13F
- * sub-stages; applying a template stays in the Stage 13E work-plan flow.
+ * Stage 13F.3 — Cennik → Procesy: technological workflow templates (list +
+ * detail). Every value comes from the canonical template API (steps, live
+ * PriceItem summaries, derived `is_default`).
+ * Stage 13F.4 adds metadata actions: create, edit metadata, duplicate,
+ * archive (with confirmation) and restore -- never hard delete. Steps are
+ * shown read-only; step editing is Stage 13F.5. Applying a template stays in
+ * the Stage 13E work-plan flow.
  */
 
 type ArchiveTab = 'active' | 'archived';
@@ -29,6 +37,50 @@ export function WorkflowTemplateManager() {
   const [state, setState] = useState<LoadState>('loading');
   const [attempt, setAttempt] = useState(0);
   const [selected, setSelected] = useState<WorkflowTemplateRead | null>(null);
+  const [formMode, setFormMode] = useState<TemplateFormMode | null>(null);
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const inFlight = useRef(false);
+
+  const openDetail = (tpl: WorkflowTemplateRead | null) => {
+    setSelected(tpl);
+    setConfirmingArchive(false);
+    setActionError(null);
+  };
+
+  /** Archive / restore; the server response is the new truth. */
+  const changeArchiveState = async (tpl: WorkflowTemplateRead, archive: boolean) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const saved = archive ? await archiveWorkflowTemplate(tpl.id) : await restoreWorkflowTemplate(tpl.id);
+      setAttempt((n) => n + 1);
+      if (archive) {
+        // Leave the detail: the template is no longer in the active list.
+        setNotice(t.processes.archived_notice);
+        openDetail(null);
+      } else {
+        setTab('active');
+        setNotice(t.processes.restored_notice);
+        openDetail(saved);
+      }
+    } catch (err) {
+      const kind = classifyTemplateManagementError(err);
+      setActionError(
+        kind === 'network' ? t.processes.error_network
+          : kind === 'not_found' ? t.processes.error_not_found
+            : archive ? t.processes.error_archive : t.processes.error_restore,
+      );
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+      setConfirmingArchive(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -88,16 +140,47 @@ export function WorkflowTemplateManager() {
       active ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
     }`;
 
-  // ---- read-only detail -----------------------------------------------------
+  // ---- metadata form (13F.4) ----------------------------------------------
+  if (formMode) {
+    return (
+      <WorkflowTemplateForm
+        key={`${formMode}-${selected?.id ?? 'new'}`}
+        mode={formMode}
+        source={formMode === 'create' ? undefined : selected ?? undefined}
+        sourceName={selected ? templateName(selected) : undefined}
+        onCancel={() => setFormMode(null)}
+        onSaved={(saved) => {
+          setFormMode(null);
+          setAttempt((n) => n + 1);
+          setTab(saved.is_archived ? 'archived' : 'active');
+          setNotice(
+            formMode === 'create' ? t.processes.created_notice
+              : formMode === 'duplicate' ? t.processes.duplicated_notice : t.processes.saved_notice,
+          );
+          openDetail(saved);
+        }}
+      />
+    );
+  }
+
+  // ---- detail ---------------------------------------------------------------
   if (selected) {
     const tpl = selected;
     const description = templateDescription(t, tpl);
     return (
       <section aria-label={`process-detail-${tpl.id}`} className="space-y-3">
+        {notice && (
+          <p role="status" aria-label="processes-notice" className="rounded-xl bg-green-50 text-green-900 p-3 text-sm break-words">
+            {notice}
+          </p>
+        )}
         <button
           type="button"
           aria-label="process-detail-back"
-          onClick={() => setSelected(null)}
+          onClick={() => {
+            setNotice(null);
+            openDetail(null);
+          }}
           className="w-full min-h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 text-left"
         >
           ← {t.processes.back}
@@ -130,9 +213,11 @@ export function WorkflowTemplateManager() {
             {t.processes.steps_title} ({tpl.steps.length})
           </h4>
           {tpl.steps.length === 0 ? (
-            <p aria-label="process-steps-empty" className="text-sm text-slate-500 break-words">
-              {t.processes.empty_steps}
-            </p>
+            <div aria-label="process-steps-empty" className="space-y-1">
+              <p className="text-sm text-slate-500 break-words">{t.processes.empty_steps}</p>
+              {/* 13F.4: informational only -- step editing is Stage 13F.5. */}
+              <p className="rounded-xl bg-amber-50 text-amber-900 p-3 text-xs break-words">{t.processes.steps_later}</p>
+            </div>
           ) : (
             <ol aria-label="process-steps" className="space-y-2">
               {tpl.steps.map((step, index) => {
@@ -171,6 +256,55 @@ export function WorkflowTemplateManager() {
             </ol>
           )}
         </div>
+
+        {/* 13F.4 actions: metadata only; no hard delete. */}
+        <div aria-label="process-actions" className="space-y-2">
+          {actionError && (
+            <p role="alert" aria-label="process-action-error" className="text-sm text-red-600 break-words">{actionError}</p>
+          )}
+          {confirmingArchive ? (
+            <div role="alertdialog" aria-label="process-archive-confirm" className="rounded-2xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+              <p className="text-sm font-semibold text-amber-900 break-words">{t.processes.archive_confirm_title}</p>
+              <p className="text-xs text-amber-900 break-words">{t.processes.archive_confirm_body}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setConfirmingArchive(false)} disabled={busy}
+                  className="w-full min-h-11 px-3 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-60">
+                  {t.common.cancel}
+                </button>
+                <button type="button" aria-label="process-archive-confirm-yes" onClick={() => void changeArchiveState(tpl, true)} disabled={busy}
+                  className="w-full min-h-11 px-3 rounded-xl bg-amber-600 text-white text-sm font-semibold disabled:opacity-60">
+                  {busy ? t.common.saving : t.processes.archive}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button type="button" aria-label="process-edit" disabled={busy}
+                onClick={() => { setNotice(null); setFormMode('edit'); }}
+                className="w-full min-h-11 px-3 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">
+                {t.processes.edit}
+              </button>
+              <button type="button" aria-label="process-duplicate" disabled={busy}
+                onClick={() => { setNotice(null); setFormMode('duplicate'); }}
+                className="w-full min-h-11 px-3 rounded-xl border border-blue-600 text-blue-700 bg-white text-sm font-semibold disabled:opacity-60">
+                {t.processes.duplicate}
+              </button>
+              {tpl.is_archived ? (
+                <button type="button" aria-label="process-restore" disabled={busy}
+                  onClick={() => void changeArchiveState(tpl, false)}
+                  className="w-full min-h-11 px-3 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-60">
+                  {busy ? t.common.saving : t.processes.restore}
+                </button>
+              ) : (
+                <button type="button" aria-label="process-archive" disabled={busy}
+                  onClick={() => { setNotice(null); setConfirmingArchive(true); }}
+                  className="w-full min-h-11 px-3 rounded-xl border border-amber-400 bg-white text-sm font-semibold text-amber-800 disabled:opacity-60">
+                  {t.processes.archive}
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </section>
     );
   }
@@ -178,6 +312,23 @@ export function WorkflowTemplateManager() {
   // ---- list -----------------------------------------------------------------
   return (
     <section aria-label="processes-section" className="space-y-3">
+      {notice && (
+        <p role="status" aria-label="processes-notice" className="rounded-xl bg-green-50 text-green-900 p-3 text-sm break-words">
+          {notice}
+        </p>
+      )}
+      <button
+        type="button"
+        aria-label="process-create"
+        onClick={() => {
+          setNotice(null);
+          openDetail(null);
+          setFormMode('create');
+        }}
+        className="w-full min-h-11 px-3 rounded-xl bg-blue-600 text-white text-sm font-semibold"
+      >
+        + {t.processes.create}
+      </button>
       <div role="tablist" aria-label="processes-archive-tabs" className="flex flex-wrap gap-2">
         {(['active', 'archived'] as const).map((value) => (
           <button
@@ -186,7 +337,10 @@ export function WorkflowTemplateManager() {
             role="tab"
             aria-selected={tab === value}
             aria-label={`processes-tab-${value}`}
-            onClick={() => setTab(value)}
+            onClick={() => {
+              setNotice(null);
+              setTab(value);
+            }}
             className={chip(tab === value)}
           >
             {value === 'active' ? t.processes.tab_active : t.processes.tab_archived}
@@ -246,13 +400,17 @@ export function WorkflowTemplateManager() {
                 <button
                   type="button"
                   aria-label={`process-card-${tpl.id}`}
-                  onClick={() => setSelected(tpl)}
+                  onClick={() => {
+                    setNotice(null);
+                    openDetail(tpl);
+                  }}
                   className="w-full min-h-11 text-left bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-1.5"
                 >
                   <span className="block text-sm font-semibold text-slate-900 break-words">{templateName(tpl)}</span>
                   <span className="flex flex-wrap gap-1.5">
                     {tpl.is_default && <Badge tone="blue">{t.processes.default_badge}</Badge>}
                     {tpl.is_archived && <Badge tone="orange">{t.processes.archived_badge}</Badge>}
+                    {tpl.steps.length === 0 && <Badge tone="amber">{t.processes.no_steps_badge}</Badge>}
                   </span>
                   <span className="block text-xs text-slate-500 break-words">
                     {joinOrAny(tpl.applies_to_surface_types.map((s) => surfaceLabel[s]))}

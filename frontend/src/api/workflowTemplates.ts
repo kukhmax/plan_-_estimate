@@ -3,8 +3,10 @@ import { SurfaceTypeValue } from '../types/surface';
 import { SurfaceWorkPlanRead } from '../types/workPlan';
 import {
   ApplyTemplateRequest,
+  WorkflowTemplateCreatePayload,
   WorkflowTemplateListResponse,
   WorkflowTemplateRead,
+  WorkflowTemplateUpdatePayload,
 } from '../types/workflowTemplate';
 import { ApiError, apiRequest } from './http';
 
@@ -41,6 +43,51 @@ export function fetchWorkflowTemplates(filter: {
 
 export function fetchWorkflowTemplate(templateId: string): Promise<WorkflowTemplateRead> {
   return apiRequest(`/api/workflow-templates/${templateId}`);
+}
+
+// ---- Stage 13F.4: management actions (metadata only; steps are 13F.5) -------
+
+export function createWorkflowTemplate(payload: WorkflowTemplateCreatePayload): Promise<WorkflowTemplateRead> {
+  return apiRequest('/api/workflow-templates', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function updateWorkflowTemplate(
+  templateId: string,
+  payload: WorkflowTemplateUpdatePayload,
+): Promise<WorkflowTemplateRead> {
+  return apiRequest(`/api/workflow-templates/${templateId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+}
+
+export function archiveWorkflowTemplate(templateId: string): Promise<WorkflowTemplateRead> {
+  return apiRequest(`/api/workflow-templates/${templateId}/archive`, { method: 'POST' });
+}
+
+export function restoreWorkflowTemplate(templateId: string): Promise<WorkflowTemplateRead> {
+  return apiRequest(`/api/workflow-templates/${templateId}/restore`, { method: 'POST' });
+}
+
+export type TemplateManagementErrorKind =
+  | 'network'
+  | 'not_found'
+  | 'name_required'
+  | 'quality_scale'
+  | 'archived_item'
+  | 'validation'
+  | 'other';
+
+/** Classifies a management failure so the UI can show a localized message.
+ * The backend distinguishes these 422 cases only by message text, so the
+ * known messages live HERE and nowhere else. */
+export function classifyTemplateManagementError(error: unknown): TemplateManagementErrorKind {
+  if (!(error instanceof ApiError) || error.status >= 500) return 'network';
+  if (error.status === 404) return 'not_found';
+  if (error.status === 422) {
+    if (error.message.includes('require a display_name')) return 'name_required';
+    if (error.message.includes('does not fit any substrate')) return 'quality_scale';
+    if (error.message.includes('Archived price item')) return 'archived_item';
+    return 'validation';
+  }
+  return 'other';
 }
 
 export function applyTemplateToWorkPlan(
