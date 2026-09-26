@@ -1116,7 +1116,7 @@ Canonical production rollback after a Stage 13 deployment:
 ### 28.4 Status
 
 **13E.5A AUTOMATED VERIFICATION PASS / OWNER ACCEPTED.**
-- Stage 13E is **IN PROGRESS** — the production Telegram walkthrough is pending.
+- Stage 13E was IN PROGRESS at this point; it is **COMPLETE / OWNER ACCEPTED** as of §29.5.
 - **13E.5B:** production deployment of e4e6c1e performed manually by the owner (production DB at
   `0029_application_fingerprint`); the Telegram walkthrough found the defects fixed in §29.
 - **13F:** NOT STARTED.
@@ -1207,6 +1207,35 @@ failing-then-fixed test, because no defect exists in the WorkPlan path).
 
 ### 29.4 Status
 
-Automated verification PASS; mobile checks PASS at 320/390/412/480 px in PL and RU. **Stage 13E remains IN
-PROGRESS** until owner review → commit/push approval → owner redeploy to production → a repeated Telegram
-walkthrough (including REPLACE).
+Automated verification PASS; mobile checks PASS at 320/390/412/480 px in PL and RU. FIX..FIX.4 and the
+dependency fix were committed and pushed as `d6e126f` (`fix(stage-13): harden workflow application
+walkthrough`) after owner approval.
+
+### 29.5 Stage 13E closure — production walkthrough PASS
+
+**STAGE 13E COMPLETE / OWNER ACCEPTED (2026-09-26).**
+
+- **Production release:** `d6e126f2278dfbc464ab78d3fad7a960cb3f9833`, backend and frontend deployed together
+  by the owner. Backend healthy; public `/api/health` returned `{"status":"ok"}`. Alembic at
+  `0029_application_fingerprint` (head); no new migration in 13E.5B. Async runtime on SQLAlchemy 2.1.1 +
+  greenlet 3.5.6 works. Telegram Menu Button cache-busting URL: `https://plan-estimate.pl/?v=d6e126f`.
+- **13E.5B production Telegram walkthrough: PASS.** Verified by the owner in the real Mini App:
+  - an existing planned work is detected as "already in plan" and skipped by default instead of duplicated;
+  - the reviewed APPEND selection shows correct added/skipped counts; an optional work can be deliberately
+    selected; only the selected missing works are added; no accidental duplicate of an existing logical work;
+  - the applied workflow is persisted immediately; the success state says the process is applied and saved;
+    Save stays disabled until another plan edit;
+  - wall opening summary / reveals display correctly; "Otwory i opcje" is present; the nested Estimate
+    shortcut works;
+  - Estimate preview shows added/removed changes; regeneration works; existing manual quantity/price
+    overrides and coefficient provenance remain visible; new workflow works appear as separate Estimate
+    positions;
+  - real Telegram mobile layout usable, no observed horizontal overflow.
+- **REPLACE** was not among the items listed for the production walkthrough; its semantics are unchanged in
+  13E.5B and remain covered by the automated suites (`TestReplace`, `TestAdversarialReplace`, frontend
+  REPLACE tests).
+- **Deferred API hardening (known, not blocking):** with `selected_step_ids` a direct API client may omit a
+  required template step whose PriceItem is archived, because the archived check covers only the steps
+  actually materialized. The Mini App prevents this (the preview blocks a template with an archived
+  required item); server-side hardening remains a future task.
+- **Stage 13F:** NOT STARTED (requires explicit owner approval).
