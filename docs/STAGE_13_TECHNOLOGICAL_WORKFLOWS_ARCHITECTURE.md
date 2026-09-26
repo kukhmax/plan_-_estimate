@@ -1027,3 +1027,97 @@ Deferred:
 - The real Telegram walkthrough is required in 13E.5.
 
 Next: **13E.5 — integration/adversarial verification + owner walkthrough**. 13F not started.
+
+## 28. Stage 13E.5A — integration / adversarial verification (automated gate)
+
+No product code changed. One test file was added for genuine cross-boundary gaps
+(`backend/tests/test_stage13e_integration.py`, 6 tests). Everything else was already covered by the 13B–13E.4
+suites.
+
+### 28.1 Results
+
+- **APPEND with the same PriceItem:**
+  - Existing A (P, +15 %, 24 h) and B keep row id, key, coefficient and wait. The appended P rows get new
+    keys, template waits and no coefficients. There is one provenance row, and the Estimate is
+    byte-identical right after apply.
+  - Preview shows exactly the 3 appended rows as ADDED. After regeneration A keeps 30.00 / 9.000; the new P
+    rows have normal pricing and no override.
+- **Ordinary save after APPEND:** a key-echoing save plus a coefficient change recreates rows but keeps keys
+  and waits. Regeneration then gives 0 added / 0 removed, the same line ids and the new +15 % snapshot.
+- **REPLACE with same-PriceItem duplicates** (A 30/9, B 40/7): new distinct keys, no old key reused, no
+  coefficient rows left, and the Estimate is byte-identical after apply. Preview shows REMOVED = the two old
+  lines and ADDED = the two new rows, with no UPDATED pairing. After regeneration neither override
+  migrates.
+- **Stale template or stale REPLACE composition:** 409 with WorkPlan, provenance and Estimate unchanged. A
+  refreshed command succeeds.
+- **Legacy key-less line with a REAL REPLACE via the endpoint:** no fallback; REMOVED + ADDED, overrides not
+  carried.
+- **Reveal isolation:** APPEND and REPLACE on the surface leave `OpeningRevealPlannedWork` untouched; the
+  reveal line keeps its override and a NULL key.
+- **Already covered elsewhere:** optional-step order, sequential APPEND/REPLACE retry, id-conflict variants,
+  PostgreSQL concurrency (13E.3 gate), apply-to-all new keys, Stage 11 append, and frontend identity
+  (13E.2C/13E.4).
+- **Migration chain (scratch PostgreSQL):**
+  - 0026 → 0027 → (seed with 13D code) → 0028 → 0029: 0028 backfill classification PASS.
+  - 0029 `request_fingerprint` is nullable VARCHAR(64); the partial index is present with no FK.
+  - Down to 0027 and back up passes, as do down to 0026 and back up. There is a single head and metadata
+    drift stays at the 94 baseline.
+
+### 28.2 Production deployment requirements (prepare only)
+
+- **Release:** the current `stage-13` HEAD, with frontend and backend shipped together. The editor
+  key-round-trip fix (13E.2C) is a hard gate for 0028.
+- **Migrations:** 0027, 0028 and 0029. Production is at 0026, so all three are new. They are applied by the
+  backend entrypoint (`alembic upgrade head`) on container start.
+- **Seed/bootstrap:** no manual action, and no startup seeding.
+  - The five new PriceItems and the 16 default templates are inserted lazily and insert-only per owner: on
+    the first Price Book list (PriceItems), or on the first template list, which also runs the Price Book
+    bootstrap first.
+  - Existing owner rows, prices and archives are never changed.
+- **Rollback:**
+  - **Take a DB backup before migrating.**
+  - After 0027 the Stage 12 backend (`d60390b`) **cannot save WorkPlans**:
+    `surface_planned_works.occurrence_key` is NOT NULL with no DB default, and the old model omits it. This
+    was verified on scratch PostgreSQL.
+  - A code-only rollback is therefore not safe. Roll back by running
+    `alembic downgrade 0026_coefficient_descriptions` **with the new image** (the old image does not know
+    0027+) before starting the old containers, or by restoring the backup.
+  - After a full downgrade, the Stage 12 code saves normally (verified). The downgrade discards Stage 13
+    data only: templates, provenance, keys, waits and Estimate keys. Pre-Stage-13 data is kept.
+  - An old frontend against the new backend would send key-less saves, losing overrides on regeneration
+    (13E.2B release gate).
+
+### 28.3 ⚠ CRITICAL — rollback and deployment atomicity
+
+**A CODE-ONLY ROLLBACK AFTER MIGRATION 0027 IS NOT SAFE.** 0027 makes
+`SurfacePlannedWork.occurrence_key` required. The pre-Stage-13 production backend does not provide it when
+saving WorkPlans, so it cannot operate against a DB migrated through 0027+.
+
+Canonical production rollback after a Stage 13 deployment:
+- **Option A — schema downgrade:**
+  1. stop or avoid writes;
+  2. using the **NEW Stage 13 backend image/code** (which knows 0027–0029), run
+     `alembic downgrade 0026_coefficient_descriptions`;
+  3. verify the DB revision;
+  4. start the old pre-Stage-13 containers/images.
+- **Option B:** restore the pre-deployment PostgreSQL backup (take it before deploying).
+- **Never** use the old backend image to run 0027–0029 or their downgrade: it does not know those revisions.
+
+**Downgrade consequence:**
+- Stage 13-only data is discarded: workflow templates, template application history, occurrence keys,
+  technological waits, and Estimate occurrence keys/provenance.
+- Pre-Stage-13 business data remains.
+
+**Deployment atomicity:** the Stage 13 frontend and backend **must be deployed together**.
+- **Old frontend + new backend:** ordinary WorkPlan saves omit `occurrence_key` and break the identity
+  semantics, causing Estimate override mismatches on a later explicit regeneration.
+- **New frontend + old backend:** the Stage 13 contracts and endpoints do not exist.
+
+### 28.4 Status
+
+**13E.5A AUTOMATED VERIFICATION PASS / OWNER ACCEPTED.**
+- Stage 13E is **IN PROGRESS** — the production Telegram walkthrough is pending.
+- **13E.5B (PENDING):** production deployment (performed manually by the owner) + the real Telegram Mini App
+  owner walkthrough (scenarios A–D).
+- **13F:** NOT STARTED.
+- **Production:** pre-Stage-13 release; migrations 0027/0028/0029 NOT deployed.
