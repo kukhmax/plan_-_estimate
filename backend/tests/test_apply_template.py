@@ -517,6 +517,61 @@ class TestReviewedSelection:
         assert _application_fingerprint(plan_id, reviewed([s2])) != _application_fingerprint(plan_id, legacy)
 
 
+class TestReviewedSelectionArchivedRequired:
+    """13F.2 (D-F3): selected_step_ids may skip a required step only when that
+    step would itself be valid. A required step whose PriceItem is archived
+    (or otherwise invalid) blocks the application exactly like the legacy
+    path; nothing is written, no history, the Estimate is untouched."""
+
+    async def _expect_rejected(self, client, db, c, body, fragment):
+        before, estimate = await _state(db, c.plan.id), await _estimate_snapshot(db)
+        resp = await client.post(c.url, headers=c.headers, json=body)
+        assert resp.status_code == 422, resp.text
+        assert fragment in resp.json()["detail"]
+        assert await _state(db, c.plan.id) == before  # rows, coefficients, history
+        assert await _estimate_snapshot(db) == estimate
+
+    async def _archived_p1(self, client, db):
+        c = await _setup(client, db)
+        await EstimateService(db).generate_estimate(c.project.id, c.user.id)
+        c.p1.is_archived = True  # both required steps (0 and 2) use P1
+        await db.commit()
+        return c
+
+    async def test_omitting_the_archived_required_step_is_rejected(self, async_client: AsyncClient, db_session):
+        c = await self._archived_p1(async_client, db_session)
+        await self._expect_rejected(async_client, db_session, c, _reviewed(c, [c.step_ids[3]]),
+                                    "required step's price item")
+        await self._expect_rejected(async_client, db_session, c, _reviewed(c, [c.step_ids[1], c.step_ids[3]]),
+                                    "required step's price item")
+
+    async def test_including_the_archived_required_step_is_rejected(self, async_client: AsyncClient, db_session):
+        c = await self._archived_p1(async_client, db_session)
+        await self._expect_rejected(async_client, db_session, c, _reviewed(c, [c.step_ids[0], c.step_ids[3]]),
+                                    "required step's price item")
+
+    async def test_legacy_path_gives_the_same_rejection(self, async_client: AsyncClient, db_session):
+        c = await self._archived_p1(async_client, db_session)
+        await self._expect_rejected(async_client, db_session, c, _body(c, selected=[c.step_ids[3]]),
+                                    "required step's price item")
+
+    async def test_unselected_archived_optional_is_allowed_selected_is_rejected(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session)
+        c.p3.is_archived = True  # optional step 3
+        await db_session.commit()
+        await self._expect_rejected(async_client, db_session, c, _reviewed(c, [c.step_ids[0], c.step_ids[3]]),
+                                    "optional step's price item")
+        ok = await async_client.post(c.url, headers=c.headers, json=_reviewed(c, [c.step_ids[2]]))  # skip a VALID required step
+        assert ok.status_code == 200, ok.text
+        assert [w["price_item_id"] for w in ok.json()["planned_works"][1:]] == [str(c.p1.id)]
+
+    async def test_skipped_required_reveal_step_is_rejected_like_legacy(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session)
+        c.p1.category = PriceCategory.REVEAL  # re-categorised after the template was built
+        await db_session.commit()
+        await self._expect_rejected(async_client, db_session, c, _reviewed(c, [c.step_ids[1]]), "reveal work")
+
+
 # ---------------------------------------------------------------------------
 # Decoupling and existing flows
 # ---------------------------------------------------------------------------

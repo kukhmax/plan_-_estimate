@@ -38,6 +38,7 @@ from app.domain.exceptions import (
     PriceItemNotFoundError,
     QualityScaleMismatchError,
     WorkflowTemplateNotFoundError,
+    WorkflowTemplateStaleError,
     WorkflowTemplateValidationError,
 )
 from app.domain.data.workflow_templates import (
@@ -147,8 +148,10 @@ class WorkflowTemplateService:
         owner's Price Book is bootstrapped first, and every default step
         references the OWNER'S own PriceItem with the step's code (codes are
         immutable and price items cannot be hard-deleted, so it exists). A
-        referenced item the owner has archived is still referenced: the 13E
-        apply flow skips archived items with a warning (architecture §9).
+        referenced item the owner has archived is still referenced, never
+        restored. At apply time (13E) a REQUIRED step whose item is archived
+        blocks the whole application (422) and an archived OPTIONAL step
+        cannot be selected; nothing is skipped silently.
         Commits only when something was created.
         """
         await PriceBookService(self.db).ensure_owner_catalog(owner_id)
@@ -201,6 +204,26 @@ class WorkflowTemplateService:
                 created.append(template)
             await self.db.commit()
             return created
+
+    async def _lock_owned_template(
+        self, owner_id: uuid.UUID, template_id: uuid.UUID
+    ) -> None:
+        """Row-lock the owned template for the rest of the transaction
+        (serializes concurrent step replacements; lock_plan precedent)."""
+        locked = (
+            await self.db.execute(
+                select(WorkflowTemplate.id)
+                .where(
+                    WorkflowTemplate.id == template_id,
+                    WorkflowTemplate.owner_id == owner_id,
+                )
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if locked is None:
+            raise WorkflowTemplateNotFoundError(
+                f"Workflow template {template_id} not found"
+            )
 
     async def get_owned_template(
         self, owner_id: uuid.UUID, template_id: uuid.UUID
@@ -264,7 +287,7 @@ class WorkflowTemplateService:
         owner_id: uuid.UUID,
         template_id: uuid.UUID,
         *,
-        display_name: str | None = None,
+        display_name: str | None | object = _UNSET,
         description: str | None | object = _UNSET,
         applies_to_substrates: list[Substrate] | None | object = _UNSET,
         applies_to_quality: list[QualityLevel] | None | object = _UNSET,
@@ -272,7 +295,13 @@ class WorkflowTemplateService:
         position: int | None = None,
     ) -> WorkflowTemplate:
         """Update editable fields; `code` is immutable. Never retroactive:
-        no existing plan or provenance record is touched."""
+        no existing plan or provenance record is touched.
+
+        `display_name`: omitted (_UNSET) = unchanged; a string = set; None or
+        blank = clear, which is allowed only when the template has a
+        localized `name_key` (a program default), so its localized name
+        becomes effective again and an owner-created template can never
+        become nameless."""
         template = await self.get_owned_template(owner_id, template_id)
         substrates = (
             applies_to_substrates
@@ -285,8 +314,8 @@ class WorkflowTemplateService:
             else [QualityLevel(v) for v in template.applies_to_quality or []]
         )
         validate_filter_scales(substrates, qualities)  # type: ignore[arg-type]
-        if display_name is not None:
-            name = _normalize_text(display_name)
+        if display_name is not _UNSET:
+            name = _normalize_text(display_name)  # type: ignore[arg-type]
             if name is None and template.name_key is None:
                 raise WorkflowTemplateValidationError(
                     "owner-created templates require a display_name"
@@ -310,10 +339,26 @@ class WorkflowTemplateService:
         owner_id: uuid.UUID,
         template_id: uuid.UUID,
         steps: list[WorkflowTemplateStepSpec],
+        *,
+        expected_step_ids: list[uuid.UUID] | None = None,
     ) -> WorkflowTemplate:
         """Replace the template's ordered steps as a whole, atomically.
-        Validation runs in full before any mutation."""
+        Validation runs in full before any mutation.
+
+        `expected_step_ids` (13F.2, D-F2) is an optimistic precondition: the
+        template row is locked (SELECT ... FOR UPDATE) and its current
+        ordered step ids must equal the list exactly, else
+        WorkflowTemplateStaleError (409) and nothing changes. None = no
+        precondition (backwards compatible)."""
+        if expected_step_ids is not None:
+            await self._lock_owned_template(owner_id, template_id)
         template = await self.get_owned_template(owner_id, template_id)
+        if expected_step_ids is not None and [s.id for s in template.steps] != list(
+            expected_step_ids
+        ):
+            raise WorkflowTemplateStaleError(
+                "the workflow template's steps changed since they were read; reload it"
+            )
         existing_counts = Counter(step.price_item_id for step in template.steps)
         resolved = await self._resolve_steps(owner_id, steps, existing_counts)
         # Nothing references steps, so the ORM delete-orphan cascade is safe;

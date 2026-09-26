@@ -45,6 +45,9 @@ class WorkflowTemplateUpdate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    # Omitted = unchanged; a string = set; explicit null = clear, allowed only
+    # when the template has a localized name_key (a default), so an
+    # owner-created template can never become nameless (13F.2, D-F1).
     display_name: str | None = Field(default=None, min_length=1, max_length=255)
     # Omitted = unchanged; explicit null or blank = clear.
     description: str | None = Field(default=None, max_length=4000)
@@ -55,9 +58,15 @@ class WorkflowTemplateUpdate(BaseModel):
 
 
 class WorkflowTemplateStepsReplace(BaseModel):
+    """Full ordered step replacement. `expected_step_ids` (13F.2, D-F2) is the
+    exact ordered step-id list the client read: any difference from the
+    current steps is a 409 and nothing changes. Omitted = no precondition
+    (backwards compatible for existing callers)."""
+
     model_config = ConfigDict(extra="forbid")
 
     steps: list[WorkflowTemplateStepWrite]
+    expected_step_ids: list[uuid.UUID] | None = None
 
 
 class WorkflowTemplateStepRead(BaseModel):
@@ -84,6 +93,8 @@ class WorkflowTemplateRead(BaseModel):
     applies_to_surface_types: list[SurfaceType] = Field(default_factory=list)
     position: int
     is_archived: bool
+    # Derived from the immutable code (seeded Stage 13D recipe); never stored.
+    is_default: bool = False
     created_at: datetime
     updated_at: datetime
     steps: list[WorkflowTemplateStepRead] = Field(default_factory=list)

@@ -705,6 +705,11 @@ class SurfaceWorkPlanService:
                     f"step {invalid[0]} is not a step of this template"
                 )
             chosen = [s for s in steps if s.id in set(selected)]
+            # 13F.2 (D-F3): a skipped REQUIRED step is still validated, so a
+            # direct client cannot omit a required step to bypass the
+            # archived / REVEAL / ownership block that the legacy path
+            # enforces (required steps are always materialized there).
+            to_validate = [s for s in steps if not s.is_optional or s.id in set(selected)]
         else:
             optional_ids = {step.id for step in steps if step.is_optional}
             selected = list(request.selected_optional_step_ids)
@@ -716,11 +721,12 @@ class SurfaceWorkPlanService:
                     f"step {invalid[0]} is not an optional step of this template"
                 )
             chosen = [s for s in steps if not s.is_optional or s.id in set(selected)]
+            to_validate = chosen
         if not chosen:
             raise SurfaceWorkPlanValidationError(
                 "no steps selected: at least one work must be applied"
             )
-        for step in chosen:
+        for step in to_validate:
             item = step.price_item
             if item is None or item.owner_id != owner_id:
                 raise PriceItemNotFoundError(f"Price item {step.price_item_id} not found")

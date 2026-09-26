@@ -1237,5 +1237,49 @@ walkthrough`) after owner approval.
 - **Deferred API hardening (known, not blocking):** with `selected_step_ids` a direct API client may omit a
   required template step whose PriceItem is archived, because the archived check covers only the steps
   actually materialized. The Mini App prevents this (the preview blocks a template with an archived
-  required item); server-side hardening remains a future task.
-- **Stage 13F:** NOT STARTED (requires explicit owner approval).
+  required item); server-side hardening remains a future task. *(Closed later in 13F.2 — §30.2.)*
+- **Stage 13F:** NOT STARTED (requires explicit owner approval). *(Started after owner approval — §30.)*
+
+## 30. Stage 13F — template management
+
+### 30.1 Owner decisions (13F.1 audit PASS, 2026-09-26)
+
+- **D-F1 — defaults stay owner-editable** (preserves D3, §4.4: never re-imposed). A default is identified
+  by its immutable seeded code (`DEFAULT_WORKFLOW_TEMPLATE_CODES`, derived from the Stage 13D recipe list)
+  and exposed as a derived, read-only `is_default`; no column, no migration. Defaults may be duplicated
+  (client-side, via the existing create). No reset-to-default in v1. A default's custom `display_name` can
+  be cleared so its localized `name_key` applies again.
+- **D-F2 — optimistic concurrency for step replacement** via `expected_step_ids`; metadata PATCH stays
+  last-write-wins (the UI sends only changed fields). No general versioning.
+- **D-F3 — close the 13E `selected_step_ids` archived-required-step hole now** (13F.2).
+- **D-F4 — empty templates stay valid** at API/storage level; applying one stays rejected; the 13F UI will
+  prevent saving a zero-step template.
+- **D-F5 — UI location:** Cennik → Procesy (Price Book → Processes).
+- **D-F6 — no hard delete in v1** (archive / restore only); a deleted default would be re-inserted by the
+  insert-only bootstrap.
+
+Invariants restated: templates reference live PriceItems (no price copy); NULL-price items are allowed
+(UI warns); repeated PriceItems are independent ordered steps, never deduplicated; template edits never
+touch a WorkPlan, an Estimate or application history; applying never sets or changes `quality_target`;
+S1–S4 / Q1–Q4 / PSG1–PSG4 semantics unchanged.
+
+### 30.2 Stage 13F.2 — backend hardening (contracts)
+
+- **`WorkflowTemplateRead.is_default: bool`** — `code in DEFAULT_WORKFLOW_TEMPLATE_CODES`. Read-only:
+  create/PATCH reject it as an unknown field.
+- **`PATCH /workflow-templates/{id}` `display_name`** — omitted = unchanged; string = set; explicit
+  `null` (or a blank string) = clear, allowed only when the template has a `name_key` (a default);
+  clearing an owner-created template's name is 422. Other PATCH fields keep their semantics.
+- **`PUT /workflow-templates/{id}/steps` `expected_step_ids`** (optional) — the exact ordered step-id list
+  the client read. The template row is locked (`SELECT … FOR UPDATE`) and compared with the current
+  ordered step ids: exact match → replace; missing / extra / unknown id, different order or an empty
+  claim → **409** and nothing changes. Omitted → the unchanged 13C behaviour (backwards compatible).
+- **Apply hardening (D-F3)** — with `selected_step_ids`, every REQUIRED step is validated even when the
+  owner skips it (archived item → 422 "the required step's price item … is archived", REVEAL item → 422,
+  missing/foreign item → 404), exactly like the legacy path. Skipping a VALID required step (the FIX.4
+  duplicate-aware review) is still allowed. An archived optional step stays unselectable (422 if selected).
+- **Bootstrap** — unchanged, insert-only by code: renames, cleared names, descriptions, edited steps (step
+  row ids included) and archive state survive; only a missing canonical code is inserted. The bootstrap
+  docstring now states the real apply behaviour for archived items (required blocks, optional
+  unselectable, nothing skipped silently).
+- **No migration**; single Alembic head `0029_application_fingerprint`. Frontend unchanged in 13F.2.

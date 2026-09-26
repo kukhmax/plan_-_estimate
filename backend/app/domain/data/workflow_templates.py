@@ -288,3 +288,11 @@ def build_default_workflow_templates() -> list[WorkflowTemplateData]:
             )
         )
     return templates
+
+
+# Canonical identity of the program defaults (Stage 13F.2, D-F1): a template
+# is a default iff its immutable code is one of these seeded recipe codes.
+# Derived, never stored -- no is_default column, no migration.
+DEFAULT_WORKFLOW_TEMPLATE_CODES: frozenset[str] = frozenset(
+    template.code for template in build_default_workflow_templates()
+)

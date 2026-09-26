@@ -303,6 +303,35 @@ class TestInsertOnly:
         assert t["TECH_GK_Q1-01"].is_archived is True
         assert len(t) == 16
 
+    async def test_cleared_name_and_step_identity_survive_bootstrap(self, db_session):
+        """13F.2: a cleared custom name stays cleared (the localized name_key
+        applies) and an existing canonical template is never rewritten --
+        not even its step rows are recreated."""
+        user = await _user(db_session, 1304207)
+        uid = user.id  # objects expire on expire_all()
+        service = WorkflowTemplateService(db_session)
+        await service.ensure_owner_catalog(uid)
+        t = await _templates(db_session, uid)
+        s2_id, s4_id = t["TECH_BETON_S2-01"].id, t["TECH_BETON_S4-01"].id
+        await service.update_template(uid, s2_id, display_name="Tymczasowa")
+        await service.update_template(uid, s2_id, display_name=None)
+        await service.update_template(uid, s4_id, display_name="Mój S4")
+        snapshot = {
+            code: (tpl.display_name, tpl.description, tpl.is_archived, [s.id for s in tpl.steps])
+            for code, tpl in (await _templates(db_session, uid)).items()
+        }
+
+        assert await service.ensure_owner_catalog(uid) == []
+        db_session.expire_all()
+        after = await _templates(db_session, uid)
+        assert {
+            code: (tpl.display_name, tpl.description, tpl.is_archived, [s.id for s in tpl.steps])
+            for code, tpl in after.items()
+        } == snapshot
+        assert after["TECH_BETON_S2-01"].display_name is None
+        assert after["TECH_BETON_S2-01"].name_key == "workflow_templates.seed.tech_beton_s2"
+        assert after["TECH_BETON_S4-01"].display_name == "Mój S4"
+
     async def test_only_missing_default_is_recreated(self, db_session):
         user = await _user(db_session, 1304203)
         service = WorkflowTemplateService(db_session)

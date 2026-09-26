@@ -198,3 +198,8 @@ class WorkflowTemplateNotFoundError(Exception):
 
 class WorkflowTemplateValidationError(Exception):
     """Raised when workflow template input violates a Stage 13 domain rule."""
+
+
+class WorkflowTemplateStaleError(Exception):
+    """Raised (409) when a step replacement's expected_step_ids no longer match
+    the template's current ordered step ids (Stage 13F.2, D-F2)."""

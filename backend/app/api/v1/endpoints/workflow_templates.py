@@ -15,9 +15,11 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_current_user, get_workflow_template_service
+from app.domain.data.workflow_templates import DEFAULT_WORKFLOW_TEMPLATE_CODES
 from app.domain.exceptions import (
     PriceItemNotFoundError,
     WorkflowTemplateNotFoundError,
+    WorkflowTemplateStaleError,
     WorkflowTemplateValidationError,
 )
 from app.domain.services.workflow_template_service import (
@@ -56,6 +58,7 @@ def _template_read(template: WorkflowTemplate) -> WorkflowTemplateRead:
         applies_to_surface_types=template.applies_to_surface_types or [],
         position=template.position,
         is_archived=template.is_archived,
+        is_default=template.code in DEFAULT_WORKFLOW_TEMPLATE_CODES,
         created_at=template.created_at,
         updated_at=template.updated_at,
         steps=[
@@ -92,6 +95,8 @@ def _map_errors(exc: Exception) -> HTTPException:
         return HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Price item not found"
         )
+    if isinstance(exc, WorkflowTemplateStaleError):
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     return HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
     )
@@ -100,6 +105,7 @@ def _map_errors(exc: Exception) -> HTTPException:
 _DOMAIN_ERRORS = (
     WorkflowTemplateNotFoundError,
     PriceItemNotFoundError,
+    WorkflowTemplateStaleError,
     WorkflowTemplateValidationError,
 )
 
@@ -219,7 +225,10 @@ async def replace_workflow_template_steps(
 ) -> WorkflowTemplateRead:
     try:
         template = await service.replace_steps(
-            current_user.id, template_id, _specs(payload.steps)
+            current_user.id,
+            template_id,
+            _specs(payload.steps),
+            expected_step_ids=payload.expected_step_ids,
         )
     except _DOMAIN_ERRORS as e:
         raise _map_errors(e)
