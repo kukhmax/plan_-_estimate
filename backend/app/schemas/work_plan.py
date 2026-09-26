@@ -147,12 +147,21 @@ class ApplyTemplateRequest(BaseModel):
     showed (template version); `expected_occurrence_keys` is the exact ordered
     plan composition the owner confirmed replacing (REPLACE only).
     `application_id` is generated once per apply action and reused on retry.
+
+    `selected_step_ids` (13E.5B-FIX.4, APPEND only) is the owner's final
+    reviewed selection: the exact set of template step ids to materialize,
+    required or optional. It lets the owner skip a required candidate whose
+    operation is already in the plan. It never carries PriceItems: every id
+    must be a step of the current template, order still comes from the
+    template. When it is sent, `selected_optional_step_ids` must be empty;
+    when omitted, the 13E.3 rule applies (all required + selected optional).
     """
 
     application_id: uuid.UUID
     template_id: uuid.UUID
     mode: TemplateApplicationMode
     selected_optional_step_ids: list[uuid.UUID] = Field(default_factory=list)
+    selected_step_ids: list[uuid.UUID] | None = None
     expected_step_ids: list[uuid.UUID]
     expected_occurrence_keys: list[uuid.UUID] | None = None
     replace_confirmed: bool = False

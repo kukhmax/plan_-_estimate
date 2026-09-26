@@ -21,6 +21,7 @@ import { formatMetric } from '../utils/format';
 import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { surfaceTypeTint } from '../utils/surfaceTypeTint';
+import { formatOpeningDimension, summarizeOpenings } from '../utils/openingSummary';
 import { OpeningList } from './OpeningList';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 
@@ -663,6 +664,10 @@ export function SurfaceList({
             const wallOpenings = wallOpeningsById[surface.id];
             const deductionContext = isWall ? describeDeductionContext(wallOpenings) : null;
             const revealAggregate = isWall ? describeRevealAggregate(wallOpenings) : null;
+            // Compact read-only opening summary (active openings only).
+            const openingSummary = isWall ? summarizeOpenings(wallOpenings) : [];
+            const openingTypeLabel = (type: 'DOOR' | 'WINDOW' | 'OTHER') =>
+              type === 'DOOR' ? t.openings.door : type === 'WINDOW' ? t.openings.window : t.openings.other;
 
             return (
               <li
@@ -689,9 +694,11 @@ export function SurfaceList({
                     aria-label={`options-toggle-${surface.id}`}
                     aria-expanded={isOptionsOpen}
                     onClick={() => toggleOptions(surface.id)}
-                    className="shrink-0 min-h-11 px-3 text-sm rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
+                    className="shrink-0 max-w-[40%] min-h-11 px-3 py-1 text-sm leading-tight break-words rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
                   >
-                    {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
+                    {isWall
+                      ? (isOptionsOpen ? t.surfaces.hide_openings_and_options : t.surfaces.openings_and_options)
+                      : (isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options)}
                   </button>
                 </div>
 
@@ -702,6 +709,20 @@ export function SurfaceList({
                       {formatMetric(surface.width)} × {formatMetric(surface.height)} {t.common.unit_m}
                     </strong>
                   </p>
+                )}
+
+                {openingSummary.length > 0 && (
+                  <div aria-label={`openings-summary-${surface.id}`} className="text-xs text-slate-600">
+                    <span className="font-semibold text-slate-700">{t.surfaces.openings_summary_title}</span>
+                    <ul className="mt-0.5 space-y-0.5">
+                      {openingSummary.map((row) => (
+                        <li key={`${row.openingType}-${row.width}-${row.height}`} className="break-words">
+                          {openingTypeLabel(row.openingType)} {formatOpeningDimension(row.width)} × {formatOpeningDimension(row.height)} {t.common.unit_m}{' '}
+                          <span className="font-semibold text-slate-900">({row.count})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
 
                 {isWall ? (
@@ -871,7 +892,7 @@ export function SurfaceList({
                           onClick={() => toggleOptions(surface.id)}
                           className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
                         >
-                          {t.surfaces.hide_options}
+                          {t.surfaces.hide_openings_and_options}
                         </button>
                       </>
                     )}

@@ -37,11 +37,13 @@ function item(id: string, name: string, archived = false): SurfacePriceItemSumma
 
 const P1 = item('p1', 'Gruntowanie');
 const P2 = item('p2', 'Szpachlowanie lokalne');
+// Neutral item for the default plan: not used by any template fixture.
+const PX = item('px', 'Naprawa rys i pęknięć');
 
-function work(id: string, key: string | null, position: number, coefficients = 0): SurfacePlannedWorkRead {
+function work(id: string, key: string | null, position: number, coefficients = 0, priceItem = PX): SurfacePlannedWorkRead {
   return {
-    id, work_plan_id: 'plan-1', price_item_id: 'p1', position, occurrence_key: key as string,
-    wait_after_hours: null, price_item: P1,
+    id, work_plan_id: 'plan-1', price_item_id: priceItem.id, position, occurrence_key: key as string,
+    wait_after_hours: null, price_item: priceItem,
     coefficient_options: Array.from({ length: coefficients }, (_, i) => ({
       id: `opt-${i}`, group_id: `g-${i}`, group_code: 'G', code: 'O', display_name: 'o', percentage: '10.00', is_base: false,
     })),
@@ -89,6 +91,12 @@ async function openPreview(id = 'tpl-builtin') {
   const sheet = await openSheet();
   fireEvent.click(await within(sheet).findByLabelText(`template-option-${id}`));
   return sheet;
+}
+
+/** APPEND: Zastosuj opens the final review; nothing is sent until "Dodaj wybrane". */
+function applyAppend(sheet: HTMLElement) {
+  fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+  fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
 }
 
 function applyCalls(): ApplyTemplateRequest[] {
@@ -189,15 +197,17 @@ describe('Workflow template apply (13E.4)', () => {
     expect(sheet).toHaveTextContent('Obecne prace pozostaną bez zmian. Kroki procesu zostaną dodane na końcu.');
     fireEvent.click(within(sheet).getByLabelText('template-optional-st-2'));
     fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    expect(templatesApi.applyTemplateToWorkPlan).not.toHaveBeenCalled(); // review first
+    fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
     await waitFor(() => expect(screen.queryByLabelText(`template-sheet-${S}`)).not.toBeInTheDocument());
     const [req] = applyCalls();
     expect(req.application_id).toMatch(/^[0-9a-f-]{36}$/);
     expect({ ...req, application_id: 'x' }).toEqual({
-      application_id: 'x', template_id: 'tpl-builtin', mode: 'APPEND',
-      selected_optional_step_ids: ['st-2'], expected_step_ids: ['st-1', 'st-2', 'st-3'],
+      application_id: 'x', template_id: 'tpl-builtin', mode: 'APPEND', selected_optional_step_ids: [],
+      selected_step_ids: ['st-1', 'st-2', 'st-3'], expected_step_ids: ['st-1', 'st-2', 'st-3'],
     });
     expect(within(screen.getByLabelText(`planned-works-${S}`)).getAllByRole('listitem')).toHaveLength(4);
-    expect(screen.getByText('Proces technologiczny zastosowany.')).toBeInTheDocument();
+    expect(screen.getByLabelText(`template-applied-${S}`)).toHaveTextContent('Proces technologiczny zastosowany i zapisany.');
     expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled(); // no Estimate or other network call
     expect(screen.getByLabelText(`save-work-plan-${S}`)).toBeDisabled(); // re-hydrated, clean
@@ -207,10 +217,11 @@ describe('Workflow template apply (13E.4)', () => {
     let resolve: (p: SurfaceWorkPlanRead) => void = () => {};
     vi.mocked(templatesApi.applyTemplateToWorkPlan).mockReturnValue(new Promise((r) => { resolve = r; }));
     const sheet = await openPreview();
-    const apply = within(sheet).getByLabelText(`template-apply-${S}`);
-    fireEvent.click(apply);
-    fireEvent.click(apply);
-    expect(apply).toBeDisabled();
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    const confirm = within(sheet).getByLabelText(`template-review-confirm-${S}`);
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(confirm).toBeDisabled();
     await act(async () => resolve(APPLIED));
     expect(templatesApi.applyTemplateToWorkPlan).toHaveBeenCalledTimes(1);
   });
@@ -237,6 +248,9 @@ describe('Workflow template apply (13E.4)', () => {
     fireEvent.click(within(sheet).getByLabelText(`template-replace-confirm-yes-${S}`));
     await waitFor(() => expect(templatesApi.applyTemplateToWorkPlan).toHaveBeenCalledTimes(1));
     expect(applyCalls()[0]).toMatchObject({ mode: 'REPLACE', replace_confirmed: true, expected_occurrence_keys: ['key-A', 'key-B'] });
+    // REPLACE keeps the 13E.3 contract: no APPEND review, no reviewed selection.
+    expect(applyCalls()[0]).not.toHaveProperty('selected_step_ids');
+    expect(within(sheet).queryByLabelText(`template-review-${S}`)).not.toBeInTheDocument();
     await waitFor(() => expect(within(screen.getByLabelText(`planned-works-${S}`)).getAllByRole('listitem')).toHaveLength(1));
     expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -255,7 +269,7 @@ describe('Workflow template apply (13E.4)', () => {
   it('a transport failure keeps the application_id for the exact retry', async () => {
     vi.mocked(templatesApi.applyTemplateToWorkPlan).mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(APPLIED);
     const sheet = await openPreview();
-    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    applyAppend(sheet);
     expect(await within(sheet).findByLabelText(`template-apply-error-${S}`)).toHaveTextContent('ta sama operacja nie zostanie zastosowana dwukrotnie');
     fireEvent.click(within(sheet).getByText('Spróbuj ponownie'));
     await waitFor(() => expect(templatesApi.applyTemplateToWorkPlan).toHaveBeenCalledTimes(2));
@@ -266,22 +280,30 @@ describe('Workflow template apply (13E.4)', () => {
   it('changing optional selection, mode or template makes a new command id', async () => {
     vi.mocked(templatesApi.applyTemplateToWorkPlan).mockRejectedValue(new TypeError('Failed to fetch'));
     const sheet = await openPreview();
-    const apply = () => fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
-    apply();
+    applyAppend(sheet);
     await within(sheet).findByLabelText(`template-apply-error-${S}`);
+    fireEvent.click(within(sheet).getByText('Wróć'));
     fireEvent.click(within(sheet).getByLabelText('template-optional-st-2'));
-    apply();
+    applyAppend(sheet);
     await waitFor(() => expect(applyCalls()).toHaveLength(2));
+    // Unchecking a candidate in the review is also a new command.
+    fireEvent.click(within(sheet).getByText('Wróć'));
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    fireEvent.click(within(sheet).getByLabelText('template-review-toggle-st-3'));
+    fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
+    await waitFor(() => expect(applyCalls()).toHaveLength(3));
+    expect(applyCalls()[2].selected_step_ids).toEqual(['st-1', 'st-2']);
+    fireEvent.click(within(sheet).getByText('Wróć'));
     fireEvent.click(within(sheet).getByLabelText('template-mode-REPLACE'));
     fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
     fireEvent.click(within(sheet).getByLabelText(`template-replace-confirm-yes-${S}`));
-    await waitFor(() => expect(applyCalls()).toHaveLength(3));
+    await waitFor(() => expect(applyCalls()).toHaveLength(4));
     fireEvent.click(within(sheet).getByText('Wróć do listy'));
     fireEvent.click(await within(sheet).findByLabelText('template-option-tpl-custom'));
-    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
-    await waitFor(() => expect(applyCalls()).toHaveLength(4));
+    applyAppend(sheet);
+    await waitFor(() => expect(applyCalls()).toHaveLength(5));
     const ids = applyCalls().map((r) => r.application_id);
-    expect(new Set(ids).size).toBe(4);
+    expect(new Set(ids).size).toBe(5);
   });
 
   it('stale template 409: refresh reloads steps, resets optionals and uses a new command', async () => {
@@ -291,16 +313,16 @@ describe('Workflow template apply (13E.4)', () => {
     vi.mocked(templatesApi.fetchWorkflowTemplate).mockResolvedValue(template({ steps: [step('new-1', 0, false), step('new-2', 1, true, P2)] }));
     const sheet = await openPreview();
     fireEvent.click(within(sheet).getByLabelText('template-optional-st-2'));
-    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    applyAppend(sheet);
     expect(await within(sheet).findByLabelText(`template-apply-error-${S}`)).toHaveTextContent('Proces technologiczny zmienił się od czasu podglądu.');
     fireEvent.click(within(sheet).getByLabelText(`template-refresh-${S}`));
     await waitFor(() => expect(templatesApi.fetchWorkflowTemplate).toHaveBeenCalledWith('tpl-builtin'));
     expect(await within(sheet).findByLabelText('template-optional-new-2')).not.toBeChecked();
-    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    applyAppend(sheet);
     await waitFor(() => expect(applyCalls()).toHaveLength(2));
     const [first, second] = applyCalls();
     expect(second.expected_step_ids).toEqual(['new-1', 'new-2']);
-    expect(second.selected_optional_step_ids).toEqual([]);
+    expect(second.selected_step_ids).toEqual(['new-1']);
     expect(second.application_id).not.toBe(first.application_id);
   });
 
@@ -328,7 +350,7 @@ describe('Workflow template apply (13E.4)', () => {
       new ApiError('the workflow template is archived; restore it before applying', 409),
     );
     const sheet = await openPreview();
-    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    applyAppend(sheet);
     expect(await within(sheet).findByLabelText(`template-apply-error-${S}`)).toHaveTextContent('Wybrany proces technologiczny nie jest już dostępny.');
     await waitFor(() => expect(templatesApi.fetchCompatibleTemplates).toHaveBeenCalledTimes(2));
     expect(await within(sheet).findByLabelText(`template-list-${S}`)).toBeInTheDocument();
@@ -339,11 +361,11 @@ describe('Workflow template apply (13E.4)', () => {
       .mockRejectedValueOnce(new ApiError('something else conflicted', 409))
       .mockRejectedValueOnce(new ApiError('no steps selected: at least one work must be applied', 422));
     const sheet = await openPreview();
-    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    applyAppend(sheet);
     const err = await within(sheet).findByLabelText(`template-apply-error-${S}`);
     expect(err).toHaveTextContent('Nie udało się zastosować procesu technologicznego.');
     expect(err).toHaveTextContent('something else conflicted');
-    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
     await waitFor(() => expect(within(sheet).getByLabelText(`template-apply-error-${S}`)).toHaveTextContent('at least one work'));
   });
 
@@ -355,5 +377,374 @@ describe('Workflow template apply (13E.4)', () => {
     expect(sheet).toHaveTextContent('Технологический перерыв: 24 ч');
     fireEvent.click(within(sheet).getByLabelText('template-mode-REPLACE'));
     expect(sheet).toHaveTextContent('Смета не будет изменена автоматически.');
+  });
+
+  // ---- 13E.5B walkthrough: materialization summary + APPEND history semantics -
+
+  const prior = (templateId = 'tpl-builtin') => ({
+    id: 'app-1', template_id: templateId, template_code: 'TECH_BETON_S2-01',
+    template_name: 'workflow_templates.seed.tech_beton_s2', mode: 'APPEND' as const, steps_applied: 2, applied_at: '',
+  });
+
+  it('summarizes exactly what will be materialized (required + selected optional only)', async () => {
+    const sheet = await openPreview();
+    const summary = within(sheet).getByLabelText(`template-summary-${S}`);
+    // Visible before the FIRST apply (no provenance), next to the Apply action.
+    expect(summary).toHaveTextContent('Zostaną dodane 2 prace');
+    expect(summary).toHaveTextContent('2 wymagane + 0 wybranych opcjonalnych');
+    fireEvent.click(within(sheet).getByLabelText('template-optional-st-2'));
+    expect(summary).toHaveTextContent('Zostaną dodane 3 prace');
+    expect(summary).toHaveTextContent('2 wymagane + 1 wybrana opcjonalna');
+    fireEvent.click(within(sheet).getByLabelText('template-optional-st-2'));
+    expect(summary).toHaveTextContent('Zostaną dodane 2 prace');
+    expect(templatesApi.applyTemplateToWorkPlan).not.toHaveBeenCalled();
+  });
+
+  it('matches the owner walkthrough: 3 required + 1 selected optional = 4 works', async () => {
+    vi.mocked(templatesApi.fetchCompatibleTemplates).mockResolvedValue({ items: [template({
+      steps: [step('o-1', 0, true, P2), step('r-1', 1, false), step('r-2', 2, false), step('r-3', 3, false), step('o-2', 4, true, P2)],
+    })], total: 1 });
+    const sheet = await openPreview();
+    fireEvent.click(within(sheet).getByLabelText('template-optional-o-1'));
+    const summary = within(sheet).getByLabelText(`template-summary-${S}`);
+    expect(summary).toHaveTextContent('Zostaną dodane 4 prace');
+    expect(summary).toHaveTextContent('3 wymagane + 1 wybrana opcjonalna');
+  });
+
+  it('omits the optional part for a template without optional steps and uses the singular form', async () => {
+    vi.mocked(templatesApi.fetchCompatibleTemplates).mockResolvedValue({ items: [template({ steps: [step('r-1', 0, false)] })], total: 1 });
+    const sheet = await openPreview();
+    const summary = within(sheet).getByLabelText(`template-summary-${S}`);
+    expect(summary).toHaveTextContent('Zostanie dodana 1 praca');
+    expect(summary).toHaveTextContent('1 wymagana');
+    expect(summary).not.toHaveTextContent('opcjonal');
+  });
+
+  it('REPLACE summary states the resulting plan size and that current works are replaced', async () => {
+    const sheet = await openPreview();
+    fireEvent.click(within(sheet).getByLabelText('template-mode-REPLACE'));
+    const summary = within(sheet).getByLabelText(`template-summary-${S}`);
+    expect(summary).toHaveTextContent('Nowy plan prac będzie zawierał 2 prace');
+    expect(summary).toHaveTextContent('Obecne prace (2) zostaną zastąpione.');
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    expect(within(sheet).getByLabelText(`template-replace-confirm-${S}`)).toBeInTheDocument();
+    expect(templatesApi.applyTemplateToWorkPlan).not.toHaveBeenCalled();
+  });
+
+  it('uses the many-form for five works and the Russian wording', async () => {
+    vi.mocked(templatesApi.fetchCompatibleTemplates).mockResolvedValue({ items: [template({
+      steps: [0, 1, 2, 3, 4].map((i) => step(`m-${i}`, i, false)),
+    })], total: 1 });
+    const sheet = await openPreview();
+    const summary = within(sheet).getByLabelText(`template-summary-${S}`);
+    expect(summary).toHaveTextContent('Zostanie dodanych 5 prac');
+    expect(summary).toHaveTextContent('5 wymaganych');
+  });
+
+  it('shows the Russian summary', async () => {
+    localStorage.setItem('locale', 'ru');
+    const sheet = await openPreview();
+    fireEvent.click(within(sheet).getByLabelText('template-optional-st-2'));
+    const summary = within(sheet).getByLabelText(`template-summary-${S}`);
+    expect(summary).toHaveTextContent('Будут добавлены 3 работы');
+    expect(summary).toHaveTextContent('2 обязательные + 1 выбранная дополнительная');
+    fireEvent.click(within(sheet).getByLabelText('template-mode-REPLACE'));
+    expect(summary).toHaveTextContent('Новый план работ будет содержать 3 работы');
+    expect(summary).toHaveTextContent('Текущие работы (2) будут заменены.');
+  });
+
+  // 13E.5B-FIX.3: template_applications is history only. Occurrences carry no
+  // relation to the application that created them, so history must never be
+  // presented as "this process is currently in the plan".
+
+  const expectNoRepeatClaim = (sheet: HTMLElement) => {
+    expect(within(sheet).queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(sheet).not.toHaveTextContent('był już zastosowany');
+    expect(sheet).not.toHaveTextContent('Zastosuj ponownie');
+  };
+
+  it('scenario 1: history remains but its works were removed -> normal APPEND summary and action', async () => {
+    // Owner walkthrough: only an unrelated work left, history still lists the template.
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(
+      plan([work('w-crack', 'key-crack', 0)], { template_applications: [prior()] }),
+    );
+    vi.mocked(templatesApi.applyTemplateToWorkPlan).mockResolvedValue(APPLIED);
+    const sheet = await openPreview();
+    fireEvent.click(within(sheet).getByLabelText('template-optional-st-2'));
+    expect(within(sheet).getByLabelText(`template-summary-${S}`)).toHaveTextContent('Zostaną dodane 3 prace');
+    const apply = within(sheet).getByLabelText(`template-apply-${S}`);
+    expect(apply).toHaveTextContent('Zastosuj');
+    fireEvent.click(apply);
+    expectNoRepeatClaim(sheet);
+    fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
+    await waitFor(() => expect(templatesApi.applyTemplateToWorkPlan).toHaveBeenCalledTimes(1));
+    expect(applyCalls()[0]).toMatchObject({ mode: 'APPEND', selected_step_ids: ['st-1', 'st-2', 'st-3'] });
+  });
+
+  it('scenario 1 (RU): no "already applied" claim from history', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(
+      plan([work('w-crack', 'key-crack', 0)], { template_applications: [prior()] }),
+    );
+    vi.mocked(templatesApi.applyTemplateToWorkPlan).mockResolvedValue(APPLIED);
+    const sheet = await openPreview();
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    expect(within(sheet).queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(sheet).not.toHaveTextContent('уже применялся');
+    fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
+    await waitFor(() => expect(templatesApi.applyTemplateToWorkPlan).toHaveBeenCalledTimes(1));
+  });
+
+  it('scenario 2: first APPEND (no history) shows the count, then the review, and applies on confirm', async () => {
+    vi.mocked(templatesApi.applyTemplateToWorkPlan).mockResolvedValue(APPLIED);
+    const sheet = await openPreview();
+    expect(within(sheet).getByLabelText(`template-summary-${S}`)).toHaveTextContent('Zostaną dodane 2 prace');
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    expectNoRepeatClaim(sheet);
+    expect(within(sheet).getByLabelText(`template-review-summary-${S}`)).toHaveTextContent('Zostaną dodane 2 prace');
+    fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
+    await waitFor(() => expect(templatesApi.applyTemplateToWorkPlan).toHaveBeenCalledTimes(1));
+  });
+
+  it('scenario 3: a deliberate second APPEND is a normal command with a NEW application_id', async () => {
+    vi.mocked(templatesApi.applyTemplateToWorkPlan)
+      .mockResolvedValueOnce({ ...APPLIED, template_applications: [prior()] })
+      .mockResolvedValueOnce({ ...APPLIED, template_applications: [prior(), { ...prior(), id: 'app-2' }] });
+    let sheet = await openPreview();
+    applyAppend(sheet);
+    await waitFor(() => expect(screen.queryByLabelText(`template-sheet-${S}`)).not.toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-template-sheet-${S}`));
+    sheet = await screen.findByLabelText(`template-sheet-${S}`);
+    fireEvent.click(await within(sheet).findByLabelText('template-option-tpl-builtin'));
+    expect(within(sheet).getByLabelText(`template-summary-${S}`)).toHaveTextContent('Zostaną dodane 2 prace');
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    expectNoRepeatClaim(sheet);
+    fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
+    await waitFor(() => expect(templatesApi.applyTemplateToWorkPlan).toHaveBeenCalledTimes(2));
+    const [first, second] = applyCalls();
+    expect(second.application_id).not.toBe(first.application_id);
+    expect(second.mode).toBe('APPEND');
+  });
+
+  it('scenario 4: an uncertain-network retry of the same Apply reuses the application_id', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(plan(undefined, { template_applications: [prior()] }));
+    vi.mocked(templatesApi.applyTemplateToWorkPlan).mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(APPLIED);
+    const sheet = await openPreview();
+    applyAppend(sheet);
+    await within(sheet).findByLabelText(`template-apply-error-${S}`);
+    fireEvent.click(within(sheet).getByText('Spróbuj ponownie'));
+    await waitFor(() => expect(templatesApi.applyTemplateToWorkPlan).toHaveBeenCalledTimes(2));
+    const [first, second] = applyCalls();
+    expect(second).toEqual(first);
+  });
+
+  it('scenario 5: the editor never rewrites history -- removing works saves no template_applications', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(
+      plan([work('w-crack', 'key-crack', 0), work('w-n1', 'key-N1', 1)], { template_applications: [prior()] }),
+    );
+    vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(
+      plan([work('w-crack', 'key-crack', 0)], { template_applications: [prior()] }),
+    );
+    renderEditor();
+    await screen.findByLabelText(`open-template-sheet-${S}`);
+    fireEvent.click(screen.getAllByLabelText(/^remove-occurrence-/)[1]);
+    fireEvent.click(screen.getByLabelText(`save-work-plan-${S}`));
+    await waitFor(() => expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(workPlansApi.putSurfaceWorkPlan).mock.calls[0][3];
+    expect(payload.planned_works?.map((w) => w.occurrence_key)).toEqual(['key-crack']);
+    expect(payload).not.toHaveProperty('template_applications'); // no intent -> server history untouched
+  });
+
+  it('REPLACE of a previously applied template keeps its own destructive confirmation only', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(plan(undefined, { template_applications: [prior()] }));
+    const sheet = await openPreview();
+    fireEvent.click(within(sheet).getByLabelText('template-mode-REPLACE'));
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    expect(within(sheet).getByLabelText(`template-replace-confirm-${S}`)).toBeInTheDocument();
+    expect(sheet).not.toHaveTextContent('był już zastosowany');
+  });
+
+  // ---- 13E.5B-FIX.2: persisted state after a server-side apply ---------------
+
+  it('after apply shows "applied and saved", keeps Save disabled, and an ordinary edit enables Save', async () => {
+    vi.mocked(templatesApi.applyTemplateToWorkPlan).mockResolvedValue(APPLIED);
+    const sheet = await openPreview();
+    applyAppend(sheet);
+    await waitFor(() => expect(screen.queryByLabelText(`template-sheet-${S}`)).not.toBeInTheDocument());
+    const status = screen.getByLabelText(`template-applied-${S}`);
+    expect(status).toHaveTextContent('Proces technologiczny zastosowany i zapisany.');
+    expect(status).toHaveTextContent('nie trzeba klikać „Zapisz”');
+    const save = screen.getByLabelText(`save-work-plan-${S}`);
+    expect(save).toBeDisabled();
+    expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
+    // Ordinary editor change (reorder) -> dirty -> Save enabled, success notice gone.
+    fireEvent.click(screen.getAllByLabelText(/^move-down-occurrence-/)[0]);
+    expect(save).toBeEnabled();
+    expect(screen.queryByLabelText(`template-applied-${S}`)).not.toBeInTheDocument();
+    expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
+  });
+
+  it('shows the Russian "applied and saved" notice', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(templatesApi.applyTemplateToWorkPlan).mockResolvedValue(APPLIED);
+    const sheet = await openPreview();
+    applyAppend(sheet);
+    expect(await screen.findByLabelText(`template-applied-${S}`)).toHaveTextContent('Технологический процесс применён и сохранён.');
+    expect(screen.getByLabelText(`save-work-plan-${S}`)).toBeDisabled();
+  });
+
+  // ---- 13E.5B-FIX.4: final APPEND review, duplicate-aware ---------------------
+
+  const GLADZ = item('a', 'Gładź szpachlowa — 2 warstwy (pakiet)');
+  const ODK = item('b', 'Odkurzanie i czyszczenie podłoża');
+  const GRUNT = item('c', 'Gruntowanie gruntem penetrującym');
+  const SZLIF = item('d', 'Szlifowanie gładzi z odpylaniem');
+  const S3 = template({
+    id: 'tpl-s3', steps: [step('B', 0, false, ODK), step('C', 1, true, GRUNT), step('A', 2, false, GLADZ), step('D', 3, false, SZLIF)],
+  });
+  const existingA = { ...work('w-A', 'key-A', 0, 1, GLADZ), wait_after_hours: 12 };
+  const reviewRow = (sheet: HTMLElement, id: string) => within(sheet).getByLabelText(`template-review-step-${id}`);
+
+  it('owner walkthrough: existing Gładź is skipped by default, B/C/D appended, then re-open shows all as in plan', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(plan([existingA]));
+    vi.mocked(templatesApi.fetchCompatibleTemplates).mockResolvedValue({ items: [S3], total: 1 });
+    const afterFirst = plan([
+      existingA, work('n-B', 'key-B2', 1, 0, ODK), work('n-C', 'key-C2', 2, 0, GRUNT), work('n-D', 'key-D2', 3, 0, SZLIF),
+    ], { template_applications: [prior('tpl-s3')] });
+    vi.mocked(templatesApi.applyTemplateToWorkPlan).mockResolvedValueOnce(afterFirst);
+    let sheet = await openPreview('tpl-s3');
+    fireEvent.click(within(sheet).getByLabelText('template-optional-C'));
+    const preSummary = within(sheet).getByLabelText(`template-summary-${S}`);
+    expect(preSummary).toHaveTextContent('Zostaną dodane 4 prace');
+    expect(preSummary).toHaveTextContent('Już w planie: 1 — sprawdzisz je w następnym kroku.');
+
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    expect(templatesApi.applyTemplateToWorkPlan).not.toHaveBeenCalled();
+    expect(sheet).toHaveTextContent('Prace, które zostaną dodane');
+    const rows = within(within(sheet).getByLabelText(`template-review-${S}`)).getAllByRole('listitem');
+    expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual(
+      ['B', 'C', 'A', 'D'].map((id) => `template-review-step-${id}`), // exact template order
+    );
+    for (const id of ['B', 'C', 'D']) {
+      expect(within(sheet).getByLabelText(`template-review-toggle-${id}`)).toBeChecked();
+      expect(within(sheet).queryByLabelText(`template-review-in-plan-${id}`)).not.toBeInTheDocument();
+      expect(within(sheet).getByLabelText(`template-review-status-${id}`)).toHaveTextContent('Zostanie dodana');
+    }
+    expect(reviewRow(sheet, 'B')).toHaveTextContent('Wymagany');
+    expect(reviewRow(sheet, 'C')).toHaveTextContent('Opcjonalny');
+    expect(within(sheet).getByLabelText('template-review-toggle-A')).not.toBeChecked();
+    expect(within(sheet).getByLabelText('template-review-in-plan-A')).toHaveTextContent('Już w planie: 1');
+    expect(reviewRow(sheet, 'A')).toHaveTextContent('Wymagany');
+    expect(reviewRow(sheet, 'A')).toHaveTextContent('Ta praca jest już w planie. Możesz pominąć jej ponowne dodanie.');
+    expect(within(sheet).getByLabelText('template-review-status-A')).toHaveTextContent('Pominięta');
+    const reviewSummary = within(sheet).getByLabelText(`template-review-summary-${S}`);
+    expect(reviewSummary).toHaveTextContent('Zostaną dodane 3 prace');
+    expect(reviewSummary).toHaveTextContent('2 wymagane + 1 wybrana opcjonalna');
+    expect(reviewSummary).toHaveTextContent('Pominięte: 1');
+
+    fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
+    await waitFor(() => expect(screen.queryByLabelText(`template-sheet-${S}`)).not.toBeInTheDocument());
+    expect(applyCalls()[0]).toMatchObject({
+      mode: 'APPEND', selected_step_ids: ['B', 'C', 'D'], selected_optional_step_ids: [], expected_step_ids: ['B', 'C', 'A', 'D'],
+    });
+    const listed = within(screen.getByLabelText(`planned-works-${S}`)).getAllByRole('listitem');
+    expect(listed).toHaveLength(4);
+    expect(listed[0]).toHaveTextContent('Gładź szpachlowa — 2 warstwy (pakiet)');
+    expect(listed.filter((r) => r.textContent?.includes('Gładź szpachlowa'))).toHaveLength(1);
+    expect(screen.getByLabelText(`template-applied-${S}`)).toHaveTextContent('Proces technologiczny zastosowany i zapisany.');
+    expect(screen.getByLabelText(`save-work-plan-${S}`)).toBeDisabled();
+    expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    // Re-open: every candidate is now represented in the CURRENT plan.
+    fireEvent.click(screen.getByLabelText(`open-template-sheet-${S}`));
+    sheet = await screen.findByLabelText(`template-sheet-${S}`);
+    fireEvent.click(await within(sheet).findByLabelText('template-option-tpl-s3'));
+    fireEvent.click(within(sheet).getByLabelText('template-optional-C'));
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    expectNoRepeatClaim(sheet);
+    for (const id of ['B', 'C', 'A', 'D']) {
+      expect(within(sheet).getByLabelText(`template-review-toggle-${id}`)).not.toBeChecked();
+      expect(within(sheet).getByLabelText(`template-review-in-plan-${id}`)).toHaveTextContent('Już w planie: 1');
+    }
+    expect(within(sheet).getByLabelText(`template-review-summary-${S}`)).toHaveTextContent('Zostanie dodanych 0 prac');
+    expect(within(sheet).getByRole('alert')).toHaveTextContent('Wybierz co najmniej jedną pracę.');
+    expect(within(sheet).getByLabelText(`template-review-confirm-${S}`)).toBeDisabled();
+
+    // A deliberate duplicate is still possible.
+    vi.mocked(templatesApi.applyTemplateToWorkPlan).mockResolvedValueOnce(
+      plan([...afterFirst.planned_works, work('n-A', 'key-A3', 4, 0, GLADZ)]),
+    );
+    fireEvent.click(within(sheet).getByLabelText('template-review-toggle-A'));
+    expect(within(sheet).getByLabelText(`template-review-summary-${S}`)).toHaveTextContent('Zostanie dodana 1 praca');
+    fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
+    await waitFor(() => expect(templatesApi.applyTemplateToWorkPlan).toHaveBeenCalledTimes(2));
+    const [first, second] = applyCalls();
+    expect(second.selected_step_ids).toEqual(['A']);
+    expect(second.application_id).not.toBe(first.application_id);
+    await waitFor(() => expect(within(screen.getByLabelText(`planned-works-${S}`)).getAllByRole('listitem')).toHaveLength(5));
+  });
+
+  it('"Wróć" leaves the review without sending; mode/optional choices are kept', async () => {
+    const sheet = await openPreview();
+    fireEvent.click(within(sheet).getByLabelText('template-optional-st-2'));
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    fireEvent.click(within(sheet).getByText('Wróć'));
+    expect(within(sheet).queryByLabelText(`template-review-${S}`)).not.toBeInTheDocument();
+    expect(within(sheet).getByLabelText('template-optional-st-2')).toBeChecked();
+    expect(templatesApi.applyTemplateToWorkPlan).not.toHaveBeenCalled();
+  });
+
+  it('repeated PriceItem candidates stay distinct rows; plan P x1 -> both skipped, either or both can be chosen', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(plan([work('w-p', 'key-P', 0, 0, P1)]));
+    vi.mocked(templatesApi.applyTemplateToWorkPlan).mockResolvedValue(APPLIED);
+    const sheet = await openPreview(); // st-1 P1 (req), st-2 P2 (opt, off), st-3 P1 (req)
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    const rows = within(within(sheet).getByLabelText(`template-review-${S}`)).getAllByRole('listitem');
+    expect(rows).toHaveLength(2); // not collapsed
+    for (const id of ['st-1', 'st-3']) {
+      expect(within(sheet).getByLabelText(`template-review-toggle-${id}`)).not.toBeChecked();
+      expect(within(sheet).getByLabelText(`template-review-in-plan-${id}`)).toHaveTextContent('Już w planie: 1');
+    }
+    fireEvent.click(within(sheet).getByLabelText('template-review-toggle-st-1'));
+    expect(reviewRow(sheet, 'st-3')).toHaveTextContent('Także wyżej na tej liście: 1');
+    fireEvent.click(within(sheet).getByLabelText('template-review-toggle-st-3'));
+    expect(within(sheet).getByLabelText(`template-review-summary-${S}`)).toHaveTextContent('Zostaną dodane 2 prace');
+    fireEvent.click(within(sheet).getByLabelText(`template-review-confirm-${S}`));
+    await waitFor(() => expect(templatesApi.applyTemplateToWorkPlan).toHaveBeenCalledTimes(1));
+    expect(applyCalls()[0].selected_step_ids).toEqual(['st-1', 'st-3']);
+  });
+
+  it('a template-defined repeat with nothing in the plan keeps both checked but flags the later one', async () => {
+    const sheet = await openPreview(); // default plan: PX only
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    expect(within(sheet).getByLabelText('template-review-toggle-st-1')).toBeChecked();
+    expect(within(sheet).getByLabelText('template-review-toggle-st-3')).toBeChecked();
+    expect(within(sheet).queryByLabelText('template-review-in-plan-st-3')).not.toBeInTheDocument();
+    expect(reviewRow(sheet, 'st-3')).toHaveTextContent('Także wyżej na tej liście: 1');
+    expect(reviewRow(sheet, 'st-1')).not.toHaveTextContent('Także wyżej');
+  });
+
+  it('renders the final review in Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(plan([existingA]));
+    vi.mocked(templatesApi.fetchCompatibleTemplates).mockResolvedValue({ items: [S3], total: 1 });
+    const sheet = await openPreview('tpl-s3');
+    fireEvent.click(within(sheet).getByLabelText('template-optional-C'));
+    expect(within(sheet).getByLabelText(`template-summary-${S}`)).toHaveTextContent('Уже в плане: 1 — проверите на следующем шаге.');
+    fireEvent.click(within(sheet).getByLabelText(`template-apply-${S}`));
+    expect(sheet).toHaveTextContent('Работы, которые будут добавлены');
+    expect(within(sheet).getByLabelText('template-review-in-plan-A')).toHaveTextContent('Уже в плане: 1');
+    expect(reviewRow(sheet, 'A')).toHaveTextContent('Эта работа уже есть в плане. Можно не добавлять её повторно.');
+    expect(within(sheet).getByLabelText('template-review-status-A')).toHaveTextContent('Пропущена');
+    expect(within(sheet).getByLabelText('template-review-status-B')).toHaveTextContent('Будет добавлена');
+    const summary = within(sheet).getByLabelText(`template-review-summary-${S}`);
+    expect(summary).toHaveTextContent('Будут добавлены 3 работы');
+    expect(summary).toHaveTextContent('Пропущено: 1');
+    expect(within(sheet).getByText('Назад')).toBeInTheDocument();
+    expect(within(sheet).getByLabelText(`template-review-confirm-${S}`)).toHaveTextContent('Добавить выбранные');
+    for (const id of ['B', 'C', 'D']) fireEvent.click(within(sheet).getByLabelText(`template-review-toggle-${id}`));
+    expect(within(sheet).getByRole('alert')).toHaveTextContent('Выберите хотя бы одну работу.');
+    expect(within(sheet).getByLabelText(`template-review-confirm-${S}`)).toBeDisabled();
   });
 });

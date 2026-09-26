@@ -1471,6 +1471,40 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     await screen.findByLabelText('estimates-empty-state');
   });
 
+  // Object-level Estimate shortcut in nested views (13E.5B walkthrough).
+  it('offers the object Estimate action inside a room and opens the same Estimate view', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => screen.getByLabelText('project-detail'));
+    // Overview keeps only its large card (no duplicate compact action).
+    expect(screen.queryByLabelText('open-object-estimate')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
+    const action = await screen.findByLabelText('open-object-estimate');
+    expect(action).toHaveTextContent('Kosztorys');
+    expect(action.className).toContain('min-h-11');
+    await act(async () => {
+      fireEvent.click(action);
+    });
+    await screen.findByLabelText('estimates-empty-state');
+    expect(screen.getByLabelText('hierarchy-navigation').textContent).toContain('Kosztorys');
+    // Not repeated on the Estimate screen itself.
+    expect(screen.queryByLabelText('open-object-estimate')).not.toBeInTheDocument();
+  });
+
+  it('labels the object Estimate action in Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
+    expect(await screen.findByLabelText('open-object-estimate')).toHaveTextContent('Смета');
+  });
+
   it('shows Kosztorys breadcrumb segment after opening estimates', async () => {
     renderWorkspace();
     await waitFor(() => screen.getByText('Mieszkanie Mokotów'));

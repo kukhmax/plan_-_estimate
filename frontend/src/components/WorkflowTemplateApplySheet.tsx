@@ -34,6 +34,10 @@ interface WorkflowTemplateApplySheetProps {
   qualityTarget: QualityLevelValue;
   /** Ordered occurrence keys of the loaded plan; null = a row without a key. */
   occurrenceKeys: (string | null)[];
+  /** price_item_id of every current occurrence (same order). Used ONLY for
+   * the "already in the plan" hint of the final APPEND review -- never for
+   * provenance, occurrence identity or deduplication. */
+  planPriceItemIds: string[];
   coefficientAssignmentCount: number;
   onApplied: (plan: SurfaceWorkPlanRead) => void;
   /** Reload the work plan (stale-plan recovery); the sheet is closed by the parent. */
@@ -63,12 +67,13 @@ export function WorkflowTemplateApplySheet({
   substrate,
   qualityTarget,
   occurrenceKeys,
+  planPriceItemIds,
   coefficientAssignmentCount,
   onApplied,
   onReloadPlan,
   onClose,
 }: WorkflowTemplateApplySheetProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [listState, setListState] = useState<ListState>('loading');
   const [listAttempt, setListAttempt] = useState(0);
   const [templates, setTemplates] = useState<WorkflowTemplateRead[]>([]);
@@ -76,6 +81,10 @@ export function WorkflowTemplateApplySheet({
   const [optionalOn, setOptionalOn] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<TemplateApplicationMode>('APPEND');
   const [confirming, setConfirming] = useState(false);
+  // Final APPEND review (13E.5B-FIX.4): the exact candidate occurrences, each
+  // individually confirmable, before anything is sent to the server.
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewOn, setReviewOn] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<ApplyError | null>(null);
@@ -126,6 +135,7 @@ export function WorkflowTemplateApplySheet({
     setOptionalOn(new Set()); // optional steps always start OFF
     setMode('APPEND');
     setConfirming(false);
+    setReviewing(false);
     setError(null);
   };
 
@@ -133,6 +143,7 @@ export function WorkflowTemplateApplySheet({
     setSelected(null);
     setOptionalOn(new Set());
     setConfirming(false);
+    setReviewing(false);
     setError(null);
   };
 
@@ -153,19 +164,82 @@ export function WorkflowTemplateApplySheet({
   const missingKeys = occurrenceKeys.some((k) => k === null);
   const replaceBlocked = mode === 'REPLACE' && missingKeys;
   const canApply = !!selected && chosen.length > 0 && !requiredArchived && !replaceBlocked && !applying;
+  const chosenRequired = chosen.filter((s) => !s.is_optional).length;
+  const chosenOptional = chosen.length - chosenRequired;
+  // Live pre-apply summary: required steps always count, optional ones only
+  // when checked. Mirrors what the server will materialize (never sent).
+  type PluralForms = { one: string; few: string; many: string; other: string };
+  const plural = (forms: PluralForms, count: number): string => {
+    const category = new Intl.PluralRules(locale).select(count) as keyof PluralForms;
+    return (forms[category] ?? forms.other).replace('{count}', String(count));
+  };
+  const summaryHeadline = plural(
+    mode === 'REPLACE' ? t.work_plan.tpl_summary_replace : t.work_plan.tpl_summary_add,
+    chosen.length,
+  );
+  const summaryBreakdown = [
+    steps.some((s) => !s.is_optional) ? plural(t.work_plan.tpl_summary_required, chosenRequired) : null,
+    steps.some((s) => s.is_optional) ? plural(t.work_plan.tpl_summary_optional, chosenOptional) : null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' + ');
+
+  // Current-state fact only: how many occurrences of the same PriceItem the
+  // plan already holds. Not provenance -- an existing row may be manual.
+  const inPlanCount = (priceItemId: string): number =>
+    planPriceItemIds.filter((id) => id === priceItemId).length;
+  const duplicatesInChosen = chosen.filter((s) => inPlanCount(s.price_item_id) > 0).length;
+  const reviewChosen = chosen.filter((s) => reviewOn.has(s.id));
+  const reviewRequired = reviewChosen.filter((s) => !s.is_optional).length;
+  const reviewSkipped = chosen.length - reviewChosen.length;
+  const reviewHeadline = plural(t.work_plan.tpl_summary_add, reviewChosen.length);
+  const reviewBreakdown = [
+    chosen.some((s) => !s.is_optional) ? plural(t.work_plan.tpl_summary_required, reviewRequired) : null,
+    chosen.some((s) => s.is_optional)
+      ? plural(t.work_plan.tpl_summary_optional, reviewChosen.length - reviewRequired)
+      : null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' + ');
+
+  const openReview = () => {
+    // New candidates start checked; a candidate whose PriceItem is already in
+    // the plan starts SKIPPED so nothing is duplicated by accident.
+    setReviewOn(new Set(chosen.filter((s) => inPlanCount(s.price_item_id) === 0).map((s) => s.id)));
+    setReviewing(true);
+    setError(null);
+  };
+
+  const toggleReview = (stepId: string) => {
+    setReviewOn((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepId)) next.delete(stepId);
+      else next.add(stepId);
+      return next;
+    });
+    setError(null);
+  };
 
   const buildRequest = (): ApplyTemplateRequest | null => {
     if (!selected) return null;
     const semantic = {
       template_id: selected.id,
       mode,
-      // Server authority: order and required steps come from the template;
-      // only the explicit optional choices are sent.
-      selected_optional_step_ids: steps.filter((s) => s.is_optional && optionalOn.has(s.id)).map((s) => s.id),
-      expected_step_ids: steps.map((s) => s.id),
+      // Server authority: PriceItems, order, notes and waits come from the
+      // template. APPEND sends the reviewed step ids; REPLACE keeps the 13E.3
+      // rule (all required + the explicit optional choices).
       ...(mode === 'REPLACE'
-        ? { expected_occurrence_keys: occurrenceKeys as string[], replace_confirmed: true }
-        : {}),
+        ? {
+          selected_optional_step_ids: steps.filter((s) => s.is_optional && optionalOn.has(s.id)).map((s) => s.id),
+          expected_step_ids: steps.map((s) => s.id),
+          expected_occurrence_keys: occurrenceKeys as string[],
+          replace_confirmed: true,
+        }
+        : {
+          selected_optional_step_ids: [],
+          selected_step_ids: reviewChosen.map((s) => s.id),
+          expected_step_ids: steps.map((s) => s.id),
+        }),
     };
     // The client-side signature also covers the current plan composition,
     // so a reloaded/changed plan is a new command even for APPEND.
@@ -177,7 +251,8 @@ export function WorkflowTemplateApplySheet({
   };
 
   const submit = async () => {
-    if (!canApply || inFlight.current) return;
+    const ready = reviewing ? reviewChosen.length > 0 && !applying : canApply;
+    if (!ready || inFlight.current) return;
     const request = buildRequest();
     if (!request) return;
     inFlight.current = true;
@@ -193,11 +268,13 @@ export function WorkflowTemplateApplySheet({
         setError({ kind: 'transport' }); // same id on retry
       } else if (kind === 'stale_template' || kind === 'stale_plan') {
         setConfirming(false);
+        setReviewing(false);
         setError({ kind });
       } else if (kind === 'template_unavailable') {
         setError({ kind });
         setSelected(null);
         setConfirming(false);
+        setReviewing(false);
         setListAttempt((n) => n + 1); // reload the list; never retry automatically
       } else {
         setConfirming(false);
@@ -215,7 +292,10 @@ export function WorkflowTemplateApplySheet({
       setConfirming(true); // destructive action needs a second, explicit step
       return;
     }
-    void submit();
+    // APPEND never mutates straight from the preview: the final review shows
+    // every candidate occurrence first. No "already applied" gate from
+    // template_applications -- that is history, not current state (FIX.3).
+    openReview();
   };
 
   const refreshTemplate = async () => {
@@ -332,7 +412,7 @@ export function WorkflowTemplateApplySheet({
             </ul>
           )}
 
-          {selected && (
+          {selected && !reviewing && (
             <>
               <button type="button" className={btnSecondary} onClick={backToList} disabled={applying}>
                 {t.work_plan.tpl_back}
@@ -453,6 +533,81 @@ export function WorkflowTemplateApplySheet({
             </>
           )}
 
+          {selected && reviewing && (
+            <div className="space-y-2">
+              <h3 className="text-base font-semibold text-[var(--tg-theme-text-color)] break-words">
+                {t.work_plan.tpl_review_title}
+              </h3>
+              <ol aria-label={`template-review-${surfaceId}`} className="space-y-2">
+                {chosen.map((step, index) => {
+                  const on = reviewOn.has(step.id);
+                  const inPlan = inPlanCount(step.price_item_id);
+                  // Earlier CHECKED candidates of this same batch with the same PriceItem.
+                  const earlierInBatch = chosen
+                    .slice(0, index)
+                    .filter((s) => s.price_item_id === step.price_item_id && reviewOn.has(s.id)).length;
+                  const flagged = inPlan > 0 || earlierInBatch > 0;
+                  return (
+                    <li
+                      key={step.id}
+                      aria-label={`template-review-step-${step.id}`}
+                      className={`rounded-xl border p-3 space-y-1 ${
+                        flagged ? 'border-amber-300 bg-amber-50/60' : 'border-[var(--tg-control-border-color)]'
+                      }`}
+                    >
+                      <label className="flex items-start gap-3 min-h-11 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          aria-label={`template-review-toggle-${step.id}`}
+                          checked={on}
+                          disabled={applying}
+                          onChange={() => toggleReview(step.id)}
+                          className="h-6 w-6 shrink-0 mt-0.5"
+                        />
+                        <span className="flex-1 min-w-0 text-sm font-medium text-[var(--tg-theme-text-color)] break-words">
+                          {itemName(step.price_item)}
+                        </span>
+                      </label>
+                      <div className="flex flex-wrap items-center gap-2 text-xs pl-9">
+                        <span
+                          className={
+                            step.is_optional
+                              ? 'px-2 py-0.5 rounded-full bg-slate-100 text-slate-700'
+                              : 'px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium'
+                          }
+                        >
+                          {step.is_optional ? t.work_plan.tpl_optional : t.work_plan.tpl_required}
+                        </span>
+                        {inPlan > 0 && (
+                          <span
+                            aria-label={`template-review-in-plan-${step.id}`}
+                            className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-medium break-words"
+                          >
+                            <span aria-hidden="true">⚠ </span>{t.work_plan.tpl_review_in_plan.replace('{count}', String(inPlan))}
+                          </span>
+                        )}
+                        {earlierInBatch > 0 && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 break-words">
+                            {t.work_plan.tpl_review_in_batch.replace('{count}', String(earlierInBatch))}
+                          </span>
+                        )}
+                        <span
+                          aria-label={`template-review-status-${step.id}`}
+                          className={on ? 'text-green-700 font-medium' : 'text-[var(--tg-theme-hint-color)]'}
+                        >
+                          {on ? t.work_plan.tpl_review_will_add : t.work_plan.tpl_review_skipped}
+                        </span>
+                      </div>
+                      {inPlan > 0 && (
+                        <p className="text-xs text-amber-900 break-words pl-9">{t.work_plan.tpl_review_in_plan_hint}</p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          )}
+
           {errorBlock && (
             <div role="alert" aria-label={`template-apply-error-${surfaceId}`} className="space-y-2">
               <p className="text-sm font-semibold text-[var(--tg-theme-destructive-text-color)] break-words">{errorBlock.text}</p>
@@ -491,7 +646,75 @@ export function WorkflowTemplateApplySheet({
 
         {selected && (
           <div className="p-4 border-t border-slate-200 space-y-2">
-            {confirming ? (
+            {/* Pinned above the Apply action so the result is visible without scrolling. */}
+            {!reviewing && chosen.length > 0 && !requiredArchived && (
+              <div
+                aria-label={`template-summary-${surfaceId}`}
+                aria-live="polite"
+                className={
+                  mode === 'REPLACE'
+                    ? 'rounded-xl bg-amber-50 text-amber-900 p-3 space-y-0.5'
+                    : 'rounded-xl bg-blue-50 text-blue-900 p-3 space-y-0.5'
+                }
+              >
+                <p className="text-sm font-semibold break-words">{summaryHeadline}</p>
+                {summaryBreakdown && <p className="text-xs break-words">{summaryBreakdown}</p>}
+                {mode === 'REPLACE' && (
+                  <p className="text-xs font-medium break-words">
+                    {t.work_plan.tpl_summary_replace_existing.replace('{count}', String(occurrenceKeys.length))}
+                  </p>
+                )}
+                {mode === 'APPEND' && duplicatesInChosen > 0 && (
+                  <p className="text-xs font-medium break-words">
+                    {t.work_plan.tpl_summary_in_plan_note.replace('{count}', String(duplicatesInChosen))}
+                  </p>
+                )}
+              </div>
+            )}
+            {reviewing ? (
+              <div className="space-y-2">
+                <div
+                  aria-label={`template-review-summary-${surfaceId}`}
+                  aria-live="polite"
+                  className="rounded-xl bg-blue-50 text-blue-900 p-3 space-y-0.5"
+                >
+                  <p className="text-sm font-semibold break-words">{reviewHeadline}</p>
+                  {reviewChosen.length > 0 && reviewBreakdown && <p className="text-xs break-words">{reviewBreakdown}</p>}
+                  {reviewSkipped > 0 && (
+                    <p className="text-xs break-words">
+                      {t.work_plan.tpl_review_skipped_count.replace('{count}', String(reviewSkipped))}
+                    </p>
+                  )}
+                </div>
+                {reviewChosen.length === 0 && (
+                  <p role="alert" className="text-sm text-[var(--tg-theme-destructive-text-color)] break-words">
+                    {t.work_plan.tpl_review_none}
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className={btnSecondary}
+                    onClick={() => {
+                      setReviewing(false);
+                      setError(null);
+                    }}
+                    disabled={applying}
+                  >
+                    {t.work_plan.tpl_review_back}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`template-review-confirm-${surfaceId}`}
+                    className={btnPrimary}
+                    onClick={() => void submit()}
+                    disabled={applying || reviewChosen.length === 0}
+                  >
+                    {applying ? t.work_plan.tpl_applying : t.work_plan.tpl_review_confirm}
+                  </button>
+                </div>
+              </div>
+            ) : confirming ? (
               <div role="alertdialog" aria-label={`template-replace-confirm-${surfaceId}`} className="space-y-2">
                 <p className="text-sm font-semibold text-[var(--tg-theme-text-color)] break-words">{t.work_plan.tpl_confirm_title}</p>
                 <p className="text-xs text-[var(--tg-theme-hint-color)] break-words">{t.work_plan.tpl_confirm_body}</p>

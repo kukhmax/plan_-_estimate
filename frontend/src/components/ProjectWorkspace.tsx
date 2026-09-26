@@ -479,6 +479,29 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
         </nav>
       )}
 
+      {/* Object-level Estimate shortcut (13E.5B walkthrough): one shared
+          action in nested room/surface views, opening the SAME project
+          Estimate state as the overview card. Not shown on the overview (which
+          has the large card) nor on the Estimate screens themselves. */}
+      {selectedProject && selectedRoom && !showEstimates && (
+        <button
+          type="button"
+          aria-label="open-object-estimate"
+          onClick={() => {
+            setShowRoomForm(false);
+            closeInspections();
+            setSelectedRoom(null);
+            setSelectedEstimate(null);
+            setSelectedEstimateGroupKey(null);
+            setShowEstimates(true);
+          }}
+          className="w-full min-h-11 mb-3 bg-amber-500 border border-amber-600 rounded-xl px-4 flex items-center justify-between gap-2 hover:bg-amber-400 active:bg-amber-600 transition"
+        >
+          <span className="font-bold text-slate-950 text-sm break-words">{t.estimates.open_object_estimate}</span>
+          <span aria-hidden="true" className="text-slate-950 text-lg leading-none">›</span>
+        </button>
+      )}
+
       {!selectedRoom && !showEstimates && (
         <div className="flex items-center justify-between gap-3 mb-3">
           <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">

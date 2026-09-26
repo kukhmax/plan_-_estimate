@@ -42,6 +42,8 @@ export interface ApplyTemplateRequest {
   template_id: string;
   mode: TemplateApplicationMode;
   selected_optional_step_ids: string[];
+  /** Final reviewed APPEND selection (13E.5B-FIX.4): template step ids only. */
+  selected_step_ids?: string[];
   expected_step_ids: string[];
   expected_occurrence_keys?: string[];
   replace_confirmed?: boolean;

@@ -107,6 +107,10 @@ def _application_fingerprint(plan_id: uuid.UUID, request: ApplyTemplateRequest) 
         ),
         "replace_confirmed": bool(request.replace_confirmed) if replace else None,
     }
+    if request.selected_step_ids is not None:
+        # Added only when sent, so 13E.3-shaped requests keep their recorded
+        # fingerprints (retries of pre-FIX.4 applications stay idempotent).
+        payload["selected_step_ids"] = sorted(str(i) for i in request.selected_step_ids)
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -680,16 +684,38 @@ class SurfaceWorkPlanService:
             raise TemplateApplicationStaleError(
                 "the workflow template changed since it was previewed; refresh the preview"
             )
-        optional_ids = {step.id for step in steps if step.is_optional}
-        selected = list(request.selected_optional_step_ids)
-        if len(set(selected)) != len(selected):
-            raise SurfaceWorkPlanValidationError("an optional step was selected more than once")
-        invalid = [i for i in selected if i not in optional_ids]
-        if invalid:
-            raise SurfaceWorkPlanValidationError(
-                f"step {invalid[0]} is not an optional step of this template"
-            )
-        chosen = [s for s in steps if not s.is_optional or s.id in set(selected)]
+        if request.selected_step_ids is not None:
+            # Final reviewed APPEND selection (13E.5B-FIX.4): any subset of
+            # this template's own steps, materialized in template order.
+            if request.mode != TemplateApplicationMode.APPEND:
+                raise SurfaceWorkPlanValidationError(
+                    "selected_step_ids is supported only for APPEND"
+                )
+            if request.selected_optional_step_ids:
+                raise SurfaceWorkPlanValidationError(
+                    "send either selected_step_ids or selected_optional_step_ids, not both"
+                )
+            selected = list(request.selected_step_ids)
+            if len(set(selected)) != len(selected):
+                raise SurfaceWorkPlanValidationError("a step was selected more than once")
+            step_ids = {step.id for step in steps}
+            invalid = [i for i in selected if i not in step_ids]
+            if invalid:
+                raise SurfaceWorkPlanValidationError(
+                    f"step {invalid[0]} is not a step of this template"
+                )
+            chosen = [s for s in steps if s.id in set(selected)]
+        else:
+            optional_ids = {step.id for step in steps if step.is_optional}
+            selected = list(request.selected_optional_step_ids)
+            if len(set(selected)) != len(selected):
+                raise SurfaceWorkPlanValidationError("an optional step was selected more than once")
+            invalid = [i for i in selected if i not in optional_ids]
+            if invalid:
+                raise SurfaceWorkPlanValidationError(
+                    f"step {invalid[0]} is not an optional step of this template"
+                )
+            chosen = [s for s in steps if not s.is_optional or s.id in set(selected)]
         if not chosen:
             raise SurfaceWorkPlanValidationError(
                 "no steps selected: at least one work must be applied"

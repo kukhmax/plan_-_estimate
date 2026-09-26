@@ -1117,7 +1117,96 @@ Canonical production rollback after a Stage 13 deployment:
 
 **13E.5A AUTOMATED VERIFICATION PASS / OWNER ACCEPTED.**
 - Stage 13E is **IN PROGRESS** — the production Telegram walkthrough is pending.
-- **13E.5B (PENDING):** production deployment (performed manually by the owner) + the real Telegram Mini App
-  owner walkthrough (scenarios A–D).
+- **13E.5B:** production deployment of e4e6c1e performed manually by the owner (production DB at
+  `0029_application_fingerprint`); the Telegram walkthrough found the defects fixed in §29.
 - **13F:** NOT STARTED.
-- **Production:** pre-Stage-13 release; migrations 0027/0028/0029 NOT deployed.
+
+## 29. Stage 13E.5B-FIX — owner walkthrough defects + targeted mobile UX
+
+A patch **inside 13E**, not a new stage. No migration, no backend production code, no change to the
+occurrence_key architecture or to Estimate automatic-sync semantics.
+
+### 29.1 APPEND ordering (reported: new works interleaved with existing ones)
+
+**Investigation (read-only first):** reproduced on scratch PostgreSQL (A B C + APPEND of a 3-step template;
+then a repeated APPEND). The apply response, the persisted `position` values (0..n-1) and a fresh GET all
+return the template block **after** every existing work, in step order. The WorkPlan editor does not sort;
+it renders server order. **No WorkPlan ordering defect is reproducible.**
+
+**Most likely explanation of the observation:** the Estimate screen groups lines by
+`planned::{price_item_id}::{scope}::{unit}::{surface|reveal}` (Stage 12 grouping), so APPENDed occurrences of
+a PriceItem already present in the plan appear inside the existing group, not as a trailing block; and a
+repeated APPEND of the same template adds a second identical block whose rows look interleaved with the
+first. Neither changes WorkPlan order. Owner confirmation of the exact screen is requested.
+
+**Regression contract:** `TestAppendOrderingContract` (`backend/tests/test_stage13e_integration.py`) —
+A B C then APPEND twice → positions 0..8, A B C unchanged, two ordered template blocks, 9 distinct
+occurrence keys, 2 provenance rows, Estimate untouched. It passes on current code (a contract test, not a
+failing-then-fixed test, because no defect exists in the WorkPlan path).
+
+### 29.2 Repeated-APPEND safety (frontend only)
+
+- Required steps have no checkbox; optional steps are OFF by default (unchanged).
+- **Pre-apply summary (FIX.2):** pinned in the sheet footer directly above Apply, updated live on every
+  optional toggle: "Zostaną dodane 4 prace" + "3 wymagane + 1 wybrana opcjonalna" / "Будут добавлены 4
+  работы" + "3 обязательные + 1 выбранная дополнительная"; REPLACE: "Nowy plan prac będzie zawierał N prac"
+  + "Obecne prace (M) zostaną zastąpione.". Plural forms per part via `Intl.PluralRules` (one/few/many).
+- **After apply (FIX.2):** "Proces technologiczny zastosowany i zapisany." with an explanation why Save is
+  disabled (apply-template already persisted the plan; no extra PUT, no artificial dirty state). The
+  notice disappears and Save enables on the next ordinary edit.
+- **No history-based repeat warning (FIX.3).** A FIX.1 warning ("Ten proces był już zastosowany…")
+  triggered whenever the template id appeared in `template_applications`. The owner walkthrough showed it
+  firing after the template's works had been removed manually. Audit: `surface_planned_works` stores no
+  application/template relation, and `surface_work_plan_template_applications` stores no occurrence keys
+  (only snapshot code/name, mode, `steps_applied`, fingerprint). History therefore proves only that the
+  template *was* applied, never that its works are still in the plan, so the warning was removed. PriceItem
+  comparison is not a substitute (same PriceItem may be manual, duplicated, or shared by templates;
+  occurrence identity is intentionally stronger). A deliberate later APPEND is a normal command (new
+  `application_id`) that adds another block, made explicit by the pinned summary. History is never
+  deleted or rewritten; the editor PUT sends no `template_applications`. A future occurrence-level
+  attribution would require a schema change and is out of scope for Stage 13E.
+- **Final APPEND review (FIX.4).** Owner walkthrough: the plan already held "Gładź szpachlowa — 2 warstwy
+  (pakiet)" and the S3 template appended the same PriceItem again, because APPEND mutated straight from the
+  preview. APPEND now goes preview → Zastosuj → review ("Prace, które zostaną dodane") → "Dodaj wybrane";
+  nothing is sent before the last step. The review lists every candidate (all required + selected optional,
+  template order, never collapsed) with its required/optional badge, "Już w planie: N" when the CURRENT plan
+  holds occurrences with the same PriceItem ("Ta praca jest już w planie. Możesz pominąć jej ponowne
+  dodanie."), "Także wyżej na tej liście: N" for an earlier checked candidate with the same PriceItem, and
+  "Zostanie dodana" / "Pominięta". Defaults: a candidate whose PriceItem is already in the plan starts
+  SKIPPED, every other candidate starts checked (a template-defined repeat with nothing in the plan stays
+  checked — the template author asked for two occurrences). Zero selected → "Wybierz co najmniej jedną
+  pracę." and the confirm button is disabled. PriceItem equality is used ONLY for this current-state hint;
+  it never implies provenance, template membership or occurrence identity, and never touches existing
+  occurrences. **Contract:** `ApplyTemplateRequest.selected_step_ids` (optional, APPEND only) is the exact
+  set of this template's step ids to materialize, required or optional; the server rejects (422, nothing
+  written) unknown/foreign/duplicate ids, a combination with `selected_optional_step_ids`, use with REPLACE
+  and an empty selection; PriceItems, order, notes and waits still come from the server template;
+  `expected_step_ids` staleness (409) and archived-item checks on the chosen steps are unchanged. The
+  fingerprint adds `selected_step_ids` only when sent, so pre-FIX.4 requests keep identical fingerprints.
+  REPLACE is unchanged: no review, all required + selected optional, its own confirmation.
+  Owner manual verification of FIX.4: PASS (2026-09-26).
+- **Runtime dependency (13E.5B).** `sqlalchemy.ext.asyncio` needs `greenlet`. SQLAlchemy 2.0.x installed it
+  implicitly; 2.1.x (allowed by `<3.0.0`, resolved by a `--no-cache` image build as 2.1.1) does not, so the
+  backend failed at startup. The dependency is now declared explicitly as `sqlalchemy[asyncio]` in
+  `backend/requirements.txt` and `backend/pyproject.toml`. No schema change; single Alembic head `0029`.
+- Idempotent retry unchanged: the transport/5xx retry reuses the same `application_id` without asking again.
+- REPLACE keeps its own separate confirmation.
+
+### 29.3 Other walkthrough UX fixes
+
+- **Object Estimate shortcut:** a compact full-width "Kosztorys" / "Смета" action (≥44 px) under the
+  breadcrumb in nested project views (room / surface). It opens the same Estimate route as the overview card;
+  hidden on the overview (which already has the large card) and on the Estimate screen.
+- **Opening summary on the wall card:** read-only lines such as "Drzwi 0,90 × 2,07 m (2)"; active openings
+  only (archived excluded), grouped by type + width + height with SUM(quantity), ordered DOOR → WINDOW →
+  OTHER then width/height ascending; hidden when there are no openings; no calculation change (reuses the
+  existing per-wall openings fetch).
+- **Toggle label:** the wall-card toggle reads "Otwory i opcje" / "Проёмы и опции" (hide: "Ukryj otwory i
+  opcje" / "Скрыть проёмы и опции"); label change only. The toggle is capped at 40 % of the header width and
+  wraps, so a long wall name is not squeezed at 320 px.
+
+### 29.4 Status
+
+Automated verification PASS; mobile checks PASS at 320/390/412/480 px in PL and RU. **Stage 13E remains IN
+PROGRESS** until owner review → commit/push approval → owner redeploy to production → a repeated Telegram
+walkthrough (including REPLACE).

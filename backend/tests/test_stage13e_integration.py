@@ -7,6 +7,7 @@ stale conflicts vs the Estimate, legacy lines vs a REAL REPLACE, and reveal
 isolation.
 """
 from decimal import Decimal
+import uuid
 
 from httpx import AsyncClient
 from sqlalchemy import func, select
@@ -251,3 +252,131 @@ class TestRevealIsolation:
         await svc.regenerate_draft(estimate.id, c.user.id, c.project.id)
         kept = next(ln for ln in await _lines(db_session, estimate.id) if ln.opening_id is not None)
         assert (kept.id, kept.unit_price, kept.quantity, kept.occurrence_key) == (reveal_line_id, Decimal("33.00"), Decimal("4.000"), None)
+
+
+class TestAppendOrderingContract:
+    """13E.5B walkthrough (Part A): APPEND must place the template as one ordered
+    block after ALL existing occurrences -- also for a deliberate repeat."""
+
+    async def test_repeated_append_adds_ordered_blocks_after_all_existing_work(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session, existing=False)
+        await c.plans.set_plan(c.project.id, c.room.id, c.surface.id, c.user.id, substrate=Substrate.CONCRETE,
+                               quality_target=QualityLevel.S2, planned_works=[
+                                   Sel(price_item_id=c.p3.id), Sel(price_item_id=c.x.id), Sel(price_item_id=c.p2.id)])
+        existing = [(w.id, w.occurrence_key, w.price_item_id) for w in await _rows(db_session, c.plan.id)]
+        svc = EstimateService(db_session)
+        await svc.generate_estimate(c.project.id, c.user.id)
+        before_estimate = await _estimate_snapshot(db_session)
+        block = [c.p1.id, c.p1.id, c.p3.id]  # required P1, required P1, selected optional P3 (template order)
+
+        for _ in range(2):  # a deliberate repeat is a new command (new application_id)
+            resp = await async_client.post(c.url, headers=c.headers, json=_body(c, selected=[c.step_ids[3]]))
+            assert resp.status_code == 200, resp.text
+
+        base = c.url.removesuffix("/apply-template")
+        works = (await async_client.get(base, headers=c.headers)).json()["planned_works"]
+        assert [w["position"] for w in works] == list(range(9))
+        assert [(w["id"], w["occurrence_key"], w["price_item_id"]) for w in works[:3]] == [
+            (str(i), str(k), str(p)) for i, k, p in existing
+        ]
+        assert [w["price_item_id"] for w in works[3:6]] == [str(p) for p in block]
+        assert [w["price_item_id"] for w in works[6:]] == [str(p) for p in block]
+        assert len({w["occurrence_key"] for w in works}) == 9
+        assert await _prov(db_session) == 2
+        assert await _estimate_snapshot(db_session) == before_estimate
+
+
+class TestHistoryAfterRemovingMaterializedWork:
+    """13E.5B-FIX.3: provenance is history only. Occurrences carry no link to
+    the application that created them, so removing them through an ordinary
+    save keeps the history; a later APPEND (new application_id) is a normal
+    command, while a retry of the SAME request stays a no-op."""
+
+    async def test_removed_block_keeps_history_retry_is_noop_new_append_adds_block(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session, existing=False)
+        await c.plans.set_plan(c.project.id, c.room.id, c.surface.id, c.user.id, substrate=Substrate.CONCRETE,
+                               quality_target=QualityLevel.S2, planned_works=[Sel(price_item_id=c.x.id)])
+        base = c.url.removesuffix("/apply-template")
+        original = (await async_client.get(base, headers=c.headers)).json()["planned_works"]
+        assert len(original) == 1
+
+        body = _body(c, selected=[c.step_ids[3]])
+        first = await async_client.post(c.url, headers=c.headers, json=body)
+        assert first.status_code == 200, first.text
+        assert len(first.json()["planned_works"]) == 4
+        retry = await async_client.post(c.url, headers=c.headers, json=body)  # same application_id
+        assert retry.status_code == 200 and retry.json() == first.json()
+        assert await _prov(db_session) == 1
+
+        # The owner removes every materialized occurrence through a normal save.
+        kept = first.json()["planned_works"][:1]
+        put = await async_client.put(base, headers=c.headers, json={"substrate": "CONCRETE", "quality_target": "S2", "planned_works": [
+            {"price_item_id": w["price_item_id"], "occurrence_key": w["occurrence_key"], "wait_after_hours": w["wait_after_hours"],
+             "coefficient_option_ids": [o["id"] for o in w["coefficient_options"]]} for w in kept]})
+        assert put.status_code == 200, put.text
+        assert [w["occurrence_key"] for w in put.json()["planned_works"]] == [original[0]["occurrence_key"]]
+        history = put.json()["template_applications"]
+        assert [a["template_id"] for a in history] == [str(c.template.id)]  # history survives
+        assert await _prov(db_session) == 1
+        # SurfacePlannedWork has no application relation to consult.
+        assert {"application_id", "template_application_id", "template_id"}.isdisjoint(put.json()["planned_works"][0])
+
+        again = await async_client.post(c.url, headers=c.headers, json=_body(c, selected=[c.step_ids[3]]))
+        assert again.status_code == 200, again.text
+        works = again.json()["planned_works"]
+        assert works[0]["occurrence_key"] == original[0]["occurrence_key"]
+        assert len(works) == 4 and len({w["occurrence_key"] for w in works}) == 4
+        assert not {w["occurrence_key"] for w in works[1:]} & {w["occurrence_key"] for w in first.json()["planned_works"]}
+        assert await _prov(db_session) == 2
+
+
+class TestOwnerWalkthroughReviewedAppend:
+    """13E.5B-FIX.4 owner walkthrough: plan already holds A (Gładź 2L); the S3
+    candidates are B, C (optional, selected), A, D. The final review skips the
+    new A, so only B/C/D are appended; the original A is untouched. A later
+    deliberate re-selection of A still creates a second occurrence."""
+
+    async def test_skip_existing_required_candidate_then_deliberate_duplicate(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session, existing=False)
+        a, b, cc, d = [await _make_price_item(db_session, c.user.id, category=PriceCategory.SKIM_COAT, price=p)
+                       for p in ("40.00", "3.00", "4.00", "8.00")]
+        s3 = await c.templates.create_template(
+            c.user.id, display_name="Beton S3", applies_to_substrates=[Substrate.CONCRETE],
+            applies_to_quality=[QualityLevel.S2], applies_to_surface_types=[],
+            steps=[WorkflowTemplateStepSpec(price_item_id=b.id), WorkflowTemplateStepSpec(price_item_id=cc.id, is_optional=True),
+                   WorkflowTemplateStepSpec(price_item_id=a.id), WorkflowTemplateStepSpec(price_item_id=d.id)],
+        )
+        sb, sc, sa, sd = (s.id for s in s3.steps)
+        await c.plans.set_plan(c.project.id, c.room.id, c.surface.id, c.user.id, substrate=Substrate.CONCRETE,
+                               quality_target=QualityLevel.S2, planned_works=[
+                                   Sel(price_item_id=a.id, wait_after_hours=12, coefficient_option_ids=[c.opts[1].id])])
+        (orig,) = await _rows(db_session, c.plan.id)
+        orig_state = (orig.id, orig.occurrence_key, orig.price_item_id, orig.position, orig.wait_after_hours)
+        svc = EstimateService(db_session)
+        await svc.generate_estimate(c.project.id, c.user.id)
+        before_estimate = await _estimate_snapshot(db_session)
+
+        def body(selected):
+            return {"application_id": str(uuid.uuid4()), "template_id": str(s3.id), "mode": "APPEND",
+                    "selected_optional_step_ids": [], "selected_step_ids": [str(i) for i in selected],
+                    "expected_step_ids": [str(sb), str(sc), str(sa), str(sd)]}
+
+        resp = await async_client.post(c.url, headers=c.headers, json=body([sb, sc, sd]))
+        assert resp.status_code == 200, resp.text
+        works = resp.json()["planned_works"]
+        assert [w["price_item_id"] for w in works] == [str(a.id), str(b.id), str(cc.id), str(d.id)]
+        assert [w["price_item_id"] for w in works].count(str(a.id)) == 1  # A NOT appended again
+        rows = await _rows(db_session, c.plan.id)
+        assert (rows[0].id, rows[0].occurrence_key, rows[0].price_item_id, rows[0].position, rows[0].wait_after_hours) == orig_state
+        assert [o["id"] for o in works[0]["coefficient_options"]] == [str(c.opts[1].id)]
+        assert await _estimate_snapshot(db_session) == before_estimate
+
+        # Deliberate duplicate on the next application.
+        again = await async_client.post(c.url, headers=c.headers, json=body([sa]))
+        assert again.status_code == 200, again.text
+        works = again.json()["planned_works"]
+        assert [w["price_item_id"] for w in works].count(str(a.id)) == 2
+        assert works[0]["occurrence_key"] == str(orig_state[1]) and works[-1]["position"] == 4
+        assert len({w["occurrence_key"] for w in works}) == 5
+        assert [x["steps_applied"] for x in again.json()["template_applications"]] == [3, 1]
+        assert await _estimate_snapshot(db_session) == before_estimate

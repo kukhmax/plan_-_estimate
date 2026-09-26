@@ -196,7 +196,10 @@
     "custom_walls_hint": "Podaj szerokość kolejnej ściany; wysokość domyślnie z wymiarów pomieszczenia.",
     "use_different_height": "Inna wysokość",
     "custom_wall_invalid": "Podaj poprawną szerokość i wysokość (m)",
-    "add_wall": "Dodaj ścianę"
+    "add_wall": "Dodaj ścianę",
+    "openings_and_options": "Otwory i opcje",
+    "hide_openings_and_options": "Ukryj otwory i opcje",
+    "openings_summary_title": "Otwory:"
   },
   "work_plan": {
     "legacy_reveal_note": "Praca na ościeżach zapisana na ścianie (starsze ustawienie). Zalecane: dodaj ją w konkretnym otworze → Prace na ościeżach i usuń stąd. Ta pozycja nie ma automatycznej ilości.",
@@ -263,7 +266,8 @@
     "tpl_confirm_body": "Obecne prace tej powierzchni zostaną usunięte razem z przypisanymi współczynnikami. Kroki procesu zostaną dodane jako nowe prace. Kosztorys nie zostanie przeliczony automatycznie.",
     "tpl_confirm_cancel": "Anuluj",
     "tpl_confirm_replace": "Zastąp prace",
-    "tpl_success": "Proces technologiczny zastosowany.",
+    "tpl_success": "Proces technologiczny zastosowany i zapisany.",
+    "tpl_success_hint": "Prace są już zapisane — nie trzeba klikać „Zapisz”. Przycisk włączy się po kolejnej zmianie planu.",
     "tpl_stale_template": "Proces technologiczny zmienił się od czasu podglądu. Odśwież proces przed zastosowaniem.",
     "tpl_refresh_template": "Odśwież proces",
     "tpl_stale_plan": "Plan prac zmienił się od czasu otwarcia. Odśwież plan przed zastąpieniem prac.",
@@ -272,7 +276,43 @@
     "tpl_transport_error": "Brak połączenia lub odpowiedzi serwera. Spróbuj ponownie — ta sama operacja nie zostanie zastosowana dwukrotnie.",
     "tpl_retry": "Spróbuj ponownie",
     "tpl_missing_keys": "Plan prac wymaga odświeżenia przed zastąpieniem prac.",
-    "tpl_include": "Uwzględnij ten krok"
+    "tpl_include": "Uwzględnij ten krok",
+    "tpl_summary_add": {
+      "one": "Zostanie dodana {count} praca",
+      "few": "Zostaną dodane {count} prace",
+      "many": "Zostanie dodanych {count} prac",
+      "other": "Zostanie dodanych {count} prac"
+    },
+    "tpl_summary_replace": {
+      "one": "Nowy plan prac będzie zawierał {count} pracę",
+      "few": "Nowy plan prac będzie zawierał {count} prace",
+      "many": "Nowy plan prac będzie zawierał {count} prac",
+      "other": "Nowy plan prac będzie zawierał {count} prac"
+    },
+    "tpl_summary_replace_existing": "Obecne prace ({count}) zostaną zastąpione.",
+    "tpl_summary_required": {
+      "one": "{count} wymagana",
+      "few": "{count} wymagane",
+      "many": "{count} wymaganych",
+      "other": "{count} wymaganych"
+    },
+    "tpl_summary_in_plan_note": "Już w planie: {count} — sprawdzisz je w następnym kroku.",
+    "tpl_review_title": "Prace, które zostaną dodane",
+    "tpl_review_in_plan": "Już w planie: {count}",
+    "tpl_review_in_plan_hint": "Ta praca jest już w planie. Możesz pominąć jej ponowne dodanie.",
+    "tpl_review_in_batch": "Także wyżej na tej liście: {count}",
+    "tpl_review_will_add": "Zostanie dodana",
+    "tpl_review_skipped": "Pominięta",
+    "tpl_review_skipped_count": "Pominięte: {count}",
+    "tpl_review_none": "Wybierz co najmniej jedną pracę.",
+    "tpl_review_back": "Wróć",
+    "tpl_review_confirm": "Dodaj wybrane",
+    "tpl_summary_optional": {
+      "one": "{count} wybrana opcjonalna",
+      "few": "{count} wybrane opcjonalne",
+      "many": "{count} wybranych opcjonalnych",
+      "other": "{count} wybranych opcjonalnych"
+    }
   },
   "openings": {
     "title": "Otwory w ścianie",
@@ -1067,7 +1107,8 @@
     "coefficients_applied": "Współczynniki",
     "coefficient_adjustment": "Korekta",
     "price_override_badge": "Cena ręczna",
-    "preview_coefficients_changed": "Współczynniki"
+    "preview_coefficients_changed": "Współczynniki",
+    "open_object_estimate": "Kosztorys"
   },
   "coefficients": {
     "title": "Współczynniki cenowe",

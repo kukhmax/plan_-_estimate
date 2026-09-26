@@ -7,6 +7,8 @@ protection; application_id idempotency via a server fingerprint (migration
 0029); atomic provenance; Estimate untouched.
 """
 from decimal import Decimal
+import hashlib
+import json
 import uuid
 
 from httpx import AsyncClient
@@ -403,6 +405,116 @@ class TestIdempotency:
         assert _application_fingerprint(plan_id, req([s1, s2])) == _application_fingerprint(plan_id, req([s2, s1]))
         assert _application_fingerprint(plan_id, req([s1])) != _application_fingerprint(plan_id, req([s2]))
         assert len(_application_fingerprint(plan_id, req([]))) == 64
+
+
+# ---------------------------------------------------------------------------
+# 13E.5B-FIX.4: final reviewed APPEND selection (selected_step_ids)
+# ---------------------------------------------------------------------------
+
+
+def _reviewed(c, step_ids, **kw):
+    body = _body(c, **kw)
+    body["selected_step_ids"] = [str(i) for i in step_ids]
+    return body
+
+
+class TestReviewedSelection:
+    async def _expect(self, client, db, c, body, status):
+        before = await _state(db, c.plan.id)
+        resp = await client.post(c.url, headers=c.headers, json=body)
+        assert resp.status_code == status, (body, resp.text)
+        assert await _state(db, c.plan.id) == before  # nothing written, no history
+        return resp
+
+    async def test_required_step_can_be_skipped_in_template_order(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session)
+        (existing,) = await _rows(db_session, c.plan.id)
+        before = (existing.id, existing.occurrence_key, existing.price_item_id, existing.position, existing.wait_after_hours)
+        # skip the first required P1, keep the second required P1 and optional P3 (sent out of order)
+        resp = await async_client.post(c.url, headers=c.headers, json=_reviewed(c, [c.step_ids[3], c.step_ids[2]]))
+        assert resp.status_code == 200, resp.text
+        works = resp.json()["planned_works"]
+        rows = await _rows(db_session, c.plan.id)
+        assert (rows[0].id, rows[0].occurrence_key, rows[0].price_item_id, rows[0].position, rows[0].wait_after_hours) == before
+        assert [o["id"] for o in works[0]["coefficient_options"]] == [str(c.opts[1].id)]
+        assert [(w["price_item_id"], w["position"], w["wait_after_hours"]) for w in works[1:]] == [
+            (str(c.p1.id), 1, None), (str(c.p3.id), 2, 48),
+        ]
+        assert all(w["coefficient_options"] == [] for w in works[1:])
+        assert len({w["occurrence_key"] for w in works}) == 3
+        (app,) = resp.json()["template_applications"]
+        assert (app["mode"], app["steps_applied"]) == ("APPEND", 2)
+
+    async def test_deliberate_duplicate_occurrence_is_still_allowed(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session, existing=False)
+        await c.plans.set_plan(c.project.id, c.room.id, c.surface.id, c.user.id, substrate=Substrate.CONCRETE,
+                               quality_target=QualityLevel.S2, planned_works=[Sel(price_item_id=c.p1.id)])
+        resp = await async_client.post(c.url, headers=c.headers, json=_reviewed(c, [c.step_ids[0], c.step_ids[2]]))
+        assert resp.status_code == 200, resp.text
+        works = resp.json()["planned_works"]
+        assert [w["price_item_id"] for w in works] == [str(c.p1.id)] * 3  # never deduplicated server-side
+        assert len({w["occurrence_key"] for w in works}) == 3
+
+    async def test_invalid_reviewed_selections_are_rejected_without_mutation(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session)
+        other = await c.templates.create_template(c.user.id, display_name="Inna", steps=[Step(price_item_id=c.p2.id)])
+        keys = [r.occurrence_key for r in await _rows(db_session, c.plan.id)]
+        for body in (
+            _reviewed(c, []),                                   # zero works
+            _reviewed(c, [uuid.uuid4()]),                       # unknown step
+            _reviewed(c, [other.steps[0].id]),                  # another template's step
+            _reviewed(c, [c.step_ids[0], c.step_ids[0]]),       # duplicate id
+            _reviewed(c, [c.step_ids[0]], selected=[c.step_ids[1]]),  # both selection fields
+            _reviewed(c, [c.step_ids[0]], mode="REPLACE", keys=keys, confirmed=True),  # APPEND only
+            {**_reviewed(c, [c.step_ids[0]]), "selected_step_ids": [str(c.p1.id)]},   # a PriceItem id is not a step
+        ):
+            await self._expect(async_client, db_session, c, body, 422)
+
+    async def test_stale_template_and_archived_selected_item_still_protected(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session)
+        await self._expect(async_client, db_session, c, _reviewed(c, [c.step_ids[0]], expected_steps=c.step_ids[:3]), 409)
+        c.p3.is_archived = True
+        await db_session.commit()
+        await self._expect(async_client, db_session, c, _reviewed(c, [c.step_ids[3]]), 422)
+        ok = await async_client.post(c.url, headers=c.headers, json=_reviewed(c, [c.step_ids[0]]))
+        assert ok.status_code == 200, ok.text
+
+    async def test_idempotent_retry_and_changed_selection_conflict(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session)
+        body = _reviewed(c, [c.step_ids[1], c.step_ids[2]])
+        first = await async_client.post(c.url, headers=c.headers, json=body)
+        after = await _state(db_session, c.plan.id)
+        second = await async_client.post(c.url, headers=c.headers, json=body)
+        assert first.status_code == second.status_code == 200
+        assert second.json() == first.json() and await _state(db_session, c.plan.id) == after
+        changed = {**body, "selected_step_ids": [str(c.step_ids[2])]}
+        conflict = await async_client.post(c.url, headers=c.headers, json=changed)
+        assert conflict.status_code == 409
+        assert await _state(db_session, c.plan.id) == after
+
+    async def test_estimate_untouched(self, async_client: AsyncClient, db_session):
+        c = await _setup(async_client, db_session)
+        await EstimateService(db_session).generate_estimate(c.project.id, c.user.id)
+        before = await _estimate_snapshot(db_session)
+        resp = await async_client.post(c.url, headers=c.headers, json=_reviewed(c, [c.step_ids[2]]))
+        assert resp.status_code == 200
+        assert await _estimate_snapshot(db_session) == before
+
+    async def test_legacy_fingerprint_unchanged_and_selection_is_covered(self, db_session):
+        plan_id, tid, s1, s2 = (uuid.uuid4() for _ in range(4))
+        legacy = ApplyTemplateRequest(application_id=uuid.uuid4(), template_id=tid, mode=TemplateApplicationMode.APPEND,
+                                      selected_optional_step_ids=[s2], expected_step_ids=[s1, s2])
+        v1 = {"v": 1, "work_plan_id": str(plan_id), "template_id": str(tid), "mode": "APPEND",
+              "selected_optional_step_ids": [str(s2)], "expected_step_ids": [str(s1), str(s2)],
+              "expected_occurrence_keys": None, "replace_confirmed": None}
+        expected = hashlib.sha256(json.dumps(v1, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        assert _application_fingerprint(plan_id, legacy) == expected  # pre-FIX.4 retries stay idempotent
+        def reviewed(sel):
+            return ApplyTemplateRequest(application_id=uuid.uuid4(), template_id=tid, mode=TemplateApplicationMode.APPEND,
+                                        selected_step_ids=sel, expected_step_ids=[s1, s2])
+        assert _application_fingerprint(plan_id, reviewed([s1, s2])) == _application_fingerprint(plan_id, reviewed([s2, s1]))
+        assert _application_fingerprint(plan_id, reviewed([s1])) != _application_fingerprint(plan_id, reviewed([s2]))
+        assert _application_fingerprint(plan_id, reviewed([s2])) != _application_fingerprint(plan_id, legacy)
 
 
 # ---------------------------------------------------------------------------

@@ -775,10 +775,17 @@ export function SurfaceWorkPlanEditor({
                   {t.work_plan.tpl_need_quality}
                 </p>
               ) : null}
-              {templateApplied && (
-                <p role="status" className="text-sm text-[var(--tg-theme-text-color)] break-words">
-                  {t.work_plan.tpl_success}
-                </p>
+              {/* apply-template already persisted the plan server-side, so Save
+                  stays disabled until the next ordinary edit makes it dirty. */}
+              {templateApplied && !dirty && (
+                <div
+                  role="status"
+                  aria-label={`template-applied-${surfaceId}`}
+                  className="rounded-xl bg-green-50 text-green-900 p-3 space-y-0.5"
+                >
+                  <p className="text-sm font-semibold break-words"><span aria-hidden="true">✓ </span>{t.work_plan.tpl_success}</p>
+                  <p className="text-xs break-words">{t.work_plan.tpl_success_hint}</p>
+                </div>
               )}
             </div>
           )}
@@ -921,6 +928,7 @@ export function SurfaceWorkPlanEditor({
             substrate={baseline.substrate}
             qualityTarget={baseline.qualityTarget}
             occurrenceKeys={draftOccurrences.map((o) => o.occurrenceKey)}
+            planPriceItemIds={draftOccurrences.map((o) => o.priceItemId)}
             coefficientAssignmentCount={draftOccurrences.reduce((n, o) => n + o.coefficientOptions.length, 0)}
             onApplied={(plan) => {
               // The server response is the new truth (13E.2C identity contract);

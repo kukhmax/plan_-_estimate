@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as openingsApi from './api/openings';
 import * as surfacesApi from './api/surfaces';
@@ -492,7 +492,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByLabelText(`work-plan-${surface.id}`)).toBeInTheDocument();
-    expect(screen.getByText('Opcje')).toBeInTheDocument();
+    expect(screen.getByText('Otwory i opcje')).toBeInTheDocument();
     expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(`add-opening-${surface.id}-DOOR`)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(`toggle-openings-${surface.id}`)).not.toBeInTheDocument();
@@ -507,7 +507,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
 
     // The top toggle and the bottom collapse action (Stage 10H.1) both show
     // the "Ukryj opcje" label while expanded.
-    expect(screen.getAllByText('Ukryj opcje')).toHaveLength(2);
+    expect(screen.getAllByText('Ukryj otwory i opcje')).toHaveLength(2);
     expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
@@ -530,7 +530,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
 
     const bottomToggle = screen.getByLabelText(`options-toggle-bottom-${surface.id}`);
     expect(bottomToggle).toBeInTheDocument();
-    expect(bottomToggle).toHaveTextContent('Ukryj opcje');
+    expect(bottomToggle).toHaveTextContent('Ukryj otwory i opcje');
     expect(bottomToggle.className).toContain('min-h-11');
     expect(bottomToggle.className).toContain('w-full');
 
@@ -552,7 +552,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
 
     fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
 
-    expect(screen.getByText('Opcje')).toBeInTheDocument();
+    expect(screen.getByText('Otwory i opcje')).toBeInTheDocument();
     expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(`add-opening-${surface.id}-DOOR`)).not.toBeInTheDocument();
@@ -715,11 +715,11 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toBeInTheDocument());
-    expect(screen.getByText('Опции')).toBeInTheDocument();
+    expect(screen.getByText('Проёмы и опции')).toBeInTheDocument();
     expect(screen.getByText('Виды работ и качество')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
-    expect(screen.getAllByText('Скрыть опции')).toHaveLength(2);
+    expect(screen.getAllByText('Скрыть проёмы и опции')).toHaveLength(2);
     expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
   });
 
@@ -1213,5 +1213,62 @@ describe('SurfaceList — regression: existing behavior remains untouched', () =
     await waitFor(() => {
       expect(openingsApi.fetchOpenings).toHaveBeenCalledWith(projectId, roomId, surface.id, false);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 13E.5B walkthrough — compact opening summary + "Otwory i opcje" label
+// ---------------------------------------------------------------------------
+
+describe('SurfaceList — opening summary on the wall card (13E.5B)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  const mixed = () => [
+    makeOpening({ id: 'd', opening_type: 'DOOR', width: '0.900', height: '2.070', quantity: 2 }),
+    makeOpening({ id: 'w1', opening_type: 'WINDOW', width: '0.600', height: '1.400' }),
+    makeOpening({ id: 'w2', opening_type: 'WINDOW', width: '2.100', height: '1.400' }),
+    makeOpening({ id: 'x', opening_type: 'WINDOW', width: '9.990', height: '9.990', is_archived: true }),
+  ];
+
+  it('groups active openings by type and size, sums quantity and omits archived ones (PL)', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: mixed(), total: 4 });
+    renderSurfaces();
+    const summary = await screen.findByLabelText(`openings-summary-${surface.id}`);
+    const rows = within(summary).getAllByRole('listitem').map((li) => li.textContent);
+    expect(summary).toHaveTextContent('Otwory:');
+    expect(rows).toEqual(['Drzwi 0,90 × 2,07 m (2)', 'Okno 0,60 × 1,40 m (1)', 'Okno 2,10 × 1,40 m (1)']);
+    expect(summary).not.toHaveTextContent('9,99');
+    // Existing area figures are untouched by the summary.
+    expect(screen.getByText('1.68 m²')).toBeInTheDocument();
+  });
+
+  it('localizes the summary in Russian, including OTHER', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [...mixed(), makeOpening({ id: 'o', opening_type: 'OTHER', width: '0.300', height: '0.300' })], total: 5,
+    });
+    renderSurfaces();
+    const summary = await screen.findByLabelText(`openings-summary-${surface.id}`);
+    expect(summary).toHaveTextContent('Проёмы:');
+    const rows = within(summary).getAllByRole('listitem').map((li) => li.textContent);
+    expect(rows).toEqual([
+      'Дверь 0,90 × 2,07 м (2)', 'Окно 0,60 × 1,40 м (1)', 'Окно 2,10 × 1,40 м (1)', 'Другой проем 0,30 × 0,30 м (1)',
+    ]);
+  });
+
+  it('is absent without active openings', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
+      items: [makeOpening({ opening_type: 'WINDOW', is_archived: true })], total: 1,
+    });
+    renderSurfaces();
+    await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    await waitFor(() => expect(openingsApi.fetchOpenings).toHaveBeenCalled());
+    expect(screen.queryByLabelText(`openings-summary-${surface.id}`)).not.toBeInTheDocument();
   });
 });
