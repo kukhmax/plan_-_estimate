@@ -28,6 +28,11 @@ export interface PlannedWorkCoefficientOptionRead {
 export interface OrderedPriceItemSelection {
   price_item_id: string;
   coefficient_option_ids: string[];
+  /** Echo of an EXISTING occurrence's server key; omitted for new work
+   * (the server generates it). Never generated on the client. */
+  occurrence_key?: string;
+  /** Technological break after this occurrence (whole hours >= 1) or null. */
+  wait_after_hours?: number | null;
 }
 
 export interface SurfacePlannedWorkRead {
@@ -35,6 +40,9 @@ export interface SurfacePlannedWorkRead {
   work_plan_id: string;
   price_item_id: string;
   position: number;
+  /** Stable logical identity of this occurrence (Stage 13 D13). */
+  occurrence_key: string;
+  wait_after_hours: number | null;
   price_item: SurfacePriceItemSummaryRead | null;
   coefficient_options?: PlannedWorkCoefficientOptionRead[];
 }

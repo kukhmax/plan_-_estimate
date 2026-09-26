@@ -48,10 +48,29 @@ const surfaceId = '33333333-3333-3333-3333-333333333333';
 // Fixtures
 // ---------------------------------------------------------------------------
 
+/** Expected planned_works[] entry of an ordinary save (Stage 13E.2C). */
+function sent(priceItemId: string, occurrenceKey?: string, wait: number | null = null, coefficients: string[] = []) {
+  return {
+    price_item_id: priceItemId,
+    ...(occurrenceKey !== undefined ? { occurrence_key: occurrenceKey } : {}),
+    wait_after_hours: wait,
+    coefficient_option_ids: coefficients,
+  };
+}
+
+const LOADED_SAVE = [
+  sent('price-shared', 'key-1', 24),
+  sent('price-localized', 'key-2'),
+  sent('price-shared', 'key-3'),
+  sent('price-unavailable', 'key-4'),
+];
+
 const plannedWorks: SurfaceWorkPlanRead['planned_works'] = [
   {
     id: 'occurrence-1',
     work_plan_id: 'plan-1',
+    occurrence_key: 'key-1',
+    wait_after_hours: 24,
     price_item_id: 'price-shared',
     position: 0,
     price_item: {
@@ -71,6 +90,8 @@ const plannedWorks: SurfaceWorkPlanRead['planned_works'] = [
   {
     id: 'occurrence-2',
     work_plan_id: 'plan-1',
+    occurrence_key: 'key-2',
+    wait_after_hours: null,
     price_item_id: 'price-localized',
     position: 1,
     price_item: {
@@ -90,6 +111,8 @@ const plannedWorks: SurfaceWorkPlanRead['planned_works'] = [
   {
     id: 'occurrence-3',
     work_plan_id: 'plan-1',
+    occurrence_key: 'key-3',
+    wait_after_hours: null,
     price_item_id: 'price-shared',
     position: 2,
     price_item: {
@@ -109,6 +132,8 @@ const plannedWorks: SurfaceWorkPlanRead['planned_works'] = [
   {
     id: 'occurrence-4',
     work_plan_id: 'plan-1',
+    occurrence_key: 'key-4',
+    wait_after_hours: null,
     price_item_id: 'price-unavailable',
     position: 3,
     price_item: null,
@@ -330,7 +355,7 @@ describe('SurfaceWorkPlanEditor', () => {
       expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledWith(projectId, roomId, surfaceId, {
         substrate: 'GYPSUM_PLASTER',
         quality_target: 'S3',
-        price_item_ids: ['price-shared', 'price-localized', 'price-shared', 'price-unavailable'],
+        planned_works: LOADED_SAVE,
       });
     });
     expect(await screen.findByText('Plan prac został zapisany.')).toBeInTheDocument();
@@ -685,13 +710,7 @@ describe('SurfaceWorkPlanEditor', () => {
         roomId,
         surfaceId,
         expect.objectContaining({
-          price_item_ids: [
-            'price-shared',
-            'price-localized',
-            'price-shared',
-            'price-unavailable',
-            'pi-extra',
-          ],
+          planned_works: [...LOADED_SAVE, sent('pi-extra')],
         }),
       );
     });
@@ -884,7 +903,7 @@ describe('SurfaceWorkPlanEditor', () => {
     expect(rows[2]).toHaveTextContent('Zarchiwizowana');
   });
 
-  it('Save sends exact reordered price_item_ids with duplicate IDs preserved', async () => {
+  it('Save sends the reordered occurrences with their own keys and duplicates preserved', async () => {
     vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(makePlan());
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
@@ -904,11 +923,11 @@ describe('SurfaceWorkPlanEditor', () => {
         roomId,
         surfaceId,
         expect.objectContaining({
-          price_item_ids: [
-            'price-localized',
-            'price-shared',
-            'price-shared',
-            'price-unavailable',
+          planned_works: [
+            sent('price-localized', 'key-2'),
+            sent('price-shared', 'key-1', 24),
+            sent('price-shared', 'key-3'),
+            sent('price-unavailable', 'key-4'),
           ],
         }),
       );
@@ -1335,11 +1354,11 @@ describe('SurfaceWorkPlanEditor — coefficients (Stage 12F)', () => {
         substrate: 'CONCRETE',
         quality_target: 'S3',
         planned_works: [
-          { price_item_id: 'price-shared', coefficient_option_ids: ['opt-high', 'opt-furnished'] },
-          { price_item_id: 'price-localized', coefficient_option_ids: [] },
+          sent('price-shared', 'key-1', 24, ['opt-high', 'opt-furnished']),
+          sent('price-localized', 'key-2'),
           // Duplicate PriceItem occurrence stays independent.
-          { price_item_id: 'price-shared', coefficient_option_ids: [] },
-          { price_item_id: 'price-unavailable', coefficient_option_ids: [] },
+          sent('price-shared', 'key-3'),
+          sent('price-unavailable', 'key-4'),
         ],
       });
     });
@@ -1373,7 +1392,7 @@ describe('SurfaceWorkPlanEditor — coefficients (Stage 12F)', () => {
     expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
   });
 
-  it('hydrates saved coefficients and clearing them all falls back to legacy price_item_ids', async () => {
+  it('hydrates saved coefficients and clearing them all still saves planned_works[] (13E.2C)', async () => {
     const withCoefficients = plannedWorks.map((w, i) =>
       i === 0
         ? {
@@ -1404,7 +1423,7 @@ describe('SurfaceWorkPlanEditor — coefficients (Stage 12F)', () => {
       expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledWith(projectId, roomId, surfaceId, {
         substrate: 'CONCRETE',
         quality_target: 'S3',
-        price_item_ids: ['price-shared', 'price-localized', 'price-shared', 'price-unavailable'],
+        planned_works: LOADED_SAVE,
       });
     });
   });
@@ -1476,6 +1495,8 @@ describe('SurfaceWorkPlanEditor — reveal placement', () => {
           {
             id: 'legacy-1',
             work_plan_id: 'plan-1',
+            occurrence_key: 'legacy-key',
+            wait_after_hours: null,
             price_item_id: 'pi-reveal',
             position: 0,
             price_item: {

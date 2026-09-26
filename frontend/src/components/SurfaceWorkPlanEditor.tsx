@@ -3,6 +3,7 @@ import { fetchPriceItems } from '../api/priceItems';
 import {
   applyWorkPlanToRoomWalls,
   fetchSurfaceWorkPlan,
+  isStaleWorkPlanError,
   isSurfaceWorkPlanMissing,
   putSurfaceWorkPlan,
 } from '../api/workPlans';
@@ -46,16 +47,23 @@ type ApplyState = 'idle' | 'confirming' | 'applying' | 'success' | 'error';
 interface WorkPlanBaseline {
   substrate: SubstrateValue | '';
   qualityTarget: QualityLevelValue | null;
-  /** Occurrence IDs as committed by the last successful save/load. */
-  occurrenceIds: string[];
+  /** Occurrence identities (server occurrence_key, or the local draftKey of
+   * an unsaved row) as committed by the last successful save/load. */
+  occurrenceIdentities: string[];
   /** Coefficient option id lists per occurrence, same ordering. */
   coefficientOptionIdLists: string[][];
 }
 
 /** A draft occurrence: may be persisted (has work_plan_id) or local-only. */
 interface DraftOccurrence {
-  /** Unique key within the draft list; stable identity for React. */
+  /** Frontend-only row identity for React / local edits. NEVER sent to the
+   * server as an occurrence_key. */
   draftKey: string;
+  /** Server-generated logical identity of an EXISTING occurrence; null for a
+   * row added in this draft (the server assigns one on save). */
+  occurrenceKey: string | null;
+  /** Backend-provided technological break, preserved verbatim on save. */
+  waitAfterHours: number | null;
   /** price_item_id sent in PUT */
   priceItemId: string;
   /** Full summary snapshot for display — may be null for unavailable items. */
@@ -102,6 +110,8 @@ function nextDraftKey(): string {
 function workToDraft(work: SurfacePlannedWorkRead): DraftOccurrence {
   return {
     draftKey: nextDraftKey(),
+    occurrenceKey: work.occurrence_key,
+    waitAfterHours: work.wait_after_hours ?? null,
     priceItemId: work.price_item_id,
     summary: work.price_item,
     coefficientOptions: work.coefficient_options ?? [],
@@ -124,6 +134,9 @@ export function SurfaceWorkPlanEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  // The last save echoed an occurrence_key that is no longer current: the plan
+  // changed elsewhere and must be reloaded (never retried without keys).
+  const [staleSave, setStaleSave] = useState(false);
   const [hasPlan, setHasPlan] = useState(false);
   const [substrate, setSubstrate] = useState<SubstrateValue | ''>('');
   const [qualityTarget, setQualityTarget] = useState<QualityLevelValue | null>(null);
@@ -134,7 +147,7 @@ export function SurfaceWorkPlanEditor({
   const [baseline, setBaseline] = useState<WorkPlanBaseline>({
     substrate: '',
     qualityTarget: null,
-    occurrenceIds: [],
+    occurrenceIdentities: [],
     coefficientOptionIdLists: [],
   });
 
@@ -160,14 +173,15 @@ export function SurfaceWorkPlanEditor({
   const editorId = `work-plan-editor-${surfaceId}`;
   const qualityLevels = qualityLevelsForSubstrate(substrate);
 
-  const currentOccurrenceIds = draftOccurrences.map((o) => o.priceItemId);
+  const identityOf = (o: DraftOccurrence): string => o.occurrenceKey ?? o.draftKey;
+  const currentOccurrenceIdentities = draftOccurrences.map(identityOf);
   const currentCoefficientLists = draftOccurrences.map((o) =>
     o.coefficientOptions.map((c) => c.id),
   );
   const dirty =
     substrate !== baseline.substrate ||
     qualityTarget !== baseline.qualityTarget ||
-    JSON.stringify(currentOccurrenceIds) !== JSON.stringify(baseline.occurrenceIds) ||
+    JSON.stringify(currentOccurrenceIdentities) !== JSON.stringify(baseline.occurrenceIdentities) ||
     JSON.stringify(currentCoefficientLists) !== JSON.stringify(baseline.coefficientOptionIdLists);
 
   const describeError = (error: unknown, fallback: string): string => {
@@ -179,7 +193,7 @@ export function SurfaceWorkPlanEditor({
     const nextSubstrate = plan?.substrate ?? '';
     const nextQuality = plan?.quality_target ?? null;
     const nextOccurrences = (plan?.planned_works ?? []).map(workToDraft);
-    const nextIds = nextOccurrences.map((o) => o.priceItemId);
+    const nextIdentities = nextOccurrences.map(identityOf);
     const nextCoefficientLists = nextOccurrences.map((o) =>
       o.coefficientOptions.map((c) => c.id),
     );
@@ -190,7 +204,7 @@ export function SurfaceWorkPlanEditor({
     setBaseline({
       substrate: nextSubstrate,
       qualityTarget: nextQuality,
-      occurrenceIds: nextIds,
+      occurrenceIdentities: nextIdentities,
       coefficientOptionIdLists: nextCoefficientLists,
     });
   };
@@ -200,6 +214,7 @@ export function SurfaceWorkPlanEditor({
     setLoadState('loading');
     setLoadError(null);
     setSaveError(null);
+    setStaleSave(false);
     setSaved(false);
     setSaving(false);
     setApplyState('idle');
@@ -257,33 +272,36 @@ export function SurfaceWorkPlanEditor({
 
     setSaving(true);
     setSaveError(null);
+    setStaleSave(false);
     setSaved(false);
     try {
-      const hasAnyCoefficients = draftOccurrences.some(
-        (o) => o.coefficientOptions.length > 0,
-      );
-      let payload: SurfaceWorkPlanUpsert;
-      if (hasAnyCoefficients) {
-        payload = {
-          substrate,
-          quality_target: qualityTarget,
-          planned_works: draftOccurrences.map((o) => ({
-            price_item_id: o.priceItemId,
-            coefficient_option_ids: o.coefficientOptions.map((c) => c.id),
-          })),
-        };
-      } else {
-        payload = {
-          substrate,
-          quality_target: qualityTarget,
-          price_item_ids: draftOccurrences.map((o) => o.priceItemId),
-        };
-      }
+      // Stage 13E.2C: every ordinary save uses planned_works[] and carries each
+      // occurrence's identity and configuration -- an existing occurrence
+      // echoes its server occurrence_key (same logical work, so Estimate
+      // overrides survive the row recreation); a new one omits it and the
+      // server generates one. Breaks and coefficients are sent verbatim.
+      const payload: SurfaceWorkPlanUpsert = {
+        substrate,
+        quality_target: qualityTarget,
+        planned_works: draftOccurrences.map((o) => ({
+          price_item_id: o.priceItemId,
+          ...(o.occurrenceKey !== null ? { occurrence_key: o.occurrenceKey } : {}),
+          wait_after_hours: o.waitAfterHours,
+          coefficient_option_ids: o.coefficientOptions.map((c) => c.id),
+        })),
+      };
       const plan = await putSurfaceWorkPlan(projectId, roomId, surfaceId, payload);
+      // Re-hydrate from the server so new rows now carry their server keys.
       hydrate(plan);
       setSaved(true);
     } catch (error) {
-      setSaveError(describeError(error, t.work_plan.error_save));
+      if (isStaleWorkPlanError(error)) {
+        // Never retry without keys and never turn rows into new work: the
+        // owner reloads the current plan first.
+        setStaleSave(true);
+      } else {
+        setSaveError(describeError(error, t.work_plan.error_save));
+      }
     } finally {
       setSaving(false);
     }
@@ -338,6 +356,8 @@ export function SurfaceWorkPlanEditor({
   const addItemToDraft = (item: PriceItem) => {
     const occurrence: DraftOccurrence = {
       draftKey: nextDraftKey(),
+      occurrenceKey: null,
+      waitAfterHours: null,
       priceItemId: item.id,
       summary: {
         id: item.id,
@@ -721,6 +741,22 @@ export function SurfaceWorkPlanEditor({
               {t.work_plan.add_work}
             </button>
           </div>
+
+          {staleSave && (
+            <div role="alert" aria-label={`stale-work-plan-${surfaceId}`} className="space-y-2">
+              <p className="text-sm font-semibold text-[var(--tg-theme-destructive-text-color)] break-words">
+                {t.work_plan.stale_plan}
+              </p>
+              <button
+                type="button"
+                aria-label={`reload-work-plan-${surfaceId}`}
+                onClick={() => setLoadAttempt((current) => current + 1)}
+                className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm"
+              >
+                {t.work_plan.reload_plan}
+              </button>
+            </div>
+          )}
 
           {saveError && (
             <div role="alert" className="space-y-1">

@@ -845,3 +845,39 @@ key-less behaviour.
   effect appears only on a later explicit Estimate preview/regeneration.
 - Production remains on the pre-13E release. Migration 0028 must not be applied independently.
 - Stage 13E overall remains IN PROGRESS. The next substage is **13E.2C — editor identity compatibility**.
+
+## 25. Stage 13E.2C — WorkPlan editor identity compatibility
+
+Frontend-only; no backend production code changed.
+
+- **Save path:** the Surface WorkPlan editor now **always** saves with `planned_works[]`. The legacy
+  `price_item_ids` shortcut is gone, even with no coefficients, all waits NULL or a single occurrence.
+- **Existing occurrences:** each echoes its server `occurrence_key` exactly.
+- **New occurrences:** a manually added row omits the key; the server generates it. The editor never
+  generates keys or sends placeholders. Its frontend-only `draftKey` (React/local row identity) is never
+  sent.
+- **Configuration:** `wait_after_hours` (NULL stays NULL) and `coefficient_option_ids` are sent verbatim per
+  occurrence.
+- **Duplicates:** occurrences of the same PriceItem keep their own key, wait and coefficients through
+  load, reorder, delete and save.
+- **Re-hydration:** after a successful save the editor re-hydrates from the server response, so a newly
+  added row carries its server key and the next save echoes it.
+- **Dirty detection** now follows occurrence identity (server key or local row id), not PriceItem ids.
+  Reordering same-PriceItem duplicates is therefore saveable.
+- **Stale-key 409** ("…is not a current occurrence of this work plan…") shows a localized message with a
+  full-width **Odśwież plan / Обновить план** reload action (≥44 px).
+  - The editor never retries without keys and never turns rows into new occurrences.
+  - Other errors keep the existing save-error path.
+
+**Status: 13E.2B and 13E.2C COMPLETE / OWNER ACCEPTED. The 13E.2B compatibility release gate is CLEARED BY
+13E.2C.**
+
+This means migration 0028 and the editor fix are now compatible with each other at code/branch level. It
+does **not** mean:
+- deploy production now;
+- Stage 13E is complete;
+- apply-template is implemented.
+
+Production remains untouched on the pre-13E release. Migration 0028 ships only later, together with a
+compatible frontend release, after Stage 13 production approval. Stage 13E remains IN PROGRESS. Next:
+**13E.3 — server-side template application** (NOT STARTED).

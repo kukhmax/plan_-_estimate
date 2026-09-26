@@ -40,6 +40,14 @@ export function applyWorkPlanToRoomWalls(
   );
 }
 
+/** A save echoed an occurrence_key that is no longer current: the plan was
+ * changed elsewhere since it was loaded (backend 409, Stage 13B/13E.2C). */
+export function isStaleWorkPlanError(error: unknown): boolean {
+  return error instanceof ApiError &&
+    error.status === 409 &&
+    error.message.includes('is not a current occurrence of this work plan');
+}
+
 export function isSurfaceWorkPlanMissing(error: unknown): boolean {
   return error instanceof ApiError &&
     error.status === 404 &&

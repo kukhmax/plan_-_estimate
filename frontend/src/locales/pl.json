@@ -229,7 +229,9 @@
     "apply_success": "Plan prac skopiowano na {count} ścian(y).",
     "apply_error": "Nie udało się skopiować planu prac.",
     "create_new_item": "+ Dodaj nową pracę do cennika",
-    "coefficient_action": "Współczynnik"
+    "coefficient_action": "Współczynnik",
+    "stale_plan": "Plan prac zmienił się od czasu jego otwarcia. Odśwież plan przed ponownym zapisem.",
+    "reload_plan": "Odśwież plan"
   },
   "openings": {
     "title": "Otwory w ścianie",
