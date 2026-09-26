@@ -189,6 +189,12 @@ class SurfaceWorkPlanTemplateApplication(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+    # Stage 13E.3 (migration 0029): server-computed SHA-256 of the semantic
+    # apply-template request (plan, template, mode, selected optional steps,
+    # expected template steps, expected REPLACE composition). Same
+    # application_id + same fingerprint = retry; anything else = conflict.
+    # NULL for records written through the 13C WorkPlan PUT intent.
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     work_plan: Mapped["SurfaceWorkPlan"] = relationship(
         back_populates="template_applications"

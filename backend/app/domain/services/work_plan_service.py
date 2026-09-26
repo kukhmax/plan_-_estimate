@@ -22,6 +22,8 @@ server-generated key. Keys are validated in full before any mutation. The
 technological break `wait_after_hours` (D9) is carried the same way as the
 coefficient selection.
 """
+import hashlib
+import json
 import uuid
 from collections import Counter
 from dataclasses import dataclass, field
@@ -40,6 +42,7 @@ from app.domain.exceptions import (
     SurfaceWorkPlanOccurrenceConflictError,
     SurfaceWorkPlanValidationError,
     TemplateApplicationConflictError,
+    TemplateApplicationStaleError,
     WorkflowTemplateNotFoundError,
 )
 from app.domain.rules.inspection_rules import assert_quality_scale_valid
@@ -59,8 +62,13 @@ from app.models.workflow_template import (
     SurfaceWorkPlanTemplateApplication,
     TemplateApplicationMode,
     WorkflowTemplate,
+    WorkflowTemplateStep,
 )
-from app.schemas.work_plan import OrderedPriceItemSelection, TemplateApplicationIntent
+from app.schemas.work_plan import (
+    ApplyTemplateRequest,
+    OrderedPriceItemSelection,
+    TemplateApplicationIntent,
+)
 
 
 @dataclass(frozen=True)
@@ -74,6 +82,37 @@ class ResolvedOccurrence:
     options: list[CoefficientOption] = field(default_factory=list)
     occurrence_key: uuid.UUID | None = None
     wait_after_hours: int | None = None
+
+
+def _application_fingerprint(plan_id: uuid.UUID, request: ApplyTemplateRequest) -> str:
+    """Deterministic SHA-256 of the semantic apply-template request (13E.3).
+
+    Covers the plan, template, mode, the optional-step selection (as a sorted
+    set), the expected template version (ordered step ids) and, for REPLACE,
+    the expected ordered plan composition. `application_id` itself is
+    excluded: it is the key the fingerprint is compared under.
+    """
+    replace = request.mode == TemplateApplicationMode.REPLACE
+    payload = {
+        "v": 1,
+        "work_plan_id": str(plan_id),
+        "template_id": str(request.template_id),
+        "mode": request.mode.value,
+        "selected_optional_step_ids": sorted(str(i) for i in request.selected_optional_step_ids),
+        "expected_step_ids": [str(i) for i in request.expected_step_ids],
+        "expected_occurrence_keys": (
+            [str(k) for k in request.expected_occurrence_keys]
+            if replace and request.expected_occurrence_keys is not None
+            else None
+        ),
+        "replace_confirmed": bool(request.replace_confirmed) if replace else None,
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _filter_allows(values: list[str] | None, value: str | None) -> bool:
+    return not values or (value is not None and value in values)
 
 
 class SurfaceWorkPlanService:
@@ -551,6 +590,182 @@ class SurfaceWorkPlanService:
         )
         self._validate_occurrence_keys(plan, planned_works)
         await self._rewrite_works(plan, validated)
+        await self.db.commit()
+        return await self._fetch_plan(surface_id)
+
+    async def apply_template(
+        self,
+        project_id: uuid.UUID,
+        room_id: uuid.UUID,
+        surface_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        request: ApplyTemplateRequest,
+    ) -> SurfaceWorkPlan:
+        """Materialize a workflow template into the CURRENT plan (13E.3).
+
+        One transaction under the plan row lock (SELECT ... FOR UPDATE, taken
+        before the application_id is examined, so concurrent identical
+        requests serialize and the later one sees the committed record).
+        Every materialized PriceItem, order and break comes from the server
+        template; the client only sends identifiers and choices. Validation
+        is complete before any mutation, so a rejected request changes
+        nothing. Never touches an Estimate.
+
+        APPEND adds the selected steps after the current occurrences without
+        rewriting them. REPLACE removes every current occurrence (their
+        coefficient assignments cascade) and materializes the selected steps
+        at positions 0..N-1; old occurrence keys are never reused.
+        """
+        surface = await self._ensure_surface_owned(project_id, room_id, surface_id, owner_id)
+        plan = await self.lock_plan(surface_id)
+        if plan is None:
+            raise SurfaceWorkPlanNotFoundError(f"Surface {surface_id} has no work plan yet")
+
+        fingerprint = _application_fingerprint(plan.id, request)
+        recorded = (
+            await self.db.execute(
+                select(SurfaceWorkPlanTemplateApplication).where(
+                    SurfaceWorkPlanTemplateApplication.id == request.application_id
+                )
+            )
+        ).scalar_one_or_none()
+        if recorded is not None:
+            if recorded.work_plan_id == plan.id and recorded.request_fingerprint == fingerprint:
+                await self.db.commit()  # release the lock; nothing to apply
+                return await self._fetch_plan(surface_id)
+            raise TemplateApplicationConflictError(
+                f"application_id {request.application_id} was already used for a "
+                "different application; generate a new one"
+            )
+
+        template = (
+            await self.db.execute(
+                select(WorkflowTemplate)
+                .where(
+                    WorkflowTemplate.id == request.template_id,
+                    WorkflowTemplate.owner_id == owner_id,
+                )
+                .options(
+                    selectinload(WorkflowTemplate.steps).selectinload(
+                        WorkflowTemplateStep.price_item
+                    )
+                )
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        if template is None:
+            raise WorkflowTemplateNotFoundError(
+                f"Workflow template {request.template_id} not found"
+            )
+        if template.is_archived:
+            raise TemplateApplicationStaleError(
+                "the workflow template is archived; restore it before applying"
+            )
+        if plan.quality_target is None:
+            raise SurfaceWorkPlanValidationError(
+                "set the work plan's quality target before applying a technology"
+            )
+        if not (
+            _filter_allows(template.applies_to_substrates, plan.substrate.value)
+            and _filter_allows(template.applies_to_quality, plan.quality_target.value)
+            and _filter_allows(template.applies_to_surface_types, surface.surface_type.value)
+        ):
+            raise SurfaceWorkPlanValidationError(
+                "the workflow template does not match this surface's substrate, "
+                "quality target or surface type"
+            )
+
+        steps = list(template.steps)
+        if [step.id for step in steps] != list(request.expected_step_ids):
+            raise TemplateApplicationStaleError(
+                "the workflow template changed since it was previewed; refresh the preview"
+            )
+        optional_ids = {step.id for step in steps if step.is_optional}
+        selected = list(request.selected_optional_step_ids)
+        if len(set(selected)) != len(selected):
+            raise SurfaceWorkPlanValidationError("an optional step was selected more than once")
+        invalid = [i for i in selected if i not in optional_ids]
+        if invalid:
+            raise SurfaceWorkPlanValidationError(
+                f"step {invalid[0]} is not an optional step of this template"
+            )
+        chosen = [s for s in steps if not s.is_optional or s.id in set(selected)]
+        if not chosen:
+            raise SurfaceWorkPlanValidationError(
+                "no steps selected: at least one work must be applied"
+            )
+        for step in chosen:
+            item = step.price_item
+            if item is None or item.owner_id != owner_id:
+                raise PriceItemNotFoundError(f"Price item {step.price_item_id} not found")
+            if item.category == PriceCategory.REVEAL:
+                raise SurfaceWorkPlanValidationError(
+                    f"Price item {item.id}: reveal work belongs under an opening, "
+                    "not on a surface work plan"
+                )
+            if item.is_archived:
+                kind = "optional" if step.is_optional else "required"
+                raise SurfaceWorkPlanValidationError(
+                    f"the {kind} step's price item {item.id} is archived; restore it "
+                    "in the Price Book to apply this technology"
+                )
+
+        current = (
+            await self.db.execute(
+                select(SurfacePlannedWork)
+                .where(SurfacePlannedWork.work_plan_id == plan.id)
+                .order_by(SurfacePlannedWork.position)
+            )
+        ).scalars().all()
+        if request.mode == TemplateApplicationMode.REPLACE:
+            if not request.replace_confirmed:
+                raise SurfaceWorkPlanValidationError("REPLACE requires explicit confirmation")
+            if request.expected_occurrence_keys is None:
+                raise SurfaceWorkPlanValidationError(
+                    "REPLACE requires expected_occurrence_keys (the confirmed plan composition)"
+                )
+            if [w.occurrence_key for w in current] != list(request.expected_occurrence_keys):
+                raise TemplateApplicationStaleError(
+                    "the work plan changed since it was confirmed for replacement; reload it"
+                )
+            await self._rewrite_works(
+                plan,
+                [
+                    ResolvedOccurrence(
+                        item=step.price_item,
+                        options=[],
+                        occurrence_key=None,
+                        wait_after_hours=step.wait_after_hours,
+                    )
+                    for step in chosen
+                ],
+            )
+        else:
+            next_position = (max((w.position for w in current), default=-1)) + 1
+            for offset, step in enumerate(chosen):
+                self.db.add(
+                    SurfacePlannedWork(
+                        work_plan_id=plan.id,
+                        price_item_id=step.price_item_id,
+                        position=next_position + offset,
+                        occurrence_key=uuid.uuid4(),
+                        wait_after_hours=step.wait_after_hours,
+                    )
+                )
+
+        self.db.add(
+            SurfaceWorkPlanTemplateApplication(
+                id=request.application_id,
+                work_plan_id=plan.id,
+                template_id=template.id,
+                template_code=template.code,
+                template_name=template.display_name or template.name_key or template.code,
+                mode=request.mode,
+                steps_applied=len(chosen),
+                applied_at=datetime.now(timezone.utc),
+                request_fingerprint=fingerprint,
+            )
+        )
         await self.db.commit()
         return await self._fetch_plan(surface_id)
 

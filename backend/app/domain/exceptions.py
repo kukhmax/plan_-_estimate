@@ -186,6 +186,12 @@ class TemplateApplicationConflictError(Exception):
     (Stage 13C). Same response whatever the cause: nothing is disclosed."""
 
 
+class TemplateApplicationStaleError(Exception):
+    """Raised (409) when an apply-template request no longer matches current
+    state: archived template, changed template steps (expected_step_ids) or
+    a changed plan composition for REPLACE (expected_occurrence_keys)."""
+
+
 class WorkflowTemplateNotFoundError(Exception):
     """Raised when a workflow template does not exist or is not owned."""
 

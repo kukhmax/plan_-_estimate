@@ -1247,4 +1247,7 @@ def test_work_plan_route_family_registered():
         "/work-plan",
         "/api/projects/{project_id}/rooms/{room_id}/surfaces/{source_surface_id}"
         "/work-plan/apply-to-room-walls",
+        # Stage 13E.3: server-side technological template application.
+        "/api/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}"
+        "/work-plan/apply-template",
     }

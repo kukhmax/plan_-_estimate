@@ -881,3 +881,92 @@ does **not** mean:
 Production remains untouched on the pre-13E release. Migration 0028 ships only later, together with a
 compatible frontend release, after Stage 13 production approval. Stage 13E remains IN PROGRESS. Next:
 **13E.3 — server-side template application** (NOT STARTED).
+
+## 26. Stage 13E.3 — server-side template application
+
+### 26.1 Endpoint
+
+`POST /api/projects/{p}/rooms/{r}/surfaces/{s}/work-plan/apply-template`, next to `apply-to-room-walls`.
+
+Request (`extra="forbid"`):
+
+```json
+{"application_id": "…", "template_id": "…", "mode": "APPEND|REPLACE",
+ "selected_optional_step_ids": [], "expected_step_ids": ["…"],
+ "expected_occurrence_keys": ["…"], "replace_confirmed": true}
+```
+
+- The last two fields are for REPLACE.
+- PriceItems, order, notes, waits, the required-step selection and `steps_applied` are never accepted from
+  the client; they come from the server template.
+- **Response:** 200 `SurfaceWorkPlanRead` (planned works with keys, waits, coefficients, provenance
+  history). An identical retry returns 200 with the unchanged current plan.
+
+### 26.2 Transaction and locking
+
+One transaction:
+1. Ownership chain.
+2. `lock_plan` (SELECT … FOR UPDATE) — **taken before the application_id is examined**. No plan → 404.
+3. `application_id` replay/conflict.
+4. Owned template (foreign or unknown → 404); archived → 409.
+5. The plan must have `quality_target` (422).
+6. Compatibility (422): empty filter = any; otherwise the plan substrate, quality target and the Surface
+   type must be included.
+7. `expected_step_ids` must equal the current ordered step ids (409).
+8. Optional selection: each id must exist in this template and be optional, with no duplicates (422).
+9. Materialization list = required + selected optional, **in template order**. Empty → 422 (no zero-step
+   provenance).
+10. Every chosen item: owner, no REVEAL, not archived (422). An archived optional item is allowed only if
+    unselected; required archived items always block.
+11. For REPLACE: `replace_confirmed` true and `expected_occurrence_keys` present (422), equal to the
+    **exact ordered** current key sequence (409; `[A,B] ≠ [B,A]`). This detects additions, removals,
+    replacements and reorders.
+12. Materialize.
+13. Provenance.
+14. One commit.
+
+Any failure before the commit changes nothing. Template edits that touch only metadata don't block
+(`expected_step_ids` changes only when steps are replaced).
+
+### 26.3 Semantics
+
+- **APPEND** runs on the current DB state and never rewrites existing rows (ids, keys, positions,
+  coefficients, waits unchanged). Selected steps are added at `MAX(position)+1…` in template order. Each
+  gets a new server key (never the step id), the step's `wait_after_hours` and no coefficients. No
+  de-duplication.
+- **REPLACE** removes every current occurrence (coefficients cascade; legacy surface REVEAL rows go too)
+  through the established full-replace path. It then materializes the selection at 0..N-1 with new keys,
+  step waits and no coefficients. Old keys are never reused; the plan header and history remain.
+- **Estimate:** never touched. APPEND keeps existing keyed lines matched and new occurrences appear ADDED;
+  REPLACE yields REMOVED + ADDED on the next explicit preview/regeneration, with no override migration
+  (13E.2B).
+
+### 26.4 Idempotency (migration 0029)
+
+The provenance row lacked the request content, so an identical retry could not be told apart from a reused
+id with a different selection, template version or REPLACE composition.
+
+- **Migration:** `0029_application_fingerprint` (file `0029_template_application_fingerprint.py`) adds
+  nullable `surface_work_plan_template_applications.request_fingerprint` (VARCHAR 64). It is NULL for 13C
+  PUT-intent rows.
+- **Fingerprint:** a server-computed SHA-256 of canonical JSON
+  `{v, work_plan_id, template_id, mode, sorted selected_optional_step_ids, ordered expected_step_ids,
+  ordered expected_occurrence_keys (REPLACE), replace_confirmed (REPLACE)}`.
+- **Same id + same plan + same fingerprint** → replay: 200 with the current plan, nothing materialized, no
+  second row. Any other reuse → 409.
+- **Concurrency:** under the row lock, concurrent identical requests serialize. The later one sees the
+  committed record and replays; this was proven on PostgreSQL.
+- **Provenance:** `id = application_id`, template id/code, name snapshot (`display_name`, else the default
+  `name_key`), mode, **server-computed** `steps_applied` = rows actually materialized, `applied_at`,
+  fingerprint.
+
+**Status: 13E.3 COMPLETE / OWNER ACCEPTED.** Production untouched; migrations 0028/0029 not deployed.
+
+Deferred:
+- 13C PUT-intent provenance rows have a NULL fingerprint, so reusing their ids via apply-template returns 409.
+- The three apply-template 409 cases (archived template, stale template, stale plan) are distinguished only
+  by their messages. 13E.4 may rely on that. **Future API hardening:** machine-readable domain error codes
+  instead of frontend branching on human-readable text.
+- No automatic merge of stale editor drafts.
+
+Stage 13E remains IN PROGRESS. Next: **13E.4 — frontend template picker / preview / apply UX**.

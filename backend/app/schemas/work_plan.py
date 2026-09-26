@@ -138,6 +138,28 @@ class TemplateApplicationIntent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class ApplyTemplateRequest(BaseModel):
+    """Server-side template application (Stage 13E.3).
+
+    Only identifiers and the owner's choices are client-supplied; every
+    materialized PriceItem, order, note and break comes from the server's own
+    template. `expected_step_ids` is the exact ordered step list the preview
+    showed (template version); `expected_occurrence_keys` is the exact ordered
+    plan composition the owner confirmed replacing (REPLACE only).
+    `application_id` is generated once per apply action and reused on retry.
+    """
+
+    application_id: uuid.UUID
+    template_id: uuid.UUID
+    mode: TemplateApplicationMode
+    selected_optional_step_ids: list[uuid.UUID] = Field(default_factory=list)
+    expected_step_ids: list[uuid.UUID]
+    expected_occurrence_keys: list[uuid.UUID] | None = None
+    replace_confirmed: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class TemplateApplicationRead(BaseModel):
     id: uuid.UUID
     template_id: uuid.UUID | None = None

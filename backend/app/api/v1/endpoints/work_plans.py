@@ -23,11 +23,13 @@ from app.domain.exceptions import (
     SurfaceWorkPlanOccurrenceConflictError,
     SurfaceWorkPlanValidationError,
     TemplateApplicationConflictError,
+    TemplateApplicationStaleError,
     WorkflowTemplateNotFoundError,
 )
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.models.user import User
 from app.schemas.work_plan import (
+    ApplyTemplateRequest,
     OrderedPriceItemSelection,
     SurfaceWorkPlanApplyResult,
     SurfaceWorkPlanRead,
@@ -187,3 +189,47 @@ async def apply_to_room_walls(
         target_surface_ids=[plan.surface_id for plan in targets],
         targets=[SurfaceWorkPlanRead.model_validate(plan) for plan in targets],
     )
+
+
+@router.post(
+    "/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}/work-plan/apply-template",
+    response_model=SurfaceWorkPlanRead,
+    status_code=status.HTTP_200_OK,
+    summary="Apply a workflow template to the current work plan (APPEND or REPLACE)",
+)
+async def apply_template(
+    project_id: uuid.UUID,
+    room_id: uuid.UUID,
+    surface_id: uuid.UUID,
+    payload: ApplyTemplateRequest,
+    current_user: User = Depends(get_current_user),
+    work_plan_service: SurfaceWorkPlanService = Depends(get_work_plan_service),
+) -> SurfaceWorkPlanRead:
+    """Stage 13E.3: server-side materialization under the plan row lock.
+    An identical retry (same application_id and request) returns 200 with
+    the current plan and changes nothing."""
+    try:
+        plan = await work_plan_service.apply_template(
+            project_id, room_id, surface_id, current_user.id, payload
+        )
+    except ProjectNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    except RoomNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+    except SurfaceNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Surface not found")
+    except SurfaceWorkPlanNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Surface work plan not found"
+        )
+    except WorkflowTemplateNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow template not found"
+        )
+    except PriceItemNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Price item not found")
+    except (TemplateApplicationConflictError, TemplateApplicationStaleError) as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except SurfaceWorkPlanValidationError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    return SurfaceWorkPlanRead.model_validate(plan)
