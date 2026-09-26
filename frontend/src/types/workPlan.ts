@@ -47,12 +47,25 @@ export interface SurfacePlannedWorkRead {
   coefficient_options?: PlannedWorkCoefficientOptionRead[];
 }
 
+export interface TemplateApplicationRead {
+  id: string;
+  template_id: string | null;
+  template_code: string;
+  /** Snapshot: an owner display name, or a built-in template's name_key. */
+  template_name: string;
+  mode: 'APPEND' | 'REPLACE';
+  steps_applied: number;
+  applied_at: string;
+}
+
 export interface SurfaceWorkPlanRead {
   id: string;
   surface_id: string;
   substrate: SubstrateValue;
   quality_target: QualityLevelValue | null;
   planned_works: SurfacePlannedWorkRead[];
+  /** Historical template-application provenance (Stage 13C), oldest first. */
+  template_applications?: TemplateApplicationRead[];
 }
 
 export interface SurfaceWorkPlanUpsert {

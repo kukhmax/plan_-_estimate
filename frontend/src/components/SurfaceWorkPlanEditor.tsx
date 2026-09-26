@@ -27,6 +27,8 @@ import {
 } from '../utils/coefficientCalculations';
 import { CoefficientAssignmentModal } from './CoefficientAssignmentModal';
 import { PriceItemForm } from './PriceItemForm';
+import { WorkflowTemplateApplySheet } from './WorkflowTemplateApplySheet';
+import { SurfaceTypeValue } from '../types/surface';
 
 interface SurfaceWorkPlanEditorProps {
   projectId: string;
@@ -37,6 +39,8 @@ interface SurfaceWorkPlanEditorProps {
   isWall?: boolean;
   /** Count of other active WALL surfaces in the same room (apply-to-all target count). */
   otherActiveWallCount?: number;
+  /** Surface type, used to find compatible technological workflows (13E.4). */
+  surfaceType?: SurfaceTypeValue;
   onClose: () => void;
 }
 
@@ -125,6 +129,7 @@ export function SurfaceWorkPlanEditor({
   surfaceName,
   isWall = false,
   otherActiveWallCount = 0,
+  surfaceType,
   onClose,
 }: SurfaceWorkPlanEditorProps) {
   const { t } = useI18n();
@@ -137,6 +142,9 @@ export function SurfaceWorkPlanEditor({
   // The last save echoed an occurrence_key that is no longer current: the plan
   // changed elsewhere and must be reloaded (never retried without keys).
   const [staleSave, setStaleSave] = useState(false);
+  // Stage 13E.4: technological workflow apply sheet.
+  const [templateSheetOpen, setTemplateSheetOpen] = useState(false);
+  const [templateApplied, setTemplateApplied] = useState(false);
   const [hasPlan, setHasPlan] = useState(false);
   const [substrate, setSubstrate] = useState<SubstrateValue | ''>('');
   const [qualityTarget, setQualityTarget] = useState<QualityLevelValue | null>(null);
@@ -215,6 +223,7 @@ export function SurfaceWorkPlanEditor({
     setLoadError(null);
     setSaveError(null);
     setStaleSave(false);
+    setTemplateSheetOpen(false);
     setSaved(false);
     setSaving(false);
     setApplyState('idle');
@@ -273,6 +282,7 @@ export function SurfaceWorkPlanEditor({
     setSaving(true);
     setSaveError(null);
     setStaleSave(false);
+    setTemplateApplied(false);
     setSaved(false);
     try {
       // Stage 13E.2C: every ordinary save uses planned_works[] and carries each
@@ -742,6 +752,37 @@ export function SurfaceWorkPlanEditor({
             </button>
           </div>
 
+          {hasPlan && (
+            <div className="space-y-1 pt-1">
+              <button
+                type="button"
+                aria-label={`open-template-sheet-${surfaceId}`}
+                onClick={() => {
+                  setTemplateApplied(false);
+                  setTemplateSheetOpen(true);
+                }}
+                disabled={dirty || saving || !baseline.qualityTarget || !baseline.substrate}
+                className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm disabled:opacity-60 break-words"
+              >
+                {t.work_plan.tpl_open}
+              </button>
+              {dirty ? (
+                <p aria-label={`template-unsaved-${surfaceId}`} className="text-xs text-[var(--tg-theme-hint-color)] break-words">
+                  {t.work_plan.tpl_unsaved}
+                </p>
+              ) : !baseline.qualityTarget ? (
+                <p aria-label={`template-need-quality-${surfaceId}`} className="text-xs text-[var(--tg-theme-hint-color)] break-words">
+                  {t.work_plan.tpl_need_quality}
+                </p>
+              ) : null}
+              {templateApplied && (
+                <p role="status" className="text-sm text-[var(--tg-theme-text-color)] break-words">
+                  {t.work_plan.tpl_success}
+                </p>
+              )}
+            </div>
+          )}
+
           {staleSave && (
             <div role="alert" aria-label={`stale-work-plan-${surfaceId}`} className="space-y-2">
               <p className="text-sm font-semibold text-[var(--tg-theme-destructive-text-color)] break-words">
@@ -871,6 +912,32 @@ export function SurfaceWorkPlanEditor({
             the inline Price Book creation form below embeds its own <form>,
             and a <form> inside a <form> is invalid HTML (unpredictable
             submit/Enter-key behavior in real browsers). */}
+        {templateSheetOpen && baseline.substrate && baseline.qualityTarget && (
+          <WorkflowTemplateApplySheet
+            projectId={projectId}
+            roomId={roomId}
+            surfaceId={surfaceId}
+            surfaceType={surfaceType}
+            substrate={baseline.substrate}
+            qualityTarget={baseline.qualityTarget}
+            occurrenceKeys={draftOccurrences.map((o) => o.occurrenceKey)}
+            coefficientAssignmentCount={draftOccurrences.reduce((n, o) => n + o.coefficientOptions.length, 0)}
+            onApplied={(plan) => {
+              // The server response is the new truth (13E.2C identity contract);
+              // no WorkPlan PUT and no Estimate regeneration follow.
+              hydrate(plan);
+              setTemplateSheetOpen(false);
+              setSaved(false);
+              setTemplateApplied(true);
+            }}
+            onReloadPlan={() => {
+              setTemplateSheetOpen(false);
+              setLoadAttempt((current) => current + 1);
+            }}
+            onClose={() => setTemplateSheetOpen(false)}
+          />
+        )}
+
         {pickerState !== 'closed' && (
           <div
             aria-label={`picker-panel-${surfaceId}`}

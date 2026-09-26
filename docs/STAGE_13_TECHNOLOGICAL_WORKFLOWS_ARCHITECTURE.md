@@ -970,3 +970,60 @@ Deferred:
 - No automatic merge of stale editor drafts.
 
 Stage 13E remains IN PROGRESS. Next: **13E.4 — frontend template picker / preview / apply UX**.
+
+## 27. Stage 13E.4 — frontend technological workflow picker / preview / apply UX
+
+Frontend-only; no backend change. `WorkflowTemplateApplySheet` (bottom sheet, same pattern as the
+coefficient modal) is opened from `SurfaceWorkPlanEditor` by **Zastosuj proces technologiczny / Применить
+технологический процесс**.
+
+- **Gates:**
+  - The action requires a saved plan with a quality target; otherwise it shows "Najpierw wybierz docelowy
+    standard wykończenia." and never lists templates.
+  - It is blocked while the editor has unsaved changes ("Najpierw zapisz lub odrzuć niezapisane zmiany planu
+    prac."): no auto-save, discard or merge, because apply runs on current server state.
+- **Discovery:** `GET /api/workflow-templates?archived=active&substrate=&quality_target=&surface_type=`. The
+  server filter is authoritative; the editor now receives `surfaceType` from its three call sites. Built-in
+  names come from `name_key` (PL/RU locale), custom names from `display_name`; codes and UUIDs are not
+  shown. There is an empty state.
+- **Preview** is a read-only snapshot:
+  - ordered steps with ordinal, item name, Wymagany/Opcjonalny, note, and "Przerwa technologiczna: N h" only
+    when set;
+  - archived items marked; a required archived item blocks Apply; an archived optional item cannot be
+    selected;
+  - optional steps start **OFF** and reset whenever a template is (re)selected; nothing is persisted before a
+    successful Apply.
+- **Mode:** APPEND by default, each mode with a one-line explanation.
+  - REPLACE shows the impact from the loaded plan (occurrence count, coefficient-assignment count) and
+    "Kosztorys nie zostanie zmieniony automatycznie.".
+  - Apply in REPLACE opens a second destructive confirmation (red, as other destructive actions).
+  - REPLACE is blocked if any loaded row lacks an `occurrence_key`.
+- **Request:** `application_id`, `template_id`, `mode`, the selected optional ids, the ordered preview
+  `expected_step_ids`, and for REPLACE the exact ordered `expected_occurrence_keys` + `replace_confirmed:
+  true`.
+- **application_id:** one logical command keeps its id. A transport failure or 5xx (uncertain outcome) is
+  retried with the same id and payload via "Spróbuj ponownie". Any change of template, optional selection,
+  mode or plan composition produces a new id. There are no automatic retries; double submit is blocked.
+- **Success:** the editor re-hydrates from the response (13E.2C identity contract), the sheet closes, and
+  "Proces technologiczny zastosowany." is shown. There is no extra WorkPlan PUT and no Estimate call.
+- **Errors** are classified in one helper (`classifyApplyTemplateError`, by current 13E.3 messages; future
+  hardening: machine-readable codes):
+  - **stale template 409:** "Odśwież proces" reloads the template and resets optionals; the next Apply is a
+    new command;
+  - **stale plan 409:** "Odśwież plan" reloads the plan and closes the sheet; never falls back to APPEND;
+  - **archived/unknown template:** "nie jest już dostępny" and the list reloads;
+  - **other 409 / 422:** a generic message with the server detail and "Odśwież proces".
+- **Mobile:** verified headless at 320/390/412/480 px in PL and RU across APPEND, success, REPLACE impact,
+  destructive confirmation, stale template, stale plan and long names. No overflow; the sheet fits the
+  viewport and scrolls independently; the Apply/confirm action stays visible; all controls ≥44 px.
+
+**Status: 13E.4 COMPLETE / OWNER ACCEPTED.** Production untouched; migrations 0028/0029 not deployed.
+
+Deferred:
+- Seeded Polish descriptions/notes appear in the RU UI (13D decision).
+- The main chunk is ~535.40 kB; lazy-loading the sheet is a future option.
+- 409s are classified by message text; machine-readable codes are future hardening.
+- No stale-draft merge.
+- The real Telegram walkthrough is required in 13E.5.
+
+Next: **13E.5 — integration/adversarial verification + owner walkthrough**. 13F not started.

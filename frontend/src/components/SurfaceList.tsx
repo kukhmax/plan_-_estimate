@@ -774,6 +774,7 @@ export function SurfaceList({
                         surfaceName={displayName}
                         isWall={true}
                         otherActiveWallCount={activeWallCount - 1}
+                        surfaceType={surface.surface_type}
                         onClose={() => setActiveWorkPlanSurfaceId(null)}
                       />
                     )}
@@ -902,6 +903,7 @@ export function SurfaceList({
                         roomId={roomId}
                         surfaceId={surface.id}
                         surfaceName={displayName}
+                        surfaceType={surface.surface_type}
                         onClose={() => setActiveWorkPlanSurfaceId(null)}
                       />
                     )}

@@ -321,6 +321,7 @@ export function AreaSegmentList({
                 roomId={roomId}
                 surfaceId={planeSurfaceId}
                 surfaceName={displayName}
+                surfaceType={planeSurface?.surface_type}
                 onClose={() => setActiveWorkPlanPlane(null)}
               />
             )}
