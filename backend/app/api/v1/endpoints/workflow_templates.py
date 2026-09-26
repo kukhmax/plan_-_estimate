@@ -15,7 +15,11 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_current_user, get_workflow_template_service
-from app.domain.data.workflow_templates import DEFAULT_WORKFLOW_TEMPLATE_CODES
+from app.domain.data.workflow_templates import (
+    DEFAULT_WORKFLOW_TEMPLATE_CODES,
+    canonical_description_key,
+    canonical_step_note_key,
+)
 from app.domain.exceptions import (
     PriceItemNotFoundError,
     WorkflowTemplateNotFoundError,
@@ -59,6 +63,7 @@ def _template_read(template: WorkflowTemplate) -> WorkflowTemplateRead:
         position=template.position,
         is_archived=template.is_archived,
         is_default=template.code in DEFAULT_WORKFLOW_TEMPLATE_CODES,
+        description_key=canonical_description_key(template.code, template.description),
         created_at=template.created_at,
         updated_at=template.updated_at,
         steps=[
@@ -68,6 +73,7 @@ def _template_read(template: WorkflowTemplate) -> WorkflowTemplateRead:
                 price_item_id=step.price_item_id,
                 is_optional=step.is_optional,
                 note=step.note,
+                note_key=canonical_step_note_key(template.code, step.note),
                 wait_after_hours=step.wait_after_hours,
                 price_item=SurfacePriceItemSummaryRead.model_validate(step.price_item),
             )

@@ -16,6 +16,7 @@ import {
 } from '../types/workflowTemplate';
 import { localizeApiError } from '../utils/apiErrors';
 import { resolveKey } from '../utils/i18nKeys';
+import { templateDescription, templateStepNote } from '../utils/workflowTemplateText';
 
 /**
  * Stage 13E.4 — technological workflow picker / preview / apply sheet.
@@ -417,9 +418,9 @@ export function WorkflowTemplateApplySheet({
               <button type="button" className={btnSecondary} onClick={backToList} disabled={applying}>
                 {t.work_plan.tpl_back}
               </button>
-              {selected.description && (
+              {templateDescription(t, selected) && (
                 <p className="text-xs text-[var(--tg-theme-hint-color)] whitespace-pre-line break-words">
-                  {selected.description}
+                  {templateDescription(t, selected)}
                 </p>
               )}
               <ol aria-label={`template-steps-${surfaceId}`} className="space-y-2">
@@ -459,8 +460,8 @@ export function WorkflowTemplateApplySheet({
                           </span>
                         )}
                       </div>
-                      {step.note && (
-                        <p className="text-xs text-[var(--tg-theme-hint-color)] break-words">{step.note}</p>
+                      {templateStepNote(t, step) && (
+                        <p className="text-xs text-[var(--tg-theme-hint-color)] break-words">{templateStepNote(t, step)}</p>
                       )}
                       {step.is_optional && (
                         <label className="flex items-center gap-3 min-h-11 cursor-pointer">

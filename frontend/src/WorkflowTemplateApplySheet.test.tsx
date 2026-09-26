@@ -369,6 +369,32 @@ describe('Workflow template apply (13E.4)', () => {
     await waitFor(() => expect(within(sheet).getByLabelText(`template-apply-error-${S}`)).toHaveTextContent('at least one work'));
   });
 
+  it('localizes an untouched built-in description and keeps an owner description verbatim (13F.3 FIX.1)', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(templatesApi.fetchCompatibleTemplates).mockResolvedValue({ items: [
+      template({ description: 'Kanoniczny tekst PL', description_key: 'workflow_templates.description.s2' }),
+      { ...CUSTOM, description: 'Mój opis' },
+    ], total: 2 });
+    let sheet = await openPreview();
+    expect(sheet).toHaveTextContent("Стандарт отделки поверхности S2 — Внутренняя классификация подрядчика. Типовой стандарт поверхности, готовой к обычной покраске интерьеров. Без покраски — поверхность готова к следующей отделочной системе.");
+    expect(sheet).not.toHaveTextContent('Kanoniczny tekst PL');
+    fireEvent.click(within(sheet).getByText('Назад к списку'));
+    sheet = screen.getByLabelText(`template-sheet-${S}`);
+    fireEvent.click(await within(sheet).findByLabelText('template-option-tpl-custom'));
+    expect(sheet).toHaveTextContent('Mój opis');
+  });
+
+  it('apply sheet localizes canonical step notes and keeps edited notes verbatim (13F.3 FIX.2)', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(templatesApi.fetchCompatibleTemplates).mockResolvedValue({ items: [template({ steps: [
+      { ...step('st-1', 0, false), note: "Podłoże odpylone i oczyszczone przed gruntowaniem i naprawami.", note_key: 'workflow_templates.step_note.clean' },
+      { ...step('st-2', 1, false), note: 'Notatka właściciela', note_key: null },
+    ] })], total: 1 });
+    const sheet = await openPreview();
+    expect(within(sheet).getByLabelText('template-step-st-1')).toHaveTextContent("Основание обеспылено и очищено перед грунтованием и ремонтом.");
+    expect(within(sheet).getByLabelText('template-step-st-2')).toHaveTextContent('Notatka właściciela');
+  });
+
   it('renders the flow in Russian', async () => {
     localStorage.setItem('locale', 'ru');
     const sheet = await openPreview();

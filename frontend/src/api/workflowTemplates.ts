@@ -27,6 +27,18 @@ export function fetchCompatibleTemplates(
   return apiRequest(`/api/workflow-templates?${query.toString()}`);
 }
 
+/** Owner template catalog for management (Stage 13F.3, Cennik → Procesy).
+ * `surface_type` uses the server semantics: a template with an empty filter
+ * ("any") matches every surface type. */
+export function fetchWorkflowTemplates(filter: {
+  archived: 'active' | 'archived';
+  surface_type?: SurfaceTypeValue;
+}): Promise<WorkflowTemplateListResponse> {
+  const query = new URLSearchParams({ archived: filter.archived });
+  if (filter.surface_type) query.set('surface_type', filter.surface_type);
+  return apiRequest(`/api/workflow-templates?${query.toString()}`);
+}
+
 export function fetchWorkflowTemplate(templateId: string): Promise<WorkflowTemplateRead> {
   return apiRequest(`/api/workflow-templates/${templateId}`);
 }

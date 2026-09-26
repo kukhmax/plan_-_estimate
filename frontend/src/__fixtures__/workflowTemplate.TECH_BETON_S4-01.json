@@ -1,0 +1,268 @@
+{
+  "id": "tpl-real-s4",
+  "code": "TECH_BETON_S4-01",
+  "name_key": "workflow_templates.seed.tech_beton_s4",
+  "display_name": null,
+  "description": "Standard Wykończenia Powierzchni S4 — Wewnętrzna klasyfikacja wykonawcy. Indywidualnie uzgodniony standard premium; warunki oglądu i oświetlenia przy odbiorze uzgadniane dla obiektu przed rozpoczęciem prac. Dodatkowa warstwa zależy od stanu powierzchni. Bez malowania — powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+  "applies_to_substrates": [
+    "CONCRETE"
+  ],
+  "applies_to_quality": [
+    "S4"
+  ],
+  "applies_to_surface_types": [
+    "WALL",
+    "CEILING",
+    "OTHER"
+  ],
+  "position": 3,
+  "is_archived": false,
+  "is_default": true,
+  "description_key": "workflow_templates.description.s4",
+  "created_at": "2026-09-26T00:00:00Z",
+  "updated_at": "2026-09-26T00:00:00Z",
+  "steps": [
+    {
+      "id": "real-s4-step-0",
+      "position": 0,
+      "price_item_id": "real-s4-item-0",
+      "is_optional": true,
+      "note": "Zabezpieczenie podłóg, stolarki i elementów nieobjętych pracami — jeśli wymagane na obiekcie.",
+      "note_key": "workflow_templates.step_note.prot",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-0",
+        "code": "CENNIK_PREP_PROT-01",
+        "name_key": "pricebook.seed.prep_prot",
+        "display_name": null,
+        "category": "PREPARATION",
+        "unit": "M2",
+        "price_scope": "LABOR",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    },
+    {
+      "id": "real-s4-step-1",
+      "position": 1,
+      "price_item_id": "real-s4-item-1",
+      "is_optional": true,
+      "note": "Beton monolityczny: usunięcie nadlewek i wyszlifowanie styków szalunku. Ilość do weryfikacji, jeśli dotyczy części powierzchni.",
+      "note_key": "workflow_templates.step_note.conc",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-1",
+        "code": "CENNIK_PREP_CONC-01",
+        "name_key": "pricebook.seed.prep_conc",
+        "display_name": null,
+        "category": "PREPARATION",
+        "unit": "M2",
+        "price_scope": "LABOR",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    },
+    {
+      "id": "real-s4-step-2",
+      "position": 2,
+      "price_item_id": "real-s4-item-2",
+      "is_optional": false,
+      "note": "Podłoże odpylone i oczyszczone przed gruntowaniem i naprawami.",
+      "note_key": "workflow_templates.step_note.clean",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-2",
+        "code": "CENNIK_PREP_CLEAN-01",
+        "name_key": "pricebook.seed.prep_clean",
+        "display_name": null,
+        "category": "PREPARATION",
+        "unit": "M2",
+        "price_scope": "LABOR",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    },
+    {
+      "id": "real-s4-step-3",
+      "position": 3,
+      "price_item_id": "real-s4-item-3",
+      "is_optional": true,
+      "note": "Beton gładki, zwarty lub słabo chłonny. Alternatywa dla gruntu penetrującego — wybierz jeden grunt zależnie od stanu podłoża, nie oba. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "note_key": "workflow_templates.step_note.beton_adh",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-3",
+        "code": "CENNIK_PRIM_ADH-01",
+        "name_key": "pricebook.seed.prim_adh",
+        "display_name": null,
+        "category": "PREPARATION",
+        "unit": "M2",
+        "price_scope": "LABOR_AND_MATERIAL",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    },
+    {
+      "id": "real-s4-step-4",
+      "position": 4,
+      "price_item_id": "real-s4-item-4",
+      "is_optional": true,
+      "note": "Beton chłonny lub pylący. Alternatywa dla gruntu kontaktowego — wybierz jeden grunt zależnie od stanu podłoża, nie oba. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "note_key": "workflow_templates.step_note.beton_std",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-4",
+        "code": "CENNIK_PRIM_STD-01",
+        "name_key": "pricebook.seed.prim_std",
+        "display_name": null,
+        "category": "PREPARATION",
+        "unit": "M2",
+        "price_scope": "LABOR_AND_MATERIAL",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    },
+    {
+      "id": "real-s4-step-5",
+      "position": 5,
+      "price_item_id": "real-s4-item-5",
+      "is_optional": true,
+      "note": "Rysy i pęknięcia stwierdzone przy ocenie podłoża. Ilość w mb wprowadzana ręcznie. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "note_key": "workflow_templates.step_note.crack",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-5",
+        "code": "CENNIK_SKIM_CRACK-01",
+        "name_key": "pricebook.seed.skim_crack",
+        "display_name": null,
+        "category": "SKIM_COAT",
+        "unit": "LM",
+        "price_scope": "LABOR",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    },
+    {
+      "id": "real-s4-step-6",
+      "position": 6,
+      "price_item_id": "real-s4-item-6",
+      "is_optional": true,
+      "note": "Naprawy punktowe ubytków i nierówności lokalnych. Ilość do weryfikacji — zwykle dotyczy części powierzchni. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "note_key": "workflow_templates.step_note.local",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-6",
+        "code": "CENNIK_SKIM_LOCAL-01",
+        "name_key": "pricebook.seed.skim_local",
+        "display_name": null,
+        "category": "SKIM_COAT",
+        "unit": "M2",
+        "price_scope": "LABOR",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    },
+    {
+      "id": "real-s4-step-7",
+      "position": 7,
+      "price_item_id": "real-s4-item-7",
+      "is_optional": true,
+      "note": "Gdy występują narożniki zewnętrzne; montaż przed szpachlowaniem. Ilość w mb wprowadzana ręcznie.",
+      "note_key": "workflow_templates.step_note.corner",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-7",
+        "code": "CENNIK_SKIM_CORNER-01",
+        "name_key": "pricebook.seed.skim_corner",
+        "display_name": null,
+        "category": "SKIM_COAT",
+        "unit": "LM",
+        "price_scope": "LABOR",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    },
+    {
+      "id": "real-s4-step-8",
+      "position": 8,
+      "price_item_id": "real-s4-item-8",
+      "is_optional": false,
+      "note": "Dwie warstwy gładzi w ramach pakietu; kolejna warstwa po wystarczającym wyschnięciu poprzedniej. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "note_key": "workflow_templates.step_note.skim_2l",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-8",
+        "code": "CENNIK_SKIM_2L-01",
+        "name_key": "pricebook.seed.skim_2l",
+        "display_name": null,
+        "category": "SKIM_COAT",
+        "unit": "M2",
+        "price_scope": "LABOR",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    },
+    {
+      "id": "real-s4-step-9",
+      "position": 9,
+      "price_item_id": "real-s4-item-9",
+      "is_optional": true,
+      "note": "Dodatkowa warstwa tylko wtedy, gdy wymaga tego stan powierzchni po pakiecie dwóch warstw lub uzgodniony standard wizualny. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "note_key": "workflow_templates.step_note.skim_add",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-9",
+        "code": "CENNIK_SKIM_ADD-01",
+        "name_key": "pricebook.seed.skim_add",
+        "display_name": null,
+        "category": "SKIM_COAT",
+        "unit": "M2",
+        "price_scope": "LABOR",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    },
+    {
+      "id": "real-s4-step-10",
+      "position": 10,
+      "price_item_id": "real-s4-item-10",
+      "is_optional": false,
+      "note": "Szlifowanie końcowe z odpylaniem. Ocena powierzchni w warunkach oglądu i oświetlenia uzgodnionych indywidualnie dla obiektu przed rozpoczęciem prac. Powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+      "note_key": "workflow_templates.step_note.sand_s4",
+      "wait_after_hours": null,
+      "price_item": {
+        "id": "real-s4-item-10",
+        "code": "CENNIK_SKIM_SAND-01",
+        "name_key": "pricebook.seed.skim_sand",
+        "display_name": null,
+        "category": "SKIM_COAT",
+        "unit": "M2",
+        "price_scope": "LABOR",
+        "price": null,
+        "currency": "PLN",
+        "is_archived": false,
+        "quality_level": null
+      }
+    }
+  ]
+}

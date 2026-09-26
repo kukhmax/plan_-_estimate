@@ -33,9 +33,13 @@ import { PriceItemForm } from './PriceItemForm';
 const CoefficientCatalogManager = lazy(() =>
   import('./CoefficientCatalogManager').then((m) => ({ default: m.CoefficientCatalogManager })),
 );
+// Stage 13F.3: Cennik → Procesy (technological workflow templates, read-only).
+const WorkflowTemplateManager = lazy(() =>
+  import('./WorkflowTemplateManager').then((m) => ({ default: m.WorkflowTemplateManager })),
+);
 
 type Tab = 'active' | 'archived';
-type MainTab = 'items' | 'coefficients';
+type MainTab = 'items' | 'coefficients' | 'processes';
 
 /** display_name > localized name_key > em-dash. Never the machine code. */
 function resolveDisplayName(item: PriceItem, t: Record<string, unknown>): string {
@@ -239,7 +243,7 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
         )}
       </div>
 
-      <div className="flex gap-2 mb-3">
+      <div className="flex flex-wrap gap-2 mb-3">
         <button
           type="button"
           aria-label="pricebook-maintab-items"
@@ -264,9 +268,27 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
         >
           {t.coefficients.tab_coefficients}
         </button>
+        <button
+          type="button"
+          aria-label="pricebook-maintab-processes"
+          onClick={() => setMainTab('processes')}
+          className={`min-h-11 px-4 text-sm font-semibold rounded-xl transition ${
+            mainTab === 'processes'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          {t.processes.tab}
+        </button>
       </div>
 
-      {mainTab === 'coefficients' ? (
+      {mainTab === 'processes' ? (
+        <Suspense
+          fallback={<div className="py-8 text-center text-sm text-slate-500">{t.work_plan.tpl_loading}</div>}
+        >
+          <WorkflowTemplateManager />
+        </Suspense>
+      ) : mainTab === 'coefficients' ? (
         <Suspense
           fallback={
             <div className="py-8 text-center text-sm text-slate-500">{t.coefficients.loading}</div>

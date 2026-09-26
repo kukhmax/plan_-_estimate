@@ -11,6 +11,8 @@ export interface WorkflowTemplateStepRead {
   price_item_id: string;
   is_optional: boolean;
   note: string | null;
+  /** Stage 13F.3 FIX.2: locale key of an untouched canonical built-in note. */
+  note_key?: string | null;
   wait_after_hours: number | null;
   price_item: SurfacePriceItemSummaryRead | null;
 }
@@ -26,6 +28,11 @@ export interface WorkflowTemplateRead {
   applies_to_surface_types: SurfaceTypeValue[];
   position: number;
   is_archived: boolean;
+  /** Stage 13F.2: derived server-side from the seeded recipe codes (read-only). */
+  is_default?: boolean;
+  /** Stage 13F.3 FIX.1: locale key of an untouched canonical built-in
+   * description (null for custom / owner-edited descriptions). */
+  description_key?: string | null;
   created_at: string;
   updated_at: string;
   steps: WorkflowTemplateStepRead[];

@@ -75,6 +75,9 @@ class WorkflowTemplateStepRead(BaseModel):
     price_item_id: uuid.UUID
     is_optional: bool
     note: str | None = None
+    # Stage 13F.3 FIX.2: locale key while the note is exactly a canonical
+    # built-in note of this default recipe; null for edited/custom notes.
+    note_key: str | None = None
     wait_after_hours: int | None = None
     # Includes is_archived / category so a UI can warn about unavailable steps.
     price_item: SurfacePriceItemSummaryRead | None = None
@@ -95,6 +98,10 @@ class WorkflowTemplateRead(BaseModel):
     is_archived: bool
     # Derived from the immutable code (seeded Stage 13D recipe); never stored.
     is_default: bool = False
+    # Stage 13F.3 FIX.1: locale key of the canonical built-in description,
+    # set only while the stored description is exactly the canonical text
+    # (untouched); null for custom templates and owner-edited descriptions.
+    description_key: str | None = None
     created_at: datetime
     updated_at: datetime
     steps: list[WorkflowTemplateStepRead] = Field(default_factory=list)

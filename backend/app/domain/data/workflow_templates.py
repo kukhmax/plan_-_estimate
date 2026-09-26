@@ -45,6 +45,8 @@ class WorkflowTemplateData:
     substrate: Substrate
     quality: QualityLevel
     steps: tuple[WorkflowStepData, ...]
+    # Stage 13F.3 FIX.1: locale key of the canonical description (PL/RU UI).
+    description_key: str = ""
 
 
 SURFACE_TYPES: tuple[SurfaceType, ...] = (
@@ -270,6 +272,7 @@ def build_default_workflow_templates() -> list[WorkflowTemplateData]:
                     code=code,
                     name_key=f"workflow_templates.seed.{code[:-3].lower()}",
                     description=_S_DESC[level],
+                    description_key=f"workflow_templates.description.{level.value.lower()}",
                     substrate=substrate,
                     quality=level,
                     steps=_s_steps(level, preparation),
@@ -282,6 +285,7 @@ def build_default_workflow_templates() -> list[WorkflowTemplateData]:
                 code=code,
                 name_key=f"workflow_templates.seed.{code[:-3].lower()}",
                 description=_Q_DESC[level] + _NO_PAINT,
+                description_key=f"workflow_templates.description.{level.value.lower()}",
                 substrate=Substrate.GYPSUM_BOARD,
                 quality=level,
                 steps=steps,
@@ -296,3 +300,51 @@ def build_default_workflow_templates() -> list[WorkflowTemplateData]:
 DEFAULT_WORKFLOW_TEMPLATE_CODES: frozenset[str] = frozenset(
     template.code for template in build_default_workflow_templates()
 )
+
+# Stage 13F.3 FIX.1: canonical (Polish) description text + its locale key per
+# default code. A stored description is "untouched canonical" iff it equals
+# this exact text; any owner edit makes it differ and is shown verbatim
+# (D-F1: owner customization wins, never re-localized).
+DEFAULT_TEMPLATE_DESCRIPTIONS: dict[str, tuple[str, str]] = {
+    template.code: (template.description, template.description_key)
+    for template in build_default_workflow_templates()
+}
+
+
+def canonical_description_key(code: str, description: str | None) -> str | None:
+    """Locale key for an untouched canonical default description, else None."""
+    canonical = DEFAULT_TEMPLATE_DESCRIPTIONS.get(code)
+    if canonical is None or description != canonical[0]:
+        return None
+    return canonical[1]
+
+# Stage 13F.3 FIX.2: one locale key per distinct canonical step note (keys
+# follow the note constant, never the PriceItem -- e.g. the four SKIM_SAND
+# notes are different texts with different keys; identical notes shared by
+# several recipes share one key).
+_STEP_NOTE_CONSTANTS: dict[str, WorkflowStepData] = {
+    "prot": _PROT, "clean": _CLEAN, "crack": _CRACK, "local": _LOCAL, "corner": _CORNER,
+    "skim_2l": _SKIM_2L, "skim_add": _SKIM_ADD, "sand": _SAND, "sand_s4": _SAND_S4,
+    "conc": _CONC, "beton_adh": _BETON_ADH, "beton_std": _BETON_STD, "gips_std": _GIPS_STD,
+    "cw_std": _CW_STD, "cw_high": _CW_HIGH, "gk_q1": _GK_Q1, "gk_corner": _GK_CORNER,
+    "gk_q2": _GK_Q2, "gk_prim": _GK_PRIM, "gk_full": _GK_FULL, "gk_q4": _GK_Q4,
+    "gk_sand": _GK_SAND, "gk_sand_q4": _GK_SAND_Q4,
+}
+CANONICAL_STEP_NOTE_KEYS: dict[str, str] = {
+    step.note: f"workflow_templates.step_note.{leaf}"
+    for leaf, step in _STEP_NOTE_CONSTANTS.items()
+    if step.note
+}
+_RECIPE_STEP_NOTES: dict[str, frozenset[str]] = {
+    template.code: frozenset(step.note for step in template.steps if step.note)
+    for template in build_default_workflow_templates()
+}
+
+
+def canonical_step_note_key(code: str, note: str | None) -> str | None:
+    """Locale key for a step note that is exactly one of THIS default
+    recipe's canonical notes; None for custom templates, edited or missing
+    notes. Evaluated per step, so repeated PriceItems are independent."""
+    if note is None or note not in _RECIPE_STEP_NOTES.get(code, frozenset()):
+        return None
+    return CANONICAL_STEP_NOTE_KEYS.get(note)

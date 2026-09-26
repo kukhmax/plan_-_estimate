@@ -8,11 +8,18 @@
   (exact ordered match or 409, nothing changes); omitted = unchanged
   backwards-compatible behaviour.
 """
+import json
+from pathlib import Path
+
 from httpx import AsyncClient
 
 from app.domain.data.workflow_templates import (
+    CANONICAL_STEP_NOTE_KEYS,
+    DEFAULT_TEMPLATE_DESCRIPTIONS,
     DEFAULT_WORKFLOW_TEMPLATE_CODES,
     build_default_workflow_templates,
+    canonical_description_key,
+    canonical_step_note_key,
 )
 from tests.test_workflow_templates_api import OTHER_USER, T, _create, _owner
 
@@ -214,3 +221,148 @@ class TestStepReplacementPrecondition:
         other_headers, *_ = await _owner(async_client, db_session, OTHER_USER)
         foreign = await self._put(async_client, other_headers, tpl["id"], [{"price_item_id": str(prime.id)}], expected=ids)
         assert foreign.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Stage 13F.3 FIX.1 — canonical built-in description localization key
+# ---------------------------------------------------------------------------
+
+
+_LOCALES = Path(__file__).resolve().parents[2] / "frontend" / "src" / "locales"
+
+
+class TestDescriptionKey:
+    def test_every_default_has_a_key_and_one_text_per_key(self):
+        assert set(DEFAULT_TEMPLATE_DESCRIPTIONS) == DEFAULT_WORKFLOW_TEMPLATE_CODES
+        texts_by_key: dict[str, set[str]] = {}
+        for text, key in DEFAULT_TEMPLATE_DESCRIPTIONS.values():
+            assert key.startswith("workflow_templates.description.")
+            texts_by_key.setdefault(key, set()).add(text)
+        assert all(len(texts) == 1 for texts in texts_by_key.values())
+
+    def test_frontend_pl_text_is_the_canonical_text_and_ru_is_complete(self):
+        if not _LOCALES.exists():  # backend-only checkout
+            return
+        pl = json.loads((_LOCALES / "pl.json").read_text(encoding="utf-8"))["workflow_templates"]["description"]
+        ru = json.loads((_LOCALES / "ru.json").read_text(encoding="utf-8"))["workflow_templates"]["description"]
+        for text, key in DEFAULT_TEMPLATE_DESCRIPTIONS.values():
+            leaf = key.rsplit(".", 1)[1]
+            assert pl[leaf] == text  # PL UI shows exactly the stored canonical text
+            assert ru[leaf] and ru[leaf] != text
+
+    def test_only_exact_canonical_text_gets_a_key(self):
+        text, key = DEFAULT_TEMPLATE_DESCRIPTIONS[S2]
+        assert canonical_description_key(S2, text) == key
+        assert canonical_description_key(S2, text + " ") is None
+        assert canonical_description_key(S2, "Moja wersja") is None
+        assert canonical_description_key(S2, None) is None
+        assert canonical_description_key("CUSTOM_X", text) is None  # never for custom templates
+
+    async def test_api_key_follows_untouched_vs_owner_edited(self, async_client: AsyncClient, db_session):
+        headers, _, prime, _ = await _owner(async_client, db_session)
+        items = await _all(async_client, headers)
+        tid = items[S2]["id"]
+        assert items[S2]["description_key"] == "workflow_templates.description.s2"
+        assert all(i["description_key"] for c, i in items.items() if c in DEFAULT_WORKFLOW_TEMPLATE_CODES)
+        edited = await async_client.patch(f"{T}/{tid}", headers=headers, json={"description": "Moja wersja"})
+        assert (edited.json()["description"], edited.json()["description_key"]) == ("Moja wersja", None)
+        cleared = await async_client.patch(f"{T}/{tid}", headers=headers, json={"description": None})
+        assert (cleared.json()["description"], cleared.json()["description_key"]) == (None, None)
+        canonical = DEFAULT_TEMPLATE_DESCRIPTIONS[S2][0]
+        back = await async_client.patch(f"{T}/{tid}", headers=headers, json={"description": canonical})
+        assert back.json()["description_key"] == "workflow_templates.description.s2"  # identical content
+        custom = await _create(async_client, headers, description=canonical, steps=[{"price_item_id": str(prime.id)}])
+        assert custom["description_key"] is None
+
+
+# ---------------------------------------------------------------------------
+# Stage 13F.3 FIX.2 — canonical built-in step note localization key
+# ---------------------------------------------------------------------------
+
+
+class TestStepNoteKey:
+    def test_every_canonical_note_has_its_own_key(self):
+        notes = {s.note for t in build_default_workflow_templates() for s in t.steps if s.note}
+        assert set(CANONICAL_STEP_NOTE_KEYS) == notes
+        assert len(set(CANONICAL_STEP_NOTE_KEYS.values())) == len(notes)  # distinct texts -> distinct keys
+        assert all(n == n.strip() for n in notes)  # survives the service's strip on re-save
+
+    def test_frontend_pl_text_is_canonical_and_ru_complete(self):
+        if not _LOCALES.exists():  # backend-only checkout
+            return
+        pl = json.loads((_LOCALES / "pl.json").read_text(encoding="utf-8"))["workflow_templates"]["step_note"]
+        ru = json.loads((_LOCALES / "ru.json").read_text(encoding="utf-8"))["workflow_templates"]["step_note"]
+        assert set(pl) == set(ru) == {k.rsplit(".", 1)[1] for k in CANONICAL_STEP_NOTE_KEYS.values()}
+        for text, key in CANONICAL_STEP_NOTE_KEYS.items():
+            leaf = key.rsplit(".", 1)[1]
+            assert pl[leaf] == text
+            assert ru[leaf] and ru[leaf] != text
+
+    def test_key_only_for_this_recipes_exact_canonical_notes(self):
+        s2 = next(t for t in build_default_workflow_templates() if t.code == S2)
+        s4 = next(t for t in build_default_workflow_templates() if t.code == "TECH_BETON_S4-01")
+        note = next(st.note for st in s2.steps if st.note)
+        assert canonical_step_note_key(S2, note) == CANONICAL_STEP_NOTE_KEYS[note]
+        assert canonical_step_note_key(S2, note + " ") is None
+        assert canonical_step_note_key(S2, "Moja notatka") is None
+        assert canonical_step_note_key(S2, None) is None
+        assert canonical_step_note_key("CUSTOM_X", note) is None
+        s4_only = next(st.note for st in s4.steps if st.note and st.note not in {x.note for x in s2.steps})
+        assert canonical_step_note_key(S2, s4_only) is None  # canonical, but not part of this recipe
+
+    async def test_api_per_step_keys_edit_restore_custom_and_duplicates(self, async_client: AsyncClient, db_session):
+        headers, _, prime, _ = await _owner(async_client, db_session)
+        tpl = (await _all(async_client, headers))[S2]
+        noted = [st for st in tpl["steps"] if st["note"]]
+        assert noted and all(st["note_key"] == CANONICAL_STEP_NOTE_KEYS[st["note"]] for st in noted)
+        assert all(st["note_key"] is None for st in tpl["steps"] if not st["note"])
+
+        steps = _write(tpl["steps"])
+        canonical = steps[0]["note"]
+        steps[0]["note"] = "Notatka właściciela"
+        steps.append({**_write(tpl["steps"])[0]})           # same PriceItem + canonical note, again
+        steps.append({**_write(tpl["steps"])[0], "note": None})
+        edited = await async_client.put(f"{T}/{tpl['id']}/steps", headers=headers, json={
+            "steps": steps, "expected_step_ids": [st["id"] for st in tpl["steps"]]})
+        assert edited.status_code == 200, edited.text
+        got = edited.json()["steps"]
+        assert (got[0]["note"], got[0]["note_key"]) == ("Notatka właściciela", None)
+        assert got[-2]["note_key"] == CANONICAL_STEP_NOTE_KEYS[canonical]   # independent occurrence
+        assert got[-1]["note_key"] is None
+        assert [s["note_key"] for s in got[1:-2]] == [s["note_key"] for s in tpl["steps"][1:]]
+
+        steps[0]["note"] = canonical
+        restored = await async_client.put(f"{T}/{tpl['id']}/steps", headers=headers, json={
+            "steps": steps, "expected_step_ids": [st["id"] for st in got]})
+        assert restored.json()["steps"][0]["note_key"] == CANONICAL_STEP_NOTE_KEYS[canonical]
+
+        custom = await _create(async_client, headers, steps=[{"price_item_id": str(prime.id), "note": canonical}])
+        assert custom["steps"][0]["note_key"] is None
+
+
+# ---------------------------------------------------------------------------
+# Stage 13F.3 FIX.3 — real contract: seeded TECH_BETON_S4-01 through the API
+# ---------------------------------------------------------------------------
+
+_REAL_FIXTURE = _LOCALES.parent / "__fixtures__" / "workflowTemplate.TECH_BETON_S4-01.json"
+
+
+class TestRealContractFixture:
+    async def test_seeded_s4_list_and_detail_json_carry_the_localization_keys(self, async_client: AsyncClient, db_session):
+        headers, *_ = await _owner(async_client, db_session)
+        listed = (await _all(async_client, headers))["TECH_BETON_S4-01"]
+        detail = await _get(async_client, headers, listed["id"])
+        for payload in (listed, detail):  # the key survives list AND detail serialization
+            assert payload["description_key"] == "workflow_templates.description.s4"
+            assert [s["note_key"] for s in payload["steps"]] == [
+                CANONICAL_STEP_NOTE_KEYS[s["note"]] for s in payload["steps"]
+            ]
+            assert all(s["note_key"] for s in payload["steps"])
+        if not _REAL_FIXTURE.exists():  # backend-only checkout
+            return
+        captured = json.loads(_REAL_FIXTURE.read_text(encoding="utf-8"))
+        assert captured["description_key"] == detail["description_key"]
+        assert captured["description"] == detail["description"]
+        assert [(s["note"], s["note_key"]) for s in captured["steps"]] == [
+            (s["note"], s["note_key"]) for s in detail["steps"]
+        ]

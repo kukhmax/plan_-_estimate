@@ -1284,6 +1284,34 @@ S1–S4 / Q1–Q4 / PSG1–PSG4 semantics unchanged.
   unselectable, nothing skipped silently).
 - **No migration**; single Alembic head `0029_application_fingerprint`. Frontend unchanged in 13F.2.
 
+### 30.3 Stage 13F.3 — list + read-only detail (Cennik → Procesy)
+
+- Third Cennik tab "Procesy" (lazy `WorkflowTemplateManager`). Uses only existing contracts:
+  `GET /workflow-templates?archived=active|archived&surface_type=…` (server "any" semantics for empty
+  filters) with steps, live PriceItem summaries and the derived `is_default`.
+- List: Aktywne / Archiwum, surface-type filter, cards (name, default/archived badges, surface types, step
+  counts, archived / no-price warnings). Read-only detail: metadata, applicability and ordered steps
+  (required/optional, unit, wait, note, no-price and archived/missing states); repeated PriceItems are separate
+  steps; empty templates render an empty state.
+- Out of scope here: editing (13F.4/13F.5), archive/restore, duplication, applying (stays in 13E).
+  No schema change.
+- **FIX.1 — built-in description localization:** `WorkflowTemplateRead.description_key` (derived, read-only)
+  is set only while the stored description exactly equals the canonical Stage 13D text for the default code;
+  the UI localizes it (PL = canonical text, RU translation). Owner-edited and custom descriptions carry no key
+  and are shown verbatim (D-F1).
+- **FIX.2 — built-in step note localization:** `WorkflowTemplateStepRead.note_key` (derived, read-only, per
+  step) is set only while the step's note is exactly one of this default recipe's canonical notes. One key per
+  distinct canonical note text (`workflow_templates.step_note.*`), following the note constant rather than the
+  PriceItem. Edited, custom and missing notes carry no key; repeated PriceItems are localized independently.
+  Shared frontend helper `utils/workflowTemplateText.ts` (description + step note) used by the manager and the
+  13E apply sheet.
+- **FIX.3 — real-contract regression:** the RU walkthrough failure was a stale local backend container (built
+  before FIX.1/FIX.2, so the JSON had no keys); stored data matched canonical exactly. Added a captured,
+  anonymized endpoint-serializer response of the seeded TECH_BETON_S4-01 as a frontend fixture, with a backend
+  test asserting list/detail JSON keys equal the fixture.
+- **Status:** 13F.3 PASS / OWNER ACCEPTED (owner walkthrough PASS after backend rebuild, 2026-09-27); production
+  deployment pending. Next: 13F.4.
+
 ## 31. Stage 13F-PRE — room / surface / object corrections (not template management)
 
 Owner Telegram walkthrough fixes made before 13F.3, recorded separately from 13F. No migration, no model change.

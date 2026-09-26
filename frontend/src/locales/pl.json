@@ -171,6 +171,27 @@
     "loading": "Ładowanie podsumowania…",
     "error": "Nie udało się załadować podsumowania obiektu."
   },
+  "processes": {
+    "tab": "Procesy",
+    "tab_active": "Aktywne",
+    "tab_archived": "Archiwum",
+    "filter_all": "Wszystkie",
+    "surfaces_label": "Rodzaj powierzchni",
+    "substrates_label": "Podłoża",
+    "quality_label": "Klasy jakości",
+    "any": "Dowolne",
+    "default_badge": "Domyślny",
+    "archived_badge": "Zarchiwizowany",
+    "code_label": "Kod",
+    "back": "Procesy",
+    "steps_title": "Kroki technologiczne",
+    "empty_steps": "Ten proces nie ma jeszcze kroków.",
+    "empty": "Brak procesów technologicznych dla tego filtra.",
+    "empty_archived": "Brak zarchiwizowanych procesów.",
+    "no_price": "Brak ceny w cenniku",
+    "warn_archived": "pozycje zarchiwizowane: {count}",
+    "warn_no_price": "bez ceny: {count}"
+  },
   "surfaces": {
     "title": "Powierzchnie",
     "walls_section_title": "Ściany",
@@ -1271,6 +1292,41 @@
       "tech_gk_q2": "Płyta g-k — Q2",
       "tech_gk_q3": "Płyta g-k — Q3",
       "tech_gk_q4": "Płyta g-k — Q4"
+    },
+    "description": {
+      "s1": "Standard Wykończenia Powierzchni S1 — Wewnętrzna klasyfikacja wykonawcy. Podstawowe techniczne przygotowanie podłoża do uzgodnionego dalszego wykończenia; bez gwarancji szpachlowania całej powierzchni. Bez malowania — powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+      "s2": "Standard Wykończenia Powierzchni S2 — Wewnętrzna klasyfikacja wykonawcy. Typowy standard powierzchni gotowej do zwykłego malowania wnętrz. Bez malowania — powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+      "s3": "Standard Wykończenia Powierzchni S3 — Wewnętrzna klasyfikacja wykonawcy. Podwyższony standard wizualny; dodatkową warstwę wybiera się tylko tam, gdzie jest potrzebna. Bez malowania — powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+      "s4": "Standard Wykończenia Powierzchni S4 — Wewnętrzna klasyfikacja wykonawcy. Indywidualnie uzgodniony standard premium; warunki oglądu i oświetlenia przy odbiorze uzgadniane dla obiektu przed rozpoczęciem prac. Dodatkowa warstwa zależy od stanu powierzchni. Bez malowania — powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+      "q1": "Poziom jakości Q1 (PSG1) dla płyt g-k: szpachlowanie konstrukcyjne spoin z taśmą. Bez malowania — powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+      "q2": "Poziom jakości Q2 (PSG2) dla płyt g-k: Q1 oraz warstwa wykończeniowa spoin. Bez malowania — powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+      "q3": "Poziom jakości Q3 (PSG3) dla płyt g-k: Q2 oraz cienkowarstwowe szpachlowanie całej powierzchni. Bez malowania — powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+      "q4": "Poziom jakości Q4 (PSG4) dla płyt g-k: Q2 oraz szpachlowanie całopowierzchniowe pod oświetlenie smugowe; warunki odbioru uzgadniane dla obiektu. Bez malowania — powierzchnia gotowa do kolejnego systemu wykończeniowego."
+    },
+    "step_note": {
+      "prot": "Zabezpieczenie podłóg, stolarki i elementów nieobjętych pracami — jeśli wymagane na obiekcie.",
+      "clean": "Podłoże odpylone i oczyszczone przed gruntowaniem i naprawami.",
+      "crack": "Rysy i pęknięcia stwierdzone przy ocenie podłoża. Ilość w mb wprowadzana ręcznie. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "local": "Naprawy punktowe ubytków i nierówności lokalnych. Ilość do weryfikacji — zwykle dotyczy części powierzchni. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "corner": "Gdy występują narożniki zewnętrzne; montaż przed szpachlowaniem. Ilość w mb wprowadzana ręcznie.",
+      "skim_2l": "Dwie warstwy gładzi w ramach pakietu; kolejna warstwa po wystarczającym wyschnięciu poprzedniej. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "skim_add": "Dodatkowa warstwa tylko wtedy, gdy wymaga tego stan powierzchni po pakiecie dwóch warstw lub uzgodniony standard wizualny. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "sand": "Szlifowanie końcowe z odpylaniem. Powierzchnia gotowa do kolejnego systemu wykończeniowego (np. malarskiego).",
+      "sand_s4": "Szlifowanie końcowe z odpylaniem. Ocena powierzchni w warunkach oglądu i oświetlenia uzgodnionych indywidualnie dla obiektu przed rozpoczęciem prac. Powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+      "conc": "Beton monolityczny: usunięcie nadlewek i wyszlifowanie styków szalunku. Ilość do weryfikacji, jeśli dotyczy części powierzchni.",
+      "beton_adh": "Beton gładki, zwarty lub słabo chłonny. Alternatywa dla gruntu penetrującego — wybierz jeden grunt zależnie od stanu podłoża, nie oba. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "beton_std": "Beton chłonny lub pylący. Alternatywa dla gruntu kontaktowego — wybierz jeden grunt zależnie od stanu podłoża, nie oba. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "gips_std": "Tylko gdy podłoże jest chłonne lub pylące — zgodnie z oceną podłoża. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "cw_std": "Podłoże o typowej chłonności. Alternatywa dla gruntowania podłoża wysokochłonnego — wybierz jeden grunt zależnie od chłonności, nie oba. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "cw_high": "Podłoże silnie chłonne. Alternatywa dla gruntu penetrującego — wybierz jeden grunt zależnie od chłonności, nie oba. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "gk_q1": "Szpachlowanie konstrukcyjne spoin z wtopieniem taśmy zbrojącej oraz zaszpachlowanie łbów wkrętów zgodnie z przyjętym systemem. Ilość w mb wprowadzana ręcznie. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "gk_corner": "Gdy występują narożniki zewnętrzne g-k. Ilość w mb wprowadzana ręcznie.",
+      "gk_q2": "Warstwa wykończeniowa spoin z łagodnym przejściem do powierzchni płyty (Q2), wykonywana po zakończeniu i wyschnięciu obróbki Q1. Ilość w mb wprowadzana ręcznie. Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "gk_prim": "Tylko gdy wymaga tego przyjęty system szpachlowania lub stan płyty (wyrównanie chłonności przed szpachlowaniem całopowierzchniowym). Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "gk_full": "Cienkowarstwowe szpachlowanie całej powierzchni płyty (Q3). Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "gk_q4": "Szpachlowanie całopowierzchniowe pod oświetlenie smugowe (Q4). Kolejny etap po całkowitym wyschnięciu, zgodnie z wymaganiami zastosowanego materiału i warunkami na obiekcie.",
+      "gk_sand": "Szlifowanie końcowe z odpylaniem. Powierzchnia gotowa do kolejnego systemu wykończeniowego.",
+      "gk_sand_q4": "Szlifowanie końcowe z odpylaniem. Warunki oglądu i oświetlenia przy odbiorze muszą zostać uzgodnione dla obiektu przed rozpoczęciem prac. Powierzchnia gotowa do kolejnego systemu wykończeniowego."
     }
   }
 }
