@@ -1352,8 +1352,30 @@ Frontend only over `PUT /workflow-templates/{id}/steps` (13C) with the 13F.2 pre
 - **Identity:** `WorkflowTemplateStep.id` ≠ `SurfacePlannedWork.occurrence_key`. Template step rows may receive new
   ids on every replacement; `expected_step_ids` is only optimistic-concurrency state for template editing;
   `occurrence_key` remains the durable identity of a materialized planned-work occurrence.
-- **Status:** 13F.5 PASS / OWNER ACCEPTED (owner walkthrough PASS, 2026-09-27; RU keeps "Необязательный");
-  awaiting commit / push / production verification. No migration; Alembic head `0029_application_fingerprint`.
+- **Status:** 13F.5 PASS / OWNER ACCEPTED / COMMITTED / PUSHED / PRODUCTION VERIFIED (commit `31e3ea0`).
+  **Stage 13F COMPLETE / OWNER ACCEPTED / PRODUCTION VERIFIED.**
+
+## 32. Stage 13G — technological breaks in the surface work plan
+
+- `SurfacePlannedWork.wait_after_hours` belongs to the planned-work **occurrence**: the minimum technological
+  break AFTER that work before the next operation should normally start. It is not work duration, labour time,
+  a start/end time or a deadline. Canonical persistence stays whole hours (NULL = no defined break, else ≥ 1;
+  schema `ge=1` + DB CHECK, identical to template step waits). Days are only a derived display hint for exact
+  24 h multiples. A last work may keep its break.
+- Template → WorkPlan copies a **snapshot** (APPEND: existing occurrences keep key and wait, new ones get new
+  keys and the step's wait; REPLACE: new keys with step waits). Later template edits never change materialized
+  waits.
+- Apply-to-all copies the wait **value** to each destination occurrence, which gets a NEW occurrence key.
+- Stage 11 recommendation append creates the work with no break (never inferred from PriceItem, risk,
+  inspection or another template).
+- Coefficients and waits are independent; the Estimate ignores waits (generation and regeneration).
+- UI: numbered works, the break shown on the card, edited per occurrence behind "Przerwa po pracy" through the
+  existing WorkPlan save (occurrence keys and coefficients preserved). No backend change, no migration.
+- Scheduling, calendar and reminders belong to Stage 18; execution state to 13H.
+- Duplicate PriceItem occurrences keep independent waits; apply-to-all destination occurrences stay
+  independently editable.
+- **Status:** 13G PASS / OWNER ACCEPTED (owner walkthrough PASS, 2026-09-27); awaiting commit / push /
+  production verification. No migration; Alembic head `0029_application_fingerprint`.
 
 ## 31. Stage 13F-PRE — room / surface / object corrections (not template management)
 

@@ -25,6 +25,7 @@ import {
   formatCoefficientSummary,
   sumPercentages,
 } from '../utils/coefficientCalculations';
+import { formatWaitHours, parseWaitInput } from '../utils/waitFormat';
 import { CoefficientAssignmentModal } from './CoefficientAssignmentModal';
 import { PriceItemForm } from './PriceItemForm';
 import { WorkflowTemplateApplySheet } from './WorkflowTemplateApplySheet';
@@ -56,6 +57,8 @@ interface WorkPlanBaseline {
   occurrenceIdentities: string[];
   /** Coefficient option id lists per occurrence, same ordering. */
   coefficientOptionIdLists: string[][];
+  /** Stage 13G: loaded breaks per occurrence, same ordering. */
+  waitList: (number | null)[];
 }
 
 /** A draft occurrence: may be persisted (has work_plan_id) or local-only. */
@@ -66,8 +69,10 @@ interface DraftOccurrence {
   /** Server-generated logical identity of an EXISTING occurrence; null for a
    * row added in this draft (the server assigns one on save). */
   occurrenceKey: string | null;
-  /** Backend-provided technological break, preserved verbatim on save. */
+  /** Backend-provided technological break (as loaded). */
   waitAfterHours: number | null;
+  /** Stage 13G: editable hours input for this occurrence ('' = no break). */
+  waitInput: string;
   /** price_item_id sent in PUT */
   priceItemId: string;
   /** Full summary snapshot for display — may be null for unavailable items. */
@@ -116,6 +121,7 @@ function workToDraft(work: SurfacePlannedWorkRead): DraftOccurrence {
     draftKey: nextDraftKey(),
     occurrenceKey: work.occurrence_key,
     waitAfterHours: work.wait_after_hours ?? null,
+    waitInput: work.wait_after_hours == null ? '' : String(work.wait_after_hours),
     priceItemId: work.price_item_id,
     summary: work.price_item,
     coefficientOptions: work.coefficient_options ?? [],
@@ -132,7 +138,7 @@ export function SurfaceWorkPlanEditor({
   surfaceType,
   onClose,
 }: SurfaceWorkPlanEditorProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -157,6 +163,7 @@ export function SurfaceWorkPlanEditor({
     qualityTarget: null,
     occurrenceIdentities: [],
     coefficientOptionIdLists: [],
+    waitList: [],
   });
 
   // Apply-to-all-walls state (WALL surfaces only)
@@ -172,6 +179,14 @@ export function SurfaceWorkPlanEditor({
   // Inline "+ Dodaj nową pracę do cennika" creation, shown inside the picker.
   const [creatingPriceItem, setCreatingPriceItem] = useState(false);
 
+  // Stage 13G: which occurrence has its break editor open (progressive disclosure).
+  const [waitEditorKey, setWaitEditorKey] = useState<string | null>(null);
+  const setWaitInput = (draftKey: string, value: string) => {
+    setDraftOccurrences((prev) => prev.map((o) => (o.draftKey === draftKey ? { ...o, waitInput: value } : o)));
+    setSaved(false);
+    setSaveError(null);
+  };
+
   // Coefficient assignment modal state
   const [coefficientModalOpen, setCoefficientModalOpen] = useState(false);
   const [coefficientModalDraftKey, setCoefficientModalDraftKey] = useState<string | null>(null);
@@ -186,11 +201,16 @@ export function SurfaceWorkPlanEditor({
   const currentCoefficientLists = draftOccurrences.map((o) =>
     o.coefficientOptions.map((c) => c.id),
   );
+  // Stage 13G: a break belongs to its occurrence; an invalid input counts as a
+  // change (it can never be saved) so the owner is not silently reset.
+  const currentWaits = draftOccurrences.map((o) => parseWaitInput(o.waitInput));
+  const invalidWait = currentWaits.some((w) => w === 'invalid');
   const dirty =
     substrate !== baseline.substrate ||
     qualityTarget !== baseline.qualityTarget ||
     JSON.stringify(currentOccurrenceIdentities) !== JSON.stringify(baseline.occurrenceIdentities) ||
-    JSON.stringify(currentCoefficientLists) !== JSON.stringify(baseline.coefficientOptionIdLists);
+    JSON.stringify(currentCoefficientLists) !== JSON.stringify(baseline.coefficientOptionIdLists) ||
+    JSON.stringify(currentWaits) !== JSON.stringify(baseline.waitList);
 
   const describeError = (error: unknown, fallback: string): string => {
     const detail = localizeApiError(error, t);
@@ -214,6 +234,7 @@ export function SurfaceWorkPlanEditor({
       qualityTarget: nextQuality,
       occurrenceIdentities: nextIdentities,
       coefficientOptionIdLists: nextCoefficientLists,
+      waitList: nextOccurrences.map((o) => o.waitAfterHours),
     });
   };
 
@@ -277,7 +298,7 @@ export function SurfaceWorkPlanEditor({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (loadState !== 'ready' || !substrate || !dirty || saving) return;
+    if (loadState !== 'ready' || !substrate || !dirty || saving || invalidWait) return;
 
     setSaving(true);
     setSaveError(null);
@@ -296,7 +317,7 @@ export function SurfaceWorkPlanEditor({
         planned_works: draftOccurrences.map((o) => ({
           price_item_id: o.priceItemId,
           ...(o.occurrenceKey !== null ? { occurrence_key: o.occurrenceKey } : {}),
-          wait_after_hours: o.waitAfterHours,
+          wait_after_hours: parseWaitInput(o.waitInput) as number | null,
           coefficient_option_ids: o.coefficientOptions.map((c) => c.id),
         })),
       };
@@ -368,6 +389,7 @@ export function SurfaceWorkPlanEditor({
       draftKey: nextDraftKey(),
       occurrenceKey: null,
       waitAfterHours: null,
+      waitInput: '',
       priceItemId: item.id,
       summary: {
         id: item.id,
@@ -642,6 +664,7 @@ export function SurfaceWorkPlanEditor({
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <span className="min-w-0 text-sm font-semibold text-[var(--tg-theme-text-color)] break-words block">
+                            <span aria-hidden="true" className="text-[var(--tg-theme-hint-color)]">{index + 1}. </span>
                             {occurrenceDisplayName(item)}
                           </span>
                           {coefSummary && (
@@ -734,6 +757,58 @@ export function SurfaceWorkPlanEditor({
                       ) : (
                         <p className="mt-1 text-xs text-[var(--tg-theme-hint-color)]">{t.work_plan.unavailable_item}</p>
                       )}
+                      {(() => {
+                        // Stage 13G: minimum technological break AFTER this work (not its duration).
+                        const wait = parseWaitInput(occurrence.waitInput);
+                        const open = waitEditorKey === occurrence.draftKey;
+                        return (
+                          <div className="mt-1.5 space-y-1.5">
+                            {typeof wait === 'number' && (
+                              <p
+                                aria-label={`occurrence-wait-${occurrence.draftKey}`}
+                                className="rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 text-xs font-medium text-amber-900 break-words"
+                              >
+                                <span aria-hidden="true">⏸ </span>{t.work_plan.wait_after_work.replace('{value}', formatWaitHours(t, locale, wait))}
+                              </p>
+                            )}
+                            <button
+                              type="button"
+                              aria-label={`edit-wait-${occurrence.draftKey}`}
+                              aria-expanded={open}
+                              onClick={() => setWaitEditorKey(open ? null : occurrence.draftKey)}
+                              disabled={saving}
+                              className="w-full min-h-[44px] px-3 py-1.5 text-xs font-semibold text-[var(--tg-theme-text-color)] bg-slate-50 border border-slate-200 rounded-lg disabled:opacity-60"
+                            >
+                              {open ? t.work_plan.wait_hide : t.work_plan.wait_toggle}
+                            </button>
+                            {open && (
+                              <label className="block space-y-1">
+                                <span className="block text-xs font-medium text-[var(--tg-theme-text-color)]">
+                                  {t.work_plan.wait_hours_label}
+                                </span>
+                                <input
+                                  aria-label={`wait-input-${occurrence.draftKey}`}
+                                  value={occurrence.waitInput}
+                                  inputMode="numeric"
+                                  placeholder={t.work_plan.wait_none}
+                                  onChange={(e) => setWaitInput(occurrence.draftKey, e.target.value)}
+                                  disabled={saving}
+                                  className="w-full min-h-[44px] px-3 rounded-lg border border-[var(--tg-control-border-color)] text-sm"
+                                />
+                                {wait === 'invalid' ? (
+                                  <span role="alert" className="block text-xs text-[var(--tg-theme-destructive-text-color)]">
+                                    {t.work_plan.wait_invalid}
+                                  </span>
+                                ) : (
+                                  <span className="block text-xs text-[var(--tg-theme-hint-color)] break-words">
+                                    {wait === null ? t.work_plan.wait_none : formatWaitHours(t, locale, wait)} · {t.work_plan.wait_help}
+                                  </span>
+                                )}
+                              </label>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </li>
                   );
                 })}
@@ -825,7 +900,7 @@ export function SurfaceWorkPlanEditor({
           <button
             type="submit"
             aria-label={`save-work-plan-${surfaceId}`}
-            disabled={!substrate || !dirty || saving}
+            disabled={!substrate || !dirty || saving || invalidWait}
             className="w-full min-h-11 px-3 rounded-xl bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] font-semibold disabled:opacity-60"
           >
             {saving ? t.common.saving : t.common.save}

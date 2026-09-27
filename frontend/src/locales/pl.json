@@ -417,6 +417,20 @@
       "few": "{count} wybrane opcjonalne",
       "many": "{count} wybranych opcjonalnych",
       "other": "{count} wybranych opcjonalnych"
+    },
+    "wait_after_work": "Przerwa technologiczna po tej pracy: {value}",
+    "wait_toggle": "Przerwa po pracy",
+    "wait_hide": "Ukryj przerwę",
+    "wait_hours_label": "Liczba godzin",
+    "wait_none": "Brak określonej przerwy",
+    "wait_invalid": "Podaj pełną liczbę godzin (co najmniej 1) lub zostaw puste.",
+    "wait_help": "minimalna przerwa po tej pracy, zanim zacznie się kolejna (nie czas trwania pracy)",
+    "wait_hours_value": "{hours} h",
+    "wait_days": {
+      "one": "{count} dzień",
+      "few": "{count} dni",
+      "many": "{count} dni",
+      "other": "{count} dnia"
     }
   },
   "openings": {
