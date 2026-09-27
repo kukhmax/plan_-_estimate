@@ -4,6 +4,7 @@
 - **Branch / HEAD**: `stage-13` @ `fb4eb9a` (= `main`; Stage 12 COMPLETE / OWNER ACCEPTED, production release `d60390b`, DB head `0026_coefficient_descriptions`)
 - **Sub-stage**: 13A — **architecture/audit only**. No code, no migration, no API change.
 - **Status**: **13A COMPLETE — owner decisions D1–D13 approved** (§A). Stage 13 itself is not complete; 13B starts only on explicit owner approval.
+- **Final status (2026-09-27)**: **Stage 13 — COMPLETE / OWNER ACCEPTED / PRODUCTION VERIFIED** (see §35). Production runtime `7b5aaf0`, DB `0030_surface_work_executions`.
 
 ---
 
@@ -2089,3 +2090,38 @@ contracts (no local PostgreSQL, timing or environment assumptions).
 
 - **Status:** Stage 13I — AUDIT PASS / OWNER ACCEPTED. Stage 13 as a whole not yet marked complete; Stage 13J not
   started.
+
+## 35. Stage 13J — owner final walkthrough & Stage 13 closure
+
+The owner performed the final walkthrough against the **real production Telegram Mini App** (production runtime
+`7b5aaf0b782e99df9e96fa63873892dd88631cad`, DB `0030_surface_work_executions`), using dedicated test data
+(`TEST_STAGE_13_FINAL`), following the 13J checklist:
+
+| Part | Scope | Result |
+|---|---|---|
+| A | WorkPlan (substrate/quality, works incl. duplicate, break, coefficient, reopen) | PASS |
+| B | Procesy (list, built-in vs custom, detail, ordered steps, duplicate) | PASS |
+| C | APPEND into an existing plan | PASS |
+| D | Estimate | PASS |
+| E | Realizacja (start, complete, reopen, timestamps, readiness) | PASS |
+| F | Detach protection (cancel, confirm) | PASS |
+| G | REPLACE with detach confirmation | PASS |
+| H | Apply-to-all (copy, no execution inheritance, confirmation) | PASS |
+| I | Bulk execution (preview, apply, forward-only, zero-change preview) | PASS |
+| J | Template non-retroactivity | PASS |
+| K | Mobile / theme / language | PASS |
+| L | Final sanity | PASS |
+
+**Overall: PASS.**
+
+Stage 13J — OWNER WALKTHROUGH PASS / OWNER ACCEPTED. Stage 13I — AUDIT PASS / OWNER ACCEPTED (§34; verification/docs
+commit `88047c3c9657e057000d33339c501da6d4964028`). No runtime deployment is needed for 13I/13J: application
+runtime code has not changed since the accepted production deployment (`7b5aaf0`).
+
+**Known limitations / technical debt (non-blocking, from §34, unchanged):**
+1. Pre-existing app-shell/navigation controls below the 44 px target.
+2. Coefficient modal long-name ellipsis at narrow widths.
+3. Theoretical archive-vs-status race with no known data-loss consequence.
+4. Permissive frontend execution typing and minor unused contract omissions.
+
+- **Status:** **Stage 13 — COMPLETE / OWNER ACCEPTED / PRODUCTION VERIFIED.** Stage 14 NOT STARTED.
