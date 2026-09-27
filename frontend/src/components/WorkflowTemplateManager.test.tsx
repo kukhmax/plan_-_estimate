@@ -160,7 +160,7 @@ describe('Workflow template management — list + read-only detail (13F.3)', () 
     // steps are read-only (step editing is 13F.5); metadata actions only, never a hard delete
     expect(within(within(detail).getByLabelText('process-steps')).queryAllByRole('button')).toHaveLength(0);
     expect(within(detail).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
-      'process-detail-back', 'process-edit', 'process-duplicate', 'process-archive',
+      'process-detail-back', 'process-edit', 'process-edit-steps', 'process-duplicate', 'process-archive',
     ]);
 
     fireEvent.click(screen.getByLabelText('process-detail-back'));

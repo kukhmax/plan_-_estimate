@@ -6,6 +6,7 @@ import {
   WorkflowTemplateCreatePayload,
   WorkflowTemplateListResponse,
   WorkflowTemplateRead,
+  WorkflowTemplateStepWrite,
   WorkflowTemplateUpdatePayload,
 } from '../types/workflowTemplate';
 import { ApiError, apiRequest } from './http';
@@ -66,8 +67,24 @@ export function restoreWorkflowTemplate(templateId: string): Promise<WorkflowTem
   return apiRequest(`/api/workflow-templates/${templateId}/restore`, { method: 'POST' });
 }
 
+/** Stage 13F.5: full ordered step replacement with the 13F.2 optimistic
+ * precondition -- `expected_step_ids` is the exact ordered step-id list the
+ * editor was opened with; any difference is a 409 and nothing changes. */
+export function replaceWorkflowTemplateSteps(
+  templateId: string,
+  steps: WorkflowTemplateStepWrite[],
+  expectedStepIds: string[],
+): Promise<WorkflowTemplateRead> {
+  return apiRequest(`/api/workflow-templates/${templateId}/steps`, {
+    method: 'PUT',
+    body: JSON.stringify({ steps, expected_step_ids: expectedStepIds }),
+  });
+}
+
 export type TemplateManagementErrorKind =
   | 'network'
+  | 'stale_steps'
+  | 'price_item_not_found'
   | 'not_found'
   | 'name_required'
   | 'quality_scale'
@@ -80,6 +97,8 @@ export type TemplateManagementErrorKind =
  * known messages live HERE and nowhere else. */
 export function classifyTemplateManagementError(error: unknown): TemplateManagementErrorKind {
   if (!(error instanceof ApiError) || error.status >= 500) return 'network';
+  if (error.status === 409 && error.message.includes('steps changed since they were read')) return 'stale_steps';
+  if (error.status === 404 && error.message === 'Price item not found') return 'price_item_not_found';
   if (error.status === 404) return 'not_found';
   if (error.status === 422) {
     if (error.message.includes('require a display_name')) return 'name_required';

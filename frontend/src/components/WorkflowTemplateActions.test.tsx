@@ -90,7 +90,7 @@ describe('create (13F.4)', () => {
     renderManager();
     fireEvent.click(await screen.findByLabelText('process-create'));
     const form = screen.getByLabelText('process-form-create');
-    expect(form).toHaveTextContent('Kroki technologiczne skonfigurujesz osobno');
+    expect(form).toHaveTextContent('Kroki technologiczne dodasz potem przyciskiem „Edytuj kroki”');
     expect(within(form).queryByLabelText(/step/)).toBeNull(); // no step editing
     setField('process-field-name', '  Nowy  ');
     fireEvent.click(screen.getByLabelText('process-field-surface-WALL'));

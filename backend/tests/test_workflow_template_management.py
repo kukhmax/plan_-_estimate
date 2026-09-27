@@ -21,7 +21,10 @@ from app.domain.data.workflow_templates import (
     canonical_description_key,
     canonical_step_note_key,
 )
-from tests.test_workflow_templates_api import OTHER_USER, T, _create, _owner
+import uuid
+
+from tests.test_planned_work_coefficient_assignments import _make_price_item, _wp
+from tests.test_workflow_templates_api import OTHER_USER, T, _create, _history_count, _owner, _surface
 
 S2 = "TECH_BETON_S2-01"
 
@@ -366,3 +369,100 @@ class TestRealContractFixture:
         assert [(s["note"], s["note_key"]) for s in captured["steps"]] == [
             (s["note"], s["note_key"]) for s in detail["steps"]
         ]
+
+
+# ---------------------------------------------------------------------------
+# Stage 13F.5 — step-editor contract (PUT steps as the editor uses it)
+# ---------------------------------------------------------------------------
+
+
+async def _put_steps(client, headers, tpl: dict, steps: list[dict]):
+    return await client.put(f"{T}/{tpl['id']}/steps", headers=headers, json={
+        "steps": steps, "expected_step_ids": [s["id"] for s in tpl["steps"]]})
+
+
+class TestStepEditorContract:
+    async def test_editor_save_reorder_add_remove_duplicates_optional_note_wait(self, async_client: AsyncClient, db_session):
+        headers, _, prime, skim = await _owner(async_client, db_session)
+        tpl = await _create(async_client, headers, steps=[
+            {"price_item_id": str(prime.id), "note": "A"},
+            {"price_item_id": str(skim.id), "wait_after_hours": 24},
+            {"price_item_id": str(prime.id), "is_optional": True},
+        ])
+        # draft: drop step 0, move old step 2 first, add skim twice, edit note/wait/optional
+        draft = [
+            {"price_item_id": str(prime.id), "is_optional": False, "note": "  Nowa notatka  ", "wait_after_hours": 48},
+            {"price_item_id": str(skim.id), "is_optional": True, "note": None, "wait_after_hours": None},
+            {"price_item_id": str(skim.id), "is_optional": False, "note": "", "wait_after_hours": 1},
+            {"price_item_id": str(skim.id), "is_optional": False, "note": None, "wait_after_hours": None},
+        ]
+        resp = await _put_steps(async_client, headers, tpl, draft)
+        assert resp.status_code == 200, resp.text
+        got = resp.json()["steps"]
+        assert [(s["price_item_id"], s["position"], s["is_optional"], s["note"], s["wait_after_hours"]) for s in got] == [
+            (str(prime.id), 0, False, "Nowa notatka", 48),   # note trimmed
+            (str(skim.id), 1, True, None, None),
+            (str(skim.id), 2, False, None, 1),                # blank note -> null
+            (str(skim.id), 3, False, None, None),
+        ]
+        assert len({s["id"] for s in got}) == 4
+        assert not {s["id"] for s in got} & {s["id"] for s in tpl["steps"]}  # rows recreated: new step ids
+        assert (await _get(async_client, headers, tpl["id"]))["steps"] == got
+
+    async def test_null_price_item_and_empty_list_are_valid(self, async_client: AsyncClient, db_session):
+        headers, user, prime, _ = await _owner(async_client, db_session)
+        unpriced = await _make_price_item(db_session, user.id, price=None)
+        tpl = await _create(async_client, headers, steps=[{"price_item_id": str(prime.id)}])
+        resp = await _put_steps(async_client, headers, tpl, [{"price_item_id": str(unpriced.id)}])
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["steps"][0]["price_item"]["price"] is None
+        empty = await _put_steps(async_client, headers, resp.json(), [])
+        assert empty.status_code == 200 and empty.json()["steps"] == []
+
+    async def test_archived_item_kept_on_reorder_but_never_added_again(self, async_client: AsyncClient, db_session):
+        headers, user, prime, skim = await _owner(async_client, db_session)
+        tpl = await _create(async_client, headers, steps=[
+            {"price_item_id": str(prime.id)}, {"price_item_id": str(skim.id)}])
+        skim.is_archived = True
+        await db_session.commit()
+        moved = await _put_steps(async_client, headers, tpl, [
+            {"price_item_id": str(skim.id)}, {"price_item_id": str(prime.id)}])
+        assert moved.status_code == 200, moved.text
+        assert [s["price_item"]["is_archived"] for s in moved.json()["steps"]] == [True, False]
+        extra = await _put_steps(async_client, headers, moved.json(), [
+            {"price_item_id": str(skim.id)}, {"price_item_id": str(skim.id)}, {"price_item_id": str(prime.id)}])
+        assert extra.status_code == 422 and "Archived price item" in extra.json()["detail"]
+        assert (await _get(async_client, headers, tpl["id"]))["steps"] == moved.json()["steps"]
+
+    async def test_invalid_note_wait_or_item_rejected_without_mutation(self, async_client: AsyncClient, db_session):
+        headers, _, prime, _ = await _owner(async_client, db_session)
+        tpl = await _create(async_client, headers, steps=[{"price_item_id": str(prime.id)}])
+        for bad, status in (
+            ({"price_item_id": str(prime.id), "wait_after_hours": 0}, 422),
+            ({"price_item_id": str(prime.id), "wait_after_hours": 1.5}, 422),
+            ({"price_item_id": str(prime.id), "note": "x" * 4001}, 422),
+            ({"price_item_id": str(uuid.uuid4())}, 404),
+        ):
+            resp = await _put_steps(async_client, headers, tpl, [bad])
+            assert resp.status_code == status, (bad, resp.text)
+        assert (await _get(async_client, headers, tpl["id"]))["steps"] == tpl["steps"]
+
+    async def test_step_edit_never_touches_applied_work_plan_or_history(self, async_client: AsyncClient, db_session):
+        headers, user, prime, skim = await _owner(async_client, db_session)
+        tpl = await _create(async_client, headers, steps=[
+            {"price_item_id": str(prime.id), "wait_after_hours": 24}, {"price_item_id": str(skim.id)}])
+        project, room, surface = await _surface(db_session, user.id)
+        url = _wp(project.id, room.id, surface.id)
+        put = await async_client.put(url, headers=headers, json={"substrate": "CONCRETE", "quality_target": "S2", "planned_works": []})
+        assert put.status_code == 200, put.text
+        applied = await async_client.post(f"{url}/apply-template", headers=headers, json={
+            "application_id": str(uuid.uuid4()), "template_id": tpl["id"], "mode": "APPEND",
+            "selected_optional_step_ids": [], "expected_step_ids": [s["id"] for s in tpl["steps"]]})
+        assert applied.status_code == 200, applied.text
+        plan_before = (await async_client.get(url, headers=headers)).json()
+        history_before = await _history_count(db_session)
+
+        edited = await _put_steps(async_client, headers, tpl, [{"price_item_id": str(skim.id), "note": "zmiana"}])
+        assert edited.status_code == 200
+        assert (await async_client.get(url, headers=headers)).json() == plan_before  # occurrences, keys, waits unchanged
+        assert await _history_count(db_session) == history_before

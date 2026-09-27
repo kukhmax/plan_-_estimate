@@ -1326,9 +1326,34 @@ Frontend only, over the existing contracts (no backend change, no migration):
   source step references an archived/unavailable PriceItem (the create contract rejects adding one).
 - **Archive / restore** — confirmed archive (plans, estimates and application history unchanged); restore
   returns the template to the active list; no hard delete (D-F6).
-- **Status:** 13F.4 PASS / OWNER ACCEPTED (owner walkthrough PASS, 2026-09-27); awaiting commit / push /
-  production verification. No backend production change, no migration; Alembic head
-  `0029_application_fingerprint`. Next: 13F.5 (step editor, not started).
+- **Status:** 13F.4 PASS / OWNER ACCEPTED / PRODUCTION VERIFIED (commit `7db7a14`). Next: 13F.5.
+
+### 30.5 Stage 13F.5 — step editor
+
+Frontend only over `PUT /workflow-templates/{id}/steps` (13C) with the 13F.2 precondition:
+- **Explicit draft.** Add / remove / reorder / required-optional / note / wait are local until "Zapisz kroki",
+  which sends the complete ordered list (array order = position) plus `expected_step_ids` = the ordered step
+  ids the editor was opened with. The server replaces the rows (new step ids every save); the editor then
+  re-fetches the canonical template.
+- **Concurrency.** Any difference in the stored ordered ids is a 409; the UI keeps the draft, never overwrites
+  or retries, and offers an explicit "reload server version" (which discards the draft). No merge in v1.
+- **Occurrences.** The same PriceItem may appear any number of times; each row is independent. Template step
+  ids are template-management identity only, never WorkPlan `occurrence_key`s.
+- **Picker.** Existing Price Book API, active non-REVEAL items, client-side search; NULL-price items allowed and
+  labelled; archived items not offered (the backend rejects a new archived occurrence), existing archived steps
+  kept and flagged.
+- **Notes** are owner text (trimmed, blank = none); untouched canonical built-in notes keep their derived
+  localization; edits become verbatim; exact canonical text localizes again.
+- **Wait** is `wait_after_hours`: empty = no break, else a whole number of hours ≥ 1; the day hint is display
+  only (no calendar/reminder semantics — Stage 18).
+- **Reorder** uses "W górę" / "W dół" buttons (no drag-and-drop).
+- **No retroactive effects:** WorkPlans, occurrence keys, Estimates, application history and Stage 12
+  coefficients are never changed by a template edit.
+- **Identity:** `WorkflowTemplateStep.id` ≠ `SurfacePlannedWork.occurrence_key`. Template step rows may receive new
+  ids on every replacement; `expected_step_ids` is only optimistic-concurrency state for template editing;
+  `occurrence_key` remains the durable identity of a materialized planned-work occurrence.
+- **Status:** 13F.5 PASS / OWNER ACCEPTED (owner walkthrough PASS, 2026-09-27; RU keeps "Необязательный");
+  awaiting commit / push / production verification. No migration; Alembic head `0029_application_fingerprint`.
 
 ## 31. Stage 13F-PRE — room / surface / object corrections (not template management)
 

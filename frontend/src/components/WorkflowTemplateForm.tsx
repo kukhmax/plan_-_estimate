@@ -81,6 +81,8 @@ export function WorkflowTemplateForm({ mode, source, sourceName, onSaved, onCanc
     const kind = classifyTemplateManagementError(err);
     const text = {
       network: t.processes.error_network,
+      stale_steps: t.processes.error_save,
+      price_item_not_found: t.processes.error_save,
       not_found: t.processes.error_not_found,
       name_required: t.processes.error_name_required,
       quality_scale: t.processes.error_quality_scale,

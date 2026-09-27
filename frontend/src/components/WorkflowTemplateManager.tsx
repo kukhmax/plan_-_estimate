@@ -13,6 +13,7 @@ import { WorkflowTemplateRead } from '../types/workflowTemplate';
 import { resolveKey } from '../utils/i18nKeys';
 import { templateDescription, templateStepNote } from '../utils/workflowTemplateText';
 import { TemplateFormMode, WorkflowTemplateForm } from './WorkflowTemplateForm';
+import { WorkflowTemplateStepEditor } from './WorkflowTemplateStepEditor';
 
 /**
  * Stage 13F.3 — Cennik → Procesy: technological workflow templates (list +
@@ -38,6 +39,7 @@ export function WorkflowTemplateManager() {
   const [attempt, setAttempt] = useState(0);
   const [selected, setSelected] = useState<WorkflowTemplateRead | null>(null);
   const [formMode, setFormMode] = useState<TemplateFormMode | null>(null);
+  const [editingSteps, setEditingSteps] = useState(false);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -163,6 +165,24 @@ export function WorkflowTemplateManager() {
     );
   }
 
+  // ---- step editor (13F.5) -------------------------------------------------
+  if (editingSteps && selected) {
+    return (
+      <WorkflowTemplateStepEditor
+        key={selected.id}
+        template={selected}
+        templateName={templateName(selected)}
+        onClose={() => setEditingSteps(false)}
+        onSaved={(saved) => {
+          setEditingSteps(false);
+          setAttempt((n) => n + 1);
+          setNotice(t.processes.steps_saved_notice);
+          openDetail(saved);
+        }}
+      />
+    );
+  }
+
   // ---- detail ---------------------------------------------------------------
   if (selected) {
     const tpl = selected;
@@ -215,7 +235,6 @@ export function WorkflowTemplateManager() {
           {tpl.steps.length === 0 ? (
             <div aria-label="process-steps-empty" className="space-y-1">
               <p className="text-sm text-slate-500 break-words">{t.processes.empty_steps}</p>
-              {/* 13F.4: informational only -- step editing is Stage 13F.5. */}
               <p className="rounded-xl bg-amber-50 text-amber-900 p-3 text-xs break-words">{t.processes.steps_later}</p>
             </div>
           ) : (
@@ -283,6 +302,11 @@ export function WorkflowTemplateManager() {
                 onClick={() => { setNotice(null); setFormMode('edit'); }}
                 className="w-full min-h-11 px-3 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">
                 {t.processes.edit}
+              </button>
+              <button type="button" aria-label="process-edit-steps" disabled={busy}
+                onClick={() => { setNotice(null); setEditingSteps(true); }}
+                className="w-full min-h-11 px-3 rounded-xl border border-blue-600 text-blue-700 bg-white text-sm font-semibold disabled:opacity-60">
+                {t.processes.edit_steps}
               </button>
               <button type="button" aria-label="process-duplicate" disabled={busy}
                 onClick={() => { setNotice(null); setFormMode('duplicate'); }}
