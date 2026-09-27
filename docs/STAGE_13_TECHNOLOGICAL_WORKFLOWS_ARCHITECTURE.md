@@ -2022,4 +2022,70 @@ clean; PostgreSQL migration verification 16/16; PostgreSQL concurrency verificat
 real-browser verification PASS; owner walkthrough PASS; bulk owner walkthrough PASS. The PostgreSQL migration and
 concurrency harnesses are scratch scripts outside the repository.
 
-**Not yet deployed** — no production verification has been performed for Stage 13H. Stage 13I not started.
+Subsequently pushed, deployed and production-verified by the owner (commit `7b5aaf0`, DB `0030_surface_work_executions`, Telegram smoke PASS).
+
+## 34. Stage 13I — final Stage 13 audit & adversarial regression (verify-only)
+
+Baseline `stage-13` = `origin/stage-13` = `7b5aaf0` (production), clean tree, Alembic single head
+`0030_surface_work_executions`. No production code, migration or frontend change; one verification test file added.
+
+**Contract matrix (verified against code).**
+
+| Subsystem | Source of truth | Durable identity | Mutation path | Destructive op | Concurrency | Estimate | Execution |
+|---|---|---|---|---|---|---|---|
+| WorkPlan occurrences | `surface_planned_works` | `occurrence_key` (row id ephemeral) | PUT save (`set_plan`), APPEND, REPLACE, apply-to-all, recommendation accept | save removal, REPLACE, apply-to-all | plan row lock (single / ascending multi) | lines keyed by `occurrence_key` (id → key → legacy) | keyed by `occurrence_key` |
+| Coefficients | assignment per occurrence | occurrence | same as works (recreated with the row) | with the occurrence | plan lock | snapshot at generation | none |
+| Breaks | `wait_after_hours` per occurrence | occurrence | same as works | with the occurrence | plan lock | ignored | `ready_after` derived on read |
+| Templates | `workflow_templates` + steps | template id / step ids (steps ephemeral) | create/update/replace_steps/archive | step replace | template row lock + `expected_step_ids` | never retroactive | never retroactive |
+| Application history | `surface_work_plan_template_applications` | `application_id` + fingerprint | apply-template | — | plan lock | none | none |
+| Execution | `surface_work_executions` | `occurrence_key` | PATCH transition, bulk apply | none (detach keeps history) | plan lock; bulk ascending incl. source | none | — |
+
+**Lock order (static):** execution transition, save/replace, apply-template → one plan; WorkPlan apply-to-all → target
+plans ascending; bulk → source + targets ascending; recommendation accept → recommendation row, then one plan;
+Estimate → project row only; template step edit → template row only. No path locks a plan and then another
+lockable row, so no inversion exists.
+
+**Evidence.** New `tests/test_stage13i_audit.py` (11): scenarios A–J (duplicate identity through reorder + Estimate
+regeneration with a manual override; APPEND into a live plan; REPLACE of a live plan incl. refused → zero mutation,
+confirmed → one application, idempotent retry, Estimate 2 added / 3 removed with no inheritance; apply-to-all over
+live targets with duplicates then bulk by PriceItem ordinal; template rename/step replace/archive never retroactive;
+Price Book archive of an item used in template/plan/Estimate/execution; recommendation into a live plan + re-evaluation
+never deletes works; `ready_after` through wait edit and reorder; stale source duplicate-count change and destination
+duplicate change recomputed under lock), reveal isolation (no key, reveal Estimate lines keyless, reveal id rejected
+as an occurrence), cross-user sweep of every Stage 13 endpoint (404, no leak). Backend 1682 passed (1671 + 11);
+frontend 1301 passed; TypeScript and production build PASS; `git diff --check` clean. PostgreSQL (scratch, owner's
+local server; no containers): pre-Stage-13 data seeded at 0026 with the `a772e69` code → 0030 → 0026 → 0030, 11/11
+(all Stage 10–12 columns identical, every planned work keyed uniquely, DRAFT surface lines back-filled with their own
+key, FINAL and reveal lines keyless, Stage 13 schema fully removed on downgrade); the 13H migration check (16/16) and
+concurrency harnesses re-run 34/34 with 0 deadlocks. 16 default templates bootstrap with unique codes; all 16 names and
+142 canonical description/note keys exist in PL and RU. Browser (headless Chromium, Telegram light/dark theme,
+PL/RU × 320/390/412/480): Procesy list/detail/steps editor/form, WorkPlan editor with break editing, coefficient modal,
+template sheet APPEND and REPLACE, Estimate — no horizontal overflow and no undersized Stage 13 control; Realizacja,
+detach and bulk covered by the 13H.6 matrices on identical code. Contract: every Stage 13 schema matches its TS type.
+
+**Findings (no BLOCKER / HIGH / MEDIUM):**
+- LOW (pre-existing, Stage 9, out of scope): app-shell language buttons (24 px) and main navigation (38 px) are
+  below 44 px.
+- LOW (pre-existing, Stage 12F, out of scope): the coefficient modal header ellipsizes a long work name/title at
+  320–390 px (`truncate`), instead of wrapping.
+- LOW (theoretical race): execution transition and bulk check the archive flags before taking the plan lock, and
+  archiving does not take the plan lock, so a status change can land concurrently with an archive. No data loss (archive
+  is soft; restore shows the state); production impact negligible.
+- LOW (contract permissiveness): `SurfacePlannedWorkRead.execution` is optional in TS though always sent;
+  `SurfaceWorkPlanUpsert.template_applications` (unused 13C intent path) and `WorkflowTemplateUpdate.position` (unused)
+  have no TS field.
+- TEST-GAP: the PostgreSQL migration/concurrency harnesses live outside the repository; recommendation accept vs bulk
+  is covered by the static lock order only.
+- DOC-GAP: none beyond this section.
+
+**Owner acceptance (2026-09-27).** Stage 13I — AUDIT PASS / OWNER ACCEPTED. Scenarios A–J PASS; backend 1682 passed;
+frontend 1301 passed; TypeScript PASS; production build PASS; Alembic single head `0030_surface_work_executions`;
+`git diff --check` clean; PostgreSQL Stage 13 migration chain 11/11; PostgreSQL concurrency 34/34 with 0 deadlocks.
+No production-code defect and no data-integrity defect. The four LOW findings above are accepted as non-blocking
+technical debt / known limitations and are NOT fixed in 13I. The PostgreSQL harnesses remain outside the repository;
+the recommendation-acceptance-vs-bulk live PostgreSQL race remains a test gap covered by static lock-order analysis.
+`tests/test_stage13i_audit.py` (11 tests) contains only reproducible SQLite-suite regression tests of the accepted
+contracts (no local PostgreSQL, timing or environment assumptions).
+
+- **Status:** Stage 13I — AUDIT PASS / OWNER ACCEPTED. Stage 13 as a whole not yet marked complete; Stage 13J not
+  started.
