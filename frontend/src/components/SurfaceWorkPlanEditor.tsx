@@ -777,7 +777,7 @@ export function SurfaceWorkPlanEditor({
                               aria-expanded={open}
                               onClick={() => setWaitEditorKey(open ? null : occurrence.draftKey)}
                               disabled={saving}
-                              className="w-full min-h-[44px] px-3 py-1.5 text-xs font-semibold text-[var(--tg-theme-text-color)] bg-slate-50 border border-slate-200 rounded-lg disabled:opacity-60"
+                              className="w-full min-h-[44px] px-3 py-1.5 text-xs font-semibold text-[var(--tg-control-text-color)] bg-[var(--tg-control-bg-color)] border border-[var(--tg-control-border-color)] rounded-lg disabled:opacity-60"
                             >
                               {open ? t.work_plan.wait_hide : t.work_plan.wait_toggle}
                             </button>

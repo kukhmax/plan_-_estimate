@@ -10,6 +10,7 @@ import * as priceItemsApi from './api/priceItems';
 import * as coefficientsApi from './api/coefficients';
 import { SurfaceWorkPlanEditor } from './components/SurfaceWorkPlanEditor';
 import { I18nProvider } from './hooks/useI18n';
+import { DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME } from './hooks/useTelegramWebApp';
 import { SurfacePlannedWorkRead, SurfacePriceItemSummaryRead, SurfaceWorkPlanRead, SurfaceWorkPlanUpsert } from './types/workPlan';
 
 vi.mock('./api/workPlans', async (orig) => ({
@@ -175,5 +176,45 @@ describe('editing (13G)', () => {
     expect(cards()[1].querySelector('span.break-words')).not.toBeNull();
     expect(screen.getByLabelText(`occurrence-wait-${keyOf(1)}`).className).toContain('break-words');
     expect(screen.getByLabelText(`edit-wait-${keyOf(1)}`).className).toContain('min-h-[44px]');
+  });
+});
+
+describe('break toggle theme contrast (13G FIX.1)', () => {
+  const luminance = (hex: string) => {
+    const v = parseInt(hex.replace('#', ''), 16);
+    const lin = (c: number) => (c / 255 <= 0.04045 ? c / 255 / 12.92 : Math.pow((c / 255 + 0.055) / 1.055, 2.4));
+    return 0.2126 * lin((v >> 16) & 255) + 0.7152 * lin((v >> 8) & 255) + 0.0722 * lin(v & 255);
+  };
+  const contrast = (a: string, b: string) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  it('collapsed and expanded toggle use the paired theme-safe control tokens (no hardcoded light background)', async () => {
+    renderEditor();
+    await screen.findByLabelText(`planned-works-${S}`);
+    const toggle = screen.getByLabelText(`edit-wait-${keyOf(0)}`);
+    const assertThemeSafe = () => {
+      for (const token of [
+        'text-[var(--tg-control-text-color)]',
+        'bg-[var(--tg-control-bg-color)]',
+        'border-[var(--tg-control-border-color)]',
+        'min-h-[44px]',
+      ]) {
+        expect(toggle.className).toContain(token);
+      }
+      expect(toggle.className).not.toMatch(/bg-slate-|border-slate-|tg-theme-text-color/);
+    };
+    expect(toggle).toHaveTextContent('Przerwa po pracy');
+    assertThemeSafe();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveTextContent('Ukryj przerwę');
+    assertThemeSafe();
+  });
+
+  it('the control token pair is readable in light and dark themes (WCAG AA)', () => {
+    for (const theme of [DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME] as Record<string, string>[]) {
+      expect(contrast(theme['--tg-control-text-color'], theme['--tg-control-bg-color'])).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });

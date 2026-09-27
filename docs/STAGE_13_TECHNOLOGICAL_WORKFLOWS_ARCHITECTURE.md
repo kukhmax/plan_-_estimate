@@ -1374,8 +1374,9 @@ Frontend only over `PUT /workflow-templates/{id}/steps` (13C) with the 13F.2 pre
 - Scheduling, calendar and reminders belong to Stage 18; execution state to 13H.
 - Duplicate PriceItem occurrences keep independent waits; apply-to-all destination occurrences stay
   independently editable.
-- **Status:** 13G PASS / OWNER ACCEPTED (owner walkthrough PASS, 2026-09-27); awaiting commit / push /
-  production verification. No migration; Alembic head `0029_application_fingerprint`.
+- **Status:** 13G PASS / OWNER ACCEPTED (owner walkthrough PASS, 2026-09-27; commit `82cb82b`);
+  PRODUCTION FUNCTIONAL SMOKE PASS; DARK-THEME FIX.1 PENDING (break toggle switched from a hardcoded light
+  background to the paired `--tg-control-*` theme tokens). Not yet production verified. No migration; Alembic head `0029_application_fingerprint`.
 
 ## 31. Stage 13F-PRE — room / surface / object corrections (not template management)
 
