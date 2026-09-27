@@ -1374,9 +1374,8 @@ Frontend only over `PUT /workflow-templates/{id}/steps` (13C) with the 13F.2 pre
 - Scheduling, calendar and reminders belong to Stage 18; execution state to 13H.
 - Duplicate PriceItem occurrences keep independent waits; apply-to-all destination occurrences stay
   independently editable.
-- **Status:** 13G PASS / OWNER ACCEPTED (owner walkthrough PASS, 2026-09-27; commit `82cb82b`);
-  PRODUCTION FUNCTIONAL SMOKE PASS; DARK-THEME FIX.1 PENDING (break toggle switched from a hardcoded light
-  background to the paired `--tg-control-*` theme tokens). Not yet production verified. No migration; Alembic head `0029_application_fingerprint`.
+- **Status:** 13G COMPLETE / OWNER ACCEPTED / COMMITTED / PUSHED / PRODUCTION VERIFIED (commits `82cb82b`,
+  dark-theme FIX.1 `e702d71`: break toggle uses the paired `--tg-control-*` theme tokens). No migration; Alembic head `0029_application_fingerprint`.
 
 ## 31. Stage 13F-PRE — room / surface / object corrections (not template management)
 
@@ -1413,3 +1412,614 @@ Owner Telegram walkthrough fixes made before 13F.3, recorded separately from 13F
 - **Deferred — Floor Inspection & Floor Preparation Catalog:** floor substrates, flatness/level, cracks,
   strength/cohesion, moisture, contamination/adhesion, existing coatings/adhesives, preparation
   recommendations and FLOOR PriceItems, designed separately.
+
+## 33. Stage 13H — execution tracking (COMPLETE / OWNER ACCEPTED; not yet deployed)
+
+13H.1 was architecture only; §33.3 records the owner-approved decisions (with the owner's refinements), §33.7 the
+13H.2 implementation, §33.8 the 13H.3 API contract, §33.9 the 13H.4 execution-safe WorkPlan mutations, §33.10 the 13H.5 mobile execution and confirmation UX. Baseline: `stage-13` = `origin/stage-13`
+= `e702d71`, Alembic head `0029_application_fingerprint`. D10/D12 (execution tracking in Stage 13, keyed by
+`occurrence_key`, outside the plan payload; calendar/reminders Stage 18) stay binding.
+
+### 33.1 Audit findings (code as of `e702d71`)
+
+**Identity (`SurfacePlannedWork.occurrence_key`).**
+- NOT NULL, globally unique (`uq_surface_planned_works_occurrence_key`), always server-generated (`uuid4`
+  in `_rewrite_works`, `apply_template` APPEND, `append_one_planned_work_no_commit`); never client-generated.
+- Validated in `_validate_occurrence_keys` before any mutation: duplicate in one payload → 422; not a CURRENT
+  key of this plan (invented / removed / another plan's / another owner's — indistinguishable) → 409; known key
+  with a different PriceItem → 422. So a key is bound to one PriceItem for life; "changing the operation" is
+  remove + add.
+- A removed key is never reused: it is no longer current, so echoing it is a 409, and every creation path mints
+  a new key. Duplicate PriceItems are distinguished only by their keys.
+- The Estimate snapshots the key (`estimate_lines.occurrence_key`, nullable, **no FK**, unique per estimate) and
+  matches id → key → legacy (§24). Coefficient assignments hang off the row (`ON DELETE CASCADE`) and are
+  recreated with it.
+- **Conclusion:** `occurrence_key` is sufficient as the durable execution identity. No second identity is needed.
+
+**Row replacement.** Mixed behaviour, by path:
+
+| Path | Rows | Keys |
+|---|---|---|
+| PUT work-plan (`set_plan`, `replace_planned_works`) | ALL rows deleted + recreated (`_rewrite_works`, raw DELETE) | echoed keys preserved; key-less entries get new keys; omitted keys disappear |
+| Legacy PUT `price_item_ids` | all rows recreated | **every key is new** (no Surface client sends this any more; `RevealWorkPlanEditor` uses it for reveal works, a different model) |
+| apply-template APPEND | existing rows untouched; new rows inserted | existing keys kept; new keys |
+| apply-template REPLACE | all rows recreated | all old keys removed; new keys |
+| apply-to-all walls | **each target wall's rows are all recreated** | targets' old keys removed; new keys (source keys never copied) |
+| Stage 11 recommendation accept | one row inserted | new key, no wait |
+
+Locking: `apply_template` and recommendation acceptance take `lock_plan` (`SELECT … FOR UPDATE`); **`set_plan`,
+`replace_planned_works` and `apply_to_room_walls` do not.**
+
+**Other.** Surfaces, rooms and projects are only soft-archived (`is_archived`); there is no API hard delete of
+a project/room/surface/plan (the FK cascades exist but are never triggered by the API). The Estimate ignores
+archived surfaces. WorkPlan PUT does not check surface archive state. Timestamps are `DateTime(timezone=True)`,
+server-generated `datetime.now(timezone.utc)`. Errors are `HTTPException` 404/409/422 with non-leaking ownership
+chain checks (project → room → surface). Existing optimistic-concurrency style = "echo what you saw"
+(`expected_step_ids`, `expected_occurrence_keys`). Reveal planned works (per opening) have **no**
+`occurrence_key`.
+
+### 33.2 Key analysis
+
+- **Execution state must live outside `surface_planned_works`** (§4.5): rows are recreated on every save, and
+  status in the save payload would let a stale draft overwrite on-site progress. A server-side carry-over of
+  status columns inside `_rewrite_works` would work for kept keys but still deletes state on removal.
+- **Removal.** Options: (1) cascade-delete — simple, but an accidental edit or REPLACE silently destroys proof
+  that work was done; (2) retain as detached history — auditable, supports a later journal/PDF, tiny data growth
+  (one row per executed occurrence); (3) soft-orphan flag — like (2) plus a redundant column, because
+  "detached" can be derived as "key not in the current plan". **Recommend (2), without a flag column**, plus an
+  explicit confirmation guard (§33.3 D-H7) so removal is never silent. Re-adding a work creates a new key in
+  NOT_STARTED; it does not restore the old record.
+- **APPEND.** No hidden complication: existing rows are not even rewritten; new occurrences start NOT_STARTED.
+  (If an acknowledgement field is ever added to `ApplyTemplateRequest`, include it in the fingerprint only when
+  sent, as with `selected_step_ids`, so recorded retries remain idempotent.)
+- **REPLACE.** Removes all current keys, including executed ones. Keep REPLACE possible (owner control), keep
+  history (detached), and require the confirmation to name the executed works being removed.
+- **Apply-to-all.** Source execution is never copied (new keys, no execution rows → NOT_STARTED). Hidden risk:
+  it silently deletes the **target walls'** occurrences; if a target wall has executed works, that must be
+  confirmed like any other removal.
+- **Recommendation accept.** New key, no execution row → NOT_STARTED. Never infers progress.
+- **Coefficients / Estimate.** Separate table; no pricing code reads it; row recreation, Estimate generation or
+  regeneration, overrides and coefficient edits never touch it. No progress billing in 13H.
+
+### 33.3 Decision matrix — OWNER APPROVED (2026-09-27)
+
+| ID | Approved decision | Alternatives rejected | Consequences |
+|---|---|---|---|
+| D-H1 Identity | `SurfacePlannedWork.occurrence_key`; no second identity; `SurfacePlannedWork.id` stays ephemeral | new execution identity | Durable, unique, never reused, owner-scoped via its plan |
+| D-H2 Persistence | Separate current-state table `surface_work_executions`; nothing on `SurfacePlannedWork`; no event sourcing in v1 | columns on planned work; event log | Survives row recreation while the key survives; history kept on removal |
+| D-H3 Status | `NOT_STARTED` / `IN_PROGRESS` / `COMPLETED`; no SKIPPED/CANCELLED/BLOCKED in v1; **no row = NOT_STARTED** | PLANNED/…; derived from timestamps | Simple aggregation; additive later statuses; DB CHECKs tie status to timestamps |
+| D-H4 Timestamps | `started_at`, `completed_at`: UTC, server-generated, not editable in v1. **They record when the state was entered in the application, not proof of the physical moment the operation started or ended** | client/manual times | Honest semantics for a journal/PDF later |
+| D-H5 Transitions | NOT_STARTED→IN_PROGRESS; IN_PROGRESS→COMPLETED; COMPLETED→IN_PROGRESS (reopen); IN_PROGRESS→NOT_STARTED (reset); shortcut NOT_STARTED→COMPLETED sets `started_at = completed_at = now` atomically. **COMPLETED never has `started_at` NULL** | require START first; COMPLETED with NULL start | Fast "mark done" on site with a complete persisted state |
+| D-H6 Reopen/reset | Reopen keeps `started_at`, clears `completed_at`. Reset clears `started_at`. **COMPLETED→NOT_STARTED is not a transition** (reopen first) | direct reset | The overwritten time is not kept in v1 (D-H22) |
+| D-H7 Removal/history | Records of started/completed occurrences survive removal as detached history (detached = key not in the current plan; **no flag column**). Never resurrected: re-added work gets a new key, NOT_STARTED. Destructive WorkPlan operations require an exact confirmation set `confirm_execution_detach_keys` = exactly the started/completed current keys the mutation would detach; any difference (concurrent change, new affected occurrence) → 409 and a fresh confirmation. A bare boolean is not accepted | cascade delete; boolean confirmation | No silent loss; stale-safe |
+| D-H8 APPEND | Existing occurrences keep key and state; new ones get new keys, NOT_STARTED; nothing copied or inferred | — | Additive path, no confirmation |
+| D-H9 REPLACE | Allowed; the D-H7 exact confirmation applies when it would remove started/completed occurrences; detached history retained; new occurrences NOT_STARTED | block REPLACE | Owner control, no silent loss |
+| D-H10 Apply-to-all | Never copies execution; destinations get new keys, NOT_STARTED; replacing destination works that are IN_PROGRESS/COMPLETED requires the D-H7 exact confirmation | skip/block walls | Destination progress never silently destroyed |
+| D-H11 Recommendations | Accepted recommendation → new key, NOT_STARTED; nothing inferred | — | — |
+| D-H12 Readiness | `ready_after = completed_at + current wait_after_hours`, only for COMPLETED with a break; computed on read, never persisted; follows later wait edits. Technological information only; not a scheduled start, calendar event, reminder or appointment (Stage 18) | persist | No duplicated data |
+| D-H13 Predecessors | No enforcement and no warning in v1 | warn; hard block | The owner controls real sequencing |
+| D-H14 WorkPlan edits | Without confirmation: wait, reorder, add, quality target, substrate, coefficients, APPEND. Exact confirmation: removing current started/completed occurrences (ordinary removal, REPLACE, apply-to-all). Nothing hard-blocked because execution started | warnings on quality/substrate | Minimal friction |
+| D-H15 Commercial isolation | Execution never affects PriceItem price, coefficient, Estimate quantity/unit/effective price, overrides or regeneration; no progress billing | — | Verified by tests |
+| D-H16 API | Dedicated execution mutation endpoint; never via the WorkPlan save payload; may be embedded read-only in WorkPlan responses; the editor cannot overwrite it | status in the plan payload | 13H.3 |
+| D-H17 Concurrency | Transition: lock the plan row, verify the key is current, compare `expected_status`, apply atomically. Destructive WorkPlan paths take the same lock (ordinary save/replace, REPLACE where necessary, apply-to-all); existing template-apply and recommendation locks kept. No version column unless `expected_status` proves insufficient | version column | Guards in 13H.4 |
+| D-H18 Idempotency | Current == requested → success, timestamps unchanged; current ≠ expected → 409; invalid transition → 409; unknown/invented/stale/foreign key → existing non-leaking semantics; invalid status syntax → 422 | — | Safe retries |
+| D-H19 Archive | Archive preserves state; reads work; mutation on an archived project/room/surface rejected (project convention: 422 validation); restore exposes the state unchanged | allow mutation | — |
+| D-H20 Bootstrap | No row = NOT_STARTED; the migration creates no rows; a row is created lazily on the first transition away from NOT_STARTED and **kept** on reset | backfill | Zero data migration; no hook in any creation path |
+| D-H21 Mobile UX | Separate **Realizacja / Выполнение** view; the editor shows only a compact read-only badge. Statuses: Zaplanowano / W trakcie / Wykonano (RU Запланировано / В работе / Выполнено). Main actions: Rozpocznij, Oznacz jako wykonane (RU Начать, Отметить выполненной); COMPLETED has no permanent primary action. Secondary under progressive disclosure, explicit: Wznów pracę / Возобновить работу (COMPLETED→IN_PROGRESS), Zresetuj status / Сбросить статус (IN_PROGRESS→NOT_STARTED); no generic "undo" | controls in editor cards | 13H.5 |
+| D-H22 Future history | v1 = current state + timestamps; a future append-only `surface_work_execution_events` may be added; today's schema/API must not prevent it | events now | — |
+| Scope | v1 = `SurfacePlannedWork` only. `OpeningRevealPlannedWork` has no `occurrence_key`; no reveal execution identity is invented in 13H (later dedicated extension) | — | — |
+
+### 33.4 Model (implemented in 13H.2)
+
+`surface_work_executions` (migration `0030_surface_work_executions`):
+
+| Column | Type | Rule |
+|---|---|---|
+| `id` | UUID PK | |
+| `occurrence_key` | UUID NOT NULL | `uq_surface_work_executions_occurrence_key` UNIQUE; **no FK** (planned-work rows are recreated; precedent `estimate_lines.occurrence_key`) |
+| `work_plan_id` | UUID NOT NULL | FK → `surface_work_plans.id` `ON DELETE CASCADE` (ownership chain/lifecycle; the API never deletes plans); indexed |
+| `price_item_id` | UUID NOT NULL | FK → `price_items.id` `ON DELETE RESTRICT` (see §33.7 audit); indexed |
+| `status` | enum `workexecutionstatus` | NOT_STARTED / IN_PROGRESS / COMPLETED |
+| `started_at`, `completed_at` | timestamptz NULL | server UTC |
+| `created_at`, `updated_at` | timestamptz | |
+
+CHECK `ck_surface_work_executions_status_timestamps`: NOT_STARTED ⇒ both NULL; IN_PROGRESS ⇒ started NOT NULL,
+completed NULL; COMPLETED ⇒ both NOT NULL. CHECK `ck_surface_work_executions_completed_after_started`:
+`completed_at IS NULL OR completed_at >= started_at`. No `owner_id` (ownership resolves through the plan). Later
+aggregation (surface 3/5, room, object counts) = current planned works LEFT JOIN executions by key; detached rows
+drop out naturally, so no schema change is needed.
+
+### 33.5 Test strategy
+
+Backend: state survives PUT reorder/wait/coefficient/quality/substrate edits; duplicate PriceItems stay
+independent; every allowed transition plus all disallowed ones (409); idempotent repeats; stale START after
+COMPLETE; stale COMPLETE after REOPEN; D-H7 guard on PUT removal / legacy `price_item_ids` save / REPLACE /
+apply-to-all targets (409 without, success with exact acknowledgement, 409 on a changed set); detached rows
+retained; APPEND keeps state; apply-to-all source state not copied; recommendation append NOT_STARTED;
+coefficients, waits, Estimate generate/regenerate/overrides unchanged; invented / removed / other-surface /
+other-owner key → identical 409; archived surface/room/project → 422 and read still works; pre-13H plans read
+as NOT_STARTED; migration up/down/up on a scratch DB. Frontend: badges and actions per status; pending and
+error states; 409 → reload; duplicates independent; the confirmation dialogs; wait and coefficient display
+coexistence; PL/RU; 320/390/412/480 px.
+
+### 33.6 Proposed sub-stages
+
+| Sub-stage | Scope | Migration | STOP gate |
+|---|---|---|---|
+| 13H.2 | Model + enum + CHECKs + migration `0030`; domain service: read (absent = NOT_STARTED), transitions, idempotency, key-current check under lock; readiness derivation | **yes** | pytest + scratch-DB up/down/up |
+| 13H.3 | API: PATCH execution endpoint, embedded read on plan responses, error mapping; frontend types only | no | API tests incl. ownership/stale/archived |
+| 13H.4 | WorkPlan mutation guards: plan lock in `set_plan` / `replace_planned_works` / `apply_to_room_walls`; D-H7 acknowledgement on PUT, REPLACE, apply-to-all | no | guard + regression suites (13B–13G, Estimate) |
+| 13H.5 | Mobile UI: Realizacja view, editor status badge, confirmation dialogs, 409 handling, PL/RU | no | vitest, tsc, build, mobile 320–480 |
+| 13H.6 | Integration/adversarial verification | no | full gates |
+| 13H.7 | Owner walkthrough → commit/push/deploy (with migration assessment) | apply 0030 | owner PASS, production verification |
+
+### 33.7 Stage 13H.2 — persistence / domain foundation
+
+**PriceItem lifecycle audit (before 0030).** PriceItems are archive-only: `PriceBookService.archive_item` /
+`restore_item` toggle `is_archived`; there is no hard-delete service or API route; the only deletion path is
+`price_items.owner_id → users.id ON DELETE CASCADE` (whole-account deletion, which also cascades the owner's
+projects → … → plans → executions). Existing references: `surface_planned_works`, `workflow_template_steps`,
+`opening_reveal_planned_works` RESTRICT; `estimate_lines`, `work_recommendations` SET NULL; market evidence
+CASCADE. Conclusion: detached history can safely reference the PriceItem with **RESTRICT, NOT NULL**, mirroring
+`surface_planned_works` (every record always identifies its operation; a future hard-delete feature would have
+to address planned works and history together). A `price_item_id` reference alone is enough: the plan itself
+shows live PriceItem names (never snapshots), archived items remain readable, and execution is not a commercial
+document. **No name/code snapshot** is added (Estimate lines snapshot because they are commercial documents).
+
+**Implementation.** `app/models/work_execution.py` (`WorkExecutionStatus`, `SurfaceWorkExecution`),
+`alembic/versions/0030_surface_work_executions.py` (empty table, indexes, CHECKs; downgrade drops table and
+enum type), `app/domain/services/work_execution_service.py`:
+- `transition(project, room, surface, owner, occurrence_key, status, expected_status)`: existing ownership chain
+  (404s) → archived project/room/surface → `WorkExecutionValidationError` (422) → `lock_plan` → key must be
+  current in that plan, else the existing `SurfaceWorkPlanOccurrenceConflictError` (same message for invented /
+  removed / other-surface / other-owner keys, or no plan) → same status → no-op (commit only releases the lock)
+  → stale `expected_status` or disallowed pair → `WorkExecutionConflictError` (409, carries the current status)
+  → apply (§33.3 D-H5/D-H6) and commit. The row is created lazily with the occurrence's `price_item_id`.
+- `get_plan_executions(...)`: views for the CURRENT occurrences in plan order (absent row = NOT_STARTED);
+  detached records are not listed; allowed on archived parents.
+- `derive_ready_after(status, completed_at, wait_after_hours)`: D-H12, computed on read.
+- No API, no WorkPlan guards/locks (13H.4), no UI. Plan saves, APPEND/REPLACE, apply-to-all, recommendation
+  accept and the Estimate were not changed.
+
+**Verification.** `tests/test_stage13h_execution.py` 31 passed; WorkPlan / occurrence / apply-template / 13E /
+13G / coefficient / Estimate-identity / recommendation-accept regressions 270 passed; full backend 1581 passed.
+Scratch PostgreSQL (throwaway DB on the owner's local server, dropped afterwards): seeded at 0029 → `upgrade
+head` (existing plans, planned works, PriceItems, coefficient assignments and Estimate lines byte-identical; 0
+execution rows) → CHECK / UNIQUE / FK actions / enum verified → service transitions on PostgreSQL → `downgrade
+-1` (table and enum type gone, data identical) → `upgrade head`. Alembic head `0030_surface_work_executions`.
+
+### 33.8 Stage 13H.3 — execution API and read contract
+
+**Read (embedded, read-only).** Every `SurfacePlannedWorkRead` in every WorkPlan response (GET/PUT work-plan,
+apply-template, apply-to-room-walls targets) carries:
+
+```json
+"execution": { "status": "NOT_STARTED", "started_at": null, "completed_at": null, "ready_after": null }
+```
+
+`SurfaceWorkPlanService._fetch_plan` (the single read path of all those responses) attaches each CURRENT
+occurrence's view from one query over the current keys: no row → NOT_STARTED with null timestamps and **no row
+created**; detached records are never reached. `ready_after` = `completed_at + wait_after_hours` only when
+COMPLETED with a break (D-H12), else null; never stored. Timestamps use the existing plain `datetime`
+serialization (PostgreSQL: UTC, ISO 8601 with `Z`; verified identical for PATCH and read on a scratch PostgreSQL
+DB). The pure rules (`ALLOWED_TRANSITIONS`, `derive_ready_after`, `execution_view`) moved unchanged from the 13H.2
+service to `app/domain/rules/work_execution_rules.py` so the WorkPlan read path and the execution service share
+them without importing each other; the service re-exports them.
+
+**Write (dedicated endpoint only).**
+`PATCH /api/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}/work-plan/occurrences/{occurrence_key}/execution`
+
+- Request `SurfaceWorkExecutionTransition` (`extra="forbid"`): `{"status": <WorkExecutionStatus>, "expected_status":
+  <WorkExecutionStatus>}`, both required. Timestamps, `ready_after` and anything else → 422.
+- Response 200 `SurfaceWorkExecutionRead`: `{occurrence_key, status, started_at, completed_at, ready_after}`.
+- Thin route → `SurfaceWorkExecutionService.transition` (no transition logic in the route).
+
+| Case | Response |
+|---|---|
+| allowed transition from the expected status | 200, new state |
+| requested status == current status (any `expected_status`) | 200, unchanged, timestamps untouched, no row created |
+| stale `expected_status` or disallowed transition (e.g. COMPLETED→NOT_STARTED) | **409** `{"detail": {"code": "WORK_EXECUTION_CONFLICT", "message": …, "current_status": "COMPLETED"}}` |
+| key not a current occurrence of this surface's plan (invented, removed/detached, other surface/plan, other owner's) or no plan | **409** plain-string detail, identical to the WorkPlan-save occurrence conflict (D13); no execution data, no `current_status` |
+| foreign or missing project / room / surface | existing 404 chain |
+| archived project / room / surface | 422; reads keep working; restore makes it mutable again with the state unchanged |
+| invalid enum / missing field / extra field | 422 |
+
+The `current_status` of a conflict is exposed only after the key is proven current in the caller's own plan (case A);
+non-current keys (case B) never reveal anything.
+
+**Write safety.** `OrderedPriceItemSelection` and `SurfaceWorkPlanUpsert` keep `extra="forbid"`: `execution`,
+`status`, `started_at`, `completed_at`, `ready_after` sent per planned work or at top level → 422 with nothing
+changed; echoing a read-response planned work verbatim into PUT → 422. The frontend editor builds its payload
+field by field (unchanged). No frontend change in 13H.3 (the added response field is ignored by the current
+types/UI; types come with 13H.5).
+
+**Not changed in 13H.3:** WorkPlan save / REPLACE / apply-to-all confirmation and locking (13H.4), UI (13H.5),
+no migration (head `0030_surface_work_executions`).
+
+**Verification.** `tests/test_stage13h_execution_api.py` 31 passed (read matrix incl. APPEND / REPLACE /
+apply-to-all / recommendation, mutation matrix, non-leaking keys, archive, write safety, isolation of coefficients,
+PriceItems, Estimate lines/regeneration, waits and ordering); `test_surface_work_plan_api` route-family registry
+extended by the new route; focused regressions 363 passed; full backend suite (see progress).
+
+### 33.9 Stage 13H.4 — execution-safe destructive WorkPlan mutations
+
+**Destructive-path audit.**
+
+| Path | Class | Guard |
+|---|---|---|
+| `PUT …/work-plan` → `set_plan` (incl. legacy `price_item_ids`, and a Stage 13C REPLACE intent) | A: detaches every current key not echoed | yes |
+| `SurfaceWorkPlanService.replace_planned_works` (service only, no route) | A | yes |
+| `POST …/apply-template` REPLACE | A: detaches all current keys | yes |
+| `POST …/apply-template` APPEND | C: appends only | exact-set rule with an empty protected set |
+| `POST …/apply-to-room-walls` | A for every target wall (all target keys replaced); source untouched | yes |
+| Stage 11 recommendation accept (`append_one_planned_work_no_commit`) | C | none needed |
+| Project / room / surface archive | soft `is_archived` only; no planned work deleted | none (reads work; execution mutation 422, §33.8) |
+| Any other delete of `surface_planned_works` | none exists (only `_rewrite_works`; reveal works are a separate model) | — |
+
+**Protected-detach algorithm** (`SurfaceWorkPlanService._assert_execution_detach_confirmed`, one helper for all
+paths): `removed = current occurrence_keys − resulting occurrence_keys` per target plan (by key only — never
+PriceItem, row id or position; duplicates stay independent); `protected = removed` whose execution status is
+**IN_PROGRESS or COMPLETED** (`PROTECTED_STATUSES`; an explicit NOT_STARTED row is not protected). Proceed only if
+`set(confirm_execution_detach_keys) == protected` (`detach_confirmation_matches`): omitted/empty with nothing
+protected → proceed; missing, subset, superset, stale, foreign or unrelated keys → 409. Nothing is mutated on
+409, and a confirmed detach deletes nothing: the records stay as detached history (omitted from plan responses,
+not mutable — non-leaking 409, §33.8).
+
+**Request contract.** Optional `confirm_execution_detach_keys: list[UUID]` on `SurfaceWorkPlanUpsert` (default
+`[]`), `ApplyTemplateRequest` (default `null` = not sent) and the new optional body `ApplyToRoomWallsRequest`
+(default `[]`; omitting the body stays valid, so the current client is unchanged). Set semantics: duplicates → 422,
+invalid UUIDs → 422, order irrelevant; `extra="forbid"` kept everywhere. Apply-to-all uses **one flat set** across
+all target walls: keys are globally unique, so a key identifies its wall unambiguously, and each `affected` entry
+carries its `surface_id` for display.
+
+**409 contract** (distinct from `WORK_EXECUTION_CONFLICT`, domain error `ExecutionDetachConfirmationRequiredError`):
+
+```json
+{"detail": {"code": "WORK_EXECUTION_DETACH_CONFIRMATION_REQUIRED", "message": "...",
+  "affected": [{"surface_id": "...", "occurrence_key": "...", "position": 1, "status": "COMPLETED",
+                "price_item_id": "...", "price_item_code": "...", "price_item_name_key": null,
+                "price_item_display_name": "Gładź"}]}}
+```
+
+`affected` = the CURRENT protected records of the caller's own target plan(s), in lock order then position —
+enough for the 13H.5 dialog (wall, numbered work, label via name_key/display_name/code, status) without a
+race-prone client reconstruction. It is built only from the target plans; confirmation keys are compared, never
+resolved, so a foreign key only causes a mismatch and nothing about it is returned. `affected` may be empty (the
+request confirmed keys that nothing would detach).
+
+**Locking.** Every path runs lock → read current occurrences → read execution → compute → validate → mutate →
+commit in one transaction under the same `SurfaceWorkPlan` row lock (`SELECT … FOR UPDATE`) that execution
+transitions take (§33.8): `set_plan` and `replace_planned_works` now call `lock_plan` before reading the plan;
+`apply_template` already locked; apply-to-all locks **every existing target plan in ascending plan id**, one at
+a time, before reading any of them (targets without a plan are created in the same transaction, as before). Every
+other path locks exactly one plan, so ascending order across multi-plan applies is deadlock-free. Consequence: a
+work that becomes IN_PROGRESS/COMPLETED before the destructive transaction reads the plan is always in the
+protected set; one that tries to transition after it is blocked until commit and then gets the non-leaking 409 if
+its key was removed.
+
+**Ordinary save.** Key-preserving saves (reorder, waits, quality target, substrate, coefficients, adding works)
+never need confirmation and leave execution untouched. Removing started/completed works needs their exact keys.
+
+**Template apply and idempotency.** APPEND never needs confirmation (a non-empty one is an exact-set mismatch).
+REPLACE over started/completed works needs their exact keys. Order inside `apply_template`: plan lock →
+recorded-application check (idempotent retry returns 200 before any guard, so a retry after success is never
+re-evaluated against the new plan) → template/step/composition checks → detach guard → mutation + one history
+record. A refused request records nothing, so the owner may resend the SAME `application_id` with the confirmation.
+`confirm_execution_detach_keys` joins the fingerprint **only when sent** (sorted), like `selected_step_ids`: every
+pre-13H.4 fingerprint is unchanged; an identical confirmed retry is idempotent; reusing the id with a different
+request (e.g. without the keys) is the existing 409 conflict and never a second application.
+
+**Apply-to-all.** Source execution is never copied (targets get new keys, NOT_STARTED). Target walls whose current
+works are all NOT_STARTED need no confirmation; started/completed target works across all walls must be confirmed
+exactly; the whole batch is all-or-nothing.
+
+**Verification.** `tests/test_stage13h_detach_guard.py` 23 passed (ordinary save incl. the owner's A/B/C example,
+subset/superset/stale/foreign keys, schema, key-preserving saves, duplicates, legacy `price_item_ids`, service
+`replace_planned_works`; APPEND/REPLACE incl. no history on 409, exactly one on success, idempotent retry,
+unchanged pre-13H.4 fingerprint; apply-to-all aggregation/partial/exact/detached/source; ascending lock order;
+recommendation). 13H.2/13H.3 tests that removed started/completed works now send the exact confirmation (62
+passed). PostgreSQL concurrency harness on a throwaway DB (SQLite has no row locks; not part of the pytest suite):
+a transaction holding the plan lock with an uncommitted COMPLETED transition blocks an ordinary destructive save,
+a REPLACE and an apply-to-all, each of which then refuses with the affected key (no application recorded); a
+transition blocked behind a destructive save gets the non-leaking 409 afterwards; 15 rounds × 4 concurrent
+overlapping apply-to-all: 0 deadlocks, 0 errors — 15/15 checks.
+
+### 33.10 Stage 13H.5 — mobile execution UI and detach-confirmation UX (frontend only)
+
+**Entry.** Every surface card (walls and other surfaces in `SurfaceList`, floor/ceiling planes in
+`AreaSegmentList`) gets **Realizacja / Выполнение** next to *Rodzaje prac i jakość*, same size/style. The two open
+exclusively (one per list at a time), so neither shows stale data after the other mutates. No new navigation.
+
+**Execution view** (`SurfaceExecutionView`). Loads the WorkPlan (GET) and renders every CURRENT occurrence as its own
+numbered card (duplicates separate; detached records never appear): name (owner names verbatim, seeded names via
+the locale), status badge **below** the name (a badge beside a long name squeezed it into mid-word breaks at
+320 px), the 13G break line, *Rozpoczęcie zapisano / Начало отмечено* and *Ukończenie zapisano / Выполнение
+отмечено* (recorded-in-app wording, D-H4), and for COMPLETED with a break a *Gotowe do dalszych prac po / Следующие
+работы можно выполнять после* block with *Na podstawie ustawionej przerwy technologicznej. / На основании
+заданного технологического перерыва.* (informational: no timers, reminders or blocking). Dates: device time
+zone, `pl-PL`/`ru-RU` short date+time (`utils/executionFormat.ts`; an offset-less value is read as UTC). Empty
+states (no saved plan / no works) explain and offer *Przejdź do planu prac*, which opens the editor. Nothing is
+created client-side.
+
+**Actions.** One full-width primary per status: NOT_STARTED *Rozpocznij / Начать*, IN_PROGRESS *Oznacz jako
+wykonane / Отметить выполненной*, COMPLETED none. Under *Opcje*: NOT_STARTED *Oznacz od razu jako wykonane /
+Сразу отметить выполненной* (the approved direct-complete PATCH), IN_PROGRESS *Zresetuj status / Сбросить
+статус*, COMPLETED *Wznów pracę / Возобновить работу*. Each is an immediate `PATCH …/execution` with the displayed
+status as `expected_status`; while pending every action of the view is disabled (synchronous in-flight guard +
+disabled buttons, *Zapisywanie statusu...*); the card is updated only from the server response (no optimistic
+state, no client timestamps). `WORK_EXECUTION_CONFLICT` → *Status tej pracy zmienił się w innym miejscu. Dane
+zostały odświeżone.* and a reload of the plan; never retried. Other errors keep the displayed state, show a
+localized message on the card and allow retry (archived hierarchy 422 → `errors.execution_archived`).
+
+**Status badge** (`ExecutionStatusBadge`): symbol + word (○ Zaplanowano / ◐ W trakcie / ✓ Wykonano; RU
+Запланировано / В работе / Выполнено), never color alone; only Telegram theme tokens (no hardcoded light pairs).
+
+**Editor.** Each saved occurrence shows the read-only badge; a row added in the draft shows *Nowa praca — status po
+zapisaniu planu* instead of a fabricated status. The editor has no execution controls and never sends execution
+back.
+
+**Typed errors.** `ApiError` now keeps the raw structured `detail` and takes `code` from `detail.code`
+(string-detail patterns unchanged). `parseExecutionDetachConfirmation` (code + structured `affected`, never text)
+and `isWorkExecutionConflict` distinguish the two 13H conflicts from the stale-plan 409, 422 validation and
+unknown errors.
+
+**Detach confirmation** (`ExecutionDetachDialog`): a blocking modal sheet (the draft cannot change underneath)
+listing the server's `affected` entries (number + name + status; for apply-to-all also the target wall's name,
+supplied by `SurfaceList`, fallback *Inna powierzchnia*). Text: the change removes started/completed works from the
+CURRENT plan; their history is kept and the plan will no longer show them as current — never "deleted". Confirm
+retries the ORIGINAL request with exactly the returned keys; a further detach 409 re-opens the dialog with the NEW
+list and *Stan prac zmienił się od ostatniego potwierdzenia…* (never auto-confirmed); an empty list explains that
+nothing is detached any more and retries with `[]`. Cancel retries nothing and keeps the draft.
+- Ordinary save: the exact sent payload (all unsaved changes) is retried with `confirm_execution_detach_keys`.
+- Template REPLACE: the keys are stored on the current apply attempt, outside its signature, so the retry keeps the
+  SAME `application_id` and the same semantic request (13E idempotency); a transport retry resends them; cancel
+  clears them (a later Apply asks again). APPEND never shows the dialog.
+- Apply-to-all: one dialog for all target walls; the retry sends the flat key set in the optional body.
+
+**Verification.** Vitest: `SurfaceExecutionView.test.tsx` 15, `ExecutionDetachConfirm.test.tsx` 11, Realizacja entry
+tests in `SurfaceList.test.tsx` (2) and `AreaSegmentList.test.tsx` (1); full frontend 1281 passed; `tsc` and
+`vite build` PASS. Real browser (headless Chromium over CDP; throwaway PostgreSQL DB + real backend with mock auth +
+Vite dev server; Telegram WebApp stub pinned so real Telegram light/dark theme params apply): PL/RU × light/dark ×
+320/390/412/480 — no horizontal overflow, no clipped text or buttons, every control ≥ 44 px in the execution view,
+editor list and both real server-driven detach dialogs (save, apply-to-all); screenshots inspected. Text contrast
+follows Telegram's own palette pairs exactly as the existing editor does (hint text on bg, white on `button_color`);
+no light-only pairs. End-to-end on the real API: start → complete → reopen → reset → direct complete, a conflict
+created by another session (message + refresh, no retry), confirmed ordinary-save detach, confirmed apply-to-all
+(targets NOT_STARTED, detached history kept in the DB) — 13/13. No backend change in 13H.5.
+
+- **Status:** 13H.5 PASS / OWNER ACCEPTED (owner walkthrough). All uncommitted.
+
+### 33.11 Stage 13H.5B — bulk execution status across room walls (ARCHITECTURE APPROVED; 13H.5B.1 OWNER ACCEPTED; 13H.5B.2 implemented)
+
+Goal: "I have just done this operation on every wall of this room" — carry the source wall's execution progress
+forward to the matching works of the other walls of the same room. Execution status only: no WorkPlan row, key,
+wait, coefficient or Estimate change; not the WorkPlan apply-to-all; not a general sync engine.
+
+**Audit facts.** Walls of a room typically hold the same ordered plan (WorkPlan apply-to-all and templates
+materialise identical PriceItem sequences), but every wall has its own `occurrence_key`s (D-H10), so keys cannot
+match across walls. Occurrences carry no per-occurrence template-step provenance (application history is
+plan-level). Deterministic "(PriceItem, k-th duplicate by position)" matching already exists as the Stage 12 /
+13E.2B Estimate legacy fallback (`_match_surface_lines`). Scope rules exist in `apply_to_room_walls` (same room,
+`WALL`, not archived, not the source). Execution writes go through the 13H.2 transition rules; plans are locked
+with `SELECT … FOR UPDATE`, multi-plan locks in ascending plan id (§33.9).
+
+**Matching algorithm (per destination wall).** Group each plan's CURRENT occurrences by `price_item_id` in position
+order; the k-th source occurrence of PriceItem P pairs with the k-th destination occurrence of P. Relative order of
+different PriceItems is irrelevant. If P occurs a different number of times on the two walls, P is **ambiguous** on
+that wall: none of its occurrences are touched and they are reported. A source occurrence with no destination P is
+**unmatched** (reported); destination works with no source P are untouched. Keys, timestamps, `ready_after`,
+coefficients and waits are never read from the source for writing.
+
+**Transition rule.** Rank NOT_STARTED 0 < IN_PROGRESS 1 < COMPLETED 2. For a matched pair, act only if
+destination rank < source rank: NS→IP (`started_at = now`), NS→C (direct complete, `started_at = completed_at =
+now`), IP→C (keep destination `started_at`, `completed_at = now`). Equal or further destination → unchanged. One
+server `now` for the whole operation. Source NOT_STARTED never acts.
+
+Owner approved BULK-H1…H10 as below, with the BULK-H7 refinement (exact ordered snapshot of ALL source occurrences).
+
+| ID | Decision | Alternatives | Consequences |
+|---|---|---|---|
+| BULK-H1 matching identity | (price_item_id, ordinal among that PriceItem's occurrences by position) on current occurrences | occurrence_key (differs per wall); position (breaks when one wall has an extra/moved work); plan-level template provenance (not per occurrence) | Deterministic, order-independent across PriceItems, reuses an existing precedent; destination key stays the only execution identity |
+| BULK-H2 duplicates | Pair by ordinal only when the PriceItem's count is EQUAL on both walls; otherwise the PriceItem is ambiguous on that wall and skipped (reported) | always pair by ordinal (1st↔1st even when counts differ) | Conservative: never guesses which "Gładź" a lone destination Gładź is; identical plans (the real case) match fully |
+| BULK-H3 source NOT_STARTED | No destination mutation | propagate as reset | Nothing is undone |
+| BULK-H4 backward | Never: forward-only (NS→IP, NS→C, IP→C) | mirror the source state | Later destination progress is never lost; reopen/reset stay per-wall actions in Realizacja |
+| BULK-H5 partial/mismatched | Fewer destination works → unmatched reported; extra destination works untouched; different order fine; different PriceItem = no match; wall without a plan/works → reported, untouched | refuse the whole operation on any mismatch | Safe partial application is explicit in preview and result, never a hidden success |
+| BULK-H6 timestamps | Server-generated per destination transition (13H.2 rules); nothing copied | copy source times | D-H4 holds: each wall records when it was marked in the app |
+| BULK-H7 concurrency | Lock source + all existing target plans in ascending plan id, then read plans and executions fresh; the request carries `expected_source` = the EXACT ORDERED snapshot of ALL current source occurrences (keys + statuses, NOT_STARTED included; any key/order/count/status difference) → 409 `WORK_EXECUTION_SOURCE_CHANGED` if the locked source differs; destinations are recomputed from locked state (forward-only makes that safe) | no source check; per-destination expected states (heavy) | The confirmation summary can only under-state what happens to destinations, never propagate source progress the owner did not see |
+| BULK-H8 archive | Archived source wall / room / project → 422 (execution convention); archived target walls excluded from scope (as WorkPlan apply-to-all) | include archived targets | Archived history untouched |
+| BULK-H9 atomicity | One transaction, one commit, all-or-nothing | per-wall commits / N frontend PATCHes | No half-applied room; one ownership check |
+| BULK-H10 UI confirmation | Preview first (no mutation) → summary sheet (walls, statuses that will change, unchanged-because-further, unmatched/ambiguous counts, explanation) → confirm; no key lists to confirm; 0 changes → info only, no confirm | confirm per key; no preview | Fast one-tap field flow with honest numbers |
+
+**Endpoints** (repository precedent: `regenerate-preview` / `regenerate`):
+- `POST /api/projects/{p}/rooms/{r}/surfaces/{source_surface_id}/work-plan/execution/apply-to-room-walls-preview` —
+  no body, no mutation, no locks; returns the summary below.
+- `POST …/work-plan/execution/apply-to-room-walls` — body `{"expected_source": [{"occurrence_key", "status"}]}`
+  (exact current source list, `extra="forbid"`); returns the same shape as the applied result.
+- Result: `{source_surface_id, changed, unchanged, unmatched, ambiguous, walls: [{surface_id, changed, unchanged,
+  unmatched, ambiguous, has_plan}]}` — counts only (the source view stays open and unchanged; destination walls are
+  refetched when opened). No detached history, no keys of other walls needed by the UI.
+- Errors: existing 404 chain; non-WALL source 422; archived source/room/project 422; 409
+  `WORK_EXECUTION_SOURCE_CHANGED` (with the current source statuses) — distinct from the transition and detach
+  codes. Other rooms, floor/ceiling and other owners' surfaces are never in scope (query by the source's room +
+  WALL + active; ownership via the existing chain).
+
+**Locking model.** Lock set = source plan + existing target plans, acquired one by one in ascending plan id, then
+`_fetch_plan` + execution rows re-read. Individual transitions, WorkPlan save and template REPLACE lock one plan;
+WorkPlan apply-to-all locks its targets ascending; recommendation accept locks its recommendation row then one plan
+— no lock cycles. Only `surface_work_executions` rows are written (created lazily as today).
+
+**Proposed UI** (Realizacja, WALL surfaces with other active walls only): a secondary theme-safe full-width button
+at the bottom, **"Zastosuj statusy dla pozostałych ścian" / "Применить статусы к остальным стенам"** (more
+precise than "wszystkich": the source is excluded). Tap → preview → blocking sheet: "N ścian · M statusów zostanie
+zmienionych", unmatched/ambiguous/already-further counts, and four lines: only matching works on the other walls of
+this room; progress only moves forward; later progress is not undone; each wall records its own time. Confirm →
+apply → "Zaktualizowano 9 prac na 3 ścianach." (+ "Pominięto 2 prace bez odpowiednika." when non-zero; PL/RU plural
+forms via `Intl.PluralRules`). 409 source-changed → reload the view and explain. Disabled while a card transition is
+pending. Same ≥ 44 px, 320–480 px and dark-theme rules as 13H.5.
+
+**Proposed sub-steps after approval:** 13H.5B.1 backend (matching helper, preview + apply service, endpoints, pytest
+incl. PostgreSQL locking/concurrency harness); 13H.5B.2 frontend (button, preview sheet, result, PL/RU, vitest,
+real-browser matrix). No migration.
+
+**13H.5B.1 implementation (backend).**
+- **One engine:** `calculate_bulk_execution_plan(source, targets)` in `domain/rules/work_execution_rules.py` — pure,
+  used by BOTH preview and apply (a test spies it: identical inputs from both paths). Returns per-wall counts and the
+  forward transitions; transitions are executed with the same `_apply_transition` helper as the single-occurrence
+  PATCH (one timestamp implementation).
+- **Counts** are OCCURRENCE counts, one bucket per (source occurrence × target wall), so per wall
+  `changed + unchanged + unmatched + ambiguous == number of source occurrences` (no double counting); totals are
+  sums over walls. `unchanged` includes pairs whose SOURCE is NOT_STARTED and pairs whose destination is equal or
+  further. `unmatched` = PriceItem absent on that wall, or the wall has no plan (`has_plan: false`). `ambiguous` =
+  every source occurrence of a PriceItem whose duplicate count differs on that wall. Extra destination works are not
+  counted and never touched. Per wall also `unmatched_price_item_ids` / `ambiguous_price_item_ids`.
+- **Preview** `POST …/surfaces/{source_surface_id}/work-plan/execution/apply-to-room-walls-preview` (no body; no lock,
+  no write) → `BulkExecutionResultRead {source_surface_id, applied: false, expected_source: [{occurrence_key,
+  status}] (server-canonical, all current source occurrences in position order), changed, unchanged, unmatched,
+  ambiguous, walls: [{surface_id, has_plan, changed, unchanged, unmatched, ambiguous, unmatched_price_item_ids,
+  ambiguous_price_item_ids}]}`. Numbers may be stale by apply time.
+- **Apply** `POST …/work-plan/execution/apply-to-room-walls`, body `{"expected_source": [...]}` (required,
+  `extra="forbid"` on body and items, UUID + enum validated, duplicate key 422, empty list allowed) → same shape with
+  `applied: true`, the authoritative result.
+- **409** `{"code": "WORK_EXECUTION_SOURCE_CHANGED", "message", "current_source": [...]}` when the locked source
+  snapshot differs in any key, order, count or status; nothing is written. Distinct from `WORK_EXECUTION_CONFLICT`
+  and the detach code.
+- **Scope:** ownership via the existing project → room → surface chain (404 otherwise, nothing disclosed); source must
+  be a WALL (else 422) and active with its room and project (else 422, existing archive convention); targets = active
+  WALLs of the same room except the source, ordered as WorkPlan apply-to-all. Floor, ceiling, OTHER, other rooms,
+  archived walls and other owners are never in scope.
+- **Locking / atomicity:** resolve scope → select plan ids of source + targets → lock each in ascending plan id →
+  re-read plans (with execution) → validate `expected_source` → engine → write execution rows only → one commit. A
+  target plan created after the id selection is treated as "no plan" (never mutated unlocked). All-or-nothing
+  (a failure mid-apply leaves nothing written — tested). No detach guard (nothing is removed). Compatible with all
+  other lock paths (single-plan locks; multi-plan paths ascending).
+- **Never touched:** the source (statuses, timestamps, keys, plan), any plan row / key / position / PriceItem / wait /
+  coefficient / substrate / quality target, template history, the Estimate. Timestamps: one server `now` per
+  operation, NS→IP `started_at`, NS→C both, IP→C `completed_at` with the destination's own `started_at` kept.
+
+**Verification.** `tests/test_stage13h_bulk_execution.py` 21 passed (forward transitions across two walls, counts,
+one-wall idempotent repeat, duplicates/order/missing/extra/ambiguous/no-plan, scope incl. archived target, floor,
+ceiling, OTHER, other room, non-WALL and archived source/room/project 422, other user 404, full isolation incl.
+Estimate/coefficients/waits/structure/history, preview writes nothing, exact snapshot incl. status/order/set/missing
+NOT_STARTED item 409s, malformed and duplicate 422, shared engine, all-or-nothing, ascending lock order incl. source);
+focused regressions 454 passed; full backend 1656 passed. PostgreSQL harness on a throwaway DB (not in pytest; SQLite
+has no row locks), 15/15: source transition vs apply and source WorkPlan reorder vs apply → apply blocks, then 409, no
+destination write; destination transition vs apply → apply blocks, recomputes, never backward, counts from locked
+state; destination WorkPlan edit vs apply → recomputed against the new structure, removed key never written; 10 rounds
+of 3 overlapping applies + 1 individual transition → 0 deadlocks, only expected 409s, forward-only final state. No
+migration (head `0030_surface_work_executions`), no frontend change.
+
+**13H.5B.2 implementation (frontend, no backend change).**
+- **Entry:** in Realizacja of a WALL whose room has other active walls (`SurfaceList` passes `isWall`,
+  `otherActiveWallCount` and the room's surface names; floor/ceiling/other surfaces never show it) and whose plan has
+  works: a secondary theme-safe full-width button at the bottom, **"Zastosuj statusy dla pozostałych ścian" /
+  "Применить статусы к остальным стенам"** — deliberately not "wszystkich" and not the editor's "Zapisz dla
+  wszystkich ścian" (plan composition vs. execution status).
+- **Preview:** tap → `previewExecutionToRoomWalls` (button disabled + "Sprawdzanie pozostałych ścian..."; synchronous
+  in-flight guard; also disabled while a card transition is pending) → `ExecutionBulkSheet` (blocking modal sheet)
+  built only from the response: other walls in scope, statuses to update, unchanged (same or later stage), no
+  counterpart (walls WITH a plan only), ambiguous (+ one plain-language reason), walls without a plan; the three
+  rules (only matching works on the other walls of this room; forward only, later progress not undone; each wall
+  records its own time) placed right under the counts so they are visible before the scrollable per-wall list;
+  per wall: name + non-zero "N do aktualizacji / bez zmian / bez odpowiednika / niejednoznaczne", or "Brak planu
+  prac" / "Нет плана работ" for `has_plan: false`. No keys, PriceItem ids or engine terms are shown.
+- **Nothing to change** (`changed = 0`): informational sheet without a confirm button, one reason derived from the
+  returned data: no other walls / the source has only planned works / matching works already equal or later /
+  plans do not match enough.
+- **Apply:** "Zastosuj statusy" / "Применить статусы" sends the preview's `expected_source` object verbatim (not
+  rebuilt, sorted or filtered; NOT_STARTED entries kept); disabled + "Zapisywanie statusów..." while pending. The
+  APPLY response is authoritative (may differ from the preview): "✓ Zaktualizowano {N} prac na {M} ścianach." with
+  CLDR plural forms (PL pracę/prace/prac, ścianie/ścianach; RU работа/работы/работ, стене/стенах) where M = walls
+  with `changed > 0`; a separate hint line "Nie dopasowano: x. Niejednoznaczne: y. Ściany bez planu prac: z."; with
+  `changed = 0` "Nie zaktualizowano żadnej pracy." + the reason (never a success line). The source view is re-read
+  from the server (unchanged) and stays open; no navigation.
+- **409 `WORK_EXECUTION_SOURCE_CHANGED`:** sheet closed, source re-read, "Stan prac na tej ścianie zmienił się od
+  czasu podglądu. Dane zostały odświeżone. Sprawdź je i spróbuj ponownie." — no retry, no automatic new preview.
+  Generic apply error: message inside the sheet, nothing changed locally, confirm can be retried (same snapshot).
+  Preview error: message under the button, retry by tapping again. The detach dialog is never involved.
+
+**Verification.** `ExecutionBulk.test.tsx` 19 (entry/visibility, preview counts and per-wall lines, no-plan and
+ambiguity text, forward-only text, no internal identifiers, double preview/apply guards, the four nothing-to-change
+reasons, exact snapshot object sent, apply-response-based result incl. walls-with-changes count and skipped line, PL
+plurals, changed=0 after recompute, source-changed 409 without retry, generic error + retry, cancel, RU, theme tokens
+and ≥ 44 px) + `SurfaceList` entry assertion; full frontend 1300 passed; `tsc`, `vite build` PASS. Real backend
+(throwaway PostgreSQL + real API + Vite + headless Chromium with pinned Telegram theme): PL/RU × light/dark ×
+320/390/412/480 — no overflow, no clipped text, controls ≥ 44 px; scenarios on 5 walls: identical plan in a different
+order advanced correctly with duplicates independent, an already-further wall never moved backward, a triple-duplicate
+wall left its ambiguous group untouched, a wall without a plan shown as "Brak planu prac", a source change between
+preview and apply gave the 409 message with refresh and no destination write, the source stayed byte-identical, and
+a second preview with nothing left showed the informational sheet (RU dark 320). The explanation block was moved
+above the per-wall list after the screenshot review.
+
+**Owner walkthrough FIX.1 (diagnosis).** The owner's local walkthrough (RU) showed "Не удалось проверить остальные
+стены" on the bulk button. The live local backend (`plan_estimate_backend`, image built 2026-09-27 16:07 CEST, no
+source bind mount) predated 13H.5B.1 (source written 16:41–16:42): its OpenAPI listed no 13H.5B route, the container's
+`work_plans.py` had no `apply-to-room-walls-preview`, and the exact frontend request `POST …/surfaces/{source}/work-plan/
+execution/apply-to-room-walls-preview` (Bearer, no body) returned FastAPI's unknown-route `404 {"detail": "Not
+Found"}` (also in the container access log for the owner's taps). DB migration was current (`0030`). Root cause: stale
+local backend image — environment/runtime, not a code defect; no code changed. Fix: `docker compose build backend &&
+docker compose up -d backend`.
+
+After rebuilding the local backend the owner re-ran the walkthrough: PASS (3 target walls, 6 to update / 3 unchanged;
+apply advanced destinations with independent timestamps; source unchanged; source NOT_STARTED reset nothing; second
+preview 0 / 9 with no apply action).
+
+- **Status:** 13H.5B COMPLETE / OWNER ACCEPTED.
+
+### 33.12 Stage 13H.6 — final adversarial / integration verification
+
+Verify-only; no new functionality. Baseline `e702d71` (= `origin/stage-13`); every change since belongs to Stage 13H
+(backend execution model/service/rules/migration/API/guards/bulk, frontend execution/detach/bulk UI, PL/RU strings,
+tests, these docs). Alembic single head `0030_surface_work_executions`.
+
+- **Cumulative diff review** (all 21 modified + 16 new files): no unrelated change, no debug/TODO/console code, no broad
+  exception catch, removed lines are only re-indentation / replaced signatures; the one unused import is a deliberate
+  re-export. One style slip fixed (a missing blank line before `class ExecutionSnapshotItem`, no behaviour change).
+- **Contract:** every execution/detach/bulk Pydantic schema compared field-by-field (names, required, nullability,
+  enum) with the TypeScript types: identical. Deliberate difference: `SurfacePlannedWorkRead.execution` is always sent
+  but optional in TS (existing fixtures; the UI renders no badge without it).
+- **New gap tests** `tests/test_stage13h_final.py` (15): the full 3 × 3 forward-only bulk matrix plus explicit
+  NOT_STARTED rows on either side; the owner-verified 6/3 → 0/9 case; source work added or re-keyed between preview and
+  apply → 409, nothing written; Price Book, workflow templates/steps and coefficient catalog byte-identical after a
+  bulk apply; a break never blocks starting the next work. Frontend: the owner case in RU (6/3, apply, 0/9 without an
+  apply action).
+- **Automated:** backend full suite 1671 passed; frontend 1301 passed; `tsc` PASS; `vite build` PASS; PL/RU execution
+  key parity (80 keys); `git diff --check` clean.
+- **PostgreSQL migration** (scratch DB, data seeded at 0029 with the pre-13H code: plans with duplicate works,
+  waits, coefficients, a template + application history, an Estimate with a manual price override): 0029 → 0030 → 0029
+  → 0030 with all 14 affected tables byte-identical at every step; execution table empty after each upgrade; UNIQUE,
+  all status/timestamp CHECKs, `completed_at >= started_at`, PriceItem RESTRICT (history keeps its PriceItem) and plan
+  CASCADE verified; downgrade drops table and enum — 16/16.
+- **PostgreSQL concurrency** (scratch DBs, deterministic lock-holding interleavings): 13H.4 harness 15/15 (save /
+  REPLACE / apply-to-all vs an in-flight transition, reverse order, 15 × 4 overlapping apply-to-all: 0 deadlocks);
+  13H.5B harness 15/15 (source transition / source reorder / destination transition / destination edit vs bulk, 10 × 3
+  overlapping bulk + 1 transition: 0 deadlocks); 13H.6 extra 4/4 (8 simultaneous identical START → all 200, one row;
+  opposing COMPLETE vs RESET → one wins, the other WORK_EXECUTION_CONFLICT; 10 rounds of 2 bulk applies + 1 WorkPlan
+  apply-to-all → 0 deadlocks, only ok / source-changed / detach-required outcomes). Total 34/34.
+- **Real browser** (throwaway PostgreSQL + real API + Vite + headless Chromium, Telegram light/dark theme pinned):
+  execution view, editor list and both detach dialogs at PL/RU × light/dark × 320/390/412/480 — no overflow, no
+  undersized or clipped control; 13H.5 flows 13/13 (all transitions, conflict refresh, confirmed save detach,
+  confirmed apply-to-all, detached history in DB); readiness block PL/RU; template REPLACE 9/9 (dialog lists exactly
+  the started/completed works, cancel returns to the REPLACE step with nothing applied, confirm applies once, new
+  keys NOT_STARTED, history kept); bulk sheet matrix clean and scenarios 14/14 (counts, ambiguity, no-plan wall,
+  no-write preview, source-changed refresh without retry, forward-only results, duplicates, source unchanged,
+  informational zero-change sheet).
+- **Defects found:** none in behaviour. Test-script expectations corrected (not code): the bulk total after the
+  source-change scenario is 9, and a cancelled REPLACE detach returns to the REPLACE confirmation step.
+- Out of scope, unchanged: execution journal, notes, photos, progress billing, calendar/reminders, reveal execution,
+  backward bulk sync. The known app-wide Telegram palette contrast limitation is not a 13H regression.
+
+- **Status:** 13H.5B COMPLETE / OWNER ACCEPTED. 13H.6 VERIFICATION PASS.
+
+### 33.13 Stage 13H — final owner acceptance
+
+**Stage 13H — COMPLETE / OWNER ACCEPTED** (2026-09-27). 13H.1 architecture ACCEPTED; 13H.2 persistence/domain
+ACCEPTED; 13H.3 API ACCEPTED; 13H.4 locking + detach protection ACCEPTED; 13H.5 execution UI ACCEPTED; 13H.5B bulk
+execution across room walls ACCEPTED; 13H.6 final adversarial/integration verification PASS.
+
+Final verification (13H.6; only documentation changed afterwards): backend 1671 passed; frontend 1301 passed;
+TypeScript PASS; production frontend build PASS; Alembic single head `0030_surface_work_executions`; `git diff --check`
+clean; PostgreSQL migration verification 16/16; PostgreSQL concurrency verification 34/34 with 0 deadlocks;
+real-browser verification PASS; owner walkthrough PASS; bulk owner walkthrough PASS. The PostgreSQL migration and
+concurrency harnesses are scratch scripts outside the repository.
+
+**Not yet deployed** — no production verification has been performed for Stage 13H. Stage 13I not started.

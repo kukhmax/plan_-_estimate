@@ -82,4 +82,6 @@ export interface ApplyTemplateRequest {
   expected_step_ids: string[];
   expected_occurrence_keys?: string[];
   replace_confirmed?: boolean;
+  /** Stage 13H.4: exact keys returned by a detach-confirmation 409 (REPLACE). */
+  confirm_execution_detach_keys?: string[];
 }

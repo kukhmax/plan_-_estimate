@@ -51,6 +51,7 @@ from app.models.work_plan import (
     SurfacePlannedWorkCoefficientAssignment,
     SurfaceWorkPlan,
 )
+from app.models.work_execution import SurfaceWorkExecution, WorkExecutionStatus
 from app.models.workflow_template import (
     SurfaceWorkPlanTemplateApplication,
     TemplateApplicationMode,
@@ -112,9 +113,11 @@ __all__ = [
     "SurfacePlannedWork",
     "SurfacePlannedWorkCoefficientAssignment",
     "SurfaceWorkPlan",
+    "SurfaceWorkExecution",
     "SurfaceWorkPlanTemplateApplication",
     "TemplateApplicationMode",
     "User",
+    "WorkExecutionStatus",
     "WorkRecommendation",
     "WorkRecommendationRule",
     "WorkRecommendationStatus",

@@ -14,6 +14,11 @@ const DOMAIN_ERROR_PATTERNS: Array<{ pattern: RegExp; code: string }> = [
     pattern: /openings can only be attached to wall surfaces/i,
     code: 'openings_require_wall_surface',
   },
+  {
+    // Stage 13H.3: execution mutation on an archived project/room/surface (422).
+    pattern: /execution cannot change on an archived project, room or surface/i,
+    code: 'execution_archived',
+  },
 ];
 
 export function domainErrorCodeFromMessage(message: string): string | undefined {
@@ -46,16 +51,29 @@ function formatArrayMessage(detail: unknown[]): string {
   return messages.join('; ');
 }
 
-// ApiError carries a stable domain code when the backend detail is recognized.
+// ApiError carries a stable domain code when the backend detail is recognized:
+// a structured `{code, message, ...}` detail supplies it directly; a plain
+// string detail may map to one through DOMAIN_ERROR_PATTERNS. `detail` keeps
+// the raw structured payload (e.g. Stage 13H conflict data) for typed parsers.
 export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
+  readonly detail?: unknown;
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, detail?: unknown) {
     super(message);
     this.status = status;
     this.code = code;
+    this.detail = detail;
   }
+}
+
+function structuredCode(detail: unknown): string | undefined {
+  if (detail && typeof detail === 'object' && !Array.isArray(detail) && 'code' in detail) {
+    const { code } = detail as { code?: unknown };
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
 }
 
 function errorMessage(payload: unknown, status: number): string {
@@ -85,8 +103,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   if (!response.ok) {
     const payload: unknown = await response.json().catch(() => null);
     const detail = readDetail(payload);
-    const code = typeof detail === 'string' ? domainErrorCodeFromMessage(detail) : undefined;
-    throw new ApiError(errorMessage(payload, response.status), response.status, code);
+    const code = typeof detail === 'string' ? domainErrorCodeFromMessage(detail) : structuredCode(detail);
+    throw new ApiError(errorMessage(payload, response.status), response.status, code, detail);
   }
   // 204 No Content (e.g. DELETE) has no body to parse.
   if (response.status === 204) {

@@ -23,6 +23,7 @@ import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { surfaceTypeTint } from '../utils/surfaceTypeTint';
 import { formatOpeningDimension, summarizeOpenings } from '../utils/openingSummary';
 import { OpeningList } from './OpeningList';
+import { SurfaceExecutionView } from './SurfaceExecutionView';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 
 /** Header type-pill: a single neutral style legible against any card tint
@@ -100,6 +101,9 @@ export function SurfaceList({
   /** Per-card Opcje progressive disclosure — UI state only, never persisted. */
   const [expandedOptions, setExpandedOptions] = useState<Record<string, boolean>>({});
   const [activeWorkPlanSurfaceId, setActiveWorkPlanSurfaceId] = useState<string | null>(null);
+  // Stage 13H.5: Realizacja (execution) is a separate view from the plan
+  // editor; at most one of the two is open, so neither shows stale data.
+  const [activeExecutionSurfaceId, setActiveExecutionSurfaceId] = useState<string | null>(null);
   const effectiveWallMode = wallMode ?? 'RECTANGLE';
   const [generating, setGenerating] = useState(false);
   /** null = not known yet (CTA hidden until known). */
@@ -208,7 +212,18 @@ export function SurfaceList({
   };
 
   const toggleWorkPlan = (surfaceId: string) => {
+    setActiveExecutionSurfaceId(null);
     setActiveWorkPlanSurfaceId((current) => current === surfaceId ? null : surfaceId);
+  };
+
+  const toggleExecution = (surfaceId: string) => {
+    setActiveWorkPlanSurfaceId(null);
+    setActiveExecutionSurfaceId((current) => current === surfaceId ? null : surfaceId);
+  };
+
+  const openWorkPlanFromExecution = (surfaceId: string) => {
+    setActiveExecutionSurfaceId(null);
+    setActiveWorkPlanSurfaceId(surfaceId);
   };
 
   const toggleOpenings = (surfaceId: string) => {
@@ -664,13 +679,14 @@ export function SurfaceList({
       )}
       {!loading && !error && visibleSurfaces.length > 0 && (
         <ul aria-label="surfaces-list" className="space-y-3">
-          {visibleSurfaces.map((surface) => {
+          {visibleSurfaces.map((surface, _index, all) => {
             const hasDimensions = surface.width !== null && surface.width !== undefined &&
                                   surface.height !== null && surface.height !== undefined;
             const isWall = surface.surface_type === 'WALL';
             const isOpeningsOpen = !!expandedOpenings[surface.id];
             const isOptionsOpen = !!expandedOptions[surface.id];
             const isWorkPlanOpen = activeWorkPlanSurfaceId === surface.id;
+            const isExecutionOpen = activeExecutionSurfaceId === surface.id;
             const displayName = getSurfaceDisplayName(surface, surfaceDisplayLabels);
             // WALL: deterministic per-surface-id hash tint (Stage 10G.2 helper,
             // extracted/reused — every wall gets its own stable color, never
@@ -811,7 +827,36 @@ export function SurfaceList({
                         isWall={true}
                         otherActiveWallCount={activeWallCount - 1}
                         surfaceType={surface.surface_type}
+                        surfaceNames={Object.fromEntries(
+                          all.map((s) => [s.id, getSurfaceDisplayName(s, surfaceDisplayLabels)]),
+                        )}
                         onClose={() => setActiveWorkPlanSurfaceId(null)}
+                      />
+                    )}
+
+                    <button
+                      type="button"
+                      aria-label={`execution-${surface.id}`}
+                      aria-expanded={isExecutionOpen}
+                      onClick={() => toggleExecution(surface.id)}
+                      className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+                    >
+                      {t.execution.open}
+                    </button>
+
+                    {isExecutionOpen && (
+                      <SurfaceExecutionView
+                        projectId={projectId}
+                        roomId={roomId}
+                        surfaceId={surface.id}
+                        surfaceName={displayName}
+                        onClose={() => setActiveExecutionSurfaceId(null)}
+                        onOpenPlan={() => openWorkPlanFromExecution(surface.id)}
+                        isWall={true}
+                        otherActiveWallCount={activeWallCount - 1}
+                        surfaceNames={Object.fromEntries(
+                          all.map((s) => [s.id, getSurfaceDisplayName(s, surfaceDisplayLabels)]),
+                        )}
                       />
                     )}
 
@@ -941,6 +986,27 @@ export function SurfaceList({
                         surfaceName={displayName}
                         surfaceType={surface.surface_type}
                         onClose={() => setActiveWorkPlanSurfaceId(null)}
+                      />
+                    )}
+
+                    <button
+                      type="button"
+                      aria-label={`execution-${surface.id}`}
+                      aria-expanded={isExecutionOpen}
+                      onClick={() => toggleExecution(surface.id)}
+                      className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+                    >
+                      {t.execution.open}
+                    </button>
+
+                    {isExecutionOpen && (
+                      <SurfaceExecutionView
+                        projectId={projectId}
+                        roomId={roomId}
+                        surfaceId={surface.id}
+                        surfaceName={displayName}
+                        onClose={() => setActiveExecutionSurfaceId(null)}
+                        onOpenPlan={() => openWorkPlanFromExecution(surface.id)}
                       />
                     )}
 

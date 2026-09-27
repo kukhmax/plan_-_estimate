@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import attributes, selectinload
 
 from app.domain.exceptions import (
+    ExecutionDetachConfirmationRequiredError,
     PriceItemNotFoundError,
     ProjectNotFoundError,
     RoomNotFoundError,
@@ -46,6 +47,12 @@ from app.domain.exceptions import (
     WorkflowTemplateNotFoundError,
 )
 from app.domain.rules.inspection_rules import assert_quality_scale_valid
+from app.domain.rules.work_execution_rules import (
+    PROTECTED_STATUSES,
+    AffectedExecution,
+    detach_confirmation_matches,
+    execution_view,
+)
 from app.domain.services.price_coefficient_service import PriceCoefficientService
 from app.models.checklist import QualityLevel, Substrate
 from app.models.price_coefficient import CoefficientOption
@@ -53,6 +60,7 @@ from app.models.price_item import PriceCategory, PriceItem
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
+from app.models.work_execution import SurfaceWorkExecution
 from app.models.work_plan import (
     SurfacePlannedWork,
     SurfacePlannedWorkCoefficientAssignment,
@@ -111,6 +119,12 @@ def _application_fingerprint(plan_id: uuid.UUID, request: ApplyTemplateRequest) 
         # Added only when sent, so 13E.3-shaped requests keep their recorded
         # fingerprints (retries of pre-FIX.4 applications stay idempotent).
         payload["selected_step_ids"] = sorted(str(i) for i in request.selected_step_ids)
+    if request.confirm_execution_detach_keys is not None:
+        # Stage 13H.4: likewise added only when sent, so every pre-13H.4
+        # recorded fingerprint (and its idempotent retry) is unchanged.
+        payload["confirm_execution_detach_keys"] = sorted(
+            str(k) for k in request.confirm_execution_detach_keys
+        )
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -411,6 +425,86 @@ class SurfaceWorkPlanService:
                 )
             plan.planned_works.append(work)
 
+    async def _assert_execution_detach_confirmed(
+        self,
+        removed: list[tuple[uuid.UUID, SurfacePlannedWork]],
+        confirmed: list[uuid.UUID] | None,
+    ) -> None:
+        """Stage 13H.4 (D-H7) exact-set guard for a destructive mutation.
+
+        `removed` = (surface_id, work) for every CURRENT occurrence of the
+        target plan(s) the mutation would remove -- computed by occurrence_key
+        (current keys minus resulting keys), never by PriceItem, row id or
+        position -- in lock order then position. The caller MUST hold the
+        row lock of every target plan, so no execution transition can change
+        the protected set between this check and the mutation.
+
+        Protected = removed occurrences whose execution is IN_PROGRESS or
+        COMPLETED (an explicit NOT_STARTED row is not protected). The request
+        must confirm exactly that set of keys; otherwise nothing is mutated
+        and the error lists the current protected records of these plans
+        only (confirmation keys are compared, never resolved). Confirmed
+        records are not deleted: they stay as detached history.
+        """
+        confirmed_keys = set(confirmed or [])
+        keys = [work.occurrence_key for _, work in removed]
+        protected = {}
+        if keys:
+            protected = {
+                row.occurrence_key: row
+                for row in (
+                    await self.db.execute(
+                        select(SurfaceWorkExecution).where(
+                            SurfaceWorkExecution.occurrence_key.in_(keys),
+                            SurfaceWorkExecution.status.in_(PROTECTED_STATUSES),
+                        )
+                    )
+                ).scalars().all()
+            }
+        if detach_confirmation_matches(set(protected), confirmed_keys):
+            return
+        affected_works = [(sid, w) for sid, w in removed if w.occurrence_key in protected]
+        item_ids = {w.price_item_id for _, w in affected_works}
+        items = (
+            {
+                item.id: item
+                for item in (
+                    await self.db.execute(select(PriceItem).where(PriceItem.id.in_(item_ids)))
+                ).scalars().all()
+            }
+            if item_ids
+            else {}
+        )
+        affected = [
+            AffectedExecution(
+                surface_id=surface_id,
+                occurrence_key=work.occurrence_key,
+                position=work.position,
+                status=protected[work.occurrence_key].status,
+                price_item_id=work.price_item_id,
+                price_item_code=items[work.price_item_id].code,
+                price_item_name_key=items[work.price_item_id].name_key,
+                price_item_display_name=items[work.price_item_id].display_name,
+            )
+            for surface_id, work in affected_works
+        ]
+        raise ExecutionDetachConfirmationRequiredError(
+            f"this change would detach {len(affected)} started or completed work(s) from "
+            "the current work plan; confirm exactly these occurrence keys to proceed "
+            "(their execution history is kept)",
+            affected,
+        )
+
+    @staticmethod
+    def _removed_occurrences(
+        plan: SurfaceWorkPlan, resulting_keys: set[uuid.UUID]
+    ) -> list[tuple[uuid.UUID, SurfacePlannedWork]]:
+        return [
+            (plan.surface_id, work)
+            for work in sorted(plan.planned_works, key=lambda w: w.position)
+            if work.occurrence_key not in resulting_keys
+        ]
+
     async def lock_plan(self, surface_id: uuid.UUID) -> SurfaceWorkPlan | None:
         """Acquire a row-level exclusive lock on the surface's plan, if any.
 
@@ -493,7 +587,35 @@ class SurfaceWorkPlanService:
             )
             .execution_options(populate_existing=True)
         )
-        return (await self.db.execute(stmt)).scalar_one_or_none()
+        plan = (await self.db.execute(stmt)).scalar_one_or_none()
+        if plan is not None:
+            await self._attach_executions(plan)
+        return plan
+
+    async def _attach_executions(self, plan: SurfaceWorkPlan) -> None:
+        """Attach each CURRENT occurrence's read-only execution view as
+        `work.execution` (Stage 13H.3), so every plan response carries it.
+        Absent row = NOT_STARTED; nothing is created. Detached records are
+        never reached (only current keys are queried). Execution is never
+        part of the save payload, so a WorkPlan save cannot write it."""
+        works = list(plan.planned_works)
+        keys = [w.occurrence_key for w in works]
+        rows = (
+            (
+                await self.db.execute(
+                    select(SurfaceWorkExecution)
+                    .where(SurfaceWorkExecution.occurrence_key.in_(keys))
+                    .execution_options(populate_existing=True)
+                )
+            ).scalars().all()
+            if keys
+            else []
+        )
+        by_key = {row.occurrence_key: row for row in rows}
+        for work in works:
+            work.execution = execution_view(
+                work.occurrence_key, by_key.get(work.occurrence_key), work.wait_after_hours
+            )
 
     async def get_work_plan(
         self,
@@ -517,12 +639,18 @@ class SurfaceWorkPlanService:
         quality_target: QualityLevel | None = None,
         planned_works: list[OrderedPriceItemSelection] | None = None,
         template_applications: list[TemplateApplicationIntent] | None = None,
+        confirm_execution_detach_keys: list[uuid.UUID] | None = None,
     ) -> SurfaceWorkPlan:
         """Create or fully replace the surface's plan in one atomic commit.
 
         Optional template-application intents (Stage 13C) are validated with
         everything else before any mutation and recorded in the same commit,
         so provenance exists only if the plan save itself succeeds.
+
+        Stage 13H.4: the plan row is locked before the current occurrences are
+        read, and removing an IN_PROGRESS/COMPLETED occurrence requires the
+        exact `confirm_execution_detach_keys` set. A save that keeps every
+        key (reorder, waits, quality/substrate, coefficients) never needs it.
 
         Setting a plan is an explicit owner action: the substrate and quality
         target are validated together (S/Q scale compatibility reuses the
@@ -534,6 +662,7 @@ class SurfaceWorkPlanService:
         assert_quality_scale_valid(substrate, quality_target)
 
         selection = planned_works or []
+        await self.lock_plan(surface_id)  # 13H.4: same lock as execution transitions
         plan = await self._fetch_plan(surface_id)
         existing_counts = (
             Counter(work.price_item_id for work in plan.planned_works)
@@ -547,6 +676,11 @@ class SurfaceWorkPlanService:
         applications = await self._resolve_template_applications(
             owner_id, plan, selection, template_applications or []
         )
+        if plan is not None:
+            resulting = {row.occurrence_key for row in selection if row.occurrence_key}
+            await self._assert_execution_detach_confirmed(
+                self._removed_occurrences(plan, resulting), confirm_execution_detach_keys
+            )
 
         if plan is None:
             plan = SurfaceWorkPlan(
@@ -573,6 +707,7 @@ class SurfaceWorkPlanService:
         owner_id: uuid.UUID,
         *,
         planned_works: list[OrderedPriceItemSelection],
+        confirm_execution_detach_keys: list[uuid.UUID] | None = None,
     ) -> SurfaceWorkPlan:
         """Replace only the works of an existing plan (substrate/quality kept).
 
@@ -580,6 +715,7 @@ class SurfaceWorkPlanService:
         establish the plan configuration first, then order its works.
         """
         await self._ensure_surface_owned(project_id, room_id, surface_id, owner_id)
+        await self.lock_plan(surface_id)  # 13H.4
         plan = await self._fetch_plan(surface_id)
         if plan is None:
             raise SurfaceWorkPlanNotFoundError(
@@ -593,6 +729,10 @@ class SurfaceWorkPlanService:
             owner_id, planned_works, existing_counts
         )
         self._validate_occurrence_keys(plan, planned_works)
+        resulting = {row.occurrence_key for row in planned_works if row.occurrence_key}
+        await self._assert_execution_detach_confirmed(
+            self._removed_occurrences(plan, resulting), confirm_execution_detach_keys
+        )
         await self._rewrite_works(plan, validated)
         await self.db.commit()
         return await self._fetch_plan(surface_id)
@@ -616,9 +756,14 @@ class SurfaceWorkPlanService:
         nothing. Never touches an Estimate.
 
         APPEND adds the selected steps after the current occurrences without
-        rewriting them. REPLACE removes every current occurrence (their
+        rewriting them (never needs an execution-detach confirmation; a
+        non-empty one is an exact-set mismatch). REPLACE removes every current occurrence (their
         coefficient assignments cascade) and materializes the selected steps
-        at positions 0..N-1; old occurrence keys are never reused.
+        at positions 0..N-1; old occurrence keys are never reused. A REPLACE
+        over IN_PROGRESS/COMPLETED occurrences needs the exact
+        `confirm_execution_detach_keys` set (Stage 13H.4); their execution
+        records stay as detached history. The recorded-application check runs
+        first, so a retry of a successful application stays idempotent.
         """
         surface = await self._ensure_surface_owned(project_id, room_id, surface_id, owner_id)
         plan = await self.lock_plan(surface_id)
@@ -760,6 +905,12 @@ class SurfaceWorkPlanService:
                 raise TemplateApplicationStaleError(
                     "the work plan changed since it was confirmed for replacement; reload it"
                 )
+            # 13H.4: REPLACE removes every current occurrence (under the lock
+            # taken above); nothing is recorded if this raises.
+            await self._assert_execution_detach_confirmed(
+                [(plan.surface_id, w) for w in current],
+                request.confirm_execution_detach_keys,
+            )
             await self._rewrite_works(
                 plan,
                 [
@@ -773,6 +924,10 @@ class SurfaceWorkPlanService:
                 ],
             )
         else:
+            # APPEND removes nothing: only an empty/omitted confirmation matches.
+            await self._assert_execution_detach_confirmed(
+                [], request.confirm_execution_detach_keys
+            )
             next_position = (max((w.position for w in current), default=-1)) + 1
             for offset, step in enumerate(chosen):
                 self.db.add(
@@ -807,6 +962,7 @@ class SurfaceWorkPlanService:
         room_id: uuid.UUID,
         source_surface_id: uuid.UUID,
         owner_id: uuid.UUID,
+        confirm_execution_detach_keys: list[uuid.UUID] | None = None,
     ) -> list[SurfaceWorkPlan]:
         """Atomically copy a source wall's planning configuration to every
         other active WALL surface in the same room (Stage 10B.2 / 12D).
@@ -826,6 +982,15 @@ class SurfaceWorkPlanService:
         batch commits together or not at all — every source-side validation
         runs before any mutation, so a failed apply cannot leave half the
         room updated.
+
+        Stage 13H.4: every existing target plan row is locked in ascending
+        plan id order (deadlock-free against other multi-plan applies; every
+        other path locks a single plan) before its occurrences are read.
+        Replacing target occurrences that are IN_PROGRESS/COMPLETED requires
+        `confirm_execution_detach_keys` to equal exactly those keys across
+        ALL target walls (keys are globally unique, so one flat set is
+        unambiguous); their records stay as detached history. Source
+        execution is never copied: every target occurrence gets a new key.
         """
         source = await self._ensure_surface_owned(
             project_id, room_id, source_surface_id, owner_id
@@ -895,9 +1060,34 @@ class SurfaceWorkPlanService:
             )
         ).scalars().all()
 
+        # 13H.4: lock existing target plans in ascending id order, then read
+        # them fresh and check the execution-detach confirmation across all
+        # targets before anything is mutated.
+        target_ids = [t.id for t in targets]
+        existing_plan_ids = sorted(
+            (
+                await self.db.execute(
+                    select(SurfaceWorkPlan.id).where(SurfaceWorkPlan.surface_id.in_(target_ids))
+                )
+            ).scalars().all()
+        ) if target_ids else []
+        for plan_id in existing_plan_ids:
+            await self.db.execute(
+                select(SurfaceWorkPlan.id).where(SurfaceWorkPlan.id == plan_id).with_for_update()
+            )
+        fetched = {target.id: await self._fetch_plan(target.id) for target in targets}
+        removed = [
+            entry
+            for plan in sorted(
+                (p for p in fetched.values() if p is not None), key=lambda p: p.id
+            )
+            for entry in self._removed_occurrences(plan, set())
+        ]
+        await self._assert_execution_detach_confirmed(removed, confirm_execution_detach_keys)
+
         target_plans: list[SurfaceWorkPlan] = []
         for target in targets:
-            target_plan = await self._fetch_plan(target.id)
+            target_plan = fetched[target.id]
             if target_plan is None:
                 target_plan = SurfaceWorkPlan(
                     surface_id=target.id,

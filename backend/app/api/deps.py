@@ -20,6 +20,7 @@ from app.domain.services.project_service import ProjectService
 from app.domain.services.risk_service import RiskService
 from app.domain.services.room_service import RoomService
 from app.domain.services.surface_service import SurfaceService
+from app.domain.services.work_execution_service import SurfaceWorkExecutionService
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.domain.services.work_recommendation_service import WorkRecommendationService
 from app.domain.services.workflow_template_service import WorkflowTemplateService
@@ -144,6 +145,12 @@ async def get_work_plan_service(
     db: AsyncSession = Depends(get_db),
 ) -> SurfaceWorkPlanService:
     return SurfaceWorkPlanService(db)
+
+
+async def get_work_execution_service(
+    db: AsyncSession = Depends(get_db),
+) -> SurfaceWorkExecutionService:
+    return SurfaceWorkExecutionService(db)
 
 
 async def get_workflow_template_service(

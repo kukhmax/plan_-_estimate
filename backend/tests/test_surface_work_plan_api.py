@@ -1250,4 +1250,12 @@ def test_work_plan_route_family_registered():
         # Stage 13E.3: server-side technological template application.
         "/api/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}"
         "/work-plan/apply-template",
+        # Stage 13H.3: dedicated execution transition of one occurrence.
+        "/api/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}"
+        "/work-plan/occurrences/{occurrence_key}/execution",
+        # Stage 13H.5B: bulk execution progress across the room's walls.
+        "/api/projects/{project_id}/rooms/{room_id}/surfaces/{source_surface_id}"
+        "/work-plan/execution/apply-to-room-walls-preview",
+        "/api/projects/{project_id}/rooms/{room_id}/surfaces/{source_surface_id}"
+        "/work-plan/execution/apply-to-room-walls",
     }

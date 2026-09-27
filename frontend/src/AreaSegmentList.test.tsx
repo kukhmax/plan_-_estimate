@@ -739,3 +739,24 @@ describe('AreaSegmentList plane inspection in Opcje (13F-PRE)', () => {
     expect(screen.getByLabelText('inspect-ceiling')).toHaveTextContent(/потолка/);
   });
 });
+
+describe('Realizacja entry on floor/ceiling planes (Stage 13H.5)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(canonicalPlanes);
+  });
+
+  it('each plane has its own Realizacja bound to the canonical Surface.id, exclusive with the editor', async () => {
+    renderAreaSegments();
+    const floor = await screen.findByLabelText(`execution-${floorSurfaceId}`);
+    expect(screen.getByLabelText(`execution-${ceilingSurfaceId}`)).toHaveTextContent('Realizacja');
+    fireEvent.click(floor);
+    expect(await screen.findByLabelText(`execution-view-${floorSurfaceId}`)).toBeInTheDocument();
+    expect(await screen.findByLabelText(`execution-empty-${floorSurfaceId}`)).toHaveTextContent('nie zawiera jeszcze żadnych prac');
+    fireEvent.click(screen.getByLabelText(`work-plan-${floorSurfaceId}`));
+    expect(await screen.findByLabelText(`work-plan-editor-${floorSurfaceId}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`execution-view-${floorSurfaceId}`)).not.toBeInTheDocument();
+  });
+});

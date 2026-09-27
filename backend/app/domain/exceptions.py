@@ -203,3 +203,44 @@ class WorkflowTemplateValidationError(Exception):
 class WorkflowTemplateStaleError(Exception):
     """Raised (409) when a step replacement's expected_step_ids no longer match
     the template's current ordered step ids (Stage 13F.2, D-F2)."""
+
+
+class WorkExecutionConflictError(Exception):
+    """Raised (409) when an execution transition no longer matches the
+    occurrence's current execution state (Stage 13H, D-H17/D-H18): the
+    caller's expected_status is stale, or the requested transition is not
+    allowed from the current status. Carries the current status."""
+
+    def __init__(self, message: str, current_status: object) -> None:
+        super().__init__(message)
+        self.current_status = current_status
+
+
+class WorkExecutionValidationError(Exception):
+    """Raised (422) when an execution transition is refused by a domain rule,
+    e.g. the surface, room or project is archived (Stage 13H, D-H19)."""
+
+
+class ExecutionDetachConfirmationRequiredError(Exception):
+    """Raised (409) when a destructive WorkPlan mutation would detach
+    IN_PROGRESS/COMPLETED execution history from the current plan and the
+    request's `confirm_execution_detach_keys` is not exactly that set
+    (Stage 13H.4, D-H7). `affected` lists the CURRENT protected records of
+    the caller's own target plan(s). Distinct from WorkExecutionConflictError
+    (an execution status transition conflict). Nothing is deleted: detached
+    records stay stored as history."""
+
+    def __init__(self, message: str, affected: list) -> None:
+        super().__init__(message)
+        self.affected = affected
+
+
+class WorkExecutionSourceChangedError(Exception):
+    """Raised (409) when a bulk execution apply's `expected_source` (the exact
+    ordered snapshot of the source wall's current occurrence keys and
+    statuses) no longer matches the locked source plan (Stage 13H.5B,
+    BULK-H7). Carries the current snapshot of the caller's own source wall."""
+
+    def __init__(self, message: str, current_source: list) -> None:
+        super().__init__(message)
+        self.current_source = current_source

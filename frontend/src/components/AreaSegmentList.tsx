@@ -18,6 +18,7 @@ import { SurfaceType } from '../types/surface';
 import { formatMetric } from '../utils/format';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { surfaceTypeTint } from '../utils/surfaceTypeTint';
+import { SurfaceExecutionView } from './SurfaceExecutionView';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 
 interface AreaSegmentListProps {
@@ -89,6 +90,8 @@ export function AreaSegmentList({
   /** Per-plane Opcje progressive disclosure — UI state only, FLOOR independent of CEILING. */
   const [expandedOptions, setExpandedOptions] = useState<Partial<Record<AreaPlane, boolean>>>({});
   const [activeWorkPlanPlane, setActiveWorkPlanPlane] = useState<AreaPlane | null>(null);
+  // Stage 13H.5: Realizacja is separate from the plan editor (one open at a time).
+  const [activeExecutionPlane, setActiveExecutionPlane] = useState<AreaPlane | null>(null);
   /** Canonical plane Surface (Stage 10C.1A) resolved from the room's surface rows. */
   const [planeSurfaces, setPlaneSurfaces] = useState<Record<AreaPlane, SurfaceType | null>>({
     FLOOR: null,
@@ -241,7 +244,13 @@ export function AreaSegmentList({
   };
 
   const toggleWorkPlan = (plane: AreaPlane) => {
+    setActiveExecutionPlane(null);
     setActiveWorkPlanPlane((current) => current === plane ? null : plane);
+  };
+
+  const toggleExecution = (plane: AreaPlane) => {
+    setActiveWorkPlanPlane(null);
+    setActiveExecutionPlane((current) => current === plane ? null : plane);
   };
 
   const renderPlaneSection = (plane: AreaPlane) => {
@@ -261,6 +270,7 @@ export function AreaSegmentList({
       ? getSurfaceDisplayName(planeSurface, surfaceDisplayLabels)
       : planeLabel(plane);
     const isWorkPlanOpen = activeWorkPlanPlane === plane;
+    const isExecutionOpen = activeExecutionPlane === plane;
     const tint = surfaceTypeTint(plane);
 
     return (
@@ -331,6 +341,30 @@ export function AreaSegmentList({
                 surfaceName={displayName}
                 surfaceType={planeSurface?.surface_type}
                 onClose={() => setActiveWorkPlanPlane(null)}
+              />
+            )}
+
+            <button
+              type="button"
+              aria-label={`execution-${planeSurfaceId}`}
+              aria-expanded={isExecutionOpen}
+              onClick={() => toggleExecution(plane)}
+              className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+            >
+              {t.execution.open}
+            </button>
+
+            {isExecutionOpen && (
+              <SurfaceExecutionView
+                projectId={projectId}
+                roomId={roomId}
+                surfaceId={planeSurfaceId}
+                surfaceName={displayName}
+                onClose={() => setActiveExecutionPlane(null)}
+                onOpenPlan={() => {
+                  setActiveExecutionPlane(null);
+                  setActiveWorkPlanPlane(plane);
+                }}
               />
             )}
           </>

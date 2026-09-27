@@ -5,10 +5,11 @@ import {
   fetchCompatibleTemplates,
   fetchWorkflowTemplate,
 } from '../api/workflowTemplates';
+import { parseExecutionDetachConfirmation } from '../api/workPlans';
 import { useI18n } from '../hooks/useI18n';
 import { QualityLevelValue, SubstrateValue } from '../types/checklist';
 import { SurfaceTypeValue } from '../types/surface';
-import { SurfacePriceItemSummaryRead, SurfaceWorkPlanRead } from '../types/workPlan';
+import { ExecutionDetachAffected, SurfacePriceItemSummaryRead, SurfaceWorkPlanRead } from '../types/workPlan';
 import {
   ApplyTemplateRequest,
   TemplateApplicationMode,
@@ -17,6 +18,7 @@ import {
 import { localizeApiError } from '../utils/apiErrors';
 import { resolveKey } from '../utils/i18nKeys';
 import { templateDescription, templateStepNote } from '../utils/workflowTemplateText';
+import { ExecutionDetachDialog } from './ExecutionDetachDialog';
 
 /**
  * Stage 13E.4 — technological workflow picker / preview / apply sheet.
@@ -54,6 +56,10 @@ type ApplyError =
 interface Attempt {
   applicationId: string;
   signature: string;
+  /** Stage 13H.5: exact keys the owner confirmed from a detach 409. Bound to
+   * this attempt (same application_id); a semantic change starts a new
+   * attempt without them, and they are never part of the signature. */
+  confirmKeys?: string[];
 }
 
 function newApplicationId(): string {
@@ -89,6 +95,7 @@ export function WorkflowTemplateApplySheet({
   const [applying, setApplying] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<ApplyError | null>(null);
+  const [detach, setDetach] = useState<{ affected: ExecutionDetachAffected[]; repeated: boolean } | null>(null);
   // One logical Apply command keeps its application_id across transport
   // retries; any semantic change produces a new id on the next Apply.
   const attempt = useRef<Attempt | null>(null);
@@ -248,7 +255,11 @@ export function WorkflowTemplateApplySheet({
     if (!attempt.current || attempt.current.signature !== signature) {
       attempt.current = { applicationId: newApplicationId(), signature };
     }
-    return { application_id: attempt.current.applicationId, ...semantic };
+    return {
+      application_id: attempt.current.applicationId,
+      ...semantic,
+      ...(attempt.current.confirmKeys ? { confirm_execution_detach_keys: attempt.current.confirmKeys } : {}),
+    };
   };
 
   const submit = async () => {
@@ -262,8 +273,17 @@ export function WorkflowTemplateApplySheet({
     try {
       const plan = await applyTemplateToWorkPlan(projectId, roomId, surfaceId, request);
       attempt.current = null;
+      setDetach(null);
       onApplied(plan);
     } catch (err) {
+      const affected = parseExecutionDetachConfirmation(err);
+      if (affected) {
+        // REPLACE would detach started/completed works: ask the owner. The
+        // attempt (and its application_id) is kept for the confirmed retry.
+        setDetach({ affected, repeated: request.confirm_execution_detach_keys !== undefined });
+        return;
+      }
+      setDetach(null);
       const kind = classifyApplyTemplateError(err);
       if (kind === 'transport') {
         setError({ kind: 'transport' }); // same id on retry
@@ -285,6 +305,18 @@ export function WorkflowTemplateApplySheet({
       inFlight.current = false;
       setApplying(false);
     }
+  };
+
+  const confirmDetach = () => {
+    if (!detach || !attempt.current) return;
+    attempt.current = { ...attempt.current, confirmKeys: detach.affected.map((a) => a.occurrence_key) };
+    void submit();
+  };
+
+  const cancelDetach = () => {
+    // Nothing is retried; a later Apply asks again (no silent confirmation).
+    if (attempt.current) attempt.current = { ...attempt.current, confirmKeys: undefined };
+    setDetach(null);
   };
 
   const handleApplyClick = () => {
@@ -748,6 +780,16 @@ export function WorkflowTemplateApplySheet({
           </div>
         )}
       </div>
+      {detach && (
+        <ExecutionDetachDialog
+          affected={detach.affected}
+          repeated={detach.repeated}
+          busy={applying}
+          onConfirm={confirmDetach}
+          onCancel={cancelDetach}
+          idSuffix={`template-${surfaceId}`}
+        />
+      )}
     </div>
   );
 }

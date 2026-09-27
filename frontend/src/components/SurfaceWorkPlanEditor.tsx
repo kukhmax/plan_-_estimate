@@ -5,13 +5,16 @@ import {
   fetchSurfaceWorkPlan,
   isStaleWorkPlanError,
   isSurfaceWorkPlanMissing,
+  parseExecutionDetachConfirmation,
   putSurfaceWorkPlan,
 } from '../api/workPlans';
 import { useI18n } from '../hooks/useI18n';
 import { QualityLevelValue, SubstrateValue } from '../types/checklist';
 import { PriceItem } from '../types/priceItem';
 import {
+  ExecutionDetachAffected,
   PlannedWorkCoefficientOptionRead,
+  PlannedWorkExecutionRead,
   SurfacePlannedWorkRead,
   SurfacePriceItemSummaryRead,
   SurfaceWorkPlanRead,
@@ -27,6 +30,8 @@ import {
 } from '../utils/coefficientCalculations';
 import { formatWaitHours, parseWaitInput } from '../utils/waitFormat';
 import { CoefficientAssignmentModal } from './CoefficientAssignmentModal';
+import { ExecutionDetachDialog } from './ExecutionDetachDialog';
+import { ExecutionStatusBadge } from './ExecutionStatusBadge';
 import { PriceItemForm } from './PriceItemForm';
 import { WorkflowTemplateApplySheet } from './WorkflowTemplateApplySheet';
 import { SurfaceTypeValue } from '../types/surface';
@@ -42,12 +47,22 @@ interface SurfaceWorkPlanEditorProps {
   otherActiveWallCount?: number;
   /** Surface type, used to find compatible technological workflows (13E.4). */
   surfaceType?: SurfaceTypeValue;
+  /** Display names of the room's surfaces by id, to identify apply-to-all
+   * targets in an execution-detach confirmation (Stage 13H.5). */
+  surfaceNames?: Record<string, string>;
   onClose: () => void;
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
 type PickerState = 'closed' | 'loading' | 'ready' | 'error';
 type ApplyState = 'idle' | 'confirming' | 'applying' | 'success' | 'error';
+
+/** Stage 13H.5: a destructive request refused with the 409 execution-detach
+ * contract, waiting for the owner. The ORIGINAL request is kept verbatim and
+ * retried with exactly the server's keys -- never rebuilt or recomputed. */
+type DetachPrompt =
+  | { kind: 'save'; payload: SurfaceWorkPlanUpsert; affected: ExecutionDetachAffected[]; repeated: boolean }
+  | { kind: 'apply'; affected: ExecutionDetachAffected[]; repeated: boolean };
 
 interface WorkPlanBaseline {
   substrate: SubstrateValue | '';
@@ -79,6 +94,9 @@ interface DraftOccurrence {
   summary: SurfacePriceItemSummaryRead | null;
   /** Currently assigned coefficient options (draft-local, not yet persisted). */
   coefficientOptions: PlannedWorkCoefficientOptionRead[];
+  /** Stage 13H.5: server execution state of a SAVED occurrence (read-only,
+   * never sent back); null for a row added in this draft. */
+  execution: PlannedWorkExecutionRead | null;
 }
 
 const SUBSTRATES: readonly SubstrateValue[] = [
@@ -125,6 +143,7 @@ function workToDraft(work: SurfacePlannedWorkRead): DraftOccurrence {
     priceItemId: work.price_item_id,
     summary: work.price_item,
     coefficientOptions: work.coefficient_options ?? [],
+    execution: work.execution ?? null,
   };
 }
 
@@ -136,6 +155,7 @@ export function SurfaceWorkPlanEditor({
   isWall = false,
   otherActiveWallCount = 0,
   surfaceType,
+  surfaceNames,
   onClose,
 }: SurfaceWorkPlanEditorProps) {
   const { t, locale } = useI18n();
@@ -170,6 +190,7 @@ export function SurfaceWorkPlanEditor({
   const [applyState, setApplyState] = useState<ApplyState>('idle');
   const [applyError, setApplyError] = useState<string | null>(null);
   const [appliedCount, setAppliedCount] = useState<number | null>(null);
+  const [detachPrompt, setDetachPrompt] = useState<DetachPrompt | null>(null);
 
   // Price Book picker state
   const [pickerState, setPickerState] = useState<PickerState>('closed');
@@ -296,46 +317,59 @@ export function SurfaceWorkPlanEditor({
     setSaved(false);
   };
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (loadState !== 'ready' || !substrate || !dirty || saving || invalidWait) return;
-
+  /** Sends one save; a detach-confirmation 409 opens the dialog with this
+   * exact payload (repeated = it was already a confirmed retry). */
+  const performSave = async (payload: SurfaceWorkPlanUpsert, repeated: boolean) => {
     setSaving(true);
     setSaveError(null);
     setStaleSave(false);
     setTemplateApplied(false);
     setSaved(false);
     try {
-      // Stage 13E.2C: every ordinary save uses planned_works[] and carries each
-      // occurrence's identity and configuration -- an existing occurrence
-      // echoes its server occurrence_key (same logical work, so Estimate
-      // overrides survive the row recreation); a new one omits it and the
-      // server generates one. Breaks and coefficients are sent verbatim.
-      const payload: SurfaceWorkPlanUpsert = {
-        substrate,
-        quality_target: qualityTarget,
-        planned_works: draftOccurrences.map((o) => ({
-          price_item_id: o.priceItemId,
-          ...(o.occurrenceKey !== null ? { occurrence_key: o.occurrenceKey } : {}),
-          wait_after_hours: parseWaitInput(o.waitInput) as number | null,
-          coefficient_option_ids: o.coefficientOptions.map((c) => c.id),
-        })),
-      };
       const plan = await putSurfaceWorkPlan(projectId, roomId, surfaceId, payload);
+      setDetachPrompt(null);
       // Re-hydrate from the server so new rows now carry their server keys.
       hydrate(plan);
       setSaved(true);
     } catch (error) {
-      if (isStaleWorkPlanError(error)) {
+      const affected = parseExecutionDetachConfirmation(error);
+      if (affected) {
+        const { confirm_execution_detach_keys: _previous, ...original } = payload;
+        setDetachPrompt({ kind: 'save', payload: original, affected, repeated });
+      } else if (isStaleWorkPlanError(error)) {
+        setDetachPrompt(null);
         // Never retry without keys and never turn rows into new work: the
         // owner reloads the current plan first.
         setStaleSave(true);
       } else {
+        setDetachPrompt(null);
         setSaveError(describeError(error, t.work_plan.error_save));
       }
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (loadState !== 'ready' || !substrate || !dirty || saving || invalidWait) return;
+
+    // Stage 13E.2C: every ordinary save uses planned_works[] and carries each
+    // occurrence's identity and configuration -- an existing occurrence
+    // echoes its server occurrence_key (same logical work, so Estimate
+    // overrides survive the row recreation); a new one omits it and the
+    // server generates one. Breaks and coefficients are sent verbatim.
+    const payload: SurfaceWorkPlanUpsert = {
+      substrate,
+      quality_target: qualityTarget,
+      planned_works: draftOccurrences.map((o) => ({
+        price_item_id: o.priceItemId,
+        ...(o.occurrenceKey !== null ? { occurrence_key: o.occurrenceKey } : {}),
+        wait_after_hours: parseWaitInput(o.waitInput) as number | null,
+        coefficient_option_ids: o.coefficientOptions.map((c) => c.id),
+      })),
+    };
+    await performSave(payload, false);
   };
 
   const occurrenceDisplayName = (summary: SurfacePriceItemSummaryRead | null): string => {
@@ -405,6 +439,7 @@ export function SurfaceWorkPlanEditor({
         quality_level: item.quality_level,
       },
       coefficientOptions: [],
+      execution: null,
     };
     setDraftOccurrences((prev) => [...prev, occurrence]);
     setSaveError(null);
@@ -500,17 +535,44 @@ export function SurfaceWorkPlanEditor({
   // Apply to all walls
   // ---------------------------------------------------------------------------
 
-  const handleApplyToAllWalls = async () => {
+  const handleApplyToAllWalls = async (confirmKeys?: string[]) => {
     setApplyState('applying');
     setApplyError(null);
     try {
-      const result = await applyWorkPlanToRoomWalls(projectId, roomId, surfaceId);
+      const result = confirmKeys
+        ? await applyWorkPlanToRoomWalls(projectId, roomId, surfaceId, confirmKeys)
+        : await applyWorkPlanToRoomWalls(projectId, roomId, surfaceId);
+      setDetachPrompt(null);
       setAppliedCount(result.target_count);
       setApplyState('success');
     } catch (error) {
+      const affected = parseExecutionDetachConfirmation(error);
+      if (affected) {
+        // Target walls hold started/completed works: one flat confirmation.
+        setDetachPrompt({ kind: 'apply', affected, repeated: confirmKeys !== undefined });
+        setApplyState('confirming');
+        return;
+      }
+      setDetachPrompt(null);
       setApplyError(describeError(error, t.work_plan.apply_error));
       setApplyState('error');
     }
+  };
+
+  const confirmDetach = () => {
+    if (!detachPrompt) return;
+    const keys = detachPrompt.affected.map((a) => a.occurrence_key);
+    if (detachPrompt.kind === 'save') {
+      void performSave({ ...detachPrompt.payload, confirm_execution_detach_keys: keys }, true);
+    } else {
+      void handleApplyToAllWalls(keys);
+    }
+  };
+
+  const cancelDetach = () => {
+    // Nothing is retried; the draft (and any unsaved change) stays as it was.
+    if (detachPrompt?.kind === 'apply') setApplyState('idle');
+    setDetachPrompt(null);
   };
 
   const handleApplyCancel = () => {
@@ -667,6 +729,22 @@ export function SurfaceWorkPlanEditor({
                             <span aria-hidden="true" className="text-[var(--tg-theme-hint-color)]">{index + 1}. </span>
                             {occurrenceDisplayName(item)}
                           </span>
+                          {/* Stage 13H.5: read-only; execution changes only in Realizacja. */}
+                          {occurrence.execution ? (
+                            <div className="mt-0.5">
+                              <ExecutionStatusBadge
+                                status={occurrence.execution.status}
+                                ariaLabel={`occurrence-execution-${occurrence.draftKey}`}
+                              />
+                            </div>
+                          ) : occurrence.occurrenceKey === null ? (
+                            <p
+                              aria-label={`occurrence-unsaved-${occurrence.draftKey}`}
+                              className="mt-0.5 text-xs text-[var(--tg-theme-hint-color)] break-words"
+                            >
+                              {t.execution.not_saved}
+                            </p>
+                          ) : null}
                           {coefSummary && (
                             <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
                               <span
@@ -933,6 +1011,7 @@ export function SurfaceWorkPlanEditor({
                       type="button"
                       aria-label={`apply-confirm-yes-${surfaceId}`}
                       onClick={() => void handleApplyToAllWalls()}
+                      disabled={detachPrompt !== null}
                       className="flex-1 min-h-11 px-3 rounded-xl bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] font-semibold text-sm"
                     >
                       {t.work_plan.apply_confirm_yes}
@@ -1133,6 +1212,19 @@ export function SurfaceWorkPlanEditor({
           {t.common.close}
         </button>
         </>
+      )}
+
+      {detachPrompt && (
+        <ExecutionDetachDialog
+          affected={detachPrompt.affected}
+          repeated={detachPrompt.repeated}
+          surfaceNames={surfaceNames}
+          showSurface={detachPrompt.kind === 'apply'}
+          busy={saving || applyState === 'applying'}
+          onConfirm={confirmDetach}
+          onCancel={cancelDetach}
+          idSuffix={surfaceId}
+        />
       )}
 
       {/* Coefficient assignment modal — position:fixed, rendered as sibling of content */}

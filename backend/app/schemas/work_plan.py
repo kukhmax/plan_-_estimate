@@ -11,11 +11,21 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.checklist import QualityLevel, Substrate
 from app.models.price_item import PriceCategory, PriceScope, PriceUnit
+from app.models.work_execution import WorkExecutionStatus
 from app.models.workflow_template import TemplateApplicationMode
+
+
+def _unique_detach_keys(keys: list[uuid.UUID] | None) -> list[uuid.UUID] | None:
+    """`confirm_execution_detach_keys` is a set (Stage 13H.4): a key listed
+    twice is rejected (422) rather than silently collapsed; order is
+    irrelevant to the server."""
+    if keys is not None and len(set(keys)) != len(keys):
+        raise ValueError("confirm_execution_detach_keys must not contain duplicates")
+    return keys
 
 
 class OrderedPriceItemSelection(BaseModel):
@@ -85,6 +95,45 @@ class PlannedWorkCoefficientOptionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PlannedWorkExecutionRead(BaseModel):
+    """Read-only execution state of one CURRENT occurrence (Stage 13H.3).
+
+    No execution row serializes as NOT_STARTED with null timestamps.
+    Timestamps are when the state was recorded in the application (server
+    UTC), not proof of the physical moment. `ready_after` is derived on read
+    (COMPLETED + a break: completed_at + current wait_after_hours), never
+    stored. Never accepted in any write payload.
+    """
+
+    status: WorkExecutionStatus
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    ready_after: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SurfaceWorkExecutionRead(PlannedWorkExecutionRead):
+    """Response of the dedicated execution endpoint: the addressed
+    occurrence's execution state."""
+
+    occurrence_key: uuid.UUID
+
+
+class SurfaceWorkExecutionTransition(BaseModel):
+    """PATCH body of the dedicated execution endpoint (Stage 13H.3).
+
+    Only the target status and the status the client last saw
+    (`expected_status`, optimistic concurrency) -- timestamps and ready_after
+    are always server-derived and cannot be sent.
+    """
+
+    status: WorkExecutionStatus
+    expected_status: WorkExecutionStatus
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class SurfacePlannedWorkRead(BaseModel):
     id: uuid.UUID
     work_plan_id: uuid.UUID
@@ -96,6 +145,8 @@ class SurfacePlannedWorkRead(BaseModel):
     coefficient_options: list[PlannedWorkCoefficientOptionRead] = Field(
         default_factory=list
     )
+    # Stage 13H.3: read-only; attached by the WorkPlan read path.
+    execution: PlannedWorkExecutionRead
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -165,8 +216,14 @@ class ApplyTemplateRequest(BaseModel):
     expected_step_ids: list[uuid.UUID]
     expected_occurrence_keys: list[uuid.UUID] | None = None
     replace_confirmed: bool = False
+    # Stage 13H.4: exact set of IN_PROGRESS/COMPLETED occurrence keys the
+    # owner confirmed detaching (REPLACE). None = not sent (kept out of the
+    # idempotency fingerprint, so older requests keep their fingerprints).
+    confirm_execution_detach_keys: list[uuid.UUID] | None = None
 
     model_config = ConfigDict(extra="forbid")
+
+    _unique_confirm = field_validator("confirm_execution_detach_keys")(_unique_detach_keys)
 
 
 class TemplateApplicationRead(BaseModel):
@@ -203,8 +260,13 @@ class SurfaceWorkPlanUpsert(BaseModel):
     planned_works: list[OrderedPriceItemSelection] | None = None
     # Stage 13C: optional provenance of template applications in this save.
     template_applications: list[TemplateApplicationIntent] = Field(default_factory=list)
+    # Stage 13H.4: exact set of IN_PROGRESS/COMPLETED occurrence keys this
+    # save may detach (removed from the plan; history kept). Empty = none.
+    confirm_execution_detach_keys: list[uuid.UUID] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
+
+    _unique_confirm = field_validator("confirm_execution_detach_keys")(_unique_detach_keys)
 
     @model_validator(mode="after")
     def _check_exclusive_selection(self) -> "SurfaceWorkPlanUpsert":
@@ -228,6 +290,36 @@ class SurfaceWorkPlanRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ApplyToRoomWallsRequest(BaseModel):
+    """Optional body of apply-to-room-walls (Stage 13H.4). Omitted body =
+    no confirmation. One flat set across all target walls: occurrence keys
+    are globally unique, so a key identifies its wall unambiguously."""
+
+    confirm_execution_detach_keys: list[uuid.UUID] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    _unique_confirm = field_validator("confirm_execution_detach_keys")(_unique_detach_keys)
+
+
+class ExecutionDetachAffectedRead(BaseModel):
+    """One entry of the 409 WORK_EXECUTION_DETACH_CONFIRMATION_REQUIRED
+    `affected` list (Stage 13H.4): enough to render the confirmation (which
+    wall, which numbered work, its PriceItem label and status) without the
+    client reconstructing it from a possibly stale plan."""
+
+    surface_id: uuid.UUID
+    occurrence_key: uuid.UUID
+    position: int
+    status: WorkExecutionStatus
+    price_item_id: uuid.UUID
+    price_item_code: str
+    price_item_name_key: str | None = None
+    price_item_display_name: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SurfaceWorkPlanApplyResult(BaseModel):
     """Compact apply-to-room-walls response (Stage 10B.2).
 
@@ -239,3 +331,61 @@ class SurfaceWorkPlanApplyResult(BaseModel):
     target_count: int
     target_surface_ids: list[uuid.UUID] = Field(default_factory=list)
     targets: list[SurfaceWorkPlanRead] = Field(default_factory=list)
+
+
+class ExecutionSnapshotItem(BaseModel):
+    """One entry of the exact ordered source snapshot (Stage 13H.5B)."""
+
+    occurrence_key: uuid.UUID
+    status: WorkExecutionStatus
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class BulkExecutionApplyRequest(BaseModel):
+    """Apply body: the EXACT ordered snapshot of ALL current source
+    occurrences (NOT_STARTED included) as returned by the preview. Any key,
+    order, count or status difference at apply time is a 409."""
+
+    expected_source: list[ExecutionSnapshotItem]
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("expected_source")
+    @classmethod
+    def _unique_keys(cls, items: list[ExecutionSnapshotItem]) -> list[ExecutionSnapshotItem]:
+        keys = [i.occurrence_key for i in items]
+        if len(set(keys)) != len(keys):
+            raise ValueError("expected_source must not repeat an occurrence_key")
+        return items
+
+
+class BulkExecutionWallRead(BaseModel):
+    """Per target wall (occurrence counts, one bucket per source occurrence:
+    changed + unchanged + unmatched + ambiguous == source occurrences)."""
+
+    surface_id: uuid.UUID
+    has_plan: bool
+    changed: int
+    unchanged: int
+    unmatched: int
+    ambiguous: int
+    unmatched_price_item_ids: list[uuid.UUID] = Field(default_factory=list)
+    ambiguous_price_item_ids: list[uuid.UUID] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BulkExecutionResultRead(BaseModel):
+    """Preview (`applied` false: what would happen now) and apply (`applied`
+    true: what happened) share this shape; totals are sums over `walls`.
+    `expected_source` is the canonical snapshot to send back on apply."""
+
+    source_surface_id: uuid.UUID
+    applied: bool
+    expected_source: list[ExecutionSnapshotItem]
+    changed: int
+    unchanged: int
+    unmatched: int
+    ambiguous: int
+    walls: list[BulkExecutionWallRead]

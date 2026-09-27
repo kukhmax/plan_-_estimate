@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from './api/http';
 import * as openingsApi from './api/openings';
 import * as surfacesApi from './api/surfaces';
 import * as workPlansApi from './api/workPlans';
@@ -1322,5 +1323,57 @@ describe('SurfaceList — opening summary on the wall card (13E.5B)', () => {
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     await waitFor(() => expect(openingsApi.fetchOpenings).toHaveBeenCalled());
     expect(screen.queryByLabelText(`openings-summary-${surface.id}`)).not.toBeInTheDocument();
+  });
+});
+
+describe('Realizacja entry (Stage 13H.5)', () => {
+  const measuredWall = (): SurfaceType => ({ ...surface, width: 5, height: 2.7, gross_area: '13.500', deduction_area: '0.000', net_area: '13.500' });
+
+  it('opens the execution view separately from the plan editor; only one is open at a time', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue({
+      id: 'plan-1', surface_id: surface.id, substrate: 'CONCRETE', quality_target: 'S2', template_applications: [],
+      planned_works: [{
+        id: 'row-1', work_plan_id: 'plan-1', price_item_id: 'p1', position: 0, occurrence_key: 'key-1', wait_after_hours: null,
+        price_item: { id: 'p1', code: 'P1', name_key: null, display_name: 'Gładź', category: 'SKIM_COAT', unit: 'M2',
+          price_scope: 'LABOR', price: null, currency: 'PLN', is_archived: false, quality_level: null },
+        coefficient_options: [],
+        execution: { status: 'IN_PROGRESS', started_at: '2026-09-27T08:00:00Z', completed_at: null, ready_after: null },
+      }],
+    });
+    renderSurfaces();
+
+    const execution = await screen.findByLabelText(`execution-${surface.id}`);
+    expect(execution).toHaveTextContent('Realizacja');
+    expect(execution).toHaveClass('min-h-11');
+    fireEvent.click(execution);
+    expect(await screen.findByLabelText(`execution-view-${surface.id}`)).toBeInTheDocument();
+    expect(await screen.findByLabelText('execution-status-key-1')).toHaveTextContent('W trakcie');
+    // a room with a single wall has no one to carry statuses to
+    expect(screen.queryByLabelText(`execution-bulk-open-${surface.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`work-plan-editor-${surface.id}`)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(`work-plan-${surface.id}`));
+    expect(await screen.findByLabelText(`work-plan-editor-${surface.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`execution-view-${surface.id}`)).not.toBeInTheDocument();
+    // the editor shows only the read-only badge
+    expect(await screen.findByLabelText(/^occurrence-execution-/)).toHaveTextContent('W trakcie');
+    expect(screen.queryByLabelText('execution-complete-key-1')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(`execution-${surface.id}`));
+    expect(await screen.findByLabelText(`execution-view-${surface.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`work-plan-editor-${surface.id}`)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(`close-execution-${surface.id}`));
+    expect(screen.queryByLabelText(`execution-view-${surface.id}`)).not.toBeInTheDocument();
+  });
+
+  it('the empty state leads to the plan editor', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWall()], total: 1 });
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(new ApiError('Surface work plan not found', 404));
+    renderSurfaces();
+    fireEvent.click(await screen.findByLabelText(`execution-${surface.id}`));
+    fireEvent.click(await screen.findByLabelText(`execution-open-plan-${surface.id}`));
+    expect(await screen.findByLabelText(`work-plan-editor-${surface.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`execution-view-${surface.id}`)).not.toBeInTheDocument();
   });
 });
