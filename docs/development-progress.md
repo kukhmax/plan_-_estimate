@@ -39,7 +39,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B.1–14B.3 complete; 14B.4 implemented + verified, awaiting commit approval) | no Stage 14 runtime deployed; uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B.1–14B.5 complete; 14B.6 next) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); media disabled, uploads OFF, R2 connectivity not tested | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -53,14 +53,11 @@ not claim the stage is absent from production (later stages were deployed on top
 ### Current position
 
 - **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — IN PROGRESS.
-- **Last completed sub-stage**: 14B.3 — MediaStorage + image-processing foundation (COMPLETE / OWNER ACCEPTED,
-  2026-09-28; ARM64 benchmark on production hardware PASS; library code only, not deployed).
-- **Current**: 14B.4 — `photo_assets` persistence + read-only integrity tooling + production config templates +
-  media backup/restore runbook DRAFT — IMPLEMENTED / VERIFIED (automated suite + owner-run scratch PostgreSQL 16
-  up/down/up and constraint probes PASS, 2026-09-28) / AWAITING OWNER COMMIT APPROVAL (uncommitted; nothing deployed;
-  production DB still `0030_surface_work_executions`).
-- **Next**: owner approval of the 14B.4 commit; then 14B.5 (verification + production deploy with uploads off), only
-  with explicit owner approval.
+- **Last completed sub-stage**: 14B.5 — production deployment with uploads off (COMPLETE / OWNER VERIFIED,
+  2026-09-28): runtime `e57e037`, DB `0031_photo_assets` (`photo_assets` empty), media storage disabled, uploads OFF,
+  no R2 credentials in the application, R2 connectivity **not** tested (14B plan §25).
+- **Next**: 14B.6 — R2 Connectivity & Credential Readiness (credential injection + controlled smoke test, uploads stay
+  off; 14B plan §26). Starts only with explicit owner approval.
 
 ---
 
@@ -68,15 +65,15 @@ not claim the stage is absent from production (later stages were deployed on top
 
 | Item | Value |
 | :--- | :--- |
-| Accepted production runtime commit | `7b5aaf0b782e99df9e96fa63873892dd88631cad` (Stage 13) |
-| Production database head | `0030_surface_work_executions` |
-| Stage 13 | PRODUCTION VERIFIED / OWNER ACCEPTED (13J walkthrough A–L PASS) |
-| Stage 14 runtime | **none deployed** — no Stage 14 code, migration or dependency in production (14B.3 library code is committed on `stage-14` only) |
-| External media infrastructure | Cloudflare R2 production bucket exists (14B.2, owner-created); **no** plan-estimate media runtime deployed; R2 credentials **not** in the production application environment |
+| Accepted production runtime commit | `e57e037d42815fa5e837e7629d0cb3d74c53ad76` (Stage 14B.4 foundation; deployed in 14B.5, owner verified 2026-09-28) |
+| Production database head | `0031_photo_assets` (`photo_assets` empty) |
+| Previous baseline | Stage 13 runtime `7b5aaf0` / DB `0030_surface_work_executions` (PRODUCTION VERIFIED, 13J); rollback image `plan-estimate-backend:rollback-pre-14b5` and backup `db-pre-14b5-0030-20260928T143642Z.sql.gz` kept on the server |
+| Stage 14 runtime | 14B foundation only: media config, storage/image-processing library, `photo_assets` schema, read-only integrity tool. **No** upload endpoint, parser, attachment model or UI |
+| Media storage | `MEDIA_STORAGE_BACKEND=disabled`; Cloudflare R2 production bucket exists (14B.2), but R2 credentials are **not** in the production application environment and **R2 connectivity has NOT been tested** (14B.6) |
 | Production photo uploads | **OFF** (not implemented; `PHOTO_UPLOADS_ENABLED` stays `false` until the 14D gate + explicit owner approval) |
 
-Documentation-only commits after `7b5aaf0` (13I/13J closure, 14A, 14B.1, 14B.2) do not change application runtime and
-require no production deployment.
+Documentation-only commits (e.g. 13I/13J closure, 14A, 14B.1, 14B.2, and this 14B.5 record) do not change application
+runtime and require no production deployment.
 
 ---
 
@@ -115,8 +112,9 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14B.1 | Infrastructure audit / implementation plan (R1–R9) | COMPLETE / OWNER ACCEPTED (2026-09-28) |
 | └ 14B.2 | Manual Cloudflare R2 setup (owner-performed) | COMPLETE / OWNER ACCEPTED (2026-09-28) |
 | └ 14B.3 | boto3 + Pillow, config/validation, temp sweep, `MediaStorage` port + S3/in-memory/disabled adapters, key scheme, image pipeline, tests, ARM64 benchmark | COMPLETE / OWNER ACCEPTED (2026-09-28; ARM64 peak 541.8 MB / 1.295 s at 60 MP; 14B plan §23) |
-| └ 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | IMPLEMENTED / VERIFIED — migration `0031_photo_assets`; owner-run scratch PostgreSQL 16 PASS; awaiting commit approval (14B plan §24) |
-| └ 14B.5 | Verification + commit; production deploy with uploads **off** | NOT STARTED |
+| └ 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | COMPLETE / OWNER ACCEPTED (commit `e57e037`; scratch PostgreSQL 16 PASS; 14B plan §24) |
+| └ 14B.5 | Verification + commit; production deploy with uploads **off** | COMPLETE / OWNER VERIFIED (2026-09-28; runtime `e57e037`, DB `0031_photo_assets`, media disabled, uploads off; 14B plan §25) |
+| └ 14B.6 | R2 Connectivity & Credential Readiness: owner injects existing R2 credentials; controlled smoke test (PUT/HEAD/GET/presigned GET, private/unsigned denial, write-once conflict); uploads stay off; no upload endpoint; no Oracle backup (14D) | NOT STARTED (14B plan §26) |
 | 14B.H | HEIC/HEIF technical spike (enabling HEIC only after owner approval) | NOT STARTED / DEFERRED |
 | 14C | Media API & security (upload state machine, list/attach/metadata/archive, presigned thumb/display URLs, quota policy; flag off in production) | NOT STARTED |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |

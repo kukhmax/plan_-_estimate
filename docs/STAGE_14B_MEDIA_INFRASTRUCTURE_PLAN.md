@@ -6,9 +6,11 @@
   Cloudflare or Oracle change.
 - **Status**: **Stage 14B.1 — COMPLETE / OWNER ACCEPTED** (2026-09-28). **Stage 14B.2 — COMPLETE / OWNER ACCEPTED**
   (2026-09-28; manual R2 setup recorded in §22). **Stage 14B.3 — COMPLETE / OWNER ACCEPTED** (2026-09-28; record
-  in §23; ARM64 benchmark and final defaults in §23.12–§23.13). **Stage 14B.4 — IMPLEMENTED / VERIFIED (automated + owner-run PostgreSQL 16 PASS) / AWAITING OWNER COMMIT APPROVAL**
-  (2026-09-28; uncommitted; PostgreSQL 16 result in §24.8). 14B.1 and 14B.2 create **no runtime functionality**; 14B.3 adds library code only
-  (no endpoint, no DB, no deployment).
+  in §23; ARM64 benchmark and final defaults in §23.12–§23.13). **Stage 14B.4 — COMPLETE / OWNER ACCEPTED**
+  (2026-09-28; commit `e57e037`; PostgreSQL 16 result in §24.8). **Stage 14B.5 — COMPLETE / OWNER VERIFIED** (2026-09-28;
+  production runtime `e57e037`, DB `0031_photo_assets`, media disabled, uploads off; §25). **Stage 14B.6 — NOT STARTED**
+  (R2 connectivity & credential readiness, §26). 14B.1 and 14B.2 create **no runtime functionality**; 14B.3 adds library
+  code only (no endpoint, no DB, no deployment).
 - **Revision 2 (2026-09-28)**: owner review applied — R1, R2, R4–R9 **OWNER APPROVED** (R1 with correction); R3 open at that revision
   (multipart vs raw body, §6); decimal quota bytes; EU jurisdiction; age-based temp cleanup; original immutability;
   memory figures are estimates + benchmark requirement; Caddy defence in depth; cache policy separated from signed-URL
@@ -474,8 +476,9 @@ quality (80), exact Caddy multipart-overhead allowance, Cache-Control / delivery
 | 14B.1 | this audit/plan | code | no | owner review | **COMPLETE / OWNER ACCEPTED** |
 | 14B.2 | owner creates EU-jurisdiction R2 prod/dev buckets + tokens (§13); dev smoke | code, production env | no | smoke results recorded (no secrets) | **COMPLETE / OWNER ACCEPTED** — production bucket + token only; connectivity smoke moved after 14B.3 (§22) |
 | 14B.3 | boto3 + Pillow (pinned; `python-multipart` only when the upload route is built in 14C) + config/validation + lifespan age-based temp sweep + `MediaStorage` port/S3/in-memory/disabled + key scheme + image pipeline + tests + **ARM64 benchmark (§5.3)** | endpoints, DB, Caddy | no | §15 tests, full regressions, dev-bucket smoke, benchmark recorded | **COMPLETE / OWNER ACCEPTED** — ARM64 benchmark recorded (§23.12); R2 connectivity smoke **not yet performed** (after secret injection, §22.4) |
-| 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | upload API, state-machine endpoint, Caddy | **yes** (`photo_assets`) | PG upgrade/downgrade/upgrade on scratch DB; command tests | **IMPLEMENTED / VERIFIED** — owner-run scratch PostgreSQL 16 up/down/up PASS (§24.8); awaiting commit approval |
-| 14B.5 | verification + commit; production deploy with uploads **off** | enabling uploads | — | health OK, app unchanged | owner-approved deploy |
+| 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | upload API, state-machine endpoint, Caddy | **yes** (`photo_assets`) | PG upgrade/downgrade/upgrade on scratch DB; command tests | **COMPLETE / OWNER ACCEPTED** — commit `e57e037`; owner-run scratch PostgreSQL 16 up/down/up PASS (§24.8) |
+| 14B.5 | verification + commit; production deploy with uploads **off** | enabling uploads | — | health OK, app unchanged | **COMPLETE / OWNER VERIFIED** — production `e57e037` / DB `0031_photo_assets`, media disabled, uploads off (§25) |
+| 14B.6 | R2 connectivity & credential readiness: owner injects the existing production R2 credentials; controlled smoke test of PUT/HEAD/GET/presigned GET, private/unsigned denial, write-once conflict; uploads stay off (§26) | upload endpoint, user uploads, Oracle backup/restore (14D) | no | smoke results recorded without secrets | **NOT STARTED** — owner approval required |
 | 14B.H | HEIC spike | enabling HEIC | no | measured results | owner approval |
 
 The upload state-machine logic and endpoints, the multipart upload route with its guards (R3), the Caddy limit and the cache policy stay in
@@ -557,6 +560,8 @@ configuration (`MEDIA_S3_ENDPOINT_URL`, §11) later.
 3. Only after 14B.3 passes owner review: add the required **non-secret** config names to the production templates;
    the owner manually injects the real credentials into the server's `.env.production`; `PHOTO_UPLOADS_ENABLED`
    stays `false`; the explicit R2 connectivity smoke test is performed and its results recorded without secrets.
+   *(Clarified 2026-09-28: the template part was delivered in 14B.4; credential injection and the smoke test are
+   Stage **14B.6**, §26.)*
 
 This prevents unused production secrets from being installed before the application can validate and use them.
 
@@ -781,8 +786,9 @@ application runtime is deployed.
 ## 24. Stage 14B.4 — PhotoAsset persistence, integrity tooling, production templates (implementation record)
 
 - **Date**: 2026-09-28
-- **Status**: **IMPLEMENTED / VERIFIED (automated + owner-run PostgreSQL 16 PASS) / AWAITING OWNER COMMIT APPROVAL** — uncommitted, not deployed. The owner-run scratch PostgreSQL 16
-  verification PASSED (§24.8). R2 connectivity is not verified and backup / restore is **not** ready (that gate is 14D).
+- **Status**: **COMPLETE / OWNER ACCEPTED** — committed and pushed as `e57e037`; deployed to production in 14B.5 (§25).
+  The owner-run scratch PostgreSQL 16 verification PASSED (§24.8). R2 connectivity is not verified (14B.6) and backup /
+  restore is **not** ready (that gate is 14D).
 - **Owner decisions (schema reconciliation)**: `project_id` kept per 14A §15.1; `id` = client upload UUID (no separate
   `upload_id` column); `display_byte_size` + `thumbnail_byte_size` added; `captured_at` is TIMESTAMP WITHOUT TIME ZONE;
   `storage_backend` renamed to `storage_name` (logical store). The 14A §15.1 note records the same clarification.
@@ -924,6 +930,79 @@ Temporary standalone `postgres:16-alpine` container on its own network with tmpf
 production credentials, compose project, volume or network; migration code transferred as a tarball (never via a
 production deployment); executed manually by the owner, never by Claude. Results in §24.8.
 
+---
+
+## 25. Stage 14B.5 — production deployment with uploads off (owner-verified record)
+
+- **Date**: 2026-09-28
+- **Status**: **COMPLETE / OWNER VERIFIED.** Deployed manually by the owner following the 14B.5 readiness audit
+  (runbook §69b order: backup → fast-forward → build → owner stop → recreate backend only).
+- **Deployed**: `e57e037d42815fa5e837e7629d0cb3d74c53ad76` (`feat(stage-14): add photo asset persistence and integrity
+  tooling`), backend only. Frontend unchanged since `7b5aaf0`, so the frontend, Caddy and Postgres containers were not
+  recreated.
+
+### 25.1 Pre-deployment safety
+
+| Check | Result |
+|---|---|
+| Backend / PostgreSQL / public `/api/health` | healthy / healthy / `{"status":"ok"}` |
+| Database revision | `0030_surface_work_executions` |
+| `.env.production` media entries | none (`MEDIA_*` / `PHOTO_*` absent) |
+| Production working tree | clean |
+| Rollback state | previous head `7b5aaf0b782e99df9e96fa63873892dd88631cad`; previous backend image `sha256:4ca75f47452991bdc6f764bdb44ba8ae5476872d706557bf21285efff1273753`, tagged `plan-estimate-backend:rollback-pre-14b5` |
+| Database backup | `db-pre-14b5-0030-20260928T143642Z.sql.gz` in `~/backups/plan-estimate/`: non-empty, gzip integrity PASS, contains `0030_surface_work_executions`; SHA256 `543fa2b5c36e7fd2f3c8142499ed5d17a2d626132c4325325a14764bad10ff7e` (saved and recalculated values match) |
+
+### 25.2 Deployment and verification
+
+| Check | Result |
+|---|---|
+| Migration | entrypoint applied `0030_surface_work_executions → 0031_photo_assets` before uvicorn started |
+| Alembic | current `0031_photo_assets (head)`; heads `0031_photo_assets (head)`; `alembic_version` = `0031_photo_assets` |
+| `photo_assets` rows | 0 |
+| Health | internal and public `{"status":"ok"}`; backend healthy; PostgreSQL healthy |
+| Unchanged containers | frontend and Caddy not recreated; PostgreSQL not recreated (`StartedAt` unchanged: `2026-09-14T14:12:48.587182093Z`) |
+| Media configuration | `MEDIA_STORAGE_BACKEND=disabled`, `PHOTO_UPLOADS_ENABLED=False`, `MEDIA_STORAGE_NAME=r2-primary`; endpoint / bucket / access key id / secret all **not set** |
+| Upload safety | no photo/media/upload routes; image check `multipart: None None` (no upload parser) |
+| Integrity tool | `python scripts/media_integrity_check.py` → "cannot run: MEDIA_STORAGE_BACKEND=disabled. Storage state is unknown (not assumed empty)", exit 2 (expected safe behaviour) |
+| Images | running = latest backend image `sha256:454e3b2f5673b90fb9be28cf5146c9841c90ccb4689c2969fd406815ae540dfe`; rollback image `sha256:4ca75f47…3753` retained |
+| Git | production checkout `e57e037d42815fa5e837e7629d0cb3d74c53ad76`, clean |
+| Telegram Menu Button | intentionally **not** changed (backend-only deployment, frontend unchanged; no cache-busting needed) |
+
+### 25.3 State after 14B.5
+
+- Production runtime `e57e037`, database `0031_photo_assets` (empty `photo_assets` table).
+- Media storage **disabled**; photo uploads **OFF**; no upload endpoint or parser exists.
+- No R2 credential configured or used; **R2 connectivity NOT tested**; no media object created.
+- Backup / restore readiness is **not** claimed (14D).
+- Rollback note (from the readiness audit): the previous image cannot start against 0031 (its entrypoint's
+  `alembic upgrade head` fails on the unknown revision), so an application rollback requires
+  `alembic downgrade 0030_surface_work_executions` with the current image first (safe while `photo_assets` is empty),
+  then the `rollback-pre-14b5` image.
+
+---
+
+## 26. Stage 14B.6 — R2 Connectivity & Credential Readiness (roadmap clarification, NOT STARTED)
+
+**Why a numbered sub-stage:** §22.4 step 3 (credential injection + explicit R2 connectivity smoke test, uploads kept
+off) and the smoke test named in 14A §19 / the §19 14B.3 row were approved but never assigned to a numbered
+sub-stage; 14B.5 deliberately excluded them. 14B.6 assigns them within Stage 14B. It does not renumber or reorder any
+existing sub-stage and does not change 14C–14K. Defined by the owner on 2026-09-28; starts only with explicit owner
+approval.
+
+**Scope:**
+- the owner manually injects the already-created production R2 credentials (14B.2 §22.2) into the server's
+  `.env.production` — never into Git, docs, tests or chat;
+- `PHOTO_UPLOADS_ENABLED` stays `false`;
+- storage is switched/tested only under an explicitly controlled smoke-test procedure;
+- verify the media storage contract against the real bucket: authenticated PUT / HEAD / GET (download) and presigned
+  GET;
+- verify unsigned/private access remains denied (and an expired presigned URL is denied);
+- verify write-once conflict behaviour (conditional PUT / `MediaObjectConflict`, §23.3);
+- results recorded without secrets.
+
+**Explicit non-scope:** no application upload endpoint, no user photo uploads, no Oracle Object Storage backup or
+restore (those remain **14D**: independent Oracle backup, restore drill, media-readiness gate).
+
 - **Status:** Stage 14B.1 — COMPLETE / OWNER ACCEPTED. Stage 14B.2 — COMPLETE / OWNER ACCEPTED. Stage 14B.3 —
-  COMPLETE / OWNER ACCEPTED. Stage 14B.4 — IMPLEMENTED / VERIFIED, AWAITING OWNER COMMIT APPROVAL (§24). Stage 14B — IN PROGRESS.
-  Stage 14 — IN PROGRESS.
+  COMPLETE / OWNER ACCEPTED. Stage 14B.4 — COMPLETE / OWNER ACCEPTED (§24). Stage 14B.5 — COMPLETE / OWNER VERIFIED
+  (§25). Stage 14B.6 — NOT STARTED (§26). Stage 14B — IN PROGRESS. Stage 14 — IN PROGRESS.
