@@ -150,7 +150,7 @@ Comparison that informed the decision ("verify" items are confirmed during 14B, 
 | Versioning / lifecycle for backup | verify current support | object versioning + replication/lifecycle (verify) |
 | Egress to the Oracle VM / to phones | no egress fees on R2 (verify current pricing) | intra-region/Always-Free terms (verify) |
 | Operational fit | already named in the runbook for off-server DB backups; separate provider = off-site by construction | same cloud as the VM; must still plan an off-site copy |
-| Secrets | access key + secret (new env secrets) | customer secret keys for S3 compat (new env secrets) |
+| Credentials | Access Key ID (identifier, operationally sensitive — visible in presigned URLs) + Secret Access Key (secret) via env; see 14B plan §11 | Customer Secret Key pair for S3 compat (key ID = identifier, secret = secret) via env |
 
 Both fit the adapter; the choice is an owner decision after verifying price, versioning, presigned URLs and region.
 

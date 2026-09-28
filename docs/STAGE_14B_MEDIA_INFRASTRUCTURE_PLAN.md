@@ -5,8 +5,9 @@
 - **Sub-stage**: 14B.1 — **audit + implementation plan only**. No runtime code, migration, dependency, Docker, `.env`,
   Cloudflare or Oracle change.
 - **Status**: **Stage 14B.1 — COMPLETE / OWNER ACCEPTED** (2026-09-28). **Stage 14B.2 — COMPLETE / OWNER ACCEPTED**
-  (2026-09-28; manual R2 setup recorded in §22). Stage 14B.3 — **NOT STARTED**; it starts only with explicit owner
-  approval. 14B.1 and 14B.2 create **no runtime functionality**.
+  (2026-09-28; manual R2 setup recorded in §22). **Stage 14B.3 — COMPLETE / OWNER ACCEPTED** (2026-09-28; record
+  in §23; ARM64 benchmark and final defaults in §23.12–§23.13). 14B.1 and 14B.2 create **no runtime functionality**; 14B.3 adds library code only
+  (no endpoint, no DB, no deployment).
 - **Revision 2 (2026-09-28)**: owner review applied — R1, R2, R4–R9 **OWNER APPROVED** (R1 with correction); R3 open at that revision
   (multipart vs raw body, §6); decimal quota bytes; EU jurisdiction; age-based temp cleanup; original immutability;
   memory figures are estimates + benchmark requirement; Caddy defence in depth; cache policy separated from signed-URL
@@ -251,6 +252,7 @@ Errors (adapter maps all `botocore` exceptions; nothing provider-specific escape
 | `MediaStorageMisconfigured` | 401/403, missing bucket, bad endpoint | 500 + log; no details leaked |
 | `MediaObjectNotFound` | 404 on head/download | domain decides (integrity: "missing object") |
 | `MediaStorageDisabled` | port used while storage disabled | feature-off response, never 500 |
+| `MediaObjectConflict` | write-once key already holds **different** content (412 on conditional PUT and the stored object does not match) — an integrity/conflict condition, never an overwrite (OWNER APPROVED, 14B.3 review) | 409-class integrity error; logged; the existing object is never overwritten |
 
 Implementations: `S3MediaStorage` (boto3), `InMemoryMediaStorage` (tests), `DisabledMediaStorage`; selected once at
 startup, injected through a FastAPI dependency (`get_media_storage`) so tests use `app.dependency_overrides`.
@@ -291,19 +293,19 @@ response-header overrides, public-cache prevention) is decided in **14C** unless
 | `MEDIA_STORAGE_BACKEND` | `disabled` | no | `disabled` \| `s3` (approved) |
 | `PHOTO_UPLOADS_ENABLED` | `false` | no | approved |
 | `MEDIA_STORAGE_NAME` | `r2-primary` | no | label stored in `photo_assets.storage_backend` |
-| `MEDIA_S3_ENDPOINT_URL` | — | no | EU jurisdiction endpoint (§13) |
+| `MEDIA_S3_ENDPOINT_URL` | — | no | EU jurisdiction endpoint (§13); **HTTPS only** (OWNER APPROVED, no HTTP escape hatch) |
 | `MEDIA_S3_BUCKET` | — | no | |
 | `MEDIA_S3_REGION` | `auto` | no | |
-| `MEDIA_S3_ACCESS_KEY_ID` | — | **yes** | |
-| `MEDIA_S3_SECRET_ACCESS_KEY` | — | **yes** | `SecretStr` |
+| `MEDIA_S3_ACCESS_KEY_ID` | — | no — **identifier**, operationally sensitive | `SecretStr` (masked in repr/logs as hygiene); not committed without reason; visible in SigV4 presigned URLs (§23.3) |
+| `MEDIA_S3_SECRET_ACCESS_KEY` | — | **yes** — the only secret credential | `SecretStr`; never logged, printed, documented or exposed |
 | `PHOTO_SIGNED_URL_TTL_SECONDS` | `300` | no | 14A-approved; validated 60–3600 |
 | `PHOTO_MAX_UPLOAD_BYTES` | **`25_000_000`** (OWNER APPROVED, decimal 25 MB) | no | canonical image bytes only |
 | `PHOTO_MAX_DECODED_PIXELS` | `60_000_000` | no | |
 | `PHOTO_STORAGE_WARNING_BYTES` | **`8_000_000_000`** | no | R6: decimal GB |
 | `PHOTO_STORAGE_SOFT_CAP_BYTES` | **`10_000_000_000`** | no | R6: decimal GB; must be ≥ warning |
 | `PHOTO_TEMP_DIR` | `<tmp>/plan-estimate-photos` | no | dedicated dir |
-| `PHOTO_TEMP_STALE_AFTER_SECONDS` | `86400` (proposed) | no | age-based cleanup (§5.1) |
-| `PHOTO_PROCESSING_WAIT_SECONDS` | `30` (PROPOSED, pending measurement) | no | only if an acquire timeout is kept |
+| `PHOTO_TEMP_STALE_AFTER_SECONDS` | `86400` (OWNER APPROVED initial default, §23.13) | no | age-based cleanup (§5.1) |
+| `PHOTO_PROCESSING_WAIT_SECONDS` | `30` (OWNER APPROVED initial default, §23.13) | no | acquire timeout for the processing slot |
 
 Quota values are exact byte counts (decimal GB, matching R2 GB-month terminology); 8 GiB/10 GiB are **not** used.
 `MEDIA_S3_*` rather than `R2_*` because the adapter is generic S3. Processing concurrency (1), derivative parameters and
@@ -458,6 +460,10 @@ operations = 1.
 `PHOTO_TEMP_STALE_AFTER_SECONDS=86400`, `PHOTO_PROCESSING_WAIT_SECONDS=30`, display JPEG quality (85), thumbnail JPEG
 quality (80), exact Caddy multipart-overhead allowance, Cache-Control / delivery caching policy (14C).
 
+> **Update (14B.3 closure, 2026-09-28):** stale age 86400 s, processing wait 30 s and JPEG qualities 85/80 are now
+> **OWNER APPROVED initial production defaults** after the ARM64 benchmark (§23.13). The Caddy multipart allowance and
+> the Cache-Control / delivery caching policy remain PROPOSED for 14C.
+
 ---
 
 ## 19. Revised 14B execution sequence (within the approved 14A boundaries)
@@ -466,7 +472,7 @@ quality (80), exact Caddy multipart-overhead allowance, Cache-Control / delivery
 |---|---|---|---|---|---|
 | 14B.1 | this audit/plan | code | no | owner review | **COMPLETE / OWNER ACCEPTED** |
 | 14B.2 | owner creates EU-jurisdiction R2 prod/dev buckets + tokens (§13); dev smoke | code, production env | no | smoke results recorded (no secrets) | **COMPLETE / OWNER ACCEPTED** — production bucket + token only; connectivity smoke moved after 14B.3 (§22) |
-| 14B.3 | boto3 + Pillow (pinned; `python-multipart` only when the upload route is built in 14C) + config/validation + lifespan age-based temp sweep + `MediaStorage` port/S3/in-memory/disabled + key scheme + image pipeline + tests + **ARM64 benchmark (§5.3)** | endpoints, DB, Caddy | no | §15 tests, full regressions, dev-bucket smoke, benchmark recorded | dependency addition per R5 |
+| 14B.3 | boto3 + Pillow (pinned; `python-multipart` only when the upload route is built in 14C) + config/validation + lifespan age-based temp sweep + `MediaStorage` port/S3/in-memory/disabled + key scheme + image pipeline + tests + **ARM64 benchmark (§5.3)** | endpoints, DB, Caddy | no | §15 tests, full regressions, dev-bucket smoke, benchmark recorded | **COMPLETE / OWNER ACCEPTED** — ARM64 benchmark recorded (§23.12); R2 connectivity smoke **not yet performed** (after secret injection, §22.4) |
 | 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | upload API, state-machine endpoint, Caddy | **yes** (`photo_assets`) | PG upgrade/downgrade/upgrade on scratch DB; command tests | — |
 | 14B.5 | verification + commit; production deploy with uploads **off** | enabling uploads | — | health OK, app unchanged | owner-approved deploy |
 | 14B.H | HEIC spike | enabling HEIC | no | measured results | owner approval |
@@ -564,5 +570,210 @@ This prevents unused production secrets from being installed before the applicat
 | Production media objects written by plan-estimate | none |
 | Stage 14 application code deployed | none — production remains `7b5aaf0`, DB `0030_surface_work_executions` |
 
-- **Status:** Stage 14B.1 — COMPLETE / OWNER ACCEPTED. Stage 14B.2 — COMPLETE / OWNER ACCEPTED. Stage 14B.3 — NOT
-  STARTED. Stage 14B — IN PROGRESS. Stage 14 — IN PROGRESS.
+---
+
+## 23. Stage 14B.3 — MediaStorage + image-processing foundation (implementation record)
+
+- **Date**: 2026-09-28
+- **Status**: **COMPLETE / OWNER ACCEPTED** (2026-09-28) after review round 1 (§23.11), the ARM64 benchmark (§23.12)
+  and the final owner decisions (§23.13). Library code only: **not deployed**; production media, R2 connectivity and
+  photo uploads are **not** verified or enabled.
+- **Scope delivered**: library code + tests only. No endpoint, no DB model/migration, no Caddy/Docker/compose/`.env*`
+  change, no real credentials, no R2 connection.
+
+### 23.1 Files
+
+| File | Content |
+|---|---|
+| `backend/app/core/config.py` | media/photo settings (§11 names), cross-field validation, `hide_input_in_errors`, `MediaConfigurationError` |
+| `backend/app/domain/exceptions.py` | `MediaStorageError` family (+ `MediaObjectConflict`), `Photo*Error` family with stable codes, `PhotoProcessingBusyError` |
+| `backend/app/domain/services/media_storage.py` | `MediaStorage` / `MediaStorageAdmin` protocols, `ObjectInfo`, `DisabledMediaStorage`, `InMemoryMediaStorage`, key/TTL guards |
+| `backend/app/core/s3_media_storage.py` | `S3MediaStorage` (boto3), error mapping, `create_media_storage(settings)` |
+| `backend/app/domain/photos/keys.py` | the single key builder (R1) |
+| `backend/app/domain/photos/image_processing.py` | validation + derivative pipeline, `ImagePipelineConfig`, `ImageProcessor` concurrency guard |
+| `backend/app/domain/photos/temp.py` | per-operation workspace, stale sweep |
+| `backend/app/domain/photos/__init__.py` | isolated package: imports only Pillow, anyio and `app.domain.exceptions` (not `app.domain.services`, whose `__init__` eagerly loads config/database/models), so tooling can use the pipeline without application startup code |
+| `backend/scripts/photo_benchmark.py` | manual benchmark (not part of the test suite) |
+| `backend/tests/test_stage14b_*.py` | 135 focused tests (config, storage, keys, image, temp, concurrency, benchmark smoke) |
+| `backend/requirements.txt`, `backend/pyproject.toml` | `boto3>=1.40.0,<2.0.0`, `Pillow>=12.0.0,<13.0.0` |
+
+`python-multipart` is **not** added (no upload route in 14B.3). No other dependency was added. Production templates
+(`.env.production.example`, `docker-compose.prod.yml`) are **unchanged**: per §19 and §22.4 the non-secret
+placeholders are added after owner review of this foundation (14B.4).
+
+### 23.2 Configuration
+
+Names exactly as §11. `MEDIA_S3_ACCESS_KEY_ID` and `MEDIA_S3_SECRET_ACCESS_KEY` are `SecretStr`. Cross-field rules:
+`disabled` accepts missing S3 values; `s3` requires non-empty endpoint (https), bucket, region, key id and secret;
+`PHOTO_UPLOADS_ENABLED=true` requires `s3`; soft cap ≥ warning; TTL 60–3600. Cross-field failures raise
+`MediaConfigurationError`, deliberately not a `ValueError`: pydantic would otherwise wrap it into a `ValidationError`
+whose `errors()` carries the raw input, including the secret (found by a test and fixed). An invalid combination still
+fails at import/startup; with defaults the application starts unchanged.
+
+### 23.3 Storage port and S3 adapter
+
+- Port: async `put_object(key, source_path, content_type)`, `head_object(key) -> ObjectInfo | None`,
+  `presign_get(key, ttl_seconds)`, `download_to(key, path)`; tooling-only `iter_keys(prefix)`. No delete method.
+- `S3MediaStorage`: generic S3 (`endpoint_url`, `region_name`, SigV4, path-style addressing, connect 5 s / read 60 s
+  timeouts, standard retries 3, checksum calculation/validation `when_required`); boto3 client created lazily; every
+  call runs in a worker thread (`anyio.to_thread`); botocore/urllib3 exceptions mapped to
+  `MediaStorageUnavailable` / `MediaStorageMisconfigured` / `MediaObjectNotFound` with the cause suppressed (only the
+  provider code and HTTP status are kept); credentials excluded from `repr`.
+- Write-once: `IfNoneMatch="*"` on PUT. A 412 is accepted as "already stored" only if the existing object matches
+  (ETag = MD5 when MD5-shaped, else size); otherwise `MediaObjectConflict`. No head-before-put (race-prone, not a
+  guarantee). Whether R2 honours the header through boto3 is **not assumed**: it is part of the post-review smoke test;
+  `conditional_put=False` disables the guard if needed.
+- Presigned GET is local signing (no network); URLs carry `X-Amz-Expires` = requested TTL. As with any SigV4
+  presigned URL, the URL contains the Access Key **ID** in `X-Amz-Credential`. The Access Key ID is an identifier, not
+  the secret credential, so this is **not** a secret leak (OWNER APPROVED classification); the Secret Access Key is
+  never exposed. Presigned URL query strings are not logged by the adapter and must not be logged unnecessarily by
+  later callers (14C).
+
+### 23.4 Keys
+
+`build_photo_object_keys(asset_id: UUID, validated_format: PhotoFormat)` accepts only a UUIDv4 instance and the
+decoded format; no filename/MIME/label parameter exists. Output exactly as §9.
+
+### 23.5 Image pipeline
+
+`process_image_file(source, workspace, config) -> ProcessedImage`: size check (≤ 25 000 000 bytes) → bounded SHA-256
+over the exact bytes → `Image.open` restricted to JPEG/PNG/WebP (anything else, incl. HEIC/HEIF, GIF, TIFF, BMP, SVG,
+PDF, text → `PHOTO_UNSUPPORTED_FORMAT`) → header pixel check (≤ `PHOTO_MAX_DECODED_PIXELS`, edge ≤ 12 000) before
+decoding → animated PNG/WebP rejected → full decode (truncated/corrupt → `PHOTO_INVALID_IMAGE`) → EXIF orientation on
+the decoded copy → ICC → sRGB → alpha flattened on `#FFFFFF` → display (2048) and thumbnail (480) JPEG, never
+upscaled, all metadata stripped. The source file is never written. Pillow's global `MAX_IMAGE_PIXELS` is untouched;
+Pillow's `DecompressionBombError` maps to `PHOTO_TOO_MANY_PIXELS`. Phone JPEGs that Pillow reports as MPO are accepted
+as JPEG (first frame; the original stays byte-identical) — see §23.11 for the approved rationale.
+
+Returned metadata: format, extension, original content type, byte size, sha256, stored and oriented dimensions, EXIF
+orientation, `captured_at` (EXIF DateTimeOriginal, camera-local, no timezone), derivative path/dimensions/byte
+size/content type. Nothing is persisted.
+
+### 23.6 Temporary files
+
+`photo_workspace(PHOTO_TEMP_DIR)` creates a `pe-photo-*` directory (base dir 0700, must be absolute, not a symlink and
+not a filesystem root) and removes it in `finally`. `cleanup_stale_photo_temp(dir, older_than_seconds)` deletes only
+direct `pe-photo-*` entries older than the threshold, never follows symlinks (prefixed symlinks are skipped), never
+touches unprefixed entries and reports per-entry errors. It is a standalone utility, **not yet wired** to startup or
+uploads (the 14C upload flow calls it).
+
+### 23.7 Concurrency
+
+`ImageProcessor.process` holds one slot (`MAX_CONCURRENT_PROCESSING = 1`, OWNER APPROVED) across the worker-thread run
+(cancellation cannot release it early); waiting longer than `PHOTO_PROCESSING_WAIT_SECONDS` raises
+`PhotoProcessingBusyError` (`PHOTO_PROCESSING_BUSY`, retryable). No other concurrency value exists.
+
+### 23.8 Tunable defaults
+
+`PHOTO_TEMP_STALE_AFTER_SECONDS=86400` and `PHOTO_PROCESSING_WAIT_SECONDS=30` (configurable settings);
+`DEFAULT_DISPLAY_JPEG_QUALITY=85` and `DEFAULT_THUMBNAIL_JPEG_QUALITY=80` (named defaults, overridable through
+`ImagePipelineConfig`). PROPOSED during implementation, **OWNER APPROVED** as initial production defaults at closure
+(§23.13). The other §18 items (Caddy allowance, Cache-Control) remain PROPOSED for 14C.
+
+### 23.9 Benchmark
+
+`python scripts/photo_benchmark.py [--cases …] [--input FILE …] [--json] [--scale F]`: synthetic inputs are generated
+into a temp dir (no fixtures in Git); one subprocess per case; peak RSS via `/proc/self/status` VmHWM on Linux
+(`ru_maxrss` elsewhere). Development-machine run (**x86_64, 4 CPUs, Python 3.14.7, Pillow 12.3.0 — NOT
+production-equivalent**):
+
+| Case | Source | Source MB | Time s | Baseline MB | Peak MB | Display | Thumb |
+|---|---|---|---|---|---|---|---|
+| jpeg_12mp | 4000×3000 JPEG | 1.60 | 0.92 | 75 | 203 | 2048×1536, 449 KB | 480×360, 25 KB |
+| jpeg_48mp | 8000×6000 JPEG | 6.39 | 2.45 | 75 | 502 | 2048×1536, 614 KB | 480×360, 15 KB |
+| png_alpha | 4000×3000 PNG RGBA | 8.25 | 1.54 | 75 | 227 | 2048×1536, 310 KB | 480×360, 15 KB |
+| webp_12mp | 4000×3000 WebP | 0.87 | 1.20 | 78 | 300 | 2048×1536, 423 KB | 480×360, 24 KB |
+| near_60mp | 10000×5990 JPEG | 7.90 | 2.93 | 75 | 576 | 2048×1227, 509 KB | 480×288, 10 KB |
+| exif_rotated | 4000×3000 JPEG, orientation 6 | 1.60 | 0.87 | 75 | 203 | 1536×2048, 448 KB | 360×480, 25 KB |
+
+Synthetic inputs are smoother than real photos (smaller encoded sizes). The §5.3 ARM64 requirement is met by the
+production-hardware run in §23.12.
+
+### 23.10 Verification
+
+Focused tests 135/135 PASS; full backend suite PASS (final numbers in §23.13); ruff (E,F,W,B,UP) and mypy clean on the new modules (run ad hoc
+via `uvx`, not added to the project). Tests need no network (botocore `Stubber`, no moto).
+
+### 23.11 Owner review round 1 (2026-09-28)
+
+| Topic | Decision |
+|---|---|
+| `MediaObjectConflict` | **OWNER APPROVED** as a distinct error (integrity/conflict, not unavailable/misconfigured/missing/disabled); the existing object is never overwritten (§8) |
+| HTTPS-only `MEDIA_S3_ENDPOINT_URL` | **OWNER APPROVED**; no HTTP escape hatch; R2 and future OCI endpoints use HTTPS; tests mock the SDK |
+| Access Key ID | **OWNER APPROVED classification**: identifier, operationally sensitive, not a secret; appears in SigV4 presigned URLs by design. Secret Access Key handling unchanged (§11, §23.3) |
+| MPO phone JPEG | **OWNER APPROVED** compatibility path (below) |
+| Stale age 86400 s, wait 30 s, JPEG quality 85/80 | **Still PROPOSED** — awaiting the ARM64 benchmark review; not changed |
+
+**MPO compatibility path.** Many phone cameras write JPEG files with an embedded second image (depth map or preview)
+using the CIPA Multi-Picture Format; Pillow reports such files as `MPO`. The file is a standard JPEG whose first image
+is the photo. Rules: only frame 0 is validated and used for derivatives; the canonical format is `JPEG`, extension
+`.jpg`, content type `image/jpeg`; no MPO domain format exists; the canonical original stays byte-for-byte unchanged;
+derivatives are single-frame JPEGs without MPO metadata; animated PNG/WebP remain rejected. Covered by tests.
+
+**Code changes in round 1.** The three pure photo modules moved from `app/domain/services/` to the isolated package
+`app/domain/photos/` (`keys.py`, `image_processing.py`, `temp.py`), because importing anything under
+`app.domain.services` runs its `__init__`, which loads `auth_service` → config (`.env`), database engine and all ORM
+models. The benchmark was hardened for a shared production VM (§23.12). Tests added: MPO first frame, benchmark import
+isolation, sequential single-input execution, memory guard, scale envelope.
+
+### 23.12 ARM64 benchmark (owner-approved manual run — DONE 2026-09-28)
+
+Target: the existing Oracle VM (Ubuntu 24.04, ARM64, VM.Standard.A1.Flex, 1 OCPU, 6 GB), **outside** the serving
+containers. Planned as a temporary virtualenv; the owner ran it in an **isolated temporary ARM64 Docker container**
+(the approved fallback): Python 3.12.14, 1 CPU, `nice +10`, 2 GiB memory limit, network disabled. Not a deployment:
+no production container restarted or modified, no database operation, no R2 credential or connection, production
+checkout unchanged.
+
+Benchmark safety properties (verified in code and tests): parent imports only the stdlib; children import only
+Pillow, anyio and `app.domain.photos` (test asserts no `app.core`, `app.models`, `app.api`, `app.domain.services`,
+SQLAlchemy, asyncpg, boto3/botocore, httpx, FastAPI, pydantic-settings); no network; no credentials; strictly
+sequential; per case one subprocess generates the input and a second processes it; the input is deleted before the
+next case, so at most one synthetic image (≤ 60 MP, `--scale` may only shrink) exists at a time and the parent never
+holds image data; MemAvailable guard (default ≥ 1536 MB before each case, otherwise remaining cases are skipped);
+children run at `nice +10`; one `pe-photo-bench-*` temp directory, removed at the end.
+
+Results (owner-reported, aarch64; production services running throughout; MemAvailable 4965.8 MB before,
+4868.2 MB after, host `free -h` ≈ 4.9 GiB available after; **0 failures**):
+
+| Case | Source | Source bytes | Time s | Baseline MB | Peak RSS MB | Display | Thumbnail |
+|---|---|---|---|---|---|---|---|
+| jpeg_12mp | 4000×3000 JPEG | 1,602,986 | 0.456 | 29.6 | 157.3 | 2048×1536, 449,124 B | 480×360, 25,409 B |
+| jpeg_48mp | 8000×6000 JPEG | 6,395,883 | 1.115 | 26.9 | 453.5 | 2048×1536, 614,979 B | 480×360, 15,539 B |
+| png_alpha | 4000×3000 PNG RGBA | 8,248,499 | 0.717 | 27.4 | 180.6 | 2048×1536, 310,984 B | 480×360, 15,749 B |
+| webp_12mp | 4000×3000 WebP | 857,960 | 0.584 | 28.7 | 253.0 | 2048×1536, 423,798 B | 480×360, 24,884 B |
+| near_60mp | 10000×5990 JPEG | 7,907,382 | 1.295 | 26.9 | 541.8 | 2048×1227, 509,423 B | 480×288, 10,489 B |
+| exif_rotated | 4000×3000 JPEG, orientation 6 | 1,603,022 | 0.423 | 27.6 | 155.5 | 1536×2048, 449,051 B | 360×480, 25,547 B |
+
+Post-benchmark production check: all production containers running; backend healthy; postgres healthy; public
+`/api/health` → `{"status":"ok"}`; no production checkout changes.
+
+Interpretation (recorded with the owner decision): highest peak RSS **541.8 MB** and longest duration **1.295 s**, both
+for the near-60 MP JPEG. On the current 1 OCPU / 6 GB VM this supports keeping the 60 MP decoded limit, processing
+concurrency 1, the 30 s processing wait, and no worker/Celery architecture for Stage 14 v1. The benchmark measures one
+operation at a time and must **not** be extrapolated to unlimited concurrent processing: the concurrency = 1 guard
+remains required.
+
+### 23.13 Final owner decisions (14B.3 closure, 2026-09-28)
+
+**OWNER APPROVED initial production defaults** for Stage 14 (configuration values where appropriate, not permanent
+domain invariants; JPEG quality may be tuned later on real construction-site photos without a schema/domain change):
+
+| Setting / policy | Value |
+|---|---|
+| `PHOTO_MAX_UPLOAD_BYTES` | `25_000_000` |
+| `PHOTO_MAX_DECODED_PIXELS` | `60_000_000` |
+| image-processing concurrency | `1` |
+| `PHOTO_PROCESSING_WAIT_SECONDS` | `30` |
+| `PHOTO_TEMP_STALE_AFTER_SECONDS` | `86400` |
+| display longest edge | 2048 px |
+| thumbnail longest edge | 480 px |
+| display JPEG quality | 85 |
+| thumbnail JPEG quality | 80 |
+| transparency background | `#FFFFFF` |
+
+Code aligned: the "PROPOSED" markers were replaced (`DEFAULT_DISPLAY_JPEG_QUALITY` / `DEFAULT_THUMBNAIL_JPEG_QUALITY`);
+values unchanged. Not verified by 14B.3 and not claimed: production media, R2 connectivity, photo uploads. No Stage 14
+application runtime is deployed.
+
+- **Status:** Stage 14B.1 — COMPLETE / OWNER ACCEPTED. Stage 14B.2 — COMPLETE / OWNER ACCEPTED. Stage 14B.3 —
+  COMPLETE / OWNER ACCEPTED. Stage 14B.4 — NOT STARTED. Stage 14B — IN PROGRESS. Stage 14 — IN PROGRESS.

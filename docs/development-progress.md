@@ -39,7 +39,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B.1, 14B.2 complete; 14B.3 next) | no Stage 14 runtime deployed; uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B.1, 14B.2, 14B.3 complete; 14B.4 next) | no Stage 14 runtime deployed; uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -53,8 +53,11 @@ not claim the stage is absent from production (later stages were deployed on top
 ### Current position
 
 - **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — IN PROGRESS.
-- **Last completed sub-stage**: 14B.2 — Manual Cloudflare R2 setup (COMPLETE / OWNER ACCEPTED, 2026-09-28).
-- **Next**: 14B.3 — MediaStorage + image-processing foundation. Starts only with explicit owner approval.
+- **Last completed sub-stage**: 14B.3 — MediaStorage + image-processing foundation (COMPLETE / OWNER ACCEPTED,
+  2026-09-28; ARM64 benchmark on production hardware PASS; library code only, not deployed).
+- **Next**: 14B.4 — `photo_assets` migration + model + read-only integrity-check command + runbook media
+  backup/restore draft + non-secret placeholders in `.env.production.example`/compose (14B plan §19). Starts only with
+  explicit owner approval. The R2 connectivity smoke test follows the owner's secret injection (14B plan §22.4).
 
 ---
 
@@ -65,7 +68,7 @@ not claim the stage is absent from production (later stages were deployed on top
 | Accepted production runtime commit | `7b5aaf0b782e99df9e96fa63873892dd88631cad` (Stage 13) |
 | Production database head | `0030_surface_work_executions` |
 | Stage 13 | PRODUCTION VERIFIED / OWNER ACCEPTED (13J walkthrough A–L PASS) |
-| Stage 14 runtime | **none deployed** — no Stage 14 code, migration or dependency in production |
+| Stage 14 runtime | **none deployed** — no Stage 14 code, migration or dependency in production (14B.3 library code is committed on `stage-14` only) |
 | External media infrastructure | Cloudflare R2 production bucket exists (14B.2, owner-created); **no** plan-estimate media runtime deployed; R2 credentials **not** in the production application environment |
 | Production photo uploads | **OFF** (not implemented; `PHOTO_UPLOADS_ENABLED` stays `false` until the 14D gate + explicit owner approval) |
 
@@ -108,7 +111,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | 14B | Media infrastructure readiness | **IN PROGRESS** |
 | └ 14B.1 | Infrastructure audit / implementation plan (R1–R9) | COMPLETE / OWNER ACCEPTED (2026-09-28) |
 | └ 14B.2 | Manual Cloudflare R2 setup (owner-performed) | COMPLETE / OWNER ACCEPTED (2026-09-28) |
-| └ 14B.3 | boto3 + Pillow, config/validation, temp sweep, `MediaStorage` port + S3/in-memory/disabled adapters, key scheme, image pipeline, tests, ARM64 benchmark | NOT STARTED |
+| └ 14B.3 | boto3 + Pillow, config/validation, temp sweep, `MediaStorage` port + S3/in-memory/disabled adapters, key scheme, image pipeline, tests, ARM64 benchmark | COMPLETE / OWNER ACCEPTED (2026-09-28; ARM64 peak 541.8 MB / 1.295 s at 60 MP; 14B plan §23) |
 | └ 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | NOT STARTED |
 | └ 14B.5 | Verification + commit; production deploy with uploads **off** | NOT STARTED |
 | 14B.H | HEIC/HEIF technical spike (enabling HEIC only after owner approval) | NOT STARTED / DEFERRED |
@@ -156,7 +159,7 @@ Known deferred work. None of these reopens a completed stage or changes the Stag
 | Cosmetic UI polish deferred to a final UI/UX polish pass (e.g. 10C.2B picker polish) | Stage 10C.2 | DEFERRED |
 | Stage 13 known limitations: app-shell controls below 44 px; coefficient modal long-name ellipsis; theoretical archive-vs-status race; permissive frontend execution typing | Stage 13I §34 / 13J §35 | NON-BLOCKING technical debt |
 | Quality-level technical reference (Q1–Q4, S1–S4 detailed content) | Roadmap Note D | Future knowledge-base content (relates to Stage 17) |
-| Stage 14 still-PROPOSED values (temp stale age, processing wait, JPEG qualities, Caddy multipart allowance, Cache-Control policy) | 14B.1 §18 | To be decided in 14B.3 / 14C — not constants yet |
+| Stage 14 still-PROPOSED values (Caddy multipart allowance, Cache-Control / delivery caching policy) | 14B.1 §18 | To be decided in 14C (media processing defaults were OWNER APPROVED at 14B.3 closure, §23.13) |
 
 Completed and no longer backlog: Stage 5F Opening Reveals / Ościeża (committed `22afddc`, migration
 `0019_add_opening_reveals`, owner accepted 2026-09-17).

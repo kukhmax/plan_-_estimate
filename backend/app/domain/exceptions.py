@@ -244,3 +244,95 @@ class WorkExecutionSourceChangedError(Exception):
     def __init__(self, message: str, current_source: list) -> None:
         super().__init__(message)
         self.current_source = current_source
+
+
+# ---------------------------------------------------------------------------
+# Stage 14B.3 — media storage and photo processing foundation.
+# No HTTP mapping yet: the API (Stage 14C) maps these to responses.
+# ---------------------------------------------------------------------------
+
+
+class MediaStorageError(Exception):
+    """Base class for provider-neutral media storage errors. Provider
+    (botocore) exceptions never escape an adapter; they are mapped onto one
+    of the subclasses below. `error_code` / `http_status` carry the sanitized
+    provider code for logging only (never credentials or signed URLs)."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: str | None = None,
+        http_status: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+        self.http_status = http_status
+
+
+class MediaStorageUnavailable(MediaStorageError):
+    """Transient failure (timeout, connection error, 5xx, throttling).
+    Retryable: the upload is retried with the same upload_id."""
+
+
+class MediaStorageMisconfigured(MediaStorageError):
+    """Credentials, bucket or endpoint are wrong (401/403, missing bucket,
+    invalid endpoint). Not retryable; details must not reach the client."""
+
+
+class MediaObjectNotFound(MediaStorageError):
+    """The requested object key does not exist."""
+
+
+class MediaStorageDisabled(MediaStorageError):
+    """The storage port was used while MEDIA_STORAGE_BACKEND=disabled."""
+
+
+class MediaObjectConflict(MediaStorageError):
+    """A write-once key already holds an object whose size differs from the
+    bytes being written (keys are immutable; never overwritten)."""
+
+
+class PhotoValidationError(Exception):
+    """Base class for rejected photo input. `code` is a stable,
+    machine-readable error code for the future API error envelope."""
+
+    code = "PHOTO_INVALID_IMAGE"
+
+
+class PhotoTooLargeError(PhotoValidationError):
+    """Encoded (canonical original) bytes exceed PHOTO_MAX_UPLOAD_BYTES."""
+
+    code = "PHOTO_TOO_LARGE"
+
+
+class PhotoTooManyPixelsError(PhotoValidationError):
+    """Decoded pixel count or edge length exceeds the configured limit."""
+
+    code = "PHOTO_TOO_MANY_PIXELS"
+
+
+class PhotoUnsupportedFormatError(PhotoValidationError):
+    """Not a JPEG, PNG or WebP image (includes HEIC/HEIF, GIF, disguised
+    non-images)."""
+
+    code = "PHOTO_UNSUPPORTED_FORMAT"
+
+
+class PhotoAnimatedError(PhotoValidationError):
+    """Animated PNG (APNG) or animated WebP."""
+
+    code = "PHOTO_ANIMATED_NOT_SUPPORTED"
+
+
+class PhotoInvalidImageError(PhotoValidationError):
+    """Empty, corrupted or truncated image data."""
+
+    code = "PHOTO_INVALID_IMAGE"
+
+
+class PhotoProcessingBusyError(Exception):
+    """The image-processing slot could not be acquired within
+    PHOTO_PROCESSING_WAIT_SECONDS. Retryable with the same upload_id."""
+
+    code = "PHOTO_PROCESSING_BUSY"
