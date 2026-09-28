@@ -5,6 +5,162 @@
 **Central Entity**: OBIEKT (Project / Site)  
 **Stack**: React + TypeScript + Vite + Tailwind CSS | Python + FastAPI + SQLAlchemy 2.x + Alembic + Pydantic v2 + PostgreSQL | aiogram 3.x
 
+> **Document purpose.** `docs/development-progress.md` is the canonical progress **INDEX**. It answers quickly: what
+> stages exist, what is complete, what is in progress, what comes next, and where the detailed documentation lives.
+> Detailed architecture and implementation decisions remain in their stage-specific documents (listed in the roadmap
+> table below). The long per-stage history further down (archived overview detail, historical mapping, Stage Log) is
+> preserved as a record and is not a specification.
+>
+> **Last index update**: 2026-09-28 (Stage 14B.2 — canonical Stage 0–20 index rebuilt).
+
+---
+
+## Canonical Roadmap (Stage 0 – Stage 20)
+
+The 21-stage sequence below is the owner-confirmed canonical roadmap (see `CLAUDE.md` → ROADMAP IMMUTABILITY). Stage
+titles are the committed canonical titles; the equivalent short names used in owner prompts are given in parentheses
+where they differ. Status vocabulary: **COMPLETE / OWNER ACCEPTED** (implemented, verified, owner accepted);
+**IN PROGRESS**; **NOT STARTED / PLANNED**. The *Production* column records only what the documentation/history
+explicitly supports.
+
+| Stage | Canonical title | Status | Production | Detailed documentation |
+| :--- | :--- | :--- | :--- | :--- |
+| 0 | Engineering/project rules (Engineering / Project Rules) | COMPLETE / OWNER ACCEPTED | n/a (rules only) | `GEMINI.md`, `CLAUDE.md`, `.agents/rules/`; Stage Log → Stage 0 |
+| 1 | Project skeleton/infrastructure (Application Infrastructure / Skeleton) | COMPLETE / OWNER ACCEPTED | not separately recorded | Stage Log → Stage 1 |
+| 2 | Telegram Mini App authentication/integration | COMPLETE / OWNER ACCEPTED | not separately recorded | Stage Log → Stage 2, historical 5A–5C (Telegram shell) |
+| 3 | Clients | COMPLETE / OWNER ACCEPTED | not separately recorded | Stage Log → Stage 3, 3B, 3C |
+| 4 | Projects / Obiekty (Projects / Objects) | COMPLETE / OWNER ACCEPTED | not separately recorded | Stage Log → Stage 4A, 4B |
+| 5 | Rooms, surfaces and measurements | COMPLETE / OWNER ACCEPTED (5E final manual acceptance) | not separately recorded | Stage Log → 4C–4F, Canonical Stage 5 (5A–5E) |
+| 6 | Inspection Checklist Engine | COMPLETE / OWNER ACCEPTED (6D final manual acceptance) | not separately recorded | Stage Log → Canonical Stage 6 |
+| 7 | Risk Rules Engine | COMPLETE / OWNER ACCEPTED (owner-verified 2026-09-13) | not separately recorded | Stage Log → Canonical Stage 7 |
+| 8 | "Co powiedzieć klientowi" (Client Communication Assistant) | COMPLETE / OWNER ACCEPTED (2026-09-13; 8E closure) | not separately recorded | Stage Log → Stage 8 |
+| 9 | Editable Price Book / Cennik | COMPLETE / OWNER ACCEPTED (2026-09-15; merged to `main` as `96d0518`) | not separately recorded | Stage Log → Stage 9; `docs/price-research-*.md` |
+| 10 | Estimate / Kosztorys | COMPLETE / OWNER ACCEPTED (2026-09-20; 10H closure) | PRODUCTION VERIFIED (real-Telegram walkthrough; 10H.2 deploy `c812eaa`) | `docs/stage-10-architecture.md`; Stage Log → 10A–10C.3, 10H.1 |
+| 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
+| 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
+| 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B.1, 14B.2 complete; 14B.3 next) | no Stage 14 runtime deployed; uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` |
+| 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
+| 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
+| 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
+| 18 | Calendar and Telegram reminders (Calendar & Reminders) | NOT STARTED / PLANNED | — | — |
+| 19 | Offline drafts | NOT STARTED / PLANNED | — | — |
+| 20 | Full MVP audit and end-to-end object scenario (Full MVP Audit / Release Readiness) | NOT STARTED / PLANNED | — | — |
+
+"Not separately recorded" means this index has no explicit production-verification record for that stage; it does
+not claim the stage is absent from production (later stages were deployed on top of it).
+
+### Current position
+
+- **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — IN PROGRESS.
+- **Last completed sub-stage**: 14B.2 — Manual Cloudflare R2 setup (COMPLETE / OWNER ACCEPTED, 2026-09-28).
+- **Next**: 14B.3 — MediaStorage + image-processing foundation. Starts only with explicit owner approval.
+
+---
+
+## Production Baseline
+
+| Item | Value |
+| :--- | :--- |
+| Accepted production runtime commit | `7b5aaf0b782e99df9e96fa63873892dd88631cad` (Stage 13) |
+| Production database head | `0030_surface_work_executions` |
+| Stage 13 | PRODUCTION VERIFIED / OWNER ACCEPTED (13J walkthrough A–L PASS) |
+| Stage 14 runtime | **none deployed** — no Stage 14 code, migration or dependency in production |
+| External media infrastructure | Cloudflare R2 production bucket exists (14B.2, owner-created); **no** plan-estimate media runtime deployed; R2 credentials **not** in the production application environment |
+| Production photo uploads | **OFF** (not implemented; `PHOTO_UPLOADS_ENABLED` stays `false` until the 14D gate + explicit owner approval) |
+
+Documentation-only commits after `7b5aaf0` (13I/13J closure, 14A, 14B.1, 14B.2) do not change application runtime and
+require no production deployment.
+
+---
+
+## Stage 13 — Technological Workflows (sub-stage index)
+
+All sub-stages COMPLETE / OWNER ACCEPTED; Stage 13 closed by 13J (production Telegram walkthrough A–L PASS,
+2026-09-27). Sub-stage scope as defined in `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` §20; details in the
+listed sections.
+
+| Sub-stage | Scope | Status | Detail |
+| :--- | :--- | :--- | :--- |
+| 13A | Audit & architecture (D1–D13) | COMPLETE / OWNER ACCEPTED | §A, §0–§21 |
+| 13B | Persistence/domain foundation (migration `0027`, templates, steps, provenance, `wait_after_hours`, `occurrence_key`) | COMPLETE / OWNER ACCEPTED | §14, §22 |
+| 13C | API/contracts (template CRUD/archive/restore, step replace, WorkPlan key/break metadata) | COMPLETE / OWNER ACCEPTED | §15, §22 |
+| 13D | Default technological recipes (program defaults) | COMPLETE / OWNER ACCEPTED | §23 |
+| 13E | Apply template to WorkPlan (incl. 13E.2B migration `0028`, 13E.3 server apply `0029`, 13E.4 UX, 13E.5 verification/fixes) | COMPLETE / OWNER ACCEPTED (production walkthrough PASS) | §24–§29 |
+| 13F | Template management (Cennik → Procesy; incl. 13F-PRE corrections) | COMPLETE / OWNER ACCEPTED | §30, §31 |
+| 13G | Technological breaks in the surface work plan (presentation/editing) | COMPLETE / OWNER ACCEPTED | §32 |
+| 13H | Execution tracking (migration `0030`, API, destructive-mutation safety, mobile UI, bulk status) | COMPLETE / OWNER ACCEPTED | §33 |
+| 13I | Final audit & adversarial/full regression (verify-only; `88047c3`) | COMPLETE / OWNER ACCEPTED | §34 |
+| 13J | Final owner walkthrough & Stage 13 closure | COMPLETE / OWNER ACCEPTED / PRODUCTION VERIFIED | §35 |
+
+---
+
+## Stage 14 — Photo Fixation & Defect Annotations (sub-stage index)
+
+Stage 14 overall: **IN PROGRESS**. Sub-stage boundaries are the OWNER APPROVED sequence in
+`docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §19, with 14B refined into steps by
+`docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` §19. Hard rule: **no production photo uploads before the 14D
+backup/restore gate passes** and the owner explicitly enables them.
+
+| Sub-stage | Scope (approved wording, abbreviated) | Status |
+| :--- | :--- | :--- |
+| 14A | Audit & architecture | COMPLETE / OWNER ACCEPTED (2026-09-28) |
+| 14B | Media infrastructure readiness | **IN PROGRESS** |
+| └ 14B.1 | Infrastructure audit / implementation plan (R1–R9) | COMPLETE / OWNER ACCEPTED (2026-09-28) |
+| └ 14B.2 | Manual Cloudflare R2 setup (owner-performed) | COMPLETE / OWNER ACCEPTED (2026-09-28) |
+| └ 14B.3 | boto3 + Pillow, config/validation, temp sweep, `MediaStorage` port + S3/in-memory/disabled adapters, key scheme, image pipeline, tests, ARM64 benchmark | NOT STARTED |
+| └ 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | NOT STARTED |
+| └ 14B.5 | Verification + commit; production deploy with uploads **off** | NOT STARTED |
+| 14B.H | HEIC/HEIF technical spike (enabling HEIC only after owner approval) | NOT STARTED / DEFERRED |
+| 14C | Media API & security (upload state machine, list/attach/metadata/archive, presigned thumb/display URLs, quota policy; flag off in production) | NOT STARTED |
+| 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |
+| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
+| 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
+| 14G | POINT annotations (API + editor) | NOT STARTED |
+| 14H | WORK execution photos in Realizacja | NOT STARTED |
+| 14I | Stage 15 report read model / report-inclusion boundary | NOT STARTED |
+| 14J | Adversarial / full verification | NOT STARTED |
+| 14K | Owner production walkthrough | NOT STARTED |
+
+14B.2 record (non-secret): see `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` §22.
+
+---
+
+## Stages 15–20 — Planned Scope (NOT STARTED / PLANNED)
+
+Short scope from the committed roadmap; no implementation details are approved yet. Each stage starts only with
+explicit owner approval.
+
+| Stage | Canonical title | Planned scope | Established dependencies |
+| :--- | :--- | :--- | :--- |
+| 15 | Documents / PDF | Printable estimate, contract and technical-protocol documents (Jinja2 + WeasyPrint planned), built from structured data including explicitly selected Stage 14 media. Client-facing documents default to PL. | Stage 10 estimate snapshots; Stage 14 media via the 14I report read model (`include_in_report`) |
+| 16 | Contracts and protective protocols | Binding contract generator, site handover protocol, concealed-works acceptance, final acceptance; formal protective clauses (e.g. warranty exclusion on client refusal of recommended work). | Stages 7, 10, 15 |
+| 17 | Legal knowledge base + situation search | Polish Building Law, ITB conditions, PN-EN norms and a quick legal/technical situation lookup, served from the backend (never hardcoded in UI). | Consumed by Stages 8, 15, 16 |
+| 18 | Calendar and Telegram reminders | Schedule management, milestone reminders and technological-break notifications. | Stage 13 breaks/execution tracking (calendar/reminders explicitly kept out of Stage 13, D12) |
+| 19 | Offline drafts | IndexedDB draft storage and sync for no-signal sites (basements, reinforced-concrete buildings), without compromising backend consistency. | Mini App workflows of Stages 5, 6, 14 |
+| 20 | Full MVP audit and end-to-end object scenario | End-to-end regression and release-readiness review: client → project → inspection (incl. photo/defect workflow) → estimate → contract → handover. | All previous stages |
+
+---
+
+## Backlog / Deferred Items (not roadmap stages)
+
+Known deferred work. None of these reopens a completed stage or changes the Stage 0–20 numbering.
+
+| Item | Origin | Status |
+| :--- | :--- | :--- |
+| 14B.H — HEIC/HEIF support spike | Stage 14A OD-8 / 14B.1 | DEFERRED; HEIC only after measured results + owner approval |
+| Archived-record hard delete (dependency/safety matrix across Client → Project → Room → Surface → Opening → Work Plans → Estimate provenance) | Stage 10C.1C Finding 4, 10H backlog | DEFERRED; archive/restore remains the only lifecycle |
+| Stage 5G compact Surface Card actions polish (remaining "Opcje" progressive-disclosure polish; base Opcje card delivered in 10C.1) | Stage 5 backlog / Roadmap Note B | DEFERRED polish |
+| Estimate presentation: proactive unresolved-price counter; scope subtotal footer (Robocizna/Materiały/Mieszane/Razem) | Stage 10H | NON-BLOCKING presentation backlog |
+| Seeded-row compact Price Book editor "Cena do ustalenia" re-null toggle | Stage 10H | NON-BLOCKING backlog |
+| Cosmetic UI polish deferred to a final UI/UX polish pass (e.g. 10C.2B picker polish) | Stage 10C.2 | DEFERRED |
+| Stage 13 known limitations: app-shell controls below 44 px; coefficient modal long-name ellipsis; theoretical archive-vs-status race; permissive frontend execution typing | Stage 13I §34 / 13J §35 | NON-BLOCKING technical debt |
+| Quality-level technical reference (Q1–Q4, S1–S4 detailed content) | Roadmap Note D | Future knowledge-base content (relates to Stage 17) |
+| Stage 14 still-PROPOSED values (temp stale age, processing wait, JPEG qualities, Caddy multipart allowance, Cache-Control policy) | 14B.1 §18 | To be decided in 14B.3 / 14C — not constants yet |
+
+Completed and no longer backlog: Stage 5F Opening Reveals / Ościeża (committed `22afddc`, migration
+`0019_add_opening_reveals`, owner accepted 2026-09-17).
+
 ---
 
 ## Permanent Product Rule: Mobile-First UI
@@ -38,7 +194,12 @@
 
 ---
 
-## Roadmap Overview
+## Archived Roadmap Overview Detail (preserved verbatim, superseded by the index above)
+
+> This is the previous "Roadmap Overview" table, kept byte-for-byte as the historical status record (it contains the
+> detailed sub-stage history for Stages 9–14, including Stage 11 and Stage 12, which have no separate Stage Log entry).
+> Its statuses reflect the time each cell was written; the canonical current status is the **Canonical Roadmap**
+> table at the top of this file. The cells are very long and the Stage 10 row spans several physical lines.
 
 | Stage | Title | Status | Primary Focus |
 | :--- | :--- | :--- | :--- |
@@ -114,6 +275,10 @@ Frontend: modal repair path (an archived option dropped on Zastosuj) and the +50
 ---
 
 ## Roadmap Detail — Stage 14: Photo Fixation & Defect Annotations (Planned Scope)
+
+> **Historical note (2026-09-28):** the section below is the Stage 5-era planned-scope intent for Stage 14. It is
+> superseded by the owner-approved `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` (14A) and
+> `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, and is kept only as a record.
 
 > Planned scope for the existing canonical **Stage 14**. No new canonical stage number is created and the canonical Stage 0–20 order is unchanged. This is future roadmap intent, **not** functionality implemented during Stage 5.
 

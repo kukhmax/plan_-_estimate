@@ -4,8 +4,9 @@
 - **Branch / HEAD**: `stage-14` @ `9ed5976` (= `origin/stage-14`)
 - **Sub-stage**: 14B.1 — **audit + implementation plan only**. No runtime code, migration, dependency, Docker, `.env`,
   Cloudflare or Oracle change.
-- **Status**: **Stage 14B.1 — COMPLETE / OWNER ACCEPTED** (2026-09-28). Stage 14B.2 — **NOT STARTED**; it starts only
-  with explicit owner approval. 14B.1 creates **no runtime functionality**.
+- **Status**: **Stage 14B.1 — COMPLETE / OWNER ACCEPTED** (2026-09-28). **Stage 14B.2 — COMPLETE / OWNER ACCEPTED**
+  (2026-09-28; manual R2 setup recorded in §22). Stage 14B.3 — **NOT STARTED**; it starts only with explicit owner
+  approval. 14B.1 and 14B.2 create **no runtime functionality**.
 - **Revision 2 (2026-09-28)**: owner review applied — R1, R2, R4–R9 **OWNER APPROVED** (R1 with correction); R3 open at that revision
   (multipart vs raw body, §6); decimal quota bytes; EU jurisdiction; age-based temp cleanup; original immutability;
   memory figures are estimates + benchmark requirement; Caddy defence in depth; cache policy separated from signed-URL
@@ -464,7 +465,7 @@ quality (80), exact Caddy multipart-overhead allowance, Cache-Control / delivery
 | Step | Scope | Non-scope | Migration | PASS | Gate |
 |---|---|---|---|---|---|
 | 14B.1 | this audit/plan | code | no | owner review | **COMPLETE / OWNER ACCEPTED** |
-| 14B.2 | owner creates EU-jurisdiction R2 prod/dev buckets + tokens (§13); dev smoke | code, production env | no | smoke results recorded (no secrets) | owner performs |
+| 14B.2 | owner creates EU-jurisdiction R2 prod/dev buckets + tokens (§13); dev smoke | code, production env | no | smoke results recorded (no secrets) | **COMPLETE / OWNER ACCEPTED** — production bucket + token only; connectivity smoke moved after 14B.3 (§22) |
 | 14B.3 | boto3 + Pillow (pinned; `python-multipart` only when the upload route is built in 14C) + config/validation + lifespan age-based temp sweep + `MediaStorage` port/S3/in-memory/disabled + key scheme + image pipeline + tests + **ARM64 benchmark (§5.3)** | endpoints, DB, Caddy | no | §15 tests, full regressions, dev-bucket smoke, benchmark recorded | dependency addition per R5 |
 | 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | upload API, state-machine endpoint, Caddy | **yes** (`photo_assets`) | PG upgrade/downgrade/upgrade on scratch DB; command tests | — |
 | 14B.5 | verification + commit; production deploy with uploads **off** | enabling uploads | — | health OK, app unchanged | owner-approved deploy |
@@ -486,4 +487,82 @@ Production runtime remains Stage 13 (`7b5aaf0`), DB `0030_surface_work_execution
 - Real production photo uploads remain **OFF**: `PHOTO_UPLOADS_ENABLED` stays `false` in production until the Stage 14D
   backup/restore gate has passed **and** the owner explicitly approves enabling uploads.
 
-- **Status:** Stage 14B.1 — COMPLETE / OWNER ACCEPTED. Stage 14B.2 — NOT STARTED. Stage 14 — IN PROGRESS.
+---
+
+## 22. Stage 14B.2 — manual Cloudflare R2 setup (completion record)
+
+- **Date**: 2026-09-28
+- **Status**: **Stage 14B.2 — COMPLETE / OWNER ACCEPTED.** Documentation-only record of infrastructure the owner
+  created manually in the Cloudflare dashboard. No runtime code, dependency, migration, Docker/Caddy, `.env*` or
+  production change in this sub-stage.
+
+### 22.1 Cloudflare R2 (OWNER VERIFIED MANUAL INFRASTRUCTURE)
+
+| Setting | Value |
+|---|---|
+| Cloudflare R2 | ACTIVE |
+| Production bucket | `plan-estimate-media-prod` |
+| Jurisdiction | European Union (EU) — data-residency jurisdiction (R7), not a location hint |
+| Default storage class | Standard |
+| Public Access | Disabled |
+| Public Development URL / `r2.dev` | Disabled |
+| Custom Domain | None |
+| CORS | None |
+| Object Lifecycle | Cloudflare default incomplete-multipart-upload abort rule remains enabled; no other rule |
+| Event Notifications | Not enabled |
+| On Demand Migration | Not enabled |
+| Bucket Lock | Not configured (optional complement, evaluated in 14D per §13) |
+| Billing | No Workers Paid feature purchased for Stage 14 |
+
+### 22.2 Production application credential (non-secret metadata only)
+
+| Attribute | Value |
+|---|---|
+| Credential type | Cloudflare R2 Account API Token / S3 credential |
+| Purpose | plan-estimate production application media access |
+| Permission | Object Read & Write |
+| Scope | Specific bucket only: `plan-estimate-media-prod` |
+| TTL | Forever |
+| Client IP filtering | Not configured — normal S3 connectivity is verified first; IP restriction may be considered later as a separate hardening decision |
+
+The Access Key ID and Secret Access Key are held by the owner in secure storage only. **Neither value is present in
+Git, in project documentation, in tests or in any environment file of this repository**, and neither was requested,
+printed or handled during 14B.2.
+
+S3 endpoint pattern (EU jurisdiction): `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`. The actual Account ID is
+intentionally not recorded in version-controlled documentation; the adapter receives the real endpoint through
+configuration (`MEDIA_S3_ENDPOINT_URL`, §11) later.
+
+### 22.3 Differences from the §13 / §19 plan (owner refinement at 14B.2 closure)
+
+- Only the **production** bucket and its application token are recorded as created. A development bucket
+  (`plan-estimate-media-dev`) and a dev token were proposed in §13 but are **not** reported as created; this record does
+  not claim they exist.
+- The connectivity smoke test (§13.9) was **not** performed in 14B.2. It is moved to after 14B.3, per the injection
+  order in §22.4.
+- The separate read-only backup token (§13.8) belongs to 14D and has not been created.
+
+### 22.4 Secret-injection order (OWNER APPROVED)
+
+1. **14B.2 (done)**: R2 infrastructure and credentials exist, but are **not** injected into the production application.
+2. **14B.3**: implement and test the configuration model, `MediaStorage` abstraction, S3 adapter, image-processing
+   foundation, disabled-storage behaviour and automated tests.
+3. Only after 14B.3 passes owner review: add the required **non-secret** config names to the production templates;
+   the owner manually injects the real credentials into the server's `.env.production`; `PHOTO_UPLOADS_ENABLED`
+   stays `false`; the explicit R2 connectivity smoke test is performed and its results recorded without secrets.
+
+This prevents unused production secrets from being installed before the application can validate and use them.
+
+### 22.5 Feature state after 14B.2
+
+| Item | State |
+|---|---|
+| Media storage code | not implemented yet |
+| Production R2 credentials in application env | not configured yet |
+| `PHOTO_UPLOADS_ENABLED` | conceptually OFF / not implemented yet |
+| Production photo uploads | **OFF** |
+| Production media objects written by plan-estimate | none |
+| Stage 14 application code deployed | none — production remains `7b5aaf0`, DB `0030_surface_work_executions` |
+
+- **Status:** Stage 14B.1 — COMPLETE / OWNER ACCEPTED. Stage 14B.2 — COMPLETE / OWNER ACCEPTED. Stage 14B.3 — NOT
+  STARTED. Stage 14B — IN PROGRESS. Stage 14 — IN PROGRESS.
