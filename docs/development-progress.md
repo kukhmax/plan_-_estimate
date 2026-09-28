@@ -11,7 +11,7 @@
 > table below). The long per-stage history further down (archived overview detail, historical mapping, Stage Log) is
 > preserved as a record and is not a specification.
 >
-> **Last index update**: 2026-09-28 (Stage 14B.H — HEIC/HEIF spike decision recorded; Stage 14B COMPLETE).
+> **Last index update**: 2026-09-28 (Stage 14C.1 — Media API & security contract OWNER APPROVED).
 
 ---
 
@@ -39,7 +39,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete — 14B.1–14B.6 + 14B.H; 14C next, owner approval required) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 contract approved, 14C.2 next, owner approval required) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -52,14 +52,16 @@ not claim the stage is absent from production (later stages were deployed on top
 
 ### Current position
 
-- **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — **COMPLETE** (14B.1–14B.6 acceptance
-  records complete; 14B.H closed as CONDITIONAL GO / IMPLEMENTATION DEFERRED).
-- **Last completed sub-stage**: 14B.H — HEIC/HEIF technical spike (COMPLETE / CONDITIONAL GO / IMPLEMENTATION
-  DEFERRED, 2026-09-28; documentation only): HEIC not implemented, JPEG/PNG/WebP remain the supported formats; reopen
-  only if real iPhone/Android Telegram uploads in 14C/14E deliver HEIC (14B plan §27). Previous: 14B.6 — R2
-  connectivity & credential readiness (COMPLETE / OWNER VERIFIED; 14B plan §26).
-- **Next**: 14C — Media API & security (uploads stay off in production). Starts only with explicit owner approval.
-  Stage 14D remains the mandatory backup/restore gate before production photo uploads.
+- **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — **COMPLETE**. Stage 14C (Media API &
+  Security) — **IN PROGRESS**.
+- **Last completed sub-stage**: 14C.1 — Media API & security contract (COMPLETE / OWNER APPROVED, 2026-09-28;
+  documentation only): `docs/STAGE_14C_MEDIA_API_CONTRACT.md` — API enables PROJECT/ROOM/SURFACE/OPENING only,
+  `0032_photo_attachments` planned, uniform `409 PHOTO_UPLOAD_ID_CONFLICT`, logical/reserved quota, `503
+  PHOTO_UPLOADS_DISABLED` gate, `PHOTO_MAX_REQUEST_BYTES=27_000_000`. Previous: 14B.H — HEIC/HEIF spike (COMPLETE /
+  CONDITIONAL GO / IMPLEMENTATION DEFERRED; 14B plan §27).
+- **Next**: 14C.2 — PhotoAttachment schema/domain foundation (migration `0032_photo_attachments`). Starts only with
+  explicit owner approval. `PHOTO_UPLOADS_ENABLED` stays `false` in production throughout 14C; Stage 14D remains the
+  mandatory backup/restore gate before production photo uploads.
 
 ---
 
@@ -118,7 +120,9 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14B.5 | Verification + commit; production deploy with uploads **off** | COMPLETE / OWNER VERIFIED (2026-09-28; at 14B.5 verification: runtime `e57e037`, DB `0031_photo_assets`, media disabled, uploads off; subsequently R2 enabled with uploads still off in 14B.6; 14B plan §25) |
 | └ 14B.6 | R2 Connectivity & Credential Readiness: owner injects existing R2 credentials; controlled smoke test (PUT/HEAD/GET/presigned GET, private/unsigned denial, write-once conflict); uploads stay off; no upload endpoint; no Oracle backup (14D) | **COMPLETE / OWNER VERIFIED** (14B plan §26) |
 | 14B.H | HEIC/HEIF technical spike (enabling HEIC only after owner approval) | **COMPLETE / CONDITIONAL GO / IMPLEMENTATION DEFERRED** (2026-09-28; no dependency, migration or runtime change; device gate after 14C/14E; 14B plan §27) |
-| 14C | Media API & security (upload state machine, list/attach/metadata/archive, presigned thumb/display URLs, quota policy; flag off in production) | NOT STARTED |
+| 14C | Media API & security (upload state machine, list/attach/metadata/archive, presigned thumb/display URLs, quota policy; flag off in production) | **IN PROGRESS** (contract: `docs/STAGE_14C_MEDIA_API_CONTRACT.md`) |
+| └ 14C.1 | Media API & security contract (audit/design; C1–C16, R-1, R-2) | COMPLETE / OWNER APPROVED (2026-09-28; documentation only) |
+| └ 14C.2 | PhotoAttachment schema/domain foundation (migration `0032_photo_attachments`) | NOT STARTED — next; owner approval required |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
@@ -162,7 +166,8 @@ Known deferred work. None of these reopens a completed stage or changes the Stag
 | Cosmetic UI polish deferred to a final UI/UX polish pass (e.g. 10C.2B picker polish) | Stage 10C.2 | DEFERRED |
 | Stage 13 known limitations: app-shell controls below 44 px; coefficient modal long-name ellipsis; theoretical archive-vs-status race; permissive frontend execution typing | Stage 13I §34 / 13J §35 | NON-BLOCKING technical debt |
 | Quality-level technical reference (Q1–Q4, S1–S4 detailed content) | Roadmap Note D | Future knowledge-base content (relates to Stage 17) |
-| Stage 14 still-PROPOSED values (Caddy multipart allowance, Cache-Control / delivery caching policy) | 14B.1 §18 | To be decided in 14C (media processing defaults were OWNER APPROVED at 14B.3 closure, §23.13) |
+| Stage 14 still-PROPOSED values (Caddy multipart allowance, Cache-Control / delivery caching policy) | 14B.1 §18 | DECIDED in 14C.1: `PHOTO_MAX_REQUEST_BYTES=27_000_000` (Caddy upload route too); presign `private, max-age=<TTL>`, `inline` (14C contract §10, §17); implemented from 14C.4/14C.5 |
+| Photo temp disk-space guard | 14C.1 C15 | NOT ADDED; measure worst-case temp usage in 14C.6; any threshold only with measured evidence + owner approval |
 
 Completed and no longer backlog: Stage 5F Opening Reveals / Ościeża (committed `22afddc`, migration
 `0019_add_opening_reveals`, owner accepted 2026-09-17).
