@@ -39,7 +39,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B.1, 14B.2, 14B.3 complete; 14B.4 next) | no Stage 14 runtime deployed; uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B.1–14B.3 complete; 14B.4 implemented + verified, awaiting commit approval) | no Stage 14 runtime deployed; uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -55,9 +55,12 @@ not claim the stage is absent from production (later stages were deployed on top
 - **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — IN PROGRESS.
 - **Last completed sub-stage**: 14B.3 — MediaStorage + image-processing foundation (COMPLETE / OWNER ACCEPTED,
   2026-09-28; ARM64 benchmark on production hardware PASS; library code only, not deployed).
-- **Next**: 14B.4 — `photo_assets` migration + model + read-only integrity-check command + runbook media
-  backup/restore draft + non-secret placeholders in `.env.production.example`/compose (14B plan §19). Starts only with
-  explicit owner approval. The R2 connectivity smoke test follows the owner's secret injection (14B plan §22.4).
+- **Current**: 14B.4 — `photo_assets` persistence + read-only integrity tooling + production config templates +
+  media backup/restore runbook DRAFT — IMPLEMENTED / VERIFIED (automated suite + owner-run scratch PostgreSQL 16
+  up/down/up and constraint probes PASS, 2026-09-28) / AWAITING OWNER COMMIT APPROVAL (uncommitted; nothing deployed;
+  production DB still `0030_surface_work_executions`).
+- **Next**: owner approval of the 14B.4 commit; then 14B.5 (verification + production deploy with uploads off), only
+  with explicit owner approval.
 
 ---
 
@@ -112,7 +115,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14B.1 | Infrastructure audit / implementation plan (R1–R9) | COMPLETE / OWNER ACCEPTED (2026-09-28) |
 | └ 14B.2 | Manual Cloudflare R2 setup (owner-performed) | COMPLETE / OWNER ACCEPTED (2026-09-28) |
 | └ 14B.3 | boto3 + Pillow, config/validation, temp sweep, `MediaStorage` port + S3/in-memory/disabled adapters, key scheme, image pipeline, tests, ARM64 benchmark | COMPLETE / OWNER ACCEPTED (2026-09-28; ARM64 peak 541.8 MB / 1.295 s at 60 MP; 14B plan §23) |
-| └ 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | NOT STARTED |
+| └ 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | IMPLEMENTED / VERIFIED — migration `0031_photo_assets`; owner-run scratch PostgreSQL 16 PASS; awaiting commit approval (14B plan §24) |
 | └ 14B.5 | Verification + commit; production deploy with uploads **off** | NOT STARTED |
 | 14B.H | HEIC/HEIF technical spike (enabling HEIC only after owner approval) | NOT STARTED / DEFERRED |
 | 14C | Media API & security (upload state machine, list/attach/metadata/archive, presigned thumb/display URLs, quota policy; flag off in production) | NOT STARTED |

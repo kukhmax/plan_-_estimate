@@ -336,3 +336,25 @@ class PhotoProcessingBusyError(Exception):
     PHOTO_PROCESSING_WAIT_SECONDS. Retryable with the same upload_id."""
 
     code = "PHOTO_PROCESSING_BUSY"
+
+
+# ---------------------------------------------------------------------------
+# Stage 14B.4 — PhotoAsset persistence.
+# ---------------------------------------------------------------------------
+
+
+class PhotoAssetNotFoundError(Exception):
+    """No PhotoAsset with this id exists for the requesting owner."""
+
+
+class PhotoAssetAlreadyExistsError(Exception):
+    """A PhotoAsset with this id (= upload_id) already exists. The message
+    never reveals which owner holds it."""
+
+
+class PhotoAssetStateError(Exception):
+    """A status transition not allowed by the upload state machine."""
+
+
+class PhotoAssetValidationError(Exception):
+    """PhotoAsset metadata failed validation before persistence."""

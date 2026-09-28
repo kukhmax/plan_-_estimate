@@ -6,7 +6,8 @@
   Cloudflare or Oracle change.
 - **Status**: **Stage 14B.1 — COMPLETE / OWNER ACCEPTED** (2026-09-28). **Stage 14B.2 — COMPLETE / OWNER ACCEPTED**
   (2026-09-28; manual R2 setup recorded in §22). **Stage 14B.3 — COMPLETE / OWNER ACCEPTED** (2026-09-28; record
-  in §23; ARM64 benchmark and final defaults in §23.12–§23.13). 14B.1 and 14B.2 create **no runtime functionality**; 14B.3 adds library code only
+  in §23; ARM64 benchmark and final defaults in §23.12–§23.13). **Stage 14B.4 — IMPLEMENTED / VERIFIED (automated + owner-run PostgreSQL 16 PASS) / AWAITING OWNER COMMIT APPROVAL**
+  (2026-09-28; uncommitted; PostgreSQL 16 result in §24.8). 14B.1 and 14B.2 create **no runtime functionality**; 14B.3 adds library code only
   (no endpoint, no DB, no deployment).
 - **Revision 2 (2026-09-28)**: owner review applied — R1, R2, R4–R9 **OWNER APPROVED** (R1 with correction); R3 open at that revision
   (multipart vs raw body, §6); decimal quota bytes; EU jurisdiction; age-based temp cleanup; original immutability;
@@ -473,7 +474,7 @@ quality (80), exact Caddy multipart-overhead allowance, Cache-Control / delivery
 | 14B.1 | this audit/plan | code | no | owner review | **COMPLETE / OWNER ACCEPTED** |
 | 14B.2 | owner creates EU-jurisdiction R2 prod/dev buckets + tokens (§13); dev smoke | code, production env | no | smoke results recorded (no secrets) | **COMPLETE / OWNER ACCEPTED** — production bucket + token only; connectivity smoke moved after 14B.3 (§22) |
 | 14B.3 | boto3 + Pillow (pinned; `python-multipart` only when the upload route is built in 14C) + config/validation + lifespan age-based temp sweep + `MediaStorage` port/S3/in-memory/disabled + key scheme + image pipeline + tests + **ARM64 benchmark (§5.3)** | endpoints, DB, Caddy | no | §15 tests, full regressions, dev-bucket smoke, benchmark recorded | **COMPLETE / OWNER ACCEPTED** — ARM64 benchmark recorded (§23.12); R2 connectivity smoke **not yet performed** (after secret injection, §22.4) |
-| 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | upload API, state-machine endpoint, Caddy | **yes** (`photo_assets`) | PG upgrade/downgrade/upgrade on scratch DB; command tests | — |
+| 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | upload API, state-machine endpoint, Caddy | **yes** (`photo_assets`) | PG upgrade/downgrade/upgrade on scratch DB; command tests | **IMPLEMENTED / VERIFIED** — owner-run scratch PostgreSQL 16 up/down/up PASS (§24.8); awaiting commit approval |
 | 14B.5 | verification + commit; production deploy with uploads **off** | enabling uploads | — | health OK, app unchanged | owner-approved deploy |
 | 14B.H | HEIC spike | enabling HEIC | no | measured results | owner approval |
 
@@ -775,5 +776,154 @@ Code aligned: the "PROPOSED" markers were replaced (`DEFAULT_DISPLAY_JPEG_QUALIT
 values unchanged. Not verified by 14B.3 and not claimed: production media, R2 connectivity, photo uploads. No Stage 14
 application runtime is deployed.
 
+---
+
+## 24. Stage 14B.4 — PhotoAsset persistence, integrity tooling, production templates (implementation record)
+
+- **Date**: 2026-09-28
+- **Status**: **IMPLEMENTED / VERIFIED (automated + owner-run PostgreSQL 16 PASS) / AWAITING OWNER COMMIT APPROVAL** — uncommitted, not deployed. The owner-run scratch PostgreSQL 16
+  verification PASSED (§24.8). R2 connectivity is not verified and backup / restore is **not** ready (that gate is 14D).
+- **Owner decisions (schema reconciliation)**: `project_id` kept per 14A §15.1; `id` = client upload UUID (no separate
+  `upload_id` column); `display_byte_size` + `thumbnail_byte_size` added; `captured_at` is TIMESTAMP WITHOUT TIME ZONE;
+  `storage_backend` renamed to `storage_name` (logical store). The 14A §15.1 note records the same clarification.
+
+### 24.1 Final `photo_assets` schema (migration `0031_photo_assets`, down_revision `0030_surface_work_executions`)
+
+| Column | Type | Rule |
+|---|---|---|
+| `id` | UUID PK | client upload UUIDv4 = idempotency identity = storage-key `{asset_uuid}` |
+| `owner_id` | UUID NOT NULL | FK `users.id` ON DELETE RESTRICT |
+| `project_id` | UUID NOT NULL | FK `projects.id` ON DELETE RESTRICT; creation verifies the project belongs to the owner |
+| `status` | enum `photoassetstatus` (`PENDING`, `READY`, `FAILED`) | NOT NULL |
+| `storage_name` | VARCHAR(40) NOT NULL | CHECK `length(trim(storage_name)) > 0` |
+| `storage_key_original` / `_display` / `_thumbnail` | VARCHAR(255) NOT NULL | UNIQUE each; CHECK non-empty; write-once |
+| `content_type` | enum `photocontenttype` (`image/jpeg`, `image/png`, `image/webp`) | NOT NULL, decoded format |
+| `byte_size` | BIGINT NOT NULL | original object size, CHECK > 0 |
+| `display_byte_size` | BIGINT NOT NULL | CHECK > 0 |
+| `thumbnail_byte_size` | BIGINT NOT NULL | CHECK > 0 |
+| `width`, `height` | INTEGER NOT NULL | after EXIF orientation, CHECK > 0 |
+| `sha256` | CHAR(64) NOT NULL | CHECK `length = 64 AND = lower(...)` (portable) + PostgreSQL `~ '^[0-9a-f]{64}$'`; not unique |
+| `original_filename` | VARCHAR(255) NULL | display only; sanitized (last path segment, no control characters) |
+| `captured_at` | TIMESTAMP WITHOUT TIME ZONE NULL | camera-local capture time, timezone unknown, never converted |
+| `uploaded_at`, `created_at`, `updated_at` | TIMESTAMPTZ NOT NULL | server UTC (`DEFAULT now()` in DDL, UTC defaults in the model) |
+| `archived_at` | TIMESTAMPTZ NULL | soft archive |
+
+Indexes: `uq_photo_assets_storage_key_original|display|thumbnail` (unique), `ix_photo_assets_project_status_archived`
+(`project_id, status, archived_at`), `ix_photo_assets_status_created` (`status, created_at`), `ix_photo_assets_owner_status`
+(`owner_id, status`). Storage bytes per asset = `byte_size + display_byte_size + thumbnail_byte_size` (derived; no cached
+total, no quota table). No attachment/context columns, no URL, no credential. Downgrade drops only the table, its
+indexes and the two enum types.
+
+**Timestamp semantics.** `captured_at` is the EXIF DateTimeOriginal wall-clock time exactly as the camera wrote it; it
+carries no offset, and none is invented (the persistence layer rejects a timezone-aware value). All server-generated
+timestamps are timezone-aware UTC.
+
+**`storage_name` semantics.** The logical storage identity from `MEDIA_STORAGE_NAME` (e.g. `r2-primary`) used later to
+resolve an asset to its configured store. It is never the adapter type (`MEDIA_STORAGE_BACKEND=s3`): several logical
+stores (primary, backup, restore drill) may share the same S3-compatible adapter.
+
+**State semantics.** Every row carries complete media metadata (NOT NULL in every status): decode, validation,
+derivatives and SHA-256 precede the PENDING insert (14A §8). PENDING = processed locally, durable storage not yet
+finalized; READY = all three objects stored; FAILED = storage finalization failed. Allowed transitions: PENDING → READY,
+PENDING → FAILED, FAILED → PENDING (retry with the same id); READY is terminal. Object existence cannot be enforced by
+the DB; the integrity check reports it.
+
+### 24.2 Persistence boundary
+
+`app/models/photo_asset.py` (`PhotoAsset`, `PhotoAssetStatus`, `PhotoContentType`) and
+`app/domain/services/photo_asset_service.py` (`PhotoAssetService`): `create_pending` (verifies project ownership,
+builds keys only via `build_photo_object_keys(asset_id, processed.format)`, validates metadata, refuses an existing id
+without revealing its owner), `get_for_owner`, `transition` (state machine), `list_for_integrity` (all owners, optional
+`storage_name` filter; returns read-only `PhotoAssetSnapshot`s). No object-storage call and no adapter coupling in the
+persistence layer; the upload workflow is 14C. New exceptions: `PhotoAssetNotFoundError`,
+`PhotoAssetAlreadyExistsError`, `PhotoAssetStateError`, `PhotoAssetValidationError`.
+
+### 24.3 Read-only integrity check
+
+Engine `app/domain/services/media_integrity.py` (provider-neutral, uses only `iter_keys`, `head_object` and — with
+`--verify-sha256` — `download_to` into a removed temp workspace); CLI `backend/scripts/media_integrity_check.py`
+(PostgreSQL session in a `READ ONLY` transaction, rolled back). Never writes, deletes, repairs, changes states,
+presigns or prints credentials. `MEDIA_STORAGE_BACKEND=disabled` → exit 2 ("state unknown, not assumed empty"); storage
+unavailable/misconfigured → exit 2 ("result incomplete"); integrity errors → exit 1; warnings fail only with
+`--strict`. `--expect-storage-name` lets a later run check an independent backup/drill target against the rows of the
+logical store it mirrors.
+
+| Classification | Severity | Meaning |
+|---|---|---|
+| (expected present) | — | READY object present with the persisted size (counted) |
+| `MISSING_ORIGINAL` | ERROR | READY original missing — evidence loss |
+| `MISSING_DERIVATIVE` | ERROR | READY display/thumbnail missing — regenerable from the original |
+| `SIZE_MISMATCH` | ERROR | stored size ≠ persisted size (each of the three objects) |
+| `CHECKSUM_MISMATCH` | ERROR | READY original sha256 ≠ persisted (only with `--verify-sha256`) |
+| `PENDING_INCOMPLETE` | INFO / WARNING if older than `--pending-stale-after-seconds` (86400) | upload in progress or abandoned; its objects are not orphans |
+| `FAILED_RELATED` | INFO / WARNING if objects exist | objects of a FAILED asset |
+| `ORPHAN_CANDIDATE` | WARNING | key in the known layout with no asset row — a candidate only, never "safe to delete" |
+| `UNKNOWN_KEY` | WARNING | under `photos/v1/` but an unrecognized layout |
+| `OTHER_STORAGE` | INFO | rows of another logical store, not checked against this target |
+
+### 24.4 Production templates and compose
+
+`.env.production.example`: all 17 media/photo settings with safe values — `MEDIA_STORAGE_BACKEND=disabled`,
+`PHOTO_UPLOADS_ENABLED=false`, empty endpoint/bucket/key id/secret, endpoint pattern only as a comment
+(`https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`), approved numeric defaults. `docker-compose.prod.yml`: the same 17
+names wired into the **backend service only** as `${NAME:-safe-default}`, so a server `.env.production` without media
+entries keeps media disabled. No new port, service, volume or build arg; frontend, Caddy and Postgres receive nothing.
+The real `.env.production` is untouched.
+
+### 24.5 Runbook
+
+`docs/PRODUCTION_DEPLOYMENT_RUNBOOK_RU.md` §72 — **DRAFT** media backup/restore: R2 (EU, Standard) primary, Oracle
+Object Storage independent backup (R2 versioning is not the backup), flow R2 → export/copy → Oracle → integrity
+verification → isolated restore target → restore verification, integrity-command usage, restore-drill rules (isolated
+bucket/prefix, never delete a real production object, inventory + sha256 comparison, primary untouched). No backup or
+restore readiness claimed; Oracle is not configured.
+
+### 24.6 Tests (focused)
+
+`test_stage14b4_photo_asset.py` (49), `test_stage14b4_migration.py` (4: revision chain / single head; real
+`upgrade`/`downgrade`/`upgrade` on SQLite compared with model metadata; existing tables untouched; rendered PostgreSQL
+DDL), `test_stage14b4_integrity.py` (16), `test_stage14b4_production_templates.py` (4).
+
+### 24.7 Verification done locally
+
+Focused 14B.4 tests and the full backend suite pass (counts in the report); ruff (E,F,W,B,UP) and mypy clean on the new
+modules; offline `alembic upgrade 0030:0031 --sql` / `downgrade --sql` rendered and asserted; `alembic heads` =
+`0031_photo_assets` (single head). SQLite is **not** the final migration proof.
+
+### 24.7a Owner decisions (14B.4 review, 2026-09-28)
+
+| Topic | Decision |
+|---|---|
+| Index `ix_photo_assets_owner_status` (`owner_id, status`) | **OWNER APPROVED** — owner-scoped media accounting/querying |
+| Integrity stale-PENDING default `--pending-stale-after-seconds=86400` | **OWNER APPROVED** — operational integrity-tool default, not a PhotoAsset domain invariant |
+| `ORPHAN_CANDIDATE` / `UNKNOWN_KEY` severity | **OWNER APPROVED** = WARNING; default exit 0 for warnings; `--strict` makes warnings fail; nothing orphan/unknown is ever automatically deletable |
+| `--verify-sha256` | **OWNER APPROVED** as opt-in (downloads READY originals); normal runs use inventory + HEAD metadata only |
+
+### 24.8 Owner-run PostgreSQL 16 verification — PASS (2026-09-28)
+
+Run manually by the owner on the Oracle ARM64 VM in a fully isolated scratch environment: standalone
+`postgres:16-alpine` container `pe-14b4-scratch-pg`, dedicated network `pe-14b4-scratch-net`, data in tmpfs, no
+published port, no production volume or credentials, not part of the `plan-estimate` Compose project. The production
+database was **not** migrated and **not** used.
+
+| Check | Result |
+|---|---|
+| Full chain 0001 → `0031_photo_assets` on an empty database | PASS — `0031_photo_assets (head)` |
+| Probes (rolled-back transaction) | PASS: valid PENDING row accepted; non-hex sha256 rejected (regex CHECK); invalid status rejected (enum); `image/gif` rejected (enum); zero `display_byte_size` rejected; blank `storage_name` rejected; duplicate original key rejected; project delete restricted |
+| Timestamp types | `captured_at` = timestamp without time zone; `uploaded_at`, `created_at`, `updated_at`, `archived_at` = timestamp with time zone |
+| Downgrade 0031 → 0030 | PASS — `photo_assets`, `photoassetstatus`, `photocontenttype` absent; current `0030_surface_work_executions` |
+| Re-upgrade 0030 → 0031 | PASS — current and heads `0031_photo_assets (head)`; table present; 11 constraints (8 CHECK + PK + 2 FK; key uniqueness is via unique indexes) |
+| Production isolation | PASS — all production containers running; backend and Postgres healthy; `/api/health` → `{"status":"ok"}`; production checkout clean |
+| Cleanup | scratch container, network, workspace, archive and probe SQL removed; nothing in production removed or modified |
+
+The real PostgreSQL 16 verification gate for 14B.4 is **PASSED** (owner decision).
+
+### 24.9 Scratch verification procedure (reference)
+
+Temporary standalone `postgres:16-alpine` container on its own network with tmpfs data, no published port, no
+production credentials, compose project, volume or network; migration code transferred as a tarball (never via a
+production deployment); executed manually by the owner, never by Claude. Results in §24.8.
+
 - **Status:** Stage 14B.1 — COMPLETE / OWNER ACCEPTED. Stage 14B.2 — COMPLETE / OWNER ACCEPTED. Stage 14B.3 —
-  COMPLETE / OWNER ACCEPTED. Stage 14B.4 — NOT STARTED. Stage 14B — IN PROGRESS. Stage 14 — IN PROGRESS.
+  COMPLETE / OWNER ACCEPTED. Stage 14B.4 — IMPLEMENTED / VERIFIED, AWAITING OWNER COMMIT APPROVAL (§24). Stage 14B — IN PROGRESS.
+  Stage 14 — IN PROGRESS.

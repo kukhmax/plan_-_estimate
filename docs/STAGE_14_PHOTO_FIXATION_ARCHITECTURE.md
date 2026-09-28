@@ -444,6 +444,21 @@ position). Stable order: context hierarchy (project → room → surface → ope
 
 Indexes: `(project_id, status, archived_at)`, `(status, created_at)` for abandoned-PENDING checks.
 
+> **14B.4 owner clarification (2026-09-28) — implemented schema** (migration `0031_photo_assets`; details in
+> `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` §24). Where it differs from the table above, this note wins:
+> - `id` = client upload UUIDv4 = idempotency identity = `{asset_uuid}` of the storage keys (no separate `upload_id` column).
+> - `storage_backend` → **`storage_name`** varchar(40) NOT NULL, non-empty: the *logical* store (`MEDIA_STORAGE_NAME`,
+>   e.g. `r2-primary`), never the adapter type (`s3`).
+> - `byte_size` = original object size (BIGINT); added **`display_byte_size`**, **`thumbnail_byte_size`** (BIGINT NOT NULL,
+>   CHECK > 0). Storage bytes per asset = `byte_size + display_byte_size + thumbnail_byte_size` (derived; no cached total,
+>   no quota table).
+> - `width`/`height` INTEGER = dimensions **after** EXIF orientation.
+> - **`captured_at` TIMESTAMP WITHOUT TIME ZONE** = camera-local capture time, timezone unknown, never converted to UTC.
+>   `uploaded_at`/`created_at`/`updated_at`/`archived_at` stay timezone-aware server UTC.
+> - `sha256` CHAR(64), lowercase hex (portable length/lowercase CHECK + PostgreSQL regex CHECK), not unique.
+> - All media metadata is NOT NULL in every status: processing precedes the PENDING insert (§8).
+> - Extra index `(owner_id, status)` for per-owner quota sums.
+
 ### 15.2 `photo_attachments` — actual columns
 
 `id` PK · `asset_id` FK `photo_assets` RESTRICT · `project_id` FK `projects` RESTRICT (NOT NULL, = asset's project,
