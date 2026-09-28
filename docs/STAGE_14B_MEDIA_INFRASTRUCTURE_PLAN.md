@@ -1005,4 +1005,56 @@ restore (those remain **14D**: independent Oracle backup, restore drill, media-r
 
 - **Status:** Stage 14B.1 — COMPLETE / OWNER ACCEPTED. Stage 14B.2 — COMPLETE / OWNER ACCEPTED. Stage 14B.3 —
   COMPLETE / OWNER ACCEPTED. Stage 14B.4 — COMPLETE / OWNER ACCEPTED (§24). Stage 14B.5 — COMPLETE / OWNER VERIFIED
-  (§25). Stage 14B.6 — NOT STARTED (§26). Stage 14B — IN PROGRESS. Stage 14 — IN PROGRESS.
+  (§25). Stage 14B.6 — COMPLETE (§26). Stage 14B — IN PROGRESS. Stage 14 — IN PROGRESS.
+
+
+### Stage 14B.6 — Production R2 connectivity and credential readiness
+
+Status: **COMPLETE — OWNER VERIFIED**
+
+Production verification completed on 2026-09-28.
+
+Configuration:
+
+- Primary media storage: Cloudflare R2 Standard
+- Bucket: `plan-estimate-media-prod`
+- Jurisdiction: EU
+- Logical storage name: `r2-primary`
+- Runtime backend: `MEDIA_STORAGE_BACKEND=s3`
+- `PHOTO_UPLOADS_ENABLED=false`
+- Credentials are stored only in production `.env.production`.
+- No credentials, signed URLs, or secret values were committed or logged.
+
+Verified against the real production R2 bucket:
+
+- production configuration parsed successfully;
+- authenticated conditional PUT succeeded;
+- HEAD returned the expected object size;
+- authenticated download matched the source SHA-256;
+- re-PUT of identical bytes succeeded as an idempotent retry;
+- PUT of different bytes to the same key was rejected with
+  `MediaObjectConflict`;
+- presigned GET succeeded with HTTP 200;
+- unsigned access did not return the object;
+- an expired presigned GET was rejected with HTTP 403;
+- the isolated `stage14b6-smoke/...` object was deleted after verification.
+
+Production runtime verification:
+
+- backend recreated with `MEDIA_STORAGE_BACKEND=s3`;
+- `PHOTO_UPLOADS_ENABLED=false`;
+- backend remained healthy;
+- public `/api/health` remained healthy;
+- PostgreSQL container was not recreated;
+- Alembic current/head remained `0031_photo_assets`;
+- media integrity checker against `r2-primary` completed with:
+  - 0 errors
+  - 0 warnings
+  - exit code 0
+- no production `PhotoAsset` records exist yet.
+
+Stage 14B.6 therefore verifies production R2 connectivity and credential
+readiness only. It does **not** authorize production photo uploads.
+
+Production uploads remain blocked until the Stage 14D independent backup,
+restore drill, integrity verification, and media-readiness gate are complete.
