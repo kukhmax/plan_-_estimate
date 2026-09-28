@@ -8,9 +8,11 @@
   (2026-09-28; manual R2 setup recorded in §22). **Stage 14B.3 — COMPLETE / OWNER ACCEPTED** (2026-09-28; record
   in §23; ARM64 benchmark and final defaults in §23.12–§23.13). **Stage 14B.4 — COMPLETE / OWNER ACCEPTED**
   (2026-09-28; commit `e57e037`; PostgreSQL 16 result in §24.8). **Stage 14B.5 — COMPLETE / OWNER VERIFIED** (2026-09-28;
-  production runtime `e57e037`, DB `0031_photo_assets`, media disabled, uploads off; §25). **Stage 14B.6 — NOT STARTED**
-  (R2 connectivity & credential readiness, §26). 14B.1 and 14B.2 create **no runtime functionality**; 14B.3 adds library
-  code only (no endpoint, no DB, no deployment).
+  production runtime `e57e037`, DB `0031_photo_assets`, media disabled, uploads off; §25). **Stage 14B.6 — COMPLETE /
+  OWNER VERIFIED** (2026-09-28; R2 connectivity & credential readiness, `MEDIA_STORAGE_BACKEND=s3`, uploads off; §26).
+  **Stage 14B.H — COMPLETE / CONDITIONAL GO / IMPLEMENTATION DEFERRED** (2026-09-28; HEIC/HEIF spike, §27).
+  **Stage 14B — COMPLETE** (all 14B.1–14B.6 acceptance records complete; 14B.H closed as a deferred decision).
+  14B.1 and 14B.2 create **no runtime functionality**; 14B.3 adds library code only (no endpoint, no DB, no deployment).
 - **Revision 2 (2026-09-28)**: owner review applied — R1, R2, R4–R9 **OWNER APPROVED** (R1 with correction); R3 open at that revision
   (multipart vs raw body, §6); decimal quota bytes; EU jurisdiction; age-based temp cleanup; original immutability;
   memory figures are estimates + benchmark requirement; Caddy defence in depth; cache policy separated from signed-URL
@@ -92,7 +94,8 @@ only when storage is enabled. Not added in 14B.1.
 
 Pillow wheels bundle libjpeg-turbo, libpng, libwebp, zlib and LittleCMS for aarch64 (CPython 3.12 production, 3.14
 local); no suitable library is already present; pyvips would add a system library for no benefit at one upload at a
-time. **HEIC/HEIF: DEFERRED TO 14B.H** — no `pillow-heif`/libheif.
+time. **HEIC/HEIF: DEFERRED TO 14B.H** — no `pillow-heif`/libheif. (14B.H spike done: CONDITIONAL GO, implementation
+deferred — §27.)
 
 ### 4.1 Original immutability (rule)
 
@@ -478,8 +481,8 @@ quality (80), exact Caddy multipart-overhead allowance, Cache-Control / delivery
 | 14B.3 | boto3 + Pillow (pinned; `python-multipart` only when the upload route is built in 14C) + config/validation + lifespan age-based temp sweep + `MediaStorage` port/S3/in-memory/disabled + key scheme + image pipeline + tests + **ARM64 benchmark (§5.3)** | endpoints, DB, Caddy | no | §15 tests, full regressions, dev-bucket smoke, benchmark recorded | **COMPLETE / OWNER ACCEPTED** — ARM64 benchmark recorded (§23.12); R2 connectivity smoke **not yet performed** (after secret injection, §22.4) |
 | 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | upload API, state-machine endpoint, Caddy | **yes** (`photo_assets`) | PG upgrade/downgrade/upgrade on scratch DB; command tests | **COMPLETE / OWNER ACCEPTED** — commit `e57e037`; owner-run scratch PostgreSQL 16 up/down/up PASS (§24.8) |
 | 14B.5 | verification + commit; production deploy with uploads **off** | enabling uploads | — | health OK, app unchanged | **COMPLETE / OWNER VERIFIED** — production `e57e037` / DB `0031_photo_assets`, media disabled, uploads off (§25) |
-| 14B.6 | R2 connectivity & credential readiness: owner injects the existing production R2 credentials; controlled smoke test of PUT/HEAD/GET/presigned GET, private/unsigned denial, write-once conflict; uploads stay off (§26) | upload endpoint, user uploads, Oracle backup/restore (14D) | no | smoke results recorded without secrets | **NOT STARTED** — owner approval required |
-| 14B.H | HEIC spike | enabling HEIC | no | measured results | owner approval |
+| 14B.6 | R2 connectivity & credential readiness: owner injects the existing production R2 credentials; controlled smoke test of PUT/HEAD/GET/presigned GET, private/unsigned denial, write-once conflict; uploads stay off (§26) | upload endpoint, user uploads, Oracle backup/restore (14D) | no | smoke results recorded without secrets | **COMPLETE / OWNER VERIFIED** — production R2 smoke PASS, uploads off (§26) |
+| 14B.H | HEIC spike | enabling HEIC | no | measured results | **COMPLETE / CONDITIONAL GO / IMPLEMENTATION DEFERRED** — HEIC not implemented; reopen only via the §27.5 device gate |
 
 The upload state-machine logic and endpoints, the multipart upload route with its guards (R3), the Caddy limit and the cache policy stay in
 **14C**; the Oracle backup job, drill and final runbook stay in **14D**. 14C–14K are otherwise unchanged.
@@ -981,7 +984,7 @@ production deployment); executed manually by the owner, never by Claude. Results
 
 ---
 
-## 26. Stage 14B.6 — R2 Connectivity & Credential Readiness (roadmap clarification, NOT STARTED)
+## 26. Stage 14B.6 — R2 Connectivity & Credential Readiness (roadmap clarification; COMPLETE / OWNER VERIFIED below)
 
 **Why a numbered sub-stage:** §22.4 step 3 (credential injection + explicit R2 connectivity smoke test, uploads kept
 off) and the smoke test named in 14A §19 / the §19 14B.3 row were approved but never assigned to a numbered
@@ -1058,3 +1061,92 @@ readiness only. It does **not** authorize production photo uploads.
 
 Production uploads remain blocked until the Stage 14D independent backup,
 restore drill, integrity verification, and media-readiness gate are complete.
+
+---
+
+## 27. Stage 14B.H — HEIC/HEIF technical spike (decision record)
+
+- **Status**: **COMPLETE / CONDITIONAL GO / IMPLEMENTATION DEFERRED** (owner decision, 2026-09-28).
+- **Nature**: research / verify-only spike. No runtime code, dependency, migration, Docker, configuration or production
+  change. Experiments ran only in a throwaway Python 3.12.14 + Pillow 12.3.0 virtualenv outside the repository,
+  exercising the existing `process_image_file` with an in-process (not committed) HEIF allow-list patch.
+
+### 27.1 Decision (OWNER APPROVED)
+
+- HEIC/HEIF is **not implemented now**. Supported production formats remain **JPEG / PNG / WebP** (OD-8 unchanged);
+  a HEIC upload continues to be rejected as `PHOTO_UNSUPPORTED_FORMAT`.
+- **Not added**: `pillow-heif` (or any libheif binding), migration `0032`, `PhotoFormat.HEIC`, `image/heic` enum value.
+- **Unchanged**: runtime code, production configuration, `PHOTO_UPLOADS_ENABLED=false`, production runtime.
+- **Reason**: it is not yet verified that normal Telegram Mini App photo selection / camera capture on real iPhone and
+  Android devices delivers HEIC to the backend. The native decoder, its security surface, slower processing and the
+  schema/dependency changes are not justified until real mobile behaviour shows HEIC support is required.
+
+### 27.2 Spike findings (summary)
+
+- **Library**: `pillow-heif` 1.8.0 (2026-09-22) — Python 3.12 + Pillow 12 compatible; prebuilt wheels
+  `cp312 manylinux_2_28` for **x86_64 and aarch64** (verified from PyPI metadata and wheel inspection; aarch64 not
+  executed locally); `python:3.12-slim` (glibc 2.36) needs no apt packages or compilation; ≈ +16 MB image size.
+  Bundles libheif 1.23.4, libde265 1.1.3 and the x265 encoder (wheel licence GPLv2; no network clause; obligations
+  only if the image is distributed). `pi-heif` 1.4.0 (decode-only, LGPLv3) was rejected: it bundles libde265 1.1.0,
+  which predates the 2026 libde265 security fixes (1.1.1 CVE-2026-54240; 1.1.2 heap use-after-free / double free in
+  multi-threaded WPP decoding).
+- **Fit with the existing pipeline (verified)**: original bytes and SHA-256 unchanged after decode; libheif applies
+  `irot`/`imir` and pillow-heif resets the in-memory EXIF orientation to 1 (original in `info["original_orientation"]`),
+  so `exif_transpose` does not double-rotate; header dimensions are available before decode, so the 60 MP / 12 000 px
+  guard rejects a 200 MP file in 19 ms without decoding; the 25 000 000-byte limit applies unchanged; multi-image
+  containers (burst, stereo, spatial, entity groups) are rejected by the existing `is_animated` check; depth / auxiliary
+  / HDR gain-map images are ignored when opened with `depth_images=False, aux_images=False, thumbnails=False`;
+  disguised `ftyp` headers are rejected; a JPEG renamed `.heic` is identified as JPEG; derivatives carry no
+  EXIF/ICC/XMP; iPhone-style 8-bit Display-P3 ICC input converts to sRGB through the existing path.
+- **Issues to fix if implemented**: (1) 10/12-bit **grayscale** decodes as `I;16` and `convert("RGB")` clips it to
+  white — `_to_srgb_rgb` must scale `I;16` to 8-bit; (2) multi-image rejection currently reports
+  `PHOTO_ANIMATED_NOT_SUPPORTED` — use an explicit multi-image rejection; (3) `stored_width/height` and
+  `exif_orientation` must be derived from `original_orientation` (not persisted in `photo_assets`); (4) nclx-only
+  colour (no ICC; some Android 10-bit files) is treated as sRGB — wide-gamut/PQ/HLG policy to be decided.
+- **Performance (indicative, single desktop x86 core, not the production class)**: 12 MP iPhone-style HEIC 2.27 s /
+  181 MB peak RSS; near-60 MP HEIC 5.5 s / 579 MB. HEVC decode is ≈ 5× slower than JPEG (ARM64 JPEG 12 MP 0.456 s,
+  §23.12), with memory comparable to JPEG. `decode_threads` 1 vs 4 made no difference on one core.
+- **Security**: main new risk is a native HEVC decoder with an active 2026 CVE history running in the API process
+  (which holds DB and R2 credentials). Mitigations if implemented: `pillow-heif>=1.8.0,<2.0`, wheel-only install,
+  `decode_threads=1`, aux/depth/thumbnail decoding disabled, libheif security limits left enabled, feature flag default
+  off, advisory monitoring; subprocess isolation with resource limits is a future hardening option for all formats.
+
+### 27.3 Impact if implementation is reopened (reference plan, not approved for implementation)
+
+| Area | Expected change |
+|---|---|
+| Dependency / Docker | `pillow-heif>=1.8.0,<2.0` (wheel-only); no apt packages |
+| Schema / migration | **yes** — `photocontenttype` is a native PostgreSQL enum: add `image/heic`; downgrade must rebuild the type and refuse if `image/heic` rows exist |
+| MediaStorage / R2 | none (opaque bytes); key `original.heic` |
+| API | new content-type value; explicit multi-image error code |
+| Code | `keys.py`, `image_processing.py`, `exceptions.py`, `config.py` (HEIC flag, default off), `models/photo_asset.py`, new migration, `media_integrity.py` key regex, `scripts/photo_benchmark.py`, compose / `.env.production.example` |
+| Rollback | disable the HEIC flag; stored HEIC originals stay intact and their JPEG derivatives stay viewable |
+
+### 27.4 Tests required if implemented
+
+Valid HEIC acceptance with canonical `image/heic` / `.heic` / key; byte-for-byte original and SHA-256; EXIF/`irot`
+orientation (marker check); display and thumbnail geometry (no upscale); derivative metadata stripped; `captured_at`
+from HEIC EXIF; 60 MP / 12 000 px / 25 000 000-byte limits; corrupt, truncated and disguised HEIC; explicit multi-image
+rejection; 10/12-bit colour and grayscale (`I;16` regression); alpha flattening; depth/aux present → primary only;
+flag off → HEIC still unsupported; full existing JPEG/PNG/WebP/MPO/APNG suite unchanged with the HEIF opener
+registered; migration upgrade/downgrade/upgrade on scratch PostgreSQL.
+
+### 27.5 Future decision gate
+
+After the real upload flow exists (14C/14E), test normal Telegram Mini App photo selection and camera flow on
+(1) a real iPhone and (2) a real Android device, and record the actual uploaded/decoded format.
+
+If the normal workflow produces HEIC/HEIF:
+- reopen the implementation part of 14B.H;
+- use the technical plan in §27.2–§27.4;
+- use `pillow-heif>=1.8.0,<2.0` unless newer security evidence changes the recommendation;
+- fix the `I;16` grayscale issue;
+- explicitly reject unsupported multi-image HEIF;
+- preserve exact original bytes / SHA-256;
+- run the Oracle ARM64 benchmark (same isolated procedure as §23.12: 1 CPU, 2 GiB, no network, `nice +10`; cases
+  12 MP / 48 MP / near-60 MP / rotated / 10-bit / HDR or wide-gamut / multi-image / 200 MP / malformed, plus real
+  iPhone samples; measure time, peak RSS, output dimensions, orientation, derivative sizes, SHA-256 preservation);
+- require explicit owner approval before enabling HEIC.
+
+This record does not change the Stage 14C–14K scope. **Stage 14D remains the mandatory backup/restore gate before
+production photo uploads.**

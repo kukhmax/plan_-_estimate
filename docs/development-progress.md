@@ -11,7 +11,7 @@
 > table below). The long per-stage history further down (archived overview detail, historical mapping, Stage Log) is
 > preserved as a record and is not a specification.
 >
-> **Last index update**: 2026-09-28 (Stage 14B.2 — canonical Stage 0–20 index rebuilt).
+> **Last index update**: 2026-09-28 (Stage 14B.H — HEIC/HEIF spike decision recorded; Stage 14B COMPLETE).
 
 ---
 
@@ -39,7 +39,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B.1–14B.5 complete; 14B.6 next) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); media disabled, uploads OFF, R2 connectivity not tested | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete — 14B.1–14B.6 + 14B.H; 14C next, owner approval required) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -52,12 +52,14 @@ not claim the stage is absent from production (later stages were deployed on top
 
 ### Current position
 
-- **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — IN PROGRESS.
-- **Last completed sub-stage**: 14B.5 — production deployment with uploads off (COMPLETE / OWNER VERIFIED,
-  2026-09-28): runtime `e57e037`, DB `0031_photo_assets` (`photo_assets` empty), media storage disabled, uploads OFF,
-  no R2 credentials in the application, R2 connectivity **not** tested (14B plan §25).
-- **Next**: 14B.6 — R2 Connectivity & Credential Readiness (credential injection + controlled smoke test, uploads stay
-  off; 14B plan §26). Starts only with explicit owner approval.
+- **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — **COMPLETE** (14B.1–14B.6 acceptance
+  records complete; 14B.H closed as CONDITIONAL GO / IMPLEMENTATION DEFERRED).
+- **Last completed sub-stage**: 14B.H — HEIC/HEIF technical spike (COMPLETE / CONDITIONAL GO / IMPLEMENTATION
+  DEFERRED, 2026-09-28; documentation only): HEIC not implemented, JPEG/PNG/WebP remain the supported formats; reopen
+  only if real iPhone/Android Telegram uploads in 14C/14E deliver HEIC (14B plan §27). Previous: 14B.6 — R2
+  connectivity & credential readiness (COMPLETE / OWNER VERIFIED; 14B plan §26).
+- **Next**: 14C — Media API & security (uploads stay off in production). Starts only with explicit owner approval.
+  Stage 14D remains the mandatory backup/restore gate before production photo uploads.
 
 ---
 
@@ -69,7 +71,7 @@ not claim the stage is absent from production (later stages were deployed on top
 | Production database head | `0031_photo_assets` (`photo_assets` empty) |
 | Previous baseline | Stage 13 runtime `7b5aaf0` / DB `0030_surface_work_executions` (PRODUCTION VERIFIED, 13J); rollback image `plan-estimate-backend:rollback-pre-14b5` and backup `db-pre-14b5-0030-20260928T143642Z.sql.gz` kept on the server |
 | Stage 14 runtime | 14B foundation only: media config, storage/image-processing library, `photo_assets` schema, read-only integrity tool. **No** upload endpoint, parser, attachment model or UI |
-| Media storage | `MEDIA_STORAGE_BACKEND=disabled`; Cloudflare R2 production bucket exists (14B.2), but R2 credentials are **not** in the production application environment and **R2 connectivity has NOT been tested** (14B.6) |
+| Media storage | `MEDIA_STORAGE_BACKEND=s3` (Cloudflare R2 `r2-primary`, EU); credentials only in the server `.env.production`; R2 connectivity **OWNER VERIFIED** in 14B.6 (14B plan §26) |
 | Production photo uploads | **OFF** (not implemented; `PHOTO_UPLOADS_ENABLED` stays `false` until the 14D gate + explicit owner approval) |
 
 Documentation-only commits (e.g. 13I/13J closure, 14A, 14B.1, 14B.2, and this 14B.5 record) do not change application
@@ -108,14 +110,14 @@ backup/restore gate passes** and the owner explicitly enables them.
 | Sub-stage | Scope (approved wording, abbreviated) | Status |
 | :--- | :--- | :--- |
 | 14A | Audit & architecture | COMPLETE / OWNER ACCEPTED (2026-09-28) |
-| 14B | Media infrastructure readiness | **IN PROGRESS** |
+| 14B | Media infrastructure readiness | **COMPLETE** (14B.1–14B.6 acceptance records complete; 14B.H deferred decision) |
 | └ 14B.1 | Infrastructure audit / implementation plan (R1–R9) | COMPLETE / OWNER ACCEPTED (2026-09-28) |
 | └ 14B.2 | Manual Cloudflare R2 setup (owner-performed) | COMPLETE / OWNER ACCEPTED (2026-09-28) |
 | └ 14B.3 | boto3 + Pillow, config/validation, temp sweep, `MediaStorage` port + S3/in-memory/disabled adapters, key scheme, image pipeline, tests, ARM64 benchmark | COMPLETE / OWNER ACCEPTED (2026-09-28; ARM64 peak 541.8 MB / 1.295 s at 60 MP; 14B plan §23) |
 | └ 14B.4 | `photo_assets` migration + model + read-only integrity-check command + runbook media backup/restore draft + placeholders in `.env.production.example`/compose | COMPLETE / OWNER ACCEPTED (commit `e57e037`; scratch PostgreSQL 16 PASS; 14B plan §24) |
-| └ 14B.5 | Verification + commit; production deploy with uploads **off** | COMPLETE / OWNER VERIFIED (2026-09-28; runtime `e57e037`, DB `0031_photo_assets`, media disabled, uploads off; 14B plan §25) |
+| └ 14B.5 | Verification + commit; production deploy with uploads **off** | COMPLETE / OWNER VERIFIED (2026-09-28; at 14B.5 verification: runtime `e57e037`, DB `0031_photo_assets`, media disabled, uploads off; subsequently R2 enabled with uploads still off in 14B.6; 14B plan §25) |
 | └ 14B.6 | R2 Connectivity & Credential Readiness: owner injects existing R2 credentials; controlled smoke test (PUT/HEAD/GET/presigned GET, private/unsigned denial, write-once conflict); uploads stay off; no upload endpoint; no Oracle backup (14D) | **COMPLETE / OWNER VERIFIED** (14B plan §26) |
-| 14B.H | HEIC/HEIF technical spike (enabling HEIC only after owner approval) | NOT STARTED / DEFERRED |
+| 14B.H | HEIC/HEIF technical spike (enabling HEIC only after owner approval) | **COMPLETE / CONDITIONAL GO / IMPLEMENTATION DEFERRED** (2026-09-28; no dependency, migration or runtime change; device gate after 14C/14E; 14B plan §27) |
 | 14C | Media API & security (upload state machine, list/attach/metadata/archive, presigned thumb/display URLs, quota policy; flag off in production) | NOT STARTED |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
@@ -152,7 +154,7 @@ Known deferred work. None of these reopens a completed stage or changes the Stag
 
 | Item | Origin | Status |
 | :--- | :--- | :--- |
-| 14B.H — HEIC/HEIF support spike | Stage 14A OD-8 / 14B.1 | DEFERRED; HEIC only after measured results + owner approval |
+| 14B.H — HEIC/HEIF implementation | Stage 14A OD-8 / 14B.1 / 14B.H spike (14B plan §27) | DEFERRED; reopen only if real iPhone/Android Telegram Mini App uploads (after 14C/14E) deliver HEIC; then `pillow-heif>=1.8.0,<2.0`, `I;16` fix, explicit multi-image rejection, Oracle ARM64 benchmark, owner approval before enabling |
 | Archived-record hard delete (dependency/safety matrix across Client → Project → Room → Surface → Opening → Work Plans → Estimate provenance) | Stage 10C.1C Finding 4, 10H backlog | DEFERRED; archive/restore remains the only lifecycle |
 | Stage 5G compact Surface Card actions polish (remaining "Opcje" progressive-disclosure polish; base Opcje card delivered in 10C.1) | Stage 5 backlog / Roadmap Note B | DEFERRED polish |
 | Estimate presentation: proactive unresolved-price counter; scope subtotal footer (Robocizna/Materiały/Mieszane/Razem) | Stage 10H | NON-BLOCKING presentation backlog |
