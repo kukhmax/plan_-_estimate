@@ -29,6 +29,7 @@ from app.models.opening_reveal_planned_work import (
     OpeningRevealPlannedWorkCoefficientAssignment,
 )
 from app.models.photo_asset import PhotoAsset, PhotoAssetStatus, PhotoContentType
+from app.models.photo_attachment import PhotoAttachment, PhotoAttachmentContext, PhotoCategory
 from app.models.price_coefficient import (
     CoefficientGroup,
     CoefficientOption,
@@ -94,6 +95,9 @@ __all__ = [
     "OpeningType",
     "PhotoAsset",
     "PhotoAssetStatus",
+    "PhotoAttachment",
+    "PhotoAttachmentContext",
+    "PhotoCategory",
     "PhotoContentType",
     "PriceCategory",
     "PriceItem",

@@ -358,3 +358,44 @@ class PhotoAssetStateError(Exception):
 
 class PhotoAssetValidationError(Exception):
     """PhotoAsset metadata failed validation before persistence."""
+
+
+class PhotoAssetTransitionConflictError(PhotoAssetStateError):
+    """A compare-and-set status transition lost a race: the row no longer
+    has the expected status. `current_status` is the status found after the
+    failed update (e.g. READY written by a parallel request)."""
+
+    def __init__(self, message: str, current_status: object) -> None:
+        super().__init__(message)
+        self.current_status = current_status
+
+
+# ---------------------------------------------------------------------------
+# Stage 14C.2 — PhotoAttachment domain (transport-neutral; HTTP mapping is 14C.4+).
+# ---------------------------------------------------------------------------
+
+
+class PhotoAttachmentNotFoundError(Exception):
+    """No visible attachment with this id in the owner's project (foreign,
+    missing and not-READY assets are indistinguishable)."""
+
+    code = "PHOTO_ATTACHMENT_NOT_FOUND"
+
+
+class PhotoAttachmentDuplicateError(Exception):
+    """An equivalent active attachment (same asset and target) exists."""
+
+    code = "PHOTO_ATTACHMENT_DUPLICATE"
+
+
+class PhotoContextNotSupportedError(Exception):
+    """The attachment context exists in the schema but is not enabled in
+    Stage 14C (INSPECTION/FINDING: 14F, WORK: 14H)."""
+
+    code = "PHOTO_CONTEXT_NOT_SUPPORTED"
+
+
+class PhotoAttachmentValidationError(Exception):
+    """Attachment input is invalid (target shape, caption, position, category)."""
+
+    code = "PHOTO_ATTACHMENT_INVALID"

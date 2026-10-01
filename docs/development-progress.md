@@ -11,7 +11,8 @@
 > table below). The long per-stage history further down (archived overview detail, historical mapping, Stage Log) is
 > preserved as a record and is not a specification.
 >
-> **Last index update**: 2026-09-28 (Stage 14C.1 — Media API & security contract OWNER APPROVED).
+> **Last index update**: 2026-10-01 (Stage 14C.2 — PhotoAttachment schema/domain foundation OWNER ACCEPTED;
+> PostgreSQL 16 scratch verification PASS; 14C.3 next).
 
 ---
 
@@ -39,7 +40,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 contract approved, 14C.2 next, owner approval required) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 contract approved; 14C.2 OWNER ACCEPTED (schema/domain foundation, migration `0032_photo_attachments`, not deployed); 14C.3 next, owner approval required) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -54,14 +55,42 @@ not claim the stage is absent from production (later stages were deployed on top
 
 - **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — **COMPLETE**. Stage 14C (Media API &
   Security) — **IN PROGRESS**.
-- **Last completed sub-stage**: 14C.1 — Media API & security contract (COMPLETE / OWNER APPROVED, 2026-09-28;
-  documentation only): `docs/STAGE_14C_MEDIA_API_CONTRACT.md` — API enables PROJECT/ROOM/SURFACE/OPENING only,
-  `0032_photo_attachments` planned, uniform `409 PHOTO_UPLOAD_ID_CONFLICT`, logical/reserved quota, `503
-  PHOTO_UPLOADS_DISABLED` gate, `PHOTO_MAX_REQUEST_BYTES=27_000_000`. Previous: 14B.H — HEIC/HEIF spike (COMPLETE /
-  CONDITIONAL GO / IMPLEMENTATION DEFERRED; 14B plan §27).
-- **Next**: 14C.2 — PhotoAttachment schema/domain foundation (migration `0032_photo_attachments`). Starts only with
-  explicit owner approval. `PHOTO_UPLOADS_ENABLED` stays `false` in production throughout 14C; Stage 14D remains the
-  mandatory backup/restore gate before production photo uploads.
+- **Last completed sub-stage**: 14C.2 — PhotoAttachment schema/domain foundation — **IMPLEMENTED / AUTOMATED
+  VERIFICATION PASS / POSTGRESQL 16 SCRATCH VERIFICATION PASS / OWNER ACCEPTED** (2026-10-01; not deployed —
+  production stays runtime `e57e037`, DB `0031_photo_assets`; `0032` is applied in production only by 14C.7).
+  - **Migration** `0032_photo_attachments` (down_revision `0031_photo_assets`, single head): `photo_attachments`
+    table, enums `photoattachmentcontext` (7) and `photocategory` (8), seven-branch CHECK + `position >= 0`, 8
+    active-only partial unique indexes (two INSPECTION variants), 8 lookup indexes, 9 ON DELETE RESTRICT FKs (incl.
+    `question_id`, R-2), `occurrence_key` without FK; `photo_assets` unchanged.
+  - **Domain**: `PhotoAttachmentService` (PROJECT/ROOM/SURFACE/OPENING only, full target chain, READY asset,
+    duplicates with unique-index fallback, PATCH, idempotent attachment archive/restore, non-committing first
+    attachment). `PhotoAssetService`: non-committing `add_pending` (`create_pending` still commits on top of it) and
+    compare-and-set `compare_and_set_status` / `transition` (`PhotoAssetTransitionConflictError` carries the current
+    status; READY never regresses). Asset archive/restore remains 14C.5.
+  - **Automated verification PASS**: 124 focused tests (`test_stage14c2_attachment_schema.py` 50,
+    `test_stage14c2_attachment_service.py` 55, `test_stage14c2_asset_transitions.py` 19); full backend 2014 passed;
+    mypy clean on the 14C.2 modules; `git diff --check` clean; offline PostgreSQL DDL rendered and asserted. ruff
+    (E,F,W,B,UP via `uvx`, as in 14B): no E/F/W/B findings; the remaining findings are only the style rules
+    UP007/UP017/UP035/UP042 (`Union` in the Alembic header, `timezone.utc`, `str, enum.Enum`), which flag the
+    committed 14B files (`0031_photo_assets.py`, `models/photo_asset.py`) in the same way — 14 on 14C.2 lines that
+    follow this repository idiom, 1 on a pre-existing committed line; intentionally not refactored.
+  - **PostgreSQL 16 scratch verification PASS** (owner-run on the Oracle ARM64 VM, PostgreSQL 16.15 aarch64,
+    `postgres:16-alpine`, isolated per 14B §24.9; production DB not used): empty DB 0001 → 0032 PASS, `alembic
+    current` = `heads` = `0032_photo_attachments`; initial upgrade probe **96/96 PASS**; downgrade 0032 → 0031 probe
+    **4/4 PASS** (`photo_attachments`, `photoattachmentcontext`, `photocategory` absent; `photo_assets` preserved);
+    re-upgrade 0031 → 0032 probe **96/96 PASS**. All 9 FK RESTRICT cases with SQLSTATE 23503 and the exact
+    constraint names; CHECKs with 23514; all 8 partial unique indexes with 23505 incl. both INSPECTION variants;
+    archived duplicates allowed. Production isolation PASS: production HEAD `e57e037` before/after, backend and
+    PostgreSQL healthy, public `/api/health` `{"status":"ok"}`, production PostgreSQL `StartedAt` unchanged
+    (`2026-09-14T14:12:48.587182093Z`); scratch container and network removed.
+  - **Disposable probe correction**: the out-of-repository scratch probe script compared `pg_constraint.confdeltype`
+    with `'r'`, while the driver returned `b'r'`; the probe was corrected to normalize bytes/string, after which both
+    full probes passed 96/96. This was **not** a production-code, migration or schema defect.
+- **Previous**: 14C.1 — Media API & security contract (COMPLETE / OWNER APPROVED, 2026-09-28; documentation only):
+  `docs/STAGE_14C_MEDIA_API_CONTRACT.md`.
+- **Next**: 14C.3 — upload orchestration (state machine, replay/resume, uniform conflict, logical quota; no HTTP).
+  Starts only with explicit owner approval. Stage 14C is **not** complete. `PHOTO_UPLOADS_ENABLED` stays `false` in
+  production throughout 14C; Stage 14D remains the mandatory backup/restore gate before production photo uploads.
 
 ---
 
@@ -122,7 +151,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | 14B.H | HEIC/HEIF technical spike (enabling HEIC only after owner approval) | **COMPLETE / CONDITIONAL GO / IMPLEMENTATION DEFERRED** (2026-09-28; no dependency, migration or runtime change; device gate after 14C/14E; 14B plan §27) |
 | 14C | Media API & security (upload state machine, list/attach/metadata/archive, presigned thumb/display URLs, quota policy; flag off in production) | **IN PROGRESS** (contract: `docs/STAGE_14C_MEDIA_API_CONTRACT.md`) |
 | └ 14C.1 | Media API & security contract (audit/design; C1–C16, R-1, R-2) | COMPLETE / OWNER APPROVED (2026-09-28; documentation only) |
-| └ 14C.2 | PhotoAttachment schema/domain foundation (migration `0032_photo_attachments`) | NOT STARTED — next; owner approval required |
+| └ 14C.2 | PhotoAttachment schema/domain foundation (migration `0032_photo_attachments`) | COMPLETE / OWNER ACCEPTED (2026-10-01; 124 focused, 2014 backend; PostgreSQL 16 scratch 96/96 · 4/4 · 96/96 PASS; not deployed) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |

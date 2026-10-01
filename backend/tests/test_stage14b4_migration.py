@@ -43,7 +43,8 @@ def run_op(engine, fn):
 
 def fresh_engine():
     engine = create_engine("sqlite://")
-    tables = [t for t in Base.metadata.sorted_tables if t.name != "photo_assets"]
+    # photo_attachments (0032) is a later revision that depends on photo_assets.
+    tables = [t for t in Base.metadata.sorted_tables if t.name not in {"photo_assets", "photo_attachments"}]
     Base.metadata.create_all(engine, tables=tables)
     return engine
 
@@ -55,7 +56,10 @@ def test_revision_chain_and_single_head():
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))  # independent of the cwd
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0031_photo_assets"]
+    heads = script.get_heads()
+    assert len(heads) == 1  # later revisions (0032+) build on 0031 without branching
+    chain = [rev.revision for rev in script.walk_revisions(base="base", head=heads[0])]
+    assert "0031_photo_assets" in chain
 
 
 def test_upgrade_creates_schema_matching_model_and_downgrade_removes_it():

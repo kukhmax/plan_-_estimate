@@ -9,6 +9,14 @@ PENDING -> put objects -> READY/FAILED" is Stage 14C (14A §8).
 Storage keys are always built by the single key builder from the asset id
 and the decoded format, so a row can never carry keys that disagree with its
 identity. URLs are never persisted.
+
+Stage 14C.2 refinements (docs/STAGE_14C_MEDIA_API_CONTRACT.md C10):
+- `add_pending` is the non-committing creation path: it validates, adds and
+  flushes the PENDING row but never commits, so the upload service can commit
+  the asset together with its first attachment. `create_pending` keeps its
+  original committing behaviour on top of it.
+- Status transitions are compare-and-set (`UPDATE ... WHERE id AND status =
+  :expected`); a stale caller can never move READY backwards.
 """
 
 import re
@@ -17,13 +25,14 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import (
     PhotoAssetAlreadyExistsError,
     PhotoAssetNotFoundError,
     PhotoAssetStateError,
+    PhotoAssetTransitionConflictError,
     PhotoAssetValidationError,
 )
 from app.domain.photos.image_processing import ProcessedImage
@@ -100,8 +109,37 @@ class PhotoAssetService:
         processed: ProcessedImage,
         original_filename: str | None = None,
     ) -> PhotoAsset:
-        """Insert a PENDING asset with complete metadata (processing already
-        happened). Verifies the project belongs to the owner."""
+        """Insert and COMMIT a PENDING asset with complete metadata (processing
+        already happened). Verifies the project belongs to the owner."""
+        asset = await self.add_pending(
+            asset_id=asset_id,
+            owner_id=owner_id,
+            project_id=project_id,
+            storage_name=storage_name,
+            processed=processed,
+            original_filename=original_filename,
+        )
+        await self.db.commit()
+        await self.db.refresh(asset)
+        return asset
+
+    async def add_pending(
+        self,
+        *,
+        asset_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        project_id: uuid.UUID,
+        storage_name: str,
+        processed: ProcessedImage,
+        original_filename: str | None = None,
+    ) -> PhotoAsset:
+        """Validate and add a PENDING asset inside the caller's transaction.
+
+        Flushes (so constraint violations surface here) but NEVER commits:
+        the caller owns the transaction and commits the asset together with
+        its first attachment, or rolls both back. A concurrent insert of the
+        same id surfaces as an IntegrityError on flush; the caller rolls back
+        and re-reads (contract §11 step 10)."""
         await ProjectService(self.db).get_project(project_id, owner_id)
         try:
             keys = build_photo_object_keys(asset_id, processed.format)
@@ -132,8 +170,7 @@ class PhotoAssetService:
             uploaded_at=datetime.now(timezone.utc),
         )
         self.db.add(asset)
-        await self.db.commit()
-        await self.db.refresh(asset)
+        await self.db.flush()
         return asset
 
     async def get_for_owner(self, asset_id: uuid.UUID, owner_id: uuid.UUID) -> PhotoAsset:
@@ -147,13 +184,64 @@ class PhotoAssetService:
         self, asset_id: uuid.UUID, owner_id: uuid.UUID, to_status: PhotoAssetStatus
     ) -> PhotoAsset:
         """Apply one upload state transition (PENDING->READY|FAILED,
-        FAILED->PENDING). Metadata never changes; READY is terminal."""
+        FAILED->PENDING) from the status currently read. Metadata never
+        changes; READY is terminal. The write is compare-and-set, so a stale
+        read loses with PhotoAssetTransitionConflictError instead of
+        overwriting a parallel update."""
         asset = await self.get_for_owner(asset_id, owner_id)
-        if to_status not in ALLOWED_TRANSITIONS[asset.status]:
-            raise PhotoAssetStateError(f"cannot move photo asset from {asset.status.value} to {to_status.value}")
-        asset.status = to_status
+        return await self.compare_and_set_status(
+            asset_id, owner_id, expected=asset.status, target=to_status
+        )
+
+    async def compare_and_set_status(
+        self,
+        asset_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        *,
+        expected: PhotoAssetStatus,
+        target: PhotoAssetStatus,
+    ) -> PhotoAsset:
+        """Atomically move the asset from `expected` to `target` and commit.
+
+        `UPDATE photo_assets SET status=:target WHERE id=:id AND
+        owner_id=:owner AND status=:expected`; the affected-row count decides.
+        0 rows -> the current row is reloaded: missing/foreign ->
+        PhotoAssetNotFoundError, otherwise PhotoAssetTransitionConflictError
+        carrying the status actually found (e.g. READY written by a parallel
+        request). READY is never moved backwards because no transition leaves
+        READY and the WHERE clause pins the expected status."""
+        if target not in ALLOWED_TRANSITIONS[expected]:
+            raise PhotoAssetStateError(f"cannot move photo asset from {expected.value} to {target.value}")
+        stmt = (
+            update(PhotoAsset)
+            .where(
+                PhotoAsset.id == asset_id,
+                PhotoAsset.owner_id == owner_id,
+                PhotoAsset.status == expected,
+            )
+            .values(status=target, updated_at=datetime.now(timezone.utc))
+            .execution_options(synchronize_session=False)
+        )
+        result = await self.db.execute(stmt)
+        affected = result.rowcount  # type: ignore[attr-defined]
         await self.db.commit()
-        await self.db.refresh(asset)
+        current = await self._reload(asset_id, owner_id)
+        if affected != 1:
+            raise PhotoAssetTransitionConflictError(
+                f"photo asset is no longer {expected.value}", current_status=current.status
+            )
+        return current
+
+    async def _reload(self, asset_id: uuid.UUID, owner_id: uuid.UUID) -> PhotoAsset:
+        """Owner-scoped read that overwrites any stale identity-map state."""
+        stmt = (
+            select(PhotoAsset)
+            .where(PhotoAsset.id == asset_id, PhotoAsset.owner_id == owner_id)
+            .execution_options(populate_existing=True)
+        )
+        asset = (await self.db.execute(stmt)).scalar_one_or_none()
+        if asset is None:
+            raise PhotoAssetNotFoundError("photo asset not found")
         return asset
 
     async def list_for_integrity(self, storage_name: str | None = None) -> list[PhotoAssetSnapshot]:
