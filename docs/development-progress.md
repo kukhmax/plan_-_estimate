@@ -12,7 +12,7 @@
 > preserved as a record and is not a specification.
 >
 > **Last index update**: 2026-10-01 (Stage 14C.5 — media reads / signed links / metadata / archive-restore
-> IMPLEMENTED / automated verification PASS / OWNER ACCEPTED, awaiting commit; Stage 14C.4 CLOSED `996ccd8`).
+> COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED, `66d399a`; not deployed; 14C.6 next).
 
 ---
 
@@ -40,7 +40,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 CLOSED (contract); 14C.2 CLOSED (schema/domain foundation, migration `0032_photo_attachments`, `c184c85`, not deployed); 14C.3 CLOSED (upload orchestration, no HTTP, `9216734`, not deployed); 14C.4 CLOSED (HTTP upload API, `996ccd8`, not deployed); 14C.5 OWNER ACCEPTED, awaiting commit (not deployed))) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 CLOSED (contract); 14C.2 CLOSED (schema/domain foundation, migration `0032_photo_attachments`, `c184c85`, not deployed); 14C.3 CLOSED (upload orchestration, no HTTP, `9216734`, not deployed); 14C.4 CLOSED (HTTP upload API, `996ccd8`, not deployed); 14C.5 CLOSED (reads / archive controls, `66d399a`, not deployed); 14C.6 next, owner approval required))) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -135,7 +135,7 @@ not claim the stage is absent from production (later stages were deployed on top
     derivatives (the received original stays in the caller's workspace); high-entropy JPEGs near the 25 000 000-byte
     limit (21.5–23.2 MB, 24–31 MP) produced ≈ 1.0–1.1 MB per upload (display ≈ 1.03–1.11 MB, thumbnail ≈ 13 KB),
     1.7–2.0 s on the development machine. Request spooling (Starlette) and concurrency are measured in 14C.6.
-- **Last completed sub-stage**: 14C.4 — HTTP upload / bounded multipart / app wiring — **COMPLETED / OWNER ACCEPTED /
+- **Completed**: 14C.4 — HTTP upload / bounded multipart / app wiring — **COMPLETED / OWNER ACCEPTED /
   COMMITTED / PUSHED / CLOSED** (2026-10-01; owner follow-up review PASS). Canonical implementation commit
   `996ccd8b90037d84d204123c74004dc6a8f89eb4` — `feat(stage-14): add bounded photo upload API` (parent `752a013`);
   manual owner push to `origin/stage-14` verified. No migration.
@@ -192,9 +192,26 @@ not claim the stage is absent from production (later stages were deployed on top
     `deps.py` / every endpoint); `git diff --check` clean. Verified with FastAPI 0.141.1, Starlette 1.6.0,
     python-multipart 0.0.32, Uvicorn 0.52.4, Python 3.14.7 (local venv; the image uses Python 3.12 — 14C.7 records
     the image's resolved versions).
-- **In progress**: 14C.5 — media reads / signed links / metadata / archive-restore — **IMPLEMENTED / AUTOMATED
-  VERIFICATION PASS / OWNER ACCEPTED** (2026-10-01; owner follow-up review PASS; awaiting commit — uncommitted working
-  tree on `stage-14` over `fc88252`; no migration; not deployed).
+- **Last completed sub-stage**: 14C.5 — media reads / signed links / metadata / archive-restore — **COMPLETED / OWNER
+  ACCEPTED / COMMITTED / PUSHED / CLOSED** (2026-10-01; owner follow-up review PASS). Canonical implementation commit
+  `66d399a56124ed086fcff3cdc143cdcaea3f7691` — `feat(stage-14): add photo reads and archive controls` (parent
+  `fc88252`); manual owner push to `origin/stage-14` verified. No migration.
+  - **Accepted semantics**: bounded keyset pagination (default 30 / max 100) with deterministic order
+    position / uploaded_at / attachment id; opaque **unsigned** cursor that is **not an authorization token** —
+    authorization and filter predicates are independently server-enforced; normal and archive views remain distinct;
+    independent asset and attachment archive / restore with no cascade and no storage deletion; upload replay never
+    restores archived state; metadata PATCH limited to caption / category / include_in_report / position; logical
+    DB-based `/api/photo-storage` accounting with the effective upload gate and no provider usage scan / network
+    health check; list returns the thumbnail derivative, detail the thumbnail + display derivatives, no original-user
+    URL; presign response cache / disposition overrides.
+  - **Accepted verification**: 137 Stage 14C.5 focused PASS; 539 Stage 14B + 14C.2 + 14C.3 + 14C.4 regression PASS;
+    207 Stage 14C.3 + 14C.4 owner-follow-up regression PASS with those test files unchanged; 2337 full backend PASS on
+    the accepted runtime; mypy clean; Ruff clean / no new findings; `git diff --check` clean.
+  - **Production state (unchanged by 14C.5)**: runtime `e57e037`; database migration head `0031_photo_assets`;
+    `PHOTO_UPLOADS_ENABLED=false`; migration `0032_photo_attachments` intentionally undeployed; the Stage 14C.4 upload
+    API and the Stage 14C.5 read / mutation API are **NOT deployed**; no production photo uploads are enabled.
+    Production deployment is Stage 14C.7; uploads cannot be enabled before the mandatory Stage 14D backup / restore /
+    readiness gate.
   - **Routes** (`app/api/v1/endpoints/photos.py`, 9 new): `GET /api/projects/{p}/photos` (list; filters context /
     room / surface / opening / category / include_in_report; `archived=false` normal view, `archived=true` archive
     view; keyset pagination limit 30, max 100; thumbnail URLs), `GET …/photos/{asset_id}` (detail; all attachments
@@ -230,12 +247,19 @@ not claim the stage is absent from production (later stages were deployed on top
     new findings beyond the repository idioms (B008 FastAPI `Depends()` / `Query()`, UP017 `timezone.utc` as in the
     surrounding service); `git diff --check` clean. No migration: 0032 indexes cover every query.
 - **Roadmap state**: Stage 14C overall remains **IN PROGRESS**; 14C.1 CLOSED; 14C.2 CLOSED; 14C.3 CLOSED; 14C.4
-  CLOSED; 14C.5 OWNER ACCEPTED, awaiting commit; 14C.6 NOT STARTED; 14C.7 NOT STARTED. Production unchanged:
+  CLOSED; 14C.5 CLOSED; 14C.6 NEXT / NOT STARTED; 14C.7 NOT STARTED. Production unchanged:
   runtime `e57e037`, DB `0031_photo_assets`, `PHOTO_UPLOADS_ENABLED=false`; `0032_photo_attachments`, the 14C.4 upload
   API and the 14C.5 read / mutation API intentionally undeployed until 14C.7; no production photo uploads before the
   Stage 14D gate.
-- **Next after the 14C.5 commit**: Stage 14C.6 — adversarial / full verification (owner approval required).
-  Still out of scope: frontend photo UI, inspection/finding photos, work-execution photos, HEIC, object deletion,
+- **Next**: Stage 14C.6 — adversarial / resource / performance / full verification (verification / hardening stage;
+  owner approval required; not started). Expected audit areas: concurrent upload / admission behaviour; concurrent
+  archive / restore / PATCH; slow, chunked and malformed multipart requests; request / body / temp-disk bounds; temp
+  cleanup under failures; processing-semaphore / admission interaction; storage failures and partial-object
+  scenarios; DB transaction / race behaviour; keyset pagination under mutation / concurrency; large photo-list
+  performance; logical quota races / boundaries; signed-link behaviour; ownership / adversarial probing; full
+  Stage 14B / 14C regression and full backend verification; resource / memory / temp-disk observations. No
+  production deployment belongs to 14C.6. Still out of scope: frontend photo UI, inspection/finding photos,
+  work-execution photos, HEIC, object deletion,
   enabling uploads, Stage 14D work. Then 14C.7 manual production deployment with uploads OFF. Stage 14D remains
   mandatory before production uploads can be enabled; `PHOTO_UPLOADS_ENABLED` stays `false` in production
   throughout 14C.
@@ -302,7 +326,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.2 | PhotoAttachment schema/domain foundation (migration `0032_photo_attachments`) | COMPLETE / OWNER ACCEPTED (2026-10-01; 124 focused, 2014 backend; PostgreSQL 16 scratch 96/96 · 4/4 · 96/96 PASS; not deployed) |
 | └ 14C.3 | Upload orchestration (new / replay / resume, uniform conflict, logical quota; no HTTP) | COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED (2026-10-01; `9216734`; owner concurrency follow-up PASS; 95 focused, 332 regression, 2109 backend; not deployed) |
 | └ 14C.4 | HTTP upload / bounded multipart / admission / temp sweep / Caddy cap | COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED (2026-10-01; `996ccd8`; owner follow-up PASS; 112 focused, 427 regression, 2206 backend; not deployed) |
-| └ 14C.5 | Media reads / signed links / metadata / archive-restore / photo-storage status | IMPLEMENTED / AUTOMATED VERIFICATION PASS / OWNER ACCEPTED (2026-10-01; owner follow-up PASS; 137 focused, 539 regression, 2337 backend; awaiting commit; not deployed) |
+| └ 14C.5 | Media reads / signed links / metadata / archive-restore / photo-storage status | COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED (2026-10-01; `66d399a`; owner follow-up PASS; 137 focused, 539 regression, 2337 backend; not deployed) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
