@@ -321,6 +321,31 @@ outcome.
 Because objects follow the PENDING commit, an upload failure never produces `ORPHAN_CANDIDATE`; such keys indicate a
 manual/external write.
 
+### 11a. Refinements (OWNER APPROVED, 14C.3 review, 2026-10-01)
+
+1. **Lost step-17 CAS**: a request whose PENDING → READY compare-and-set loses re-reads the row. READY → it returns
+   the concurrently finalized asset (200). Any other state (FAILED written by a parallel request) → it returns to
+   step 8 and follows the normal FAILED resume path.
+2. **Resume regeneration rejected by the pipeline**: if the SHA-verified retry bytes no longer pass the current
+   processing pipeline (e.g. limits changed between attempts), the recorded derivatives cannot be regenerated →
+   compare-and-set to FAILED → 409 `PHOTO_UPLOAD_RESUME_MISMATCH` (as in step 15).
+3. **Resume and metadata**: a resume never creates or changes an attachment. Request metadata is ignored and the
+   response carries the asset's existing first attachment (as for a READY replay, C16).
+4. **Storage reads during resume**: a storage error while HEADing the expected keys (step 13) is a storage-phase
+   failure handled like Stage E: compare-and-set to FAILED and re-raise the provider-neutral error
+   (`MediaStorageUnavailable` → 503, `MediaStorageMisconfigured` → 500). If that compare-and-set loses to READY, the
+   READY outcome stands (200).
+
+**Convergence (no retry count).** Step 8 is re-entered only after observing, in a fresh transaction, a transition
+committed by another request: a primary-key collision on the step-10 insert (the row now exists; rows are never deleted,
+so the new-upload branch is not re-entered), a lost FAILED → PENDING claim, or a lost PENDING → READY to a parallel
+PENDING → FAILED. The loser of a FAILED → PENDING claim never recovers from the stale FAILED: it re-reads and resumes
+from PENDING without claiming, replays READY, or claims again only after a new FAILED. A request that records FAILED
+ends with its error, so each concurrent request can make the row FAILED at most once; re-identification is bounded by
+the number of concurrent requests for the same `upload_id`, and no artificial retry limit exists. Concurrent resumes of
+the same asset may both HEAD, regenerate and conditionally PUT: identical bytes are a write-once no-op, different bytes
+raise `MediaObjectConflict` and are never written over; nothing is deleted; compare-and-set keeps READY terminal.
+
 ---
 
 ## 12. Retry and idempotency semantics

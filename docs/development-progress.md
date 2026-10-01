@@ -11,8 +11,8 @@
 > table below). The long per-stage history further down (archived overview detail, historical mapping, Stage Log) is
 > preserved as a record and is not a specification.
 >
-> **Last index update**: 2026-10-01 (Stage 14C.2 — PhotoAttachment schema/domain foundation OWNER ACCEPTED;
-> PostgreSQL 16 scratch verification PASS; 14C.3 next).
+> **Last index update**: 2026-10-01 (Stage 14C.3 — upload orchestration OWNER ACCEPTED (owner concurrency follow-up
+> PASS); not deployed; 14C.4 next).
 
 ---
 
@@ -40,7 +40,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 contract approved; 14C.2 OWNER ACCEPTED (schema/domain foundation, migration `0032_photo_attachments`, not deployed); 14C.3 next, owner approval required) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 contract approved; 14C.2 OWNER ACCEPTED (schema/domain foundation, migration `0032_photo_attachments`, not deployed); 14C.3 upload orchestration OWNER ACCEPTED (no HTTP, not deployed); 14C.4 next, owner approval required) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -55,7 +55,7 @@ not claim the stage is absent from production (later stages were deployed on top
 
 - **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — **COMPLETE**. Stage 14C (Media API &
   Security) — **IN PROGRESS**.
-- **Last completed sub-stage**: 14C.2 — PhotoAttachment schema/domain foundation — **IMPLEMENTED / AUTOMATED
+- **Previously completed**: 14C.2 — PhotoAttachment schema/domain foundation — **IMPLEMENTED / AUTOMATED
   VERIFICATION PASS / POSTGRESQL 16 SCRATCH VERIFICATION PASS / OWNER ACCEPTED** (2026-10-01; not deployed —
   production stays runtime `e57e037`, DB `0031_photo_assets`; `0032` is applied in production only by 14C.7).
   - **Migration** `0032_photo_attachments` (down_revision `0031_photo_assets`, single head): `photo_attachments`
@@ -88,8 +88,47 @@ not claim the stage is absent from production (later stages were deployed on top
     full probes passed 96/96. This was **not** a production-code, migration or schema defect.
 - **Previous**: 14C.1 — Media API & security contract (COMPLETE / OWNER APPROVED, 2026-09-28; documentation only):
   `docs/STAGE_14C_MEDIA_API_CONTRACT.md`.
-- **Next**: 14C.3 — upload orchestration (state machine, replay/resume, uniform conflict, logical quota; no HTTP).
-  Starts only with explicit owner approval. Stage 14C is **not** complete. `PHOTO_UPLOADS_ENABLED` stays `false` in
+- **Last completed sub-stage**: 14C.3 — upload orchestration (no HTTP) — **IMPLEMENTED / AUTOMATED VERIFICATION
+  PASS / OWNER CONCURRENCY FOLLOW-UP PASS / OWNER ACCEPTED** (2026-10-01; on `stage-14` over `c184c85`; no migration;
+  **not deployed** — production unchanged at runtime `e57e037`, DB `0031_photo_assets`, `PHOTO_UPLOADS_ENABLED=false`).
+  - **New**: `app/domain/services/photo_upload_service.py` (`PhotoUploadService`, `PhotoUploadRequest` /
+    `PhotoUploadResult` / `PhotoUploadOutcome` / `PhotoUploadConfig`) and `app/domain/services/photo_quota.py`.
+    Additive changes: `ImageProcessor.slot()` / `run_in_slot()` (`process()` unchanged on top), public
+    `validate_attachment_fields`, upload exceptions (`PHOTO_UPLOADS_DISABLED`, `PHOTO_UPLOAD_MALFORMED`,
+    `PHOTO_UPLOAD_ID_CONFLICT` with the fixed §14 message, `PHOTO_STORAGE_QUOTA_EXCEEDED`,
+    `PHOTO_UPLOAD_RESUME_MISMATCH`); storage failures stay the provider-neutral `MediaStorageError` subclasses.
+  - **Semantics (contract §11–§15, §19)**: gate first (no hashing, processing, row or object); canonical lowercase
+    UUIDv4 `upload_id`; project, fields and target chain validated and SHA-256 computed before identification;
+    foreign / other-project `upload_id` → uniform conflict **without** SHA comparison, processing, HEAD, PUT or CAS;
+    own + different SHA → the same conflict; READY → replay (archived included, metadata ignored, first attachment,
+    no PUT/HEAD/quota); PENDING/FAILED → resume (CAS FAILED→PENDING, per-key HEAD, wrong size → FAILED +
+    `MediaObjectConflict`, missing original re-PUT from SHA-verified bytes, missing derivative regenerated in the slot
+    and checked against recorded format/dimensions/sizes else FAILED + `PHOTO_UPLOAD_RESUME_MISMATCH`, never
+    quota-rejected); new upload holds the processing slot across pipeline → logical quota check → one-transaction
+    PENDING asset + first attachment commit, then write-once PUT original → display → thumbnail, then CAS
+    PENDING→READY. Storage errors (PUT and resume HEAD) → CAS to FAILED, error re-raised; lost CAS → re-read
+    (READY → concurrently finalized). Owner follow-up: the four contract refinements are recorded in the contract
+    §11a (OWNER APPROVED); the arbitrary 4-round re-identification guard was removed — step 8 is re-entered only
+    after another request's committed transition and converges without a retry count (§11a). No object is ever
+    deleted; DB failures after object writes leave PENDING/FAILED rows that the integrity tool reports as
+    `PENDING_INCOMPLETE` / `FAILED_RELATED`, never `ORPHAN_CANDIDATE`; a failed FAILED-commit leaves a recoverable
+    PENDING row (`PENDING_INCOMPLETE`) that the next retry finalizes.
+  - **Accepted concurrency semantics (owner follow-up)**: concurrent PENDING resumes may both HEAD, regenerate and
+    conditionally PUT (write-once + CAS keep this correct); FAILED → PENDING CAS is the single claim point for a
+    FAILED asset; CAS losers re-read the current state; stale failure handling cannot regress READY; resume preserves
+    the original first attachment and ignores new metadata; no duplicate first attachment; no object deletion.
+  - **Tests**: 95 focused (`test_stage14c3_upload_service.py` 71, `test_stage14c3_upload_id_conflict.py` 6,
+    `test_stage14c3_quota.py` 9, `test_stage14c3_concurrency.py` 9 — concurrent PENDING/FAILED resumes, lost claims,
+    finalize lost to FAILED, storage failure vs parallel READY, READY never regresses, FAILED-commit-failure
+    recovery) — **95 passed**; 14B + 14C.2 regression **332 passed**; full backend **2109 passed**; mypy clean;
+    ruff (E,F,W,B,UP via `uvx`): no new findings, one pre-existing UP017 on a committed 14C.2 line;
+    `git diff --check` clean.
+  - **Temp observation for 14C.6 (not a threshold)**: the orchestration's own workspace holds only the two
+    derivatives (the received original stays in the caller's workspace); high-entropy JPEGs near the 25 000 000-byte
+    limit (21.5–23.2 MB, 24–31 MP) produced ≈ 1.0–1.1 MB per upload (display ≈ 1.03–1.11 MB, thumbnail ≈ 13 KB),
+    1.7–2.0 s on the development machine. Request spooling (Starlette) and concurrency are measured in 14C.6.
+- **Next**: 14C.4 — upload HTTP + guards (owner approval required). Stage 14C is **not**
+  complete. `PHOTO_UPLOADS_ENABLED` stays `false` in
   production throughout 14C; Stage 14D remains the mandatory backup/restore gate before production photo uploads.
 
 ---
@@ -152,6 +191,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | 14C | Media API & security (upload state machine, list/attach/metadata/archive, presigned thumb/display URLs, quota policy; flag off in production) | **IN PROGRESS** (contract: `docs/STAGE_14C_MEDIA_API_CONTRACT.md`) |
 | └ 14C.1 | Media API & security contract (audit/design; C1–C16, R-1, R-2) | COMPLETE / OWNER APPROVED (2026-09-28; documentation only) |
 | └ 14C.2 | PhotoAttachment schema/domain foundation (migration `0032_photo_attachments`) | COMPLETE / OWNER ACCEPTED (2026-10-01; 124 focused, 2014 backend; PostgreSQL 16 scratch 96/96 · 4/4 · 96/96 PASS; not deployed) |
+| └ 14C.3 | Upload orchestration (new / replay / resume, uniform conflict, logical quota; no HTTP) | COMPLETE / OWNER ACCEPTED (2026-10-01; owner concurrency follow-up PASS; 95 focused, 332 regression, 2109 backend; not deployed) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |

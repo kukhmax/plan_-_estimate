@@ -122,6 +122,16 @@ def _validate_include(include_in_report: bool) -> bool:
     return include_in_report
 
 
+def validate_attachment_fields(
+    category: PhotoCategory | None, caption: str | None, include_in_report: bool
+) -> None:
+    """Validate first-attachment metadata up front (contract §11 step 7), so
+    an upload is rejected before identification or processing."""
+    _validate_category(category)
+    normalize_caption(caption)
+    _validate_include(include_in_report)
+
+
 class PhotoAttachmentService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db

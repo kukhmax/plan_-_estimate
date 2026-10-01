@@ -24,7 +24,8 @@ import asyncio
 import hashlib
 import io
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
@@ -311,15 +312,27 @@ class ImageProcessor:
         self._slot = asyncio.Semaphore(MAX_CONCURRENT_PROCESSING)
 
     async def process(self, source: Path, workspace: Path) -> ProcessedImage:
+        async with self.slot():
+            return await self.run_in_slot(source, workspace)
+
+    @asynccontextmanager
+    async def slot(self) -> AsyncIterator[None]:
+        """Hold the processing slot for a block of work. Stage 14C.3 keeps it
+        across processing, the logical quota check and the PENDING insert so
+        that check is exact within one process (contract §11 step 9, §15)."""
         try:
             await asyncio.wait_for(self._slot.acquire(), timeout=self._wait_seconds)
         except TimeoutError:
             raise PhotoProcessingBusyError("image processing is busy; retry later") from None
         try:
-            # abandon_on_cancel=False: cancellation waits for the thread.
-            return await anyio.to_thread.run_sync(
-                partial(self._process_fn, Path(source), Path(workspace), self._config),
-                abandon_on_cancel=False,
-            )
+            yield
         finally:
             self._slot.release()
+
+    async def run_in_slot(self, source: Path, workspace: Path) -> ProcessedImage:
+        """Run the pipeline; the caller must hold `slot()`."""
+        # abandon_on_cancel=False: cancellation waits for the thread.
+        return await anyio.to_thread.run_sync(
+            partial(self._process_fn, Path(source), Path(workspace), self._config),
+            abandon_on_cancel=False,
+        )

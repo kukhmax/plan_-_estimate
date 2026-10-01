@@ -399,3 +399,53 @@ class PhotoAttachmentValidationError(Exception):
     """Attachment input is invalid (target shape, caption, position, category)."""
 
     code = "PHOTO_ATTACHMENT_INVALID"
+
+
+# ---------------------------------------------------------------------------
+# Stage 14C.3 — upload orchestration (transport-neutral; HTTP mapping is 14C.4).
+# Storage failures keep the provider-neutral MediaStorageError subclasses
+# (MediaStorageUnavailable / MediaStorageMisconfigured / MediaObjectConflict).
+# ---------------------------------------------------------------------------
+
+
+class PhotoUploadsDisabledError(Exception):
+    """Uploads are switched off (PHOTO_UPLOADS_ENABLED=false or storage not
+    s3). Raised before any processing, row or object write (contract §19)."""
+
+    code = "PHOTO_UPLOADS_DISABLED"
+
+
+class PhotoUploadMalformedError(Exception):
+    """Upload request metadata is malformed (e.g. upload_id is not a
+    canonical lowercase UUIDv4)."""
+
+    code = "PHOTO_UPLOAD_MALFORMED"
+
+
+PHOTO_UPLOAD_ID_CONFLICT_MESSAGE = "upload_id cannot be used for this upload; generate a new one"
+
+
+class PhotoUploadIdConflictError(Exception):
+    """The upload_id is unavailable for this upload. One identical error for
+    a foreign id, an own id of another project and an own id with different
+    bytes (contract §14): it never says which condition matched."""
+
+    code = "PHOTO_UPLOAD_ID_CONFLICT"
+
+    def __init__(self) -> None:
+        super().__init__(PHOTO_UPLOAD_ID_CONFLICT_MESSAGE)
+
+
+class PhotoStorageQuotaExceededError(Exception):
+    """A NEW upload would push the owner's logical storage over the soft cap
+    (contract §15). Replays and resumes never raise this."""
+
+    code = "PHOTO_STORAGE_QUOTA_EXCEEDED"
+
+
+class PhotoUploadResumeMismatchError(Exception):
+    """Derivatives regenerated from the SHA-verified retry bytes do not match
+    the recorded format / dimensions / sizes; the asset is left FAILED for
+    operator action (contract §11 step 15)."""
+
+    code = "PHOTO_UPLOAD_RESUME_MISMATCH"
