@@ -279,9 +279,16 @@ class S3MediaStorage:
         )
 
     def _presign_sync(self, key: str, ttl_seconds: int) -> str:
+        # Stage 14C contract §17: private caching for the URL lifetime and
+        # inline display; both are signed response overrides (no PUT headers).
         return self._get_client().generate_presigned_url(
             "get_object",
-            Params={"Bucket": self._bucket, "Key": key},
+            Params={
+                "Bucket": self._bucket,
+                "Key": key,
+                "ResponseCacheControl": f"private, max-age={ttl_seconds}",
+                "ResponseContentDisposition": "inline",
+            },
             ExpiresIn=ttl_seconds,
         )
 

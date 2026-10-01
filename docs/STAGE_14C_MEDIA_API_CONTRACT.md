@@ -381,6 +381,45 @@ raise `MediaObjectConflict` and are never written over; nothing is deleted; comp
 7. **Upload response URLs**: the upload response (§9) carries presigned `thumbnail_url` / `display_url` and
    `urls_expire_at`, produced with `MediaStorage.presign_get` and `PHOTO_SIGNED_URL_TTL_SECONDS` only after the domain
    result is READY. Standalone read / list / link / archive routes remain 14C.5.
+
+### 11c. Read / archive / storage-status refinements (OWNER APPROVED, 14C.5, 2026-10-01)
+
+1. **Presign response overrides (D-1, §17) implemented**: the S3 adapter signs every derivative URL with
+   `ResponseCacheControl: private, max-age=<PHOTO_SIGNED_URL_TTL_SECONDS>` and `ResponseContentDisposition: inline`
+   (local signing, no network). This also applies to the 14C.4 upload response URLs. Only derivative keys (thumbnail,
+   display) are ever signed.
+2. **List** (`GET /projects/{p}/photos`): context filters are validated with the same shape / ownership chain as
+   attach and upload — a target id without a context, or a context without its target id → 422
+   `PHOTO_ATTACHMENT_INVALID`; INSPECTION / FINDING / WORK → 422 `PHOTO_CONTEXT_NOT_SUPPORTED`; a foreign or missing
+   target → 404 `ROOM_NOT_FOUND` / `SURFACE_NOT_FOUND` / `OPENING_NOT_FOUND`. Query type errors (unknown enum, `limit`
+   outside 1–100) are the standard FastAPI 422. Every query also requires `attachment.project_id = asset.project_id =
+   project`, `asset.owner_id = owner` and READY, independently of the foreign keys.
+3. **Cursor**: the cursor is opaque and strictly validated. It is bound to the owner, project and list filters. It
+   is not an authorization token. Authorization and filtering are independently enforced by the database query. A
+   syntactically valid client-crafted continuation tuple cannot weaken those predicates.
+   - Encoding (not part of the API contract): base64url JSON `{v, p, u, i, f}` — version 1, the last row's
+     `(position, uploaded_at, attachment id)` and `f` = a plain (unkeyed) truncated SHA-256 of (owner, project,
+     every filter, `archived`). It is **not** cryptographically authenticated (no MAC; owner decision for v1).
+   - 422 `PHOTO_CURSOR_INVALID` for: a **malformed** cursor (not base64url / JSON), a **schema-invalid** cursor
+     (wrong keys, version or types, negative position, unparsable timestamp / id) and a **filter-mismatched** cursor
+     (fingerprint of another owner / project / filter set / view).
+   - A **valid but client-crafted continuation tuple** is accepted: it only selects where to continue inside the
+     already-authorized, already-filtered result set (it is AND-ed after every owner / project / READY / view /
+     context / target / category / report predicate), so it can skip or repeat the owner's own visible rows but never
+     reveal anything else. Proven by tests.
+4. **Detail** (`GET /projects/{p}/photos/{asset_id}`): READY asset of this owner and project (archived included);
+   `attachments` = all of its attachments in this project, archived included, in creation order `(created_at, id)`.
+5. **Asset archive / restore** set / clear `photo_assets.archived_at` only (no attachment cascade, no status or storage
+   change); both idempotent; PENDING / FAILED → 404 `PHOTO_NOT_FOUND`. Attachment archive state is untouched by either.
+6. **Attach existing** (`POST /projects/{p}/photos/{asset_id}/attachments`) is a DB-only operation (no media write)
+   and works with uploads disabled; the request has no `position` (new attachments start at 0).
+7. **`GET /api/photo-storage`** is a **logical application quota / status** endpoint, not provider usage:
+   `used_bytes` = the §15 accounting (recorded original + display + thumbnail sizes of READY, PENDING and FAILED assets,
+   archived included); no bucket listing, HEAD or network call. `uploads_enabled` = the effective upload gate
+   (`PHOTO_UPLOADS_ENABLED` and `MEDIA_STORAGE_BACKEND=s3`); `media_available` = `MEDIA_STORAGE_BACKEND=s3` (configured
+   for delivery; no live health check); `state` = OK / WARNING / FULL with the configured thresholds.
+8. **Storage on reads**: `MEDIA_STORAGE_BACKEND=disabled` → metadata with `null` URLs and `urls_expire_at`; a presign
+   failure → 503 `PHOTO_STORAGE_UNAVAILABLE` (no `Retry-After`) or 500 `PHOTO_STORAGE_ERROR`; reads never write.
 ---
 
 ## 12. Retry and idempotency semantics

@@ -1,4 +1,4 @@
-"""Photo upload endpoint (Stage 14C.4).
+"""Photo endpoints: upload (Stage 14C.4) and reads / metadata / archive (Stage 14C.5).
 
 Canonical contract: docs/STAGE_14C_MEDIA_API_CONTRACT.md §9–§11, §14, §17,
 §19–§21 (incl. the 14C.4 refinements in §11b).
@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import NoReturn
 
 import anyio
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from python_multipart.exceptions import FormParserError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import UploadFile
@@ -43,11 +43,16 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.domain.exceptions import (
     MediaObjectConflict,
+    MediaStorageDisabled,
     MediaStorageError,
     MediaStorageUnavailable,
     OpeningNotFoundError,
+    PhotoAssetNotFoundError,
+    PhotoAttachmentDuplicateError,
+    PhotoAttachmentNotFoundError,
     PhotoAttachmentValidationError,
     PhotoContextNotSupportedError,
+    PhotoCursorInvalidError,
     PhotoProcessingBusyError,
     PhotoStorageQuotaExceededError,
     PhotoTooLargeError,
@@ -62,7 +67,11 @@ from app.domain.exceptions import (
     SurfaceNotFoundError,
 )
 from app.domain.photos.temp import photo_workspace
-from app.domain.services.photo_attachment_service import AttachmentTarget
+from app.domain.services.media_storage import MediaStorage
+from app.domain.services.photo_asset_service import PhotoAssetService
+from app.domain.services.photo_attachment_service import AttachmentTarget, PhotoAttachmentService
+from app.domain.services.photo_query_service import DEFAULT_LIMIT, MAX_LIMIT, PhotoListFilters, PhotoQueryService
+from app.domain.services.photo_quota import logical_usage_bytes, storage_state
 from app.domain.services.photo_upload_service import (
     PhotoUploadConfig,
     PhotoUploadRequest,
@@ -75,8 +84,14 @@ from app.models.photo_attachment import PhotoAttachmentContext, PhotoCategory
 from app.models.user import User
 from app.schemas.photo import (
     PhotoAssetRead,
+    PhotoAttachmentPatch,
     PhotoAttachmentRead,
+    PhotoAttachRequest,
+    PhotoDetailResponse,
+    PhotoListItem,
+    PhotoListResponse,
     PhotoStorageRead,
+    PhotoStorageStatus,
     PhotoUploadResponse,
 )
 
@@ -115,6 +130,11 @@ _MESSAGES = {
     "ROOM_NOT_FOUND": "Room not found",
     "SURFACE_NOT_FOUND": "Surface not found",
     "OPENING_NOT_FOUND": "Opening not found",
+    "PHOTO_NOT_FOUND": "Photo not found",
+    "PHOTO_ATTACHMENT_NOT_FOUND": "Photo attachment not found",
+    "PHOTO_ATTACHMENT_DUPLICATE": "An equivalent active attachment already exists",
+    "PHOTO_ATTACHMENT_INVALID": "Invalid photo attachment data",
+    "PHOTO_CURSOR_INVALID": "Invalid list cursor",
 }
 
 
@@ -370,3 +390,287 @@ def _raise_disconnected() -> NoReturn:
     # Nobody receives this response; it only ends the request cleanly
     # (workspace removal and admission release still run).
     raise _malformed()
+
+
+# ===========================================================================
+# Stage 14C.5 — reads, signed-link refresh, metadata, archive / restore.
+# ===========================================================================
+
+_LIBRARY_ERRORS = (
+    *_DOMAIN_ERRORS,
+    PhotoAssetNotFoundError,
+    PhotoAttachmentNotFoundError,
+    PhotoAttachmentDuplicateError,
+    PhotoCursorInvalidError,
+)
+
+
+def _map_library_error(exc: Exception) -> HTTPException:
+    """14C.5 mapping; everything else falls through to the 14C.4 mapping."""
+    if isinstance(exc, PhotoAssetNotFoundError):
+        return _error(status.HTTP_404_NOT_FOUND, "PHOTO_NOT_FOUND")
+    if isinstance(exc, PhotoAttachmentNotFoundError):
+        return _error(status.HTTP_404_NOT_FOUND, "PHOTO_ATTACHMENT_NOT_FOUND")
+    if isinstance(exc, PhotoAttachmentDuplicateError):
+        return _error(status.HTTP_409_CONFLICT, "PHOTO_ATTACHMENT_DUPLICATE")
+    if isinstance(exc, PhotoAttachmentValidationError):
+        return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, "PHOTO_ATTACHMENT_INVALID")
+    if isinstance(exc, PhotoCursorInvalidError):
+        return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, "PHOTO_CURSOR_INVALID")
+    return _map_domain_error(exc)
+
+
+async def _sign(storage: MediaStorage, keys: list[str]) -> tuple[list[str | None], datetime | None]:
+    """Derivative URLs only (never the original). Disabled storage -> null
+    URLs and expiry (§17); other storage errors propagate to the mapping
+    (503 / 500). Signing never touches the database."""
+    ttl = settings.PHOTO_SIGNED_URL_TTL_SECONDS
+    expires_at = datetime.now(UTC) + timedelta(seconds=ttl)
+    urls: list[str | None] = []
+    try:
+        for key in keys:
+            urls.append(await storage.presign_get(key, ttl))
+    except MediaStorageDisabled:
+        return [None] * len(keys), None
+    return urls, expires_at
+
+
+@router.get(
+    "/projects/{project_id}/photos",
+    response_model=PhotoListResponse,
+    summary="List photo attachments (normal view or archive view) with fresh thumbnail URLs",
+)
+async def list_photos(
+    project_id: uuid.UUID,
+    context: PhotoAttachmentContext | None = Query(default=None),
+    room_id: uuid.UUID | None = Query(default=None),
+    surface_id: uuid.UUID | None = Query(default=None),
+    opening_id: uuid.UUID | None = Query(default=None),
+    category: PhotoCategory | None = Query(default=None),
+    include_in_report: bool | None = Query(default=None),
+    archived: bool = Query(default=False, description="false: normal view; true: archive view (restorable items)"),
+    limit: int = Query(default=DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+    cursor: str | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    runtime: PhotoRuntime = Depends(get_photo_runtime),
+) -> PhotoListResponse:
+    filters = PhotoListFilters(
+        context=context, room_id=room_id, surface_id=surface_id, opening_id=opening_id,
+        category=category, include_in_report=include_in_report, archived=archived,
+    )
+    try:
+        page = await PhotoQueryService(db).list_photos(
+            current_user.id, project_id, filters, limit=limit, cursor=cursor
+        )
+        urls, expires_at = await _sign(runtime.storage, [asset.storage_key_thumbnail for _, asset in page.items])
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return PhotoListResponse(
+        items=[
+            PhotoListItem(
+                attachment=PhotoAttachmentRead.model_validate(attachment),
+                asset=PhotoAssetRead.model_validate(asset),
+                thumbnail_url=url,
+            )
+            for (attachment, asset), url in zip(page.items, urls, strict=True)
+        ],
+        next_cursor=page.next_cursor,
+        urls_expire_at=expires_at if page.items else None,
+    )
+
+
+@router.get(
+    "/projects/{project_id}/photos/{asset_id}",
+    response_model=PhotoDetailResponse,
+    summary="Photo detail: READY asset (archived included), all its attachments, thumbnail + display URLs",
+)
+async def get_photo(
+    project_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    runtime: PhotoRuntime = Depends(get_photo_runtime),
+) -> PhotoDetailResponse:
+    try:
+        asset, attachments = await PhotoQueryService(db).get_detail(current_user.id, project_id, asset_id)
+        urls, expires_at = await _sign(runtime.storage, [asset.storage_key_thumbnail, asset.storage_key_display])
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return PhotoDetailResponse(
+        asset=PhotoAssetRead.model_validate(asset),
+        attachments=[PhotoAttachmentRead.model_validate(a) for a in attachments],
+        thumbnail_url=urls[0],
+        display_url=urls[1],
+        urls_expire_at=expires_at,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/photos/{asset_id}/attachments",
+    response_model=PhotoAttachmentRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Attach an existing READY photo to another supported context (DB only; no media write)",
+)
+async def attach_photo(
+    project_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    payload: PhotoAttachRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAttachmentRead:
+    try:
+        attachment = await PhotoAttachmentService(db).create_attachment(
+            owner_id=current_user.id,
+            project_id=project_id,
+            asset_id=asset_id,
+            target=AttachmentTarget(
+                context=payload.context,
+                room_id=payload.room_id,
+                surface_id=payload.surface_id,
+                opening_id=payload.opening_id,
+            ),
+            category=payload.category,
+            caption=payload.caption,
+            include_in_report=payload.include_in_report,
+        )
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return PhotoAttachmentRead.model_validate(attachment)
+
+
+@router.patch(
+    "/projects/{project_id}/photo-attachments/{attachment_id}",
+    response_model=PhotoAttachmentRead,
+    summary="Update attachment metadata (caption, category, include_in_report, position)",
+)
+async def update_photo_attachment(
+    project_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    payload: PhotoAttachmentPatch,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAttachmentRead:
+    changes = {name: getattr(payload, name) for name in payload.model_fields_set}
+    try:
+        await ProjectService(db).get_project(project_id, current_user.id)
+        attachment = await PhotoAttachmentService(db).update_attachment(
+            current_user.id, project_id, attachment_id, **changes
+        )
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return PhotoAttachmentRead.model_validate(attachment)
+
+
+async def _attachment_state(
+    project_id: uuid.UUID, attachment_id: uuid.UUID, owner_id: uuid.UUID, db: AsyncSession, *, archive: bool
+) -> PhotoAttachmentRead:
+    service = PhotoAttachmentService(db)
+    try:
+        await ProjectService(db).get_project(project_id, owner_id)
+        if archive:
+            attachment = await service.archive_attachment(owner_id, project_id, attachment_id)
+        else:
+            attachment = await service.restore_attachment(owner_id, project_id, attachment_id)
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return PhotoAttachmentRead.model_validate(attachment)
+
+
+@router.post(
+    "/projects/{project_id}/photo-attachments/{attachment_id}/archive",
+    response_model=PhotoAttachmentRead,
+    summary="Archive one attachment (idempotent; asset, other attachments and storage untouched)",
+)
+async def archive_photo_attachment(
+    project_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAttachmentRead:
+    return await _attachment_state(project_id, attachment_id, current_user.id, db, archive=True)
+
+
+@router.post(
+    "/projects/{project_id}/photo-attachments/{attachment_id}/restore",
+    response_model=PhotoAttachmentRead,
+    summary="Restore one attachment (idempotent; 409 when an equivalent active attachment exists)",
+)
+async def restore_photo_attachment(
+    project_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAttachmentRead:
+    return await _attachment_state(project_id, attachment_id, current_user.id, db, archive=False)
+
+
+async def _asset_state(
+    project_id: uuid.UUID, asset_id: uuid.UUID, owner_id: uuid.UUID, db: AsyncSession, *, archive: bool
+) -> PhotoAssetRead:
+    service = PhotoAssetService(db)
+    try:
+        await ProjectService(db).get_project(project_id, owner_id)
+        if archive:
+            asset = await service.archive(asset_id, owner_id, project_id)
+        else:
+            asset = await service.restore(asset_id, owner_id, project_id)
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return PhotoAssetRead.model_validate(asset)
+
+
+@router.post(
+    "/projects/{project_id}/photos/{asset_id}/archive",
+    response_model=PhotoAssetRead,
+    summary="Archive a READY photo everywhere (idempotent; no attachment cascade, no storage change)",
+)
+async def archive_photo(
+    project_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAssetRead:
+    return await _asset_state(project_id, asset_id, current_user.id, db, archive=True)
+
+
+@router.post(
+    "/projects/{project_id}/photos/{asset_id}/restore",
+    response_model=PhotoAssetRead,
+    summary="Restore a photo (idempotent; attachment archive states are left exactly as they were)",
+)
+async def restore_photo(
+    project_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAssetRead:
+    return await _asset_state(project_id, asset_id, current_user.id, db, archive=False)
+
+
+@router.get(
+    "/photo-storage",
+    response_model=PhotoStorageStatus,
+    summary="Logical photo storage accounting and upload availability (no provider scan)",
+)
+async def photo_storage_status(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoStorageStatus:
+    """Same logical / reserved accounting as the upload quota (contract §15):
+    recorded sizes of READY + PENDING + FAILED assets, archived included. No
+    bucket listing, HEAD or network call."""
+    config = PhotoUploadConfig.from_settings(settings)
+    used = await logical_usage_bytes(db, current_user.id)
+    return PhotoStorageStatus(
+        uploads_enabled=config.uploads_available,
+        media_available=settings.MEDIA_STORAGE_BACKEND == "s3",
+        used_bytes=used,
+        warning_bytes=settings.PHOTO_STORAGE_WARNING_BYTES,
+        soft_cap_bytes=settings.PHOTO_STORAGE_SOFT_CAP_BYTES,
+        state=storage_state(
+            used,
+            warning_bytes=settings.PHOTO_STORAGE_WARNING_BYTES,
+            soft_cap_bytes=settings.PHOTO_STORAGE_SOFT_CAP_BYTES,
+        ),
+    )

@@ -449,3 +449,15 @@ class PhotoUploadResumeMismatchError(Exception):
     operator action (contract §11 step 15)."""
 
     code = "PHOTO_UPLOAD_RESUME_MISMATCH"
+
+
+# ---------------------------------------------------------------------------
+# Stage 14C.5 — reads / pagination.
+# ---------------------------------------------------------------------------
+
+
+class PhotoCursorInvalidError(Exception):
+    """A list cursor is malformed, tampered with or was issued for another
+    filter set."""
+
+    code = "PHOTO_CURSOR_INVALID"

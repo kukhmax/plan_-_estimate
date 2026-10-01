@@ -180,6 +180,41 @@ class PhotoAssetService:
             raise PhotoAssetNotFoundError("photo asset not found")
         return asset
 
+    async def get_ready(self, asset_id: uuid.UUID, owner_id: uuid.UUID, project_id: uuid.UUID) -> PhotoAsset:
+        """Public-read lookup (Stage 14C.5, contract §16): id AND owner AND
+        project AND READY. Foreign, missing, other-project, PENDING and FAILED
+        assets raise the same PhotoAssetNotFoundError."""
+        stmt = select(PhotoAsset).where(
+            PhotoAsset.id == asset_id,
+            PhotoAsset.owner_id == owner_id,
+            PhotoAsset.project_id == project_id,
+            PhotoAsset.status == PhotoAssetStatus.READY,
+        )
+        asset = (await self.db.execute(stmt)).scalar_one_or_none()
+        if asset is None:
+            raise PhotoAssetNotFoundError("photo asset not found")
+        return asset
+
+    async def archive(self, asset_id: uuid.UUID, owner_id: uuid.UUID, project_id: uuid.UUID) -> PhotoAsset:
+        """Archive a READY asset (contract §18): sets archived_at only. No
+        attachment cascade, no status change, no storage operation. Idempotent."""
+        asset = await self.get_ready(asset_id, owner_id, project_id)
+        if asset.archived_at is None:
+            asset.archived_at = datetime.now(timezone.utc)
+            await self.db.commit()
+            await self.db.refresh(asset)
+        return asset
+
+    async def restore(self, asset_id: uuid.UUID, owner_id: uuid.UUID, project_id: uuid.UUID) -> PhotoAsset:
+        """Clear archived_at only; attachment archive states stay as they
+        were. Idempotent."""
+        asset = await self.get_ready(asset_id, owner_id, project_id)
+        if asset.archived_at is not None:
+            asset.archived_at = None
+            await self.db.commit()
+            await self.db.refresh(asset)
+        return asset
+
     async def transition(
         self, asset_id: uuid.UUID, owner_id: uuid.UUID, to_status: PhotoAssetStatus
     ) -> PhotoAsset:
