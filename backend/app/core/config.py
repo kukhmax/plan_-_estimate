@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     PHOTO_UPLOADS_ENABLED: bool = False
     PHOTO_SIGNED_URL_TTL_SECONDS: int = Field(default=300, ge=60, le=3600)
     PHOTO_MAX_UPLOAD_BYTES: int = Field(default=25_000_000, gt=0)
+    # Whole multipart request (Stage 14C contract C3): image limit + multipart overhead.
+    PHOTO_MAX_REQUEST_BYTES: int = Field(default=27_000_000, gt=0)
     PHOTO_MAX_DECODED_PIXELS: int = Field(default=60_000_000, gt=0)
     PHOTO_STORAGE_WARNING_BYTES: int = Field(default=8_000_000_000, gt=0)
     PHOTO_STORAGE_SOFT_CAP_BYTES: int = Field(default=10_000_000_000, gt=0)
@@ -90,6 +92,8 @@ class Settings(BaseSettings):
             raise MediaConfigurationError(
                 "PHOTO_STORAGE_SOFT_CAP_BYTES must be >= PHOTO_STORAGE_WARNING_BYTES"
             )
+        if self.PHOTO_MAX_REQUEST_BYTES <= self.PHOTO_MAX_UPLOAD_BYTES:
+            raise MediaConfigurationError("PHOTO_MAX_REQUEST_BYTES must be > PHOTO_MAX_UPLOAD_BYTES")
         if not self.PHOTO_TEMP_DIR.strip():
             raise MediaConfigurationError("PHOTO_TEMP_DIR must not be empty")
         return self

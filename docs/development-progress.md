@@ -11,8 +11,8 @@
 > table below). The long per-stage history further down (archived overview detail, historical mapping, Stage Log) is
 > preserved as a record and is not a specification.
 >
-> **Last index update**: 2026-10-01 (Stage 14C.3 — upload orchestration COMPLETED / OWNER ACCEPTED / COMMITTED /
-> PUSHED / CLOSED, `9216734`; not deployed; 14C.4 next).
+> **Last index update**: 2026-10-01 (Stage 14C.4 — HTTP upload / bounded multipart / app wiring IMPLEMENTED /
+> automated verification PASS / OWNER ACCEPTED, awaiting commit; Stage 14C.3 CLOSED `9216734`).
 
 ---
 
@@ -40,7 +40,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 CLOSED (contract); 14C.2 CLOSED (schema/domain foundation, migration `0032_photo_attachments`, `c184c85`, not deployed); 14C.3 CLOSED (upload orchestration, no HTTP, `9216734`, not deployed); 14C.4 next, owner approval required) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 CLOSED (contract); 14C.2 CLOSED (schema/domain foundation, migration `0032_photo_attachments`, `c184c85`, not deployed); 14C.3 CLOSED (upload orchestration, no HTTP, `9216734`, not deployed); 14C.4 OWNER ACCEPTED, awaiting commit (not deployed)) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -135,9 +135,51 @@ not claim the stage is absent from production (later stages were deployed on top
     derivatives (the received original stays in the caller's workspace); high-entropy JPEGs near the 25 000 000-byte
     limit (21.5–23.2 MB, 24–31 MP) produced ≈ 1.0–1.1 MB per upload (display ≈ 1.03–1.11 MB, thumbnail ≈ 13 KB),
     1.7–2.0 s on the development machine. Request spooling (Starlette) and concurrency are measured in 14C.6.
-- **Roadmap state**: Stage 14C overall remains **IN PROGRESS**; 14C.1 CLOSED; 14C.2 CLOSED; 14C.3 CLOSED.
-- **Next**: Stage 14C.4 — HTTP upload / bounded multipart reception / request guarding / application wiring / config /
-  Caddy / temp cleanup (owner approval required). Then 14C.5 reads / links / metadata + asset archive/restore; 14C.6
+- **In progress**: 14C.4 — HTTP upload / bounded multipart / app wiring — **IMPLEMENTED / AUTOMATED VERIFICATION
+  PASS / OWNER ACCEPTED** (2026-10-01; owner follow-up review PASS; awaiting commit — uncommitted working tree on
+  `stage-14` over `752a013`; no migration; not deployed; `PHOTO_UPLOADS_ENABLED` stays `false`).
+  - **Route** `POST /api/projects/{project_id}/photos` (`app/api/v1/endpoints/photos.py`): `Request` + header-only
+    dependencies (no `File()`/`Form()`), pipeline auth → upload gate → `Content-Length` early check → project
+    ownership → admission slot → stale temp sweep → actual-byte receive guard → strict multipart parsing
+    (`max_files=1`, `max_fields=6`, `max_part_size=8192`, known names only, no duplicates, exactly one `file`) →
+    bounded copy (≤ 1 MiB chunks, ≤ 25 000 000 bytes) into a `pe-photo-` workspace → multipart spool closed →
+    `PhotoUploadService` (14C.3, unchanged) → presigned thumbnail/display URLs → 201 (CREATED/RESUMED) / 200
+    (REPLAYED/CONCURRENTLY_FINALIZED); workspace removal and admission release in `finally`.
+  - **Guards** (`app/api/upload_guard.py`): `PHOTO_MAX_REQUEST_BYTES = 27_000_000` (new setting, validated
+    `> PHOTO_MAX_UPLOAD_BYTES`) enforced on actual `http.request` bytes (missing / false / chunked `Content-Length`
+    cannot bypass); `MAX_CONCURRENT_UPLOAD_REQUESTS = 2` non-blocking admission before the body — it never waits; when
+    full it answers 503 `PHOTO_PROCESSING_BUSY` at once with `Retry-After` = ⌈`PHOTO_PROCESSING_WAIT_SECONDS`⌉ as a
+    client retry hint only — independent of the 14B processing slot (the only component that waits up to
+    `PHOTO_PROCESSING_WAIT_SECONDS`); a presign failure after READY leaves the upload intact (503/500, retry = replay);
+    stale sweep (86 400 s) at startup (new FastAPI lifespan) and per admitted upload, failures logged, never fatal.
+    Integration defect found and fixed at the boundary: a non-multipart body raises python-multipart
+    `FormParserError`, which Starlette 1.6.0 does not convert (was an unhandled 500) → now 422
+    `PHOTO_UPLOAD_MALFORMED`.
+  - **Errors**: project envelope `{"detail": {"code", "message"}}` with fixed messages; uniform byte-identical
+    `PHOTO_UPLOAD_ID_CONFLICT`; `PHOTO_STORAGE_UNAVAILABLE` without `Retry-After`; no keys / sha256 / paths /
+    provider details in responses. Contract §11b records the OWNER-approved 14C.4 refinements.
+  - **Config / templates**: `python-multipart>=0.0.32,<0.1.0` (requirements.txt / pyproject); compose and
+    `.env.production.example` gain `PHOTO_MAX_REQUEST_BYTES` (default 27000000); `.env.production` untouched.
+    Caddyfile: route-scoped `request_body { max_size 27000000 }` for `POST ^/api/projects/[^/]+/photos$`, placed
+    before `/api/*`; validated (`caddy adapt` on the real file, `caddy validate` on a copy with only the certificate
+    paths replaced) with the official Caddy v2.11.6 and v2.11.4 binaries (SHA-512 verified, run natively — no
+    Docker; deviation OWNER ACCEPTED): **Valid configuration**. The actual production `caddy:2-alpine` image/version
+    and its runtime behaviour remain **unverified** — a mandatory 14C.7 check; the application request guard is
+    authoritative regardless.
+  - **Tests**: 112 focused (`test_stage14c4_photos_api.py` 74 incl. the owner follow-up checks: maximal field sets per
+    context, 7th field, unknown-field displacement, local-only malformed remap, post-READY presign failure, gate
+    ordering, resource lifetime; `test_stage14c4_upload_guard.py` 25 incl. Starlette /
+    python-multipart behaviour pins, `test_stage14c4_temp_sweep.py` 5, `test_stage14c4_config.py` 4,
+    `test_stage14c4_production_templates.py` 4); 14B + 14C.2 + 14C.3 regression **427 passed** (test files unmodified);
+    full backend **2206 passed**; mypy clean; ruff: no new findings (B008 `Depends()` idiom and one B904 pre-exist in
+    `deps.py` / every endpoint); `git diff --check` clean. Verified with FastAPI 0.141.1, Starlette 1.6.0,
+    python-multipart 0.0.32, Uvicorn 0.52.4, Python 3.14.7 (local venv; the image uses Python 3.12 — 14C.7 records
+    the image's resolved versions).
+- **Roadmap state**: Stage 14C overall remains **IN PROGRESS**; 14C.1 CLOSED; 14C.2 CLOSED; 14C.3 CLOSED; 14C.4
+  OWNER ACCEPTED, awaiting commit; 14C.5, 14C.6 and 14C.7 not started. Production unchanged: runtime `e57e037`, DB
+  `0031_photo_assets`, `PHOTO_UPLOADS_ENABLED=false`; `0032_photo_attachments` intentionally undeployed until 14C.7;
+  no production photo uploads before the Stage 14D gate.
+- **Next after the 14C.4 commit**: 14C.5 reads / links / metadata + asset archive/restore; 14C.6
   adversarial / full verification; 14C.7 manual production deployment with uploads OFF. Stage 14D remains mandatory
   before production uploads can be enabled; `PHOTO_UPLOADS_ENABLED` stays `false` in production throughout 14C.
 
@@ -202,6 +244,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.1 | Media API & security contract (audit/design; C1–C16, R-1, R-2) | COMPLETE / OWNER APPROVED (2026-09-28; documentation only) |
 | └ 14C.2 | PhotoAttachment schema/domain foundation (migration `0032_photo_attachments`) | COMPLETE / OWNER ACCEPTED (2026-10-01; 124 focused, 2014 backend; PostgreSQL 16 scratch 96/96 · 4/4 · 96/96 PASS; not deployed) |
 | └ 14C.3 | Upload orchestration (new / replay / resume, uniform conflict, logical quota; no HTTP) | COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED (2026-10-01; `9216734`; owner concurrency follow-up PASS; 95 focused, 332 regression, 2109 backend; not deployed) |
+| └ 14C.4 | HTTP upload / bounded multipart / admission / temp sweep / Caddy cap | IMPLEMENTED / AUTOMATED VERIFICATION PASS / OWNER ACCEPTED (2026-10-01; owner follow-up PASS; 112 focused, 427 regression, 2206 backend; awaiting commit; not deployed) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |

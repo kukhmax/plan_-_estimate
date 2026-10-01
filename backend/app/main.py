@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,6 +13,7 @@ from app.api.v1.endpoints.estimates import router as estimates_router
 from app.api.v1.endpoints.inspections import router as inspections_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.openings import router as openings_router
+from app.api.v1.endpoints.photos import router as photos_router
 from app.api.v1.endpoints.price_coefficients import router as price_coefficients_router
 from app.api.v1.endpoints.pricebook import router as pricebook_router
 from app.api.v1.endpoints.projects import router as projects_router
@@ -20,13 +24,25 @@ from app.api.v1.endpoints.surfaces import router as surfaces_router
 from app.api.v1.endpoints.work_plans import router as work_plan_router
 from app.api.v1.endpoints.work_recommendations import router as work_recommendations_router
 from app.api.v1.endpoints.workflow_templates import router as workflow_templates_router
+from app.api.upload_guard import sweep_stale_photo_temp
 from app.core.config import settings
+
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # Stage 14C.4: remove photo temp workspaces abandoned by a crash. Never
+    # blocks startup (failures are logged inside the sweep).
+    sweep_stale_photo_temp(settings.PHOTO_TEMP_DIR, settings.PHOTO_TEMP_STALE_AFTER_SECONDS)
+    yield
+
 
 app = FastAPI(
     title="Plan & Estimate API",
     description="Backend API for Telegram Mini App - Renovation & Finishing Management",
     version="0.1.0",
     debug=settings.DEBUG,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -56,3 +72,4 @@ app.include_router(estimates_router, prefix="/api", tags=["estimates"])
 app.include_router(reveal_works_router, prefix="/api", tags=["reveal-works"])
 app.include_router(work_recommendations_router, prefix="/api", tags=["work-recommendations"])
 app.include_router(workflow_templates_router, prefix="/api", tags=["workflow-templates"])
+app.include_router(photos_router, prefix="/api", tags=["photos"])

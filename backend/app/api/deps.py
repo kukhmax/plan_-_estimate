@@ -1,17 +1,24 @@
+from dataclasses import dataclass
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.upload_guard import MAX_CONCURRENT_UPLOAD_REQUESTS, UploadAdmission
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.s3_media_storage import create_media_storage
 from app.core.security import decode_access_token
 from app.domain.services.area_segment_service import AreaSegmentService
+from app.domain.photos.image_processing import ImageProcessor, ImagePipelineConfig
 from app.domain.services.auth_service import TelegramAuthService
 from app.domain.services.checklist_service import ChecklistService
 from app.domain.services.client_service import ClientService
 from app.domain.services.communication_service import CommunicationService
 from app.domain.services.estimate_service import EstimateService
 from app.domain.services.inspection_service import InspectionService
+from app.domain.services.media_storage import MediaStorage
 from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
 from app.domain.services.opening_service import OpeningService
 from app.domain.services.price_book_service import PriceBookService
@@ -175,3 +182,33 @@ async def get_reveal_work_service(
     db: AsyncSession = Depends(get_db),
 ) -> OpeningRevealWorkService:
     return OpeningRevealWorkService(db)
+
+
+@dataclass
+class PhotoRuntime:
+    """Process-wide photo upload resources (Stage 14C.4). One instance per
+    process so the processing slot and the upload admission limit are
+    shared by every request."""
+
+    processor: ImageProcessor
+    storage: MediaStorage
+    admission: UploadAdmission
+
+
+_photo_runtime: PhotoRuntime | None = None
+
+
+def get_photo_runtime() -> PhotoRuntime:
+    """Created on first use from the validated settings; the storage client
+    itself connects lazily. Tests override this dependency."""
+    global _photo_runtime
+    if _photo_runtime is None:
+        _photo_runtime = PhotoRuntime(
+            processor=ImageProcessor(
+                ImagePipelineConfig.from_settings(settings),
+                wait_seconds=settings.PHOTO_PROCESSING_WAIT_SECONDS,
+            ),
+            storage=create_media_storage(settings),
+            admission=UploadAdmission(MAX_CONCURRENT_UPLOAD_REQUESTS),
+        )
+    return _photo_runtime

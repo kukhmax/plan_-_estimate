@@ -3,6 +3,20 @@
 
     encode gzip zstd
 
+    # Stage 14C.4: photo upload route only -- cap the request body at
+    # 27 000 000 bytes (PHOTO_MAX_REQUEST_BYTES). The backend enforces the
+    # same limit on actual bytes; this is defence in depth.
+    @photo_upload {
+        method POST
+        path_regexp ^/api/projects/[^/]+/photos$
+    }
+    handle @photo_upload {
+        request_body {
+            max_size 27000000
+        }
+        reverse_proxy backend:8000
+    }
+
     @api path /api/*
     handle @api {
         reverse_proxy backend:8000

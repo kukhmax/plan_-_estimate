@@ -277,7 +277,7 @@ written after its PENDING row is committed.
    - own row, same project and SHA-256, PENDING or FAILED → **resume** (Stage D).
 
 **Stage C — new upload**
-9. Acquire the processing slot (> 30 s → 503 `PHOTO_PROCESSING_BUSY` with `Retry-After`); run the full pipeline
+9. Acquire the processing slot (> 30 s → 503 `PHOTO_PROCESSING_BUSY` with `Retry-After`, §11b); run the full pipeline
    (rejections 413 / 415 / 422 create **no row**); still inside the slot, logical quota check (usage + the three new
    sizes > soft cap → 409 `PHOTO_STORAGE_QUOTA_EXCEEDED`, no row).
 10. In **one transaction** insert `photo_assets(status=PENDING, …)` and the first `photo_attachments` row, then commit
@@ -298,8 +298,8 @@ written after its PENDING row is committed.
 
 **Stage E — finalize**
 17. Compare-and-set PENDING → READY, commit → 201 (or 200 when a concurrent request already finalized).
-    Storage errors: `MediaStorageUnavailable` → compare-and-set to FAILED → 503 `PHOTO_STORAGE_UNAVAILABLE` with
-    `Retry-After`; `MediaStorageMisconfigured` → FAILED → 500 `PHOTO_STORAGE_ERROR` (generic message, details only in
+    Storage errors: `MediaStorageUnavailable` → compare-and-set to FAILED → 503 `PHOTO_STORAGE_UNAVAILABLE` (no
+    `Retry-After`, §11b); `MediaStorageMisconfigured` → FAILED → 500 `PHOTO_STORAGE_ERROR` (generic message, details only in
     logs); `MediaObjectConflict` → FAILED → 409 `PHOTO_OBJECT_CONFLICT`. Workspaces are removed in `finally` always.
 
 **Compare-and-set transitions (C10)**: `UPDATE photo_assets SET status=:to, updated_at=now() WHERE id=:id AND
@@ -346,6 +346,41 @@ the number of concurrent requests for the same `upload_id`, and no artificial re
 the same asset may both HEAD, regenerate and conditionally PUT: identical bytes are a write-once no-op, different bytes
 raise `MediaObjectConflict` and are never written over; nothing is deleted; compare-and-set keeps READY terminal.
 
+
+### 11b. HTTP boundary refinements (OWNER APPROVED, 14C.4 review, 2026-10-01)
+
+1. **Error envelope**: the project convention `{"detail": {"code": "…", "message": "…"}}` (FastAPI `HTTPException`)
+   is used for every upload error; it replaces the bare `{"code", "message"}` shown in earlier drafts. Messages are
+   fixed per code and never carry storage keys, sha256, paths, provider codes or tracebacks.
+2. **`Retry-After`**: `PHOTO_PROCESSING_BUSY` (503) carries `Retry-After` = ⌈`PHOTO_PROCESSING_WAIT_SECONDS`⌉
+   (30 s by default; no separate retry constant). `PHOTO_STORAGE_UNAVAILABLE` (503) carries **no** `Retry-After`
+   (no reliable recovery interval). `PHOTO_UPLOADS_DISABLED` carries none (C7).
+3. **Upload admission (new pre-body step, after project ownership)**: a process-wide limit of
+   `MAX_CONCURRENT_UPLOAD_REQUESTS = 2` in-flight upload requests (reception + processing; code constant),
+   independent of the processing slot. Acquisition is non-blocking: when full → 503 `PHOTO_PROCESSING_BUSY` with
+   `Retry-After` **before any body byte is read**; no queue, no timeout; released on every exit. This bounds temp disk
+   use (≈ 2 × (27 MB spool + 25 MB workspace copy) + derivatives). **The admission limiter never waits**: the
+   `Retry-After` value (⌈`PHOTO_PROCESSING_WAIT_SECONDS`⌉) is only a retry hint to the client. The only component that
+   waits up to `PHOTO_PROCESSING_WAIT_SECONDS` is the separate Stage 14B image-processing slot (§11 step 9), which an
+   admitted request may then still find busy (same 503 code and hint).
+4. **Request-byte guard**: `Content-Length` is advisory (declared > `PHOTO_MAX_REQUEST_BYTES` → 413 before the body;
+   malformed → 422 `PHOTO_UPLOAD_MALFORMED`). The limit itself is enforced on the **actual** `http.request` body
+   bytes by a route-scoped ASGI `receive` wrapper; a missing, false or chunked length cannot bypass it. The file part
+   is copied into the workspace in ≤ 1 MiB chunks reading at most `PHOTO_MAX_UPLOAD_BYTES + 1` bytes (> limit → 413).
+   Starlette's `max_part_size` bounds scalar parts only; non-multipart / unparsable bodies (python-multipart
+   `FormParserError`, not converted by Starlette) → 422 `PHOTO_UPLOAD_MALFORMED`. The multipart spool is closed before
+   the domain call.
+5. **Caddy boundary**: the route-scoped `request_body { max_size 27000000 }` was syntax/provision-validated with the
+   official Caddy 2.11.4 and 2.11.6 binaries; the production `caddy:2-alpine` image/version and its runtime behaviour
+   remain **unverified** and are a mandatory 14C.7 check. The application request guard (item 4) is authoritative
+   regardless of Caddy.
+6. **Presign failure after READY**: the upload has already succeeded; a presign failure changes nothing in the
+   database or storage (no compare-and-set, no deletion, no retry of the orchestration) and maps to 503
+   `PHOTO_STORAGE_UNAVAILABLE` (no `Retry-After`) or 500 `PHOTO_STORAGE_ERROR`. The client's retry with the same
+   `upload_id` is a READY replay (200) with fresh URLs.
+7. **Upload response URLs**: the upload response (§9) carries presigned `thumbnail_url` / `display_url` and
+   `urls_expire_at`, produced with `MediaStorage.presign_get` and `PHOTO_SIGNED_URL_TTL_SECONDS` only after the domain
+   result is READY. Standalone read / list / link / archive routes remain 14C.5.
 ---
 
 ## 12. Retry and idempotency semantics
@@ -395,7 +430,7 @@ cannot; one bit — **"this UUID is unavailable"** — is therefore unavoidable.
 
 - **One response** for a foreign `upload_id`, an own `upload_id` with different bytes, and an own `upload_id` belonging
   to a different project: `409` with body
-  `{"code": "PHOTO_UPLOAD_ID_CONFLICT", "message": "upload_id cannot be used for this upload; generate a new one"}` —
+  `{"detail": {"code": "PHOTO_UPLOAD_ID_CONFLICT", "message": "upload_id cannot be used for this upload; generate a new one"}}` —
   no owner, project, status, size, timestamp or content information, no hint which condition matched.
 - **Same code path**: the body is fully received and hashed in every case and the decision is taken at the same step
   (step 8), before the processing slot.
@@ -528,11 +563,11 @@ per-request order: spooled request + workspace original + two derivatives. Resul
 
 ---
 
-## 21. Final API route set (all under `/api`; errors `{"code", "message"}`)
+## 21. Final API route set (all under `/api`; errors `{"detail": {"code", "message"}}`, §11b)
 
 | Method & path | Request → success | Key errors |
 |---|---|---|
-| `POST /projects/{project_id}/photos` | multipart (§9) → 201 / 200 `{asset, attachment, thumbnail_url, display_url, urls_expire_at, storage}` | 401; 503 `PHOTO_UPLOADS_DISABLED`; 404 `PROJECT_NOT_FOUND` / `ROOM_NOT_FOUND` / `SURFACE_NOT_FOUND` / `OPENING_NOT_FOUND`; 409 `PHOTO_UPLOAD_ID_CONFLICT` / `PHOTO_STORAGE_QUOTA_EXCEEDED` / `PHOTO_OBJECT_CONFLICT` / `PHOTO_UPLOAD_RESUME_MISMATCH`; 413 `PHOTO_TOO_LARGE`; 415 `PHOTO_UNSUPPORTED_FORMAT`; 422 `PHOTO_UPLOAD_MALFORMED` / `PHOTO_CONTEXT_NOT_SUPPORTED` / `PHOTO_INVALID_IMAGE` / `PHOTO_TOO_MANY_PIXELS` / `PHOTO_ANIMATED_NOT_SUPPORTED`; 503 `PHOTO_PROCESSING_BUSY` / `PHOTO_STORAGE_UNAVAILABLE` (`Retry-After`); 500 `PHOTO_STORAGE_ERROR` |
+| `POST /projects/{project_id}/photos` | multipart (§9) → 201 / 200 `{asset, attachment, thumbnail_url, display_url, urls_expire_at, storage}` | 401; 503 `PHOTO_UPLOADS_DISABLED`; 404 `PROJECT_NOT_FOUND` / `ROOM_NOT_FOUND` / `SURFACE_NOT_FOUND` / `OPENING_NOT_FOUND`; 409 `PHOTO_UPLOAD_ID_CONFLICT` / `PHOTO_STORAGE_QUOTA_EXCEEDED` / `PHOTO_OBJECT_CONFLICT` / `PHOTO_UPLOAD_RESUME_MISMATCH`; 413 `PHOTO_TOO_LARGE`; 415 `PHOTO_UNSUPPORTED_FORMAT`; 422 `PHOTO_UPLOAD_MALFORMED` / `PHOTO_CONTEXT_NOT_SUPPORTED` / `PHOTO_INVALID_IMAGE` / `PHOTO_TOO_MANY_PIXELS` / `PHOTO_ANIMATED_NOT_SUPPORTED`; 503 `PHOTO_PROCESSING_BUSY` (`Retry-After`) / `PHOTO_STORAGE_UNAVAILABLE` (no `Retry-After`); 500 `PHOTO_STORAGE_ERROR` |
 | `GET /projects/{project_id}/photos?context=&room_id=&surface_id=&opening_id=&category=&include_in_report=&archived=false&limit=30&cursor=` | → `{items: [{attachment, asset, thumbnail_url}], next_cursor, urls_expire_at}`; READY only; `limit` ≤ 100; order `(position, uploaded_at, id)`; `archived=false` = active attachment **AND** non-archived asset; `archived=true` = archive view: archived attachment **OR** archived asset (§18) | 404; 422 |
 | `GET /projects/{project_id}/photos/{asset_id}` | → `{asset, attachments (each with archived_at), thumbnail_url, display_url, urls_expire_at}` | 404 `PHOTO_NOT_FOUND` |
 | `POST /projects/{project_id}/photos/{asset_id}/attachments` | JSON `{context, room_id\|surface_id\|opening_id, category?, caption?, include_in_report?}` → 201 | 404; 409 `PHOTO_ATTACHMENT_DUPLICATE`; 422 (incl. `PHOTO_CONTEXT_NOT_SUPPORTED`) |
