@@ -477,6 +477,66 @@ Canonical contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`.
 - **Production unchanged**: backend image `33bb27b7…`, DB `0032_photo_attachments`, `PHOTO_UPLOADS_ENABLED=false`.
 - **Next**: 14D.2 — backup / restore tooling + tests (NOT STARTED; explicit owner approval required).
 
+### Stage 14D.2A — PostgreSQL snapshot orchestration proof (2026-10-02, COMPLETE / OWNER ACCEPTED)
+
+Narrow primitive only (no media backup, Oracle / R2 integration, manifest, `COMPLETE.json`, restore, `age`,
+scheduling, credentials or cloud resources). Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §7.1.
+
+- **Added**: `backend/app/core/pg_snapshot_dump.py` (`snapshot_bound_dump`, `PgDumpCommand`, `run_dump_process`,
+  typed `SnapshotDumpError` family) and `backend/app/domain/services/media_backup_ready_set.py` (READY-set v1
+  serialization, `ready_set_digest`); tests `test_stage14d2a_ready_set.py`, `test_stage14d2a_dump_process.py`
+  (local) and `test_stage14d2a_postgres.py` (opt-in real PostgreSQL proof A–G + version-mismatch refusal);
+  `tests/pg_scratch_guard.py` gains `scratch_tool_prefix()` (`TEST_PG_TOOL_PREFIX` must be `docker exec [-i]` into a
+  container whose name contains `scratch`).
+- **Lifecycle**: dedicated exporter connection → pg_dump / server major-version equality check →
+  `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY` → first statement `pg_export_snapshot()` → READY inventory in the
+  same transaction → `pg_dump --snapshot` (tagged `PGAPPNAME`) → exporter released only after pg_dump exits. On
+  failure / timeout / cancellation: child killed and reaped, tagged server backend terminated, exporter rolled back
+  and closed, partial file removed, typed error.
+- **Design refinement**: READY-set v1 adds a version header line (`plan-estimate/ready-set/v1`) before the sorted
+  lines defined in 14D.1, with strict field rules (no normalization); the empty set has a fixed digest.
+- **Local verification** (isolated CPython 3.12.14 venv from the pinned `requirements.txt`): 14D.2A local tests
+  64 passed (PostgreSQL proof 9 skipped without opt-in env); full backend **2507 passed, 19 skipped, 0 failed**;
+  mypy clean on the changed scope (6 files); Ruff clean; `git diff --check` clean. After the hardening below:
+  14D.2A local tests **79 passed** (9 PostgreSQL skipped); full backend **2522 passed, 19 skipped, 0 failed**; mypy (7 files) and Ruff clean.
+- **Owner-run real PostgreSQL proof — PASS (9 passed, 56.77 s)**: disposable container `pe-scratch-14d2a`
+  (`postgres:16-alpine`, server 16.15, pg_dump 16.15, bound to 127.0.0.1:55433 only), CPython 3.12.14, pytest 8.4.2.
+  A: server / pg_dump major 16/16, `ready_count` 3, dump → restore, restored READY count and digest equal the exporter
+  snapshot. B: snapshot `ready_count` 2 while a fresh connection saw 4 after the concurrent committed insert +
+  PENDING→READY transition; the restored dump stayed at 2; snapshot digest = restored digest, live digest differed —
+  the mutation did not leak into either side. C: after the exporter ended PostgreSQL rejected the snapshot with
+  SQLSTATE 22023 `invalid snapshot identifier`; pg_dump with the stale id returned rc 1. D: forced pg_dump failure
+  (nonexistent role) rc 1, cleanup proven. E1 / E2: while pg_dump was lock-blocked the exporter was `idle in
+  transaction` and the dump session `active` / `Lock`; after timeout and after cancellation no tagged session
+  remained. F: zero READY assets → `ready_count` 0, `ready_set_sha256`
+  `6e2b1178c1af4635f75bd0c77e7cce463e0e7055c120984e99ccf2d5a4922240` (= SHA-256 of the v1 header), restore verified.
+  G: independent SQL and Python digests agreed regardless of query order. Extra: a pg_dump major-version mismatch was
+  refused before any snapshot export.
+- **Final review**: no defect in the proven semantics. Two hardening items fixed before commit (owner request):
+  (1) the plaintext `.partial` dump is created with `O_CREAT | O_EXCL` and mode 0600 plus `fchmod`, so it and the
+  renamed final dump are owner-only whatever the process umask (no global umask change; refusal and cleanup semantics
+  unchanged); (2) the dedicated exporter session is opened with `idle_in_transaction_session_timeout=0` (session
+  setting of a connection that exists only for this snapshot) and the value is re-read inside the snapshot
+  transaction — anything other than `0` fails closed before the inventory or pg_dump. New tests: umask
+  0000 / 0002 / 0022 / 0277 → final dump 0600; partial 0600 while being written under umask 0000; failure and
+  existing-file refusal unchanged; exporter connect settings, statement order (export is the first statement in the
+  transaction, release only after pg_dump) and fail-closed observed settings via a recording fake connection.
+  Mutation check in a scratch copy: reverting either fix fails 5 resp. 3 tests. These changes do not alter the proven
+  PostgreSQL semantics (see the 14D.2A report).
+- **Second owner-run real PostgreSQL proof after hardening — PASS (9 passed, 55.48 s)**: `postgres:16-alpine`,
+  server 16.15, pg_dump 16.15, CPython 3.12.14. Proofs A–G and the pg_dump major-version mismatch refusal all passed
+  again on the hardened code; this also proves on real PostgreSQL 16.15 that the asyncpg startup setting
+  `idle_in_transaction_session_timeout=0` is accepted and does not invalidate the snapshot lifecycle. The private
+  (0600) dump-file hardening is covered by the automated permission tests.
+- **Temporary architecture**: the plaintext dump exists only locally and only until the later encrypted-dump stage,
+  which gzips and `age`-encrypts it before anything leaves the VM.
+- **Deferred**: dump SHA-256 is computed synchronously (move off the event loop for large dumps); a missing tool binary
+  surfaces as `FileNotFoundError` rather than `SnapshotDumpError` (the exporter is still cleaned up); a second
+  cancellation during the protected cleanup leaves it to finish in the background; the exporter holds ACCESS SHARE on
+  `photo_assets` and the xmin horizon for the dump's duration, so backups must be kept from overlapping migrations
+  operationally.
+- **Status**: 14D.2A **COMPLETE / OWNER ACCEPTED** (2026-10-02). Stage 14D.2 as a whole remains **IN PROGRESS**. Production unchanged; uploads OFF; 14D.2B not started.
+
 ---
 
 ## Production Baseline
@@ -545,7 +605,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
-| └ 14D.2 | Backup / restore tooling + tests | NOT STARTED |
+| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; rest NOT STARTED) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | NOT STARTED |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | NOT STARTED |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |

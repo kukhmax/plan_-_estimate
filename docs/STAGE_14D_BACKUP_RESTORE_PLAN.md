@@ -1,9 +1,10 @@
 # Stage 14D — Backup / Restore Drill & Production Media-Readiness Gate (plan and contract)
 
 > **Status:** 14D.1 architecture — **OWNER APPROVED** (2026-10-02, with the mandatory corrections A–D below
-> incorporated). 14D.2–14D.7 — NOT STARTED. Nothing in this document is implemented, configured or verified yet:
-> no tooling, no cloud resources, no credentials, no schedule. Executable procedures stay **DRAFT** until the
-> sub-stage that verifies them.
+> incorporated). 14D.2A (snapshot primitive, §7.1) — COMPLETE / OWNER ACCEPTED (owner runs, 9/9, re-proven after hardening). Rest of 14D.2 and
+> 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 primitive, nothing in this document is implemented, configured or
+> verified yet: no backup tooling, no cloud resources, no credentials, no schedule. Executable procedures stay
+> **DRAFT** until the sub-stage that verifies them.
 >
 > Builds on: `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §13 (consistency model, OD-3),
 > `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` §14 (Oracle concept) and §17 (R9 gate),
@@ -145,6 +146,7 @@ not assumed to represent the dump.
 - **Ready-set digest.** `ready_set_sha256` = SHA-256 over the sorted canonical lines
   `asset_id|key_original|key_display|key_thumbnail|byte_size|display_byte_size|thumbnail_byte_size|sha256` of every
   READY asset in that snapshot; `ready_count` = their number. Both go into the header and `COMPLETE.json`.
+  Exact v1 serialization: §7.1.
 - **Invariant (checked before `COMPLETE.json` is written):** for every READY asset in the snapshot there are exactly
   three object lines (original, display, thumbnail) with the asset's keys, sizes equal to the row, the original's
   SHA-256 equal to the row, every object admitted per §8; and the digest recomputed from the manifest's object lines
@@ -156,6 +158,79 @@ not assumed to represent the dump.
   reported by the integrity checker as `PENDING_INCOMPLETE` / `FAILED_RELATED` (bounded, detectable).
 - Objects uploaded after the snapshot are not part of the run; restoring an older dump against a newer bucket shows
   them as orphan candidates, never deleted (14A §13).
+
+### 7.1 Snapshot primitive and READY-set v1 (Stage 14D.2A — complete, owner accepted)
+
+Implementation: `backend/app/core/pg_snapshot_dump.py` (`snapshot_bound_dump`) and
+`backend/app/domain/services/media_backup_ready_set.py` (`ready_set_digest`).
+
+**Exporter lifecycle (exact order):**
+1. dedicated asyncpg connection (application name `<tag>-exp`), never a pooled application connection, opened with
+   `idle_in_transaction_session_timeout=0` as a session setting (the connection exists only for this snapshot), so a
+   non-zero server default cannot end the exporter while pg_dump uses the snapshot;
+2. `SHOW server_version_num` and `pg_dump --version` (through the same tool prefix as the dump): the **major versions
+   must be equal**, otherwise the run stops before any snapshot exists;
+3. `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY`; the **first** statement is `SELECT pg_export_snapshot()`, which
+   fixes the transaction snapshot; isolation, read-only state and the disabled idle timeout are then asserted (fail
+   closed);
+4. READY inventory (`SELECT … FROM photo_assets WHERE status = 'READY'`) in the same transaction → `ready_count`,
+   `ready_set_sha256`;
+5. `pg_dump --format=plain --no-password --snapshot=<id>` with `PGAPPNAME=<tag>-dump`, run where the server-matching
+   toolchain lives (production: `docker exec -i <postgres container>`); stdout → `<output>.partial`, created
+   exclusively with mode **0600** independent of the umask (the renamed dump keeps 0600);
+6. the exporter is released only **after pg_dump has exited**: `ROLLBACK`, then close.
+
+**Lifetime rule (PostgreSQL semantics):** an exported snapshot can be imported only while the exporting transaction
+is open; a transaction that already imported it keeps it after the exporter ends. `pg_dump` imports it during its
+own setup (each parallel worker would import it again) and that moment is not observable from outside, so the
+earliest safe release point the primitive relies on is **pg_dump's exit**. `BEGIN → export → COMMIT/close → later
+pg_dump --snapshot` is invalid and is never used.
+
+**Success / failure contract:** the dump is accepted only on exit status 0 **and** the plain-format completion marker
+(`-- PostgreSQL database dump complete`) within the last 4 KiB; only then is `<output>.partial` renamed. On a
+non-zero exit, a missing marker, a timeout or cancellation: the local process is killed and reaped (no zombie), the
+server-side backends tagged `<tag>-dump` are terminated with `pg_terminate_backend` (a killed `docker exec` client
+does not stop the process inside the container), the exporter is rolled back and closed, the partial file is
+removed, and a typed error (`PgDumpFailedError` / `PgDumpTimeoutError` / `PgDumpVersionMismatchError`, all
+`SnapshotDumpError`) propagates; stderr is kept only as a bounded tail. Existing output or partial files are never
+overwritten. No credential is logged (the DSN goes only to asyncpg; the tool authenticates through its own
+environment, never a password in argv).
+
+**READY-set serialization v1 (byte-exact; refines the 14D.1 line list by a version header):**
+
+```
+"plan-estimate/ready-set/v1\n"
++ sorted lines (byte order; the fixed-width asset id leads every line):
+  asset_id|key_original|key_display|key_thumbnail|byte_size|display_byte_size|thumbnail_byte_size|sha256\n
+```
+
+- `asset_id`: canonical lowercase hyphenated UUID text (Python `str(UUID)`, PostgreSQL `id::text`);
+- keys: printable ASCII `0x21–0x7E`, non-empty, never `|`;
+- sizes: positive base-10 integers, no sign / padding / leading zeros (`str(int)`, `bigint::text`);
+- `sha256`: 64 lowercase hex characters;
+- encoding ASCII, separator `|`, terminator `\n`, nothing else;
+- `ready_set_sha256` = lowercase hex SHA-256 of the bytes; the empty set is the header alone
+  (`sha256("plan-estimate/ready-set/v1\n")`), a fixed digest;
+- any non-canonical value or duplicate asset id raises `ReadySetFormatError`; nothing is normalized or skipped.
+
+The same digest is computable in plain SQL (`string_agg(… ORDER BY id::text COLLATE "C")` + `sha256()`), which the
+PostgreSQL proof uses as an independent implementation.
+
+**Evidence:** local unit tests (canonical bytes, order independence, per-field sensitivity, rejection rules, exit /
+marker / timeout / cancellation / overwrite / child-reaping) pass; the real PostgreSQL proof
+(`backend/tests/test_stage14d2a_postgres.py`, opt-in) passed 9/9 in an owner-run disposable `postgres:16-alpine`
+container (server and pg_dump 16.15): same-snapshot dump / inventory, concurrent-commit isolation, PostgreSQL's own
+rejection of a snapshot after its exporter ended (SQLSTATE 22023), pg_dump failure / timeout / cancellation cleanup
+with the exporter alive during the dump, zero-READY digest
+`6e2b1178c1af4635f75bd0c77e7cce463e0e7055c120984e99ccf2d5a4922240`, SQL = Python digest, version-mismatch refusal.
+After the hardening (0600 private dump file, exporter session `idle_in_transaction_session_timeout=0`) the proof was
+re-run by the owner: 9 passed in 55.48 s on PostgreSQL 16.15 / pg_dump 16.15, confirming the setting is accepted by
+real PostgreSQL 16 without invalidating the snapshot lifecycle.
+Details: `docs/development-progress.md` (Stage 14D.2A).
+
+**Temporary architecture:** the primitive writes a plain dump (owner-only, 0600) to a local file. That plaintext file
+exists only on the VM and only until the later encrypted-dump stage, which gzips and `age`-encrypts it before anything
+leaves the VM; its location and deletion (or streaming instead) are part of that work, not 14D.2A.
 
 ## 8. SHA-256 provenance for target objects (correction B — MANDATORY)
 
