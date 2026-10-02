@@ -11,8 +11,8 @@
 > table below). The long per-stage history further down (archived overview detail, historical mapping, Stage Log) is
 > preserved as a record and is not a specification.
 >
-> **Last index update**: 2026-10-01 (Stage 14C.5 — media reads / signed links / metadata / archive-restore
-> COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED, `66d399a`; not deployed; 14C.6 next).
+> **Last index update**: 2026-10-02 (Stage 14C.6 COMPLETED / OWNER ACCEPTED — 14C.6A OWNER ACCEPTED, 14C.6B
+> automated + owner-run PostgreSQL 16 verification PASS; 14C.7 next; Stage 14C.5 CLOSED `66d399a`).
 
 ---
 
@@ -40,7 +40,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 CLOSED (contract); 14C.2 CLOSED (schema/domain foundation, migration `0032_photo_attachments`, `c184c85`, not deployed); 14C.3 CLOSED (upload orchestration, no HTTP, `9216734`, not deployed); 14C.4 CLOSED (HTTP upload API, `996ccd8`, not deployed); 14C.5 CLOSED (reads / archive controls, `66d399a`, not deployed); 14C.6 next, owner approval required))) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 CLOSED (contract); 14C.2 CLOSED (schema/domain foundation, migration `0032_photo_attachments`, `c184c85`, not deployed); 14C.3 CLOSED (upload orchestration, no HTTP, `9216734`, not deployed); 14C.4 CLOSED (HTTP upload API, `996ccd8`, not deployed); 14C.5 CLOSED (reads / archive controls, `66d399a`, not deployed); 14C.6 COMPLETED / OWNER ACCEPTED (hardening + verification, not deployed); 14C.7 next, owner approval required))) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -192,7 +192,7 @@ not claim the stage is absent from production (later stages were deployed on top
     `deps.py` / every endpoint); `git diff --check` clean. Verified with FastAPI 0.141.1, Starlette 1.6.0,
     python-multipart 0.0.32, Uvicorn 0.52.4, Python 3.14.7 (local venv; the image uses Python 3.12 — 14C.7 records
     the image's resolved versions).
-- **Last completed sub-stage**: 14C.5 — media reads / signed links / metadata / archive-restore — **COMPLETED / OWNER
+- **Completed**: 14C.5 — media reads / signed links / metadata / archive-restore — **COMPLETED / OWNER
   ACCEPTED / COMMITTED / PUSHED / CLOSED** (2026-10-01; owner follow-up review PASS). Canonical implementation commit
   `66d399a56124ed086fcff3cdc143cdcaea3f7691` — `feat(stage-14): add photo reads and archive controls` (parent
   `fc88252`); manual owner push to `origin/stage-14` verified. No migration.
@@ -246,13 +246,81 @@ not claim the stage is absent from production (later stages were deployed on top
     mutation checks (ownership-chain predicate, archive-view superset, D-1 overrides) all caught; mypy clean; ruff: no
     new findings beyond the repository idioms (B008 FastAPI `Depends()` / `Query()`, UP017 `timezone.utc` as in the
     surrounding service); `git diff --check` clean. No migration: 0032 indexes cover every query.
+- **Last completed sub-stage**: Stage 14C.6 — adversarial / resource / performance / full verification —
+  **COMPLETED / OWNER ACCEPTED** (2026-10-02; final owner acceptance after B2). Audit OWNER ACCEPTED
+  (2026-10-02; findings F1–F13; no blocker). Split: **14C.6A hardening — OWNER ACCEPTED** (2026-10-02; not committed separately — one coherent Stage 14C.6
+  commit follows final review; uncommitted working tree on `stage-14` over `9b43c3a`); **14C.6B verification —
+  AUTOMATED + OWNER-RUN POSTGRESQL VERIFICATION PASS** (B1 tests / harness / probes; B2 final verification).
+  - **14C.6A scope (exactly F1 / F2 / F3)**: F1 — application engine `hide_parameters=True` (`app/core/database.py`,
+    `create_app_engine`); F2 — 60 s **inter-chunk idle** receive timeout in the upload receive guard
+    (`UPLOAD_IDLE_TIMEOUT_SECONDS`) → 408 `PHOTO_UPLOAD_TIMEOUT`, not a total deadline; F3 — ownership still checked
+    before the body, then the read transaction is rolled back (only scalar ids cross the boundary — rollback expires
+    ORM state, and a later `current_user.id` would lazy-load) so no transaction / connection is held during body
+    reception. Contract §11d records F1–F3 and the accepted v1 constraints F4 (abandoned PENDING/FAILED reserve
+    quota), F5 (no snapshot pagination), F6 (single-process quota serialization) and F10 (proxy timeouts → 14C.7).
+  - **14C.6A verification**: 15 focused (`test_stage14c6a_hardening.py`: F1 redaction incl. a leaking control
+    engine; F2 stall at first / later receive, 408 envelope, cleanup, slow-but-progressing upload beyond one idle
+    window, capacity restored; F3 no transaction at the first body receive, rejections before any receive; combined
+    F2 + F3 path); mutation checks (no rollback / no idle timeout / no `hide_parameters`) all caught; 14C.3 / 14C.4 /
+    14C.5 regression **344 passed** with those test files unmodified; full backend **2373 passed**; mypy clean;
+    Ruff no new findings; `git diff --check` clean.
+  - **14C.6B B1 (2026-10-02; tests / harness / probes only, no runtime change)**:
+    - HTTP / multipart adversarial (`test_stage14c6b_http_adversarial.py`, streamed bodies): exact 27 000 000-byte
+      request passes the request guard (then the 25 MB file limit answers 413), 27 000 001 and a false-small
+      `Content-Length` are cut by the guard before any copy, malformed `Content-Length` → 422 before the body, empty
+      file → 422 `PHOTO_INVALID_IMAGE`, three truncated-multipart variants → 422, two files / duplicate file / too many
+      fields / oversized scalar / boundary mismatch / missing boundary / garbage → 422, misleading filename and MIME
+      ignored; every failure path checked for released admission, free processing slot, closed spool, removed
+      workspace, no rows, no PUT/HEAD.
+    - Write-once adapter (`test_stage14c6b_storage_write_once.py`, Stubber): ambiguous PUT surfacing as 412 with a
+      matching HEAD → idempotent success; wrong size / other MD5 → conflict; non-MD5 multipart ETag → size-only
+      (accepted C9 behaviour); 412 with an invisible object → `MediaStorageUnavailable`; exhausted timeouts →
+      `MediaStorageUnavailable` without provider text.
+    - Ownership / leak matrix (`test_stage14c6b_ownership_matrix.py`): 27 table-driven probes over every media route
+      (random / foreign project, wrong-project asset and attachment, PENDING, FAILED, archived, corrupted cross-project
+      row, foreign targets, unsupported contexts, malformed UUIDs) with no key / sha256 / original URL / provider text;
+      identical 404 bodies for existing-foreign and missing; foreign-owner / other-project / other-view cursors → 422;
+      `/api/photo-storage` excludes the other owner's usage.
+    - Pagination live mutation (`test_stage14c6b_pagination_mutation.py`) pins the accepted F5 model: insert after the
+      cursor appears later, insert before it is missed, a position move across the cursor revisits / skips, archive
+      between pages removes the row from that view.
+    - Resource probes (local, non-Docker): peak RSS near-60 MP RGBA PNG **780.9 MB**, near-60 MP JPEG 547.6 MB,
+      EXIF-rotated near-60 MP JPEG 548.1 MB (14B tool, isolated children); 20 sequential runs each show **no
+      retention** (after-gc RSS flat at 39.7 MB RGBA / 35.5 MB JPEG; peaks 780 / 548 MB); temp disk with two admitted
+      24 MB uploads at the worst moment = **96 000 000 B** (2 × 24 MB workspace copy + 2 × 24 MB spool, within the
+      104 MB audit bound), processing phase = copy + derivatives with the spool already closed
+      (`test_stage14c6b_resource_probes.py`).
+    - PostgreSQL harness prepared (not yet run): `test_stage14c6b_postgres.py` (opt-in via `TEST_PG_URL`, guarded by
+      `pg_scratch_guard.py`: loopback host + database name containing `pe_scratch_test`; `alembic upgrade head`; real
+      separate asyncpg connections) covering same-`upload_id` races, CAS, restore vs create, restore vs restore,
+      PATCH / archive races, asset archive vs restore / attach / replay, quota through one shared slot vs independent
+      slots, keyset ties on `timestamptz`; benchmark `scripts/stage14c6b_pg_list_benchmark.py`.
+    - Non-PG regression: 14C.6A 15, 14C.6B 46 (+ 10 PostgreSQL tests skipped without `TEST_PG_URL`), 14B 208,
+      14C.2 124, 14C.3 95, 14C.4 112, 14C.5 137 — all passed; Ruff clean; mypy clean; `git diff --check` clean. No
+      runtime defect found.
+  - **14C.6B B2 (2026-10-02)**: owner-run isolated PostgreSQL 16 scratch container — `test_stage14c6b_postgres.py`
+    **10/10 PASS** (108.11 s): same-`upload_id` races, conflicting content, CAS READY race, restore vs equivalent
+    create (partial unique index decides), restore races, PATCH / archive races, asset archive races, strict quota
+    through the single process-local slot, quota intentionally not serialized across independent slots, keyset
+    traversal over identical `timestamptz`. **F9 satisfied** for the canonical single-process model; canonical
+    production stays a single Uvicorn process. Benchmark baseline (PostgreSQL execution, first page): 10 000 rows —
+    normal 33.9 ms, archive 22.9 ms, room 18.7 ms, deep cursor 26.5 ms; 50 000 rows — 178.4 / 139.8 / 92.4 /
+    148.9 ms (harness medians ≈ 301 / 269 / 231 / 281 ms). **Owner decision: no new index, no migration**; optimize
+    only on measured need. Resource measurements as in B1. Contract §11e records the verification. F4 / F5 / F6 remain
+    accepted v1 constraints; F10 remains a 14C.7 runtime check.
+  - **Final verification (B2)**: 14C.6A 15; 14C.6B 46 (+10 PostgreSQL tests skipped without `TEST_PG_URL`); 14B
+    208; 14C.2 124; 14C.3 95; 14C.4 112; 14C.5 137; full backend **2419 passed, 10 skipped (PostgreSQL opt-in)**; mypy clean; Ruff clean;
+    `git diff --check` clean.
 - **Roadmap state**: Stage 14C overall remains **IN PROGRESS**; 14C.1 CLOSED; 14C.2 CLOSED; 14C.3 CLOSED; 14C.4
-  CLOSED; 14C.5 CLOSED; 14C.6 NEXT / NOT STARTED; 14C.7 NOT STARTED. Production unchanged:
+  CLOSED; 14C.5 CLOSED; 14C.6 COMPLETED / OWNER ACCEPTED (14C.6A OWNER
+  ACCEPTED; 14C.6B AUTOMATED + OWNER-RUN POSTGRESQL VERIFICATION PASS); 14C.7 NEXT / NOT STARTED. The Stage 14C.2–14C.6
+  runtime is not deployed; production deployment / runtime verification is Stage 14C.7. Production unchanged:
   runtime `e57e037`, DB `0031_photo_assets`, `PHOTO_UPLOADS_ENABLED=false`; `0032_photo_attachments`, the 14C.4 upload
   API and the 14C.5 read / mutation API intentionally undeployed until 14C.7; no production photo uploads before the
   Stage 14D gate.
-- **Next**: Stage 14C.6 — adversarial / resource / performance / full verification (verification / hardening stage;
-  owner approval required; not started). Expected audit areas: concurrent upload / admission behaviour; concurrent
+- **Next after 14C.6 acceptance and commit**: Stage 14C.7 — manual production deployment with uploads OFF (owner
+  approval required for every step; not started). 14C.6 audit areas covered: concurrent upload / admission
+  behaviour; concurrent
   archive / restore / PATCH; slow, chunked and malformed multipart requests; request / body / temp-disk bounds; temp
   cleanup under failures; processing-semaphore / admission interaction; storage failures and partial-object
   scenarios; DB transaction / race behaviour; keyset pagination under mutation / concurrency; large photo-list
@@ -327,6 +395,8 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.3 | Upload orchestration (new / replay / resume, uniform conflict, logical quota; no HTTP) | COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED (2026-10-01; `9216734`; owner concurrency follow-up PASS; 95 focused, 332 regression, 2109 backend; not deployed) |
 | └ 14C.4 | HTTP upload / bounded multipart / admission / temp sweep / Caddy cap | COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED (2026-10-01; `996ccd8`; owner follow-up PASS; 112 focused, 427 regression, 2206 backend; not deployed) |
 | └ 14C.5 | Media reads / signed links / metadata / archive-restore / photo-storage status | COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED (2026-10-01; `66d399a`; owner follow-up PASS; 137 focused, 539 regression, 2337 backend; not deployed) |
+| └ 14C.6A | Hardening: F1 SQL parameter redaction, F2 60 s idle receive timeout, F3 short read transaction | OWNER ACCEPTED (2026-10-02; 15 focused, 344 regression, 2373 backend; part of the single Stage 14C.6 commit) |
+| └ 14C.6B | Adversarial / resource / performance / PostgreSQL 16 verification | AUTOMATED + OWNER-RUN POSTGRESQL VERIFICATION PASS (2026-10-02; 46 non-PG tests, PostgreSQL 10/10, benchmark baseline, probes; Stage 14C.6 COMPLETED / OWNER ACCEPTED, full backend 2419 passed + 10 PG skipped) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |

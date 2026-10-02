@@ -420,6 +420,56 @@ raise `MediaObjectConflict` and are never written over; nothing is deleted; comp
    for delivery; no live health check); `state` = OK / WARNING / FULL with the configured thresholds.
 8. **Storage on reads**: `MEDIA_STORAGE_BACKEND=disabled` → metadata with `null` URLs and `urls_expire_at`; a presign
    failure → 503 `PHOTO_STORAGE_UNAVAILABLE` (no `Retry-After`) or 500 `PHOTO_STORAGE_ERROR`; reads never write.
+
+### 11d. Hardening and accepted v1 constraints (OWNER APPROVED, 14C.6A, 2026-10-02)
+
+1. **F1 — SQL parameter redaction**: the application engine is created with `hide_parameters=True` (application-wide).
+   Bound parameter values (sha256, storage keys, original filenames, captions and every other value) never appear in
+   SQLAlchemy exception text, SQL logging or the tracebacks of unhandled 500 responses.
+2. **F2 — upload idle-receive timeout**: while the upload body is received, each wait for the **next** ASGI request
+   message is bounded by `UPLOAD_IDLE_TIMEOUT_SECONDS = 60` (code constant). This is an **inter-chunk idle timeout**,
+   not a total upload, parsing, processing or storage deadline: every received message restarts the window, so a slow
+   upload that keeps progressing is never cut off. On timeout → **408 `PHOTO_UPLOAD_TIMEOUT`** (normal envelope,
+   fixed message); spool closed, workspace removed, admission released, no row, no object write.
+3. **F3 — short read transaction**: authentication and project ownership are still verified **before** any body
+   byte is read; the completed read-only transaction is then rolled back (only scalar ids cross that boundary), so no
+   DB transaction or pooled connection is held during network body reception. Order: authenticate → upload gate →
+   `Content-Length` check → project ownership → end read transaction → admission → body reception → processing.
+4. **F4 (accepted v1)**: abandoned PENDING / FAILED assets keep reserving logical quota (§15) until operational
+   cleanup or a successful resume; the integrity tool reports them.
+5. **F5 (accepted v1)**: keyset pagination is not snapshot-isolated across page requests; each page reflects the
+   current state (rows moved, archived or inserted between requests may be repeated or skipped).
+6. **F6 (accepted v1)**: strict quota serialization relies on the process-local processing slot and therefore on the
+   canonical **single Uvicorn process**; a multi-worker deployment must revisit quota coordination first.
+7. **F10 (14C.7 item)**: external proxy / Cloudflare timeout and buffering behaviour (e.g. a Cloudflare origin timeout
+   while a slow upload still completes; a retry is then a replay) is verified on the production runtime in 14C.7.
+
+### 11e. Stage 14C.6 verification record (2026-10-02)
+
+- **Real PostgreSQL 16 concurrency (owner-run isolated scratch container, `pe_scratch_test_14c6b`)**: 10/10 PASS
+  (108.11 s): same `upload_id` with same content (one asset, one active attachment, READY), conflicting content
+  (uniform conflict, no overwrite), CAS READY race (READY never regresses, losers see the winner), restore vs
+  equivalent create (the partial unique index decides; exactly one active), restore races, PATCH / archive races
+  (no unrelated-field lost update; same field last-write-wins), asset archive vs restore / attach / replay (replay
+  never restores), keyset traversal over identical `timestamptz` values. **F9 satisfied** for the canonical model.
+- **Quota**: strict through the single process-local processing slot (one shared slot → exactly one of two competing
+  uploads accepted); independent slots (= several worker processes) are intentionally **not** globally serialized
+  (deterministic overshoot demonstrated). Canonical production therefore stays a **single Uvicorn process**
+  (§11d.6, F6).
+- **List benchmark baseline (PostgreSQL execution time, first page of 30)** — accepted, **no index and no migration**
+  (owner decision; optimize only on measured need):
+
+  | Rows | Normal | Archive view | Room filter | Deep cursor |
+  |---|---|---|---|---|
+  | 10 000 | 33.9 ms | 22.9 ms | 18.7 ms | 26.5 ms |
+  | 50 000 | 178.4 ms | 139.8 ms | 92.4 ms | 148.9 ms |
+
+  (Harness medians at 50 000 incl. Python / driver overhead: ≈ 301 / 269 / 231 / 281 ms.) Product scale (single
+  owner, construction projects) is far below 50 000 attachments per project.
+- **Resources (one processing slot)**: peak RSS near-60 MP RGBA PNG 780.9 MB, JPEG 547.6 MB, EXIF-rotated JPEG
+  548.1 MB; 20 sequential runs show no retention (after-gc RSS flat ≈ 39.7 / 35.5 MB); two admitted 24 MB uploads
+  peak at 96 000 000 B temp disk (within the ≈ 104 MB bound). Processing concurrency stays 1.
+- F4 / F5 / F6 remain accepted v1 constraints and F10 (proxy / Cloudflare timeouts) remains a 14C.7 runtime check.
 ---
 
 ## 12. Retry and idempotency semantics

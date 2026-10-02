@@ -12,7 +12,9 @@ temp dir) for as long as the client keeps sending. So:
   before reading it; the header is never trusted as the limit.
 - `limited_receive` counts the ACTUAL `http.request` body bytes and aborts
   the parse once they exceed PHOTO_MAX_REQUEST_BYTES (missing, false or
-  chunked Content-Length cannot bypass it).
+  chunked Content-Length cannot bypass it). It also bounds the wait for each
+  next body message (UPLOAD_IDLE_TIMEOUT_SECONDS, 14C.6A F2): an inter-chunk
+  IDLE timeout, not a total deadline -- every received message resets it.
 - `copy_bounded` copies the parsed file part into the Stage 14B workspace in
   <= 1 MiB chunks and refuses more than PHOTO_MAX_UPLOAD_BYTES actual bytes.
 - `UploadAdmission` bounds concurrent upload requests (reception +
@@ -24,6 +26,8 @@ temp dir) for as long as the client keeps sending. So:
 
 import logging
 from pathlib import Path
+
+import anyio
 from typing import BinaryIO
 
 from starlette.types import Message, Receive
@@ -39,12 +43,21 @@ logger = logging.getLogger(__name__)
 # temp disk use without throughput.
 MAX_CONCURRENT_UPLOAD_REQUESTS = 2
 COPY_CHUNK_BYTES = 1024 * 1024  # 1 MiB
+# OWNER APPROVED (14C.6A F2): maximum wait for the NEXT request-body message.
+# Not a total upload deadline: a slow upload that keeps progressing is never cut.
+UPLOAD_IDLE_TIMEOUT_SECONDS = 60.0
 
 
 class RequestBodyTooLargeError(Exception):
     """The actual request body exceeded PHOTO_MAX_REQUEST_BYTES."""
 
     code = "PHOTO_TOO_LARGE"
+
+
+class RequestBodyIdleTimeoutError(Exception):
+    """No request-body message arrived within UPLOAD_IDLE_TIMEOUT_SECONDS."""
+
+    code = "PHOTO_UPLOAD_TIMEOUT"
 
 
 def parse_content_length(raw: str | None) -> int | None:
@@ -58,15 +71,25 @@ def parse_content_length(raw: str | None) -> int | None:
     return int(value)
 
 
-def limited_receive(receive: Receive, max_body_bytes: int) -> Receive:
+def limited_receive(
+    receive: Receive, max_body_bytes: int, *, idle_timeout_seconds: float = UPLOAD_IDLE_TIMEOUT_SECONDS
+) -> Receive:
     """Wrap an ASGI `receive` so the body can never exceed `max_body_bytes`
-    actual bytes, whatever Content-Length claims. Raising inside the
-    multipart stream makes Starlette close every spooled part."""
+    actual bytes, whatever Content-Length claims, and so that each wait for
+    the next message is bounded by `idle_timeout_seconds` (the window
+    restarts on every call). Raising inside the multipart stream makes
+    Starlette close every spooled part."""
+    if idle_timeout_seconds <= 0:
+        raise ValueError("idle_timeout_seconds must be positive")
     total = 0
 
     async def guarded() -> Message:
         nonlocal total
-        message = await receive()
+        try:
+            with anyio.fail_after(idle_timeout_seconds):
+                message = await receive()
+        except TimeoutError:
+            raise RequestBodyIdleTimeoutError("no request body received in time") from None
         if message["type"] == "http.request":
             total += len(message.get("body", b""))
             if total > max_body_bytes:

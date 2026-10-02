@@ -32,7 +32,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import ClientDisconnect
 
 from app.api.deps import PhotoRuntime, get_current_user, get_photo_runtime
+from app.api import upload_guard
 from app.api.upload_guard import (
+    RequestBodyIdleTimeoutError,
     RequestBodyTooLargeError,
     copy_bounded,
     limited_receive,
@@ -114,6 +116,7 @@ ORIGINAL_NAME = "original"  # server-chosen workspace file name
 _MESSAGES = {
     "PHOTO_UPLOADS_DISABLED": "Photo uploads are currently disabled",
     "PHOTO_TOO_LARGE": "The upload exceeds the maximum allowed size",
+    "PHOTO_UPLOAD_TIMEOUT": "The upload stalled; no data was received in time",
     "PHOTO_UPLOAD_MALFORMED": "The upload request is malformed",
     "PHOTO_PROCESSING_BUSY": "Photo processing is busy; retry later",
     "PHOTO_STORAGE_UNAVAILABLE": "Photo storage is temporarily unavailable",
@@ -278,7 +281,14 @@ async def _receive_upload(
 ) -> PhotoUploadRequest:
     """Guarded parse + bounded copy. The multipart spool is closed when this
     returns (the `async with` exits) -- before any processing starts."""
-    guarded = Request(request.scope, receive=limited_receive(request.receive, settings.PHOTO_MAX_REQUEST_BYTES))
+    guarded = Request(
+        request.scope,
+        receive=limited_receive(
+            request.receive,
+            settings.PHOTO_MAX_REQUEST_BYTES,
+            idle_timeout_seconds=upload_guard.UPLOAD_IDLE_TIMEOUT_SECONDS,
+        ),
+    )
     original = workspace / ORIGINAL_NAME
     try:
         async with guarded.form(
@@ -289,6 +299,8 @@ async def _receive_upload(
             await anyio.to_thread.run_sync(copy_bounded, upload.file, original, settings.PHOTO_MAX_UPLOAD_BYTES)
     except RequestBodyTooLargeError:
         raise _error(status.HTTP_413_CONTENT_TOO_LARGE, "PHOTO_TOO_LARGE") from None
+    except RequestBodyIdleTimeoutError:
+        raise _error(status.HTTP_408_REQUEST_TIMEOUT, "PHOTO_UPLOAD_TIMEOUT") from None
     except PhotoTooLargeError:
         raise _error(status.HTTP_413_CONTENT_TOO_LARGE, "PHOTO_TOO_LARGE") from None
     except StarletteHTTPException as exc:
@@ -336,14 +348,22 @@ async def upload_photo(
         raise _malformed() from None
     if declared is not None and declared > settings.PHOTO_MAX_REQUEST_BYTES:
         raise _error(status.HTTP_413_CONTENT_TOO_LARGE, "PHOTO_TOO_LARGE")
+    # Only scalars cross the transaction boundary below: rollback expires every
+    # loaded ORM attribute (even with expire_on_commit=False), and touching an
+    # expired attribute would lazy-load under async.
+    owner_id = current_user.id
     try:
-        await ProjectService(db).get_project(project_id, current_user.id)
+        await ProjectService(db).get_project(project_id, owner_id)
     except ProjectNotFoundError as exc:
         raise _map_domain_error(exc) from None
+    # F3 (14C.6A): ownership is verified BEFORE any body byte is read; end the
+    # completed read-only transaction so no DB transaction / pooled connection
+    # stays open during network body reception.
+    await db.rollback()
     if not runtime.admission.try_acquire():
         raise _error(status.HTTP_503_SERVICE_UNAVAILABLE, "PHOTO_PROCESSING_BUSY", retry_after=True)
     try:
-        return await _admitted_upload(request, response, db, runtime, config, current_user.id, project_id)
+        return await _admitted_upload(request, response, db, runtime, config, owner_id, project_id)
     finally:
         runtime.admission.release()
 
