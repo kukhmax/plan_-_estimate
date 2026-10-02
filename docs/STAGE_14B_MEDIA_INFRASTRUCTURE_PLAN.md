@@ -237,7 +237,7 @@ Runtime (14B/14C):
 | `put_object(key, source, content_type)` | local file/stream → `None` | upload |
 | `head_object(key)` | → `ObjectInfo(size, etag)` or `None` | idempotent resume, integrity |
 | `presign_get(key, ttl_seconds)` | → URL string | thumbnail/display delivery |
-| `download_to(key, path)` | → local temp file | Stage 15 original retrieval, derivative regeneration |
+| `download_to(key, path)` | → local temp file | Stage 15 original retrieval, integrity/backup verification (no derivative-regeneration tool exists — 14D.1) |
 
 Tooling only (integrity/backup) — separate `MediaStorageAdmin` protocol, not injected into API code: `iter_keys(prefix)`.
 No `delete_object` in v1 (14A D14-14). Copy/export is not a port method (backup = `download_to` from one adapter +
@@ -371,6 +371,10 @@ Optional complement (never the backup): R2 bucket lock rules against deletion/ov
 
 ## 14. Oracle Object Storage backup (concept for 14D — not configured)
 
+> **Superseded in detail by `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` (14D.1, OWNER APPROVED 2026-10-02):** encrypted
+> DB dump artifact, snapshot-bound manifest completeness, SHA-256 provenance rule, all three objects backed up
+> (derivatives are not regenerated in v1). Bucket names below are provisional operational configuration.
+
 - **Bucket** `plan-estimate-media-backup` (name proposed), private, Standard tier, **object versioning on**; region
   chosen with the owner (EU, consistent with R7).
 - **Identity**: dedicated IAM group `media-backup`, policy limited to that bucket (e.g.
@@ -386,7 +390,8 @@ Optional complement (never the backup): R2 bucket lock rules against deletion/ov
   `{asset_id, status, storage_backend, key_original, key_display, key_thumbnail, sha256_original, byte_size_original,
   content_type, backed_up_at}`.
 - **Restore verification**: restored DB → every READY asset present in the restore target → original sha256 equals the
-  DB value; derivatives present (or regenerated from the original); unreferenced objects reported.
+  DB value; derivatives present and restored from the backup (14D.1: not regenerated — no tool exists and bytes are
+  not guaranteed identical); unreferenced objects reported.
 
 ---
 
@@ -427,6 +432,10 @@ with real buckets.
 
 ## 17. 14D backup/restore gate (R9 — OWNER APPROVED)
 
+> **Refined by `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §11–§18 (14D.1):** R2 drill source / restore buckets and an
+> Oracle drill-backup bucket, a small JPEG / PNG / WebP / EXIF-orientation synthetic fixture (60 MP optional),
+> encrypted dump restore chain, sub-stages 14D.2–14D.7.
+
 Isolated drill environment and bucket; **no real production object is ever intentionally deleted.**
 
 1. Drill DB (restored from a real production `pg_dump`) + drill R2 bucket + drill OCI target; seeded with assets of each
@@ -436,7 +445,7 @@ Isolated drill environment and bucket; **no real production object is ever inten
 4. Independent OCI media backup; manifest written; manifest count = READY count.
 5. Loss simulation in the **drill bucket only** (one original, one derivative) + DB restored into a fresh database.
 6. Integrity check reports exactly the missing objects.
-7. Media restored from OCI; original sha256 = DB value; derivative restored or regenerated.
+7. Media restored from OCI; original sha256 = DB value; derivatives restored from the backup (not regenerated — 14D.1).
 8. Integrity clean; the application reads restored media.
 9. Production, non-destructive: production backup job runs, manifest generated, OCI copy checksum verified; no
    production data changed.

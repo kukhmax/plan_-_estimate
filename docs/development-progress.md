@@ -11,9 +11,9 @@
 > table below). The long per-stage history further down (archived overview detail, historical mapping, Stage Log) is
 > preserved as a record and is not a specification.
 >
-> **Last index update**: 2026-10-02 (Stage 14C **COMPLETE** — 14C.7 production deployment & runtime verification
-> OWNER VERIFIED: backend image `33bb27b7…`, DB `0032_photo_attachments`, uploads OFF; next Stage 14D, owner approval
-> required).
+> **Last index update**: 2026-10-02 (Stage 14D **IN PROGRESS** — 14D.1 backup/restore architecture OWNER APPROVED,
+> documentation only, `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`; next 14D.2 tooling, owner approval required. Stage 14C
+> COMPLETE; production unchanged: backend image `33bb27b7…`, DB `0032_photo_attachments`, uploads OFF).
 
 ---
 
@@ -41,7 +41,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B and 14C complete — 14C.1 CLOSED (contract); 14C.2 CLOSED (schema/domain foundation, migration `0032_photo_attachments`, `c184c85`, not deployed); 14C.3 CLOSED (upload orchestration, no HTTP, `9216734`, not deployed); 14C.4 CLOSED (HTTP upload API, `996ccd8`, not deployed); 14C.5 CLOSED (reads / archive controls, `66d399a`, not deployed); 14C.6 CLOSED (hardening + verification, `7bba6c8`); 14C.7 CLOSED / PRODUCTION VERIFIED (dependency pins `8c53e58`, backend + migration `0032` + Caddy route cap deployed, uploads OFF); **14C COMPLETE**; 14D next, owner approval required)) | 14C runtime deployed (backend image `sha256:33bb27b7…`, DB `0032_photo_attachments`); `MEDIA_STORAGE_BACKEND=s3` (R2 `r2-primary`), `PHOTO_UPLOADS_ENABLED=false` | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B and 14C complete — 14C.1 CLOSED (contract); 14C.2 CLOSED (schema/domain foundation, migration `0032_photo_attachments`, `c184c85`, not deployed); 14C.3 CLOSED (upload orchestration, no HTTP, `9216734`, not deployed); 14C.4 CLOSED (HTTP upload API, `996ccd8`, not deployed); 14C.5 CLOSED (reads / archive controls, `66d399a`, not deployed); 14C.6 CLOSED (hardening + verification, `7bba6c8`); 14C.7 CLOSED / PRODUCTION VERIFIED (dependency pins `8c53e58`, backend + migration `0032` + Caddy route cap deployed, uploads OFF); **14C COMPLETE**; 14D IN PROGRESS — 14D.1 architecture OWNER APPROVED (documentation only); 14D.2 next, owner approval required)) | 14C runtime deployed (backend image `sha256:33bb27b7…`, DB `0032_photo_attachments`); `MEDIA_STORAGE_BACKEND=s3` (R2 `r2-primary`), `PHOTO_UPLOADS_ENABLED=false` | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -56,8 +56,9 @@ not claim the stage is absent from production (later stages were deployed on top
 
 - **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — **COMPLETE**. Stage 14C (Media API &
   Security) — **COMPLETE** (14C.7 production deployment & runtime verification OWNER VERIFIED, 2026-10-02; uploads
-  OFF). Next: **Stage 14D — Backup/Restore Drill & Production Media-Readiness Gate** (NOT STARTED; explicit owner
-  approval required).
+  OFF). Stage 14D (Backup/Restore Drill & Production Media-Readiness Gate) — **IN PROGRESS**: 14D.1 architecture
+  **OWNER APPROVED** (documentation only; `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`). Next: **14D.2** backup / restore
+  tooling + tests (NOT STARTED; explicit owner approval required).
 - **Previously completed**: 14C.2 — **CLOSED** (`c184c85`, pushed) — PhotoAttachment schema/domain foundation —
   **IMPLEMENTED / AUTOMATED VERIFICATION PASS / POSTGRESQL 16 SCRATCH VERIFICATION PASS / OWNER ACCEPTED** (2026-10-01; not deployed —
   production stays runtime `e57e037`, DB `0031_photo_assets`; `0032` is applied in production only by 14C.7).
@@ -441,6 +442,41 @@ only (no SSH, no Docker, no production command).
 - **Status**: Stage 14C.7 COMPLETE / OWNER VERIFIED → **Stage 14C COMPLETE**. Next: **Stage 14D — Backup/Restore
   Drill & Production Media-Readiness Gate** (NOT STARTED; explicit owner approval required).
 
+### Stage 14D.1 — media backup / restore architecture & readiness audit (2026-10-02, OWNER APPROVED)
+
+Documentation only (no code, migration, requirement, cloud resource, credential, SSH or production action).
+Canonical contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`.
+
+- **Audit findings**: no backup / manifest / restore tooling; **DB dumps exist only on the production VM**; no
+  derivative-regeneration tool (derivative bytes are not guaranteed reproducible and the DB stores no derivative
+  hash); Oracle write-once / overwrite / ETag behaviour through the S3 adapter unverified; single-store
+  configuration; no read-only R2 token, no Oracle identity, no drill buckets; runbook §72 still a draft.
+- **Owner decisions**: R2 stays primary; Oracle Object Storage is the independent backup provider; same immutable
+  keys; manifest v1 + `COMPLETE.json`; database-driven backup; **all three objects of every READY asset are backed
+  up** (derivatives not regenerable in v1); Frankfurt EU region if supported; provisional buckets
+  `plan-estimate-media-backup`, `plan-estimate-media-drill-backup` (Oracle) and `plan-estimate-media-drill-source`,
+  `plan-estimate-media-drill-restore` (R2) as operational configuration only; separate least-privilege backup and
+  restore credentials, exact Oracle IAM semantics verified empirically in 14D.3 / 14D.4; DB dumps **encrypted with
+  `age` before leaving the VM** (decryption key never only on the VM; nothing secret in Git); drill restore target is
+  a separate R2 bucket (never a prefix in the production bucket); drill preferably on the Oracle VM with isolated
+  scratch containers / databases (production PostgreSQL never a restore target); retention v1 append-only, no
+  automatic deletion, no irreversible lock; recurring backups eventually via a dedicated read-only PostgreSQL role
+  (manual operational step, not a migration); no timer in 14D.1 / 14D.2; sub-stages 14D.2–14D.7 approved.
+- **Mandatory corrections incorporated**: (A) the manifest is bound to the DB dump's own snapshot
+  (`pg_export_snapshot()` + `pg_dump --snapshot`) with `ready_count` / `ready_set_sha256`, and `COMPLETE.json` is
+  written only if every READY asset of that snapshot is represented by all three verified objects (independently
+  re-checkable from the restored dump); (B) an existing target object is admitted only with a SHA-256 recomputed in
+  the run or inherited from a previously verified COMPLETE manifest with unchanged size — equal size alone is never
+  proof; (C) canonical remote DB artifact `db/<run_id>/plan-estimate.sql.gz.age`, restore chain = encrypted SHA-256 →
+  decrypt → gzip → isolated PostgreSQL restore → Alembic / schema check; (D) mandatory synthetic fixture = small
+  JPEG / PNG / WebP + EXIF-orientation case, 60 MP optional.
+- **Documentation corrected**: statements that derivatives are regenerable as a recovery path (14A §13, 14B plan
+  §8 / §14 / §17, runbook §72.3 / §72.4) now point to backup restoration; runbook §72 references the approved
+  architecture and **remains DRAFT** (no command verified). The integrity checker's code message for
+  `MISSING_DERIVATIVE` still says "regenerable from the original" — to be corrected in 14D.2.
+- **Production unchanged**: backend image `33bb27b7…`, DB `0032_photo_attachments`, `PHOTO_UPLOADS_ENABLED=false`.
+- **Next**: 14D.2 — backup / restore tooling + tests (NOT STARTED; explicit owner approval required).
+
 ---
 
 ## Production Baseline
@@ -507,7 +543,14 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.6A | Hardening: F1 SQL parameter redaction, F2 60 s idle receive timeout, F3 short read transaction | OWNER ACCEPTED (2026-10-02; 15 focused, 344 regression, 2373 backend; part of the single Stage 14C.6 commit) |
 | └ 14C.6B | Adversarial / resource / performance / PostgreSQL 16 verification | AUTOMATED + OWNER-RUN POSTGRESQL VERIFICATION PASS (2026-10-02; 46 non-PG tests, PostgreSQL 10/10, benchmark baseline, probes; Stage 14C.6 COMPLETED / OWNER ACCEPTED, full backend 2419 passed + 10 PG skipped) |
 | └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
-| 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |
+| 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
+| └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
+| └ 14D.2 | Backup / restore tooling + tests | NOT STARTED |
+| └ 14D.3 | Owner manual Oracle / R2 / key setup | NOT STARTED |
+| └ 14D.4 | Connectivity / semantics smoke on drill resources | NOT STARTED |
+| └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |
+| └ 14D.6 | First production non-destructive backup run + runbook final | NOT STARTED |
+| └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
 | 14G | POINT annotations (API + editor) | NOT STARTED |
