@@ -8,8 +8,9 @@ import io
 from pathlib import Path
 
 import pytest
+from python_multipart.exceptions import FormParserError, MultipartParseError
 from starlette.datastructures import Headers
-from starlette.formparsers import MultiPartParser
+from starlette.formparsers import MultiPartException, MultiPartParser
 from starlette.requests import Request
 
 from app.api.upload_guard import (
@@ -22,6 +23,9 @@ from app.api.upload_guard import (
     parse_content_length,
 )
 from app.domain.exceptions import PhotoTooLargeError, PhotoUploadMalformedError
+from tests import test_stage14c4_photos_api as c4
+
+api = c4.api  # fixture
 
 # ---------------------------------------------------------------------------
 # Content-Length (advisory only)
@@ -191,8 +195,6 @@ async def test_max_part_size_does_not_bound_file_parts():
 
 
 async def test_max_part_size_bounds_scalar_parts():
-    from starlette.formparsers import MultiPartException
-
     with pytest.raises(MultiPartException):
         await parse(multipart([("caption", b"c" * 8193, None)]), max_part_size=8192)
 
@@ -204,13 +206,31 @@ async def test_rolled_spool_is_an_unnamed_file(tmp_path):
     await form.close()
 
 
-async def test_non_multipart_body_raises_a_raw_python_multipart_error():
-    """Starlette 1.6.0 converts only its own MultiPartException; a body that
-    is not multipart raises python-multipart's FormParserError, which the
-    upload route therefore catches itself."""
-    from python_multipart.exceptions import FormParserError
-    from starlette.formparsers import MultiPartException
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(lambda: FormParserError("injected"), id="raw-FormParserError"),
+        pytest.param(lambda: MultipartParseError("injected"), id="raw-MultipartParseError"),
+        pytest.param(lambda: MultiPartException("Invalid multipart data."), id="starlette-MultiPartException"),
+    ],
+)
+async def test_any_framework_multipart_failure_is_normalized_to_422(api, monkeypatch, failure):
+    """Application normalization boundary (contract §10): whichever shape the
+    framework uses for a multipart parse failure -- python-multipart's raw
+    error escaping the parser (Starlette 1.6.0) or Starlette's own
+    MultiPartException, which Request.form turns into a 400 (Starlette 1.7.0
+    wraps raw parser errors this way) -- the route answers 422
+    PHOTO_UPLOAD_MALFORMED and leaves no state behind. The failure is injected
+    at the parser, so Starlette's own conversion in Request.form still runs."""
+    calls = {"n": 0}
 
-    with pytest.raises(FormParserError) as exc:
-        await parse(b"this is not multipart at all")
-    assert not isinstance(exc.value, MultiPartException)
+    async def failing_parse(self):
+        calls["n"] += 1
+        raise failure()
+
+    monkeypatch.setattr(MultiPartParser, "parse", failing_parse)
+    c = await c4.call(c4.path_for(api.project), token=api.token, body=c4.form(api))
+    assert calls["n"] == 1  # the injected parser really ran
+    assert c.status == 422, (c.status, c.body)
+    assert c4.detail(c) == {"code": "PHOTO_UPLOAD_MALFORMED", "message": "The upload request is malformed"}
+    assert await c4.counts(api.db) == (0, 0) and c4.temp_clean(api) and api.runtime.admission.in_use == 0

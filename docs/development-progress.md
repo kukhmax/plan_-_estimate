@@ -332,6 +332,54 @@ not claim the stage is absent from production (later stages were deployed on top
   mandatory before production uploads can be enabled; `PHOTO_UPLOADS_ENABLED` stays `false` in production
   throughout 14C.
 
+### Stage 14C.7B — dependency drift gate and production dependency baseline hardening (2026-10-02, IN PROGRESS)
+
+- **Drift discovered**: the owner's 14C.7B production build of `7bba6c8` (image
+  `sha256:d9e593766a2434e8fadd66b92206bffe37bb03ddbedda99391a85656fa76f149`) resolved newer packages than both the
+  running production image and the 14C.6 verification venv (FastAPI 0.142.2, Starlette 1.7.0, Uvicorn 0.54.0,
+  SQLAlchemy 2.1.2, Alembic 1.20.0, PyJWT 2.15.1, boto3/botocore 1.43.107). Cause: `backend/requirements.txt` held
+  only ranges, Starlette / anyio / botocore were not declared at all, and there was no lock or constraints file, so
+  every uncached build re-resolved. The plan's STOP condition (FastAPI / Starlette / python-multipart minor bump) held;
+  the drifted image `d9e5937…` was **never deployed** (no container was recreated).
+- **Baseline captured first**: before choosing pins, the owner captured the freeze of the running production image
+  `sha256:454e3b2f5673b90fb9be28cf5146c9841c90ccb4689c2969fd406815ae540dfe` (45 packages; server artifact
+  `~/backups/plan-estimate/backend-pre-14c7-pip-freeze.txt`, SHA256
+  `fdf5669a74a26f7e60cd0651e88aa18b37f55f56be755f039f1668301586e1c5`). It shows production has run SQLAlchemy 2.1.1
+  (since the Stage 13E.5B greenlet fix), Starlette 1.7.0, Uvicorn 0.54.0, Alembic 1.20.0 and PyJWT 2.15.0 — newer
+  than the local Python 3.14 14C.6 venv (2.0.52 / 1.6.0 / 0.52.4 / 1.19.2 / 2.13.0).
+- **Decision (owner)**: do not downgrade production to the local 14C.6 venv. Pre-14C dependencies keep the versions
+  already proven by the running production runtime; the dependency new in 14C (python-multipart 0.0.32) keeps the
+  14C.6-accepted version; the Stage 14C code is re-verified on that set under Python 3.12.
+- **Change**: `backend/requirements.txt` now holds exact `==` pins only (production direct dependencies, the test
+  tools installed in the image, and explicit pins for transitive packages the app imports directly or that define the
+  runtime contract: Starlette, anyio, greenlet, botocore, s3transfer, urllib3, h11, httptools, uvloop).
+  `pyproject.toml` unchanged (Docker installs `requirements.txt` only). New guard
+  `backend/tests/test_dependency_pins.py`: every requirement is an exact pin, the directly-used transitive packages
+  are present, installed versions equal the pins (PEP 503 name normalization, extras parsed), and pinned extras are
+  installed; `requirements.txt` is the only version source. Inside a built image it rejects a drifted build.
+- **Starlette 1.6 → 1.7 parser exception normalization (owner-approved test change)**: the first local run on the
+  pinned set had one failure, the 14C.4 characterisation test
+  `test_non_multipart_body_raises_a_raw_python_multipart_error`, which asserted a Starlette 1.6.0 internal (a raw
+  python-multipart `FormParserError` escaping the parser). Starlette 1.7.0 — already running in production — wraps it
+  in `MultiPartException`, which `Request.form` turns into a 400 that the route remaps to 422. The public behaviour was
+  unchanged (`test_malformed_multipart_is_422[garbage]`: 422 `PHOTO_UPLOAD_MALFORMED`). With the owner's approval the
+  test was replaced (not deleted) by `test_any_framework_multipart_failure_is_normalized_to_422`, which tests the
+  application normalization boundary instead of framework internals: it injects each framework failure shape at the
+  parser (raw `FormParserError`, raw `MultipartParseError`, Starlette `MultiPartException`; Starlette's own
+  conversion in `Request.form` still runs) and asserts 422, the exact `PHOTO_UPLOAD_MALFORMED` detail, no DB rows,
+  clean temp and released admission. It adds coverage: on Starlette 1.7.0 no real body reaches the route's
+  `except FormParserError` branch, so the existing API cases could not detect its removal; in a scratch copy (repository
+  untouched) removing that branch fails the two raw cases and removing the 400 remap fails the Starlette case.
+- **Local verification** (isolated uv venv, CPython 3.12.14 x86_64, installed exactly from the pinned
+  `requirements.txt`; the 14C.6 `.venv` was not modified): pin guard 22 passed (and fails, as intended, on the old
+  `.venv`: 6 mismatches); 14C.4 upload-guard file 27; 14B 208; 14C.2 124; 14C.3 95; 14C.4 114; 14C.5 137; 14C.6A 15;
+  14C.6B 46 (+10 PG skipped); full backend **2443 passed, 0 failed, 10 skipped** (2441 + 2: the replaced test became 3 parametrized cases); mypy clean on the Stage 14 files and the guard (19 files);
+  Ruff clean on the changed Python files; `git diff --check` clean.
+- **Still required before 14C.7C1**: rebuild the corrected image on the production VM (Python 3.12 ARM64), run the
+  pin guard and the backend suite inside it, check `alembic heads` and `caddy validate`, then the owner approval gate.
+- **Production unchanged**: runtime image `454e3b2…`, DB `0031_photo_assets`, `PHOTO_UPLOADS_ENABLED=false`. Stage
+  14C.7 is **not complete**.
+
 ---
 
 ## Production Baseline

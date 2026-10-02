@@ -1,15 +1,41 @@
-fastapi>=0.110.0,<1.0.0
-uvicorn[standard]>=0.28.0,<1.0.0
-pydantic>=2.6.0,<3.0.0
-pydantic-settings>=2.2.0,<3.0.0
-sqlalchemy[asyncio]>=2.0.28,<3.0.0
-asyncpg>=0.29.0,<1.0.0
-alembic>=1.13.1,<2.0.0
-pyjwt>=2.8.0,<3.0.0
-boto3>=1.40.0,<2.0.0
-Pillow>=12.0.0,<13.0.0
-python-multipart>=0.0.32,<0.1.0
-pytest>=8.0.0,<9.0.0
-pytest-asyncio>=0.23.0,<1.0.0
-httpx>=0.27.0,<1.0.0
-aiosqlite>=0.20.0,<1.0.0
+# Production dependency manifest (installed by backend/Dockerfile).
+# Exact pins only; guarded by tests/test_dependency_pins.py. Versions were
+# taken from the running production image freeze captured before Stage 14C.7
+# (pre-14C dependencies) and from the Stage 14C.6 accepted verification
+# (python-multipart, new in 14C). Change versions deliberately, never by drift.
+
+# Web framework / ASGI server
+fastapi==0.141.1
+starlette==1.7.0
+anyio==4.15.1
+uvicorn[standard]==0.54.0
+h11==0.16.0
+httptools==0.8.0
+uvloop==0.22.1
+python-multipart==0.0.32
+
+# Validation / settings
+pydantic==2.13.5
+pydantic-settings==2.15.0
+
+# Database
+sqlalchemy[asyncio]==2.1.1
+greenlet==3.5.6
+asyncpg==0.31.0
+alembic==1.20.0
+
+# Auth
+pyjwt==2.15.0
+
+# Media storage / image processing (Stage 14)
+boto3==1.43.103
+botocore==1.43.103
+s3transfer==0.19.2
+urllib3==2.8.0
+Pillow==12.3.0
+
+# Tests (also installed in the image)
+pytest==8.4.2
+pytest-asyncio==0.26.0
+httpx==0.28.1
+aiosqlite==0.22.1
