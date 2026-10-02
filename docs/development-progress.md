@@ -11,8 +11,9 @@
 > table below). The long per-stage history further down (archived overview detail, historical mapping, Stage Log) is
 > preserved as a record and is not a specification.
 >
-> **Last index update**: 2026-10-02 (Stage 14C.6 COMPLETED / OWNER ACCEPTED — 14C.6A OWNER ACCEPTED, 14C.6B
-> automated + owner-run PostgreSQL 16 verification PASS; 14C.7 next; Stage 14C.5 CLOSED `66d399a`).
+> **Last index update**: 2026-10-02 (Stage 14C **COMPLETE** — 14C.7 production deployment & runtime verification
+> OWNER VERIFIED: backend image `33bb27b7…`, DB `0032_photo_attachments`, uploads OFF; next Stage 14D, owner approval
+> required).
 
 ---
 
@@ -40,7 +41,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A and 14B complete; 14C in progress — 14C.1 CLOSED (contract); 14C.2 CLOSED (schema/domain foundation, migration `0032_photo_attachments`, `c184c85`, not deployed); 14C.3 CLOSED (upload orchestration, no HTTP, `9216734`, not deployed); 14C.4 CLOSED (HTTP upload API, `996ccd8`, not deployed); 14C.5 CLOSED (reads / archive controls, `66d399a`, not deployed); 14C.6 COMPLETED / OWNER ACCEPTED (hardening + verification, not deployed); 14C.7 next, owner approval required))) | 14B foundation deployed (runtime `e57e037`, DB `0031_photo_assets`); `MEDIA_STORAGE_BACKEND=s3` (R2 connectivity verified, 14B.6), uploads OFF | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B and 14C complete — 14C.1 CLOSED (contract); 14C.2 CLOSED (schema/domain foundation, migration `0032_photo_attachments`, `c184c85`, not deployed); 14C.3 CLOSED (upload orchestration, no HTTP, `9216734`, not deployed); 14C.4 CLOSED (HTTP upload API, `996ccd8`, not deployed); 14C.5 CLOSED (reads / archive controls, `66d399a`, not deployed); 14C.6 CLOSED (hardening + verification, `7bba6c8`); 14C.7 CLOSED / PRODUCTION VERIFIED (dependency pins `8c53e58`, backend + migration `0032` + Caddy route cap deployed, uploads OFF); **14C COMPLETE**; 14D next, owner approval required)) | 14C runtime deployed (backend image `sha256:33bb27b7…`, DB `0032_photo_attachments`); `MEDIA_STORAGE_BACKEND=s3` (R2 `r2-primary`), `PHOTO_UPLOADS_ENABLED=false` | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -54,7 +55,9 @@ not claim the stage is absent from production (later stages were deployed on top
 ### Current position
 
 - **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — **COMPLETE**. Stage 14C (Media API &
-  Security) — **IN PROGRESS**.
+  Security) — **COMPLETE** (14C.7 production deployment & runtime verification OWNER VERIFIED, 2026-10-02; uploads
+  OFF). Next: **Stage 14D — Backup/Restore Drill & Production Media-Readiness Gate** (NOT STARTED; explicit owner
+  approval required).
 - **Previously completed**: 14C.2 — **CLOSED** (`c184c85`, pushed) — PhotoAttachment schema/domain foundation —
   **IMPLEMENTED / AUTOMATED VERIFICATION PASS / POSTGRESQL 16 SCRATCH VERIFICATION PASS / OWNER ACCEPTED** (2026-10-01; not deployed —
   production stays runtime `e57e037`, DB `0031_photo_assets`; `0032` is applied in production only by 14C.7).
@@ -332,7 +335,7 @@ not claim the stage is absent from production (later stages were deployed on top
   mandatory before production uploads can be enabled; `PHOTO_UPLOADS_ENABLED` stays `false` in production
   throughout 14C.
 
-### Stage 14C.7B — dependency drift gate and production dependency baseline hardening (2026-10-02, IN PROGRESS)
+### Stage 14C.7B — dependency drift gate and production dependency baseline hardening (2026-10-02, COMPLETE — committed `8c53e58`)
 
 - **Drift discovered**: the owner's 14C.7B production build of `7bba6c8` (image
   `sha256:d9e593766a2434e8fadd66b92206bffe37bb03ddbedda99391a85656fa76f149`) resolved newer packages than both the
@@ -375,10 +378,68 @@ not claim the stage is absent from production (later stages were deployed on top
   `.venv`: 6 mismatches); 14C.4 upload-guard file 27; 14B 208; 14C.2 124; 14C.3 95; 14C.4 114; 14C.5 137; 14C.6A 15;
   14C.6B 46 (+10 PG skipped); full backend **2443 passed, 0 failed, 10 skipped** (2441 + 2: the replaced test became 3 parametrized cases); mypy clean on the Stage 14 files and the guard (19 files);
   Ruff clean on the changed Python files; `git diff --check` clean.
-- **Still required before 14C.7C1**: rebuild the corrected image on the production VM (Python 3.12 ARM64), run the
-  pin guard and the backend suite inside it, check `alembic heads` and `caddy validate`, then the owner approval gate.
-- **Production unchanged**: runtime image `454e3b2…`, DB `0031_photo_assets`, `PHOTO_UPLOADS_ENABLED=false`. Stage
-  14C.7 is **not complete**.
+- **Commit**: `8c53e5848791f92d33bce134cf299de0b7861778` (`fix(stage-14): pin verified backend dependency baseline`),
+  pushed by the owner. The ARM64 image verification required before backend recreation is recorded in the 14C.7
+  section below.
+
+### Stage 14C.7 — production deployment & runtime verification (2026-10-02, COMPLETE / OWNER VERIFIED)
+
+Executed manually by the owner; every production step owner-approved. Claude prepared the plan and the documentation
+only (no SSH, no Docker, no production command).
+
+- **Corrected production image**: `sha256:33bb27b7fe052cbe0a9536f24d76b1ed9099f2775554beafed8c4dd7c8a8b4c9`
+  (arm64, Python 3.12.14), built from the pinned `requirements.txt` of `8c53e58`. The rejected drifted image
+  `sha256:d9e593766a2434e8fadd66b92206bffe37bb03ddbedda99391a85656fa76f149` was **never deployed**.
+- **Dependency verification in the corrected image**: pin guard `tests/test_dependency_pins.py` **22 passed** inside
+  the ARM64 image. Freeze comparison against the captured pre-14C.7 production freeze: every selected
+  production / runtime-critical pinned version matched; `python-multipart==0.0.32` was added as expected; the only
+  other difference was the **unpinned** transitive `python-dotenv` 1.2.3 → 1.2.4 (not a pinned-version mismatch).
+- **ARM64 full-suite verification** (disposable container, network disabled, CPU limited to 0.5): the first isolated
+  attempts exposed tests that read repository-root evidence / templates absent from the production image (the image
+  is built from `backend/` only) — a test-environment / context issue, not an application failure. The final run
+  mounted the required repository evidence read-only (`Caddyfile`, `docker-compose.prod.yml`,
+  `.env.production.example`, `docs/`): **2442 passed, 11 skipped, 0 failed**, 94 warnings, 2453 total outcomes,
+  ≈13 min. Local isolated CPython 3.12.14 verification: 2443 passed, 10 skipped, 0 failed, 2453 total outcomes. One
+  additional skip was observed in the ARM64 / container run; its specific cause was not investigated. Both runs had
+  zero failures and the total outcome count remained 2453.
+- **Image / migration preflight**: Alembic head in the corrected image `0032_photo_attachments`; entrypoint unchanged
+  (`alembic upgrade head`, then one Uvicorn process); `WEB_CONCURRENCY` unset; `caddy validate` of the committed
+  Caddyfile before deployment: `Valid configuration`.
+- **Backend deployment** (only `backend` recreated, canonical
+  `docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml` invocation):
+  - before: backend image `sha256:454e3b2f5673b90fb9be28cf5146c9841c90ccb4689c2969fd406815ae540dfe`, DB
+    `0031_photo_assets`, `PHOTO_UPLOADS_ENABLED=false`, external health PASS;
+  - after: backend image `sha256:33bb27b7…`; the entrypoint migration ran automatically and successfully
+    `0031_photo_assets → 0032_photo_attachments`; backend running / healthy, restart count 0; internal and external
+    `/api/health` PASS; `PHOTO_UPLOADS_ENABLED=false`, `PHOTO_MAX_REQUEST_BYTES=27000000`,
+    `PHOTO_MAX_UPLOAD_BYTES=25000000`, `WEB_CONCURRENCY` unset (single Uvicorn process, as the quota design requires).
+- **Post-migration data verification**: `photo_assets` 0, `photo_attachments` 0, `users` 1, `clients` 2,
+  `projects` 2, `rooms` 4, `surfaces` 25, `openings` 8, `inspections` 4, `price_items` 50 — the pre-existing tables
+  match the pre-deployment control counts.
+- **Caddy deployment** (only `caddy` recreated, separately, after backend verification): live configuration verified —
+  route matcher `POST ^/api/projects/[^/]+/photos$`, `request_body` `max_size` 27000000, occurring exactly once and
+  route-scoped (not global), `reverse_proxy backend:8000`; Caddy running, restart count 0; external `/api/health`
+  PASS. Known non-blocking Caddy warnings: Caddyfile formatting warning; the Cloudflare Origin Certificate has no
+  OCSP URL; QUIC/UDP receive-buffer informational warning.
+- **Frontend**: no frontend change since `e57e037`; no frontend deployment and no Telegram WebApp / Menu Button
+  cache-bust required.
+- **Backup / rollback** (owner records, 14C.7A):
+  - pre-14C.7 DB backup `/home/ubuntu/backups/plan-estimate/db-pre-14c7-20261002T170850Z.sql.gz`, SHA256
+    `5d960d643c7a6a689368d31bd460256520dc6bb047a4282ea3377a44233bcfcb`; verified during 14C.7A: file mode 600,
+    gzip / header / footer checks PASS, backup contains DB head `0031_photo_assets`;
+  - rollback image tag `plan-estimate-backend:rollback-pre-14c7` →
+    `sha256:454e3b2f5673b90fb9be28cf5146c9841c90ccb4689c2969fd406815ae540dfe`;
+  - the pre-14C.7 production pip-freeze artifact is recorded above (14C.7B).
+- **Deferred (cannot be exercised while uploads are off; post-14D controlled verification)**: live application 408
+  idle-body timeout, application 413 on `Content-Length`, Caddy 27 MB enforcement on a body that is actually read,
+  Cloudflare buffering / timeouts on real uploads, presigned derivative response overrides end-to-end, 60 MP
+  production upload RSS / temp disk, production admission / busy behaviour.
+- **Final safety state**: production DB head `0032_photo_attachments`; backend image `sha256:33bb27b7…`, healthy,
+  restart count 0; Caddy running, restart count 0; `PHOTO_UPLOADS_ENABLED=false`; **no production photo uploads have
+  been enabled**. Stage 14D (backup / restore drill & production media-readiness gate) remains mandatory before uploads
+  can ever be enabled.
+- **Status**: Stage 14C.7 COMPLETE / OWNER VERIFIED → **Stage 14C COMPLETE**. Next: **Stage 14D — Backup/Restore
+  Drill & Production Media-Readiness Gate** (NOT STARTED; explicit owner approval required).
 
 ---
 
@@ -386,12 +447,12 @@ not claim the stage is absent from production (later stages were deployed on top
 
 | Item | Value |
 | :--- | :--- |
-| Accepted production runtime commit | `e57e037d42815fa5e837e7629d0cb3d74c53ad76` (Stage 14B.4 foundation; deployed in 14B.5, owner verified 2026-09-28) |
-| Production database head | `0031_photo_assets` (`photo_assets` empty) |
-| Previous baseline | Stage 13 runtime `7b5aaf0` / DB `0030_surface_work_executions` (PRODUCTION VERIFIED, 13J); rollback image `plan-estimate-backend:rollback-pre-14b5` and backup `db-pre-14b5-0030-20260928T143642Z.sql.gz` kept on the server |
-| Stage 14 runtime | 14B foundation only: media config, storage/image-processing library, `photo_assets` schema, read-only integrity tool. **No** upload endpoint, parser, attachment model or UI |
+| Accepted production runtime | Stage 14C runtime (dependency pins `8c53e5848791f92d33bce134cf299de0b7861778`); backend image `sha256:33bb27b7fe052cbe0a9536f24d76b1ed9099f2775554beafed8c4dd7c8a8b4c9` (arm64, Python 3.12.14); deployed in 14C.7, owner verified 2026-10-02 |
+| Production database head | `0032_photo_attachments` (`photo_assets` 0, `photo_attachments` 0) |
+| Previous baseline | Stage 14B runtime `e57e037` (backend image `sha256:454e3b2f5673b90fb9be28cf5146c9841c90ccb4689c2969fd406815ae540dfe`) / DB `0031_photo_assets` (14B.5/14B.6, owner verified 2026-09-28). Earlier: Stage 13 runtime `7b5aaf0` / DB `0030_surface_work_executions`; rollback image `plan-estimate-backend:rollback-pre-14b5` and backup `db-pre-14b5-0030-20260928T143642Z.sql.gz` kept on the server |
+| Stage 14 runtime | 14B foundation + 14C Media API (upload route gated off, reads / metadata / archive-restore / attach, `photo_attachments`); Caddy photo-upload route cap 27 000 000 bytes live. **No** photo UI |
 | Media storage | `MEDIA_STORAGE_BACKEND=s3` (Cloudflare R2 `r2-primary`, EU); credentials only in the server `.env.production`; R2 connectivity **OWNER VERIFIED** in 14B.6 (14B plan §26) |
-| Production photo uploads | **OFF** (not implemented; `PHOTO_UPLOADS_ENABLED` stays `false` until the 14D gate + explicit owner approval) |
+| Production photo uploads | **OFF** (`PHOTO_UPLOADS_ENABLED=false`; stays off until the 14D gate + explicit owner approval) |
 
 Documentation-only commits (e.g. 13I/13J closure, 14A, 14B.1, 14B.2, and this 14B.5 record) do not change application
 runtime and require no production deployment.
@@ -437,7 +498,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14B.5 | Verification + commit; production deploy with uploads **off** | COMPLETE / OWNER VERIFIED (2026-09-28; at 14B.5 verification: runtime `e57e037`, DB `0031_photo_assets`, media disabled, uploads off; subsequently R2 enabled with uploads still off in 14B.6; 14B plan §25) |
 | └ 14B.6 | R2 Connectivity & Credential Readiness: owner injects existing R2 credentials; controlled smoke test (PUT/HEAD/GET/presigned GET, private/unsigned denial, write-once conflict); uploads stay off; no upload endpoint; no Oracle backup (14D) | **COMPLETE / OWNER VERIFIED** (14B plan §26) |
 | 14B.H | HEIC/HEIF technical spike (enabling HEIC only after owner approval) | **COMPLETE / CONDITIONAL GO / IMPLEMENTATION DEFERRED** (2026-09-28; no dependency, migration or runtime change; device gate after 14C/14E; 14B plan §27) |
-| 14C | Media API & security (upload state machine, list/attach/metadata/archive, presigned thumb/display URLs, quota policy; flag off in production) | **IN PROGRESS** (contract: `docs/STAGE_14C_MEDIA_API_CONTRACT.md`) |
+| 14C | Media API & security (upload state machine, list/attach/metadata/archive, presigned thumb/display URLs, quota policy; flag off in production) | **COMPLETE** (2026-10-02; production verified in 14C.7, uploads OFF; contract: `docs/STAGE_14C_MEDIA_API_CONTRACT.md`) |
 | └ 14C.1 | Media API & security contract (audit/design; C1–C16, R-1, R-2) | COMPLETE / OWNER APPROVED (2026-09-28; documentation only) |
 | └ 14C.2 | PhotoAttachment schema/domain foundation (migration `0032_photo_attachments`) | COMPLETE / OWNER ACCEPTED (2026-10-01; 124 focused, 2014 backend; PostgreSQL 16 scratch 96/96 · 4/4 · 96/96 PASS; not deployed) |
 | └ 14C.3 | Upload orchestration (new / replay / resume, uniform conflict, logical quota; no HTTP) | COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED (2026-10-01; `9216734`; owner concurrency follow-up PASS; 95 focused, 332 regression, 2109 backend; not deployed) |
@@ -445,6 +506,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.5 | Media reads / signed links / metadata / archive-restore / photo-storage status | COMPLETED / OWNER ACCEPTED / COMMITTED / PUSHED / CLOSED (2026-10-01; `66d399a`; owner follow-up PASS; 137 focused, 539 regression, 2337 backend; not deployed) |
 | └ 14C.6A | Hardening: F1 SQL parameter redaction, F2 60 s idle receive timeout, F3 short read transaction | OWNER ACCEPTED (2026-10-02; 15 focused, 344 regression, 2373 backend; part of the single Stage 14C.6 commit) |
 | └ 14C.6B | Adversarial / resource / performance / PostgreSQL 16 verification | AUTOMATED + OWNER-RUN POSTGRESQL VERIFICATION PASS (2026-10-02; 46 non-PG tests, PostgreSQL 10/10, benchmark baseline, probes; Stage 14C.6 COMPLETED / OWNER ACCEPTED, full backend 2419 passed + 10 PG skipped) |
+| └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
