@@ -8,7 +8,9 @@
 > production DB role, production backup execution. 14D.2D (local backup orchestrator, owner decisions D1–D6 / corrections
 > C1–C4) — IN PROGRESS: 14D.2D.1 pure contracts (§16.3) and 14D.2D.2 data root / lock / stale work / promotion
 > (§16.4), 14D.2D.3 local orchestration + `db-dump` (§16.5) and 14D.2D.4 real PostgreSQL 16 snapshot / role proof
-> (§16.6, owner-verified 8/8 on PostgreSQL 16.15; production backup-role policy frozen) complete. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
+> (§16.6, owner-verified 8/8 on PostgreSQL 16.15; production backup-role policy frozen) and 14D.2D.5 Compose / runtime
+> E2E proof (§16.7, owner-verified, FAIL count 0, amd64) complete. Not yet proven: ARM64 production image / bind,
+> production backup execution. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
 > §16 image / container contract, nothing in this document is implemented, configured or
 > verified yet: no backup tooling, no cloud resources, no credentials, no schedule. Executable procedures stay
 > **DRAFT** until the sub-stage that verifies them.
@@ -620,8 +622,8 @@ parameter (container `/backup`, tests a temporary directory); no host path is ha
 - **Linux runtime requirement (intentional):** local atomic promotion v1 requires Linux `renameat2` with
   `RENAME_NOREPLACE` (glibc, via `ctypes`); the backup runtime is deliberately Linux / glibc based. `ENOSYS`,
   `EINVAL` or any filesystem that does not support the flag is **fatal** (`PromotionError`, run stays in `work/`).
-  There is **no** fallback to plain `rename`, `replace` or copy. Support on the actual Compose bind mount is **not
-  claimed yet**; it is proven by the 14D.2D.5 E2E (amd64 locally, ARM64 later).
+  There is **no** fallback to plain `rename`, `replace` or copy. Support on the actual Compose bind mount was proven by
+  the owner 14D.2D.5 E2E on the local amd64 host; the ARM64 production host remains to be proven before 14D.6.
 - **Post-rename durability invariant:** `DurabilityError(promoted=True)` means the rename succeeded — the run may
   already exist as `encrypted/<run_id>/` — but `fsync(work/)` or `fsync(encrypted/)` failed, so durable promotion is
   unconfirmed. Future orchestration MUST NOT treat this as "nothing was promoted" and MUST NOT retry, re-promote or
@@ -759,6 +761,95 @@ a later, controlled operational step (14D.3 / 14D.6). Notes:
   unnecessary for schemas that use sequences (`pg_read_all_data` covers sequences regardless);
 - there is currently no RLS; if RLS is introduced, backup behaviour must be re-audited — `BYPASSRLS` is never added
   automatically.
+
+### 16.7 Compose / runtime E2E proof (Stage 14D.2D.5 — COMPLETE / OWNER VERIFIED)
+
+Proves the **actual operational command** with the **production** `backup` service definition, against scratch
+resources only:
+
+    docker compose --env-file <scratch proof env> -p plan-estimate-14d2d5-proof \
+      -f docker-compose.prod.yml -f backend/tests/runtime_proof/compose.proof-override.yml \
+      run --rm --no-deps backup db-dump
+
+The production Compose file already satisfies the accepted contract (14D.2C + D1 / D6) and is **not** changed. The
+scratch override (`backend/tests/runtime_proof/compose.proof-override.yml`) changes no security control; it only adds a
+non-secret `PE_PROOF_GUARD` variable whose `${VAR:?}` interpolation makes Compose refuse to run unless every scratch
+variable is set, so a missing scratch env cannot fall back to production defaults (step 0 proves the refusal).
+
+**Topology:** project `plan-estimate-14d2d5-proof`; network `plan-estimate-14d2d5-proof_internal` pre-created
+`--internal` (no internet egress) with the Compose project / network labels so the service's `internal` network
+resolves to it; disposable `postgres:16-alpine` (`pe14d2d5-proof-pg`, password from a mounted file, no published
+port) on that network only; fresh `/tmp/pe-14d2d5-proof.*` root with `data/` (→ `/backup`) and `secrets/pgpass`
+(→ `/run/secrets/pgpass`, read-only); disposable age identity; scratch database `pe_scratch_test_14d2d5` migrated to the
+repository head with 2 READY / 1 PENDING / 1 FAILED assets; scratch backup role created with the **frozen 14D.2D.4
+policy** (LOGIN + CONNECT + `pg_read_all_data`, no elevated attributes) — only in the disposable server. Host-side
+`docker exec` / tool containers are scaffolding only (C3); the backup itself always runs through the real service.
+
+**Tooling** (`backend/tests/runtime_proof/`): `bind_ops` runs **inside the real `backup` service** (entrypoint override
+only; all hardening in force) — `self-inspect` (`/proc/self/status` + `mountinfo`: non-root, all capability sets 0,
+NoNewPrivs 1, ro root + write probe, tmpfs `/tmp`, single rw `/backup`, ro pgpass outside `/backup`, no Docker
+socket), `egress-check`, `promote-proof` (production `create_run` / `promote` on the real bind: same `st_dev`, atomic
+appearance, collision refused, `renameat2(RENAME_NOREPLACE)` refuses an empty destination, no overwrite; removes only
+its own synthetic runs), `hold-lock` / `try-lock` (production `RunLock`); `scratch` runs in a separate tool
+container (setup, independent decrypt / gunzip / restore / digest verification, a `pe_proof_block` lock holder,
+tagged-session check); `check_host` runs on the host with the standard library only (bind layout / persistence,
+`docker inspect` of the backup container, postgres and network). `owner_proof.sh` runs all steps in order and prints a
+PASS / FAIL summary; it never cleans up automatically.
+
+**Steps / PASS criteria:** 0 missing scratch env refused · 1 image build (PGDG key + age verified), scratch setup ·
+K postgres unpublished, network internal with proof containers only, no egress from the backup container · D
+`db-dump` exit 0; host shows exactly one `encrypted/<run_id>/` (artifact + `local-run.json`, 0600 / 0700), empty `work/`
+and `evidence/`, no plaintext, evidence complete, revision = head, SHA / size match, `run.lock` 0600; independent
+decrypt → gunzip → restore → READY digest / revision = source + evidence · F no backup container remains, artifact
+hash stable later · E in-container self-inspection and `docker inspect` (non-root user, ReadonlyRootfs, CapDrop ALL,
+no-new-privileges, not privileged, no ports, single `/backup` bind, ro pgpass outside it on the host, tmpfs `/tmp`,
+512 MiB / 0.5 CPU / 64 pids, StopTimeout 45, init, proof network only) · G promotion proof on the bind, real run
+untouched · H lock held by container A → second container and the real `db-dump` get exit 3; after `docker stop`
+(SIGTERM) and after `docker kill -s KILL` the lock is acquirable; `run.lock` persists · I synthetic stale entry →
+`db-dump` exit 4, entry untouched, nothing promoted, no evidence; operator removes only the synthetic entry · J
+`pe_proof_block` held ACCESS EXCLUSIVE so the real `db-dump` waits in pg_dump; `StopTimeout` 45; `docker stop` →
+exit 6 well under the grace period, no tagged server session left, lock released, interrupted run left in `work/`,
+`CANCELLED` failure evidence, nothing promoted; then the operator clears it and a second normal run succeeds · L no
+backup / superuser password and no age identity anywhere under the data root or in the logs.
+
+**Owner command:** from the repository root, `bash backend/tests/runtime_proof/owner_proof.sh`; send back the printed
+summary (contains no secret). **Cleanup (proof-only, after review):**
+
+    docker stop pe14d2d5-proof-pg 2>/dev/null           # --rm removes it and its anonymous volume
+    docker ps -a --filter label=com.docker.compose.project=plan-estimate-14d2d5-proof -q | xargs -r docker rm -f
+    docker network rm plan-estimate-14d2d5-proof_internal
+    rm -r /tmp/pe-14d2d5-proof.XXXXXX                   # the workspace printed by the script
+
+Known risk (did not materialise): Compose versions differ in how strictly they accept a pre-created network; the
+owner's Compose accepted the labelled internal network.
+
+**Owner-run result (2026-10-03): FAIL count 0** (local amd64 host; workspace `/tmp/pe-14d2d5-proof.3BxTqN`; completed
+runs `20261003T213210Z-faa37747`, `20261003T213846Z-158c6649`). The proof used the **real production `backup`
+service** of the unchanged `docker-compose.prod.yml` plus only the scratch guard override; `backend/app/` and
+`backend/Dockerfile.backup` were not changed in 14D.2D.5.
+- **Fail-closed / setup:** missing scratch env refused by the guard; scratch database at the current head, 2 READY;
+  frozen backup-role policy used.
+- **Network:** PostgreSQL without published port and only on the proof network; network internal and
+  Compose-labelled; no internet egress from the backup container.
+- **Real command:** `docker compose … run --rm --no-deps backup db-dump` exit 0.
+- **Persistence / restore:** one complete run on the host bind; `work/` and `evidence/` empty; artifact SHA-256 /
+  size correct; `run.lock` correct; independent decrypt → gunzip → restore with READY digest and revision verified; no
+  backup container left after `--rm`; the first artifact unchanged after all later proof operations.
+- **Runtime hardening (effective):** non-root; effective capabilities zero; NoNewPrivs; read-only root; tmpfs `/tmp`;
+  writable `/backup`; pgpass read-only and outside `/backup`; no Docker socket; one `/backup` bind; resource limits
+  effective; StopTimeout 45; proof network only.
+- **Promotion on the real bind:** production code; same `st_dev`; atomic; collision refused; no overwrite; real run
+  untouched.
+- **Lock:** held lock → second container exit 3 and real `db-dump` exit 3; acquirable after normal SIGTERM stop and
+  after SIGKILL (exit 0); `run.lock` persisted 0600.
+- **Stale work:** real `db-dump` exit 4; entry untouched; nothing promoted; no evidence.
+- **SIGTERM:** StopTimeout 45; real `db-dump` interrupted, exit 6 in 1 s (well before the grace period); no tagged
+  dump session left; lock released; interrupted run left in `work/`; `CANCELLED` evidence; after operator cleanup a
+  second normal backup exited 0 and verified.
+- **Secrets:** backup password, superuser password and age identity absent from data and logs.
+- **Observed noise:** Compose printed interpolation warnings for unrelated production variables (`APP_DOMAIN`,
+  `POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_PASSWORD`, `TELEGRAM_BOT_TOKEN`, `JWT_SECRET_KEY`) because the scratch env
+  defines only backup variables; harmless for the backup proof, production Compose intentionally not changed.
 
 ## 17. Stage 14D PASS criteria
 

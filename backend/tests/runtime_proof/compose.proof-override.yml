@@ -1,0 +1,17 @@
+# Stage 14D.2D.5 — SCRATCH-ONLY Compose override for the owner runtime proof.
+#
+# Used ONLY together with docker-compose.prod.yml and `-p plan-estimate-14d2d5-proof`:
+#   docker compose --env-file <scratch proof env> -p plan-estimate-14d2d5-proof \
+#     -f docker-compose.prod.yml -f backend/tests/runtime_proof/compose.proof-override.yml \
+#     run --rm --no-deps backup db-dump
+#
+# It changes NO security control of the production `backup` service (user, read_only, tmpfs,
+# cap_drop, security_opt, limits, stop_grace_period, mounts, network, entrypoint stay exactly as
+# in docker-compose.prod.yml). It only adds a fail-closed guard: Compose refuses to interpolate
+# (and therefore to run anything) unless every scratch variable is explicitly set, so a missing
+# scratch env can never fall back to the production defaults (`postgres` host, empty database,
+# non-existent host root). The value itself is non-secret.
+services:
+  backup:
+    environment:
+      PE_PROOF_GUARD: "${PE_PROOF_ID:?PE_PROOF_ID must be set (scratch proof only)}|${BACKUP_HOST_ROOT:?BACKUP_HOST_ROOT must be the scratch root}|${BACKUP_UID:?}|${BACKUP_GID:?}|${BACKUP_PGHOST:?}|${BACKUP_PGDATABASE:?}|${BACKUP_PGUSER:?}|${BACKUP_PGSSLMODE:?}"

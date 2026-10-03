@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+# Stage 14D.2D.5 — OWNER-RUN Compose / runtime E2E proof (scratch resources only).
+#
+# Run from the repository root:   bash backend/tests/runtime_proof/owner_proof.sh
+#
+# Uses the PRODUCTION docker-compose.prod.yml `backup` service (plus the scratch-only guard override)
+# under the explicit project `plan-estimate-14d2d5-proof`, a pre-created INTERNAL network with
+# Compose labels, a disposable postgres:16-alpine without published ports, and a fresh
+# /tmp/pe-14d2d5-proof.* root. Secrets are generated here, kept in 0600 files, never printed and
+# never passed in argv. Nothing is cleaned up automatically (see the cleanup block at the end of
+# docs/STAGE_14D_BACKUP_RESTORE_PLAN.md §16.7). Never touches any other project, network or volume.
+set -uo pipefail
+
+PROJ=plan-estimate-14d2d5-proof
+NET="${PROJ}_internal"
+PG=pe14d2d5-proof-pg
+IMG=plan-estimate-backup:local
+DB=pe_scratch_test_14d2d5
+ROLE=pe_scratch_role_backup14d2d5
+HERE=backend/tests/runtime_proof
+CHECK="python3 $HERE/check_host.py"
+
+[ -f docker-compose.prod.yml ] && [ -f "$HERE/compose.proof-override.yml" ] || { echo "run from the repository root"; exit 2; }
+for name in "$PG" pe14d2d5-proof-inspect pe14d2d5-proof-lock-a pe14d2d5-proof-lock-b pe14d2d5-proof-sigterm pe14d2d5-proof-blocker; do
+  if docker ps -a --format '{{.Names}}' | grep -qx "$name"; then echo "refusing: container $name already exists"; exit 2; fi
+done
+if docker network ls --format '{{.Name}}' | grep -qx "$NET"; then echo "refusing: network $NET already exists"; exit 2; fi
+
+P=$(mktemp -d /tmp/pe-14d2d5-proof.XXXXXX); chmod 700 "$P"
+ROOT="$P/root"; DATA="$ROOT/data"; SEC="$ROOT/secrets"
+case "$ROOT" in /tmp/pe-14d2d5-proof.*) ;; *) echo "refusing: unexpected scratch root"; exit 2;; esac
+install -d -m 700 "$ROOT" "$DATA" "$SEC" "$P/tool" "$P/identity"
+SUMMARY="$P/summary.txt"; : > "$SUMMARY"
+echo "proof workspace: $P"
+
+pass() { echo "PASS  $1" | tee -a "$SUMMARY"; }
+fail() { echo "FAIL  $1" | tee -a "$SUMMARY"; }
+check() { local label=$1; shift; if "$@" >>"$P/proof.log" 2>&1; then pass "$label"; else fail "$label"; fi; }
+expect_exit() { local label=$1 want=$2; shift 2; "$@" >>"$P/proof.log" 2>&1; local got=$?
+  if [ "$got" = "$want" ]; then pass "$label (exit $got)"; else fail "$label (exit $got, expected $want)"; fi; }
+
+# --- secrets (random, 0600, never printed) -----------------------------------------------------------
+install -m 600 /dev/null "$P/tool/superuser.pgpass"
+install -m 600 /dev/null "$SEC/pgpass"
+install -m 644 /dev/null "$P/pg.pw"     # read by the postgres container user; $P itself is 0700
+SU=$(openssl rand -hex 24); BK=$(openssl rand -hex 24)
+printf '%s:5432:*:postgres:%s\n' "$PG" "$SU" > "$P/tool/superuser.pgpass"
+printf '%s' "$SU" > "$P/pg.pw"
+printf '%s:5432:%s:%s:%s\n' "$PG" "$DB" "$ROLE" "$BK" > "$SEC/pgpass"
+unset SU BK
+age-keygen -o "$P/identity/identity.txt" 2>/dev/null; chmod 600 "$P/identity/identity.txt"
+RECIPIENT=$(age-keygen -y "$P/identity/identity.txt")
+
+cat > "$P/proof.env" <<EOF
+PE_PROOF_ID=14d2d5
+BACKUP_UID=$(id -u)
+BACKUP_GID=$(id -g)
+BACKUP_HOST_ROOT=$ROOT
+BACKUP_PGHOST=$PG
+BACKUP_PGPORT=5432
+BACKUP_PGDATABASE=$DB
+BACKUP_PGUSER=$ROLE
+BACKUP_PGSSLMODE=disable
+BACKUP_AGE_RECIPIENTS=$RECIPIENT
+EOF
+chmod 600 "$P/proof.env"
+
+DC=(docker compose --env-file "$P/proof.env" -p "$PROJ" -f docker-compose.prod.yml -f "$HERE/compose.proof-override.yml")
+OPS=(--entrypoint python backup -m tests.runtime_proof.bind_ops)
+TOOL=(--network "$NET" --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp:size=64m --cap-drop ALL
+      --security-opt no-new-privileges:true
+      -v "$P/tool/superuser.pgpass:/proof-secrets/superuser.pgpass:ro" -v "$SEC/pgpass:/proof-secrets/backup.pgpass:ro"
+      -v "$DATA:/proof-data:ro" -v "$P/identity:/proof-identity:ro"
+      -e TEST_PG16_HOST="$PG" -e TEST_PG16_SUPERUSER=postgres -e TEST_PG16_SUPERUSER_PASSFILE=/proof-secrets/superuser.pgpass
+      -e TEST_PG16_SSLMODE=disable -e PE_PROOF_BACKUP_PASSFILE=/proof-secrets/backup.pgpass
+      -e PE_PROOF_DATA=/proof-data -e PE_PROOF_IDENTITY=/proof-identity/identity.txt
+      --entrypoint python "$IMG" -m tests.runtime_proof.scratch)
+tool() { docker run --rm "${TOOL[@]}" "$@"; }
+expect_fail() { local label=$1; shift; if "$@" >>"$P/proof.log" 2>&1; then fail "$label (unexpectedly succeeded)"; else pass "$label"; fi; }
+logs_until() { local c=$1 pat=$2 n=0; until docker logs "$c" 2>/dev/null | grep -q "$pat"; do sleep 1; n=$((n+1)); [ $n -gt 120 ] && return 1; done; }
+
+# --- 0. fail-closed: missing scratch configuration must stop Compose ---------------------------------
+expect_fail "0 missing scratch env is refused by the guard override" \
+  docker compose --env-file /dev/null -p "$PROJ" -f docker-compose.prod.yml -f "$HERE/compose.proof-override.yml" config backup
+
+# --- 1. image, network, scratch PostgreSQL 16, scratch data --------------------------------------------
+"${DC[@]}" --profile backup build backup 2>&1 | tee -a "$P/build.log" | grep -E "age architecture|OK$|PGDG key verified|pg_dump \(PostgreSQL\)|v1\.3\.2|ERROR"
+docker network create --internal --label "com.docker.compose.project=$PROJ" --label com.docker.compose.network=internal "$NET" >/dev/null
+docker run -d --rm --name "$PG" --network "$NET" -v "$P/pg.pw:/run/secrets/pg.pw:ro" \
+  -e POSTGRES_PASSWORD_FILE=/run/secrets/pg.pw postgres:16-alpine >/dev/null
+until docker exec "$PG" pg_isready -U postgres -q; do sleep 1; done
+check "1 scratch setup (head migration, 2 READY, frozen backup role)" tool setup
+
+# --- K. network isolation --------------------------------------------------------------------------
+check "K postgres has no published port, proof network only" bash -c "docker inspect $PG | $CHECK postgres"
+check "K proof network is internal, compose-labelled, proof containers only" bash -c "docker network inspect $NET | $CHECK network"
+check "K backup container has no internet egress" "${DC[@]}" run --rm --no-deps "${OPS[@]}" egress-check
+
+# --- D. the real backup command --------------------------------------------------------------------
+expect_exit "D docker compose run --rm --no-deps backup db-dump" 0 "${DC[@]}" run --rm --no-deps backup db-dump
+check "D/F host bind: one complete run, work/evidence empty, SHA/size, run.lock" $CHECK run "$DATA" --expect-runs 1
+RUN1=$(ls "$DATA/encrypted" | head -1)
+SHA1=$(sha256sum "$DATA/encrypted/$RUN1/plan-estimate.sql.gz.age" | cut -d' ' -f1)
+check "D independent decrypt -> gunzip -> restore -> READY digest / revision" tool verify-run --run-id "$RUN1"
+check "F no backup container remains after --rm" bash -c \
+  "test -z \"\$(docker ps -a --filter label=com.docker.compose.project=$PROJ --filter label=com.docker.compose.service=backup -q)\""
+
+# --- E. effective runtime ----------------------------------------------------------------------------
+"${DC[@]}" run -d --rm --no-deps --name pe14d2d5-proof-inspect "${OPS[@]}" self-inspect --hold 120 >/dev/null
+logs_until pe14d2d5-proof-inspect '"check": "self-inspect"'
+docker logs pe14d2d5-proof-inspect >>"$P/proof.log" 2>&1
+check "E in-container: non-root, CapEff 0, NoNewPrivs, ro root, tmpfs /tmp, rw /backup, ro pgpass outside, no socket" \
+  bash -c "docker logs pe14d2d5-proof-inspect | grep -q '\"pass\": true'"
+check "E docker inspect: hardening, single /backup bind, limits, StopTimeout 45, proof network" \
+  bash -c "docker inspect pe14d2d5-proof-inspect | $CHECK container"
+docker stop pe14d2d5-proof-inspect >/dev/null
+
+# --- G. renameat2 promotion on the real bind -----------------------------------------------------------
+check "G production promotion on the bind: same st_dev, atomic, collision refused, no overwrite" \
+  "${DC[@]}" run --rm --no-deps "${OPS[@]}" promote-proof
+check "G real run untouched by the promotion proof" bash -c \
+  "$CHECK run $DATA --run-id $RUN1 --expect-runs 1 && [ \"\$(sha256sum $DATA/encrypted/$RUN1/plan-estimate.sql.gz.age | cut -d' ' -f1)\" = $SHA1 ]"
+
+# --- H. lock contention on the real bind -----------------------------------------------------------------
+"${DC[@]}" run -d --rm --no-deps --name pe14d2d5-proof-lock-a "${OPS[@]}" hold-lock --seconds 300 >/dev/null
+logs_until pe14d2d5-proof-lock-a LOCKED
+expect_exit "H second container sees the lock held" 3 "${DC[@]}" run --rm --no-deps "${OPS[@]}" try-lock
+expect_exit "H real db-dump refuses while the lock is held" 3 "${DC[@]}" run --rm --no-deps backup db-dump
+docker stop pe14d2d5-proof-lock-a >/dev/null
+expect_exit "H lock acquirable after normal stop (SIGTERM release)" 0 "${DC[@]}" run --rm --no-deps "${OPS[@]}" try-lock
+"${DC[@]}" run -d --rm --no-deps --name pe14d2d5-proof-lock-b "${OPS[@]}" hold-lock --seconds 300 >/dev/null
+logs_until pe14d2d5-proof-lock-b LOCKED
+docker kill --signal KILL pe14d2d5-proof-lock-b >/dev/null
+sleep 2
+expect_exit "H lock acquirable after SIGKILL of the holder (kernel release)" 0 "${DC[@]}" run --rm --no-deps "${OPS[@]}" try-lock
+check "H run.lock persists (0600)" bash -c "[ \"\$(stat -c %a $DATA/run.lock)\" = 600 ]"
+
+# --- I. stale-work refusal on the real bind ------------------------------------------------------------------
+printf 'synthetic stale proof entry\n' > "$DATA/work/pe-proof-stale-entry"; chmod 600 "$DATA/work/pe-proof-stale-entry"
+STALE_SHA=$(sha256sum "$DATA/work/pe-proof-stale-entry" | cut -d' ' -f1)
+expect_exit "I db-dump refuses stale work" 4 "${DC[@]}" run --rm --no-deps backup db-dump
+check "I stale entry untouched, nothing promoted, no evidence" $CHECK stale "$DATA" pe-proof-stale-entry --sha256 "$STALE_SHA" --runs-before 1
+rm "$DATA/work/pe-proof-stale-entry"      # operator action: remove ONLY the synthetic entry
+
+# --- J. SIGTERM through the Compose runtime -------------------------------------------------------------------
+docker run -d --rm --name pe14d2d5-proof-blocker "${TOOL[@]}" block --seconds 600 >/dev/null
+logs_until pe14d2d5-proof-blocker BLOCKING
+"${DC[@]}" run -d --no-deps --name pe14d2d5-proof-sigterm backup db-dump >/dev/null
+n=0; until tool sessions 2>/dev/null | grep -q -- '-dump"'; do sleep 1; n=$((n+1)); [ $n -gt 120 ] && break; done
+check "J effective StopTimeout is 45" bash -c "[ \"\$(docker inspect -f '{{.Config.StopTimeout}}' pe14d2d5-proof-sigterm)\" = 45 ]"
+START=$(date +%s); docker stop pe14d2d5-proof-sigterm >/dev/null; STOP_SECONDS=$(( $(date +%s) - START ))
+EXIT=$(docker inspect -f '{{.State.ExitCode}}' pe14d2d5-proof-sigterm)
+docker logs pe14d2d5-proof-sigterm >>"$P/proof.log" 2>&1
+docker rm pe14d2d5-proof-sigterm >/dev/null
+[ "$EXIT" = 6 ] && pass "J SIGTERM -> db-dump interrupted path (exit 6) in ${STOP_SECONDS}s" || fail "J SIGTERM exit $EXIT (expected 6) after ${STOP_SECONDS}s"
+[ "$STOP_SECONDS" -lt 40 ] && pass "J graceful exit well before the 45 s grace (no SIGKILL needed)" || fail "J stop took ${STOP_SECONDS}s"
+check "J no tagged server session left (2A cleanup)" tool sessions
+expect_exit "J lock released after interruption" 0 "${DC[@]}" run --rm --no-deps "${OPS[@]}" try-lock
+INTERRUPTED=$(ls "$DATA/work" | head -1)
+check "J interrupted run left in work/ for the operator, nothing promoted" bash -c \
+  "[ -n \"$INTERRUPTED\" ] && [ \$(ls $DATA/encrypted | wc -l) = 1 ]"
+check "J CANCELLED failure evidence written" bash -c "grep -q '\"error_code\":\"CANCELLED\"' $DATA/evidence/$INTERRUPTED.failed.json"
+docker stop pe14d2d5-proof-blocker >/dev/null
+rm -r "$DATA/work/$INTERRUPTED" "$DATA/evidence/$INTERRUPTED.failed.json"   # operator action after inspection
+
+# --- D2. a normal run works again after the operator cleared stale work ------------------------------------------
+expect_exit "D second normal run after operator cleanup" 0 "${DC[@]}" run --rm --no-deps backup db-dump
+RUN2=$(ls "$DATA/encrypted" | grep -vx "$RUN1" | head -1)
+check "D second run layout" $CHECK run "$DATA" --run-id "$RUN2" --expect-runs 2
+check "D second run independent verification" tool verify-run --run-id "$RUN2"
+check "F first artifact unchanged on the host" bash -c \
+  "[ \"\$(sha256sum $DATA/encrypted/$RUN1/plan-estimate.sql.gz.age | cut -d' ' -f1)\" = $SHA1 ]"
+
+# --- L. no secret leakage ---------------------------------------------------------------------------------------------
+leak() { grep -rqF -f "$1" "$DATA" "$P/proof.log" "$P/summary.txt" 2>/dev/null; }
+cut -d: -f5 "$SEC/pgpass" > "$P/tool/.bk"; cut -d: -f5 "$P/tool/superuser.pgpass" > "$P/tool/.su"; chmod 600 "$P/tool/.bk" "$P/tool/.su"
+leak "$P/tool/.bk" && fail "L backup password found in outputs" || pass "L backup password absent from data / logs"
+leak "$P/tool/.su" && fail "L superuser password found in outputs" || pass "L superuser password absent from data / logs"
+grep -rq "AGE-SECRET-KEY" "$DATA" "$P/proof.log" && fail "L age identity found in outputs" || pass "L age identity absent from data / logs"
+rm -f "$P/tool/.bk" "$P/tool/.su"
+
+echo; echo "===== 14D.2D.5 SUMMARY ($P) ====="; cat "$SUMMARY"
+echo "runs: $RUN1 $RUN2"; echo "FAIL count: $(grep -c '^FAIL' "$SUMMARY")"

@@ -730,7 +730,7 @@ Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.5. Integrates 14D.2A / 2B
   role privileges (14D.2D.4); Compose topology (14D.2D.5).
 - **Status**: 14D.2D.3 COMPLETE — OWNER ACCEPTED; commit `46fc568` (pushed). Production unchanged; uploads OFF.
 
-### Stage 14D.2D.4 — real PostgreSQL 16 snapshot + backup-role proof (2026-10-03, COMPLETE — OWNER VERIFIED)
+### Stage 14D.2D.4 — real PostgreSQL 16 snapshot + backup-role proof (2026-10-03, COMPLETE — OWNER VERIFIED; commit `19034e2`, pushed)
 
 Contract and runbook: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.6. Claude did not run Docker; the owner runs the
 proof in the backup image against a disposable PostgreSQL 16 on an isolated network.
@@ -765,8 +765,43 @@ proof in the backup image against a disposable PostgreSQL 16 on an isolated netw
   (explicit grants go stale on future migrations). `pg_database_size()` diagnostic only; zero public sequences, so no
   claim that sequence SELECT is unnecessary in general; no RLS today — re-audit if introduced, never add BYPASSRLS
   automatically. Role creation is a later controlled step.
-- **Status**: 14D.2D.4 **COMPLETE — OWNER VERIFIED** (2026-10-03). 14D.2D.5 not started. Production unchanged; uploads
-  OFF.
+- **Status**: 14D.2D.4 **COMPLETE — OWNER VERIFIED** (2026-10-03). Production unchanged; uploads OFF.
+
+### Stage 14D.2D.5 — Compose / runtime E2E proof (2026-10-03, COMPLETE — OWNER VERIFIED)
+
+Contract and runbook: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.7. Claude did not run Docker.
+
+- **Production Compose**: already satisfies the accepted contract; **unchanged**. No `backend/app` change.
+- **Added** (`backend/tests/runtime_proof/`): `compose.proof-override.yml` (scratch-only fail-closed guard, no security
+  control changed), `bind_ops.py` (in-service self-inspection, egress check, renameat2 promotion proof, lock
+  hold / try), `scratch.py` (tool container: setup with the frozen backup-role policy, independent verification,
+  pg_dump blocker, session check), `check_host.py` (host, standard library only), `owner_proof.sh` (ordered owner
+  run with PASS / FAIL summary); `backend/tests/test_stage14d2d5_runtime_contract.py` (non-Docker).
+- **What the non-Docker tests prove**: the production service definition (internal host / port, one-shot CLI, one
+  data bind + separate ro pgpass, hardening, 45 s grace), the override only adds the guard and requires every scratch
+  variable, the merged service is not weakened, the host checker detects every weakened runtime / layout variant, the
+  promotion proof and the lock hold / try work on a local data root with real `renameat2` and real two-process
+  `flock` (incl. SIGKILL), the scratch-tool guards, and the owner script targets scratch resources only.
+  **What only the owner run proves**: §16.7 steps 0–L against the real Compose runtime and bind mount.
+- **Non-Docker verification** (isolated CPython 3.12.14 venv): 14D.2D.5 **41 passed**; 14D.2C + 14D.2D.1–4 450 passed,
+  8 skipped (opt-in PostgreSQL); 14D.2A / 2B + pin guard 162 passed, 12 skipped; full backend **3074 passed, 30 skipped,
+  0 failed** (after the last code edit; docs only afterwards); mypy clean (proof modules; `--strict` on `app/backup`);
+  Ruff clean (classic and Ruff 0.16 defaults); `bash -n owner_proof.sh` clean; `git diff --check` clean.
+- **Owner runtime proof — PASS, FAIL count 0** (local amd64; runs `20261003T213210Z-faa37747`,
+  `20261003T213846Z-158c6649`), with the real production `backup` service + only the scratch guard override:
+  fail-closed guard; head migration / 2 READY / frozen role policy; network isolation (no published port, internal
+  labelled network, no egress); real `db-dump` exit 0; host-bind persistence after `--rm`, SHA / size, `run.lock`,
+  independent decrypt → gunzip → restore with READY digest / revision; effective hardening (non-root, CapEff 0,
+  NoNewPrivs, ro root, tmpfs `/tmp`, rw `/backup`, ro pgpass outside it, no socket, one `/backup` bind, limits,
+  StopTimeout 45, proof network only); renameat2 promotion on the real bind (same `st_dev`, atomic, collision
+  refused, no overwrite); lock held → exit 3 (helper and real `db-dump`), released after SIGTERM and after SIGKILL,
+  `run.lock` 0600; stale work → exit 4, untouched; SIGTERM → exit 6 in 1 s, no tagged session, lock released, work
+  kept, `CANCELLED` evidence, second backup after operator cleanup exit 0 and verified; no password / identity
+  leakage. Compose interpolation warnings for unrelated production variables were harmless scratch noise.
+- **Unchanged in 14D.2D.5**: `docker-compose.prod.yml`, `backend/app/`, `backend/Dockerfile.backup`.
+- **Status**: 14D.2D.5 **COMPLETE — OWNER VERIFIED** (2026-10-03). All 14D.2D slices (2D.1–2D.5) are complete; closing
+  Stage 14D.2D as a whole awaits owner acceptance. Stage 14D.2 remains **IN PROGRESS** (manifest / media / restore tooling). Not yet proven: ARM64 production image /
+  bind, production backup role / execution. 14D.3 not started. Production unchanged; uploads OFF.
 
 ---
 
@@ -836,7 +871,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
-| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); next 14D.2D.5 Compose topology E2E; rest NOT STARTED) |
+| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); rest (manifest / media / restore tooling) NOT STARTED) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | NOT STARTED |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | NOT STARTED |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |
