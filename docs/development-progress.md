@@ -701,7 +701,7 @@ Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.4. No PostgreSQL, orchest
   destination pre-check — each fails 1–9 tests.
 - **Status**: 14D.2D.2 COMPLETE — OWNER ACCEPTED; commit `3829af7` (pushed). Production unchanged; uploads OFF.
 
-### Stage 14D.2D.3 — local backup orchestration and `db-dump` (2026-10-03, IMPLEMENTED — AWAITING OWNER REVIEW)
+### Stage 14D.2D.3 — local backup orchestration and `db-dump` (2026-10-03, COMPLETE — OWNER ACCEPTED)
 
 Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.5. Integrates 14D.2A / 2B / 2C / 2D.1 / 2D.2 locally; 14D.2A and
 14D.2B unchanged. No Docker, real PostgreSQL, role, cloud or production work.
@@ -728,8 +728,45 @@ Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.5. Integrates 14D.2A / 2B
   `CANCELLED` evidence, lock not released, stale check skipped, `promoted` flag ignored — each fails 1–7 tests.
 - **Not proven yet**: real PostgreSQL behaviour of the orchestrated path and of the metadata snapshot import, backup
   role privileges (14D.2D.4); Compose topology (14D.2D.5).
-- **Status**: 14D.2D.3 IMPLEMENTED — awaiting owner review / commit approval. 14D.2D.4 not started. Production
-  unchanged; uploads OFF.
+- **Status**: 14D.2D.3 COMPLETE — OWNER ACCEPTED; commit `46fc568` (pushed). Production unchanged; uploads OFF.
+
+### Stage 14D.2D.4 — real PostgreSQL 16 snapshot + backup-role proof (2026-10-03, COMPLETE — OWNER VERIFIED)
+
+Contract and runbook: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.6. Claude did not run Docker; the owner runs the
+proof in the backup image against a disposable PostgreSQL 16 on an isolated network.
+
+- **Added**: `backend/tests/pg16_proof_support.py`, `backend/tests/pg16_proof_fixtures.py`, opt-in proofs
+  `test_stage14d2d4_pg16_snapshot.py` (A–C), `test_stage14d2d4_pg16_roles.py` (E + negative),
+  `test_stage14d2d4_pg16_orchestrator.py` (D), non-Docker `test_stage14d2d4_harness.py`.
+- **Changed**: `backend/tests/conftest.py` (`pytest_plugins` registers the proof fixtures; inert otherwise);
+  `backend/Dockerfile.backup` (owner decision D2, previously approved but not yet applied: `COPY alembic.ini` +
+  `alembic/` for offline head resolution; still no migration command in the image) and its 14D.2C contract test.
+- **What non-Docker tests prove**: harness gating / default skip, scratch-only guards, passfile contract, report
+  redaction, minimal subprocess environment. **What only the owner run proves**: §16.6 A–E.
+- **Non-Docker verification** (isolated CPython 3.12.14 venv, no `TEST_REAL_POSTGRES`): 14D.2D.4 harness 22 passed,
+  8 proof tests skipped (and, with the gate on but no configuration, they fail before touching anything);
+  14D.2D.1 / 2 / 3 + 14D.2C 428 passed; 14D.2A / 2B + pin guard 162 passed, 12 skipped; full backend **3033 passed,
+  30 skipped, 0 failed** (run after the last code edit; only docs changed afterwards); mypy clean (proof modules;
+  `--strict` on `app/backup`); Ruff clean (classic and Ruff 0.16 defaults); `git diff --check` clean.
+- **Owner-run real PostgreSQL 16 proof — PASS (8 passed in 27.77 s)**: server / pg_dump / psql 16.15, age /
+  age-keygen 1.3.2, inside the backup image on an isolated internal network. A: imported snapshot isolated from later
+  commits (A / READY 2 vs live B / READY 3 / `zz_proof_mutation`; production metadata reader `0032_photo_attachments` /
+  READY 2). B: `pg_dump --snapshot` dump restored → marker A, READY 2, head revision, digest = exporter. C: dead
+  exporter → SQLSTATE 22023 (raw import and production reader), `pg_dump --snapshot` rc 1. D: real orchestrator PASS
+  for `explicit_tables_sequences` and `pg_read_all_data` (exit 0, artifact SHA / size = evidence, revision equal,
+  READY 2 + digest, decrypt / gunzip / restore PASS, `work/` empty, no failure evidence). E: `login_only` can connect,
+  export and import the snapshot but every data read and pg_dump is denied (42501); `explicit_tables`,
+  `explicit_tables_sequences`, `pg_read_all_data` all pass; a table created after the grants is denied for
+  `explicit_tables_sequences` and passes for `pg_read_all_data`; negative checks (both candidates in 8/8; values
+  recorded for `pg_read_all_data`): INSERT / UPDATE / DELETE / TRUNCATE / CREATE TABLE / ALTER / DROP / CREATE
+  DATABASE / CREATE ROLE all 42501, all dangerous role attributes false; RLS none; public sequences 0.
+- **Owner decision — production backup-role policy (frozen, not created)**: dedicated LOGIN role + CONNECT +
+  `pg_read_all_data`, `NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, no write / CREATE / DDL grants
+  (explicit grants go stale on future migrations). `pg_database_size()` diagnostic only; zero public sequences, so no
+  claim that sequence SELECT is unnecessary in general; no RLS today — re-audit if introduced, never add BYPASSRLS
+  automatically. Role creation is a later controlled step.
+- **Status**: 14D.2D.4 **COMPLETE — OWNER VERIFIED** (2026-10-03). 14D.2D.5 not started. Production unchanged; uploads
+  OFF.
 
 ---
 
@@ -799,7 +836,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
-| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE, owner local image / runtime verified (amd64), ready for acceptance; next 14D.2D; rest NOT STARTED) |
+| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); next 14D.2D.5 Compose topology E2E; rest NOT STARTED) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | NOT STARTED |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | NOT STARTED |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |

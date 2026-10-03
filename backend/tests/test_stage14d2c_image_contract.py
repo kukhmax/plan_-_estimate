@@ -310,7 +310,11 @@ def test_no_backend_entrypoint_migrations_or_web_server():
     instr = instructions(BACKUP_DOCKERFILE)
     text = " ".join(instr)
     assert "entrypoint.sh" not in text
-    assert "uvicorn" not in text and "alembic" not in text
+    assert "uvicorn" not in text
+    # D2: alembic scripts are copied for offline head resolution only; never executed by the image
+    alembic_lines = [i for i in instr if "alembic" in i]
+    assert alembic_lines == ["COPY alembic.ini ./", "COPY alembic ./alembic"]
+    assert not any(i.startswith(("RUN", "ENTRYPOINT", "CMD")) and "alembic" in i for i in instr)
     assert 'ENTRYPOINT ["python", "-m", "app.backup"]' in instr
     assert 'CMD ["preflight"]' in instr
     assert "PYTHONDONTWRITEBYTECODE=1" in text

@@ -13,6 +13,9 @@ from app.core.config import settings
 from app.core.database import Base, get_db
 from app.main import app
 
+# Stage 14D.2D.4: opt-in PostgreSQL 16 proof fixtures (inert unless a test requests them).
+pytest_plugins = ["tests.pg16_proof_fixtures"]
+
 # Use isolated in-memory SQLite database for async tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 test_engine = create_async_engine(

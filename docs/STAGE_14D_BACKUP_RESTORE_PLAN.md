@@ -7,7 +7,8 @@
 > 2026-10-03), owner accepted. Not yet proven: ARM64 production image, real PostgreSQL topology end-to-end,
 > production DB role, production backup execution. 14D.2D (local backup orchestrator, owner decisions D1–D6 / corrections
 > C1–C4) — IN PROGRESS: 14D.2D.1 pure contracts (§16.3) and 14D.2D.2 data root / lock / stale work / promotion
-> (§16.4) complete; 14D.2D.3 local orchestration + `db-dump` (§16.5) implemented. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
+> (§16.4), 14D.2D.3 local orchestration + `db-dump` (§16.5) and 14D.2D.4 real PostgreSQL 16 snapshot / role proof
+> (§16.6, owner-verified 8/8 on PostgreSQL 16.15; production backup-role policy frozen) complete. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
 > §16 image / container contract, nothing in this document is implemented, configured or
 > verified yet: no backup tooling, no cloud resources, no credentials, no schedule. Executable procedures stay
 > **DRAFT** until the sub-stage that verifies them.
@@ -512,11 +513,10 @@ database / user equal to the configuration, non-empty password; errors name the 
 values, no surrounding whitespace), so both clients always use the same password. The production password must
 satisfy this; generating it is an owner action (14D.3).
 
-**Database role (candidate, not final):** a dedicated login role, candidate privilege `pg_read_all_data`. The
-minimum practical privileges for the READY-set SELECT, `pg_export_snapshot()`, a full `pg_dump` of this
-application's schema / data and the tagged-session cleanup (`pg_terminate_backend` of the role's own pg_dump
-session) are determined by the later scratch PostgreSQL proof; only then is the production role SQL frozen.
-No production role or credential is created in 14D.2C.
+**Database role:** frozen as the intended production policy in 14D.2D.4 after the scratch PostgreSQL 16 experiment
+(§16.6): dedicated `LOGIN` role + `CONNECT` on the application database + membership in `pg_read_all_data`;
+`NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`; no write, schema CREATE or DDL grants. No production
+role or credential is created in 14D.2C or 14D.2D.
 
 ### 16.2 Owner local image / runtime proof (Stage 14D.2C, 2026-10-03, linux/amd64)
 
@@ -682,6 +682,84 @@ code, counts, artifact SHA-256 / size) — never environment, DSN, password, rec
 privilege proof and real PostgreSQL proof of the orchestrated path (14D.2D.4); Compose topology E2E, incl.
 `renameat2` on the real bind mount (14D.2D.5); cloud, restore, scheduling, production.
 
+### 16.6 Real PostgreSQL 16 snapshot + backup-role proof (Stage 14D.2D.4 — COMPLETE / OWNER VERIFIED)
+
+Opt-in harness (`TEST_REAL_POSTGRES=1`): `backend/tests/pg16_proof_support.py` (gate, scratch-only guards, passfiles,
+report), `backend/tests/pg16_proof_fixtures.py` (session template database migrated to the repository head; per-test
+clones; synthetic marker table `pe_proof_marker` and photo assets 2 READY / 1 PENDING / 1 FAILED; scratch roles),
+registered through `tests/conftest.py` (`pytest_plugins`, inert unless requested). Runs **inside the backup image**
+(its own pg_dump 16 / psql / age 1.3.2) on an isolated internal Docker network next to a disposable
+`postgres:16-alpine`; no published port, no production project, network or volume. Every database is
+`pe_scratch_test_14d2d4_*`, every role `pe_scratch_role_*`; role passwords are random hex in 0600 passfiles (SQL sent
+on psql stdin, never argv); databases are dropped first, then roles. The proof requires server major 16 **and**
+pg_dump major 16 and fails (not skips) otherwise; it also fails if the gate is on but the configuration is missing
+or unsafe (host must contain `proof`).
+
+- **A — snapshot import / isolation:** exporter T1 (`REPEATABLE READ READ ONLY`, `pg_export_snapshot()`), importer T2
+  (`SET TRANSACTION SNAPSHOT`), writer T3 commits marker A→B, a new READY asset and a changed `alembic_version`; T2,
+  T1 and the production metadata reader (importing S only after T3) still see A / 2 READY / head; a new ordinary
+  transaction sees B / 3 READY / the mutated revision.
+- **B — pg_dump content:** the 14D.2A primitive with T3 committed inside its hook; the dump is **restored into a
+  fresh database and queried**: marker A, 2 READY with the exporter's digest, head revision — while the live source
+  shows B.
+- **C — exporter lifetime:** after the exporter rolls back, importing S fails with SQLSTATE 22023 (raw and via the
+  production reader) and `pg_dump --snapshot=S` exits non-zero.
+- **D — real orchestration:** `run_db_dump` (exit 0) per candidate role (`explicit_tables_sequences`,
+  `pg_read_all_data`) with real age: `work/` and `evidence/` empty, `encrypted/<run_id>/` holds exactly the artifact
+  and `local-run.json`, no plaintext, observed == expected head, READY count / digest equal the source, artifact
+  SHA-256 / size equal the evidence; then decrypt (disposable identity) → gunzip → plaintext SHA-256 equals the
+  evidence → restore → READY digest and revision equal. Reusable by 14D.2D.5.
+- **E — role matrix (recorded, not assumed):** `login_only`, `explicit_tables`, `explicit_tables_sequences`,
+  `pg_read_all_data` — connect, RR RO, export, same-role import, alembic / status counts / READY inventory, raw
+  `pg_dump --snapshot` (and whether a sequence grant was required), termination of the role's own tagged session,
+  the full 14D.2A + metadata pipeline, `pg_database_size()` (diagnostic only, never a requirement); RLS tables /
+  policies and public sequences are reported; a table created **after** the grants shows the schema-evolution
+  behaviour of each candidate. Negative checks for both candidates: INSERT / UPDATE / DELETE / TRUNCATE / CREATE TABLE
+  / ALTER / DROP / CREATE DATABASE / CREATE ROLE must all be denied (42501) and no dangerous role attribute set.
+- **What only this proof can show** (unit tests cannot): real PostgreSQL snapshot export / import semantics, real
+  pg_dump content, exporter-lifetime dependence, actual privilege requirements, the orchestrated path against a real
+  server. Default backend runs never require PostgreSQL / Docker (the modules skip).
+- **D2 implemented here:** `backend/Dockerfile.backup` now copies `alembic.ini` + `alembic/` (offline head resolution;
+  the image never runs migrations — the proof's own scratch migration runs the test harness, not the image
+  entrypoint). Without it the orchestrator cannot resolve the expected head inside the image.
+
+**Owner-run result (2026-10-03): 8 passed in 27.77 s** — PostgreSQL server 16.15, pg_dump 16.15, psql 16.15, age /
+age-keygen 1.3.2, inside the backup image on the isolated proof network.
+
+- **A PASS:** the imported snapshot kept marker `PE_PROOF_VALUE_A` / READY 2 while a new transaction saw
+  `PE_PROOF_VALUE_B` / READY 3 / revision `zz_proof_mutation`; the production metadata reader importing the snapshot
+  after the commit still saw `0032_photo_attachments` / READY 2.
+- **B PASS:** the `pg_dump --snapshot` dump restored into a fresh database showed marker A, READY 2, revision
+  `0032_photo_attachments`, READY digest equal to the exporter's — while the live source already had B / READY 3.
+- **C PASS:** after exporter rollback / close, `SET TRANSACTION SNAPSHOT` and the production metadata reader failed
+  with SQLSTATE 22023 and `pg_dump --snapshot` exited 1 — the exporter-lifetime requirement is empirically confirmed.
+- **D PASS** for `explicit_tables_sequences` and `pg_read_all_data`: exit 0; artifact present, SHA-256 / size equal
+  the evidence; observed = expected = `0032_photo_attachments`; READY 2 with the source digest; decrypt + gunzip +
+  restore PASS with matching READY digest and revision; `work/` empty; no failure evidence.
+- **E role matrix:** `login_only` — connect, RR RO, `pg_export_snapshot()` and same-role import all ok (no elevated
+  attribute needed for snapshot export / import in this PostgreSQL 16 environment), but `alembic_version`,
+  `photo_assets`, the READY inventory and `pg_dump` denied (42501) and the full pipeline failed
+  (`InsufficientPrivilegeError`); `explicit_tables`, `explicit_tables_sequences` and `pg_read_all_data` — full
+  pipeline and `pg_dump --snapshot` PASS. **Schema evolution:** for a table created after the grants,
+  `explicit_tables_sequences` was **denied** (not covered by the earlier grants) and `pg_read_all_data` **passed**.
+  **Negative checks** (both candidates, part of 8/8; values recorded for `pg_read_all_data`): INSERT, UPDATE, DELETE,
+  TRUNCATE, CREATE TABLE, ALTER TABLE, DROP TABLE, CREATE DATABASE, CREATE ROLE all denied (42501); `rolsuper`,
+  `rolcreatedb`, `rolcreaterole`, `rolreplication`, `rolbypassrls` all false. RLS: 0 tables with RLS, 0 forcing it,
+  0 policies. Public sequences: 0.
+
+**Production backup-role policy (owner decision, frozen; NOT created yet):** dedicated `LOGIN` role + `CONNECT` on
+the application database + membership in the predefined role `pg_read_all_data`, explicitly `NOSUPERUSER NOCREATEDB
+NOCREATEROLE NOREPLICATION NOBYPASSRLS`; no application write grants, no schema CREATE / DDL grants. Rationale: both
+explicit SELECT grants and `pg_read_all_data` run the current pipeline, but explicit grants go stale when a future
+Alembic migration creates a table, while `pg_read_all_data` kept working and still could not write, run application
+DDL, create databases / roles, replicate, bypass RLS or become superuser. Creating the role and wiring credentials is
+a later, controlled operational step (14D.3 / 14D.6). Notes:
+- `pg_database_size()` was diagnostic only and stays outside the required contract;
+- the schema currently has **zero** public sequences, so this proof does not show that sequence SELECT is
+  unnecessary for schemas that use sequences (`pg_read_all_data` covers sequences regardless);
+- there is currently no RLS; if RLS is introduced, backup behaviour must be re-audited — `BYPASSRLS` is never added
+  automatically.
+
 ## 17. Stage 14D PASS criteria
 
 1. Tooling (backup, verify, restore, guards, encrypted dump chain) implemented with automated tests; full backend,
@@ -717,7 +795,8 @@ privilege proof and real PostgreSQL proof of the orchestrated path (14D.2D.4); C
 - `age` recipients, key custody and offline copies; whether the private key may be present temporarily on the VM
   during a drill (14D.3).
 - Exact Oracle IAM policy, overwrite / delete / conditional-PUT and ETag behaviour (14D.3 / 14D.4).
-- Dedicated PostgreSQL backup role: minimum privileges from the scratch proof (candidate `pg_read_all_data`), then
-  creation as a manual operational step before the first production backup (14D.3 / 14D.6). Production `age`
+- Dedicated PostgreSQL backup role: policy frozen by the 14D.2D.4 proof (§16.6: LOGIN + CONNECT +
+  `pg_read_all_data`, no elevated attributes); creation as a manual operational step before the first production
+  backup (14D.3 / 14D.6). Production `age`
   recovery identities remain an owner action (14D.3).
 - Recurring schedule (systemd timer) and RPO (before 14E).
