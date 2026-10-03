@@ -2483,7 +2483,10 @@ PRIMARY R2
 1. Снимок БД и инвентарь READY assets берутся из **одного** снимка
    PostgreSQL (`pg_export_snapshot()` + `pg_dump --snapshot=…`); в manifest
    записываются `ready_count` и `ready_set_sha256`.
-2. Dump **шифруется `age` до выхода с VM** (`pg_dump | gzip | age -r …`);
+2. Dump **шифруется `age` до выхода с VM**: проверенный приватный (0600)
+   SQL-dump → потоковый gzip → потоковый `age` только с публичными
+   recipients (без промежуточного `.gz`-файла; после успешного шифрования
+   plaintext удаляется);
    удалённый артефакт — `db/<run_id>/plan-estimate.sql.gz.age`; его sha256 и
    размер записываются в manifest. Ключ расшифровки не должен существовать
    только на production VM; секреты и приватные ключи — никогда в Git.

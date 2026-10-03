@@ -1,8 +1,9 @@
 # Stage 14D — Backup / Restore Drill & Production Media-Readiness Gate (plan and contract)
 
 > **Status:** 14D.1 architecture — **OWNER APPROVED** (2026-10-02, with the mandatory corrections A–D below
-> incorporated). 14D.2A (snapshot primitive, §7.1) — COMPLETE / OWNER ACCEPTED (owner runs, 9/9, re-proven after hardening). Rest of 14D.2 and
-> 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 primitive, nothing in this document is implemented, configured or
+> incorporated). 14D.2A (snapshot primitive, §7.1) — COMPLETE / OWNER ACCEPTED (owner runs, 9/9, re-proven after hardening).
+> 14D.2B (encrypted DB artifact primitive, §9.1) — COMPLETE / OWNER ACCEPTED (real-age round-trip proven, age 1.3.2). Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 and §9.1 primitives, nothing in this
+> document is implemented, configured or
 > verified yet: no backup tooling, no cloud resources, no credentials, no schedule. Executable procedures stay
 > **DRAFT** until the sub-stage that verifies them.
 >
@@ -228,9 +229,10 @@ re-run by the owner: 9 passed in 55.48 s on PostgreSQL 16.15 / pg_dump 16.15, co
 real PostgreSQL 16 without invalidating the snapshot lifecycle.
 Details: `docs/development-progress.md` (Stage 14D.2A).
 
-**Temporary architecture:** the primitive writes a plain dump (owner-only, 0600) to a local file. That plaintext file
-exists only on the VM and only until the later encrypted-dump stage, which gzips and `age`-encrypts it before anything
-leaves the VM; its location and deletion (or streaming instead) are part of that work, not 14D.2A.
+**Plaintext file:** the primitive writes a plain dump (owner-only, 0600) to a local file in a private work directory.
+It exists only on the VM and only until the §9.1 primitive has produced the durable encrypted artifact, which then
+unlinks it. Removing the plaintext file altogether (`pg_dump` stdout streamed straight into gzip + age) would change
+this proven primitive and is a possible later hardening, not current work.
 
 ## 8. SHA-256 provenance for target objects (correction B — MANDATORY)
 
@@ -260,8 +262,10 @@ remains authoritative.
 
 ## 9. Encrypted DB backup chain (correction C / owner decision 5 — MANDATORY)
 
-- Dumps are **encrypted with `age` before leaving the production VM**; the stream is
-  `pg_dump | gzip | age -r <recipient>` so no plaintext dump is uploaded.
+- Dumps are **encrypted with `age` before leaving the production VM**: verified private 0600 SQL dump (§7.1) →
+  streaming gzip → streaming `age` to public recipients (§9.1). No unencrypted artifact leaves the VM and no gzip
+  intermediate file exists. (The earlier wording "`pg_dump | gzip | age`" described the intent; the approved model
+  keeps the §7.1 local plaintext file, private and transient, as the stream source.)
 - The canonical remote artifact is `db/<run_id>/plan-estimate.sql.gz.age`; the manifest and `COMPLETE.json` record
   its SHA-256 and size, so the COMPLETE chain covers the encrypted artifact.
 - The decryption (private) key **must not exist only on the production VM**; no private key or secret is ever
@@ -269,6 +273,68 @@ remains authoritative.
 - **Restore PASS requires, in order:** encrypted artifact SHA-256 equals the manifest → `age` decryption succeeds →
   gzip integrity PASS → restore into an **isolated** PostgreSQL (never production) → expected DB / Alembic state
   (current = head, expected row counts) → ready-set digest equals the manifest (§7).
+
+### 9.1 Encrypted artifact primitive (Stage 14D.2B — complete, owner accepted)
+
+Implementation: `backend/app/core/db_dump_encryption.py` (`encrypt_dump_artifact`). Input: the `SnapshotDumpResult`
+of §7.1. Output: `<work dir>/plan-estimate.sql.gz.age` (future remote key `db/<run_id>/plan-estimate.sql.gz.age`;
+no upload in 14D.2B).
+
+**Pipeline (exact order):** validate recipients → work directory private (absolute, not root, not a symlink, a
+directory owned by the effective uid, mode no broader than 0700) → neither `plan-estimate.sql.gz.age` nor its
+`.partial` exists (never overwritten, never removed when pre-existing; names only in errors) → plaintext opened
+`O_NOFOLLOW | O_NONBLOCK`: regular file, owned by the effective uid, no group / other bits, size equal to the
+`SnapshotDumpResult` → free-space check → `age --version` (recorded as diagnostic evidence; missing binary or
+non-understood output fails; no compatibility range is claimed — the production version is fixed by the later
+owner ARM64 image verification) → `.partial` created `O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC` + `fchmod 0600`
+(no umask change) → `age --encrypt --recipient …` with stdout = the partial descriptor → 1 MiB chunks read in a
+worker thread, plaintext SHA-256 / byte count updated, compressed with in-process zlib (gzip wrapper, level 6) and
+written to age's stdin with backpressure, stderr drained concurrently into a bounded tail → plaintext SHA-256 and
+size must equal the `SnapshotDumpResult` → stdin closed → age exit 0 → fsync partial → SHA-256 + size re-read
+from disk in a worker thread, size > 0 → rename to the final name → directory fsync → unlink plaintext →
+directory fsync → `EncryptedDumpResult` (artifact path / size / SHA-256, plaintext size / SHA-256, recipients,
+age version).
+
+**gzip:** one member; zlib's documented gzip wrapper header (no file name, no extra field, no comment, MTIME 0);
+the source path / name never enters the stream. Byte-identical output across zlib versions is not promised and not
+needed — the encrypted artifact SHA-256 is the integrity anchor. No production round-trip inflate (CPU); the
+end-to-end check (decrypt → gunzip with CRC32 / ISIZE → exact bytes) is done by the tests.
+
+**age:** official CLI, encryption only (`--encrypt` + `--recipient` per public recipient; never decrypt, identity,
+passphrase, armor or output options). Only native X25519 `age1…` recipients; empty, malformed, SSH, plugin and
+`AGE-SECRET-KEY-1…` values are refused with the position only, never the value. The child environment is fixed
+(`PATH`, `LC_ALL=C`); backup / cloud secrets are not inherited. **Backup uses public recipients only; the private
+identity is a restore / drill concern and never present in the backup path.**
+
+**What backup-time success proves — and what not:** the complete verified plaintext was streamed into age, age
+exited 0, and a non-empty artifact is durably stored under its final name with an independently re-read SHA-256 and
+size. It does **not** prove that the artifact decrypts; that is proven only with a private identity — the opt-in
+real-age round-trip test (`backend/tests/test_stage14d2b_age_roundtrip.py`, disposable identities) and the 14D.5
+drill with the independently held recovery identity. No age-format parsing is done by the application.
+
+**Real-age proof (owner-run, 2026-10-03) — PASS:** Manjaro Linux, CPython 3.12.14, age 1.3.2 / age-keygen 1.3.2.
+`TEST_REAL_AGE=1 tests/test_stage14d2b_age_roundtrip.py`: 3 passed in 0.91 s; combined 14D.2B suite
+(`test_stage14d2b_encryption.py` + `test_stage14d2b_age_roundtrip.py`): 64 passed in 7.56 s, 0 failed, 0 skipped.
+Real decryptability of the primitive's output was proven with disposable identities: single recipient → `age
+--decrypt` → gunzip → exact original bytes; with two recipients identity A and identity B each decrypt independently
+and an unrelated identity C fails. This is a property of the tested code path with test identities; the production
+recovery identity is proven only in the 14D.5 drill.
+
+**Integrity values:** the authoritative manifest value is SHA-256 of the final encrypted bytes (+ size). The
+plaintext SHA-256 is returned for the cross-check with §7.1 only and is not written to the public / remote manifest
+without a separate decision. No gzip-intermediate hash exists.
+
+**Cleanup:** the plaintext is unlinked only after every step up to the post-rename directory fsync has succeeded.
+Any earlier failure, timeout or cancellation keeps the plaintext byte-identical, kills and reaps age, removes only
+the partial created by this call, leaves no final artifact (a final name whose directory fsync failed is removed
+again) and propagates (cancellation after the protected cleanup). If unlinking the plaintext or its directory fsync
+fails, the valid artifact stays and `PlaintextCleanupError` carries its result. Deletion is unlink only — not secure
+or forensic erasure. Stale files from an earlier run are never removed automatically; they cause a collision error.
+
+**Not decided here (later 14D.2 sub-stages):** production execution topology (the planned one-shot backend container
+cannot use `docker exec` without the Docker socket, and mounting the socket is not approved), PostgreSQL client and
+`age` in the production image, Oracle upload, credentials, manifest / `COMPLETE.json` writer, `alembic_head` capture
+(eventually from the same exported snapshot), restore, scheduling, 14D.3 key generation / custody.
 
 ## 10. Integrity verification model
 

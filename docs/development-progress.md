@@ -537,6 +537,44 @@ scheduling, credentials or cloud resources). Contract: `docs/STAGE_14D_BACKUP_RE
   operationally.
 - **Status**: 14D.2A **COMPLETE / OWNER ACCEPTED** (2026-10-02). Stage 14D.2 as a whole remains **IN PROGRESS**. Production unchanged; uploads OFF; 14D.2B not started.
 
+### Stage 14D.2B — encrypted database artifact primitive (2026-10-02 / 2026-10-03, COMPLETE / OWNER ACCEPTED)
+
+Design audit approved with corrections (no application-side age-format parser; no production gzip round-trip).
+Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §9.1. No upload, manifest, restore, credentials, image change or
+cloud resource.
+
+- **Added**: `backend/app/core/db_dump_encryption.py` (`encrypt_dump_artifact`, `EncryptedDumpResult`,
+  `parse_age_recipients`, `age_encrypt_argv`, `parse_age_version`, typed `DumpEncryptionError` family);
+  `backend/tests/test_stage14d2b_encryption.py` (local, stand-in age executable) and
+  `backend/tests/test_stage14d2b_age_roundtrip.py` (opt-in `TEST_REAL_AGE=1`, real `age` / `age-keygen`, disposable
+  identities).
+- **Pipeline**: verified 0600 plaintext (14D.2A) → streaming in-process gzip (level 6, MTIME 0, no name / comment)
+  → official `age --encrypt --recipient age1…` → 0600 exclusive `.partial` → age exit 0 → fsync → SHA-256 + size
+  re-read from disk (worker thread) → rename → directory fsync → unlink plaintext → directory fsync. No gzip file;
+  public recipients only; fixed minimal child environment; bounded stderr tail.
+- **Backup-time success does not claim decryptability**; that is proven by the real-age round-trip (pending) and the
+  14D.5 drill.
+- **Fix found by tests during implementation**: opening a FIFO in place of the plaintext blocked the event loop;
+  the plaintext is now opened with `O_NONBLOCK` (no effect on regular files) and refused as not regular.
+- **Local verification** (isolated CPython 3.12.14 venv from the pinned `requirements.txt`): 14D.2B local tests
+  **61 passed, 3 skipped** (real-age tests, `age` not installed on the development machine); 14D.2A regression
+  PASS (79 passed, 9 PostgreSQL skipped); full backend **2583 passed, 22 skipped, 0 failed**; mypy clean (5 files; `--strict` clean on the new module); Ruff clean
+  (classic rule set and Ruff 0.16 defaults for the new files); `git diff --check` clean. Mutation check in a scratch
+  copy: removing `fchmod`, the plaintext integrity check, the minimal environment, partial removal or child reaping,
+  or unlinking the plaintext before rename each fails 1–13 tests.
+- **Owner-run real-age proof — PASS (2026-10-03)**: Manjaro Linux, CPython 3.12.14, age 1.3.2 / age-keygen 1.3.2.
+  `TEST_REAL_AGE=1 tests/test_stage14d2b_age_roundtrip.py`: **3 passed in 0.91 s**; combined 14D.2B suite
+  (encryption + round-trip): **64 passed in 7.56 s, 0 failed, 0 skipped**. Real decryptability proven with disposable
+  identities (single recipient: decrypt → gunzip → exact original bytes; two recipients: identity A and identity B
+  each decrypt independently, unrelated identity C fails; recorded version = `age --version`). The production
+  recovery identity remains a 14D.3 / 14D.5 concern.
+- **Deferred**: production execution topology (`docker exec` unavailable in the planned one-shot container; Docker
+  socket mount not approved); PostgreSQL client and `age` in the production image (version fixed by owner ARM64
+  verification); Oracle upload; credentials; manifest / `COMPLETE.json`; `alembic_head` capture from the same
+  snapshot; restore; scheduling; 14D.3 key custody; 14D.2A synchronous dump hash (unchanged).
+- **Status**: 14D.2B **COMPLETE / OWNER ACCEPTED** (2026-10-03). Stage 14D.2 as a whole remains **IN PROGRESS**.
+  Production unchanged; uploads OFF; 14D.2C not started.
+
 ---
 
 ## Production Baseline
@@ -605,7 +643,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
-| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; rest NOT STARTED) |
+| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; rest NOT STARTED) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | NOT STARTED |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | NOT STARTED |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |
