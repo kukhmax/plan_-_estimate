@@ -2502,6 +2502,15 @@ PRIMARY R2
    `COMPLETE.json` — незавершённый.
 6. Отдельная команда на VM со **своим** env-файлом (не окружение backend),
    без автоматического удаления; таймер в 14D.1/14D.2 не включается.
+7. Исполнение (14D.2C, план §16): отдельный образ `backend/Dockerfile.backup`
+   (web-образ backend не меняется) с `pg_dump` 16 и `age` 1.3.2; сервис
+   `backup` в `docker-compose.prod.yml` под profile `backup`, запуск только
+   `docker compose … run --rm --no-deps backup …` (без `depends_on`: backup
+   никогда не запускает и не пересоздаёт postgres). `pg_dump` работает внутри
+   backup-контейнера по сети Compose к `postgres:5432` — **не** через
+   `docker exec` и **без** Docker socket. Пароль БД — только в
+   `secrets/pgpass` (0600, монтируется read-only), никогда в argv/env.
+   Production-роль БД и ключи `age` — позже, действиями владельца.
 
 ### 72.3 Read-only integrity-проверка (реализована в 14B.4)
 

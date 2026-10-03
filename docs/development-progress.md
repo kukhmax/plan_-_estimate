@@ -575,6 +575,85 @@ cloud resource.
 - **Status**: 14D.2B **COMPLETE / OWNER ACCEPTED** (2026-10-03). Stage 14D.2 as a whole remains **IN PROGRESS**.
   Production unchanged; uploads OFF; 14D.2C not started.
 
+### Stage 14D.2C — backup execution image / container contract (2026-10-03, COMPLETE — OWNER LOCAL IMAGE / RUNTIME VERIFIED)
+
+Topology audit approved with corrections. Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16 / §16.1. No backup
+pipeline, no database connection, no production role, credential or key, no Docker run by Claude.
+
+- **Added**: `backend/Dockerfile.backup` (dedicated image; web `backend/Dockerfile` unchanged);
+  `backend/app/backup/` (`__main__.py` preflight entrypoint, `pg_connection.py` connection / pgpass contract,
+  `layout.py` workspace / mount contract); `backup` service in `docker-compose.prod.yml` (profile `backup`, no
+  `depends_on`, run with `--no-deps`); `backup.env.example` (placeholders); `.gitignore` guards `backup.env` /
+  `pgpass`; tests `test_stage14d2c_pg_connection.py` (61), `test_stage14d2c_image_contract.py` (20, static: Dockerfile
+  + Compose parsed with the already-installed PyYAML), `test_stage14d2c_preflight.py` (15).
+- **pg_dump 16**: Debian trixie has only PostgreSQL 17 clients (`postgresql-client 17+278`, no
+  `postgresql-client-16` — checked in the Debian archive) → PGDG `postgresql-client-16` with a dedicated `Signed-By`
+  key from the official URL, pinned SHA-256 + fingerprint (see proof attempt #2 below; the original assumption that
+  Debian's `postgresql-common` binary package ships the key was wrong); build asserts the path
+  `/usr/lib/postgresql/16/bin/pg_dump` and `(PostgreSQL) 16.x`; minor recorded by the owner proof.
+- **age 1.3.2**: Debian trixie ships 1.2.1 → official release tarballs, SHA-256 pinned from the GitHub release asset
+  digests of `FiloSottile/age` v1.3.2 (amd64 `cbe24006…26ac10`, arm64 `6b8dc433…5d37f4`), verified before
+  extraction; build asserts `age --version` = 1.3.2.
+- **Base**: `python:3.12.14-slim-trixie@sha256:f77ac9e4…84e51f` (Docker Hub index digest, 2026-10-03). Observation: the
+  floating `python:3.12-slim` used by the web image moved on 2026-10-02 (different digest) — web-image drift risk,
+  not changed here.
+- **Finding during implementation**: asyncpg 0.31.0 and libpq parse pgpass differently (escapes, `:` in the
+  password, surrounding whitespace) — supporting libpq escaping would make the two clients use different
+  passwords. Option B adopted: only the common subset is accepted; the production password format (no `:`, `\`,
+  whitespace) is an owner 14D.3 constraint. A test pins the asyncpg behaviour.
+- **Local verification** (isolated CPython 3.12.14 venv from the pinned `requirements.txt`): 14D.2C **96 passed**;
+  14D.2A / 14D.2B / pin-guard regression with 14D.2C: 258 passed, 12 skipped (PostgreSQL / real-age opt-in); full
+  backend **2679 passed, 22 skipped, 0 failed**; mypy clean (7 files; `--strict` clean on `app/backup`); Ruff clean
+  (classic E4/E7/E9/F and Ruff 0.16 defaults); `git diff --check` clean. Mutation check in a scratch copy: pgpass
+  mount writable, `depends_on` added, Docker socket mounted, age checksum check removed, floating
+  `postgresql-client`, `${VAR:?}` in the service — each fails 1–2 contract tests.
+- **Owner local image proof — first attempt (2026-10-03)**: Compose profile contract PASS (`config --services` without
+  the profile: postgres / backend / frontend / caddy; with `--profile backup` the service appears). Image build
+  **failed closed**: no buildx plugin → classic builder → no `TARGETARCH` → the age stage stopped ("unsupported or
+  missing TARGETARCH ''"). **Fix**: the age stage takes the build stage's Debian architecture
+  (`dpkg --print-architecture`); a supplied `TARGETARCH` is validated and must match it; only amd64 / arm64 accepted
+  (before any download); AGE v1.3.2 and both pinned SHA-256 values unchanged. BuildKit / buildx is required only for
+  cross-platform builds. Contract tests now execute the Dockerfile's own selection fragment under `/bin/sh` with a
+  stand-in `dpkg` (BuildKit path, classic fallback, unsupported values, mismatch) and pin `backend/Dockerfile`
+  byte-for-byte; 14D.2C tests **121 passed**.
+- **Owner local image proof — attempt #2 (2026-10-03)**: **PASS** classic native amd64 architecture detection
+  ("age architecture: amd64 (no TARGETARCH: native build stage architecture, classic builder)"), age 1.3.2
+  architecture selection and pinned SHA-256 verification (`/tmp/age.tar.gz: OK`). **FAIL** at the PGDG key:
+  `apt-get download postgresql-common` (278) succeeded but `pgdg/apt.postgresql.org.gpg` is not in the binary package
+  ("Not found in archive") — the 14D.2C audit had checked only the source package. **Fix**: separate `pgdg-key`
+  stage downloads the key over HTTPS from the official PGDG URL (`https://www.postgresql.org/media/keys/ACCC4CF8.asc`),
+  requires the pinned SHA-256 `01440685…564e8e76` first (established from two independently distributed identical
+  copies: the official URL and Debian's `postgresql-common` 278 source package), then exactly one primary key with
+  fingerprint `B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8`; the runtime stage re-checks the SHA-256 after the copy and
+  uses the key as the dedicated `Signed-By` file of a deb822 `pgdg.sources`; gnupg / curl stay in the key stage.
+  Contract tests now also execute the Dockerfile's own verification fragment against throwaway OpenPGP keys (accept,
+  SHA mismatch before parsing, fingerprint mismatch, multiple keys) and forbid the old extraction; the real
+  downloaded key passes the fragment. 14D.2C tests **129 passed**.
+- **Owner local image / runtime proof — attempt #3 (2026-10-03, linux/amd64, classic builder): PASS.** Build:
+  `/tmp/pgdg.asc: OK`, fingerprint `B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8`, runtime key re-check OK,
+  `postgresql-client-16 16.15-1.pgdg13+2`, `pg_dump (PostgreSQL) 16.15 (Debian 16.15-1.pgdg13+2)`, age / age-keygen
+  v1.3.2, Python 3.12.14; image `sha256:7b98dd7605dea6b4dce751632bbd7bd1a646c3ddb635376c0824f00cfc21bc26`
+  (`USER 65534:65534`, entrypoint `python -m app.backup`, cmd `preflight`). Compose runtime: `preflight` and
+  `preflight --workspace` PASS (uid / gid 1000; private writable work / encrypted / evidence mounts; connection
+  postgres:5432 / plan_estimate / pe_backup / sslmode=disable; pgpass one matching entry; one public recipient).
+  Security: all capability sets 0, NoNewPrivs 1, no Docker socket, read-only root filesystem, writable `/tmp` tmpfs,
+  pgpass 0600 and read-only in the container. Persistence: a probe file written by a `--rm` container remained on
+  the host (uid / gid 1000; shell-created, mode 0644 — not the artifact mode contract, which 14D.2A / 2B enforce as
+  0600). In-image tests: 219 passed, 53 skipped (opt-in / repository-only), 1 warning (pytest cache on read-only
+  `/app`); `TEST_REAL_AGE=1` in the image: 3 passed, 0 skipped. No database connection was made.
+- **Final non-Docker verification (2026-10-03, after the build fixes)**: 14D.2C **129 passed**; 14D.2A / 14D.2B / pin
+  guard 162 passed, 12 skipped (opt-in PostgreSQL / real-age); full backend **2712 passed, 22 skipped, 0 failed**;
+  mypy clean (7 files; `--strict` on `app/backup`); Ruff clean (classic E4/E7/E9/F and Ruff 0.16 defaults);
+  `git diff --check` clean; `backend/Dockerfile` byte-identical.
+- **Not proven by 14D.2C**: ARM64 production image; real PostgreSQL topology end-to-end (14D.2D); production DB role /
+  privileges; production backup execution; the 14D backup / restore gate; upload enablement (14E).
+- **Deferred**: 14D.2D orchestrator (flock, `run_id`, snapshot → pg_dump → age chain, `alembic_head`, evidence JSON,
+  work → encrypted promotion, stale-run workflow, scratch PostgreSQL end-to-end and role-privilege proof); production
+  role; ARM64 image smoke on the VM (approval-gated); Oracle / R2; manifest / `COMPLETE.json`; restore; scheduling.
+- **Status**: 14D.2C **COMPLETE — OWNER LOCAL IMAGE / RUNTIME VERIFIED — ready for owner acceptance** (2026-10-03).
+  Stage 14D.2 as a whole remains **IN PROGRESS**. **Next: 14D.2D** (not started; explicit owner approval required).
+  Production unchanged; uploads OFF.
+
 ---
 
 ## Production Baseline
@@ -643,7 +722,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
-| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; rest NOT STARTED) |
+| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE, owner local image / runtime verified (amd64), ready for acceptance; next 14D.2D; rest NOT STARTED) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | NOT STARTED |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | NOT STARTED |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |

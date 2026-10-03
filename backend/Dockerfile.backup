@@ -1,0 +1,152 @@
+# syntax=docker/dockerfile:1
+#
+# Plan & Estimate — dedicated backup execution image (Stage 14D.2C).
+# Contract: docs/STAGE_14D_BACKUP_RESTORE_PLAN.md §16.
+#
+# Same application source and the same pinned requirements.txt as the web
+# backend image (backend/Dockerfile, which stays unchanged), plus:
+#   - pg_dump major 16 (PGDG postgresql-client-16; Debian trixie itself only
+#     ships PostgreSQL 17 clients and has no postgresql-client-16);
+#   - official age v1.3.2 release binaries, SHA-256 verified.
+# No backend entrypoint.sh, no migrations, no web server, no private age
+# identity. Runs non-root (the Compose service sets the host UID:GID).
+
+# python:3.12.14-slim-trixie, multi-arch index digest (Docker Hub, 2026-10-03).
+ARG PYTHON_IMAGE=python:3.12.14-slim-trixie@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f
+
+# PGDG (apt.postgresql.org) signing key — trust anchor = SHA-256 of the exact
+# key bytes. The URL is the one given by PostgreSQL's official Debian /
+# PGDG instructions ("Manual Repository Configuration"). The expected
+# SHA-256 was established on 2026-10-03 from two independently distributed
+# copies with identical bytes: that URL (HTTPS) and the Debian archive's
+# postgresql-common 278 SOURCE package (pgdg/apt.postgresql.org.asc). The
+# full OpenPGP fingerprint of that key is checked as well (identity evidence).
+# Note: the Debian postgresql-common BINARY package does NOT ship this key
+# file (owner build proof #2).
+ARG PGDG_KEY_URL=https://www.postgresql.org/media/keys/ACCC4CF8.asc
+ARG PGDG_KEY_SHA256=0144068502a1eddd2a0280ede10ef607d1ec592ce819940991203941564e8e76
+ARG PGDG_KEY_FINGERPRINT=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+
+# ---------------------------------------------------------------------------
+# age: pinned upstream release, verified by SHA-256 before extraction.
+# Digests: GitHub release asset digests of FiloSottile/age v1.3.2
+# (api.github.com/repos/FiloSottile/age/releases/tags/v1.3.2, 2026-10-03).
+#
+# Architecture: the Debian architecture of this build stage
+# (`dpkg --print-architecture`) is the architecture the binary will run on.
+# BuildKit/buildx also supplies TARGETARCH; it is validated and must equal the
+# stage architecture (never silently overridden). The classic builder supplies
+# no TARGETARCH and builds only for the native architecture; then the stage
+# architecture is used. Only amd64 and arm64 are accepted; anything else fails.
+# Cross-platform builds (e.g. arm64 on an amd64 host) require BuildKit/buildx.
+# ---------------------------------------------------------------------------
+FROM ${PYTHON_IMAGE} AS age-download
+ARG TARGETARCH
+ARG AGE_VERSION=v1.3.2
+ARG AGE_SHA256_AMD64=cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+ARG AGE_SHA256_ARM64=6b8dc4333c53a5a57c9e5834e3a48f92605d7154014cd07269ff3327db5d37f4
+RUN set -eu; \
+    stage_arch="$(dpkg --print-architecture)"; \
+    if [ -n "${TARGETARCH:-}" ]; then \
+      arch="${TARGETARCH}"; \
+      if [ "${arch}" != "${stage_arch}" ]; then \
+        echo "TARGETARCH '${arch}' does not match the build stage architecture '${stage_arch}'" >&2; exit 1; \
+      fi; \
+      echo "age architecture: ${arch} (TARGETARCH, BuildKit)"; \
+    else \
+      arch="${stage_arch}"; \
+      echo "age architecture: ${arch} (no TARGETARCH: native build stage architecture, classic builder)"; \
+    fi; \
+    case "${arch}" in \
+      amd64) sha="${AGE_SHA256_AMD64}" ;; \
+      arm64) sha="${AGE_SHA256_ARM64}" ;; \
+      *) echo "unsupported architecture '${arch}' (only amd64 and arm64)" >&2; exit 1 ;; \
+    esac; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl; \
+    rm -rf /var/lib/apt/lists/*; \
+    curl -fsSL --proto '=https' --tlsv1.2 -o /tmp/age.tar.gz \
+      "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-${arch}.tar.gz"; \
+    echo "${sha}  /tmp/age.tar.gz" | sha256sum -c -; \
+    mkdir /out; \
+    tar -xzf /tmp/age.tar.gz -C /out --strip-components=1 age/age age/age-keygen; \
+    chmod 0755 /out/age /out/age-keygen; \
+    rm /tmp/age.tar.gz
+
+# ---------------------------------------------------------------------------
+# PGDG signing key: downloaded over HTTPS, accepted only if its SHA-256 equals
+# the pinned value (checked FIRST, before the key is parsed or used), and
+# then only if it is exactly one OpenPGP primary key with the pinned
+# fingerprint. gnupg exists only in this stage (and is used without a
+# keyring import); the runtime image receives just the verified key file.
+# ---------------------------------------------------------------------------
+FROM ${PYTHON_IMAGE} AS pgdg-key
+ARG PGDG_KEY_URL
+ARG PGDG_KEY_SHA256
+ARG PGDG_KEY_FINGERPRINT
+RUN set -eu; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
+    rm -rf /var/lib/apt/lists/*; \
+    curl -fsSL --proto '=https' --tlsv1.2 -o /tmp/pgdg.asc "${PGDG_KEY_URL}"; \
+    echo "${PGDG_KEY_SHA256}  /tmp/pgdg.asc" | sha256sum -c -; \
+    export GNUPGHOME="$(mktemp -d)"; \
+    gpg --batch --with-colons --show-keys /tmp/pgdg.asc > /tmp/pgdg.colons; \
+    test "$(grep -c '^pub:' /tmp/pgdg.colons)" = 1; \
+    fpr="$(awk -F: '$1 == "fpr" { print $10; exit }' /tmp/pgdg.colons)"; \
+    if [ "${fpr}" != "${PGDG_KEY_FINGERPRINT}" ]; then \
+      echo "PGDG key fingerprint '${fpr}' does not match the pinned fingerprint" >&2; exit 1; \
+    fi; \
+    echo "PGDG key verified: sha256 ${PGDG_KEY_SHA256} fingerprint ${fpr}"; \
+    install -D -m 0644 /tmp/pgdg.asc /out/apt.postgresql.org.asc
+
+# ---------------------------------------------------------------------------
+# Runtime image.
+# ---------------------------------------------------------------------------
+FROM ${PYTHON_IMAGE}
+ARG PGDG_KEY_SHA256
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PATH=/usr/lib/postgresql/16/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# pg_dump 16 from PGDG, configured as in PostgreSQL's official "Manual
+# Repository Configuration" (deb822 .sources file, dedicated Signed-By key,
+# no apt-key). The verified key is re-checked against the pinned SHA-256
+# after the copy, before apt trusts it. The package name pins the major; the
+# 16.x minor floats within PGDG (exact-minor pins break when PGDG retires old
+# minors) and is recorded by the build output / image proof.
+COPY --from=pgdg-key /out/apt.postgresql.org.asc /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+RUN set -eu; \
+    echo "${PGDG_KEY_SHA256}  /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc" | sha256sum -c -; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates; \
+    . /etc/os-release; \
+    printf 'Types: deb\nURIs: https://apt.postgresql.org/pub/repos/apt\nSuites: %s-pgdg\nComponents: main\nSigned-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc\n' \
+      "${VERSION_CODENAME}" > /etc/apt/sources.list.d/pgdg.sources; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends postgresql-client-16; \
+    rm -rf /var/lib/apt/lists/*; \
+    test "$(command -v pg_dump)" = /usr/lib/postgresql/16/bin/pg_dump; \
+    pg_dump --version; \
+    pg_dump --version | grep -Eq '^pg_dump \(PostgreSQL\) 16\.'
+
+COPY --from=age-download /out/age /out/age-keygen /usr/local/bin/
+RUN set -eu; \
+    age --version; \
+    case "$(age --version)" in v1.3.2|1.3.2) ;; *) echo "unexpected age version" >&2; exit 1 ;; esac
+
+COPY requirements.txt pyproject.toml ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app ./app
+COPY tests ./tests
+
+# Non-root default; the Compose service overrides it with the host UID:GID.
+USER 65534:65534
+
+ENTRYPOINT ["python", "-m", "app.backup"]
+CMD ["preflight"]

@@ -2,8 +2,11 @@
 
 > **Status:** 14D.1 architecture — **OWNER APPROVED** (2026-10-02, with the mandatory corrections A–D below
 > incorporated). 14D.2A (snapshot primitive, §7.1) — COMPLETE / OWNER ACCEPTED (owner runs, 9/9, re-proven after hardening).
-> 14D.2B (encrypted DB artifact primitive, §9.1) — COMPLETE / OWNER ACCEPTED (real-age round-trip proven, age 1.3.2). Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 and §9.1 primitives, nothing in this
-> document is implemented, configured or
+> 14D.2B (encrypted DB artifact primitive, §9.1) — COMPLETE / OWNER ACCEPTED (real-age round-trip proven, age 1.3.2).
+> 14D.2C (backup execution image / container contract, §16) — COMPLETE, OWNER LOCAL IMAGE / RUNTIME VERIFIED (linux/amd64,
+> 2026-10-03), ready for owner acceptance. Not yet proven: ARM64 production image, real PostgreSQL topology end-to-end,
+> production DB role, production backup execution. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
+> §16 image / container contract, nothing in this document is implemented, configured or
 > verified yet: no backup tooling, no cloud resources, no credentials, no schedule. Executable procedures stay
 > **DRAFT** until the sub-stage that verifies them.
 >
@@ -141,9 +144,10 @@ not assumed to represent the dump.
 
 - **Same snapshot.** The tool opens a `REPEATABLE READ, READ ONLY` transaction, calls `pg_export_snapshot()`, reads
   the READY asset set in that transaction, and the DB dump is taken with `pg_dump --snapshot=<id>` while the
-  transaction is held open. The dump and the inventory are therefore the same database state. (The backend image has
-  no `pg_dump`; the dump runs through the postgres container's own `pg_dump`, so client and server versions match.
-  The exact orchestration — host wrapper vs tool-driven — is fixed in 14D.2 and verified on scratch PostgreSQL.)
+  transaction is held open. The dump and the inventory are therefore the same database state. (Superseded detail:
+  `pg_dump` does **not** run through `docker exec` in the postgres container — it runs inside the dedicated backup
+  execution image, which carries pg_dump major 16 and reaches `postgres:5432` over the Compose network; the 14D.2A
+  major-version equality check stays in force. §16.)
 - **Ready-set digest.** `ready_set_sha256` = SHA-256 over the sorted canonical lines
   `asset_id|key_original|key_display|key_thumbnail|byte_size|display_byte_size|thumbnail_byte_size|sha256` of every
   READY asset in that snapshot; `ready_count` = their number. Both go into the header and `COMPLETE.json`.
@@ -331,9 +335,8 @@ again) and propagates (cancellation after the protected cleanup). If unlinking t
 fails, the valid artifact stays and `PlaintextCleanupError` carries its result. Deletion is unlink only — not secure
 or forensic erasure. Stale files from an earlier run are never removed automatically; they cause a collision error.
 
-**Not decided here (later 14D.2 sub-stages):** production execution topology (the planned one-shot backend container
-cannot use `docker exec` without the Docker socket, and mounting the socket is not approved), PostgreSQL client and
-`age` in the production image, Oracle upload, credentials, manifest / `COMPLETE.json` writer, `alembic_head` capture
+**Not decided here (later 14D.2 sub-stages):** ~~production execution topology and PostgreSQL client / `age` in the
+image~~ (decided in 14D.2C, §16: dedicated backup image, no Docker socket), Oracle upload, credentials, manifest / `COMPLETE.json` writer, `alembic_head` capture
 (eventually from the same exported snapshot), restore, scheduling, 14D.3 key generation / custody.
 
 ## 10. Integrity verification model
@@ -416,15 +419,128 @@ code path. Retention / deletion automation is deferred until real storage growth
 | Partial manifest | manifest uploaded first, marker last; manifest without a valid marker = invalid |
 | Restore | reads only runs with a valid marker; refuses production targets; idempotent per object |
 
-## 16. Operational model
+## 16. Operational model — backup execution image and container (Stage 14D.2C)
 
-A standalone CLI shipped in the backend image, run as a one-shot container with its own env file (pinned dependency
-set; no host Python), e.g.
-`docker run --rm --network plan-estimate_internal --env-file <backup env> --cpus 0.5 --memory 512m <pinned image>
-python scripts/media_backup.py …`; one object in flight (≈75 MB temp maximum); suitable for later systemd-timer
-execution. **No timer is enabled in 14D.1 / 14D.2**; scheduling is decided later in the 14D readiness process,
-before 14E. Recurring production backups should use a **dedicated read-only PostgreSQL role**, created as an
-explicit manual operational step (not an application migration).
+The backup runs as a one-shot container of a **dedicated backup image**, not the web backend image (which stays
+unchanged), invoked by `docker compose run --rm --no-deps backup …` (no host application Python; a host `flock`
+around it is added with the 14D.2D orchestrator). One media object in flight (≈75 MB temp maximum) once the media
+engine exists; suitable for later systemd-timer execution. **No timer is enabled in 14D.1 / 14D.2**; scheduling is
+decided later in the 14D readiness process, before 14E.
+
+**Image (`backend/Dockerfile.backup`):** base `python:3.12.14-slim-trixie` pinned by multi-arch index digest; the
+same pinned `requirements.txt` as the web image (one `pip install`, no second dependency set; the in-image pin guard
+`tests/test_dependency_pins.py` applies); only `app/`, `tests/`, `requirements.txt`, `pyproject.toml` copied; no
+`entrypoint.sh`, no migrations, no web server; `ENTRYPOINT python -m app.backup`, default `CMD preflight`; default
+`USER 65534:65534`.
+- **pg_dump 16 — why PGDG:** Debian trixie ships only PostgreSQL 17 clients (`postgresql-client` = `17+278`) and has
+  no `postgresql-client-16`. The image installs PGDG `postgresql-client-16`, configured as in PostgreSQL's official
+  "Manual Repository Configuration" (deb822 `.sources`, dedicated `Signed-By` key file, no `apt-key`). **PGDG trust
+  anchor:** the key is downloaded over HTTPS from the official URL `https://www.postgresql.org/media/keys/ACCC4CF8.asc`
+  in a separate build stage and accepted only if (1) its SHA-256 equals the pinned
+  `0144068502a1eddd2a0280ede10ef607d1ec592ce819940991203941564e8e76` — checked first, before the key is parsed —
+  and (2) it is exactly one OpenPGP primary key with the pinned fingerprint
+  `B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8` ("PostgreSQL Debian Repository"); the runtime stage re-checks the SHA-256
+  after the copy, before apt trusts it. The expected SHA-256 was established (2026-10-03) from two independently
+  distributed copies with identical bytes: the official URL and the Debian archive's `postgresql-common` 278
+  **source** package (`pgdg/apt.postgresql.org.asc`). PostgreSQL's pages publish the key URL but not the fingerprint
+  as text. (Correction: the Debian `postgresql-common` **binary** package does **not** ship the PGDG key — owner
+  build proof #2.) The package name pins the major;
+  the build fails unless `command -v pg_dump` is `/usr/lib/postgresql/16/bin/pg_dump` and it reports
+  `(PostgreSQL) 16.x`; the minor is recorded by the image proof (PGDG retention makes an exact-minor pin fragile).
+  14D.2A's runtime server / client major-equality check remains.
+- **age 1.3.2 — why not Debian:** trixie ships `age` 1.2.1. The image downloads the official
+  `age-v1.3.2-linux-<arch>.tar.gz` (amd64 for local proofs, arm64 for production), verifies it with
+  `sha256sum -c` against digests pinned in the Dockerfile **before extraction** (the GitHub release asset digests of
+  `FiloSottile/age` v1.3.2, read from the GitHub release API on 2026-10-03; upstream also publishes `.proof`
+  transparency files that the owner may verify additionally), installs only `age` and `age-keygen`, and fails
+  unless `age --version` is 1.3.2. No identity is in the image; only public recipients are supplied at runtime.
+- **Builders / architecture:** BuildKit / buildx is **not** required. `<arch>` is the Debian architecture of the
+  build stage (`dpkg --print-architecture`), i.e. the architecture the binary runs on. When BuildKit supplies
+  `TARGETARCH` it is validated and must equal that architecture (never silently overridden); the classic builder
+  supplies none and builds only for the native architecture. Only `amd64` and `arm64` are accepted (anything else
+  fails before any download), each with its own pinned SHA-256. Native amd64 / arm64 classic builds are supported;
+  BuildKit / buildx is needed only for cross-platform builds. The real ARM64 production image still requires its
+  later owner proof.
+
+**Compose service `backup` (`docker-compose.prod.yml`):** `profiles: ["backup"]` (never started by `up -d`); **no
+`depends_on`** and always run with **`--no-deps`** (a `compose run` with dependencies could start or recreate the
+production postgres container); no ports; existing `internal` network only to reach `postgres:5432` without
+publishing PostgreSQL (that network is a plain bridge with egress — not a security isolation boundary);
+`restart: "no"`; `init: true`; `read_only: true` with a 16 MiB `/tmp` tmpfs (to be confirmed by the owner proof);
+`cap_drop: [ALL]`; `no-new-privileges`; non-root `user: ${BACKUP_UID}:${BACKUP_GID}`; `mem_limit 512m`, `cpus 0.5`,
+`pids_limit 64` (to be validated with `docker compose config`); **no Docker socket**, no postgres data volume, no
+repository, frontend or Caddy mounts; environment limited to `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`,
+`PGSSLMODE`, `PGPASSFILE`, `BACKUP_AGE_RECIPIENTS` (no `env_file`, no application secrets). Variables use
+fail-closed defaults instead of `${VAR:?}` because Compose interpolates the whole file and a required variable would
+break normal deployments: unset `BACKUP_UID` runs as `65534`, unset `BACKUP_HOST_ROOT` points at a non-existent path
+and the bind mounts (`create_host_path: false`) are refused. Settings come from a separate backup env file
+(`backup.env.example`, placeholders only), passed as an additional `--env-file`.
+
+**Workspace / mounts (host root recommended `/home/ubuntu/backups/plan-estimate/db-backup/`, 0700):** `work/` →
+`/backup/work` (rw; per-run plaintext and partials, lifecycle in 14D.2D), `encrypted/` → `/backup/encrypted` (rw;
+completed artifacts survive `--rm`), `evidence/` → `/backup/evidence` (rw; no secrets), `secrets/pgpass` →
+`/run/secrets/pgpass` (**read-only**). Container paths do not depend on the host user name.
+
+### 16.1 Database connection contract (`backend/app/backup/pg_connection.py`)
+
+One non-secret `PgConnectionConfig` (host, port, database, user, passfile path, **explicit** SSL mode — configurable,
+`disable` only expected for the current local bridge, not an invariant) from which both the asyncpg exporter DSN
+(no password; `passfile` / `sslmode` parameters) and the libpq environment of `pg_dump` are derived;
+`check_process_env` verifies that the inherited process environment (14D.2A's pg_dump inherits it) carries exactly
+that connection; `PGPASSWORD`, `PGSERVICE`, `PGSERVICEFILE` are refused. `pg_dump_command()` yields the 14D.2A command
+with **no tool prefix** (local pg_dump over the network). The password exists only in the pgpass file — never in
+argv, DSN, `DATABASE_URL`, `PGPASSWORD`, logs or evidence.
+
+**pgpass validation:** absolute, regular, not a symlink, owned by the effective UID, no group / other bits, at most
+64 KiB, UTF-8, exactly one entry (empty lines and `#` comments at column 1 allowed), no wildcard field, host / port /
+database / user equal to the configuration, non-empty password; errors name the line / field, never the content.
+**Credential-format constraint (option B):** asyncpg 0.31.0 and libpq parse pgpass differently — libpq de-escapes
+`\` and ends the password at the first unescaped `:`, asyncpg keeps backslashes, keeps everything after the fourth
+`:` and strips surrounding whitespace. The validator therefore accepts only the common subset (no `\`, no `:` inside
+values, no surrounding whitespace), so both clients always use the same password. The production password must
+satisfy this; generating it is an owner action (14D.3).
+
+**Database role (candidate, not final):** a dedicated login role, candidate privilege `pg_read_all_data`. The
+minimum practical privileges for the READY-set SELECT, `pg_export_snapshot()`, a full `pg_dump` of this
+application's schema / data and the tagged-session cleanup (`pg_terminate_backend` of the role's own pg_dump
+session) are determined by the later scratch PostgreSQL proof; only then is the production role SQL frozen.
+No production role or credential is created in 14D.2C.
+
+### 16.2 Owner local image / runtime proof (Stage 14D.2C, 2026-10-03, linux/amd64)
+
+Three owner builds on the development machine (Manjaro, Docker without buildx → classic builder), scratch paths and
+fake values only, no database connection:
+1. Compose profile contract PASS (`config --services` without the profile: postgres / backend / frontend / caddy;
+   with `--profile backup`: backup listed). Build failed closed: no `TARGETARCH` under the classic builder → fixed
+   (native `dpkg --print-architecture`, validated `TARGETARCH`, amd64 / arm64 only).
+2. age architecture selection and pinned age SHA-256 PASS. Build failed closed: the Debian `postgresql-common` 278
+   binary package does not contain the PGDG key → fixed (official key URL, pinned SHA-256 + fingerprint, §16).
+3. **Full build PASS**: `/tmp/pgdg.asc: OK`, fingerprint `B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8`, runtime key
+   re-check OK, `postgresql-client-16 16.15-1.pgdg13+2`, `pg_dump (PostgreSQL) 16.15 (Debian 16.15-1.pgdg13+2)`,
+   age / age-keygen v1.3.2, Python 3.12.14; image `plan-estimate-backup:local`
+   `sha256:7b98dd7605dea6b4dce751632bbd7bd1a646c3ddb635376c0824f00cfc21bc26`; `USER 65534:65534`,
+   `ENTRYPOINT ["python","-m","app.backup"]`, `CMD ["preflight"]`.
+
+Runtime (via `docker compose run --rm --no-deps backup`): `preflight` PASS (Python 3.12.14, pg_dump 16, age 1.3.2,
+uid / gid 1000); `preflight --workspace` PASS (three private writable mounts; connection host=postgres port=5432
+database=plan_estimate user=pe_backup sslmode=disable; pgpass exactly one matching entry; one public recipient).
+Security: uid / gid 1000, CapInh / CapPrm / CapEff / CapBnd / CapAmb all 0, NoNewPrivs 1, no Docker socket,
+read-only root filesystem, writable `/tmp` tmpfs, pgpass 0600 / uid 1000 regular file and read-only in the container.
+A file written to `/backup/encrypted` by a `--rm` container persisted on the host (uid / gid 1000; it was a
+shell-created probe with mode 0644 — the backup artifacts' 0600 mode is enforced separately by the 14D.2A / 14D.2B
+primitives). In-image tests: selected 14D.2A / 2B / 2C suites 219 passed, 53 skipped (opt-in / repository-only
+tests; one warning: pytest cache under the read-only `/app`); `TEST_REAL_AGE=1` round-trip in the image: 3 passed,
+0 skipped.
+
+**Not proven by 14D.2C** (later sub-stages): the ARM64 production image (owner-approved smoke before 14D.6), the
+real PostgreSQL snapshot → network pg_dump → age chain from this container (14D.2D scratch proof), the production
+DB role and its minimum privileges, any production backup execution, the backup / restore gate (14D), and upload
+enablement (14E).
+
+**Preflight (`python -m app.backup preflight [--workspace]`):** reports Python (3.12 expected), pg_dump (major 16),
+age (1.3.2) and effective UID / GID (non-root required); `--workspace` also checks the three mount roots (private,
+writable, owned by the effective UID), the connection settings, the pgpass file (validated, never printed) and the
+age recipients (count only). Exit 0 / 1. It never prints the environment and never connects to a database.
 
 ## 17. Stage 14D PASS criteria
 
@@ -453,13 +569,15 @@ explicit manual operational step (not an application migration).
 
 ## 19. Deferred to later 14D sub-stages
 
-- `pg_dump --snapshot` orchestration detail (host wrapper vs tool-driven) and its scratch-PostgreSQL verification
-  (14D.2).
+- ~~`pg_dump --snapshot` orchestration detail (host wrapper vs tool-driven)~~ — decided in 14D.2C (§16: pg_dump
+  inside the dedicated backup image over the Compose network); end-to-end scratch-PostgreSQL verification in 14D.2D.
 - Dual-store configuration names / env-file template (14D.2).
 - Integrity-checker wording for `MISSING_DERIVATIVE` (code text still says "regenerable from the original"; to be
   corrected in 14D.2, since code is out of scope for 14D.1).
 - `age` recipients, key custody and offline copies; whether the private key may be present temporarily on the VM
   during a drill (14D.3).
 - Exact Oracle IAM policy, overwrite / delete / conditional-PUT and ETag behaviour (14D.3 / 14D.4).
-- Dedicated read-only PostgreSQL role creation (manual operational step; before recurring backups).
+- Dedicated PostgreSQL backup role: minimum privileges from the scratch proof (candidate `pg_read_all_data`), then
+  creation as a manual operational step before the first production backup (14D.3 / 14D.6). Production `age`
+  recovery identities remain an owner action (14D.3).
 - Recurring schedule (systemd timer) and RPO (before 14E).

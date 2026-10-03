@@ -8,6 +8,9 @@
 *.pfx
 !.env.production.example
 .env.production
+# Stage 14D backup settings / credentials (real files live outside the repo)
+backup.env
+pgpass
 
 certs/
 

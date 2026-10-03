@@ -115,6 +115,71 @@ services:
     networks:
       - internal
 
+  # Stage 14D backup execution container (docs/STAGE_14D_BACKUP_RESTORE_PLAN.md §16).
+  # Profile-gated: `up -d` never starts it. Run one-shot, always with --no-deps
+  # (a backup must never start or recreate postgres):
+  #   docker compose --env-file .env.production --env-file <backup env> -p plan-estimate \
+  #     -f docker-compose.prod.yml run --rm --no-deps backup preflight
+  # Variables use fail-closed defaults instead of `${VAR:?}`, because Compose
+  # interpolates the whole file and `:?` would break normal deployments: an
+  # unset BACKUP_UID runs as nobody (workspace checks fail), an unset
+  # BACKUP_HOST_ROOT points at a non-existent path (the bind mount is refused).
+  backup:
+    profiles: ["backup"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.backup
+    image: plan-estimate-backup:local
+    entrypoint: ["python", "-m", "app.backup"]
+    command: ["preflight"]
+    user: "${BACKUP_UID:-65534}:${BACKUP_GID:-65534}"
+    restart: "no"
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 64
+    environment:
+      PGHOST: ${BACKUP_PGHOST:-postgres}
+      PGPORT: ${BACKUP_PGPORT:-5432}
+      PGDATABASE: ${BACKUP_PGDATABASE:-}
+      PGUSER: ${BACKUP_PGUSER:-}
+      PGSSLMODE: ${BACKUP_PGSSLMODE:-}
+      PGPASSFILE: /run/secrets/pgpass
+      BACKUP_AGE_RECIPIENTS: ${BACKUP_AGE_RECIPIENTS:-}
+    volumes:
+      - type: bind
+        source: ${BACKUP_HOST_ROOT:-/nonexistent/plan-estimate-backup-root-not-configured}/work
+        target: /backup/work
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${BACKUP_HOST_ROOT:-/nonexistent/plan-estimate-backup-root-not-configured}/encrypted
+        target: /backup/encrypted
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${BACKUP_HOST_ROOT:-/nonexistent/plan-estimate-backup-root-not-configured}/evidence
+        target: /backup/evidence
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${BACKUP_HOST_ROOT:-/nonexistent/plan-estimate-backup-root-not-configured}/secrets/pgpass
+        target: /run/secrets/pgpass
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 16777216
+    networks:
+      - internal
+
 volumes:
   postgres_data:
     driver: local
