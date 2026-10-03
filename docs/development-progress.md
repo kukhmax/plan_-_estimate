@@ -652,6 +652,29 @@ pipeline, no database connection, no production role, credential or key, no Dock
   role; ARM64 image smoke on the VM (approval-gated); Oracle / R2; manifest / `COMPLETE.json`; restore; scheduling.
 - **Status**: 14D.2C **COMPLETE — OWNER LOCAL IMAGE / RUNTIME VERIFIED — ready for owner acceptance** (2026-10-03).
   Stage 14D.2 as a whole remains **IN PROGRESS**. **Next: 14D.2D** (not started; explicit owner approval required).
+- **Commit**: `1fb980c` (owner accepted, pushed).
+
+### Stage 14D.2D.1 — local backup run contracts (2026-10-03, IMPLEMENTED — AWAITING OWNER REVIEW)
+
+14D.2D audit accepted with owner decisions D1–D6 and corrections C1–C4 (`docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`
+§16.3). Slice 14D.2D.1 = pure contracts only: no I/O, lock, workspace, Compose / Dockerfile change, database
+connection, orchestrator or command.
+
+- **Added**: `backend/app/backup/run_id.py`, `backend/app/backup/schema_revision.py`, `backend/app/backup/evidence.py`;
+  tests `test_stage14d2d1_run_id.py`, `test_stage14d2d1_schema_revision.py`, `test_stage14d2d1_evidence.py`.
+- **Findings during implementation**: Python `\d` matches non-ASCII digits and `strptime` parses them (a fullwidth-digit
+  run_id was accepted) → all new patterns use explicit ASCII classes with `re.ASCII`; the pg_dump version check
+  initially accepted any `(PostgreSQL)` line → now `^pg_dump \(PostgreSQL\) …`. Alembic itself refuses `-` in
+  revision ids; our own 32-character limit is still enforced on the resolved head.
+- **Verification** (isolated CPython 3.12.14 venv): 14D.2D.1 **148 passed**; 14D.2A / 2B / 2C + pin guard 291 passed,
+  12 skipped (opt-in) — both re-run after the final two edits (`itertools.pairwise`, UTC-aware `strptime`); full
+  backend **2860 passed, 22 skipped, 0 failed**, collected **before** those two edits (not re-run); mypy clean (6 files; `--strict` on
+  `app/backup`); Ruff clean (classic E4/E7/E9/F and Ruff 0.16 defaults); `git diff --check` clean. Mutation
+  check in a scratch copy: Unicode digits, complete run with mismatched revision, missing READY cross-check, unsorted
+  or non-ASCII JSON, bool as integer, multiple heads, disabled mismatch policy, multi-row `alembic_version`, missing
+  empty-digest check — each fails 1–4 tests.
+- **Status**: 14D.2D.1 IMPLEMENTED — awaiting owner review / commit approval. 14D.2D.2 not started. Production
+  unchanged; uploads OFF.
   Production unchanged; uploads OFF.
 
 ---

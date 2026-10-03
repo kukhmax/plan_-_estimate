@@ -4,8 +4,9 @@
 > incorporated). 14D.2A (snapshot primitive, §7.1) — COMPLETE / OWNER ACCEPTED (owner runs, 9/9, re-proven after hardening).
 > 14D.2B (encrypted DB artifact primitive, §9.1) — COMPLETE / OWNER ACCEPTED (real-age round-trip proven, age 1.3.2).
 > 14D.2C (backup execution image / container contract, §16) — COMPLETE, OWNER LOCAL IMAGE / RUNTIME VERIFIED (linux/amd64,
-> 2026-10-03), ready for owner acceptance. Not yet proven: ARM64 production image, real PostgreSQL topology end-to-end,
-> production DB role, production backup execution. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
+> 2026-10-03), owner accepted. Not yet proven: ARM64 production image, real PostgreSQL topology end-to-end,
+> production DB role, production backup execution. 14D.2D (local backup orchestrator, owner decisions D1–D6 / corrections
+> C1–C4) — IN PROGRESS: 14D.2D.1 pure contracts (§16.3) implemented. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
 > §16 image / container contract, nothing in this document is implemented, configured or
 > verified yet: no backup tooling, no cloud resources, no credentials, no schedule. Executable procedures stay
 > **DRAFT** until the sub-stage that verifies them.
@@ -541,6 +542,41 @@ enablement (14E).
 age (1.3.2) and effective UID / GID (non-root required); `--workspace` also checks the three mount roots (private,
 writable, owned by the effective UID), the connection settings, the pgpass file (validated, never printed) and the
 age recipients (count only). Exit 0 / 1. It never prints the environment and never connects to a database.
+
+### 16.3 Local backup run contracts (Stage 14D.2D.1 — pure, no I/O)
+
+Owner decisions for 14D.2D: **D1** one data bind mount `<host data root> → /backup` (`work/`, `encrypted/`,
+`evidence/`, `run.lock`; secrets outside, pgpass read-only at `/run/secrets/pgpass`) so a completed run directory is
+promoted by an atomic rename inside one mount (separate bind mounts would fail with `EXDEV`); **D2** the backup image
+carries `alembic.ini` + `alembic/` and resolves the expected head offline; **D3** observed revision must equal the
+expected head, fatal before pg_dump, no override; **D4** same-snapshot metadata through a second connection that
+imports the exported snapshot (`SET TRANSACTION SNAPSHOT`, strictly validated id), 14D.2A unchanged; **D5** plaintext
+SHA-256 kept in local evidence only; **D6** `stop_grace_period: 45s`. Corrections: **C1** no `tool.source_sha256`;
+**C2** `pg_database_size()` is not a required role privilege and the disk-space rule is a local policy, not frozen;
+**C3** host `docker exec` / `psql` is scaffolding only (fixture, roles, seed, independent verification), never part
+of the backup execution topology; **C4** failure evidence is allowlisted structure only. D1 / D2 / D6 change the 14D.2C
+Compose / Dockerfile contract in a later slice (14D.2D.2+); 14D.2D.1 implements only:
+
+- **`run_id`** (`backend/app/backup/run_id.py`): `YYYYMMDDTHHMMSSZ-<8 lowercase hex>`, generated internally from a
+  timezone-aware UTC time + `secrets.token_hex(4)`; strict validation (ASCII-only classes — `\d` would also match
+  non-ASCII digits that `strptime` accepts — and a real calendar timestamp); never taken from user input.
+- **Revision contract** (`backend/app/backup/schema_revision.py`): `observed_revision_from_rows` accepts exactly one
+  `alembic_version` row with one valid id (`[A-Za-z0-9_]{1,32}`, matching `VARCHAR(32)`); `resolve_expected_head`
+  reads the repository scripts with Alembic `ScriptDirectory` only (no database, `env.py` never run) and requires
+  exactly one head; unreadable / cyclic / broken scripts raise a typed error; `check_revision(observed, expected)` —
+  exact equality, no override parameter.
+- **Local evidence v1** (`backend/app/backup/evidence.py`): `CompleteRunEvidence` (format
+  `plan-estimate/local-db-backup/v1`: run_id; UTC timestamps started / snapshot exported / dump completed / completed,
+  non-decreasing; database name, server version + number, observed revision, expected head — equal, status counts
+  exactly FAILED / PENDING / READY; snapshot method, READY-set format, `ready_count`, `ready_set_sha256` — consistent
+  with the fixed empty-set digest and with the READY status count of the same snapshot; pg_dump version line;
+  plaintext SHA-256 / size (local only, D5); artifact name, `age`, age version, recipient **count** 1–32, SHA-256,
+  size; diagnostics: snapshot id and session tag, diagnostic only) and `FailedRunEvidence` (format
+  `plan-estimate/local-db-backup-failure/v1`: run_id, started / failed timestamps, stage enum, stable error code enum,
+  `plaintext_retained`, `artifact_valid`, `partials_present` — no message, stderr, path, DSN or environment field can
+  exist). Error codes are derived from the exception **type** only. Canonical JSON: sorted keys, compact separators,
+  ASCII, `allow_nan=False`, integers only (bool rejected), one trailing `\n`; every string is pattern-checked and
+  length-capped.
 
 ## 17. Stage 14D PASS criteria
 
