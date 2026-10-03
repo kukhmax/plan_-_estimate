@@ -6,8 +6,8 @@
 > 14D.2C (backup execution image / container contract, §16) — COMPLETE, OWNER LOCAL IMAGE / RUNTIME VERIFIED (linux/amd64,
 > 2026-10-03), owner accepted. Not yet proven: ARM64 production image, real PostgreSQL topology end-to-end,
 > production DB role, production backup execution. 14D.2D (local backup orchestrator, owner decisions D1–D6 / corrections
-> C1–C4) — IN PROGRESS: 14D.2D.1 pure contracts (§16.3) complete; 14D.2D.2 data root / lock / stale work / promotion
-> (§16.4) implemented. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
+> C1–C4) — IN PROGRESS: 14D.2D.1 pure contracts (§16.3) and 14D.2D.2 data root / lock / stale work / promotion
+> (§16.4) complete; 14D.2D.3 local orchestration + `db-dump` (§16.5) implemented. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
 > §16 image / container contract, nothing in this document is implemented, configured or
 > verified yet: no backup tooling, no cloud resources, no credentials, no schedule. Executable procedures stay
 > **DRAFT** until the sub-stage that verifies them.
@@ -192,6 +192,13 @@ is open; a transaction that already imported it keeps it after the exporter ends
 own setup (each parallel worker would import it again) and that moment is not observable from outside, so the
 earliest safe release point the primitive relies on is **pg_dump's exit**. `BEGIN → export → COMMIT/close → later
 pg_dump --snapshot` is invalid and is never used.
+
+**`after_export(snapshot_id)` — production lifecycle hook (since 14D.2D.3; not a test-only seam):** it is awaited
+after a successful `pg_export_snapshot()` and the transaction-mode assertions, **while the exporter transaction is
+open**, **before** the READY inventory and **before** pg_dump. Work that must see the exported snapshot runs here —
+14D.2D.3 imports the snapshot on a second connection to read the Alembic revision and metadata and enforces the
+schema revision (§16.5). If the hook raises, the snapshot-bound dump aborts before pg_dump starts and the normal
+exporter rollback / close cleanup runs. A future refactor must keep this hook and its position.
 
 **Success / failure contract:** the dump is accepted only on exit status 0 **and** the plain-format completion marker
 (`-- PostgreSQL database dump complete`) within the last 4 KiB; only then is `<output>.partial` renamed. On a
@@ -621,6 +628,59 @@ parameter (container `/backup`, tests a temporary directory); no host path is ha
   overwrite; it is a failed run requiring operator inspection. (`promoted=False`: the run is still in `work/`.)
 - Compose runtime behaviour of the new mount is **not** proven by YAML parsing; it is part of the owner E2E
   (14D.2D.5).
+
+### 16.5 Local backup orchestration and `db-dump` (Stage 14D.2D.3)
+
+Implementation: `backend/app/backup/orchestrator.py` (`BackupOrchestrator`), `backend/app/backup/snapshot_metadata.py`,
+`backend/app/backup/db_dump_command.py`; command `python -m app.backup db-dump` (`preflight` unchanged). It sequences
+the accepted primitives and reimplements none of them; 14D.2A and 14D.2B are unchanged.
+
+**Order:** A preflight (inherited process environment equals the `PgConnectionConfig` libpq environment, passfile
+valid, `pg_dump --version` probe) → B lock (`RunLock.acquire` validates the data root before opening `run.lock` in
+it) → C `prepare()` under the lock → D stale-work check → E expected head (offline) → F `run_id` + `work/<run_id>/`
+→ G 14D.2A `snapshot_bound_dump` with the metadata hook → H 14D.2B `encrypt_dump_artifact` → I complete
+`local-run.json` (exclusive, 0600, fsync file + run directory) → J promotion (last). Failures before F have no
+`run_id` and write no evidence.
+
+**Same-snapshot metadata (D4):** the 14D.2A `after_export` hook runs while the exporter transaction is open, before
+the READY inventory and before pg_dump. It opens a second asyncpg connection (same passfile DSN, application name
+`<tag>-meta`), runs `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY`, then — as the first statement —
+`SET TRANSACTION SNAPSHOT '<id>'` (the only interpolated SQL; the id must match the strict 14D.2D.1 pattern), asserts
+the transaction mode, and reads exactly one `alembic_version` row, `photo_assets` counts per status (FAILED / PENDING /
+READY only; unknown or duplicate statuses, negative or non-integer counts are refused), `current_database()`,
+`server_version`, `server_version_num`; then `ROLLBACK` and close on every path (timeout / cancellation included).
+The hook records `snapshot_exported_at` and enforces **observed revision == expected head inside the hook**, so a
+mismatch aborts before the READY inventory and before pg_dump starts; 14D.2A then releases the exporter. After the
+dump the metadata server major must equal 14D.2A's server major.
+
+**Evidence:** `local-run.json` (CompleteRunEvidence v1) is built only from actual values — metadata, 14D.2A READY and
+dump results, 14D.2B result, the pg_dump version probe — and written only after encryption succeeded, before
+promotion. From F on, every failure — cancellation included — writes best-effort
+`evidence/<run_id>.failed.json` (FailedRunEvidence v1: stage, stable code by exception type, `plaintext_retained`,
+`artifact_valid`, `partials_present` derived from the run directory's names); exception text is never serialized;
+if writing it fails, only the error type is logged and the original failure stays primary. Additive error codes:
+`LOCK_HELD`, `STALE_WORK`, `PG_DUMP_TOOL_UNUSABLE`, `SNAPSHOT_METADATA_INVALID`, `WORKSPACE_UNSAFE`,
+`RUN_DIRECTORY_EXISTS`, `CROSS_FILESYSTEM`, `PROMOTION_FAILED`, `PROMOTION_NOT_DURABLE`,
+`PROMOTION_DURABILITY_UNCONFIRMED`, `EVIDENCE_WRITE_FAILED`, `EVIDENCE_INVALID`.
+
+**Failure semantics:** nothing is retried, cleaned up or moved back; a remaining `work/<run_id>/` is stale work for
+the operator. `PlaintextCleanupError` (artifact valid, plaintext present) fails the run without promotion
+(`plaintext_retained=true`, `artifact_valid=true`). `DurabilityError(promoted=False)` → `PROMOTION_NOT_DURABLE`,
+run stays in `work/`; `DurabilityError(promoted=True)` → `PROMOTION_DURABILITY_UNCONFIRMED`, exit 7, operator
+inspection — never re-promoted or overwritten.
+
+**Signals:** SIGTERM / SIGINT cancel the top-level task (`loop.add_signal_handler`, removed afterwards; no
+`os._exit`), so the 14D.2A / 14D.2B protected cleanup runs (child kill + reap, tagged-session termination, exporter
+rollback), `CANCELLED` failure evidence is written when a run exists, the lock is released by its context manager,
+nothing is promoted. Compose `stop_grace_period: 45s` covers the cleanup timeouts.
+
+**Exit codes:** 0 success · 1 backup failed · 2 usage · 3 lock held · 4 stale work · 5 preflight / configuration (no
+run) · 6 interrupted · 7 promotion durability unconfirmed. Output is a one-line structured summary (run id, stage,
+code, counts, artifact SHA-256 / size) — never environment, DSN, password, recipients or exception text.
+
+**Not in 14D.2D.3:** disk-space sizing policy (deferred; `pg_database_size()` is not used); PostgreSQL role /
+privilege proof and real PostgreSQL proof of the orchestrated path (14D.2D.4); Compose topology E2E, incl.
+`renameat2` on the real bind mount (14D.2D.5); cloud, restore, scheduling, production.
 
 ## 17. Stage 14D PASS criteria
 

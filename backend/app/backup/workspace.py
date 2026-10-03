@@ -44,6 +44,7 @@ LOCK_FILE = "run.lock"
 SUBDIRS = (WORK_DIR, ENCRYPTED_DIR, EVIDENCE_DIR)
 PLAINTEXT_DUMP_NAME = "plan-estimate.sql"
 LOCAL_EVIDENCE_NAME = "local-run.json"
+FAILED_EVIDENCE_SUFFIX = ".failed.json"
 DIR_MODE = 0o700
 FILE_MODE = 0o600
 STALE_NAMES_REPORTED = 5
@@ -88,6 +89,10 @@ class CrossFilesystemError(WorkspaceError):
 
 class PromotionError(WorkspaceError):
     """Promotion did not happen; the run directory is still in work/."""
+
+
+class EvidenceWriteError(WorkspaceError):
+    """A local evidence file could not be written durably (or already exists)."""
 
 
 class DurabilityError(WorkspaceError):
@@ -282,6 +287,66 @@ class BackupDataRoot:
         finally:
             os.close(root_fd)
 
+    def write_run_evidence(self, run_id: str, data: bytes) -> Path:
+        """work/<run_id>/local-run.json -- exclusive, 0600, fsynced with its directory."""
+        run_id = validate_run_id(run_id)
+        uid = _euid(self.euid)
+        root_fd = _open_root(self.path, uid)
+        try:
+            work_fd = _open_subdir(root_fd, WORK_DIR, euid=uid)
+            try:
+                run_fd = _open_dir(run_id, "work/<run_id>", dir_fd=work_fd, euid=uid)
+                try:
+                    _write_private_file(run_fd, LOCAL_EVIDENCE_NAME, data)
+                finally:
+                    os.close(run_fd)
+            finally:
+                os.close(work_fd)
+        finally:
+            os.close(root_fd)
+        return self.path / WORK_DIR / run_id / LOCAL_EVIDENCE_NAME
+
+    def write_failure_evidence(self, run_id: str, data: bytes) -> Path:
+        """evidence/<run_id>.failed.json -- exclusive, 0600, fsynced with its directory."""
+        run_id = validate_run_id(run_id)
+        uid = _euid(self.euid)
+        root_fd = _open_root(self.path, uid)
+        try:
+            evidence_fd = _open_subdir(root_fd, EVIDENCE_DIR, euid=uid)
+            try:
+                _write_private_file(evidence_fd, f"{run_id}{FAILED_EVIDENCE_SUFFIX}", data)
+            finally:
+                os.close(evidence_fd)
+        finally:
+            os.close(root_fd)
+        return self.path / EVIDENCE_DIR / f"{run_id}{FAILED_EVIDENCE_SUFFIX}"
+
+    def run_entry_names(self, run_id: str, *, promoted: bool) -> frozenset[str]:
+        """Names directly inside work/<run_id> (or encrypted/<run_id> when
+        promoted); empty if it does not exist. Names only: nothing is read,
+        followed or traversed."""
+        run_id = validate_run_id(run_id)
+        uid = _euid(self.euid)
+        root_fd = _open_root(self.path, uid)
+        try:
+            parent_fd = _open_subdir(root_fd, ENCRYPTED_DIR if promoted else WORK_DIR, euid=uid)
+            try:
+                try:
+                    run_fd = os.open(run_id, _DIR_FLAGS, dir_fd=parent_fd)
+                except (FileNotFoundError, NotADirectoryError):
+                    return frozenset()
+                except OSError:
+                    raise UnsafeBackupPathError("the run directory cannot be opened") from None
+                try:
+                    with os.scandir(run_fd) as entries:
+                        return frozenset(entry.name for entry in entries)
+                finally:
+                    os.close(run_fd)
+            finally:
+                os.close(parent_fd)
+        finally:
+            os.close(root_fd)
+
     def _promote(self, run_id: str, work_fd: int, encrypted_fd: int, uid: int) -> Path:
         try:
             source_st = os.stat(run_id, dir_fd=work_fd, follow_symlinks=False)
@@ -323,6 +388,31 @@ class BackupDataRoot:
                     f"run promoted, but fsync of {name} failed; durability not confirmed", promoted=True
                 ) from None
         return self.path / ENCRYPTED_DIR / run_id
+
+
+def _write_private_file(dir_fd: int, name: str, data: bytes) -> None:
+    """Exclusive create (never overwrite, never follow a symlink), 0600 via
+    fchmod, full write, fsync(file), fsync(directory)."""
+    try:
+        fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, FILE_MODE, dir_fd=dir_fd)
+    except FileExistsError:
+        raise EvidenceWriteError(f"{name} already exists; refusing to overwrite") from None
+    except OSError as exc:
+        raise EvidenceWriteError(f"{name} cannot be created ({errno.errorcode.get(exc.errno or 0, 'error')})") from None
+    try:
+        os.fchmod(fd, FILE_MODE)
+        view = memoryview(data)
+        while view:
+            view = view[os.write(fd, view):]
+        _fsync(fd)
+    except OSError as exc:
+        raise EvidenceWriteError(f"{name} could not be written ({errno.errorcode.get(exc.errno or 0, 'error')})") from None
+    finally:
+        os.close(fd)
+    try:
+        _fsync(dir_fd)
+    except OSError:
+        raise EvidenceWriteError(f"directory fsync after writing {name} failed") from None
 
 
 def _lexists(name: str, dir_fd: int) -> bool:

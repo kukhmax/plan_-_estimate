@@ -121,6 +121,31 @@ def validate_snapshot_id(value: object) -> str:
     return _text(value, "snapshot_id", SNAPSHOT_ID_PATTERN, 64)
 
 
+def validate_database_name(value: object) -> str:
+    return _text(value, "database.name", _DB_NAME, 63)
+
+
+def validate_server_version(value: object) -> str:
+    return _text(value, "database.server_version", _SERVER_VERSION, 64)
+
+
+def validate_server_version_num(value: object) -> int:
+    return _count(value, "database.server_version_num", minimum=100000, maximum=9999999)
+
+
+def validate_status_counts(value: object) -> dict[str, int]:
+    """Exactly the canonical photo-asset statuses, each a non-negative integer."""
+    if not isinstance(value, dict) or tuple(sorted(value)) != PHOTO_ASSET_STATUSES:
+        raise EvidenceError(f"database.photo_asset_status_counts must have exactly {PHOTO_ASSET_STATUSES}")
+    for status, count in value.items():
+        _count(count, f"database.photo_asset_status_counts.{status}")
+    return dict(value)
+
+
+def validate_session_tag(value: object) -> str:
+    return _text(value, "diagnostics.session_tag", SESSION_TAG_PATTERN, 40)
+
+
 def canonical_json(document: dict[str, Any]) -> bytes:
     """Deterministic bytes: sorted keys, compact separators, ASCII, no NaN, trailing newline."""
     return (
@@ -141,9 +166,9 @@ class DatabaseFacts:
     photo_asset_status_counts: dict[str, int]
 
     def __post_init__(self) -> None:
-        _text(self.name, "database.name", _DB_NAME, 63)
-        _text(self.server_version, "database.server_version", _SERVER_VERSION, 64)
-        _count(self.server_version_num, "database.server_version_num", minimum=100000, maximum=9999999)
+        validate_database_name(self.name)
+        validate_server_version(self.server_version)
+        validate_server_version_num(self.server_version_num)
         try:
             validate_revision(self.alembic_revision, "database.alembic_revision")
             validate_revision(self.expected_alembic_head, "database.expected_alembic_head")
@@ -151,11 +176,7 @@ class DatabaseFacts:
             raise EvidenceError("database revision fields must be valid Alembic revision ids") from None
         if self.alembic_revision != self.expected_alembic_head:
             raise EvidenceError("a complete run requires alembic_revision == expected_alembic_head")
-        counts = self.photo_asset_status_counts
-        if not isinstance(counts, dict) or tuple(sorted(counts)) != PHOTO_ASSET_STATUSES:
-            raise EvidenceError(f"database.photo_asset_status_counts must have exactly {PHOTO_ASSET_STATUSES}")
-        for status, value in counts.items():
-            _count(value, f"database.photo_asset_status_counts.{status}")
+        validate_status_counts(self.photo_asset_status_counts)
 
 
 @dataclass(frozen=True)
@@ -210,7 +231,7 @@ class Diagnostics:
 
     def __post_init__(self) -> None:
         validate_snapshot_id(self.snapshot_id)
-        _text(self.session_tag, "diagnostics.session_tag", SESSION_TAG_PATTERN, 40)
+        validate_session_tag(self.session_tag)
 
 
 @dataclass(frozen=True)
@@ -335,6 +356,19 @@ class ErrorCode(enum.StrEnum):
     PLAINTEXT_CLEANUP_FAILED = "PLAINTEXT_CLEANUP_FAILED"
     CANCELLED = "CANCELLED"
     UNEXPECTED_ERROR = "UNEXPECTED_ERROR"
+    # Stage 14D.2D.3 (additive): orchestration, metadata and workspace outcomes.
+    LOCK_HELD = "LOCK_HELD"
+    STALE_WORK = "STALE_WORK"
+    PG_DUMP_TOOL_UNUSABLE = "PG_DUMP_TOOL_UNUSABLE"
+    SNAPSHOT_METADATA_INVALID = "SNAPSHOT_METADATA_INVALID"
+    WORKSPACE_UNSAFE = "WORKSPACE_UNSAFE"
+    RUN_DIRECTORY_EXISTS = "RUN_DIRECTORY_EXISTS"
+    CROSS_FILESYSTEM = "CROSS_FILESYSTEM"
+    PROMOTION_FAILED = "PROMOTION_FAILED"
+    PROMOTION_NOT_DURABLE = "PROMOTION_NOT_DURABLE"
+    PROMOTION_DURABILITY_UNCONFIRMED = "PROMOTION_DURABILITY_UNCONFIRMED"
+    EVIDENCE_WRITE_FAILED = "EVIDENCE_WRITE_FAILED"
+    EVIDENCE_INVALID = "EVIDENCE_INVALID"
 
 
 # Most specific classes first (isinstance order matters).

@@ -675,7 +675,7 @@ connection, orchestrator or command.
   empty-digest check — each fails 1–4 tests.
 - **Status**: 14D.2D.1 COMPLETE — OWNER ACCEPTED; commit `dc2ad45` (pushed). Production unchanged; uploads OFF.
 
-### Stage 14D.2D.2 — data root, run lock, stale work, atomic promotion (2026-10-03, IMPLEMENTED — AWAITING OWNER REVIEW)
+### Stage 14D.2D.2 — data root, run lock, stale work, atomic promotion (2026-10-03, COMPLETE — OWNER ACCEPTED)
 
 Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.4. No PostgreSQL, orchestrator, command, cloud or Docker run.
 
@@ -699,7 +699,36 @@ Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.4. No PostgreSQL, orchest
   missing run-dir / `encrypted/` fsync, shared instead of exclusive lock, disabled stale check, no `fchmod` on new
   directories, repairing instead of refusing unsafe directories, lock opened without `O_NOFOLLOW`, removed
   destination pre-check — each fails 1–9 tests.
-- **Status**: 14D.2D.2 IMPLEMENTED — awaiting owner review / commit approval. 14D.2D.3 not started. Production
+- **Status**: 14D.2D.2 COMPLETE — OWNER ACCEPTED; commit `3829af7` (pushed). Production unchanged; uploads OFF.
+
+### Stage 14D.2D.3 — local backup orchestration and `db-dump` (2026-10-03, IMPLEMENTED — AWAITING OWNER REVIEW)
+
+Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.5. Integrates 14D.2A / 2B / 2C / 2D.1 / 2D.2 locally; 14D.2A and
+14D.2B unchanged. No Docker, real PostgreSQL, role, cloud or production work.
+
+- **Added**: `backend/app/backup/orchestrator.py`, `backend/app/backup/snapshot_metadata.py`,
+  `backend/app/backup/db_dump_command.py`; tests `test_stage14d2d3_orchestrator.py`,
+  `test_stage14d2d3_snapshot_metadata.py`, `test_stage14d2d3_command.py`.
+- **Changed**: `backend/app/backup/__main__.py` (`db-dump` subcommand; `preflight` unchanged);
+  `backend/app/backup/evidence.py` (public validators reused by the metadata reader, behaviour-identical; additive
+  error codes); `backend/app/backup/workspace.py` (exclusive 0600 fsynced evidence writers, names-only run-entry
+  listing, `EvidenceWriteError`).
+- **Key properties**: same-snapshot metadata through `SET TRANSACTION SNAPSHOT` on a second connection inside the
+  14D.2A hook; revision mismatch aborts before pg_dump (test asserts pg_dump never started); complete evidence
+  before promotion; best-effort allowlisted failure evidence from the first moment a run exists; `promoted=True`
+  = operator-inspection state (exit 7), never retried; SIGTERM / SIGINT → task cancellation → protected cleanup,
+  `CANCELLED` evidence, lock released.
+- **Verification** (isolated CPython 3.12.14 venv): 14D.2D.3 **85 passed** (orchestrator 18, metadata 43, command 24
+  incl. a real SIGTERM); 14D.2D.1 + 2D.2 + 2C 343 passed; 14D.2A / 2B + pin guard 162 passed, 12 skipped (opt-in) —
+  all after the final edits; full backend **3011 passed, 22 skipped, 0 failed**, collected before the final
+  whitespace-only edit (one trailing blank line removed from `orchestrator.py`); mypy `--strict` clean on
+  `app/backup`; Ruff clean (classic and Ruff 0.16 defaults; two intentional best-effort `except Exception` marked
+  `noqa: BLE001`); `git diff --check` clean. Mutation check in a scratch copy: revision check removed from the hook,
+  promotion before evidence, promotion after `PlaintextCleanupError`, retried promotion on `DurabilityError`, no
+  `CANCELLED` evidence, lock not released, stale check skipped, `promoted` flag ignored — each fails 1–7 tests.
+- **Not proven yet**: real PostgreSQL behaviour of the orchestrated path and of the metadata snapshot import, backup
+  role privileges (14D.2D.4); Compose topology (14D.2D.5).
+- **Status**: 14D.2D.3 IMPLEMENTED — awaiting owner review / commit approval. 14D.2D.4 not started. Production
   unchanged; uploads OFF.
 
 ---

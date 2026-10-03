@@ -1,15 +1,16 @@
-"""Backup image entrypoint (Stage 14D.2C): `python -m app.backup <command>`.
+"""Backup image entrypoint: `python -m app.backup <command>`.
 
-Only a diagnostic `preflight` exists in 14D.2C; the database backup command
-is Stage 14D.2D. Nothing here starts a server, runs migrations, connects to
-a database or prints the environment: every reported value is selected
-explicitly and non-secret.
+Nothing here starts a server, runs migrations or prints the environment:
+every reported value is selected explicitly and non-secret.
 
-    preflight              tool versions (Python 3.12, pg_dump 16, age 1.3.2) and effective UID/GID (non-root)
-    preflight --workspace  additionally: mounted work/encrypted/evidence roots, connection settings,
+    preflight              (14D.2C) tool versions (Python 3.12, pg_dump 16, age 1.3.2) and effective
+                           UID/GID (non-root); never connects to a database
+    preflight --workspace  additionally: data root and work/encrypted/evidence, connection settings,
                            pgpass file and age recipients (validated, never printed)
+    db-dump                (14D.2D.3) one local database backup run -- see app.backup.db_dump_command
+                           for its exit codes
 
-Exit status 0 when every check passes, 1 otherwise, 2 on usage errors.
+preflight exits 0 when every check passes, 1 otherwise; 2 on usage errors.
 """
 
 import argparse
@@ -147,7 +148,12 @@ def main(argv: Sequence[str] | None = None, *, env: Mapping[str, str] | None = N
     commands = parser.add_subparsers(dest="command", required=True)
     preflight = commands.add_parser("preflight", help="report tool versions and identity; never prints secrets")
     preflight.add_argument("--workspace", action="store_true", help="also check mounts, connection and passfile")
+    commands.add_parser("db-dump", help="run one local encrypted database backup into the data root")
     args = parser.parse_args(argv)
+    if args.command == "db-dump":
+        from app.backup.db_dump_command import run_db_dump
+
+        return run_db_dump(os.environ if env is None else env, sys.stdout if out is None else out)
     return run_preflight(
         workspace=args.workspace, env=os.environ if env is None else env, out=sys.stdout if out is None else out
     )
