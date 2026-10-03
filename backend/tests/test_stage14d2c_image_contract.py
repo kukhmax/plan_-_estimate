@@ -390,22 +390,40 @@ def test_resource_limits(backup_service):
 
 
 def test_only_approved_mounts(backup_service):
+    """Stage 14D.2D.2 (owner decision D1): ONE data mount at /backup (atomic
+    work -> encrypted promotion needs one mount), pgpass separate and read-only."""
     mounts = backup_service["volumes"]
     root = "${BACKUP_HOST_ROOT:-/nonexistent/plan-estimate-backup-root-not-configured}"
     binds = {m["target"]: m for m in mounts if m["type"] == "bind"}
-    assert set(binds) == {"/backup/work", "/backup/encrypted", "/backup/evidence", "/run/secrets/pgpass"}
-    assert binds["/backup/work"]["source"] == f"{root}/work"
-    assert binds["/backup/encrypted"]["source"] == f"{root}/encrypted"
-    assert binds["/backup/evidence"]["source"] == f"{root}/evidence"
+    assert set(binds) == {"/backup", "/run/secrets/pgpass"}
+    assert binds["/backup"]["source"] == f"{root}/data"
+    assert not binds["/backup"].get("read_only")
     assert binds["/run/secrets/pgpass"]["source"] == f"{root}/secrets/pgpass"
     assert binds["/run/secrets/pgpass"]["read_only"] is True
-    for target in ("/backup/work", "/backup/encrypted", "/backup/evidence"):
-        assert not binds[target].get("read_only")
     for mount in binds.values():
         assert mount["bind"] == {"create_host_path": False}
     tmpfs = [m for m in mounts if m["type"] == "tmpfs"]
     assert tmpfs == [{"type": "tmpfs", "target": "/tmp", "tmpfs": {"size": 16777216}}]
-    assert len(mounts) == 5
+    assert len(mounts) == 3
+
+
+def test_no_individual_data_subdirectory_mounts_remain(backup_service):
+    targets = [m["target"] for m in backup_service["volumes"]]
+    for old in ("/backup/work", "/backup/encrypted", "/backup/evidence"):
+        assert old not in targets
+    sources = [str(m.get("source", "")) for m in backup_service["volumes"]]
+    assert not any(src.endswith(("/work", "/encrypted", "/evidence")) for src in sources)
+
+
+def test_secrets_are_outside_the_data_mount(backup_service):
+    binds = {m["target"]: m["source"] for m in backup_service["volumes"] if m["type"] == "bind"}
+    data, secret = binds["/backup"], binds["/run/secrets/pgpass"]
+    assert not secret.startswith(data + "/")
+    assert not "/run/secrets/pgpass".startswith("/backup/")
+
+
+def test_stop_grace_period_allows_protected_cleanup(backup_service):
+    assert backup_service["stop_grace_period"] == "45s"
 
 
 def test_no_socket_data_volume_repository_or_frontend_mounts(backup_service):

@@ -6,7 +6,8 @@
 > 14D.2C (backup execution image / container contract, §16) — COMPLETE, OWNER LOCAL IMAGE / RUNTIME VERIFIED (linux/amd64,
 > 2026-10-03), owner accepted. Not yet proven: ARM64 production image, real PostgreSQL topology end-to-end,
 > production DB role, production backup execution. 14D.2D (local backup orchestrator, owner decisions D1–D6 / corrections
-> C1–C4) — IN PROGRESS: 14D.2D.1 pure contracts (§16.3) implemented. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
+> C1–C4) — IN PROGRESS: 14D.2D.1 pure contracts (§16.3) complete; 14D.2D.2 data root / lock / stale work / promotion
+> (§16.4) implemented. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
 > §16 image / container contract, nothing in this document is implemented, configured or
 > verified yet: no backup tooling, no cloud resources, no credentials, no schedule. Executable procedures stay
 > **DRAFT** until the sub-stage that verifies them.
@@ -474,13 +475,16 @@ repository, frontend or Caddy mounts; environment limited to `PGHOST`, `PGPORT`,
 `PGSSLMODE`, `PGPASSFILE`, `BACKUP_AGE_RECIPIENTS` (no `env_file`, no application secrets). Variables use
 fail-closed defaults instead of `${VAR:?}` because Compose interpolates the whole file and a required variable would
 break normal deployments: unset `BACKUP_UID` runs as `65534`, unset `BACKUP_HOST_ROOT` points at a non-existent path
-and the bind mounts (`create_host_path: false`) are refused. Settings come from a separate backup env file
+and the bind mounts (`create_host_path: false`) are refused. `stop_grace_period: 45s` (14D.2D.2, D6) leaves room for
+the protected 14D.2A / 14D.2B cleanup after SIGTERM. Settings come from a separate backup env file
 (`backup.env.example`, placeholders only), passed as an additional `--env-file`.
 
-**Workspace / mounts (host root recommended `/home/ubuntu/backups/plan-estimate/db-backup/`, 0700):** `work/` →
-`/backup/work` (rw; per-run plaintext and partials, lifecycle in 14D.2D), `encrypted/` → `/backup/encrypted` (rw;
-completed artifacts survive `--rm`), `evidence/` → `/backup/evidence` (rw; no secrets), `secrets/pgpass` →
-`/run/secrets/pgpass` (**read-only**). Container paths do not depend on the host user name.
+**Workspace / mounts (host root recommended `/home/ubuntu/backups/plan-estimate/db-backup/`, 0700) — corrected in
+14D.2D.2:** **one** data mount `data/` → `/backup` (rw; contains `work/`, `encrypted/`, `evidence/`, `run.lock`;
+completed artifacts survive `--rm`) and `secrets/pgpass` → `/run/secrets/pgpass` (**read-only**), secrets outside the
+data root. The 14D.2C layout (three separate bind mounts for work / encrypted / evidence) was replaced because
+`rename(2)` across mount points fails with `EXDEV` even on one host filesystem, so a run could not be promoted
+atomically (§16.4). Container paths are unchanged and do not depend on the host user name.
 
 ### 16.1 Database connection contract (`backend/app/backup/pg_connection.py`)
 
@@ -539,8 +543,8 @@ DB role and its minimum privileges, any production backup execution, the backup 
 enablement (14E).
 
 **Preflight (`python -m app.backup preflight [--workspace]`):** reports Python (3.12 expected), pg_dump (major 16),
-age (1.3.2) and effective UID / GID (non-root required); `--workspace` also checks the three mount roots (private,
-writable, owned by the effective UID), the connection settings, the pgpass file (validated, never printed) and the
+age (1.3.2) and effective UID / GID (non-root required); `--workspace` also checks the data root and its `work/`,
+`encrypted/`, `evidence/` directories (private, writable, owned by the effective UID), the connection settings, the pgpass file (validated, never printed) and the
 age recipients (count only). Exit 0 / 1. It never prints the environment and never connects to a database.
 
 ### 16.3 Local backup run contracts (Stage 14D.2D.1 — pure, no I/O)
@@ -577,6 +581,46 @@ Compose / Dockerfile contract in a later slice (14D.2D.2+); 14D.2D.1 implements 
   exist). Error codes are derived from the exception **type** only. Canonical JSON: sorted keys, compact separators,
   ASCII, `allow_nan=False`, integers only (bool rejected), one trailing `\n`; every string is pattern-checked and
   length-capped.
+
+### 16.4 Data root, run lock, stale work, atomic promotion (Stage 14D.2D.2)
+
+Implementation: `backend/app/backup/workspace.py` (`BackupDataRoot`, `RunLock`, `RunWorkspace`). The data root is a
+parameter (container `/backup`, tests a temporary directory); no host path is hard-coded.
+
+- **Data root**: absolute, not `/`, opened with `O_NOFOLLOW | O_DIRECTORY`, checked with `fstat` (directory, owned by
+  the effective UID, no group / other bits). `prepare()` opens `work/`, `encrypted/`, `evidence/` relative to the
+  root fd the same way; a **missing** one is created with `mkdir` + `fchmod 0700` (umask-independent), an existing
+  unsafe one (symlink, file, broader mode, foreign owner) is **refused, never chmod-ed**. `evidence/` is only
+  reserved here; failure-evidence writing is a later slice.
+- **Run lock**: `fcntl.flock(fd, LOCK_EX | LOCK_NB)` on `run.lock` (created `O_EXCL` 0600 + `fchmod`, otherwise opened
+  `O_NOFOLLOW`, must be a regular private file owned by the effective UID). The fd stays open for the run; release is
+  idempotent; contention raises `LockHeldError` immediately. The **file persists**, the **kernel lock does not**: it
+  ends when the fd is closed or the process / container dies, so there is no stale lock and no cleanup mechanism.
+  No container-name or PostgreSQL advisory locking.
+- **Stale work (fail closed)**: any entry in `work/` → `StaleWorkError` (entry count + up to five canonical run ids;
+  no contents, no host paths). Names are only enumerated: nothing is traversed, followed, inspected, renamed or
+  deleted — the operator inspects stale work manually. There is no automatic cleanup or recovery.
+- **Run workspace**: `create_run(run_id)` validates the id (14D.2D.1), creates `work/<run_id>/` with `mkdir`
+  (fails if anything exists there — never reused, overwritten, deleted or retried) + `fchmod 0700`, fsyncs it and
+  `work/`. `RunWorkspace` derives the fixed names `plan-estimate.sql`, `plan-estimate.sql.gz.age`, `local-run.json`.
+- **Promotion**: `promote(run_id)` — source must be a real private directory, destination must not exist, `work/`,
+  `encrypted/` and the source must share `st_dev` (otherwise `CrossFilesystemError`, no copy). Sequence: files were
+  fsynced by their writers → `fsync(work/<run_id>)` → `renameat2(RENAME_NOREPLACE)` (atomic, refuses any existing
+  destination; plain `rename(2)` would silently replace an empty directory) → `fsync(work/)` → `fsync(encrypted/)`.
+  A failed rename leaves the run in `work/`; an fsync failure is surfaced (`DurabilityError.promoted`). There is no
+  copy and no plain-rename fallback. Promotion does not inspect content: only the orchestrator decides a run is
+  complete (after the encrypted artifact and `local-run.json` are durable) and calls it.
+- **Linux runtime requirement (intentional):** local atomic promotion v1 requires Linux `renameat2` with
+  `RENAME_NOREPLACE` (glibc, via `ctypes`); the backup runtime is deliberately Linux / glibc based. `ENOSYS`,
+  `EINVAL` or any filesystem that does not support the flag is **fatal** (`PromotionError`, run stays in `work/`).
+  There is **no** fallback to plain `rename`, `replace` or copy. Support on the actual Compose bind mount is **not
+  claimed yet**; it is proven by the 14D.2D.5 E2E (amd64 locally, ARM64 later).
+- **Post-rename durability invariant:** `DurabilityError(promoted=True)` means the rename succeeded — the run may
+  already exist as `encrypted/<run_id>/` — but `fsync(work/)` or `fsync(encrypted/)` failed, so durable promotion is
+  unconfirmed. Future orchestration MUST NOT treat this as "nothing was promoted" and MUST NOT retry, re-promote or
+  overwrite; it is a failed run requiring operator inspection. (`promoted=False`: the run is still in `work/`.)
+- Compose runtime behaviour of the new mount is **not** proven by YAML parsing; it is part of the owner E2E
+  (14D.2D.5).
 
 ## 17. Stage 14D PASS criteria
 

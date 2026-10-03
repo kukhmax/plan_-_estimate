@@ -654,7 +654,7 @@ pipeline, no database connection, no production role, credential or key, no Dock
   Stage 14D.2 as a whole remains **IN PROGRESS**. **Next: 14D.2D** (not started; explicit owner approval required).
 - **Commit**: `1fb980c` (owner accepted, pushed).
 
-### Stage 14D.2D.1 — local backup run contracts (2026-10-03, IMPLEMENTED — AWAITING OWNER REVIEW)
+### Stage 14D.2D.1 — local backup run contracts (2026-10-03, COMPLETE — OWNER ACCEPTED)
 
 14D.2D audit accepted with owner decisions D1–D6 and corrections C1–C4 (`docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`
 §16.3). Slice 14D.2D.1 = pure contracts only: no I/O, lock, workspace, Compose / Dockerfile change, database
@@ -673,9 +673,34 @@ connection, orchestrator or command.
   check in a scratch copy: Unicode digits, complete run with mismatched revision, missing READY cross-check, unsorted
   or non-ASCII JSON, bool as integer, multiple heads, disabled mismatch policy, multi-row `alembic_version`, missing
   empty-digest check — each fails 1–4 tests.
-- **Status**: 14D.2D.1 IMPLEMENTED — awaiting owner review / commit approval. 14D.2D.2 not started. Production
+- **Status**: 14D.2D.1 COMPLETE — OWNER ACCEPTED; commit `dc2ad45` (pushed). Production unchanged; uploads OFF.
+
+### Stage 14D.2D.2 — data root, run lock, stale work, atomic promotion (2026-10-03, IMPLEMENTED — AWAITING OWNER REVIEW)
+
+Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.4. No PostgreSQL, orchestrator, command, cloud or Docker run.
+
+- **Added**: `backend/app/backup/workspace.py` (`BackupDataRoot.prepare / acquire_lock / assert_no_stale_work /
+  create_run / promote`, `RunLock`, `RunWorkspace`, typed `WorkspaceError` family); tests
+  `test_stage14d2d2_workspace.py`.
+- **Changed (D1, D6 — intentional correction of the accepted 14D.2C contract)**: `docker-compose.prod.yml` backup
+  service now has ONE data bind mount `<root>/data → /backup` (instead of three for work / encrypted / evidence;
+  `rename(2)` across mount points fails with `EXDEV`) plus the unchanged read-only pgpass mount, and
+  `stop_grace_period: 45s`; `backend/app/backup/layout.py` models the data root (preflight checks root + three
+  directories); `backup.env.example` documents `data/` and `secrets/` as separate subtrees; 14D.2C contract and
+  preflight tests updated accordingly. Other services unchanged.
+- **Design detail**: promotion uses Linux `renameat2(RENAME_NOREPLACE)` (ctypes, glibc) because `rename(2)` replaces an
+  existing empty directory; unsupported → fail closed, no fallback.
+- **Verification** (isolated CPython 3.12.14 venv): 14D.2D.2 **63 passed** (lock contention proven with separate
+  processes, including SIGKILL of the holder); 14D.2D.1 + 14D.2C (updated contract / preflight) 280 passed;
+  14D.2A / 2B + pin guard 162 passed, 12 skipped — all re-run after the final edits; full backend **2926 passed,
+  22 skipped, 0 failed**, collected before the last two behaviour-neutral style edits (`typing.Self` return
+  annotation, combined `with` in one test); mypy clean (`--strict` on `app/backup`); Ruff clean (classic and Ruff 0.16
+  defaults); `git diff --check` clean. Mutation check in a scratch copy: plain rename semantics, no `st_dev` check,
+  missing run-dir / `encrypted/` fsync, shared instead of exclusive lock, disabled stale check, no `fchmod` on new
+  directories, repairing instead of refusing unsafe directories, lock opened without `O_NOFOLLOW`, removed
+  destination pre-check — each fails 1–9 tests.
+- **Status**: 14D.2D.2 IMPLEMENTED — awaiting owner review / commit approval. 14D.2D.3 not started. Production
   unchanged; uploads OFF.
-  Production unchanged; uploads OFF.
 
 ---
 

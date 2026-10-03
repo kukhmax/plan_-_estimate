@@ -34,7 +34,7 @@ def bin_dir(tmp_path) -> Path:
 
 
 def workspace(tmp_path: Path) -> BackupLayout:
-    layout = BackupLayout(work=tmp_path / "work", encrypted=tmp_path / "encrypted", evidence=tmp_path / "evidence")
+    layout = BackupLayout(root=tmp_path / "data")
     for path in layout.writable_dirs().values():
         path.mkdir(mode=0o700)
     return layout
@@ -136,10 +136,10 @@ def test_workspace_preflight_refuses_password_in_environment(tmp_path, bin_dir):
 
 
 def test_missing_mounts_are_reported(tmp_path, bin_dir):
-    layout = BackupLayout(work=tmp_path / "w", encrypted=tmp_path / "e", evidence=tmp_path / "v")
+    layout = BackupLayout(root=tmp_path / "not-mounted")
     code, text = run(workspace=True, env=full_env(bin_dir, passfile(tmp_path)), layout=layout,
                      euid=os.geteuid(), egid=os.getegid())
-    assert code == 1 and text.count("missing (not mounted?)") == 3
+    assert code == 1 and text.count("missing (not mounted?)") == 4
 
 
 def test_private_dir_problem(tmp_path):
@@ -158,7 +158,7 @@ def test_private_dir_problem(tmp_path):
 def test_default_layout_paths_are_host_independent():
     layout = BackupLayout()
     assert {str(p) for p in layout.writable_dirs().values()} == {
-        "/backup/work", "/backup/encrypted", "/backup/evidence"
+        "/backup", "/backup/work", "/backup/encrypted", "/backup/evidence"
     }
 
 
