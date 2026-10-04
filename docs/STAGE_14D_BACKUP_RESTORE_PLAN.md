@@ -15,9 +15,11 @@
 > connectivity / semantics smoke and the IMDS gate (`docs/STAGE_14D4_CONNECTIVITY_SEMANTICS_SMOKE.md`) — **COMPLETE /
 > OWNER ACCEPTED** (2026-10-04). 14D.2E manifest v1 / COMPLETE.json / provenance core (§16.9) — **OWNER ACCEPTED**,
 > pure (no I/O). 14D.2F Oracle backup writer (§16.10) — implemented, **OWNER ACCEPTED**, live drill-bucket smoke on
-> the Oracle VM **PASS 9/9** (2026-10-04). Rest of 14D.2
-> (media sync, verify, restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no backup upload, no media copy, no restore tooling, no schedule exists yet. Executable procedures
-> stay **DRAFT** until the sub-stage that verifies them.
+> the Oracle VM **PASS 9/9** (2026-10-04). 14D.2G media sync R2 → Oracle (§16.11) — implemented and tested on
+> in-memory stores and the real S3 adapter; the live drill smoke is an owner step and has NOT been run yet. Rest of 14D.2
+> (verify, restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
+> run, no restore tooling and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
+> verifies them.
 >
 > Builds on: `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §13 (consistency model, OD-3),
 > `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` §14 (Oracle concept) and §17 (R9 gate),
@@ -997,6 +999,84 @@ overwrite / delete, masked 404, body-less HEAD errors) and on the §16.9 manifes
   `--target`; only `backend/` is mounted, so `.env.production` and other root-level secrets are not visible.
 - **Not in this stage:** reading R2, the media transfer loop and prior-run selection (14D.2G), `verify` (14D.2H),
   `restore` (14D.2I), production execution, schedule. Uploads stay OFF.
+
+### 16.11 Media sync R2 → Oracle (Stage 14D.2G)
+
+Implementation: `backend/app/backup/media_sync.py`; live smoke `backend/scripts/stage14d2g_media_sync_smoke.py`. Tests:
+`test_stage14d2g_media_sync.py` (60), `test_stage14d2g_smoke.py` (17). It composes the accepted pieces — READY set
+(14D.2A), `decide_provenance` / `VerifiedRun` (14D.2E), `put_verified` / `publish_run` (14D.2F) — into the copy loop of
+§5 and the failure behaviour of §15. A small manifest helper was added for it: `expected_content_type(role, asset_id,
+key)` (the 14B key layout, previously a private table); `target.retrying` is now a public alias of the retry helper.
+
+- **Input and unit of work.** `sync_media(source, target, assets=…, run_id, target_bucket, scratch_dir, prior, deep)`
+  takes the snapshot's READY assets and handles their three objects (original, display, thumbnail) one at a time, in
+  canonical order (asset id text, then role). Invalid input — duplicate asset, a key that is not valid for its role,
+  bad run id — is refused before any storage call.
+- **Target object missing → copy.** Download the source object into a fresh 0700 scratch directory, check the size
+  (all roles) and — for originals — the SHA-256 against the database row, then `put_verified` (create-only put, HEAD,
+  full re-download, SHA-256). Action `copied`, provenance `downloaded`. If an earlier, ambiguous attempt of this tool
+  already created the object, the identical bytes are proved and the line is `already_present` / `downloaded`.
+- **Target object present → admitted only per §8.** (a) *Inherit*: the prior run is sealed, lists this key with the
+  same size and trusted SHA-256, the object exists with that size and (originals) the recorded SHA-256 equals the
+  database row → `already_present`, `inherited:<run_id>`, nothing downloaded. (b) Otherwise (no prior run, `deep`,
+  key / size not recorded, …): the **source** object is downloaded and checked, the **target** object is downloaded,
+  and the two SHA-256 values must be equal; the line is `already_present` / `downloaded`. A target object of a
+  different size is refused on the HEAD size alone, without any download. *Why the source comparison:* the target is
+  write-once, so a same-size but different object (corruption, an aborted foreign write) would otherwise be recorded
+  with its own hash and locked into the backup for good, with the good source copy never written.
+- **Failures are per object and machine readable** (`ObjectFailure(asset_id, role, code)`; never a key, hash or
+  provider message): `MISSING_SOURCE` (evidence loss), `SOURCE_SIZE_MISMATCH`, `SOURCE_SHA_MISMATCH`,
+  `SOURCE_UNAVAILABLE`, `TARGET_CONFLICT` (never overwritten), `TARGET_VERIFICATION_FAILED`, `TARGET_UNAVAILABLE`,
+  `SOURCE_LISTING_FAILED`. The run continues so the report is complete (§15), but `MediaSyncResult.complete` is
+  False and `objects_for_publication()` raises `MediaSyncIncomplete`: a manifest or COMPLETE.json cannot be built from
+  a partial copy. A misconfigured store (any non-transient storage error: permission, bucket, disabled) aborts the
+  run at once (`SOURCE_MISCONFIGURED` / `TARGET_MISCONFIGURED`), as do 5 consecutive unavailable-store failures
+  (`STORAGE_UNAVAILABLE`; the streak resets on any other outcome). Unexpected exceptions (programming errors, a full
+  scratch disk, cancellation) are not translated: they propagate, scratch is removed, and the run has no seal.
+- **Source listing.** After the loop the source store is listed under `photos/v1/` once: `source_keys` is the number
+  of keys, `orphan_candidates` the number not in the required set (objects of PENDING / FAILED assets and objects
+  uploaded after the snapshot are therefore counted as candidates; nothing is copied or deleted). A listing failure
+  makes the run incomplete (the summary needs the counts).
+- **Prior run.** The prior run is named explicitly (`load_prior_run(target, run_id)`): it downloads
+  `runs/<run_id>/COMPLETE.json` and `manifest.jsonl` and applies `verify_run`. A missing, unsealed or inconsistent run
+  is a `PriorRunError`, never a silent "no prior run"; a persistent outage propagates as `MediaStorageUnavailable`.
+  `sync_media` additionally requires the prior run to be strictly earlier and written to the **same target bucket** (a
+  manifest from another bucket proves nothing about this one). Choosing the latest sealed run by listing `runs/` is
+  not part of this stage.
+- **Error report.** `MediaSyncResult.report_bytes()` is a canonical one-line JSON (`plan-estimate/media-sync-report/v1`):
+  run id, completeness, abort reason, counts, source / orphan counts, failures. It contains no key, hash or provider
+  text. Persisting it (local evidence directory) and the exit code belong to the command that drives the run; it is
+  not uploaded to the target (no new remote layout element).
+- **Test evidence.** Engine against in-memory source / target with fault injection (transient and persistent source
+  and target errors, an ambiguous put with and without effect, store corruption, objects invisible after the put,
+  misconfiguration, streaks, cancellation, scratch hygiene); the production `S3MediaStorage` as the source through a
+  fake boto3 client (download, paginated listing, response bodies closed, 404 → missing source); a mutation check —
+  20 deliberate defects in the engine, all caught (two initially survived and led to a stronger test and the removal
+  of an unreachable check); and a negative property: no key is ever written twice.
+- **Owner live smoke (not yet run).** `stage14d2g_media_sync_smoke.py` runs the production path R2 drill source →
+  Oracle drill bucket with synthetic assets (three good assets, three planted problems, two junk source keys): run 1
+  copies everything and is published; run 2 inherits everything with zero downloads from either store; run 3 (`deep`)
+  verifies all nine objects by download and compares them with the source; run 4 reports exactly the planted failures
+  (a missing source object, an original that differs from the database SHA-256, a target object holding other bytes),
+  is not publishable and leaves the planted target object untouched; the listing counts and the secret-free report
+  are checked. 11 checks, exit codes 0 PASS / 1 FAIL / 2 cannot run / 3 no instance principal. It refuses a bucket
+  without "drill" in its name and equal R2 and Oracle buckets. The synthetic R2 objects are deleted at the end; the
+  Oracle objects stay (no delete permission by design) and their prefixes are printed for the administrator.
+  Configuration: the R2 drill-source token in an env file (`R2_*`, as in 14D.4, chmod 600, outside the repository) and
+  `OCI_NAMESPACE`. Command (DRAFT until the owner run; dependency set resolved and the script's imports checked in a
+  clean environment, not yet run against the live stores):
+
+  ```bash
+  IMG='python:3.12.14-slim-trixie@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f'
+  RUN='pip install -q --no-cache-dir --target /tmp/deps "sqlalchemy[asyncio]==2.1.1" greenlet==3.5.6 pydantic==2.13.5 pydantic-settings==2.15.0 pyjwt==2.15.0 asyncpg==0.31.0 oci==2.187.1 boto3==1.43.103 botocore==1.43.103 s3transfer==0.19.2 urllib3==2.8.0 anyio==4.15.1 && PYTHONPATH=/tmp/deps python /app/scripts/stage14d2g_media_sync_smoke.py'
+  docker run --rm --network pe-upload --cap-drop ALL --security-opt no-new-privileges \
+    --user "$(id -u):$(id -g)" -e HOME=/tmp -e PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    --env-file <r2-drill-source-env-file> -e OCI_NAMESPACE -e PYTHONDONTWRITEBYTECODE=1 \
+    -v "$PWD/backend":/app:ro "$IMG" sh -c "$RUN"
+  ```
+- **Not in this stage:** the command that ties snapshot, dump, encryption, sync and publication together, local
+  evidence / exit codes, selecting the latest prior run, concurrency (v1 is strictly sequential), `verify` (14D.2H),
+  `restore` (14D.2I), the drill (14D.5), production runs (14D.6). Uploads stay OFF.
 
 ## 17. Stage 14D PASS criteria
 

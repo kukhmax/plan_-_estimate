@@ -324,6 +324,27 @@ def inherited_run_id(provenance: str) -> str | None:
     raise ManifestFormatError("sha_provenance must be 'downloaded' or 'inherited:<run_id>'")
 
 
+def expected_content_type(role: Role, asset_id: str, key: str) -> str:
+    """The content type the 14B key layout fixes for `key`; refuses a key that is not `role`'s key of `asset_id`."""
+    base = f"{PHOTO_KEY_PREFIX}{asset_id}/"
+    if not isinstance(key, str) or not key.startswith(base):
+        raise ManifestFormatError("key does not belong to asset_id")
+    name = key[len(base) :]
+    if role is Role.ORIGINAL:
+        stem, _, extension = name.partition(".")
+        content_type = _ORIGINAL_CONTENT_TYPE_BY_EXTENSION.get(extension)
+        if stem != "original" or content_type is None:
+            raise ManifestFormatError("key is not a valid original key")
+        return content_type
+    if role is Role.DISPLAY:
+        if name != "display.jpg":
+            raise ManifestFormatError("key is not the display key")
+        return DERIVATIVE_CONTENT_TYPE
+    if name != "thumb.jpg":
+        raise ManifestFormatError("key is not the thumbnail key")
+    return DERIVATIVE_CONTENT_TYPE
+
+
 @dataclass(frozen=True)
 class ManifestObject:
     asset_id: str
@@ -356,24 +377,7 @@ class ManifestObject:
             raise ManifestFormatError("a copied object is always verified by download (sha_provenance 'downloaded')")
 
     def _check_key_and_content_type(self) -> None:
-        base = f"{PHOTO_KEY_PREFIX}{self.asset_id}/"
-        if not isinstance(self.key, str) or not self.key.startswith(base):
-            raise ManifestFormatError("key does not belong to asset_id")
-        name = self.key[len(base) :]
-        if self.role is Role.ORIGINAL:
-            stem, _, extension = name.partition(".")
-            expected_type = _ORIGINAL_CONTENT_TYPE_BY_EXTENSION.get(extension)
-            if stem != "original" or expected_type is None:
-                raise ManifestFormatError("key is not a valid original key")
-        elif self.role is Role.DISPLAY:
-            expected_type = DERIVATIVE_CONTENT_TYPE
-            if name != "display.jpg":
-                raise ManifestFormatError("key is not the display key")
-        else:
-            expected_type = DERIVATIVE_CONTENT_TYPE
-            if name != "thumb.jpg":
-                raise ManifestFormatError("key is not the thumbnail key")
-        if self.content_type != expected_type:
+        if self.content_type != expected_content_type(self.role, self.asset_id, self.key):
             raise ManifestFormatError("content_type does not match the object role / key")
 
     def to_dict(self) -> dict[str, Any]:

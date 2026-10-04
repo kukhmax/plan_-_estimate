@@ -153,6 +153,9 @@ async def _retrying(operation: Callable[[], Awaitable[T]], retry: RetryPolicy, s
             attempt += 1
 
 
+retrying = _retrying  # public name for sibling modules (media sync); same behaviour
+
+
 # --- local file facts ----------------------------------------------------------------------------
 
 
