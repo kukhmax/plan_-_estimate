@@ -1,9 +1,9 @@
 # Stage 14D.3 — Oracle Object Storage / IAM provisioning design and owner runbook
 
 > **Status:** **DESIGN APPROVED — PROVISIONING IN PROGRESS** (owner decisions 2026-10-04: O1–O7 approved, O8
-> deferred hardening; buckets renamed). Runbook steps 2–7 (OCI, owner-reported) and step 8 (age key custody,
-> verified) were executed by the owner on 2026-10-04 — see §13.1. Steps 1 (recorded facts), 9 (R2) and the restore
-> user remain open. The IAM statements in §6.2 remain **PROPOSED** until empirically proven in 14D.4. The owner
+> deferred hardening; buckets renamed). Runbook steps 1–7 (OCI) and step 8 (age key custody, verified from paper)
+> were executed by the owner on 2026-10-04 — see §13.1. Step 9 (R2) remains open; the restore user is deliberately
+> deferred to 14D.5. The IAM statements in §6.2 remain **PROPOSED** until empirically proven in 14D.4. The owner
 > performs every Console step manually.
 >
 > Builds on `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` (accepted 14D architecture: §3 independence, §4 resources, §5
@@ -141,6 +141,12 @@ Consequences:
 
 These statements follow Oracle's documented syntax but are **not** operational facts until the Console accepts them
 and 14D.4 proves the behaviour on the drill bucket. They contain placeholders only (no OCIDs in the repository).
+
+**Console status (owner, 2026-10-04):** the dynamic-group rule, the Phase A statements and the restore statements below
+were saved **verbatim** and accepted by the OCI Console (re-read on each policy's statements tab). Both policies are
+attached to the compartment **`plan-estimate-backup`** (this resolves the attachment [VERIFY] below). The tenancy uses
+IAM with Identity Domains: the dynamic group and the restore group live in the **Default** domain, so the statements
+reference them without a domain prefix. Phase B does **not** exist. Behaviour remains unproven until 14D.4.
 
 Dynamic group **`plan-estimate-backup-uploader-dg`** — matching rule (Oracle syntax `variable = 'value'`):
 
@@ -430,29 +436,29 @@ project notes; never put OCIDs, keys or secrets into the repository.
 
 ### 13.1 Execution record (owner, 2026-10-04)
 
-OCI facts below are **owner-reported** from the Console session (screenshots reviewed by the owner, not re-verified
-from this repository); none of them proves permission semantics — that is 14D.4. No OCID, key or secret is recorded.
+OCI facts below were executed by the owner in the Console and checked screen by screen (before each create and after
+saving) in the owner's assistant session; the step journal was provided on 2026-10-04. They are not re-verified by API
+from this repository, and none of them proves permission semantics — that is 14D.4. No OCID, key or secret is recorded;
+the Object Storage namespace exists but its value is kept out of the repository (it goes into the backup env file).
 
 | Step | State |
 |---|---|
-| 1 Tenancy facts (region identifier, namespace, account type) | **open** — not yet recorded here |
-| 2 Compartment `plan-estimate-backup` | created (owner-reported) |
-| 3–4 Buckets `plan-estimate-backup-prod` / `plan-estimate-backup-drill` | created: private, Standard tier, versioning **on** (owner-reported) |
-| 5 Dynamic group | created; matching rule bound only to the VM `plan-estimate` (owner-reported) |
-| 6 Uploader policy Phase A | created: drill bucket only (read + `OBJECT_CREATE`); **no** production uploader policy (intentional, O4) (owner-reported) |
-| 7 Restore group / policy | restore group created **without users**; `plan-estimate-backup-restore-policy` in `plan-estimate-backup`: exactly two statements (read buckets, read objects), limited to `plan-estimate-backup-prod` and `plan-estimate-backup-drill`, no write / create / manage / delete (owner-reported). **Restore user and its API key deliberately not created yet** — created when needed for the 14D.5 drill; no restore credential on the production VM |
+| 1 Tenancy facts | tenancy `kukhmax`; home region Germany Central (Frankfurt) `eu-frankfurt-1`; Object Storage namespace exists (value not recorded); IAM with Identity Domains (domain **Default**); account type: **Free Tier trial** (Console banner: after the trial ends access is limited to Always Free resources); the Buckets page shows the Always Free allowance (10 GiB Object Storage + 10 GiB Archive). Production VM `plan-estimate`: `VM.Standard.A1.Flex`, ARM64 (aarch64), Ubuntu 24.04, root compartment `kukhmax` |
+| 2 Compartment `plan-estimate-backup` | created under `kukhmax` (root), description "Independent backup infrastructure for plan-estimate", state ACTIVE. A transient `NamespaceNotFound` on the Buckets page right after creation disappeared after a hard refresh (no change made) |
+| 3–4 Buckets `plan-estimate-backup-prod` / `plan-estimate-backup-drill` | created in `plan-estimate-backup`: scope Namespace, Standard tier, Private, auto-tiering off, object events off, multipart-cleanup off, Oracle-managed encryption, no tags, no retention / lifecycle / PAR; **Object Versioning: Enabled** confirmed on each bucket's details page |
+| 5 Dynamic group `plan-estimate-backup-uploader-dg` | created in the Default domain, description "Instance Principal for plan-estimate backup uploader"; exactly one rule `instance.id = '<instance OCID of plan-estimate>'` (OCID copied from Compute → Instances → plan-estimate, not recorded) |
+| 6 Uploader policy Phase A `plan-estimate-backup-uploader-drill-policy` | created in `plan-estimate-backup`, ACTIVE; exactly the three §6.2 Phase A statements (drill bucket only; read buckets, read objects, `manage objects` limited to `OBJECT_CREATE`). **No** Phase B / production uploader policy (intentional, O4) |
+| 7 Restore group / policy | group `plan-estimate-backup-restore` in the Default domain ("Read-only restore operators for plan-estimate backups"), **no users**, access requests off; `plan-estimate-backup-restore-policy` in `plan-estimate-backup`, ACTIVE: exactly the two §6.2 restore statements (read buckets, read objects; prod + drill), no write / create / manage / delete. **Restore user and its API key deliberately not created yet** — created when needed for the 14D.5 drill; no restore credential on the production VM |
 | 8 age custody | **done and verified** — §9 "Executed custody" (all checks PASS; A wrap re-created after the paper-passphrase check failed) |
 | 9 R2 read-only token, R2 drill buckets / tokens | **open** |
 | 10 Env / secret files on the VM | not created (by design, 14D.4 / 14D.6) |
 
-Exact dynamic-group and uploader-policy names are to be confirmed by the owner against the runbook names in steps 5–6
-when step 1 facts are recorded.
 
 ---
 
 ## 14. Open questions / [VERIFY] list
 
-1. Home-region identifier and whether the tenancy is Always-Free-only or upgraded (affects allowances and regions).
+1. ~~Home-region identifier / account type~~ — `eu-frankfurt-1`; Free Tier **trial** (§13.1). **Capacity risk [VERIFY before 14D.6]:** after the trial only Always Free resources remain, so the backup target is effectively capped at the Always Free Object Storage allowance (Console: 10 GiB Object Storage + 10 GiB Archive; versioning keeps previous versions inside the same quota). Before the first production run, confirm the current Always Free Object Storage limits and Oracle's behaviour for data above the limit when the trial ends, and record expected media + DB growth against that cap; upgrading to Pay As You Go is an owner decision.
 2. ~~Single-PutObject size limit~~ — documented as 50 GiB (no multipart for a create-only principal).
 3. Native API behaviour of `if-none-match: *` on PutObject, and the exact IAM refusal for an existing name without
    `OBJECT_OVERWRITE` — 14D.4 on the drill bucket.
@@ -460,7 +466,7 @@ when step 1 facts are recorded.
 5. Reachability of IMDS from Docker containers on this VM and the effectiveness of the `DOCKER-USER` block — 14D.4.
 6. Current paid prices for storage / requests / egress (if the account is upgraded).
 7. ~~O8~~ — deferred hardening (not a 14D gate).
-8. Where the policies are attached (tenancy vs `plan-estimate-backup`).
+8. ~~Where the policies are attached~~ — both in `plan-estimate-backup` (§6.2 Console status).
 
 ## 15. Sources (official Oracle documentation, read 2026-10-03)
 
