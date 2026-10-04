@@ -1,9 +1,10 @@
 # Stage 14D.3 — Oracle Object Storage / IAM provisioning design and owner runbook
 
-> **Status:** **DESIGN APPROVED — PROVISIONING NOT YET EXECUTED** (owner decisions 2026-10-04: O1–O7 approved, O8
-> deferred hardening; buckets renamed). **Nothing in this document has been executed.** No bucket, compartment, dynamic
-> group, user, group, policy, key or secret exists yet because of it. The IAM statements in §6.2 remain **PROPOSED**
-> until validated in the OCI Console and empirically proven in 14D.4. The owner performs every Console step manually.
+> **Status:** **DESIGN APPROVED — PROVISIONING IN PROGRESS** (owner decisions 2026-10-04: O1–O7 approved, O8
+> deferred hardening; buckets renamed). Runbook steps 2–7 (OCI, owner-reported) and step 8 (age key custody,
+> verified) were executed by the owner on 2026-10-04 — see §13.1. Steps 1 (recorded facts), 9 (R2) and the restore
+> user remain open. The IAM statements in §6.2 remain **PROPOSED** until empirically proven in 14D.4. The owner
+> performs every Console step manually.
 >
 > Builds on `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` (accepted 14D architecture: §3 independence, §4 resources, §5
 > layout, §8 provenance, §9 encrypted DB chain, §10 integrity, §13 credentials, §14 retention, §16 backup runtime).
@@ -290,6 +291,42 @@ stop and reconsider the API-key fallback (O1).
 - Proof: the 14D.5 drill decrypts an artifact produced by the VM configuration with a custody copy brought from
   outside the VM. Loss of the VM therefore never loses restore capability.
 
+**Executed custody (owner, 2026-10-04) — supersedes the storage bullet above for v1.** The owner does not use a
+password manager; the approved intent (two independent identities, two recipients, nothing on the VM / in Git / R2 /
+OCI) is unchanged, only the storage media differ:
+
+| | Recipient (public, non-secret) | Where the identity is kept |
+|---|---|---|
+| **A** (working) | `age12cjr9actkfgsxpjhwlt5v5fu76vsgaatcr2peqtnd33fhw4jt9ksrvdgl4` | (1) owner workstation (Manjaro), `~/.local/share/plan-estimate/age/backup-identity.txt`, created with `umask 077` in a `chmod 700` directory; (2) `age -p` passphrase-wrapped copy `backup-identity.txt.age` on an owner USB stick (FAT32 — no POSIX permissions, so only the wrapped copy is stored there), SHA-256 `f924d143d39512459ba0d1f7de796fae006e573a64c0e90918e285e5743c3fec`; the wrap passphrase is written on paper |
+| **B** (emergency) | `age1up20qlrw27shpcpg6et2kj95td7rwgdckxc6q23latwl04sspacqzf4n7a` | handwritten paper copy only. Generated in RAM (`/dev/shm`), never written to a persistent disk; the RAM work directory was removed after verification |
+
+Rules: the paper (B and the A-wrap passphrase) is kept in a sealed envelope **away from the workstation and the USB
+stick**; never photographed, printed, typed into a chat / repository or synced to a cloud; B is never added to any
+store that also holds A. Configuration value for the future backup env file (14D.4 / 14D.6, owner approval):
+`BACKUP_AGE_RECIPIENTS=<recipient A>,<recipient B>` — both strings match the parser's native X25519 form
+(`^age1[02-9ac-hj-np-z]{58}$`).
+
+Verification on the owner workstation (age / age-keygen 1.3.2; secrets never shown in chat):
+
+| Check | Result |
+|---|---|
+| A wrapped copy `backup-identity.txt.age` permissions (workstation) | `600` |
+| A `age -p` wrapped copy decrypts byte-identical to the identity file | `AGE IDENTITY BACKUP: PASS` |
+| A wrapped copy on the USB stick = local wrapped copy (SHA-256) | equal (`f924d143…3fec`) |
+| B paper copy re-typed from the paper, `age-keygen -y` = recipient of the generated B | `PAPER COPY B: PASS` |
+| 1 MiB random file → gzip → `age -r A -r B`; decrypt with A → gunzip → byte-identical | `IDENTITY A: PASS` |
+| same artifact decrypted with B **re-typed from paper** → byte-identical | `IDENTITY B (paper): PASS` |
+| unrelated disposable identity C | `UNRELATED C: PASS - rejected` |
+| A-wrap passphrase read from paper decrypts the USB copy | **pending owner confirmation** |
+| RAM work directories (`/dev/shm`) removed | **pending owner confirmation** |
+
+Residual risks (accepted for v1, owner decision): the plaintext A file lives on the workstation (protected only by
+the workstation account / disk); losing the envelope **and** the workstation leaves no usable identity (the USB copy
+needs the paper passphrase), so the envelope and the workstation must never be stored together; paper legibility
+should be re-checked periodically (re-type B and compare with recipient B). Whether to delete the workstation
+plaintext A after 14D.5 (keeping only the USB wrap + paper passphrase) is an open owner decision. The real proof
+remains the 14D.5 drill.
+
 ---
 
 ## 10. ARM64 production gate (mandatory before 14D.6) [OWNER CONFIRMED — not performed now]
@@ -342,7 +379,7 @@ production ARM64 VM, without touching the production database or project:
 
 ---
 
-## 13. Owner manual provisioning runbook (OCI Console) — design approved, not yet executed
+## 13. Owner manual provisioning runbook (OCI Console) — design approved, execution in progress (§13.1)
 
 Region for every step: the home region (Frankfurt) [VERIFY]. Record only names and non-secret identifiers in the
 project notes; never put OCIDs, keys or secrets into the repository.
@@ -388,6 +425,26 @@ project notes; never put OCIDs, keys or secrets into the repository.
     in 14D.4 on the **drill** bucket: create succeeds; second create of the same name is refused; delete is refused;
     head / get / list succeed; the restore user cannot write; the backend container cannot obtain an instance
     principal token.
+
+### 13.1 Execution record (owner, 2026-10-04)
+
+OCI facts below are **owner-reported** from the Console session (screenshots reviewed by the owner, not re-verified
+from this repository); none of them proves permission semantics — that is 14D.4. No OCID, key or secret is recorded.
+
+| Step | State |
+|---|---|
+| 1 Tenancy facts (region identifier, namespace, account type) | **open** — not yet recorded here |
+| 2 Compartment `plan-estimate-backup` | created (owner-reported) |
+| 3–4 Buckets `plan-estimate-backup-prod` / `plan-estimate-backup-drill` | created: private, Standard tier, versioning **on** (owner-reported) |
+| 5 Dynamic group | created; matching rule bound only to the VM `plan-estimate` (owner-reported) |
+| 6 Uploader policy Phase A | created: drill bucket only (read + `OBJECT_CREATE`); **no** production uploader policy (intentional, O4) (owner-reported) |
+| 7 Restore group / policy | restore group created **without users**; `plan-estimate-backup-restore-policy` in `plan-estimate-backup`: exactly two statements (read buckets, read objects), limited to `plan-estimate-backup-prod` and `plan-estimate-backup-drill`, no write / create / manage / delete (owner-reported). **Restore user and its API key deliberately not created yet** — created when needed for the 14D.5 drill; no restore credential on the production VM |
+| 8 age custody | **done and verified** — §9 "Executed custody" (two pending owner confirmations listed there) |
+| 9 R2 read-only token, R2 drill buckets / tokens | **open** |
+| 10 Env / secret files on the VM | not created (by design, 14D.4 / 14D.6) |
+
+Exact dynamic-group and uploader-policy names are to be confirmed by the owner against the runbook names in steps 5–6
+when step 1 facts are recorded.
 
 ---
 

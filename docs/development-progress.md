@@ -829,6 +829,27 @@ Compatibility API, Always Free resources, Object Storage overview).
 - **Not done:** any provisioning (owner, manual), env files, uploader tooling, 14D.4, the ARM64 gate.
 - **Status**: **DESIGN APPROVED — PROVISIONING NOT YET EXECUTED.** 14D.4 not started. Production unchanged; uploads OFF.
 
+#### Stage 14D.3 — owner provisioning progress (2026-10-04, IN PROGRESS)
+
+Recorded in `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md` §9 ("Executed custody") and §13.1. Documentation only; no
+code, Compose or production change; no secret, OCID or key in the repository.
+
+- **OCI (owner-reported, runbook steps 2–7):** compartment `plan-estimate-backup`; buckets `plan-estimate-backup-prod`
+  / `plan-estimate-backup-drill` (private, Standard, versioning on); dynamic group bound only to the VM; uploader policy
+  Phase A on the drill bucket only (read + `OBJECT_CREATE`), no production uploader policy (O4); restore group without
+  users and read-only `plan-estimate-backup-restore-policy` on both buckets. Restore user / API key deliberately not
+  created yet (14D.5). Permission semantics unproven until 14D.4.
+- **age key custody (runbook step 8) — DONE / VERIFIED:** two identities, generated on the owner workstation (never on
+  the VM). Recipient A `age12cjr9actkfgsxpjhwlt5v5fu76vsgaatcr2peqtnd33fhw4jt9ksrvdgl4` (workstation file + `age -p`
+  wrapped copy on an owner USB stick, SHA-256 `f924d143…3fec`, passphrase on paper); recipient B
+  `age1up20qlrw27shpcpg6et2kj95td7rwgdckxc6q23latwl04sspacqzf4n7a` (handwritten paper only, generated in RAM). No
+  password manager (deviation from the §9 storage example, intent unchanged). Verified with age 1.3.2: paper B re-typed
+  = recipient B; artifact encrypted to A+B decrypts with A and with paper B; unrelated identity rejected. Pending owner
+  confirmations: A-wrap passphrase from paper decrypts the USB copy; `/dev/shm` work directories removed.
+- **Open:** step 1 tenancy facts (region, namespace, account type), exact dynamic-group / uploader-policy names, R2
+  read-only token + R2 drill buckets / tokens (step 9).
+- **Status**: **14D.3 IN PROGRESS.** 14D.4 not started. Production unchanged; uploads OFF.
+
 ---
 
 ## Production Baseline
@@ -898,7 +919,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
 | └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); rest (manifest / media / restore tooling) NOT STARTED) |
-| └ 14D.3 | Owner manual Oracle / R2 / key setup | NOT STARTED |
+| └ 14D.3 | Owner manual Oracle / R2 / key setup | IN PROGRESS (design approved; OCI steps 2–7 owner-reported; age custody A + B done / verified 2026-10-04; tenancy facts and R2 tokens / drill buckets open) |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | NOT STARTED |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |
 | └ 14D.6 | First production non-destructive backup run + runbook final | NOT STARTED |
