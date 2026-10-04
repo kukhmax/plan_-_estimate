@@ -861,6 +861,31 @@ code, Compose or production change; no secret, OCID or key in the repository.
 - **Credentials existing after 14D.3:** none new (no R2 token, no OCI restore user / API key, no env file on the VM);
   only the two public age recipients are recorded.
 - **Status**: **14D.3 PROVISIONING COMPLETE / OWNER ACCEPTED** (2026-10-04). 14D.4 approved to start (planning first).
+
+### Stage 14D.4 — connectivity / semantics smoke and IMDS gate (2026-10-04, IN PROGRESS)
+
+Plan, reconnaissance and procedures: `docs/STAGE_14D4_CONNECTIVITY_SEMANTICS_SMOKE.md`. Owner decisions: native OCI SDK
+smoke; IMDS guard keeps DNS (53) open; restore user only for the 14D.4.6 proof, API key deleted afterwards.
+
+- **14D.4.1 reconnaissance (owner, read-only) — DONE.** Docker 29.8.0 (iptables backend), `DOCKER-USER` empty and first
+  in `FORWARD`; Oracle `InstanceServices` rules cover OUTPUT only (from `rules.v4`); compose-network DNS goes through the
+  host resolver. **`IMDS from backend: 200`** — forwarded container traffic reaches IMDS, so the O4 risk is real: no
+  Phase B before the guard is active and proven.
+- **14D.4.2 tooling — IMPLEMENTED / AUTOMATED VERIFICATION PASS / OWNER ACCEPTED (2026-10-04).**
+  `ops/imds-guard/pe-imds-guard.sh` (own chain `PE-IMDS-GUARD` at `DOCKER-USER` #1, atomic `iptables-restore
+  --noflush`, `apply` / `remove` / `status`; uploader bridge `br-pe-upload` → IMDS tcp/80, DNS 53 for all, every other
+  link-local target rejected; never touches `rules.v4`, Oracle or Docker chains) + systemd unit
+  `plan-estimate-imds-guard.service`; `backend/scripts/stage14d4_oci_drill_smoke.py` (16 checks, instance principal,
+  `oci==2.187.1`, production only GetBucket / ListObjects); `backend/scripts/stage14d4_r2_drill_smoke.py` (drill token
+  scope, If-None-Match 412, cleanup). No runtime, Compose, Dockerfile or dependency change.
+  Tests: `test_stage14d4_imds_guard.py`, `test_stage14d4_oci_drill_smoke.py`, `test_stage14d4_r2_drill_smoke.py` —
+  49 passed + 2 opt-in; with `TEST_REAL_NETNS=1` (root, iptables 1.8.10 nf_tables in private network namespaces)
+  51 passed, including the packet matrix (only the uploader reaches IMDS; DNS open; rollback restores all). OCI calls
+  additionally verified against the real `oci==2.187.1` client with a stubbed transport (16/16). Ruff clean; mypy clean
+  (`--strict` on both scripts).
+- **Next:** 14D.4.3 R2 drill tokens + smoke, 14D.4.4 guard on the production host (firewall change, rollback ready),
+  14D.4.5 OCI drill smoke, 14D.4.6 restore principal proof — each with explicit owner approval.
+- **Status**: **14D.4 IN PROGRESS.** Production unchanged; uploads OFF.
   Production unchanged; uploads OFF.
 
 ---
@@ -933,7 +958,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
 | └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); rest (manifest / media / restore tooling) NOT STARTED) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | PROVISIONING COMPLETE 2026-10-04 (OCI steps 1–7; age custody A + B verified from paper; R2 EU drill buckets; tokens / restore user deliberately deferred to 14D.4–14D.6); OWNER ACCEPTED 2026-10-04 |
-| └ 14D.4 | Connectivity / semantics smoke on drill resources | NOT STARTED |
+| └ 14D.4 | Connectivity / semantics smoke on drill resources | IN PROGRESS (14D.4.1 reconnaissance done — IMDS reachable from the backend container; 14D.4.2 guard + OCI / R2 smoke tooling implemented, automated verification PASS, owner accepted) |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |
 | └ 14D.6 | First production non-destructive backup run + runbook final | NOT STARTED |
 | └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | NOT STARTED |

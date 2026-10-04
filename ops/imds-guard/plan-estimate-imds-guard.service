@@ -1,0 +1,27 @@
+# Plan & Estimate — IMDS guard for Docker containers (Stage 14D.4, O4 gate).
+# Design: docs/STAGE_14D4_CONNECTIVITY_SEMANTICS_SMOKE.md §4.
+#
+# Install (owner, root):
+#   install -o root -g root -m 0755 ops/imds-guard/pe-imds-guard.sh /usr/local/sbin/pe-imds-guard.sh
+#   install -o root -g root -m 0644 ops/imds-guard/plan-estimate-imds-guard.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now plan-estimate-imds-guard.service
+# The script runs from a root-owned path, never from the user-writable checkout.
+#
+# Runs after Docker has created DOCKER-USER, and again whenever docker.service
+# restarts (PartOf). There is deliberately no ExecStop: stopping or restarting
+# this unit never opens IMDS to containers; rollback is the explicit
+# `pe-imds-guard.sh remove`.
+
+[Unit]
+Description=Plan & Estimate: block container access to OCI instance metadata except the backup uploader bridge
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/pe-imds-guard.sh apply
+
+[Install]
+WantedBy=docker.service
