@@ -10,7 +10,8 @@
 > (§16.4), 14D.2D.3 local orchestration + `db-dump` (§16.5) and 14D.2D.4 real PostgreSQL 16 snapshot / role proof
 > (§16.6, owner-verified 8/8 on PostgreSQL 16.15; production backup-role policy frozen) and 14D.2D.5 Compose / runtime
 > E2E proof (§16.7, owner-verified, FAIL count 0, amd64) complete. Not yet proven: ARM64 production image / bind,
-> production backup execution. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
+> production backup execution. 14D.3 Oracle Object Storage / IAM provisioning (§16.8,
+> `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`) — **DESIGN APPROVED, PROVISIONING NOT YET EXECUTED**. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
 > §16 image / container contract, nothing in this document is implemented, configured or
 > verified yet: no backup tooling, no cloud resources, no credentials, no schedule. Executable procedures stay
 > **DRAFT** until the sub-stage that verifies them.
@@ -86,8 +87,8 @@ provisional and live only in operator env files / runbook — **never hard-coded
 
 | Provider | Bucket (provisional) | Purpose |
 |---|---|---|
-| Oracle | `plan-estimate-media-backup` | production backup target (versioning on) |
-| Oracle | `plan-estimate-media-drill-backup` | drill backup target |
+| Oracle | `plan-estimate-backup-prod` | production backup target (versioning on) — renamed in 14D.3 (was `plan-estimate-media-backup`) |
+| Oracle | `plan-estimate-backup-drill` | drill backup target — renamed in 14D.3 (was `plan-estimate-media-drill-backup`) |
 | R2 | `plan-estimate-media-drill-source` | drill source (synthetic fixture only) |
 | R2 | `plan-estimate-media-drill-restore` | drill restore target |
 
@@ -410,7 +411,10 @@ nothing in production needs cleanup because nothing there is touched.
 Backup and restore credentials are separate. Secrets live only in a dedicated `chmod 600` env file on the VM, never
 in `.env.production` or the backend container environment, never printed. **The exact Oracle IAM permissions
 (overwrite / delete restriction, conditional PUT behaviour) are verified empirically in 14D.3 / 14D.4 and are not
-assumed here.**
+assumed here.** 14D.3 design (§16.8): Oracle documents separate `OBJECT_CREATE` / `OBJECT_OVERWRITE` / `OBJECT_DELETE`
+permissions, so the backup identity is create + inspect + read only (no overwrite / delete); approved (O1–O7): an
+Instance Principal used by a separate uploader, gated on the 14D.4 IMDS-isolation proof; the restore identity stays off
+the production VM. The policy statements stay PROPOSED until 14D.4 proves them empirically.
 
 ## 14. Retention / deletion (v1) — OWNER APPROVED
 
@@ -850,6 +854,45 @@ service** of the unchanged `docker-compose.prod.yml` plus only the scratch guard
 - **Observed noise:** Compose printed interpolation warnings for unrelated production variables (`APP_DOMAIN`,
   `POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_PASSWORD`, `TELEGRAM_BOT_TOKEN`, `JWT_SECRET_KEY`) because the scratch env
   defines only backup variables; harmless for the backup proof, production Compose intentionally not changed.
+
+### 16.8 Oracle Object Storage / IAM provisioning design (Stage 14D.3 — DESIGN APPROVED, PROVISIONING NOT YET EXECUTED)
+
+Full design and owner Console runbook: `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md` (nothing executed). Owner
+decisions 2026-10-04:
+
+- **O1 APPROVED** — Instance Principal for the future uploader; dedicated API-key IAM user only if Instance Principal
+  proves impractical or cannot be safely isolated.
+- **O2 APPROVED** — `backup` stays local-only (database, pgpass, writable `/backup`, no Internet, no OCI / R2
+  authority); a separate future `backup-upload` service (no database, no pgpass, `/backup` read-only, controlled
+  outbound HTTPS, R2 read-only, narrowly scoped OCI backup authority). No runtime change now.
+- **O3 APPROVED** — native OCI API via a pinned official OCI SDK in the uploader; Oracle is not forced through the S3
+  adapter.
+- **O4 APPROVED WITH MANDATORY GATE** — Instance Principal only if 14D.4 proves on the actual production Docker host
+  that IMDS access is restricted to the uploader boundary; **no real (production-bucket) uploader authority before that
+  proof**; otherwise reconsider the API-key fallback. Hence the uploader policy is phased: drill bucket only in 14D.3,
+  production bucket only after 14D.4 PASS and separate owner approval.
+- **O5 APPROVED** — create-only IAM + required read / inspect; no `OBJECT_OVERWRITE` / `OBJECT_DELETE` /
+  `OBJECT_VERSION_DELETE`; **versioning enabled**; **no retention rule** (Oracle: retention rules cannot be added while
+  versioning is enabled, versioning cannot be enabled with active retention rules) — retention lock is not part of
+  v1; no lifecycle deletion; immutable keys; `COMPLETE.json` last.
+- **O6 APPROVED** — restore authority and age identities never permanently on the production VM.
+- **O7 APPROVED** — compartment `plan-estimate-backup` under the `kukhmax` root.
+- **O8 DEFERRED HARDENING** (not a 14D readiness gate, not a prerequisite for `PHOTO_UPLOADS_ENABLED`) — a second
+  encrypted DB backup outside OCI (offline copy, private R2 DB bucket or another provider) against Oracle account /
+  region / administrative failure; nothing provisioned or implemented for it.
+- **Buckets renamed (owner):** `plan-estimate-backup-prod` and `plan-estimate-backup-drill` (they hold media **and**
+  DB backups); accepted §5 layout unchanged.
+- **IAM statements are PROPOSED** until the OCI Console accepts them and 14D.4 proves on the drill bucket: create of a
+  new object; HEAD / GET as designed; list only as required; overwrite, object delete, version delete and bucket
+  mutation **denied**; native `if-none-match: *` refuses an existing name; restore principal cannot write; IMDS
+  reachable from the uploader boundary only.
+- **age custody:** recipients only on the VM / uploader; ≥ 2 independently stored owner copies of the identities off
+  the VM; the 14D.5 drill decrypts with a copy brought from outside the VM.
+- **ARM64 gate before 14D.6** (not performed now): arm64 image build / run; Python 3.12; pg_dump 16; age 1.3.2;
+  non-root hardening; actual `/backup` filesystem; `renameat2(RENAME_NOREPLACE)`; fsync; `flock`; encrypted scratch
+  backup + independent restore.
+- **Gap for the later media / manifest stage:** the uploader needs the READY asset list of the same snapshot; the
+  14D.2D.3 metadata hook can read it in the imported snapshot without changing 14D.2A.
 
 ## 17. Stage 14D PASS criteria
 

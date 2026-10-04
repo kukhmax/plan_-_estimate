@@ -799,9 +799,35 @@ Contract and runbook: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.7. Claude did
   kept, `CANCELLED` evidence, second backup after operator cleanup exit 0 and verified; no password / identity
   leakage. Compose interpolation warnings for unrelated production variables were harmless scratch noise.
 - **Unchanged in 14D.2D.5**: `docker-compose.prod.yml`, `backend/app/`, `backend/Dockerfile.backup`.
+- **Commit**: `c421106` (pushed).
 - **Status**: 14D.2D.5 **COMPLETE — OWNER VERIFIED** (2026-10-03). All 14D.2D slices (2D.1–2D.5) are complete; closing
   Stage 14D.2D as a whole awaits owner acceptance. Stage 14D.2 remains **IN PROGRESS** (manifest / media / restore tooling). Not yet proven: ARM64 production image /
-  bind, production backup role / execution. 14D.3 not started. Production unchanged; uploads OFF.
+  bind, production backup role / execution. Production unchanged; uploads OFF.
+
+### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
+
+Design and owner Console runbook: `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`; summary in
+`docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.8. Documentation only; **no OCI action, no code / Compose / Dockerfile
+change, nothing provisioned.** Based on official Oracle documentation read 2026-10-03 (IAM Object Storage permission
+reference, common policies, retention rules, versioning, instance principals, dynamic-group matching rules, S3
+Compatibility API, Always Free resources, Object Storage overview).
+
+- **Key facts:** create-only is IAM-enforceable (`OBJECT_CREATE` without `OBJECT_OVERWRITE` / `OBJECT_DELETE`);
+  multipart needs `OBJECT_OVERWRITE` (single PutObject ≤ 50 GiB); retention rules and versioning are mutually
+  exclusive; instance-principal rights are inherited by anyone on the instance.
+- **Owner decisions (2026-10-04):** O1 Instance Principal for the uploader (API-key fallback only if impractical /
+  not isolatable) — APPROVED; O2 local-only `backup` + separate future `backup-upload` — APPROVED; O3 native OCI SDK, not
+  the S3 adapter — APPROVED; O4 — APPROVED WITH MANDATORY GATE (14D.4 must prove IMDS isolation on the production
+  Docker host before any production-bucket uploader authority; uploader policy phased: drill only now, production after
+  14D.4 PASS + owner approval); O5 create-only IAM + versioning, no retention rule / lifecycle deletion — APPROVED; O6
+  restore authority off the VM — APPROVED; O7 compartment `plan-estimate-backup` — APPROVED; O8 provider-independent DB
+  copy — **DEFERRED HARDENING** (not a 14D gate). Buckets renamed to `plan-estimate-backup-prod` /
+  `plan-estimate-backup-drill`.
+- **IAM statements remain PROPOSED** until Console validation and the 14D.4 empirical proof (create allowed; HEAD /
+  GET / list as designed; overwrite, delete, version delete, bucket mutation denied; native `if-none-match: *`; restore
+  principal read-only; IMDS isolation).
+- **Not done:** any provisioning (owner, manual), env files, uploader tooling, 14D.4, the ARM64 gate.
+- **Status**: **DESIGN APPROVED — PROVISIONING NOT YET EXECUTED.** 14D.4 not started. Production unchanged; uploads OFF.
 
 ---
 
