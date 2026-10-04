@@ -13,9 +13,10 @@
 > production backup execution. 14D.3 Oracle Object Storage / IAM provisioning (§16.8,
 > `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`) — provisioning **COMPLETE / OWNER ACCEPTED** (2026-10-04); 14D.4
 > connectivity / semantics smoke and the IMDS gate (`docs/STAGE_14D4_CONNECTIVITY_SEMANTICS_SMOKE.md`) — **COMPLETE /
-> OWNER ACCEPTED** (2026-10-04). 14D.2E manifest v1 / COMPLETE.json / provenance core (§16.9) — implemented, pure
-> (no I/O). Rest of 14D.2 (Oracle writer, media sync, verify, restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED /
-> NOT STARTED: no backup upload, no media copy, no restore tooling, no schedule exists yet. Executable procedures
+> OWNER ACCEPTED** (2026-10-04). 14D.2E manifest v1 / COMPLETE.json / provenance core (§16.9) — **OWNER ACCEPTED**,
+> pure (no I/O). 14D.2F Oracle backup writer (§16.10) — implemented and tested against an in-memory target and the real
+> SDK with a stubbed transport; the live drill-bucket smoke is an owner step and has NOT been run yet. Rest of 14D.2
+> (media sync, verify, restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no backup upload, no media copy, no restore tooling, no schedule exists yet. Executable procedures
 > stay **DRAFT** until the sub-stage that verifies them.
 >
 > Builds on: `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §13 (consistency model, OD-3),
@@ -931,6 +932,53 @@ tooling (14D.2F–I) share one definition of "a valid backup run". It implements
   and no COMPLETE.json (§15); its error report is a separate artifact (14D.2G).
 - **Not in this stage:** reading / writing any storage, building the object list, the transfer loop, selecting the
   prior run, the `verify` and `restore` commands (14D.2F–I).
+
+### 16.10 Oracle backup writer (Stage 14D.2F)
+
+Implementation: `backend/app/backup/target.py` (provider-neutral port, verified puts, run publication, in-memory test
+double), `backend/app/backup/oci_target.py` (OCI adapter), `backend/scripts/stage14d2f_oci_writer_smoke.py` (owner live
+smoke, drill bucket only). Tests: `test_stage14d2f_target.py` (36), `test_stage14d2f_oci_target.py` (61),
+`test_stage14d2f_writer_smoke.py` (8). It builds on the 14D.4 findings (create-only IAM, `If-None-Match: *` → 412, no
+overwrite / delete, masked 404, body-less HEAD errors) and on the §16.9 manifest core.
+
+- **Port with no destructive verb.** `BackupTarget` has exactly `put_new` (create-only: `CREATED` | `EXISTS`), `head`
+  and `download_to` (new local file). There is no delete, overwrite, multipart or listing, mirroring the uploader
+  principal's `OBJECT_CREATE` + read / inspect IAM (14D.3 §6.2). Single `PutObject` only: multipart needs
+  `OBJECT_OVERWRITE`; one PutObject carries up to 50 GiB, far above any object written here.
+- **`put_verified` (plan §10 "post-copy").** Local SHA-256 and size → create-only put with `Content-MD5` and
+  `Content-Length` → HEAD size → full re-download → SHA-256 comparison. If the object already exists (an ambiguous
+  earlier put, or a resumed run) it is accepted only when the downloaded bytes equal the local bytes
+  (`created=False`); different bytes raise `MediaObjectConflict` and nothing is overwritten. Optional
+  `expected_sha256` / `expected_size` guard against the source changing between hashing and upload.
+- **Retries.** Only `MediaStorageUnavailable` (HTTP 408 / 429 / ≥ 500, transport errors) is retried: 4 attempts,
+  exponential backoff 1 s × 2, capped. Misconfiguration, conflict, verification failure and local errors are final.
+  The SDK's own retries are disabled so the policy lives in one place.
+- **`publish_run` (order is the safety property).** Validate the dump against the header and build the manifest
+  locally → upload the encrypted dump → upload `manifest.jsonl` → HEAD every object the manifest lists
+  (`_require_objects_present`) → `build_complete` → upload `COMPLETE.json` **last**. A run that stops anywhere before
+  the last step has no seal and is incomplete by definition (§6); no cleanup by deletion exists. Re-publishing the same
+  run with a different seal is refused (`MediaObjectConflict`).
+- **OCI adapter.** Native OCI API (not the S3 layer) with the VM's instance principal — no key file, no secret on
+  disk. Error mapping: 408 / 429 / ≥ 500 / transport → `MediaStorageUnavailable`; 401 / 403 and masked 404
+  (`BucketNotFound`, `NamespaceNotFound`, `NotAuthorizedOrNotFound`) → `MediaStorageMisconfigured`; 404 on HEAD / GET →
+  absent / `MediaObjectNotFound`. HEAD errors carry no code, so a body-less 404 means "absent". Local I/O errors are
+  not mapped as transient. Downloads are streamed into an exclusively created file (`O_EXCL | O_NOFOLLOW`, mode 0600),
+  size-checked and removed on failure. Error messages and `repr` never contain the namespace, OCIDs, tokens or
+  response bodies. `oci` is imported lazily (`oci==2.187.1` pin); no SDK is needed to import the module or run tests.
+- **Test evidence.** In-memory target with fault injection (transient, ambiguous put with / without effect, corrupted
+  store, object hidden after put); a real-SDK contract check against `oci==2.187.1` with a stubbed transport (not part
+  of the suite; SDK installed in a scratch venv only); mutation check — 10 deliberate defects in the writer each made
+  a test fail.
+- **Owner live smoke (not yet run).** `stage14d2f_oci_writer_smoke.py` runs the production write path against the
+  drill bucket with the instance principal and synthetic data only (random bytes as the "dump", an empty-READY-set
+  manifest, its COMPLETE.json). 9 checks: put created, identical put idempotent, different bytes refused, object
+  unchanged, `publish_run` zero-asset, stored run verifies (`verify_run`), stored dump equals local, re-publish with a
+  different seal refused, seal unchanged. Refuses any bucket whose name does not contain `drill`. Exit codes: 0 PASS,
+  1 a check failed, 2 cannot run (including SDK missing), 3 no instance principal. Objects stay in the drill bucket
+  (`smoke/14d2f/<run_id>/…`, `db/<run_id>/…`, `runs/<run_id>/…`); cleanup is a manual administrator step. Procedure
+  and namespace handling: owner supplies `OCI_NAMESPACE` at run time; it is never stored in the repository.
+- **Not in this stage:** reading R2, the media transfer loop and prior-run selection (14D.2G), `verify` (14D.2H),
+  `restore` (14D.2I), production execution, schedule. Uploads stay OFF.
 
 ## 17. Stage 14D PASS criteria
 

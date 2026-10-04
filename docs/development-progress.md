@@ -827,6 +827,31 @@ clock or randomness; no runtime, Compose, Dockerfile, dependency or production c
   pre-existing); `git diff --check` clean.
 - **Next:** 14D.2F Oracle writer (create-only, conditional put, resume) — owner approval required.
 
+### Stage 14D.2F — Oracle backup writer (2026-10-04, IMPLEMENTED — automated verification PASS — live drill smoke PENDING owner run)
+
+Contract and design: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.10. No runtime, Compose, Dockerfile, dependency or
+production change; no network access in tests; production uploads remain OFF.
+
+- **Added:** `backend/app/backup/target.py` — provider-neutral `BackupTarget` port (create-only `put_new`, `head`,
+  `download_to`; no delete / overwrite / multipart / list), `put_verified` (local SHA-256, create-only put, HEAD size,
+  full re-download comparison, idempotent resolution of ambiguous puts, conflict refusal, bounded retry of transient
+  errors only), `put_bytes_verified`, `publish_run` (dump → manifest → object presence check → COMPLETE.json last)
+  and an in-memory test double with fault injection. `backend/app/backup/oci_target.py` — OCI Object Storage adapter
+  (instance principal, `If-None-Match: *`, `Content-MD5`, error mapping that never leaks namespace / OCIDs / bodies,
+  exclusive-create streamed download). `backend/scripts/stage14d2f_oci_writer_smoke.py` — owner live smoke, drill
+  bucket only.
+- **Tests:** 105 new (`test_stage14d2f_target.py` 36, `test_stage14d2f_oci_target.py` 61,
+  `test_stage14d2f_writer_smoke.py` 8). Beyond the suite: 10/10 mutation check caught; real `oci==2.187.1` contract
+  check with stubbed transport.
+- **Findings fixed during the stage:** a generic `OSError` would have been retried as transient (local
+  `FileExistsError`) → transport mapping narrowed; fault `after=` was applied to every fault in a batch → first only;
+  a missing SDK was reported as "no principal" in the smoke → now exit 2.
+- **Verification:** full backend suite (non-root) **3405 passed, 32 skipped, 0 failed** (3300 before + 105); new
+  modules Ruff clean, `mypy --strict` no findings in the new sources and tests; `git diff --check` clean.
+- **Pending (owner):** live smoke on the Oracle VM against the drill bucket (`git pull --ff-only`, run the script in
+  a disposable container on the `pe-upload` network with `OCI_NAMESPACE`); expected `RESULT: PASS (9/9 checks passed)`.
+- **Next:** 14D.2G media sync R2 → Oracle — owner approval required.
+
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
 Design and owner Console runbook: `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`; summary in
@@ -998,7 +1023,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
-| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); 14D.2E manifest / COMPLETE.json / provenance core IMPLEMENTED (pure, 153 tests), OWNER ACCEPTED 2026-10-04; rest (Oracle writer, media sync, verify, restore) NOT STARTED) |
+| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); 14D.2E manifest / COMPLETE.json / provenance core IMPLEMENTED (pure, 153 tests), OWNER ACCEPTED 2026-10-04; 14D.2F Oracle backup writer IMPLEMENTED (105 tests), live drill smoke PENDING owner run; rest (media sync, verify, restore) NOT STARTED) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | PROVISIONING COMPLETE 2026-10-04 (OCI steps 1–7; age custody A + B verified from paper; R2 EU drill buckets; tokens / restore user deliberately deferred to 14D.4–14D.6); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | EXECUTED 2026-10-04 — all PASS (R2 drill tokens 12/12 ×2; IMDS guard live: only `pe-upload` reaches IMDS; OCI uploader smoke 16/16 + O4 negative exit 3; restore principal 12/12); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |
