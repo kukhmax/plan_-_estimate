@@ -1,9 +1,10 @@
 # Stage 14D.3 — Oracle Object Storage / IAM provisioning design and owner runbook
 
 > **Status:** **DESIGN APPROVED — PROVISIONING IN PROGRESS** (owner decisions 2026-10-04: O1–O7 approved, O8
-> deferred hardening; buckets renamed). Runbook steps 1–7 (OCI) and step 8 (age key custody, verified from paper)
-> were executed by the owner on 2026-10-04 — see §13.1. Step 9 (R2) remains open; the restore user is deliberately
-> deferred to 14D.5. The IAM statements in §6.2 remain **PROPOSED** until empirically proven in 14D.4. The owner
+> deferred hardening; buckets renamed). Runbook steps 1–7 (OCI), step 8 (age key custody, verified from paper) and
+> step 9 (R2 drill buckets) were executed by the owner on 2026-10-04 — see §13.1. **Provisioning complete**; by design
+> no credential exists yet: R2 tokens are created in 14D.4 (drill) / 14D.6 (production read-only) and the OCI restore
+> user in 14D.5. The IAM statements in §6.2 remain **PROPOSED** until empirically proven in 14D.4. The owner
 > performs every Console step manually.
 >
 > Builds on `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` (accepted 14D architecture: §3 independence, §4 resources, §5
@@ -450,7 +451,7 @@ the Object Storage namespace exists but its value is kept out of the repository 
 | 6 Uploader policy Phase A `plan-estimate-backup-uploader-drill-policy` | created in `plan-estimate-backup`, ACTIVE; exactly the three §6.2 Phase A statements (drill bucket only; read buckets, read objects, `manage objects` limited to `OBJECT_CREATE`). **No** Phase B / production uploader policy (intentional, O4) |
 | 7 Restore group / policy | group `plan-estimate-backup-restore` in the Default domain ("Read-only restore operators for plan-estimate backups"), **no users**, access requests off; `plan-estimate-backup-restore-policy` in `plan-estimate-backup`, ACTIVE: exactly the two §6.2 restore statements (read buckets, read objects; prod + drill), no write / create / manage / delete. **Restore user and its API key deliberately not created yet** — created when needed for the 14D.5 drill; no restore credential on the production VM |
 | 8 age custody | **done and verified** — §9 "Executed custody" (all checks PASS; A wrap re-created after the paper-passphrase check failed) |
-| 9 R2 read-only token, R2 drill buckets / tokens | **open** |
+| 9 R2 drill buckets / tokens, backup read-only token | buckets `plan-estimate-media-drill-source` and `plan-estimate-media-drill-restore` created: jurisdiction **European Union (EU)** (EU S3 endpoint form), Standard, Public Development URL (`r2.dev`) disabled, no custom domain, no CORS, only the Cloudflare default multipart-abort lifecycle rule (7 days), no Bucket Lock, no event notifications, no On Demand Migration (Data Access Logs unavailable for jurisdiction buckets). `plan-estimate-media-prod` unchanged (0 objects). **Tokens deliberately not created — owner decision 2026-10-04** (secrets are shown once and the owner has no password manager): drill tokens (Object Read & Write, one bucket each) are created in 14D.4 and written straight into the `chmod 600` backup env file on the VM; the backup's production token (**Object Read only**, `plan-estimate-media-prod` only) is created in 14D.6 |
 | 10 Env / secret files on the VM | not created (by design, 14D.4 / 14D.6) |
 
 
