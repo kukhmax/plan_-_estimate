@@ -139,6 +139,25 @@ class Restore:
     def table_digest(self, database: str) -> str:
         return self.sql(database, "SELECT md5(string_agg(t::text, E'\\n' ORDER BY id)) FROM photo_assets t;")
 
+    # -- media consistent with the database -----------------------------------------------------------
+
+    async def make_media(self) -> dict[str, bytes]:
+        """Give every READY asset of the source database real bytes: the rows' sizes and the original's SHA-256
+        are updated to describe them, so that the backup, the manifest and the database agree on content."""
+        media: dict[str, bytes] = {}
+        statements = []
+        for asset in await self.ready_assets(self.source):
+            original = os.urandom(3000) + str(asset.asset_id).encode()
+            display, thumbnail = os.urandom(2000), os.urandom(1000)
+            media[asset.key_original], media[asset.key_display], media[asset.key_thumbnail] = original, display, thumbnail
+            statements.append(
+                f"UPDATE photo_assets SET byte_size = {len(original)}, display_byte_size = {len(display)},"
+                f" thumbnail_byte_size = {len(thumbnail)}, sha256 = '{hashlib.sha256(original).hexdigest()}'"
+                f" WHERE id = '{asset.asset_id}';"
+            )
+        self.sql(self.source, "\n".join(statements))
+        return media
+
     # -- backup side ---------------------------------------------------------------------------------
 
     def pg_dump(self, database: str) -> bytes:
@@ -154,7 +173,7 @@ class Restore:
             await conn.close()
         return [rd._ready_asset(row) for row in rows]
 
-    async def seal(self, plain_sql: bytes, recipients: tuple[str, ...], *, mutate: Any = None, recipients_in_manifest: tuple[str, ...] | None = None, pending: int = 1, failed: int = 1) -> tuple[mf.VerifiedRun, tg.InMemoryBackupTarget]:
+    async def seal(self, plain_sql: bytes, recipients: tuple[str, ...], *, mutate: Any = None, recipients_in_manifest: tuple[str, ...] | None = None, pending: int = 1, failed: int = 1, media: dict[str, bytes] | None = None) -> tuple[mf.VerifiedRun, tg.InMemoryBackupTarget]:
         """Encrypt `plain_sql` with the production primitive and seal a manifest around the artifact.
         `mutate(ciphertext) -> ciphertext` damages the artifact BEFORE the manifest records it, so the manifest still
         matches the (damaged) bytes and the restore must be stopped by age / gzip, not by the SHA-256 gate."""
@@ -167,9 +186,9 @@ class Restore:
         dump = SnapshotDumpResult("00000003-0000001B-1", ready_set_digest([]), 16, path, len(plain_sql), hashlib.sha256(plain_sql).hexdigest())
         encrypted = await encrypt_dump_artifact(dump, ",".join(recipients), age_binary=tool("age"), timeout_seconds=300)
         artifact = encrypted.artifact_path.read_bytes()
-        return await self.seal_artifact(artifact, recipients_in_manifest or recipients, pending=pending, failed=failed, mutate=mutate)
+        return await self.seal_artifact(artifact, recipients_in_manifest or recipients, pending=pending, failed=failed, mutate=mutate, media=media)
 
-    async def seal_artifact(self, artifact: bytes, recipients: tuple[str, ...], *, mutate: Any = None, pending: int = 1, failed: int = 1) -> tuple[mf.VerifiedRun, tg.InMemoryBackupTarget]:
+    async def seal_artifact(self, artifact: bytes, recipients: tuple[str, ...], *, mutate: Any = None, pending: int = 1, failed: int = 1, media: dict[str, bytes] | None = None) -> tuple[mf.VerifiedRun, tg.InMemoryBackupTarget]:
         if mutate is not None:
             artifact = mutate(artifact)
         assets = await self.ready_assets(self.source)
@@ -181,6 +200,8 @@ class Restore:
                 (mf.Role.DISPLAY, asset.key_display, asset.display_byte_size, hashlib.sha256(asset.key_display.encode()).hexdigest()),
                 (mf.Role.THUMBNAIL, asset.key_thumbnail, asset.thumbnail_byte_size, hashlib.sha256(asset.key_thumbnail.encode()).hexdigest()),
             ):  # fmt: skip
+                if media is not None:  # real bytes: the manifest records what the backup target really holds
+                    size, sha = len(media[key]), hashlib.sha256(media[key]).hexdigest()
                 objects.append(mf.ManifestObject(
                     asset_id=str(asset.asset_id), role=role, key=key, size=size, sha256=sha,
                     content_type=mf.expected_content_type(role, str(asset.asset_id), key), action=mf.Action.COPIED,
@@ -204,6 +225,10 @@ class Restore:
         run = mf.verify_run(complete.to_bytes(), manifest.to_bytes())
         target = tg.InMemoryBackupTarget()
         target.objects[header.db_dump.key] = artifact
+        target.objects[mf.manifest_key(run_id)] = manifest.to_bytes()
+        target.objects[mf.complete_key(run_id)] = complete.to_bytes()
+        if media is not None:
+            target.objects.update(media)
         return run, target
 
     async def restore(self, run: mf.VerifiedRun, target: tg.InMemoryBackupTarget, config: PgConnectionConfig, identity: Path, **kwargs: Any) -> rd.DbRestoreReport:

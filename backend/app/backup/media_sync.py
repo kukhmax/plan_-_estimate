@@ -106,6 +106,10 @@ class MediaSyncIncomplete(MediaSyncError):
 class PriorRunError(MediaSyncError):
     """The named prior run cannot be used (missing, not sealed, inconsistent, or from another bucket)."""
 
+    def __init__(self, message: str, *, missing: bool = False) -> None:
+        super().__init__(message)
+        self.missing = missing  # True: COMPLETE.json or the manifest does not exist at all
+
 
 class FailureCode(enum.StrEnum):
     MISSING_SOURCE = "MISSING_SOURCE"  # READY in the database, absent in the source store: evidence loss
@@ -539,7 +543,7 @@ async def load_prior_run(
             try:
                 await retrying(partial(target.download_to, key, path), retry, pause, "prior run")
             except MediaObjectNotFound:
-                raise PriorRunError("the prior run is missing or has no COMPLETE.json") from None
+                raise PriorRunError("the prior run is missing or has no COMPLETE.json", missing=True) from None
             blobs.append(path.read_bytes())
             os.unlink(path)
         try:

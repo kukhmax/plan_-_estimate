@@ -21,7 +21,9 @@
 > on the Oracle VM **PASS 11/11** (2026-10-04). 14D.2I restore, slice 2I.1 — the database restore chain (§16.13) — implemented and proven with
 > real age and PostgreSQL 16 in a development sandbox; the owner run with the production versions is NOT done yet.
 > Slice 2I.2 — media restore into the destination bucket (§16.14) — implemented and tested on in-memory stores and the
-> real S3 adapter; no live run yet. Rest of 14D.2 (2I.3 restore client and live smokes) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
+> real S3 adapter; no live run yet. Slice 2I.3 — the OCI restore client, the whole restore chain and the media-restore smoke (§16.15) — implemented and
+> proven with real tools in a development sandbox; the owner live smoke has NOT been run yet, so 14D.2 is
+> implemented but not yet closed. Rest of the plan: 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
 > run, no restore tooling and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
 >
@@ -1281,6 +1283,73 @@ after the database restore (§16.13) whose READY set it requires.
 - **Not in this stage:** the restore client for the OCI restore principal (API key), the command that wires fetching
   the sealed run, `restore_database`, reading the READY set from the restored database and `restore_media`, the
   integrity-check run, and the live smokes (2I.3); the full chain on real data is the 14D.5 drill. Uploads stay OFF.
+
+### 16.15 Restore client, the whole restore chain and the media-restore smoke (Stage 14D.2I.3)
+
+Implementation: `backend/app/backup/oci_target.py` (`OciBackupReader`, `validate_api_key_config`),
+`backend/app/backup/restore_run.py` (`restore_run`), `backend/app/backup/restore_db.py` (`read_ready_assets`),
+`backend/scripts/stage14d2i3_media_restore_smoke.py`. Tests: `test_stage14d2i3_oci_reader.py` (14),
+`test_stage14d2i3_oci_sdk.py` (18, real `oci` SDK with a stubbed transport), `test_stage14d2i3_restore_run.py` (16),
+`test_stage14d2i3_smoke.py` (33), `test_stage14d2i3_real.py` (5, opt-in, real age + PostgreSQL 16 + real bytes).
+
+- **Restore client (`OciBackupReader`).** The read side of the backup bucket for the restore principal: **`head` and
+  `download_to` only** — there is no write verb to call, not even one that IAM would refuse. Authentication is the
+  operator's API signing key from a local OCI config file (the private key stays on the workstation, never on the
+  production VM); `from_instance_principal` serves verification on the VM. Before the SDK sees them, the config file and
+  the private key it names must be absolute, regular, non-symlink files owned by the effective user with no group /
+  other bits (`validate_api_key_config`); SDK failures are reduced to the exception type, so neither a path, an OCID,
+  a fingerprint nor a provider message reaches an error. The client is built with the SDK's retries off (retry policy
+  lives in `app.backup.target`) and explicit timeouts. A missing SDK is reported as such (`error_code` None), not as a
+  bad config. The tests run the **real SDK** against a stubbed `requests` transport: signed requests (`Authorization:
+  Signature … keyId="<tenancy>/<user>/<fingerprint>"`), endpoint and region (and its override), URL encoding of object
+  names, HEAD / GET only, streaming into a new 0600 file with a size check, 404 / 429 / 5xx / masked-denial mapping with
+  exactly one request per call, and — over the same real client — the 14D.2F writer's conditional PUT (`If-None-Match:
+  *`, `Content-MD5`, `Content-Length`) and 412 → exists. These SDK tests need `oci` and `requests` (an operator /
+  development dependency, not a production pin) and skip without them.
+- **The whole restore (`restore_run`).** `restore_run(reader, run_id, database=…, identity_file=…, destination=…, …)`:
+  (1) seal — `runs/<run_id>/COMPLETE.json` + manifest accepted by `verify_run` (`SEAL_MISSING` / `SEAL_INVALID` /
+  storage failures are reported, never guessed); (2) database — `restore_database` (§16.13); (3) the READY set is read
+  back from the **restored** database (`read_ready_assets`); (4) media — `restore_media` (§16.14) with that set. It stops
+  at the first step that did not succeed: a failed database restore never touches the destination bucket, an unreadable
+  READY set never reaches media. A media failure leaves the restored database in place and says so (`step: media`). The
+  result is one canonical secret-free report (`plan-estimate/restore-run-report/v1`) embedding the step reports. The
+  integrity checker `scripts/media_integrity_check.py --verify-sha256 --strict` stays the operator's final check
+  (§10, §11 step 5). `PriorRunError` gained a `missing` flag so that a run that does not exist is told apart from one
+  that is inconsistent.
+- **Real proof of the whole chain** (`test_stage14d2i3_real.py`, gate `TEST_REAL_POSTGRES=1`, plus `age`): a database
+  with the real Alembic schema is given real object bytes (rows' sizes and the original's SHA-256 updated to describe
+  them), dumped, encrypted for two recipients and sealed with a manifest of the bytes the backup target really holds;
+  `restore_run` with the second recipient's identity restores an identical `photos` table and every object (6 objects,
+  bytes equal); a second run is refused by the database step and never reaches media; a tampered artifact leaves the
+  destination untouched and the database empty; a damaged backup object is reported while the rest and the database are
+  restored; a destination holding other objects is refused after the database restore. Development-sandbox versions:
+  age 1.1.1, PostgreSQL / pg_dump / psql 16.13 (together with the 17 tests of §16.13: 22 passed).
+- **Media-restore live smoke (owner step, not yet run).** `stage14d2i3_media_restore_smoke.py` restores a run that the
+  14D.2G smoke published in the Oracle drill bucket into the R2 **drill-restore** bucket with the production adapters,
+  reading the backup bucket with the VM's instance principal (or, with `--oci-config`, the restore principal's API key
+  on the workstation). The database half needs a real encrypted dump and is proved by the 14D.5 drill; here the READY
+  set is derived from the manifest. It starts only if the destination holds no object under `photos/v1/`, removes
+  exactly what it created, and never deletes anything else. 8 checks: all objects restored and verified; an independent
+  comparison of keys, sizes and SHA-256 with the manifest; an idempotent rerun (no backup read, no write); another
+  object under a manifest key (reported for it alone, bytes untouched); a foreign object (nothing written); a
+  forbidden bucket name (nothing read or written); bytes changed in transit (reported, never written, the rest
+  restored); a secret-free report. Exit codes 0 PASS / 1 FAIL / 2 cannot run / 3 no OCI principal. The automated
+  tests drive every check against engines that are deliberately blind, lenient or destructive, so none can pass
+  vacuously (the first version of the tests let 11 of 15 mutations of the script survive). Configuration: the
+  drill-restore R2 token env file (`R2_*` and `R2_FORBIDDEN_BUCKETS`) and `OCI_NAMESPACE`. Command (DRAFT until the owner
+  run; dependency set resolved and the script's imports and exit codes checked in a clean environment):
+
+  ```bash
+  RUN='pip install -q --no-cache-dir --target /tmp/deps "sqlalchemy[asyncio]==2.1.1" greenlet==3.5.6 pydantic==2.13.5 pydantic-settings==2.15.0 pyjwt==2.15.0 asyncpg==0.31.0 oci==2.187.1 boto3==1.43.103 botocore==1.43.103 s3transfer==0.19.2 urllib3==2.8.0 anyio==4.15.1 && PYTHONPATH=/tmp/deps python /app/scripts/stage14d2i3_media_restore_smoke.py --run-id <run 1>'
+  docker run --rm --network pe-upload --cap-drop ALL --security-opt no-new-privileges \
+    --user "$(id -u):$(id -g)" -e HOME=/tmp -e PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    --env-file ~/backups/plan-estimate/drill-secrets/r2-drill-restore.env -e OCI_NAMESPACE -e PYTHONDONTWRITEBYTECODE=1 \
+    -v "$PWD/backend":/app:ro "$IMG" sh -c "$RUN"
+  ```
+- **Not in this stage:** a command-line entry point that wires all of this to the operator's environment (data root,
+  lock, exit codes — the same gap as for the backup run), the live run of the database half with a real dump and an
+  API-key restore principal (re-creating that key is a 14D.5 step), the integrity-check run, any production target.
+  Uploads stay OFF.
 
 ## 17. Stage 14D PASS criteria
 

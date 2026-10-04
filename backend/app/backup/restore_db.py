@@ -475,6 +475,31 @@ def _ready_asset(row: Any) -> ReadyAsset:
     )
 
 
+class ReadyAssetsUnreadableError(RuntimeError):
+    """The READY set of the restored database could not be read or is malformed. The message names no value."""
+
+
+async def read_ready_assets(database: PgConnectionConfig, *, connect: Connect = asyncpg.connect) -> list[ReadyAsset]:
+    """The READY set of a (restored) database, read with the 14D.2A inventory query in a read-only transaction.
+
+    The media restore (14D.2I.2) needs it: restore time is where "originals = DB, sizes = DB" is checked."""
+    try:
+        conn = await _connect(connect, database)
+    except (OSError, asyncpg.PostgresError, TimeoutError):
+        raise ReadyAssetsUnreadableError("the restored database cannot be reached") from None
+    try:
+        await conn.execute("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        rows = await conn.fetch(READY_INVENTORY_SQL)
+    except (OSError, asyncpg.PostgresError, TimeoutError):
+        raise ReadyAssetsUnreadableError("the READY inventory cannot be read") from None
+    finally:
+        await _close(conn)
+    try:
+        return [_ready_asset(row) for row in rows]
+    except (ReadySetFormatError, ValueError, TypeError):
+        raise ReadyAssetsUnreadableError("the READY inventory is malformed") from None
+
+
 async def restore_database(
     reader: BackupReader,
     run: VerifiedRun,

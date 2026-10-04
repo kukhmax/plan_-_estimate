@@ -30,10 +30,12 @@ token, OCID or response body):
 
 import asyncio
 import base64
+import configparser
 import hashlib
 import logging
 import os
 import re
+import stat
 from pathlib import Path
 from typing import Any, cast
 
@@ -57,6 +59,7 @@ _BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", re.ASCII)
 _MASKED_DENIAL_CODES = frozenset({"BucketNotFound", "NamespaceNotFound", "NotAuthorizedOrNotFound", "NotAuthenticated"})
 _TRANSIENT_CODES = frozenset({"Throttled", "TooManyRequests", "InternalServerError", "ServiceUnavailable"})
 _TRANSPORT_MODULES = frozenset({"requests", "urllib3", "http", "socket", "ssl"})
+CONFIG_MAX_BYTES = 64 * 1024
 
 
 def service_error_facts(exc: BaseException) -> tuple[int, str | None] | None:
@@ -242,3 +245,103 @@ class OciBackupTarget:
         except BaseException:
             path.unlink(missing_ok=True)
             raise
+
+
+# -- restore principal: read-only client from an API-key config file (Stage 14D.2I.3) ----------------------
+
+
+def _private_regular_file(path: Path, what: str, *, euid: int | None = None) -> None:
+    """Absolute, regular, not a symlink, owned by the effective user, no group / other bits, sane size.
+    The error names the rule and the role of the file, never its path or content."""
+    expected_uid = os.geteuid() if euid is None else euid
+    if not path.is_absolute():
+        raise MediaStorageMisconfigured(f"the {what} path must be absolute", error_code="ConfigFileUnsafe")
+    try:
+        st = os.lstat(path)
+    except OSError:
+        raise MediaStorageMisconfigured(f"the {what} does not exist or is not accessible", error_code="ConfigFileUnsafe") from None
+    if stat.S_ISLNK(st.st_mode) or not stat.S_ISREG(st.st_mode):
+        raise MediaStorageMisconfigured(f"the {what} must be a regular file (no symlink)", error_code="ConfigFileUnsafe")
+    if st.st_uid != expected_uid:
+        raise MediaStorageMisconfigured(f"the {what} is not owned by the effective user", error_code="ConfigFileUnsafe")
+    if st.st_mode & 0o077:
+        raise MediaStorageMisconfigured(
+            f"the {what} has group / other permissions (expected 0600 or 0400)", error_code="ConfigFileUnsafe"
+        )
+    if st.st_size == 0 or st.st_size > CONFIG_MAX_BYTES:
+        raise MediaStorageMisconfigured(f"the {what} is empty or unexpectedly large", error_code="ConfigFileUnsafe")
+
+
+def validate_api_key_config(config_file: Path, profile: str, *, euid: int | None = None) -> None:
+    """The OCI config file and the private key it names must both be private files owned by the effective user."""
+    _private_regular_file(config_file, "OCI config file", euid=euid)
+    parser = configparser.ConfigParser(interpolation=None)
+    try:
+        with open(config_file, encoding="utf-8") as handle:
+            parser.read_file(handle)
+    except (OSError, UnicodeDecodeError, configparser.Error):
+        raise MediaStorageMisconfigured("the OCI config file could not be parsed", error_code="ConfigFileUnsafe") from None
+    if not parser.has_section(profile) and profile != "DEFAULT":
+        raise MediaStorageMisconfigured("the OCI config profile does not exist", error_code="ConfigFileUnsafe")
+    key_file = parser.defaults().get("key_file") if profile == "DEFAULT" else parser.get(profile, "key_file", fallback=None)
+    if not key_file:
+        raise MediaStorageMisconfigured("the OCI config profile names no key_file", error_code="ConfigFileUnsafe")
+    _private_regular_file(Path(os.path.expanduser(key_file)), "OCI API signing key", euid=euid)
+
+
+class OciBackupReader:
+    """The read side of the backup bucket for the restore principal (IAM: read / inspect only).
+
+    Exposes `head` and `download_to` and nothing else -- there is no write verb to call, not even one that IAM
+    would refuse. Authentication is the operator's API signing key from a local OCI config file (the private key
+    stays on the operator's workstation, never on the production VM); the instance principal is available for
+    verification on the VM."""
+
+    def __init__(self, target: OciBackupTarget) -> None:
+        self._target = target
+
+    def __repr__(self) -> str:
+        return f"OciBackupReader({self._target!r})"
+
+    @classmethod
+    def from_api_key_config(
+        cls,
+        *,
+        namespace: str,
+        bucket: str,
+        config_file: Path,
+        profile: str = "DEFAULT",
+        region: str | None = None,
+        connect_timeout: float = CONNECT_TIMEOUT_SECONDS,
+        read_timeout: float = READ_TIMEOUT_SECONDS,
+    ) -> "OciBackupReader":
+        try:
+            import oci  # type: ignore[import-not-found,unused-ignore]
+        except ImportError:
+            raise MediaStorageMisconfigured(f"the OCI SDK is not installed (pip install {OCI_SDK_PIN})") from None
+        validate_api_key_config(config_file, profile)
+        try:
+            config = oci.config.from_file(file_location=str(config_file), profile_name=profile)
+            if region is not None:
+                config["region"] = region
+            oci.config.validate_config(config)
+        except Exception as exc:  # noqa: BLE001 - the SDK's messages can quote the config; only the type is kept
+            raise MediaStorageMisconfigured("the OCI config is not usable", error_code=type(exc).__name__) from None
+        client = oci.object_storage.ObjectStorageClient(
+            config,
+            retry_strategy=oci.retry.NoneRetryStrategy(),
+            timeout=(connect_timeout, read_timeout),
+        )
+        return cls(OciBackupTarget(namespace=namespace, bucket=bucket, client=client))
+
+    @classmethod
+    def from_instance_principal(
+        cls, *, namespace: str, bucket: str, region: str = DEFAULT_REGION
+    ) -> "OciBackupReader":
+        return cls(OciBackupTarget.from_instance_principal(namespace=namespace, bucket=bucket, region=region))
+
+    async def head(self, key: str) -> TargetObject | None:
+        return await self._target.head(key)
+
+    async def download_to(self, key: str, path: Path) -> None:
+        await self._target.download_to(key, path)
