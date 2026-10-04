@@ -1,8 +1,9 @@
 # Stage 14D.4 — Connectivity / semantics smoke on drill resources and the IMDS gate (O4)
 
-> **Status:** 14D.4.1 reconnaissance DONE (owner, 2026-10-04, read-only). 14D.4.2 tooling **IMPLEMENTED — automated
-> verification PASS, OWNER ACCEPTED 2026-10-04** (this document, §9). 14D.4.3–14D.4.7 NOT STARTED; every production
-> step requires explicit owner approval. Production unchanged; `PHOTO_UPLOADS_ENABLED=false`.
+> **Status:** 14D.4.1–14D.4.6 **EXECUTED by the owner on 2026-10-04 — every check PASS** (results: §11). 14D.4.2
+> tooling OWNER ACCEPTED. 14D.4.7 (this record) and Stage 14D.4 **OWNER ACCEPTED 2026-10-04**. Production change made
+> deliberately in 14D.4.4: the IMDS guard (§11.2). Photo uploads remain OFF (`PHOTO_UPLOADS_ENABLED=false`); the
+> production uploader policy (Phase B) does **not** exist and is a separate owner decision.
 >
 > Builds on `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md` (§6.2 policy statements and security invariants, §8
 > uploader boundary and the O4 gate, §11 destructive-action matrix) and `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` (§13
@@ -235,16 +236,19 @@ done
 ## 7. Restore principal proof (14D.4.6, owner workstation)
 
 User `plan-estimate-restore-operator` (Default domain, member of `plan-estimate-backup-restore` only); API signing key
-generated on the owner's Manjaro workstation, never on the VM. Proof with the OCI CLI: GET of the 14D.4.5 probe
-object from the drill bucket and a list of the production bucket succeed; PutObject and DeleteObject on the drill
-bucket are denied. Then the API key is deleted in the Console and the local private key is destroyed; the user stays
-without a key until 14D.5. Exact commands are prepared when this step starts.
+generated on the owner's Manjaro workstation, never on the VM. Proof with
+`backend/scripts/stage14d4_oci_restore_smoke.py` (standalone, `oci==2.187.1`, API-key config file; the OCI CLI was
+not used): GetBucket on both buckets, list objects on both, HEAD / GET / list-versions of the 14D.4.5 probe object
+succeed; PutObject, DeleteObject, multipart and bucket update on the **drill** bucket are denied; invariants: probe
+unchanged and the attempted name absent. The production bucket is only read. Then the API key is deleted in the
+Console and the local private key, public key, config and virtualenv are destroyed; the user stays without a key until
+14D.5 (result: §11.4).
 
 ## 8. Order and approvals
 
 | Step | Content | Production effect |
 |---|---|---|
-| 14D.4.2 | tooling + tests (this commit) | none |
+| 14D.4.2 | tooling + tests | none |
 | 14D.4.3 | R2 drill tokens → env files on the VM → R2 smoke (both tokens) | new files outside the repository only |
 | 14D.4.4 | uploader network + IMDS guard + verification (§4.2) | **firewall** (`DOCKER-USER` jump + own chain), new Docker network; rollback ready |
 | 14D.4.5 | OCI drill smoke positive + negative (§5) | drill bucket only; probe object remains |
@@ -280,6 +284,88 @@ stop-and-report point, never something to "fix" by widening permissions.
 - The disposable smoke containers install `oci==2.187.1` / boto3 pins with pip; transitive dependencies of `oci` are
   resolved at install time. Acceptable for a one-off drill smoke in an isolated container; the real uploader image
   (tooling stage) gets a fully pinned, hash-locked dependency set.
-- Probe objects remain in `plan-estimate-backup-drill` (create-only principal); manual owner cleanup with the
-  administrator account after 14D.5.
+- Probe objects remain in `plan-estimate-backup-drill` (create-only principal; the R2 probe objects were deleted by
+  their cleanup checks); manual owner cleanup with the administrator account after 14D.5.
 - `pe-upload` is created manually here; Compose wiring of the uploader is part of the uploader tooling stage.
+- **Denials are reported as `404 BucketNotFound`.** Object Storage masks missing permissions as 404, so the error code
+  alone cannot separate "denied" from "missing". The proof of "no overwrite / no delete" is the state invariant (same
+  SHA-256 or size, exactly one version); multipart / bucket-update denials rest on the bucket demonstrably existing in
+  the same run. An administrator may additionally look at the probe object's versions in the Console (optional).
+- **The guard covers containers on Docker bridges, not the host.** A process with a shell on the VM (SSH session,
+  root, a container started with `--network host` or privileged) can still obtain the instance principal — Oracle
+  documents this for instance principals. Today that means create / read on the **drill** bucket only. This is the
+  main input for the Phase B decision (production uploader authority would extend it to the production backup bucket
+  for anyone with host access); the API-key fallback of O1 stays available.
+- **Reboot / Docker-restart persistence of the guard is not yet verified** (the unit is `enabled`, ordered after and
+  `PartOf` docker.service). It is verified at the next planned reboot (a kernel restart is pending): `status` must print
+  `OK` and the four IMDS probes (§4.2) must repeat. Docker is not restarted in production for this test.
+- Small tooling notes: `HEAD` errors carry no body, so a failed HEAD is reported as `ServiceError` without a code; the
+  report table columns misalign for very long bucket names (cosmetic). Both are harmless to the verdicts.
+- R2 drill tokens expire after 30 days (about 2026-11-03) or earlier if revoked; the Oracle namespace is deliberately
+  not recorded in the repository.
+
+## 11. Results (owner-executed, 2026-10-04)
+
+Every command was run by the owner on the production VM (`158.101.165.162`, aarch64) or on the owner's workstation,
+from this document, step by step; outputs were reviewed in the owner's session. No secret, OCID or namespace is
+recorded here.
+
+### 11.1 14D.4.3 R2 drill tokens and smoke — PASS
+
+| Token (Object Read & Write, TTL 30 days, client IP = VM) | Own bucket | `plan-estimate-media-prod` | other drill bucket |
+|---|---|---|---|
+| `plan-estimate-drill-source` → `plan-estimate-media-drill-source` | create / HEAD / GET (SHA-256) / list allowed | list and HeadBucket **403** | list and HeadBucket **403** |
+| `plan-estimate-drill-restore` → `plan-estimate-media-drill-restore` | same | **403** | **403** |
+
+Both runs: `RESULT: PASS (12/12 checks passed)`, exit 0. Second conditional create (`If-None-Match: *`) →
+**HTTP 412 PreconditionFailed** (R2 honours the conditional header through boto3 — previously only assumed in 14B);
+the object was unchanged (SHA-256) and the cleanup delete was verified. Credentials live in two env files
+`~/backups/plan-estimate/drill-secrets/*.env` (directory 0700, files 0600), outside the repository; values were never
+displayed (name + length check only). Server checkout updated to `8f7ae6b` (`git pull --ff-only`, no container
+touched).
+
+### 11.2 14D.4.4 IMDS guard on the production host — PASS
+
+Installed as designed: `/usr/local/sbin/pe-imds-guard.sh` (root:root 0755), unit
+`/etc/systemd/system/plan-estimate-imds-guard.service` (enabled, active), docker network `pe-upload`
+(172.30.250.0/24, bridge `br-pe-upload`). `pe-imds-guard.sh status` → `OK (PE-IMDS-GUARD at DOCKER-USER #1; uploader
+bridge br-pe-upload)`. Production health after the change: `/api/health` → `{"status":"ok"}`; backend DNS
+(`api.telegram.org`) works.
+
+| Probe (`GET http://169.254.169.254/opc/v2/instance/region`) | Before (14D.4.1) | After |
+|---|---|---|
+| running backend container | `200 eu-frankfurt-1` | **blocked** |
+| new container on `plan-estimate_internal` | — | **blocked** |
+| new container on the default bridge | — | **blocked** |
+| new container on `pe-upload` | — | **200** |
+
+The rollback (`systemctl disable …` + `pe-imds-guard.sh remove`) was prepared and not needed. `rules.v4` and Oracle's
+`InstanceServices` rules were not touched.
+
+### 11.3 14D.4.5 OCI drill smoke — PASS
+
+From `pe-upload` (instance principal obtained): `RESULT: PASS (16/16 checks passed)`, exit 0 — drill bucket reachable
+and versioned; new object created, HEAD / GET (SHA-256) / list / list versions (exactly 1) allowed; overwrite,
+conditional create (**412 IfNoneMatchFailed**), delete, version delete, multipart and bucket update denied; object
+unchanged (SHA-256, one version); production bucket GetBucket / ListObjects denied. Negative O4 check from
+`plan-estimate_internal` with `--auth-only`: `instance principal: NOT obtainable (ConnectionError)`, **exit 3**.
+Probe object left in the drill bucket: `smoke/14d4/20261004T141338Z-68bcaee7/probe.bin`.
+
+### 11.4 14D.4.6 restore principal — PASS
+
+IAM user `plan-estimate-restore-operator` (Default domain, member of `plan-estimate-backup-restore` only; created
+for this proof). API key pair generated on the owner's workstation; `RESULT: PASS (12/12 checks passed)`, exit 0 —
+both buckets readable (GetBucket, list), probe HEAD / GET (65536 bytes) allowed; PutObject, DeleteObject, multipart
+and bucket update on the drill bucket denied; probe unchanged (one version); the attempted name absent. Cleanup
+(owner-reported): API key deleted in the Console; `key.pem`, `key_public.pem` and the config shredded, virtualenv
+removed, working directory deleted. The user has **no API key** and no credential exists for it until 14D.5.
+
+### 11.5 State after 14D.4
+
+| Item | State |
+|---|---|
+| Production runtime / DB / uploads | unchanged (`8c53e58` runtime, `0032_photo_attachments`); uploads OFF |
+| Deliberate production changes | IMDS guard chain + jump, systemd unit (enabled), docker network `pe-upload`, repository checkout fast-forwarded to `8f7ae6b`, two R2 drill env files |
+| OCI policies | Phase A (drill) and restore policies unchanged and now empirically proven; **no Phase B** |
+| Credentials existing | two R2 drill tokens (30 days, IP-restricted, drill buckets only); none for OCI beyond the instance principal (drill-only authority, reachable from `pe-upload` only) |
+| Open for later | reboot persistence check; Phase B decision; Oracle Always Free capacity check before 14D.6; probe-object cleanup; 14D.5 restore drill |

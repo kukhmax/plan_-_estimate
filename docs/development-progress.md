@@ -862,7 +862,7 @@ code, Compose or production change; no secret, OCID or key in the repository.
   only the two public age recipients are recorded.
 - **Status**: **14D.3 PROVISIONING COMPLETE / OWNER ACCEPTED** (2026-10-04). 14D.4 approved to start (planning first).
 
-### Stage 14D.4 — connectivity / semantics smoke and IMDS gate (2026-10-04, IN PROGRESS)
+### Stage 14D.4 — connectivity / semantics smoke and IMDS gate (2026-10-04, EXECUTED — OWNER ACCEPTED)
 
 Plan, reconnaissance and procedures: `docs/STAGE_14D4_CONNECTIVITY_SEMANTICS_SMOKE.md`. Owner decisions: native OCI SDK
 smoke; IMDS guard keeps DNS (53) open; restore user only for the 14D.4.6 proof, API key deleted afterwards.
@@ -883,10 +883,29 @@ smoke; IMDS guard keeps DNS (53) open; restore user only for the 14D.4.6 proof, 
   51 passed, including the packet matrix (only the uploader reaches IMDS; DNS open; rollback restores all). OCI calls
   additionally verified against the real `oci==2.187.1` client with a stubbed transport (16/16). Ruff clean; mypy clean
   (`--strict` on both scripts).
-- **Next:** 14D.4.3 R2 drill tokens + smoke, 14D.4.4 guard on the production host (firewall change, rollback ready),
-  14D.4.5 OCI drill smoke, 14D.4.6 restore principal proof — each with explicit owner approval.
-- **Status**: **14D.4 IN PROGRESS.** Production unchanged; uploads OFF.
-  Production unchanged; uploads OFF.
+- **14D.4.3 R2 drill tokens + smoke — PASS (owner-run, 2026-10-04).** Tokens `plan-estimate-drill-source` /
+  `plan-estimate-drill-restore` (Object Read & Write, TTL 30 days, client IP = VM, one drill bucket each); both
+  `RESULT: PASS (12/12)`: own bucket create / HEAD / GET / list / cleanup allowed, `If-None-Match: *` → **412** (R2
+  honours it), production and the other drill bucket **403**. Secrets only in two `0600` env files on the VM.
+- **14D.4.4 IMDS guard on the production host — PASS (owner-run).** Guard script + unit installed, network `pe-upload`
+  created; IMDS: backend / new container on `internal` / default bridge **blocked**, `pe-upload` **200**; DNS and
+  `/api/health` unaffected. Rollback prepared, not needed. `rules.v4` untouched. Reboot persistence to be verified at the
+  next planned reboot.
+- **14D.4.5 OCI drill smoke — PASS (owner-run).** From `pe-upload`: `RESULT: PASS (16/16)` (create / read allowed;
+  overwrite, conditional create 412, delete, version delete, multipart, bucket update, production access denied; probe
+  unchanged); from `internal`: instance principal NOT obtainable, exit 3. Denials are masked by OCI as `404
+  BucketNotFound` — proof rests on the state invariants.
+- **14D.4.6 restore principal — PASS (owner-run).** User `plan-estimate-restore-operator` (group
+  `plan-estimate-backup-restore` only), workstation-generated API key: `RESULT: PASS (12/12)` — reads both buckets,
+  cannot write / delete / start multipart / update the bucket; probe unchanged. API key deleted and local key files
+  destroyed (owner-reported); the user keeps no credential until 14D.5. Script
+  `backend/scripts/stage14d4_oci_restore_smoke.py` + 24 tests (commit `1562eb6`).
+- **14D.4.7 results record — DONE (this entry); Stage 14D.4 OWNER ACCEPTED (2026-10-04).** Full record:
+  `docs/STAGE_14D4_CONNECTIVITY_SEMANTICS_SMOKE.md` §11; residual risks §10 (the guard covers containers, not host
+  processes — input for the Phase B decision; reboot persistence unverified; Always Free capacity check before 14D.6).
+- **Status**: **14D.4 EXECUTED — all checks PASS; OWNER ACCEPTED (2026-10-04).** Production runtime, DB and
+  `PHOTO_UPLOADS_ENABLED=false` unchanged; deliberate production additions: IMDS guard, `pe-upload` network, drill env
+  files. Phase B (production uploader policy) not created — separate owner decision.
 
 ---
 
@@ -958,7 +977,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
 | └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); rest (manifest / media / restore tooling) NOT STARTED) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | PROVISIONING COMPLETE 2026-10-04 (OCI steps 1–7; age custody A + B verified from paper; R2 EU drill buckets; tokens / restore user deliberately deferred to 14D.4–14D.6); OWNER ACCEPTED 2026-10-04 |
-| └ 14D.4 | Connectivity / semantics smoke on drill resources | IN PROGRESS (14D.4.1 reconnaissance done — IMDS reachable from the backend container; 14D.4.2 guard + OCI / R2 smoke tooling implemented, automated verification PASS, owner accepted) |
+| └ 14D.4 | Connectivity / semantics smoke on drill resources | EXECUTED 2026-10-04 — all PASS (R2 drill tokens 12/12 ×2; IMDS guard live: only `pe-upload` reaches IMDS; OCI uploader smoke 16/16 + O4 negative exit 3; restore principal 12/12); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |
 | └ 14D.6 | First production non-destructive backup run + runbook final | NOT STARTED |
 | └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | NOT STARTED |
