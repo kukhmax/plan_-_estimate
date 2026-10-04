@@ -22,8 +22,9 @@
 > real age and PostgreSQL 16 in a development sandbox; the owner run with the production versions is NOT done yet.
 > Slice 2I.2 — media restore into the destination bucket (§16.14) — implemented and tested on in-memory stores and the
 > real S3 adapter; no live run yet. Slice 2I.3 — the OCI restore client, the whole restore chain and the media-restore smoke (§16.15) — implemented and
-> proven with real tools in a development sandbox; the owner live smoke has NOT been run yet, so 14D.2 is
-> implemented but not yet closed. Rest of the plan: 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
+> proven with real tools in a development sandbox, and the owner live media-restore smoke on the Oracle VM
+> **PASS 8/8** (2026-10-04, 10/10 synthetic objects removed afterwards); the database half of the restore on real data is
+> still proven only by the development sandbox until the 14D.5 drill. Rest of the plan: 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
 > run, no restore tooling and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
 >
@@ -1324,7 +1325,8 @@ Implementation: `backend/app/backup/oci_target.py` (`OciBackupReader`, `validate
   destination untouched and the database empty; a damaged backup object is reported while the rest and the database are
   restored; a destination holding other objects is refused after the database restore. Development-sandbox versions:
   age 1.1.1, PostgreSQL / pg_dump / psql 16.13 (together with the 17 tests of §16.13: 22 passed).
-- **Media-restore live smoke (owner step, not yet run).** `stage14d2i3_media_restore_smoke.py` restores a run that the
+- **Media-restore live smoke (owner run 2026-10-04: PASS 8/8, `oci principal: obtained`, `cleanup: 10/10 synthetic
+  objects removed`, exit 0).** `stage14d2i3_media_restore_smoke.py` restored a run that the
   14D.2G smoke published in the Oracle drill bucket into the R2 **drill-restore** bucket with the production adapters,
   reading the backup bucket with the VM's instance principal (or, with `--oci-config`, the restore principal's API key
   on the workstation). The database half needs a real encrypted dump and is proved by the 14D.5 drill; here the READY
