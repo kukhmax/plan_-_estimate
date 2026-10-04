@@ -11,10 +11,12 @@
 > (§16.6, owner-verified 8/8 on PostgreSQL 16.15; production backup-role policy frozen) and 14D.2D.5 Compose / runtime
 > E2E proof (§16.7, owner-verified, FAIL count 0, amd64) complete. Not yet proven: ARM64 production image / bind,
 > production backup execution. 14D.3 Oracle Object Storage / IAM provisioning (§16.8,
-> `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`) — **DESIGN APPROVED, PROVISIONING NOT YET EXECUTED**. Rest of 14D.2 and 14D.3–14D.7 — NOT STARTED. Apart from the §7.1 / §9.1 primitives and the
-> §16 image / container contract, nothing in this document is implemented, configured or
-> verified yet: no backup tooling, no cloud resources, no credentials, no schedule. Executable procedures stay
-> **DRAFT** until the sub-stage that verifies them.
+> `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`) — provisioning **COMPLETE / OWNER ACCEPTED** (2026-10-04); 14D.4
+> connectivity / semantics smoke and the IMDS gate (`docs/STAGE_14D4_CONNECTIVITY_SEMANTICS_SMOKE.md`) — **COMPLETE /
+> OWNER ACCEPTED** (2026-10-04). 14D.2E manifest v1 / COMPLETE.json / provenance core (§16.9) — implemented, pure
+> (no I/O). Rest of 14D.2 (Oracle writer, media sync, verify, restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED /
+> NOT STARTED: no backup upload, no media copy, no restore tooling, no schedule exists yet. Executable procedures
+> stay **DRAFT** until the sub-stage that verifies them.
 >
 > Builds on: `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §13 (consistency model, OD-3),
 > `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` §14 (Oracle concept) and §17 (R9 gate),
@@ -893,6 +895,42 @@ decisions 2026-10-04:
   backup + independent restore.
 - **Gap for the later media / manifest stage:** the uploader needs the READY asset list of the same snapshot; the
   14D.2D.3 metadata hook can read it in the imported snapshot without changing 14D.2A.
+
+### 16.9 Manifest v1, COMPLETE.json and SHA-256 provenance core (Stage 14D.2E — pure)
+
+Implementation: `backend/app/backup/manifest.py`; tests `backend/tests/test_stage14d2e_manifest.py` (153). No I/O, clock,
+randomness or network: bytes and plain values in, bytes and plain values out, so the uploader, `verify` and restore
+tooling (14D.2F–I) share one definition of "a valid backup run". It implements §6, §7, §8 and §10 exactly:
+
+- **Canonical JSON Lines.** `header`, then one `object` line per required object sorted by key, then `summary`; each
+  line sorted-keys / compact / ASCII / `\n`-terminated (the 14D.2D.1 serialization). `parse_manifest` accepts only
+  the exact bytes the builder produces (re-serialization must equal the input), so `sha256(manifest bytes)` is well
+  defined; duplicate JSON fields, `NaN`, floats, booleans-as-integers, unknown / missing fields, CRLF, blank lines and
+  lines over 4 KiB are refused. Golden digests of a reference manifest and COMPLETE.json are pinned in the tests.
+- **Self-verifying completeness (§7).** Every READY asset has exactly three object lines (original, display,
+  thumbnail) with keys fixed by the 14B key layout and a content type consistent with the key; the object lines
+  alone must reproduce the header's `ready_set_sha256` (the 14D.2A digest) and `ready_count`; the summary must equal
+  the counts / byte sum of the lines; an object cannot be verified before the run started; source and target bucket
+  must differ; `db_dump.key` must be `db/<run_id>/plan-estimate.sql.gz.age`; recipients are 1..32 distinct native
+  `age1…` public recipients (private keys and SSH keys are refused). `verify_against_ready_set` compares the manifest
+  with a READY set from the snapshot (backup time) or from a restored database (restore time) and reports counts only
+  (`not_in_manifest`, `not_in_ready_set`, `changed`).
+- **Sealing.** `build_complete` derives `COMPLETE.json` (canonical single line, fields as in §6) from a validated
+  manifest; `verify_run(complete_bytes, manifest_bytes)` requires the recorded manifest SHA-256 to equal the stored
+  manifest's, re-parses and re-validates the manifest, and compares run id, object / byte / asset counts, READY-set
+  digest and encrypted-dump SHA-256; `completed_at` may not precede the run's own timestamps. Only `verify_run`
+  yields a `VerifiedRun`, the type that `decide_provenance` accepts as a prior run.
+- **Provenance (§8).** `decide_provenance` returns *inherit* only when the prior run is verified, the same key and size
+  are recorded there, the target object exists with that size and (for originals) the recorded SHA-256 equals the
+  database SHA-256; any other case, `--deep`, or no prior run is a *download* with a machine-readable reason. A fresh
+  copy is always `downloaded`; an inherited run id must be strictly earlier than the manifest's own run. Provider
+  ETags are never an input.
+- **What the internal checks do not cover (by design).** The database stores only the original's SHA-256, so a changed
+  *derivative* SHA-256 is internally consistent; it is caught by the COMPLETE.json seal (manifest hash) and by the
+  restore-time check of every object against the manifest (§10). A run with any failed object produces no manifest
+  and no COMPLETE.json (§15); its error report is a separate artifact (14D.2G).
+- **Not in this stage:** reading / writing any storage, building the object list, the transfer loop, selecting the
+  prior run, the `verify` and `restore` commands (14D.2F–I).
 
 ## 17. Stage 14D PASS criteria
 
