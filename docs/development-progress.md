@@ -1034,6 +1034,24 @@ change; production uploads remain OFF.
 - **Not done / next:** the 14D.5 drill (needs the restore principal's API key created again by the owner, the drill
   images with the new commands, and the Oracle administrator's cleanup of drill-bucket objects afterwards), 14D.6, 14D.7.
 
+### Stage 14D.5A — drill tooling and runbook draft (2026-10-04, IMPLEMENTED — automated verification PASS — drill NOT yet executed)
+
+Contract and design: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.17; runbook `docs/STAGE_14D5_DRILL_RUNBOOK.md` (DRAFT).
+Prepares the isolated drill of plan §11. No runtime, Compose, Dockerfile, dependency pin, Alembic or production change; nothing
+was executed on any server; production uploads remain OFF.
+
+- **Added:** `scripts/stage14d5_drill_tool.py` — `seed` (synthetic fixture through the real upload endpoint of a scratch
+  backend), `verify-serving` (plan §11 step 6), `inventory` / `compare-inventory` (read-only bucket digests for the "no
+  production write" evidence); `docs/STAGE_14D5_DRILL_RUNBOOK.md`.
+- **Changed:** `restore_run` / `restore` gained `--phase all|database|media` so that the integrity checker can run between the
+  database and the media restore (plan §11 step 5); the report carries `phase`.
+- **Tests:** 59 new (drill tool 46, restore chain +8, restore command +5); the tool is tested against the real application
+  (ASGI + in-memory storage). Mutation checks: the drill tool (11 survivors at first → 12 added tests → 0) and the restore phases (1 survivor at first → 0).
+  One real defect found and fixed on the way (a detail without a URL crashed the serving check).
+- **Verification:** full backend suite (non-root) **3986 passed, 54 skipped, 0 failed** (3927 passed before); new code Ruff clean, `mypy --strict`
+  no findings in the drill tool; the VM dependency set installed and the commands imported in a clean Python 3.12 environment.
+- **Pending (owner):** Phase 0 facts and re-creating the restore principal's API key, then the phases A–J of the runbook;
+  results are recorded in 14D.5B.
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
 Design and owner Console runbook: `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`; summary in

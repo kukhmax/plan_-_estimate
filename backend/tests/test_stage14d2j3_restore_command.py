@@ -114,7 +114,7 @@ def test_a_good_restore_exits_zero_prints_a_summary_and_writes_the_report(home):
     rig = Rig()
     code, text = invoke(rig, env_for(home), argv_for(home))
     assert code == rc.EXIT_SUCCESS
-    assert f"restore ok: run_id={RUN} ready_count=2 restored=4 already_present=2 total=6" in text
+    assert f"restore ok: run_id={RUN} phase=all ready_count=2 restored=4 already_present=2 total=6" in text
     report = home / "report.json"
     assert report.read_bytes() == good_report().report_bytes() and stat.S_IMODE(report.stat().st_mode) == 0o600
     ((_, run_id, kwargs),) = rig.calls
@@ -344,3 +344,36 @@ def test_main_dispatches_restore(monkeypatch):
     monkeypatch.setattr(rc, "run_restore", fake)
     assert cli.main(["restore", "--run-id", RUN], env={}, out=io.StringIO()) == 43
     assert seen["argv"] == ["--run-id", RUN]
+
+
+# --- phases (the drill runs the integrity checker between the two halves) ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("phase", ["all", "database", "media"])
+def test_the_phase_reaches_restore_run_and_defaults_to_all(home, phase):
+    rig = Rig()
+    assert invoke(rig, env_for(home), [*argv_for(home), "--phase", phase])[0] == 0
+    ((_, _, kwargs),) = rig.calls
+    assert kwargs["phase"] is rr.RestorePhase(phase)
+    rig = Rig()
+    (home / "report.json").unlink()
+    assert invoke(rig, env_for(home), argv_for(home))[0] == 0 and rig.calls[0][2]["phase"] is rr.RestorePhase.ALL
+
+
+def test_an_unknown_phase_is_a_usage_error(home):
+    with pytest.raises(SystemExit) as excinfo:
+        invoke(Rig(), env_for(home), [*argv_for(home), "--phase", "everything"])
+    assert excinfo.value.code == 2
+
+
+def test_the_summary_names_the_phase_and_only_what_ran(home):
+    database = rd.DbRestoreReport(RUN, rd.RestoreStep.DONE, None, ready_count=2)
+    half = rr.RestoreRunReport(RUN, rr.RunStep.DONE, None, database, None, rr.RestorePhase.DATABASE)
+    code, text = invoke(Rig(half), env_for(home), argv_for(home))
+    assert code == 0 and f"restore ok: run_id={RUN} phase=database ready_count=2" in text and "restored=" not in text
+    assert json.loads((home / "report.json").read_bytes())["phase"] == "database"
+    media = rm.MediaRestoreReport(RUN, None, (), None, rm.RestoreCounts(objects_total=6, restored=6))
+    other = rr.RestoreRunReport(RUN, rr.RunStep.DONE, None, None, media, rr.RestorePhase.MEDIA)
+    (home / "report.json").unlink()
+    code, text = invoke(Rig(other), env_for(home), argv_for(home))
+    assert code == 0 and "phase=media restored=6" in text and "ready_count" not in text

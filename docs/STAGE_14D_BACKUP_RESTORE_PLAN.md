@@ -25,7 +25,8 @@
 > proven with real tools in a development sandbox, and the owner live media-restore smoke on the Oracle VM
 > **PASS 8/8** (2026-10-04, 10/10 synthetic objects removed afterwards); the database half of the restore on real data is
 > still proven only by the development sandbox until the 14D.5 drill. 14D.2J — the `upload` and `restore` commands that wire all of this to the operator's environment (§16.16) — implemented
-> and tested; not run live yet (that is the 14D.5 drill). Rest of the plan: 14D.5–14D.7 — NOT STARTED: no production backup
+> and tested; not run live yet. 14D.5A — drill tooling and runbook draft (§16.17, `docs/STAGE_14D5_DRILL_RUNBOOK.md`) —
+> implemented; the drill itself (14D.5B) is NOT executed yet. Rest of the plan: 14D.5B–14D.7 — NOT STARTED: no production backup
 > upload or media copy has run and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
 >
@@ -1416,6 +1417,49 @@ operator's environment: data root, lock, evidence, exit codes, guards. It introd
   image (the backup image carries neither `oci` nor, for the uploader, a separate build yet); for the drill the commands run
   the way the smokes do — `pip install --target /tmp/deps` of the pinned set, `PYTHONPATH=/tmp/deps` — and pinning `oci`
   into a dedicated uploader image is a later image / dependency change that needs the owner's approval.
+
+### 16.17 Drill tooling and runbook (Stage 14D.5A)
+
+Implementation: `backend/scripts/stage14d5_drill_tool.py`, `backend/app/backup/restore_run.py` and
+`restore_command.py` (`--phase`), runbook `docs/STAGE_14D5_DRILL_RUNBOOK.md`. Tests: `test_stage14d5_drill_tool.py` (46),
+`test_stage14d2i3_restore_run.py` (+8) and `test_stage14d2j3_restore_command.py` (+5). 14D.5A prepares the isolated drill
+(§11); it executes nothing on any server. The drill itself (14D.5B) is run by the owner phase by phase.
+
+- **Drill tool (`seed`, `verify-serving`, `inventory`, `compare-inventory`).** `seed` generates the §12 fixture — a JPEG,
+  a PNG, a WebP and a JPEG with EXIF orientation 6, all generated, deterministic, no real media — and uploads it through
+  the **real** `POST /api/projects/{id}/photos` of a *scratch* backend (mock authentication, development environment; the
+  tool refuses any backend whose host is not loopback, does not contain `scratch` or is not explicitly allowed). It
+  records the project, the assets, the SHA-256 of every uploaded original and the stored dimensions in a new 0600
+  fixture file. `verify-serving` is plan §11 step 6: against a scratch backend pointed at the restored database and the
+  drill-restore bucket it checks (8 checks) that the list equals the fixture and the sealed manifest, every list item has a
+  thumbnail URL, every detail is READY with thumbnail and display URLs, the bytes behind every presigned URL (fetched
+  without the API's Authorization header, redirects not followed) hash to the **manifest's** SHA-256, the originals in
+  the manifest equal the fixture's, the stored dimensions are unchanged by the restore, the EXIF case is portrait, and no
+  original is exposed. `inventory` lists a bucket (R2 `list_objects_v2` or OCI `list_objects`, never anything else) and
+  writes object count, bytes and a digest over the sorted "key, size, etag" lines — no key in the file;
+  `compare-inventory` names the fields that differ. The tests drive `seed` and `verify-serving` against the **real
+  application** (ASGI, in-memory storage), so the tool is proven against the actual upload and read contract; misbehaving
+  backends (missing URLs, a not-READY detail, a lost orientation, an exposed original, wrong bytes, an unreachable or
+  non-200 URL) are simulated by rewriting the real app's answers. 46 tests, mutation-checked (11 of the first batch of mutations survived and led to 12 added tests; 0 survive now).
+- **`restore --phase all|database|media`.** Plan §11 step 5 needs the integrity checker *between* the database and the
+  media restore (database restored, destination empty: exactly the expected objects are missing; afterwards: clean). The
+  chain therefore gained `RestorePhase`: `database` = seal + database; `media` = seal + READY set read back from the
+  already restored database + media (refused when the database is not a scratch database — `DATABASE_UNSAFE` — or does not
+  match the manifest — the existing `MANIFEST_DB_MISMATCH`); `all` (default) is unchanged. The report carries `phase`, and
+  `ok` means that the phase's own halves succeeded and that a skipped half carries no report. Mutation-checked.
+- **Finding on the way.** The first version of the serving check crashed on a detail without a URL instead of failing
+  the check; fixed and pinned by a test.
+- **Dependency set for the Oracle VM** (python slim, no build): `sqlalchemy[asyncio]==2.1.1 greenlet==3.5.6
+  pydantic==2.13.5 pydantic-settings==2.15.0 pyjwt==2.15.0 asyncpg==0.31.0 alembic==1.20.0 oci==2.187.1
+  boto3==1.43.103 botocore==1.43.103 s3transfer==0.19.2 urllib3==2.8.0 anyio==4.15.1` — installed and the `upload` /
+  `restore` commands imported in a clean Python 3.12 environment (`alembic` is needed because the CLI module imports the
+  `db-dump` chain). `oci` is in no image or requirements file.
+- **Facts the runbook rests on.** The production R2 bucket holds 0 objects and no production R2 token exists yet (the
+  read-only token is created in 14D.6), so the production "no write" evidence is inventory-based and optional (Oracle
+  production backup bucket via the restore principal, one read-only count on the production database); every production
+  access is the owner's explicit decision. The restore principal's API key must be re-created by the owner.
+- **Not in this stage:** executing any phase (14D.5B), step 7 of §11 (the real production dump: 14D.6), a dedicated
+  uploader image.
 
 ## 17. Stage 14D PASS criteria
 

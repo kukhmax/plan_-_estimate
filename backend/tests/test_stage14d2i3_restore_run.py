@@ -223,3 +223,84 @@ def test_ok_needs_every_step_to_have_succeeded():
     assert not rr.RestoreRunReport(RUN_1, rr.RunStep.DONE, None, db_ok, None).ok
     db_bad = rd.DbRestoreReport(RUN_1, rd.RestoreStep.LOAD, rd.RestoreFailure.PSQL_FAILED)
     assert not rr.RestoreRunReport(RUN_1, rr.RunStep.DONE, None, db_bad, media_ok).ok
+
+
+# --- phases (14D.5: the integrity checker runs between the two halves) ---------------------------------------------------------------
+
+
+async def test_the_database_phase_restores_the_database_and_touches_no_media(chain: Chain):
+    report = await chain.restore(phase=rr.RestorePhase.DATABASE)
+    assert report.ok and report.step is rr.RunStep.DONE and report.phase is rr.RestorePhase.DATABASE
+    assert report.database is not None and report.database.ok and report.media is None
+    assert chain.rig.psql_got_eof() and untouched(chain)
+    assert len(chain.rig.connects) == 2, "preflight and checks only: the READY set is not read back in this phase"
+    document = json.loads(report.report_bytes())
+    assert document["phase"] == "database" and document["ok"] is True and document["media"] is None
+
+
+async def test_the_media_phase_restores_into_an_already_restored_database(chain: Chain):
+    report = await chain.restore(phase=rr.RestorePhase.MEDIA)
+    assert report.ok and report.phase is rr.RestorePhase.MEDIA and report.database is None
+    assert report.media is not None and report.media.counts.restored == 6
+    assert {key: obj.data for key, obj in chain.destination.inner._objects.items()} == chain.rig.world.contents
+    assert not chain.rig.psql_got_eof(), "no database restore ran in the media phase"
+    assert len(chain.rig.connects) == 1, "only the READY set is read from the existing database"
+    assert json.loads(report.report_bytes())["database"] is None
+
+
+async def test_the_two_phases_in_sequence_equal_the_whole_chain(chain: Chain):
+    first = await chain.restore(phase=rr.RestorePhase.DATABASE)
+    assert first.ok and untouched(chain)
+    second = await chain.restore(phase=rr.RestorePhase.MEDIA)
+    assert second.ok and second.media is not None and second.media.counts.restored == 6
+    assert {key: obj.data for key, obj in chain.destination.inner._objects.items()} == chain.rig.world.contents
+
+
+async def test_the_media_phase_refuses_a_database_that_is_not_a_scratch_database(chain: Chain):
+    import dataclasses
+
+    report = await chain.restore(phase=rr.RestorePhase.MEDIA, database=dataclasses.replace(chain.rig.database, database="plan_estimate"))
+    assert (report.step, report.failure) == (rr.RunStep.DATABASE, rr.ChainFailure.DATABASE_UNSAFE) and not report.ok
+    assert chain.rig.connects == [] and untouched(chain)
+
+
+async def test_the_media_phase_refuses_a_database_that_does_not_match_the_manifest(chain: Chain):
+    await chain.rig.seal()
+    chain.rig.ready_rows = chain.rig.ready_rows[:-1]
+    report = await chain.restore(phase=rr.RestorePhase.MEDIA)
+    assert report.media is not None and report.media.preflight is rm.Preflight.MANIFEST_DB_MISMATCH
+    assert not report.ok and report.step is rr.RunStep.MEDIA and untouched(chain)
+
+
+async def test_a_failing_database_phase_is_not_ok_and_stops(chain: Chain):
+    chain.rig.age(exit=1, stderr="age: error: boom\n")
+    report = await chain.restore(phase=rr.RestorePhase.DATABASE)
+    assert (report.step, report.failure) == (rr.RunStep.DATABASE, None) and not report.ok and untouched(chain)
+    assert report.phase is rr.RestorePhase.DATABASE and json.loads(report.report_bytes())["phase"] == "database"
+
+
+async def test_the_media_phase_needs_a_seal_like_every_other(chain: Chain):
+    report = await chain.restore(phase=rr.RestorePhase.MEDIA, run_id=RUN_2)
+    assert (report.step, report.failure) == (rr.RunStep.SEAL, rr.ChainFailure.SEAL_MISSING)
+    assert report.phase is rr.RestorePhase.MEDIA and untouched(chain)
+
+
+def test_ok_follows_the_phase():
+    db_ok = rd.DbRestoreReport(RUN_1, rd.RestoreStep.DONE, None)
+    db_bad = rd.DbRestoreReport(RUN_1, rd.RestoreStep.LOAD, rd.RestoreFailure.DECRYPT_FAILED)
+    media_ok = rm.MediaRestoreReport(RUN_1, None, (), None, rm.RestoreCounts(objects_total=1, restored=1))
+    media_bad = rm.MediaRestoreReport(RUN_1, rm.Preflight.DESTINATION_UNSAFE, (), None, rm.RestoreCounts())
+    phase = rr.RestorePhase
+    done = rr.RunStep.DONE
+
+    def report(p, database, media, step=done, failure=None):
+        return rr.RestoreRunReport(RUN_1, step, failure, database, media, p)
+
+    assert report(phase.DATABASE, db_ok, None).ok and report(phase.MEDIA, None, media_ok).ok and report(phase.ALL, db_ok, media_ok).ok
+    assert not report(phase.DATABASE, db_bad, None).ok and not report(phase.DATABASE, None, None).ok
+    assert not report(phase.MEDIA, None, media_bad).ok and not report(phase.MEDIA, None, None).ok
+    assert not report(phase.DATABASE, db_ok, media_ok).ok, "a phase that skips media must not carry a media report"
+    assert not report(phase.MEDIA, db_ok, media_ok).ok, "a phase that skips the database must not carry a database report"
+    assert not report(phase.ALL, db_ok, None).ok and not report(phase.ALL, None, media_ok).ok
+    assert not report(phase.DATABASE, db_ok, None, step=rr.RunStep.DATABASE).ok
+    assert not report(phase.DATABASE, db_ok, None, failure=rr.ChainFailure.SEAL_INVALID).ok

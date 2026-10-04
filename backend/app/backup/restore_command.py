@@ -3,7 +3,7 @@
     python -m app.backup restore --run-id ID --identity-file /abs/age.key --scratch-dir /abs/dir --report-file /abs/new.json
                                  --forbidden-bucket NAME [--forbidden-bucket NAME ...] [--oci-config /abs/config
                                  [--oci-profile NAME]] [--allowed-host HOST ...] [--allow-non-drill]
-                                 [--allow-foreign-objects] [--no-verify-destination]
+                                 [--allow-foreign-objects] [--no-verify-destination] [--phase all|database|media]
 
 This is the restore principal's command (the operator's workstation or a recovery host, never the production VM). It
 builds the read-only Oracle reader, the destination bucket client and the scratch database connection from the
@@ -19,6 +19,10 @@ Environment (names only here; values never printed):
                                                               restore principal), else the instance principal
     RESTORE_S3_ENDPOINT_URL RESTORE_S3_BUCKET [RESTORE_S3_REGION=auto] RESTORE_S3_ACCESS_KEY_ID RESTORE_S3_SECRET_ACCESS_KEY
                                                               the DESTINATION media bucket (never the MEDIA_S3_* production names)
+
+`--phase database` restores the seal and the database only; `--phase media` then restores the media into that ALREADY
+restored database (refused unless the manifest describes it). The drill runs the two phases separately so that the
+integrity checker can run between them (plan §11 step 5). The default `all` does both in one pass.
 
 The Oracle backup bucket is always a forbidden destination; `--forbidden-bucket` (at least one: the production media
 bucket) adds to that.
@@ -63,7 +67,7 @@ from app.backup.restore_guards import (
     validate_restore_database,
     validate_restore_media_target,
 )
-from app.backup.restore_run import RestoreRunReport, restore_run
+from app.backup.restore_run import RestorePhase, RestoreRunReport, restore_run
 from app.backup.run_id import RunIdError, validate_run_id
 from app.backup.target import BackupReader
 from app.domain.exceptions import MediaStorageError
@@ -135,6 +139,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--identity-file", required=True, help="absolute path of the age identity (private key) file")
     parser.add_argument("--scratch-dir", required=True, help="absolute path of an existing private scratch directory")
     parser.add_argument("--report-file", required=True, help="absolute path of a NEW file for the restore report")
+    parser.add_argument(
+        "--phase", choices=[phase.value for phase in RestorePhase], default=RestorePhase.ALL.value,
+        help="all (default), database (seal + database), or media (seal + media into the ALREADY restored database)",
+    )  # fmt: skip
     parser.add_argument("--forbidden-bucket", action="append", default=[], help="a bucket that must never be the destination")
     parser.add_argument("--oci-config", default=None, help="OCI API-key config file of the restore principal")
     parser.add_argument("--oci-profile", default="DEFAULT")
@@ -217,8 +225,8 @@ def summary_line(report: RestoreRunReport) -> str:
     if report.ok:
         counts = report.media.counts if report.media else None
         detail = f" restored={counts.restored} already_present={counts.already_present} total={counts.objects_total}" if counts else ""
-        ready = report.database.ready_count if report.database else None
-        return f"restore ok: run_id={report.run_id} ready_count={ready}{detail}"
+        ready = f" ready_count={report.database.ready_count}" if report.database else ""
+        return f"restore ok: run_id={report.run_id} phase={report.phase.value}{ready}{detail}"
     parts = [f"restore failed: run_id={report.run_id} step={report.step.value}"]
     if report.failure is not None:
         parts.append(f"failure={report.failure.value}")
@@ -304,6 +312,7 @@ def run_restore(
                         allow_non_drill=args.allow_non_drill,
                         allow_foreign_objects=args.allow_foreign_objects,
                         verify_destination=not args.no_verify_destination,
+                        phase=RestorePhase(args.phase),
                     ),
                     signals,
                 )
