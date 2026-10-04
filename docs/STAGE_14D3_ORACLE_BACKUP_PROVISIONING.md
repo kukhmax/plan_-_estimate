@@ -2,7 +2,8 @@
 
 > **Status:** **DESIGN APPROVED — PROVISIONING IN PROGRESS** (owner decisions 2026-10-04: O1–O7 approved, O8
 > deferred hardening; buckets renamed). Runbook steps 1–7 (OCI), step 8 (age key custody, verified from paper) and
-> step 9 (R2 drill buckets) were executed by the owner on 2026-10-04 — see §13.1. **Provisioning complete**; by design
+> step 9 (R2 drill buckets) were executed by the owner on 2026-10-04 — see §13.1. **Provisioning complete — OWNER
+> ACCEPTED 2026-10-04**; by design
 > no credential exists yet: R2 tokens are created in 14D.4 (drill) / 14D.6 (production read-only) and the OCI restore
 > user in 14D.5. The IAM statements in §6.2 remain **PROPOSED** until empirically proven in 14D.4. The owner
 > performs every Console step manually.

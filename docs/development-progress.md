@@ -829,7 +829,7 @@ Compatibility API, Always Free resources, Object Storage overview).
 - **Not done:** any provisioning (owner, manual), env files, uploader tooling, 14D.4, the ARM64 gate.
 - **Status**: **DESIGN APPROVED — PROVISIONING NOT YET EXECUTED.** 14D.4 not started. Production unchanged; uploads OFF.
 
-#### Stage 14D.3 — owner provisioning (2026-10-04, PROVISIONING COMPLETE — awaiting owner acceptance)
+#### Stage 14D.3 — owner provisioning (2026-10-04, PROVISIONING COMPLETE — OWNER ACCEPTED)
 
 Recorded in `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md` §9 ("Executed custody") and §13.1. Documentation only; no
 code, Compose or production change; no secret, OCID or key in the repository.
@@ -860,7 +860,7 @@ code, Compose or production change; no secret, OCID or key in the repository.
   backup's production Object-Read-only token in 14D.6.
 - **Credentials existing after 14D.3:** none new (no R2 token, no OCI restore user / API key, no env file on the VM);
   only the two public age recipients are recorded.
-- **Status**: **14D.3 PROVISIONING COMPLETE** (awaiting owner acceptance). 14D.4 not started (owner approval required).
+- **Status**: **14D.3 PROVISIONING COMPLETE / OWNER ACCEPTED** (2026-10-04). 14D.4 approved to start (planning first).
   Production unchanged; uploads OFF.
 
 ---
@@ -932,7 +932,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
 | └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); rest (manifest / media / restore tooling) NOT STARTED) |
-| └ 14D.3 | Owner manual Oracle / R2 / key setup | PROVISIONING COMPLETE 2026-10-04 (OCI steps 1–7; age custody A + B verified from paper; R2 EU drill buckets; tokens / restore user deliberately deferred to 14D.4–14D.6); awaiting owner acceptance |
+| └ 14D.3 | Owner manual Oracle / R2 / key setup | PROVISIONING COMPLETE 2026-10-04 (OCI steps 1–7; age custody A + B verified from paper; R2 EU drill buckets; tokens / restore user deliberately deferred to 14D.4–14D.6); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | NOT STARTED |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |
 | └ 14D.6 | First production non-destructive backup run + runbook final | NOT STARTED |
