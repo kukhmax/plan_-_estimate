@@ -16,7 +16,8 @@
 > OWNER ACCEPTED** (2026-10-04). 14D.2E manifest v1 / COMPLETE.json / provenance core (§16.9) — **OWNER ACCEPTED**,
 > pure (no I/O). 14D.2F Oracle backup writer (§16.10) — implemented, **OWNER ACCEPTED**, live drill-bucket smoke on
 > the Oracle VM **PASS 9/9** (2026-10-04). 14D.2G media sync R2 → Oracle (§16.11) — implemented and tested on
-> in-memory stores and the real S3 adapter; the live drill smoke is an owner step and has NOT been run yet. Rest of 14D.2
+> in-memory stores and the real S3 adapter, **OWNER ACCEPTED**, live drill smoke R2 → Oracle **PASS 11/11**
+> (2026-10-04). Rest of 14D.2
 > (verify, restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
 > run, no restore tooling and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
@@ -1053,7 +1054,7 @@ key)` (the 14B key layout, previously a private table); `target.retrying` is now
   fake boto3 client (download, paginated listing, response bodies closed, 404 → missing source); a mutation check —
   20 deliberate defects in the engine, all caught (two initially survived and led to a stronger test and the removal
   of an unreachable check); and a negative property: no key is ever written twice.
-- **Owner live smoke (not yet run).** `stage14d2g_media_sync_smoke.py` runs the production path R2 drill source →
+- **Owner live smoke (PASS 11/11, 2026-10-04, Oracle VM, R2 drill source → Oracle drill bucket, instance principal).** `stage14d2g_media_sync_smoke.py` runs the production path R2 drill source →
   Oracle drill bucket with synthetic assets (three good assets, three planted problems, two junk source keys): run 1
   copies everything and is published; run 2 inherits everything with zero downloads from either store; run 3 (`deep`)
   verifies all nine objects by download and compares them with the source; run 4 reports exactly the planted failures
@@ -1062,16 +1063,25 @@ key)` (the 14B key layout, previously a private table); `target.retrying` is now
   are checked. 11 checks, exit codes 0 PASS / 1 FAIL / 2 cannot run / 3 no instance principal. It refuses a bucket
   without "drill" in its name and equal R2 and Oracle buckets. The synthetic R2 objects are deleted at the end; the
   Oracle objects stay (no delete permission by design) and their prefixes are printed for the administrator.
-  Configuration: the R2 drill-source token in an env file (`R2_*`, as in 14D.4, chmod 600, outside the repository) and
-  `OCI_NAMESPACE`. Command (DRAFT until the owner run; dependency set resolved and the script's imports checked in a
-  clean environment, not yet run against the live stores):
+  Owner result: `RESULT: PASS (11/11 checks passed)`, `exit=0`; 9 objects copied (196608 bytes) in run 1, 9 inherited
+  with 0 downloads and 0 writes in run 2, 9 verified by download in run 3, exactly the 3 planted failures in run 4
+  (9 inherited, 6 copied), `source keys 19 (baseline 0, good 9, planted 8, junk 2)`, `cleanup: 19/19 synthetic R2
+  objects removed`. Drill run ids `20261004T172411Z-06f3cfbc` … `-9432291f`; only runs 1 and 2 are published
+  (`db/<run_id>/…`, `runs/<run_id>/…`), runs 3 and 4 wrote no run-level objects. The one line
+  `media storage error: MediaObjectNotFound (code=NoSuchKey, status=404)` on stderr is the S3 adapter's log of the
+  planted missing source object, not a failure. Six `photos/v1/<uuid>/` prefixes stay in the Oracle drill bucket for the
+  administrator's cleanup.
+
+  Configuration: the R2 drill-source token in an env file (`R2_*`, as in 14D.4; on the VM
+  `~/backups/plan-estimate/drill-secrets/r2-drill-source.env`, chmod 600, outside the repository) and `OCI_NAMESPACE`.
+  Verified command (`--env-file` points at that file):
 
   ```bash
   IMG='python:3.12.14-slim-trixie@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f'
   RUN='pip install -q --no-cache-dir --target /tmp/deps "sqlalchemy[asyncio]==2.1.1" greenlet==3.5.6 pydantic==2.13.5 pydantic-settings==2.15.0 pyjwt==2.15.0 asyncpg==0.31.0 oci==2.187.1 boto3==1.43.103 botocore==1.43.103 s3transfer==0.19.2 urllib3==2.8.0 anyio==4.15.1 && PYTHONPATH=/tmp/deps python /app/scripts/stage14d2g_media_sync_smoke.py'
   docker run --rm --network pe-upload --cap-drop ALL --security-opt no-new-privileges \
     --user "$(id -u):$(id -g)" -e HOME=/tmp -e PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    --env-file <r2-drill-source-env-file> -e OCI_NAMESPACE -e PYTHONDONTWRITEBYTECODE=1 \
+    --env-file ~/backups/plan-estimate/drill-secrets/r2-drill-source.env -e OCI_NAMESPACE -e PYTHONDONTWRITEBYTECODE=1 \
     -v "$PWD/backend":/app:ro "$IMG" sh -c "$RUN"
   ```
 - **Not in this stage:** the command that ties snapshot, dump, encryption, sync and publication together, local
