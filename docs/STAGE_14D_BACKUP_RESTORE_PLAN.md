@@ -20,7 +20,8 @@
 > (2026-10-04). 14D.2H verify of a sealed run in the target (§16.12) — implemented, **OWNER ACCEPTED**, live drill smoke
 > on the Oracle VM **PASS 11/11** (2026-10-04). 14D.2I restore, slice 2I.1 — the database restore chain (§16.13) — implemented and proven with
 > real age and PostgreSQL 16 in a development sandbox; the owner run with the production versions is NOT done yet.
-> Rest of 14D.2 (2I.2 media restore, 2I.3 restore client and live smokes) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
+> Slice 2I.2 — media restore into the destination bucket (§16.14) — implemented and tested on in-memory stores and the
+> real S3 adapter; no live run yet. Rest of 14D.2 (2I.3 restore client and live smokes) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
 > run, no restore tooling and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
 >
@@ -1232,6 +1233,54 @@ local first; nothing is written anywhere before the guards pass:
 - **Not in this stage:** media restore, the OCI API-key client factory, the restore-time integrity checker run, a
   command that wires fetching the run, restoring the database and restoring media together, any production target.
   Uploads stay OFF.
+
+### 16.14 Media restore (Stage 14D.2I.2)
+
+Implementation: `backend/app/backup/restore_media.py`; the destination-bucket guard `validate_restore_media_target` was
+added to `backend/app/backup/restore_guards.py`. Tests: `test_stage14d2i2_restore_media.py` (49).
+
+`restore_media(reader, run, destination, destination_bucket=…, forbidden_buckets=…, ready_assets=…, scratch_dir=…)`
+copies every object line of a sealed run from the backup target (`BackupReader`) into the destination
+(`MediaStorageAdmin`: the production S3 adapter in a drill, the drill-restore bucket) and proves each copy. It runs
+after the database restore (§16.13) whose READY set it requires.
+
+- **Guards (before anything is read or written).** (1) *Destination bucket:* a valid bucket name, not in the caller's
+  forbidden list (production, …) and never the run's own source or backup bucket (taken from the manifest header), and —
+  unless `allow_non_drill` states a real disaster restore — a name containing `drill`. The adapter cannot be asked which
+  bucket it writes to, so the caller states it and the wiring (2I.3) builds both together. (2) *Association:* the
+  manifest must describe exactly the READY set read from the **restored database** (`verify_against_ready_set`), which
+  is where "originals = DB, sizes = DB" (§10) is enforced at restore time. (3) *No foreign objects:* the destination
+  must hold no object under `photos/v1/` that is not part of the run — a production bucket practically always does, a
+  fresh or half-restored drill bucket never (`allow_foreign_objects` is an explicit override, not the default).
+- **Per object**, strictly sequential in key order: *absent* → download from the backup, size and SHA-256 must equal the
+  manifest's, create-only put (an identical re-put is a no-op, any other content is a conflict), HEAD size and — by
+  default — a full re-download compared with the manifest's SHA-256 (`verify_destination=False` reduces this to the size
+  check; a same-size change is then not visible, which is documented and tested); *present* → the same size and, by
+  download, the same SHA-256 count as `already_present` (a resumed run), anything else is `DESTINATION_CONFLICT` and the
+  object is never touched. There is no overwrite and no delete: the destination interface has neither.
+- **Result.** `MediaRestoreReport` (`plan-estimate/media-restore-report/v1`, canonical one-line JSON): preflight failure
+  (`DESTINATION_UNSAFE`, `MANIFEST_DB_MISMATCH`, `FOREIGN_OBJECTS_PRESENT`, `LISTING_FAILED`, `STORAGE_UNAVAILABLE`,
+  `STORAGE_MISCONFIGURED`), per-object problems tied to asset id and role (`MISSING_BACKUP_OBJECT`,
+  `BACKUP_SIZE_MISMATCH`, `BACKUP_SHA_MISMATCH`, `BACKUP_UNAVAILABLE`, `DESTINATION_CONFLICT`,
+  `DESTINATION_VERIFICATION_FAILED`, `DESTINATION_UNAVAILABLE`), counts (restored, already present, failed, bytes), abort
+  reason and `ok`. Every problem is collected and the run continues; a misconfigured backup or destination, or 5
+  consecutive unavailable-store failures, aborts. Transient errors are retried with the §16.10 policy. No key, hash,
+  bucket name or provider message is ever reported; at most 200 problems are listed, the totals cover all.
+  Unexpected exceptions and cancellation propagate after the scratch files are removed.
+- **After the copy.** Whether the restored database and bucket agree is checked by the existing
+  `scripts/media_integrity_check.py --verify-sha256 --strict` (§10, §11 step 5), run by the operator against the
+  restored database and the destination bucket: it must report the expected missing objects before the restore and be
+  clean after it.
+- **Test evidence.** Everything above against an in-memory backup and destination with fault injection (missing /
+  resized / bit-flipped backup objects, conflicting, corrupted, truncated and invisible destination objects, a put
+  that loses a race, transient and persistent outages on both sides, misconfiguration, streaks, cancellation, scratch
+  hygiene, ordering and call-log assertions that the backup is only read and the destination only receives creates and
+  reads); the production `S3MediaStorage` as the destination through a fake boto3 client (conditional put, resumed run,
+  conflict, foreign object, response bodies closed); mutation check — 27 deliberate defects in the engine and the guard,
+  all caught (one only after a malformed-but-"drill" bucket name was added to the tests).
+- **Not in this stage:** the restore client for the OCI restore principal (API key), the command that wires fetching
+  the sealed run, `restore_database`, reading the READY set from the restored database and `restore_media`, the
+  integrity-check run, and the live smokes (2I.3); the full chain on real data is the 14D.5 drill. Uploads stay OFF.
 
 ## 17. Stage 14D PASS criteria
 

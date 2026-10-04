@@ -3,12 +3,15 @@
 Contract: docs/STAGE_14D_BACKUP_RESTORE_PLAN.md §9 (restore chain), §11 (drill), §12 (isolation: "tools refuse a
 restore / drill target equal to a configured production bucket and refuse a non-scratch database"), §16.13.
 
-Two independent guards, both checked before anything is read from the backup or written anywhere:
+Three independent guards, all checked before anything is read from the backup or written anywhere:
 
 - `validate_restore_database` -- the database a dump is restored into must be recognisably scratch: its name
   contains `pe_restore_scratch`, its host is loopback or a name containing `scratch` (or an explicitly allowed
   host), and the pgpass file satisfies the 14D.2C contract. The *runtime* guard that matters most -- the database
   must be empty -- lives in `restore_db` (a production database is never empty).
+- `validate_restore_media_target` -- the bucket media is restored into must not be a production, source or backup
+  bucket and, unless a real disaster restore is explicitly requested, must be a drill bucket. (The runtime guard
+  that matters most -- the bucket holds no object that is not part of the run -- lives in `restore_media`.)
 - `validate_identity_file` -- the age private identity the restore operator supplies must be a private, regular,
   owner-only file that holds an age secret key. Its content is never returned, printed or logged.
 
@@ -23,6 +26,8 @@ from pathlib import Path
 
 from app.backup.pg_connection import PgConnectionConfig, validate_passfile
 
+DRILL_BUCKET_MARKER = "drill"
+_BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", re.ASCII)
 SCRATCH_DB_MARKER = "pe_restore_scratch"
 SCRATCH_HOST_MARKER = "scratch"
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost"})
@@ -39,6 +44,10 @@ class UnsafeRestoreDatabaseError(RestoreGuardError):
 
 
 class IdentityFileError(RestoreGuardError):
+    pass
+
+
+class UnsafeRestoreMediaTargetError(RestoreGuardError):
     pass
 
 
@@ -85,3 +94,18 @@ def validate_identity_file(path: Path, *, euid: int | None = None) -> None:
         raise IdentityFileError("the identity file could not be read") from None
     if not any(_SECRET_LINE.match(line.strip()) for line in raw.splitlines()):
         raise IdentityFileError("the identity file does not contain an age secret key")
+
+
+def validate_restore_media_target(
+    bucket: str, *, forbidden_buckets: Collection[str], allow_non_drill: bool = False
+) -> None:
+    """Refuse a bucket that is malformed, listed as forbidden (production, the run's source and backup buckets, ...)
+    or, without `allow_non_drill`, not recognisably a drill bucket."""
+    if not isinstance(bucket, str) or not _BUCKET.fullmatch(bucket):
+        raise UnsafeRestoreMediaTargetError("the destination is not a valid bucket name")
+    if bucket in set(forbidden_buckets):
+        raise UnsafeRestoreMediaTargetError("the destination is a forbidden bucket (production, source or backup)")
+    if not allow_non_drill and DRILL_BUCKET_MARKER not in bucket:
+        raise UnsafeRestoreMediaTargetError(
+            f"the destination must be a drill bucket (name contains '{DRILL_BUCKET_MARKER}') unless a real restore is explicitly allowed"
+        )
