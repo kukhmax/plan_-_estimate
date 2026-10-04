@@ -922,6 +922,37 @@ No runtime, Compose, Dockerfile, dependency or production change; no network acc
   Nothing was written. Commit `389e2b0` (pushed). Verified command: plan §16.12.
 - **Next:** 14D.2I restore — owner approval required.
 
+### Stage 14D.2I.1 — database restore chain (2026-10-04, IMPLEMENTED — automated verification PASS — owner run with production versions PENDING)
+
+Contract and design: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.13 (implements §9 restore chain, the database part of
+§10 and §12 guards). 14D.2I is delivered in slices (2I.1 database, 2I.2 media, 2I.3 restore client and live smokes).
+No runtime, Compose, Dockerfile, dependency or production change; production uploads remain OFF.
+
+- **Added:** `backend/app/backup/restore_guards.py` — scratch-database guard (name marker `pe_restore_scratch`,
+  loopback / `scratch` / explicitly allowed host, pgpass contract) and age identity-file guard (private, owner-only,
+  holds a secret key; content never exposed). `backend/app/backup/restore_db.py` — `restore_database`: guards, public
+  key of the identity must be a manifest recipient, empty scratch database, dump downloaded and checked against the
+  manifest (size, SHA-256) before decryption, then `age --decrypt` → incremental gunzip → `psql --single-transaction`
+  with a commit gate (psql sees EOF only after age exit 0, one clean gzip member, pg_dump's completion marker), then
+  the checks: Alembic = manifest, READY set from the restored database = manifest, PENDING / FAILED counts = manifest.
+  Machine-readable failure codes, canonical secret-free `DbRestoreReport`.
+- **Tests:** 108 new always-on (`test_stage14d2i1_restore_guards.py` 36, `test_stage14d2i1_restore_db.py` 72) and 17
+  opt-in real-tool tests (`test_stage14d2i1_real.py`, skipped by default). Mutation check: 33 defects, 29 caught,
+  4 equivalent or redundant.
+- **Real proof in the development sandbox** (age 1.1.1, PostgreSQL / pg_dump / psql 16.13, `TEST_REAL_POSTGRES=1`):
+  **17 passed in 43 s** — identical restore of a database with the real Alembic schema, both recipients, and, for every
+  broken chain (wrong / unlisted identity, tampered or truncated ciphertext, bad gzip CRC inside valid age, unfinished
+  dump, older schema, missing role, mismatching manifest, cancellation), the named failure with the target database still
+  empty. Findings fixed on the way: with a wrong key age exits non-zero with an empty stream and the chain reported
+  `GZIP_INVALID` instead of the root cause `DECRYPT_FAILED` (age's exit status now wins); after a kill, unread pipes could
+  leave a subprocess transport open past the event loop (pipes are now read to EOF; covered by a deterministic
+  garbage-collection test).
+- **Verification:** full backend suite (non-root) **3644 passed, 49 skipped, 0 failed** (3536 before + 108; the 17 real-tool tests are skipped without the gate); new modules Ruff clean, `mypy --strict` no findings in `restore_db.py` and
+  `restore_guards.py`; `git diff --check` clean.
+- **Pending (owner, optional but recommended):** the same real-tool module inside the backup image against a disposable
+  `postgres:16` (production versions age 1.3.2 / PostgreSQL 16.15), as in 14D.2D.4.
+- **Next:** 14D.2I.2 media restore (Oracle → drill-restore bucket) — owner approval required.
+
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
 Design and owner Console runbook: `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`; summary in
@@ -1093,7 +1124,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
-| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); 14D.2E manifest / COMPLETE.json / provenance core IMPLEMENTED (pure, 153 tests), OWNER ACCEPTED 2026-10-04; 14D.2F Oracle backup writer IMPLEMENTED (105 tests), OWNER ACCEPTED, live drill smoke PASS 9/9 on the Oracle VM; 14D.2G media sync R2 → Oracle IMPLEMENTED (77 tests), OWNER ACCEPTED, live drill smoke PASS 11/11 on the Oracle VM; 14D.2H verify IMPLEMENTED (54 tests), OWNER ACCEPTED, live drill smoke PASS 11/11 on the Oracle VM; rest (restore) NOT STARTED) |
+| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); 14D.2E manifest / COMPLETE.json / provenance core IMPLEMENTED (pure, 153 tests), OWNER ACCEPTED 2026-10-04; 14D.2F Oracle backup writer IMPLEMENTED (105 tests), OWNER ACCEPTED, live drill smoke PASS 9/9 on the Oracle VM; 14D.2G media sync R2 → Oracle IMPLEMENTED (77 tests), OWNER ACCEPTED, live drill smoke PASS 11/11 on the Oracle VM; 14D.2H verify IMPLEMENTED (54 tests), OWNER ACCEPTED, live drill smoke PASS 11/11 on the Oracle VM; 14D.2I.1 database restore chain IMPLEMENTED (108 tests + 17 opt-in real-tool tests passing in a development sandbox), owner run with production versions PENDING; rest (2I.2 media restore, 2I.3 restore client and live smokes) NOT STARTED) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | PROVISIONING COMPLETE 2026-10-04 (OCI steps 1–7; age custody A + B verified from paper; R2 EU drill buckets; tokens / restore user deliberately deferred to 14D.4–14D.6); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | EXECUTED 2026-10-04 — all PASS (R2 drill tokens 12/12 ×2; IMDS guard live: only `pe-upload` reaches IMDS; OCI uploader smoke 16/16 + O4 negative exit 3; restore principal 12/12); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |

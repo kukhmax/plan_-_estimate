@@ -18,8 +18,9 @@
 > the Oracle VM **PASS 9/9** (2026-10-04). 14D.2G media sync R2 → Oracle (§16.11) — implemented and tested on
 > in-memory stores and the real S3 adapter, **OWNER ACCEPTED**, live drill smoke R2 → Oracle **PASS 11/11**
 > (2026-10-04). 14D.2H verify of a sealed run in the target (§16.12) — implemented, **OWNER ACCEPTED**, live drill smoke
-> on the Oracle VM **PASS 11/11** (2026-10-04). Rest of 14D.2
-> (restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
+> on the Oracle VM **PASS 11/11** (2026-10-04). 14D.2I restore, slice 2I.1 — the database restore chain (§16.13) — implemented and proven with
+> real age and PostgreSQL 16 in a development sandbox; the owner run with the production versions is NOT done yet.
+> Rest of 14D.2 (2I.2 media restore, 2I.3 restore client and live smokes) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
 > run, no restore tooling and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
 >
@@ -1154,6 +1155,83 @@ backup target is now its own port, `target.BackupReader` (`head`, `download_to`)
 - **Not in this stage:** the OCI API-key (restore principal) client factory, decryption, scratch PostgreSQL, READY-set
   recomputation, media restore and the restore-time integrity checker (all 14D.2I), the command that ties
   backup and verify together, listing `runs/` to find the latest sealed run, a sampling mode. Uploads stay OFF.
+
+### 16.13 Database restore chain (Stage 14D.2I.1)
+
+Implementation: `backend/app/backup/restore_guards.py` (scratch-database and identity-file guards),
+`backend/app/backup/restore_db.py` (the chain and its checks). Tests: `test_stage14d2i1_restore_guards.py` (36),
+`test_stage14d2i1_restore_db.py` (72; fake `age` / `age-keygen` / `psql` child processes and a fake PostgreSQL
+connection), `test_stage14d2i1_real.py` (17, opt-in, real age and real PostgreSQL 16). 14D.2I is delivered in
+slices: **2I.1 database restore (this section)**, 2I.2 media restore into the drill-restore bucket, 2I.3 the OCI
+API-key client for the restore principal and the live smokes (the full chain on real data is the 14D.5 drill).
+
+`restore_database(reader, run, database=…, identity_file=…, scratch_dir=…)` takes a sealed run (`load_prior_run`), the
+read side of the backup target (`BackupReader`) and an age identity, and returns a `DbRestoreReport`. Steps, cheap and
+local first; nothing is written anywhere before the guards pass:
+
+1. **Guards.** *Scratch database* (`restore_guards.validate_restore_database`): the name contains `pe_restore_scratch`,
+   the host is loopback, contains `scratch`, or is explicitly allowed, and the pgpass file satisfies the 14D.2C
+   contract. *Identity file*: absolute, regular, not a symlink, owned by the effective user, no group / other bits,
+   at most 64 KiB, holds an `AGE-SECRET-KEY-1…` line; its content is never returned or printed. Then `age-keygen -y`
+   derives the public key, which must be one of the manifest's recipients (`IDENTITY_NOT_A_RECIPIENT` otherwise —
+   a wrong key is reported before a possibly large download).
+2. **Database preflight.** Reachable, `current_database()` equals the configured name, and **empty** (no relation
+   outside the system schemas): the last line of defence against a mis-aimed restore, because a production database
+   is never empty.
+3. **Artifact.** `db/<run_id>/plan-estimate.sql.gz.age` is downloaded into a private (0700) scratch directory; its size
+   and SHA-256 must equal the manifest's **before** age sees a byte.
+4. **Load.** `age --decrypt -i <identity> <artifact>` → incremental gunzip (one member; CRC32 / ISIZE checked; output
+   bounded per call; a cap on the plaintext size) → `psql -X -q -v ON_ERROR_STOP=1 --single-transaction --no-password
+   -f -`, with libpq settings from the `PgConnectionConfig` (pgpass only, no password anywhere). The plaintext SQL
+   exists only in pipes. **Commit gate:** psql gets EOF — and therefore runs `COMMIT` — only after age exited 0, the gzip
+   member ended cleanly with nothing after it, and the plain dump's completion marker
+   (`-- PostgreSQL database dump complete`) was seen in its last 4 KiB. On any failure psql is killed before it can
+   see EOF, so **nothing is committed**; the children are killed (psql first), their pipes are read to EOF so no
+   transport outlives the loop, and the scratch directory is removed, also on timeout and cancellation. age's exit
+   status is the root cause when age fails (wrong key, tampered or truncated ciphertext: `DECRYPT_FAILED`) even though
+   the gzip layer then sees a short stream; gzip faults seen while age is still healthy are `GZIP_INVALID`.
+5. **Checks on the restored database** (read-only transaction): `alembic_version` has exactly one row equal to the
+   manifest's `alembic_head` (whether it also equals the running repository's head is reported, not enforced — a newer
+   code base upgrades afterwards); the READY set read with the 14D.2A inventory query equals the manifest
+   (`verify_against_ready_set`) — the association between backup and database is proved from the restored data, not from
+   the tool that wrote the backup; the READY / PENDING / FAILED counts equal the manifest's snapshot count and
+   `skipped` counters.
+
+- **Result.** `DbRestoreReport` (`plan-estimate/db-restore-report/v1`, canonical one-line JSON): last step reached,
+  `RestoreFailure` code (`SCRATCH_UNSAFE`, `IDENTITY_INVALID`, `IDENTITY_NOT_A_RECIPIENT`, `TOOL_UNUSABLE`,
+  `DATABASE_UNREACHABLE`, `DATABASE_NOT_EMPTY`, `DUMP_MISSING`, `DUMP_SIZE_MISMATCH`, `DUMP_SHA_MISMATCH`,
+  `STORAGE_UNAVAILABLE`, `STORAGE_MISCONFIGURED`, `DECRYPT_FAILED`, `GZIP_INVALID`, `DUMP_INCOMPLETE`,
+  `PLAINTEXT_TOO_LARGE`, `PSQL_FAILED`, `ROLE_MISSING`, `RESTORE_TIMEOUT`, `CHECKS_UNREADABLE`, `ALEMBIC_MISMATCH`,
+  `READY_SET_MISMATCH`, `STATUS_COUNTS_MISMATCH`), byte counts, plaintext SHA-256, Alembic revision, READY count and
+  status counts. It never contains a host, database, path, key, SQL text, row content or psql's message; the one
+  value taken from psql is a role **name** that matches a plain-identifier pattern (`ROLE_MISSING`).
+- **Roles.** The plain dump keeps object owners and grants, so the scratch server must already have the roles the dump
+  names; `ROLE_MISSING` names the first missing one and nothing is committed. The tool creates and alters nothing
+  outside the restored database.
+- **Test evidence.** Fake children: every failure above, each asserting that psql never saw EOF; chunked and 12 MiB
+  streams; a gzip bomb stopped by the cap; gzip faults (ISIZE, CRC32, no trailer, trailing bytes in the same and in a
+  later chunk, a second member, deflate corruption, not gzip); early stop of age at the first bad byte; timeout and
+  cancellation (both children really die, no transport outlives a private event loop even when the pipeline was backed
+  up); secret-freeness and canonical form of the report; mutation check — 33 deliberate defects in the chain: 29 caught
+  (four of them only after adding tests), 3 survivors judged equivalent (the order of the two `kill` calls, a liveness
+  test that the broken-pipe handler duplicates, awaiting the stderr drains before cancelling them) and an explicit
+  `stdin.close()` that proved redundant and was removed. **Real tools**
+  (`test_stage14d2i1_real.py`, gate `TEST_REAL_POSTGRES=1` as in 14D.2D.4, plus `age` / `age-keygen`): a database with
+  the real Alembic schema and seeded assets → `pg_dump` → the production `encrypt_dump_artifact` (two recipients) →
+  sealed manifest → `restore_database` into a fresh scratch database: identical `photo_assets` content, marker row,
+  Alembic head, READY 2 / PENDING 1 / FAILED 1; either recipient restores; a second restore and the source database
+  are refused; for a listed-but-wrong identity, tampered (header / middle / tag) and truncated ciphertext, a gzip member
+  with a bad CRC wrapped in valid age, a dump without pg_dump's completion marker, a dump of an older schema, a role
+  the scratch server lacks, a mismatching manifest, and a cancellation in the middle of a large restore, the report
+  names the failure and the target database is **still empty** (no relation) — psql's transaction was never committed;
+  no plaintext file is left anywhere. Development-sandbox versions: age 1.1.1, PostgreSQL / pg_dump / psql 16.13.
+- **Owner run (not yet done).** The same module run inside the backup image against a disposable `postgres:16` on an
+  isolated network, exactly as the 14D.2D.4 proof (§16.6), gives the proof with the production versions (age 1.3.2,
+  PostgreSQL 16.15): `TEST_REAL_POSTGRES=1`, `TEST_PG16_*`, `pytest tests/test_stage14d2i1_real.py`. The full chain
+  on real data (including the real production dump) remains the 14D.5 drill.
+- **Not in this stage:** media restore, the OCI API-key client factory, the restore-time integrity checker run, a
+  command that wires fetching the run, restoring the database and restoring media together, any production target.
+  Uploads stay OFF.
 
 ## 17. Stage 14D PASS criteria
 
