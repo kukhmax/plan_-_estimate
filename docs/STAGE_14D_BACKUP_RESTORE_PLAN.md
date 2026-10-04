@@ -14,8 +14,8 @@
 > `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`) — provisioning **COMPLETE / OWNER ACCEPTED** (2026-10-04); 14D.4
 > connectivity / semantics smoke and the IMDS gate (`docs/STAGE_14D4_CONNECTIVITY_SEMANTICS_SMOKE.md`) — **COMPLETE /
 > OWNER ACCEPTED** (2026-10-04). 14D.2E manifest v1 / COMPLETE.json / provenance core (§16.9) — **OWNER ACCEPTED**,
-> pure (no I/O). 14D.2F Oracle backup writer (§16.10) — implemented and tested against an in-memory target and the real
-> SDK with a stubbed transport; the live drill-bucket smoke is an owner step and has NOT been run yet. Rest of 14D.2
+> pure (no I/O). 14D.2F Oracle backup writer (§16.10) — implemented, **OWNER ACCEPTED**, live drill-bucket smoke on
+> the Oracle VM **PASS 9/9** (2026-10-04). Rest of 14D.2
 > (media sync, verify, restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no backup upload, no media copy, no restore tooling, no schedule exists yet. Executable procedures
 > stay **DRAFT** until the sub-stage that verifies them.
 >
@@ -969,14 +969,32 @@ overwrite / delete, masked 404, body-less HEAD errors) and on the §16.9 manifes
   store, object hidden after put); a real-SDK contract check against `oci==2.187.1` with a stubbed transport (not part
   of the suite; SDK installed in a scratch venv only); mutation check — 10 deliberate defects in the writer each made
   a test fail.
-- **Owner live smoke (not yet run).** `stage14d2f_oci_writer_smoke.py` runs the production write path against the
-  drill bucket with the instance principal and synthetic data only (random bytes as the "dump", an empty-READY-set
-  manifest, its COMPLETE.json). 9 checks: put created, identical put idempotent, different bytes refused, object
-  unchanged, `publish_run` zero-asset, stored run verifies (`verify_run`), stored dump equals local, re-publish with a
-  different seal refused, seal unchanged. Refuses any bucket whose name does not contain `drill`. Exit codes: 0 PASS,
-  1 a check failed, 2 cannot run (including SDK missing), 3 no instance principal. Objects stay in the drill bucket
-  (`smoke/14d2f/<run_id>/…`, `db/<run_id>/…`, `runs/<run_id>/…`); cleanup is a manual administrator step. Procedure
-  and namespace handling: owner supplies `OCI_NAMESPACE` at run time; it is never stored in the repository.
+- **Owner live smoke (PASS 9/9, 2026-10-04, Oracle VM, instance principal, drill bucket).**
+  `stage14d2f_oci_writer_smoke.py` runs the production write path against the drill bucket with synthetic data only
+  (random bytes as the "dump", an empty-READY-set manifest, its COMPLETE.json). 9 checks: put created, identical put
+  idempotent, different bytes refused, object unchanged, `publish_run` zero-asset, stored run verifies (`verify_run`),
+  stored dump equals local, re-publish with a different seal refused, seal unchanged. Owner result:
+  `RESULT: PASS (9/9 checks passed)`, `exit=0`, drill run id `20261004T160719Z-b374f2d1`. Refuses any bucket whose
+  name does not contain `drill`. Exit codes: 0 PASS, 1 a check failed, 2 cannot run (including SDK missing or no
+  namespace), 3 no instance principal. Objects stay in the drill bucket (`smoke/14d2f/<run_id>/…`, `db/<run_id>/…`,
+  `runs/<run_id>/…`); cleanup is a manual administrator step. The namespace comes from `OCI_NAMESPACE` at run time and
+  is never stored in the repository.
+
+  Verified command (run in the repository root on the VM; the backend imports need `sqlalchemy`, `pydantic`,
+  `pydantic-settings`, `pyjwt`, `asyncpg` besides `oci`):
+
+  ```bash
+  IMG='python:3.12.14-slim-trixie@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f'
+  RUN='pip install -q --no-cache-dir --target /tmp/deps "sqlalchemy[asyncio]==2.1.1" greenlet==3.5.6 pydantic==2.13.5 pydantic-settings==2.15.0 pyjwt==2.15.0 asyncpg==0.31.0 oci==2.187.1 && PYTHONPATH=/tmp/deps python /app/scripts/stage14d2f_oci_writer_smoke.py'
+  docker run --rm --network pe-upload --cap-drop ALL --security-opt no-new-privileges \
+    --user "$(id -u):$(id -g)" -e HOME=/tmp -e PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    -e OCI_NAMESPACE -e PYTHONDONTWRITEBYTECODE=1 \
+    -v "$PWD/backend":/app:ro "$IMG" sh -c "$RUN"
+  ```
+
+  Run-time notes from the owner run: `--cap-drop ALL` removes root's permission bypass, so the container must run as
+  the checkout's owner (`--user`; some source files are mode 0600) and install dependencies into a writable
+  `--target`; only `backend/` is mounted, so `.env.production` and other root-level secrets are not visible.
 - **Not in this stage:** reading R2, the media transfer loop and prior-run selection (14D.2G), `verify` (14D.2H),
   `restore` (14D.2I), production execution, schedule. Uploads stay OFF.
 
