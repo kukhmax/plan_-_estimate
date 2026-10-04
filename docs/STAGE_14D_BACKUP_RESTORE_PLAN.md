@@ -17,8 +17,8 @@
 > pure (no I/O). 14D.2F Oracle backup writer (§16.10) — implemented, **OWNER ACCEPTED**, live drill-bucket smoke on
 > the Oracle VM **PASS 9/9** (2026-10-04). 14D.2G media sync R2 → Oracle (§16.11) — implemented and tested on
 > in-memory stores and the real S3 adapter, **OWNER ACCEPTED**, live drill smoke R2 → Oracle **PASS 11/11**
-> (2026-10-04). 14D.2H verify of a sealed run in the target (§16.12) — implemented and tested on in-memory targets;
-> the live drill smoke is an owner step and has NOT been run yet. Rest of 14D.2
+> (2026-10-04). 14D.2H verify of a sealed run in the target (§16.12) — implemented, **OWNER ACCEPTED**, live drill smoke
+> on the Oracle VM **PASS 11/11** (2026-10-04). Rest of 14D.2
 > (restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
 > run, no restore tooling and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
@@ -1127,16 +1127,30 @@ backup target is now its own port, `target.BackupReader` (`head`, `download_to`)
   cancellation and scratch hygiene; mutation check — 21 deliberate defects in the verifier, all caught; the smoke's
   own checks are tested against a blind, a noisy, a greedy and a leaking verifier so that they cannot pass vacuously
   (14 mutations of the smoke, all caught after strengthening).
-- **Owner live smoke (not yet run).** `stage14d2h_verify_smoke.py` verifies runs that the 14D.2G smoke published in the
+- **Owner live smoke (PASS 11/11, 2026-10-04, Oracle VM, instance principal, drill bucket).** `stage14d2h_verify_smoke.py` verifies runs that the 14D.2G smoke published in the
   Oracle drill bucket, with the instance principal. **Nothing is written**: negative cases are injected on the client
   side of a genuine stored run (a flipped byte in an object or in the dump, a HEAD size off by one, a HEAD answering
   "absent", a fresh run id, a recipient that is not in the manifest). Checks: full verify passes; quick verify
   downloads only the two documents; the inherited run (`--run-id-2`) is verified by download; unknown run → seal
   missing; recipient mismatch; accepted real recipients (`--expect-recipient`); each injected fault is reported for
   exactly the affected object (or the dump) and nothing else; the report is secret-free. Exit codes 0 PASS / 1 FAIL /
-  2 cannot run / 3 no instance principal; drill buckets only. Command: same container recipe as §16.10 (the 14D.2F
-  dependency set is enough), arguments `--run-id <run 1> --run-id-2 <run 2>` of the 14D.2G smoke (they are printed by it
-  and recorded in the progress document).
+  2 cannot run / 3 no instance principal; drill buckets only. Owner result: `RESULT: PASS (11/11 checks passed)`,
+  `exit=0`, on the two runs of the 14D.2G smoke (`20261004T172411Z-06f3cfbc`, `20261004T172412Z-faaf3559`): full verify
+  9 objects / 196608 bytes hashed with the dump SHA-256 matching; quick verify 9 sizes by HEAD and exactly 2 documents
+  downloaded; the inherited run (9 inherited lines) verified by download; unknown run → `SEAL_MISSING`; foreign
+  recipient → `RECIPIENTS_MISMATCH`; the 2 real (synthetic) recipients accepted; flipped bytes → `SHA_MISMATCH`, HEAD
+  size off by one → `SIZE_MISMATCH`, HEAD "absent" → `MISSING_OBJECT`, each for the one affected object only; a changed
+  dump → `DUMP_SHA_MISMATCH`; the report free of names, hashes and recipients. Verified command (same container recipe
+  as §16.10; the 14D.2F dependency set is enough):
+
+  ```bash
+  Q="age1$(printf 'q%.0s' {1..58})"; P="age1$(printf 'p%.0s' {1..58})"   # the synthetic recipients of the 14D.2G drill
+  RUN='pip install -q --no-cache-dir --target /tmp/deps "sqlalchemy[asyncio]==2.1.1" greenlet==3.5.6 pydantic==2.13.5 pydantic-settings==2.15.0 pyjwt==2.15.0 asyncpg==0.31.0 oci==2.187.1 && PYTHONPATH=/tmp/deps python /app/scripts/stage14d2h_verify_smoke.py --run-id <run 1> --run-id-2 <run 2> --expect-recipient '"$Q"' --expect-recipient '"$P"
+  docker run --rm --network pe-upload --cap-drop ALL --security-opt no-new-privileges \
+    --user "$(id -u):$(id -g)" -e HOME=/tmp -e PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    -e OCI_NAMESPACE -e PYTHONDONTWRITEBYTECODE=1 \
+    -v "$PWD/backend":/app:ro "$IMG" sh -c "$RUN"
+  ```
 - **Not in this stage:** the OCI API-key (restore principal) client factory, decryption, scratch PostgreSQL, READY-set
   recomputation, media restore and the restore-time integrity checker (all 14D.2I), the command that ties
   backup and verify together, listing `runs/` to find the latest sealed run, a sampling mode. Uploads stay OFF.
