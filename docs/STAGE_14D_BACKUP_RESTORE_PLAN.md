@@ -17,8 +17,9 @@
 > pure (no I/O). 14D.2F Oracle backup writer (§16.10) — implemented, **OWNER ACCEPTED**, live drill-bucket smoke on
 > the Oracle VM **PASS 9/9** (2026-10-04). 14D.2G media sync R2 → Oracle (§16.11) — implemented and tested on
 > in-memory stores and the real S3 adapter, **OWNER ACCEPTED**, live drill smoke R2 → Oracle **PASS 11/11**
-> (2026-10-04). Rest of 14D.2
-> (verify, restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
+> (2026-10-04). 14D.2H verify of a sealed run in the target (§16.12) — implemented and tested on in-memory targets;
+> the live drill smoke is an owner step and has NOT been run yet. Rest of 14D.2
+> (restore) and 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
 > run, no restore tooling and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
 >
@@ -1087,6 +1088,58 @@ key)` (the 14B key layout, previously a private table); `target.retrying` is now
 - **Not in this stage:** the command that ties snapshot, dump, encryption, sync and publication together, local
   evidence / exit codes, selecting the latest prior run, concurrency (v1 is strictly sequential), `verify` (14D.2H),
   `restore` (14D.2I), the drill (14D.5), production runs (14D.6). Uploads stay OFF.
+
+### 16.12 Verification of a sealed run in the target (Stage 14D.2H)
+
+Implementation: `backend/app/backup/verify.py`; live smoke `backend/scripts/stage14d2h_verify_smoke.py`. Tests:
+`test_stage14d2h_verify.py` (37), `test_stage14d2h_smoke.py` (17). A small refactor supports it: the read side of the
+backup target is now its own port, `target.BackupReader` (`head`, `download_to`); `BackupTarget` is unchanged and
+`media_sync.load_prior_run` accepts any `BackupReader`.
+
+- **Scope.** `verify_run_in_target(reader, run_id, mode, expected_recipients)` proves from the stored bytes alone that a
+  run in the backup target is what its COMPLETE.json says. It needs **no secret and no database**: decrypting the dump
+  with a private age identity, restoring it into a scratch PostgreSQL and recomputing the READY-set digest from the
+  restored database (§7, §9) are restore concerns and stay in 14D.2I.
+- **Checks.** *Seal:* `COMPLETE.json` and `manifest.jsonl` exist and `verify_run` accepts them (manifest SHA-256 equals
+  the sealed value, counts and digests agree) and the sealed run id is the one asked for. *Recipients (optional):* every
+  public age recipient the caller expects is among the manifest's (a private key or SSH key as "expected" is refused
+  before anything is read). *Dump:* exists with the recorded size; FULL also re-hashes it against the manifest. *Objects:*
+  every object line exists with the recorded size; FULL also downloads it and compares its SHA-256 with the manifest.
+  FULL never trusts provenance: `inherited:<run>` lines are verified by download like any other.
+- **Modes.** QUICK = two documents plus one HEAD per object and the dump; it cannot see same-size changes and relies on
+  the seal for content (documented, tested). FULL = every byte. Strictly sequential, one scratch directory (0700) per
+  download, always removed.
+- **Result.** `VerifyReport` with run-level problems (`SEAL_MISSING`, `MANIFEST_MISSING`, `SEAL_INVALID`,
+  `RECIPIENTS_MISMATCH`, `DUMP_MISSING`, `DUMP_SIZE_MISMATCH`, `DUMP_SHA_MISMATCH`), per-object problems tied to asset
+  id and role (`MISSING_OBJECT`, `SIZE_MISMATCH`, `SHA_MISMATCH`, `UNAVAILABLE`), counts (objects, size checks, SHA checks,
+  bytes hashed, lines with inherited vs downloaded provenance) and `ok`. A run whose seal cannot be established
+  reports nothing about its objects (an unproven manifest is not trusted). Every problem is collected; the check of
+  the remaining objects continues. A misconfigured store (any non-transient storage error) or 5 consecutive
+  unavailable-store failures abort the checks (`AbortReason`); a persistent outage while reading the seal or the
+  dump also aborts. Transient errors are retried with the §16.10 policy. Unexpected exceptions and cancellation
+  propagate and scratch is removed. `report_bytes()` is a canonical one-line JSON (`plan-estimate/verify-report/v1`),
+  secret-free: problem codes, asset ids and roles only; at most 200 problems listed, per-code totals always complete.
+- **Read-only by construction.** The port has no write verb; the tests assert that a verification issues only `head`
+  and `download_to`, and the live smoke wraps the genuine target in a read-only reader.
+- **Test evidence.** A published run (real `sync_media` + `publish_run` on in-memory stores) verified in both modes;
+  every problem code produced from a deliberately damaged run (deleted / resized / bit-flipped objects and dump,
+  tampered or foreign seal, missing documents, recipient mismatch); retries, streak and misconfiguration aborts,
+  cancellation and scratch hygiene; mutation check — 21 deliberate defects in the verifier, all caught; the smoke's
+  own checks are tested against a blind, a noisy, a greedy and a leaking verifier so that they cannot pass vacuously
+  (14 mutations of the smoke, all caught after strengthening).
+- **Owner live smoke (not yet run).** `stage14d2h_verify_smoke.py` verifies runs that the 14D.2G smoke published in the
+  Oracle drill bucket, with the instance principal. **Nothing is written**: negative cases are injected on the client
+  side of a genuine stored run (a flipped byte in an object or in the dump, a HEAD size off by one, a HEAD answering
+  "absent", a fresh run id, a recipient that is not in the manifest). Checks: full verify passes; quick verify
+  downloads only the two documents; the inherited run (`--run-id-2`) is verified by download; unknown run → seal
+  missing; recipient mismatch; accepted real recipients (`--expect-recipient`); each injected fault is reported for
+  exactly the affected object (or the dump) and nothing else; the report is secret-free. Exit codes 0 PASS / 1 FAIL /
+  2 cannot run / 3 no instance principal; drill buckets only. Command: same container recipe as §16.10 (the 14D.2F
+  dependency set is enough), arguments `--run-id <run 1> --run-id-2 <run 2>` of the 14D.2G smoke (they are printed by it
+  and recorded in the progress document).
+- **Not in this stage:** the OCI API-key (restore principal) client factory, decryption, scratch PostgreSQL, READY-set
+  recomputation, media restore and the restore-time integrity checker (all 14D.2I), the command that ties
+  backup and verify together, listing `runs/` to find the latest sealed run, a sampling mode. Uploads stay OFF.
 
 ## 17. Stage 14D PASS criteria
 

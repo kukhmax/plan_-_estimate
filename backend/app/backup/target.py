@@ -95,6 +95,18 @@ class TargetObject:
     etag: str | None = None  # opaque, diagnostic only (plan §8)
 
 
+class BackupReader(Protocol):
+    """The read side of a backup target: what verification and restore need. Nothing here writes."""
+
+    async def head(self, key: str) -> TargetObject | None:
+        """Object facts, or None when the key does not exist."""
+        ...
+
+    async def download_to(self, key: str, path: Path) -> None:
+        """Write the object to the NEW local file `path` (MediaObjectNotFound if absent)."""
+        ...
+
+
 @runtime_checkable
 class BackupTarget(Protocol):
     async def put_new(self, key: str, source: Path, content_type: str) -> PutOutcome:

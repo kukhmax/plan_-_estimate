@@ -892,6 +892,33 @@ Compose, Dockerfile, dependency or production change; no network access in tests
   Verified command: plan §16.11.
 - **Next:** 14D.2H verify — owner approval required.
 
+### Stage 14D.2H — verification of a sealed run in the target (2026-10-04, IMPLEMENTED — automated verification PASS — live drill smoke PENDING owner run)
+
+Contract and design: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.12 (implements §6, §9 and the target-side part of §10).
+No runtime, Compose, Dockerfile, dependency or production change; no network access in tests; production uploads remain OFF.
+
+- **Added:** `backend/app/backup/verify.py` — `verify_run_in_target(reader, run_id, mode, expected_recipients)`: seal
+  (`COMPLETE.json` + `manifest.jsonl` through `verify_run`, sealed run id equals the requested one), optional expected
+  public age recipients, the encrypted dump (size; SHA-256 in FULL mode) and every object line (existence and size;
+  SHA-256 by download in FULL mode, never trusting inherited provenance). Collects every problem as a machine-readable
+  code tied to an asset id and role, aborts on a misconfigured store or an unavailable-store streak, canonical
+  secret-free `VerifyReport` (`plan-estimate/verify-report/v1`). No secret and no database are needed; decryption,
+  scratch PostgreSQL and the READY-set recomputation belong to 14D.2I.
+  `backend/scripts/stage14d2h_verify_smoke.py` — owner live smoke: verifies the runs the 14D.2G smoke published in the
+  Oracle drill bucket (read-only; negative cases injected on the client side, nothing written).
+- **Changed:** `app/backup/target.py` — read-side port `BackupReader` (`head`, `download_to`); `media_sync.load_prior_run`
+  takes any `BackupReader`.
+- **Tests:** 54 new (`test_stage14d2h_verify.py` 37, `test_stage14d2h_smoke.py` 17). Mutation check: 21 defects in the
+  verifier, all caught; 14 mutations of the smoke script, all caught after adding tests with a blind, noisy, greedy and
+  leaking verifier (the first version of the smoke tests let 4 of 8 mutations survive).
+- **Verification:** full backend suite (non-root) **3536 passed, 32 skipped, 0 failed** (3482 before + 54); new modules Ruff clean, `mypy --strict` no findings in `verify.py`, `media_sync.py` and the
+  smoke script; the smoke's imports and exit codes (2 / 3) checked in a clean environment with the 14D.2F dependency
+  set; `git diff --check` clean.
+- **Pending (owner):** live smoke on the Oracle VM against the two runs published by the 14D.2G smoke
+  (`20261004T172411Z-06f3cfbc` and `20261004T172412Z-faaf3559`; command in plan §16.12); expected
+  `RESULT: PASS (10/10 checks passed)` (11/11 with `--expect-recipient`; the 14D.2G drill recipients are synthetic).
+- **Next:** 14D.2I restore — owner approval required.
+
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
 Design and owner Console runbook: `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`; summary in
@@ -1063,7 +1090,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
-| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); 14D.2E manifest / COMPLETE.json / provenance core IMPLEMENTED (pure, 153 tests), OWNER ACCEPTED 2026-10-04; 14D.2F Oracle backup writer IMPLEMENTED (105 tests), OWNER ACCEPTED, live drill smoke PASS 9/9 on the Oracle VM; 14D.2G media sync R2 → Oracle IMPLEMENTED (77 tests), OWNER ACCEPTED, live drill smoke PASS 11/11 on the Oracle VM; rest (verify, restore) NOT STARTED) |
+| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); 14D.2E manifest / COMPLETE.json / provenance core IMPLEMENTED (pure, 153 tests), OWNER ACCEPTED 2026-10-04; 14D.2F Oracle backup writer IMPLEMENTED (105 tests), OWNER ACCEPTED, live drill smoke PASS 9/9 on the Oracle VM; 14D.2G media sync R2 → Oracle IMPLEMENTED (77 tests), OWNER ACCEPTED, live drill smoke PASS 11/11 on the Oracle VM; 14D.2H verify IMPLEMENTED (54 tests), live drill smoke PENDING owner run; rest (restore) NOT STARTED) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | PROVISIONING COMPLETE 2026-10-04 (OCI steps 1–7; age custody A + B verified from paper; R2 EU drill buckets; tokens / restore user deliberately deferred to 14D.4–14D.6); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | EXECUTED 2026-10-04 — all PASS (R2 drill tokens 12/12 ×2; IMDS guard live: only `pe-upload` reaches IMDS; OCI uploader smoke 16/16 + O4 negative exit 3; restore principal 12/12); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |

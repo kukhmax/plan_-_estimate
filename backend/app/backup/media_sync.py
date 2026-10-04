@@ -65,6 +65,7 @@ from app.backup.manifest import (
 from app.backup.run_id import validate_run_id
 from app.backup.target import (
     DEFAULT_RETRY,
+    BackupReader,
     BackupTarget,
     Clock,
     RetryPolicy,
@@ -517,7 +518,7 @@ async def sync_media(
 
 
 async def load_prior_run(
-    target: BackupTarget,
+    target: BackupReader,
     run_id: str,
     *,
     scratch_dir: Path,
