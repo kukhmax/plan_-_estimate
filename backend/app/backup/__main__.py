@@ -9,6 +9,10 @@ every reported value is selected explicitly and non-secret.
                            pgpass file and age recipients (validated, never printed)
     db-dump                (14D.2D.3) one local database backup run -- see app.backup.db_dump_command
                            for its exit codes
+    upload                 (14D.2J) the uploader container: media sync + publication of one promoted run
+                           to the Oracle target -- see app.backup.upload_command
+    restore                (14D.2J) the restore principal's command: seal -> scratch database -> media into a
+                           drill bucket, with a canonical report -- see app.backup.restore_command
 
 preflight exits 0 when every check passes, 1 otherwise; 2 on usage errors.
 """
@@ -149,7 +153,18 @@ def main(argv: Sequence[str] | None = None, *, env: Mapping[str, str] | None = N
     preflight = commands.add_parser("preflight", help="report tool versions and identity; never prints secrets")
     preflight.add_argument("--workspace", action="store_true", help="also check mounts, connection and passfile")
     commands.add_parser("db-dump", help="run one local encrypted database backup into the data root")
-    args = parser.parse_args(argv)
+    commands.add_parser("upload", add_help=False, help="upload one promoted run to the backup target (own options)")
+    commands.add_parser("restore", add_help=False, help="restore one sealed run into scratch targets (own options)")
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if raw and raw[0] == "restore":
+        from app.backup.restore_command import run_restore
+
+        return run_restore(os.environ if env is None else env, raw[1:], sys.stdout if out is None else out)
+    if raw and raw[0] == "upload":
+        from app.backup.upload_command import run_upload
+
+        return run_upload(os.environ if env is None else env, raw[1:], sys.stdout if out is None else out)
+    args = parser.parse_args(raw)
     if args.command == "db-dump":
         from app.backup.db_dump_command import run_db_dump
 

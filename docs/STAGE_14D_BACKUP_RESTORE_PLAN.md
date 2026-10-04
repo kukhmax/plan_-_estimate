@@ -24,8 +24,9 @@
 > real S3 adapter; no live run yet. Slice 2I.3 — the OCI restore client, the whole restore chain and the media-restore smoke (§16.15) — implemented and
 > proven with real tools in a development sandbox, and the owner live media-restore smoke on the Oracle VM
 > **PASS 8/8** (2026-10-04, 10/10 synthetic objects removed afterwards); the database half of the restore on real data is
-> still proven only by the development sandbox until the 14D.5 drill. Rest of the plan: 14D.5–14D.7 — NOT YET IMPLEMENTED / NOT STARTED: no production backup upload or media copy has
-> run, no restore tooling and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
+> still proven only by the development sandbox until the 14D.5 drill. 14D.2J — the `upload` and `restore` commands that wire all of this to the operator's environment (§16.16) — implemented
+> and tested; not run live yet (that is the 14D.5 drill). Rest of the plan: 14D.5–14D.7 — NOT STARTED: no production backup
+> upload or media copy has run and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
 >
 > Builds on: `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §13 (consistency model, OD-3),
@@ -1349,9 +1350,72 @@ Implementation: `backend/app/backup/oci_target.py` (`OciBackupReader`, `validate
     -v "$PWD/backend":/app:ro "$IMG" sh -c "$RUN"
   ```
 - **Not in this stage:** a command-line entry point that wires all of this to the operator's environment (data root,
-  lock, exit codes — the same gap as for the backup run), the live run of the database half with a real dump and an
+  lock, exit codes — the same gap as for the backup run; delivered in 14D.2J, §16.16), the live run of the database half with a real dump and an
   API-key restore principal (re-creating that key is a 14D.5 step), the integrity-check run, any production target.
   Uploads stay OFF.
+
+### 16.16 Backup and restore commands (Stage 14D.2J)
+
+Implementation: `backend/app/backup/run_sidecars.py`, `upload_run.py`, `upload_command.py`, `restore_command.py`;
+`__main__.py` (`upload`, `restore`), `orchestrator.py`, `workspace.py`, `core/pg_snapshot_dump.py` (additions).
+Tests: `test_stage14d2j1_sidecars.py` (29), `test_stage14d2j2_upload_run.py` (42), `test_stage14d2j2_upload_command.py`
+(44), `test_stage14d2j3_restore_command.py` (38); `test_stage14d2a_exporter_contract.py` and
+`test_stage14d2d3_orchestrator.py` extended. This slice only **wires** the accepted pieces (§16.5, §16.10–§16.15) to the
+operator's environment: data root, lock, evidence, exit codes, guards. It introduces no new backup or restore logic.
+
+- **Why two commands for the backup run.** `db-dump` runs where the database credentials are; the upload runs where the
+  object-storage authority is (§12, O2): two containers that must not share secrets. They meet in the data root.
+  `db-dump` therefore leaves, next to the encrypted artifact, the two facts only it knows (the evidence keeps only a
+  digest of the READY set and a recipient *count*): `ready-assets.txt` (the canonical READY set v1 bytes of the very
+  snapshot that was dumped; `snapshot_bound_dump` now returns the assets it hashed) and `recipients.txt` (the public
+  `age1…` recipients). Both are written, fsynced and private before `local-run.json`, and a run whose assets do not hash to
+  the snapshot digest stops at the evidence stage (`SNAPSHOT_METADATA_INVALID`). Parsing is strict: a sidecar is accepted
+  only if re-serialising it reproduces it byte for byte.
+- **`python -m app.backup upload --environment drill|production [--run-id ID] [--prior auto|none|ID] [--deep]`.** Takes
+  `run.lock` (never overlaps a `db-dump`), picks the newest promoted run without `evidence/<run_id>.published.json`, builds
+  the R2 source (`MEDIA_S3_*`, the application's own names) and the Oracle target (instance principal) from the
+  environment, and calls `upload_run`: **local** (files read through the data root: no symlink, private, bounded; READY
+  file hashed against `snapshot.ready_set_sha256`, recipient count against the evidence, artifact size and SHA-256
+  against the evidence — before a single byte is written anywhere) → **target** (is this very run already sealed there?
+  then it is *adopted*: only the local evidence is written; a different run under that id is `TARGET_RUN_CONFLICT`) →
+  **prior** (named or the newest published run; a prior that is missing, inconsistent or from another bucket is
+  `PRIOR_UNUSABLE`, never silently ignored — `--prior none` is the operator's explicit choice) → **sync** (`sync_media`)
+  → **publish** (`publish_run`: dump, manifest, `COMPLETE.json` last) → `evidence/<run_id>.published.json` (counts only).
+  A failure writes `evidence/<run_id>.upload-failed-<UTC>.json` (the canonical report) and nothing later runs; the local
+  run is never modified. `--environment` is mandatory and checked against the bucket names (drill: both buckets contain
+  `drill`; production: neither, and `--allow-production` — production uploads stay off until the owner enables them);
+  source and target must differ. Exit codes: 0 published / adopted, 1 failed, 2 usage, 3 lock held, 5 configuration or
+  guard, 6 interrupted, 8 nothing to upload (no such run, or already published), 9 the local run is unusable, 10 sealed in
+  the target but the local evidence could not be written (repeat the same command: it adopts the sealed run).
+- **Repeating after a failure (plan §15).** `SYNC_INCOMPLETE` (a source object missing or unreadable) is repeatable with
+  the same run: media objects are create-only or verified-identical and nothing was sealed. A publication that failed
+  *after* its manifest was stored cannot be re-published under the same run id — the manifest lines carry per-attempt
+  actions and timestamps, so a second manifest would differ, and the target never overwrites. Per §15 the answer is a new
+  `db-dump` run (a new `run_id`); the half-written run has no `COMPLETE.json` and is invalid by definition.
+- **`python -m app.backup restore --run-id ID --identity-file … --scratch-dir … --report-file … --forbidden-bucket …`.**
+  The restore principal's command (workstation, never the production VM). Configuration: the scratch database (`PG*`, name
+  must carry `pe_restore_scratch`, loopback / `scratch` host / `--allowed-host`, valid pgpass), the Oracle bucket to read
+  (`BACKUP_OCI_*`; `--oci-config` for the API-key principal, else the instance principal) and the destination media bucket
+  (`RESTORE_S3_*` — deliberately not the production `MEDIA_S3_*` names). Every guard runs *before* anything is built, read
+  or written (identity file, scratch database, destination not forbidden and a drill bucket unless `--allow-non-drill`, at
+  least one `--forbidden-bucket`; the Oracle backup bucket is always forbidden; the report file must be creatable). Then
+  `restore_run` (seal → database → READY set → media) runs with a per-run private scratch directory that is removed
+  afterwards, the canonical secret-free report is written to the new `--report-file` (0600, exclusive, never overwritten)
+  and a short summary is printed. Exit codes: 0 restored and verified, 1 restore failed (the report says where), 2 usage,
+  5 configuration / guard / principal, 6 interrupted, 7 the restore ran but the report file could not be written.
+- **Tests.** The command layer runs end to end on real promoted runs on disk (the real orchestrator's output is uploaded
+  unchanged), with in-memory stores for the network sides: success, adoption, conflict, every missing / symlinked /
+  group-readable / tampered file of a run, prior handling, unavailable target, incomplete sync, failed publication, lock held,
+  interruption by SIGTERM (handler removed, scratch removed, nothing sealed), the guard matrix, run selection, secret-free
+  output and reports. Mutation checks: 34 mutations of the new code; 4 survived at first — one equivalent (`<` vs `<=` in
+  the prior selection: a run with published evidence is refused earlier), three led to new tests (inconsistent seal in
+  the target, schema revision in the local evidence, size limit of a promoted file).
+- **Not in this stage:** a live run of `db-dump` → `upload` → `restore` on the Oracle VM / workstation (that is the 14D.5
+  drill, with the restore principal's API key created again by the owner), the integrity-check run, any schedule, any
+  production target. Uploads stay OFF. **Dependency note:** the OCI SDK (`oci==2.187.1`) is in no requirements file and no
+  image (the backup image carries neither `oci` nor, for the uploader, a separate build yet); for the drill the commands run
+  the way the smokes do — `pip install --target /tmp/deps` of the pinned set, `PYTHONPATH=/tmp/deps` — and pinning `oci`
+  into a dedicated uploader image is a later image / dependency change that needs the owner's approval.
 
 ## 17. Stage 14D PASS criteria
 

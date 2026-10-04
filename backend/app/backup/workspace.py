@@ -28,7 +28,9 @@ import ctypes
 import errno
 import fcntl
 import os
+import re
 import stat
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
@@ -44,7 +46,10 @@ LOCK_FILE = "run.lock"
 SUBDIRS = (WORK_DIR, ENCRYPTED_DIR, EVIDENCE_DIR)
 PLAINTEXT_DUMP_NAME = "plan-estimate.sql"
 LOCAL_EVIDENCE_NAME = "local-run.json"
+RUN_SIDECAR_NAMES = frozenset({"ready-assets.txt", "recipients.txt"})  # = run_sidecars.SIDECAR_NAMES
 FAILED_EVIDENCE_SUFFIX = ".failed.json"
+PUBLISHED_EVIDENCE_SUFFIX = ".published.json"  # 14D.2J: written by `upload` after a run was sealed in the target
+UPLOAD_FAILED_EVIDENCE = re.compile(r"^\.upload-failed-[0-9]{8}T[0-9]{6}Z\.json$")
 DIR_MODE = 0o700
 FILE_MODE = 0o600
 STALE_NAMES_REPORTED = 5
@@ -64,6 +69,10 @@ class UnsafeBackupPathError(WorkspaceError):
 
 class LockHeldError(WorkspaceError):
     """Another backup run holds run.lock."""
+
+
+class RunFileMissingError(UnsafeBackupPathError):
+    """A file expected inside a promoted run does not exist."""
 
 
 class StaleWorkError(WorkspaceError):
@@ -306,6 +315,27 @@ class BackupDataRoot:
             os.close(root_fd)
         return self.path / WORK_DIR / run_id / LOCAL_EVIDENCE_NAME
 
+    def write_run_file(self, run_id: str, name: str, data: bytes) -> Path:
+        """work/<run_id>/<name> for one of the fixed sidecar names -- exclusive, 0600, fsynced."""
+        if name not in RUN_SIDECAR_NAMES:
+            raise EvidenceWriteError("not a run sidecar name")
+        run_id = validate_run_id(run_id)
+        uid = _euid(self.euid)
+        root_fd = _open_root(self.path, uid)
+        try:
+            work_fd = _open_subdir(root_fd, WORK_DIR, euid=uid)
+            try:
+                run_fd = _open_dir(run_id, "work/<run_id>", dir_fd=work_fd, euid=uid)
+                try:
+                    _write_private_file(run_fd, name, data)
+                finally:
+                    os.close(run_fd)
+            finally:
+                os.close(work_fd)
+        finally:
+            os.close(root_fd)
+        return self.path / WORK_DIR / run_id / name
+
     def write_failure_evidence(self, run_id: str, data: bytes) -> Path:
         """evidence/<run_id>.failed.json -- exclusive, 0600, fsynced with its directory."""
         run_id = validate_run_id(run_id)
@@ -346,6 +376,110 @@ class BackupDataRoot:
                 os.close(parent_fd)
         finally:
             os.close(root_fd)
+
+    # -- reading a promoted run and the upload evidence (14D.2J) ------------------------------------
+
+    def promoted_run_ids(self) -> list[str]:
+        """Canonical run ids found as entries of encrypted/ (other names are ignored), oldest first."""
+        return sorted(self._canonical_ids(ENCRYPTED_DIR, lambda name: name))
+
+    def published_run_ids(self) -> list[str]:
+        """Run ids with `evidence/<run_id>.published.json`, oldest first."""
+        return sorted(
+            self._canonical_ids(
+                EVIDENCE_DIR,
+                lambda name: name.removesuffix(PUBLISHED_EVIDENCE_SUFFIX) if name.endswith(PUBLISHED_EVIDENCE_SUFFIX) else "",
+            )
+        )
+
+    def _canonical_ids(self, subdir: str, to_id: Callable[[str], str]) -> list[str]:
+        uid = _euid(self.euid)
+        root_fd = _open_root(self.path, uid)
+        try:
+            dir_fd = _open_subdir(root_fd, subdir, euid=uid)
+            try:
+                with os.scandir(dir_fd) as entries:
+                    names = [entry.name for entry in entries]
+            finally:
+                os.close(dir_fd)
+        finally:
+            os.close(root_fd)
+        ids = []
+        for name in names:
+            try:
+                ids.append(validate_run_id(to_id(name)))
+            except RunIdError:
+                continue
+        return ids
+
+    def read_promoted_file(self, run_id: str, name: str, *, max_bytes: int) -> bytes:
+        """Contents of encrypted/<run_id>/<name>: no symlink, a private regular file of the effective user,
+        at most `max_bytes` (larger is refused, not truncated)."""
+        fd = self._open_promoted_file(run_id, name)
+        try:
+            with os.fdopen(fd, "rb", closefd=True) as handle:
+                data = handle.read(max_bytes + 1)
+        except OSError as exc:
+            raise UnsafeBackupPathError(f"{name} cannot be read ({errno.errorcode.get(exc.errno or 0, 'error')})") from None
+        if len(data) > max_bytes:
+            raise UnsafeBackupPathError(f"{name} is larger than the allowed {max_bytes} bytes")
+        return data
+
+    def verified_promoted_path(self, run_id: str, name: str) -> Path:
+        """The path of encrypted/<run_id>/<name> after the same checks as `read_promoted_file`."""
+        os.close(self._open_promoted_file(run_id, name))
+        return self.path / ENCRYPTED_DIR / validate_run_id(run_id) / name
+
+    def _open_promoted_file(self, run_id: str, name: str) -> int:
+        if "/" in name or name in {"", ".", ".."}:
+            raise UnsafeBackupPathError("not a file name")
+        run_id = validate_run_id(run_id)
+        uid = _euid(self.euid)
+        root_fd = _open_root(self.path, uid)
+        try:
+            encrypted_fd = _open_subdir(root_fd, ENCRYPTED_DIR, euid=uid)
+            try:
+                if not _lexists(run_id, encrypted_fd):
+                    raise RunFileMissingError("the run does not exist in encrypted/")
+                run_fd = _open_dir(run_id, "encrypted/<run_id>", dir_fd=encrypted_fd, euid=uid)
+                try:
+                    try:
+                        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK, dir_fd=run_fd)
+                    except FileNotFoundError:
+                        raise RunFileMissingError(f"{name} does not exist in the run") from None
+                    except OSError as exc:
+                        raise UnsafeBackupPathError(
+                            f"{name} cannot be opened as a regular file ({errno.errorcode.get(exc.errno or 0, 'error')})"
+                        ) from None
+                    try:
+                        _check_private(os.fstat(fd), name, directory=False, euid=uid)
+                    except BaseException:
+                        os.close(fd)
+                        raise
+                    return fd
+                finally:
+                    os.close(run_fd)
+            finally:
+                os.close(encrypted_fd)
+        finally:
+            os.close(root_fd)
+
+    def write_upload_evidence(self, run_id: str, suffix: str, data: bytes) -> Path:
+        """evidence/<run_id><suffix> for `.published.json` or `.upload-failed-<UTC>.json` -- exclusive, 0600, fsynced."""
+        run_id = validate_run_id(run_id)
+        if suffix != PUBLISHED_EVIDENCE_SUFFIX and not UPLOAD_FAILED_EVIDENCE.match(suffix):
+            raise EvidenceWriteError("not an upload evidence name")
+        uid = _euid(self.euid)
+        root_fd = _open_root(self.path, uid)
+        try:
+            evidence_fd = _open_subdir(root_fd, EVIDENCE_DIR, euid=uid)
+            try:
+                _write_private_file(evidence_fd, f"{run_id}{suffix}", data)
+            finally:
+                os.close(evidence_fd)
+        finally:
+            os.close(root_fd)
+        return self.path / EVIDENCE_DIR / f"{run_id}{suffix}"
 
     def _promote(self, run_id: str, work_fd: int, encrypted_fd: int, uid: int) -> Path:
         try:

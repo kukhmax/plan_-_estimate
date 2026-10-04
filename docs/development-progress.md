@@ -1008,6 +1008,32 @@ uploads remain OFF.
   encryption → media sync → publication) and the restore run to the operator's environment (data root, lock, evidence,
   exit codes); creating the restore principal's API key again for the drill.
 
+### Stage 14D.2J — backup and restore commands (2026-10-04, IMPLEMENTED — automated verification PASS — live run is the 14D.5 drill)
+
+Contract and design: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.16. Wires the accepted pieces of 14D.2 to the operator's
+environment so that the 14D.5 drill can run them. No runtime, Compose, Dockerfile, dependency pin, Alembic or production
+change; production uploads remain OFF.
+
+- **Added:** `app/backup/run_sidecars.py` (`ready-assets.txt`, `recipients.txt`: strict canonical parsers),
+  `app/backup/upload_run.py` (`upload_run`: local → target → prior → sync → publish → evidence; adoption of an already
+  sealed run), `app/backup/upload_command.py` and `app/backup/restore_command.py` (settings, guards, run selection,
+  exit codes, reports), the `upload` and `restore` commands in `python -m app.backup`.
+- **Changed:** `snapshot_bound_dump` returns the READY assets it hashed (`SnapshotDumpResult.ready_assets`); the
+  orchestrator writes the two sidecars before the evidence and refuses a run whose assets do not match the snapshot digest;
+  `BackupDataRoot` gained `write_run_file`, `read_promoted_file`, `verified_promoted_path`, `promoted_run_ids`,
+  `published_run_ids` and `write_upload_evidence`. A promoted run directory now holds four files instead of two.
+- **Tests:** 153 new (sidecars 29, upload_run 42, upload command 44, restore command 38) and two existing test modules
+  extended. Mutation checks: 34 mutations of the new code, 4 survivors at first (1 equivalent, 3 → new tests), 0 after.
+- **Verification:** full backend suite (non-root) **3927 passed, 54 skipped, 0 failed** (3774 passed before); new modules Ruff clean, `mypy --strict`
+  no findings in the four new modules; the `upload` / `restore` dispatch and every exit code are covered by tests.
+- **Design points to be aware of:** the `db-dump` output format changed (two sidecars) — an owner decision taken with the
+  command design; the uploader is a separate command so that the database credentials and the object-storage authority never
+  meet in one container; a publication that failed after its manifest was stored needs a new `db-dump` run (plan §15).
+- **Dependency note:** `oci` is not in any image or requirements file; the drill runs the commands with the pinned set
+  installed via `pip install --target`, as the smokes do. A dedicated uploader image is a later, separately approved change.
+- **Not done / next:** the 14D.5 drill (needs the restore principal's API key created again by the owner, the drill
+  images with the new commands, and the Oracle administrator's cleanup of drill-bucket objects afterwards), 14D.6, 14D.7.
+
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
 Design and owner Console runbook: `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`; summary in
@@ -1179,7 +1205,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14C.7 | Production deployment & runtime verification (uploads OFF); 14C.7B dependency pin hardening `8c53e58` | COMPLETE / OWNER VERIFIED (2026-10-02; ARM64 image `33bb27b7…` 2442 passed / 11 skipped / 0 failed; migration `0032` applied; Caddy route cap live; uploads OFF) |
 | 14D | Backup/restore drill & production media-readiness gate (Oracle Object Storage backup, integrity check, restore, runbook) | **IN PROGRESS** (contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`) |
 | └ 14D.1 | Architecture / readiness audit (backup layout, manifest v1, snapshot-bound completeness, SHA-256 provenance, encrypted DB chain, drill design) | COMPLETE / OWNER APPROVED (2026-10-02; documentation only) |
-| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); 14D.2E manifest / COMPLETE.json / provenance core IMPLEMENTED (pure, 153 tests), OWNER ACCEPTED 2026-10-04; 14D.2F Oracle backup writer IMPLEMENTED (105 tests), OWNER ACCEPTED, live drill smoke PASS 9/9 on the Oracle VM; 14D.2G media sync R2 → Oracle IMPLEMENTED (77 tests), OWNER ACCEPTED, live drill smoke PASS 11/11 on the Oracle VM; 14D.2H verify IMPLEMENTED (54 tests), OWNER ACCEPTED, live drill smoke PASS 11/11 on the Oracle VM; 14D.2I.1 database restore chain IMPLEMENTED (108 tests + 17 opt-in real-tool tests passing in a development sandbox), owner run with production versions PENDING; 14D.2I.2 media restore IMPLEMENTED (49 tests), no live run yet; 14D.2I.3 restore client / whole restore chain / media-restore smoke IMPLEMENTED (81 tests + 5 opt-in real-tool tests passing in a development sandbox), OWNER LIVE SMOKE PASS 8/8 on the Oracle VM) |
+| └ 14D.2 | Backup / restore tooling + tests | IN PROGRESS (14D.2A snapshot primitive COMPLETE / OWNER ACCEPTED, real PostgreSQL 16.15 9/9 twice; 14D.2B encrypted artifact primitive COMPLETE / OWNER ACCEPTED, real age 1.3.2 round-trip proven; 14D.2C backup image / container contract COMPLETE / OWNER VERIFIED (amd64); 14D.2D.1–14D.2D.3 local contracts, data-root lifecycle and orchestration COMPLETE / OWNER ACCEPTED; 14D.2D.4 real PostgreSQL 16.15 snapshot + role proof COMPLETE / OWNER VERIFIED (8/8; backup-role policy LOGIN + CONNECT + pg_read_all_data frozen, not created); 14D.2D.5 Compose runtime E2E COMPLETE / OWNER VERIFIED (FAIL count 0, amd64); 14D.2E manifest / COMPLETE.json / provenance core IMPLEMENTED (pure, 153 tests), OWNER ACCEPTED 2026-10-04; 14D.2F Oracle backup writer IMPLEMENTED (105 tests), OWNER ACCEPTED, live drill smoke PASS 9/9 on the Oracle VM; 14D.2G media sync R2 → Oracle IMPLEMENTED (77 tests), OWNER ACCEPTED, live drill smoke PASS 11/11 on the Oracle VM; 14D.2H verify IMPLEMENTED (54 tests), OWNER ACCEPTED, live drill smoke PASS 11/11 on the Oracle VM; 14D.2I.1 database restore chain IMPLEMENTED (108 tests + 17 opt-in real-tool tests passing in a development sandbox), owner run with production versions PENDING; 14D.2I.2 media restore IMPLEMENTED (49 tests), no live run yet; 14D.2I.3 restore client / whole restore chain / media-restore smoke IMPLEMENTED (81 tests + 5 opt-in real-tool tests passing in a development sandbox), OWNER LIVE SMOKE PASS 8/8 on the Oracle VM; 14D.2J `upload` / `restore` commands IMPLEMENTED (153 tests), live run is the 14D.5 drill) |
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | PROVISIONING COMPLETE 2026-10-04 (OCI steps 1–7; age custody A + B verified from paper; R2 EU drill buckets; tokens / restore user deliberately deferred to 14D.4–14D.6); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | EXECUTED 2026-10-04 — all PASS (R2 drill tokens 12/12 ×2; IMDS guard live: only `pe-upload` reaches IMDS; OCI uploader smoke 16/16 + O4 negative exit 3; restore principal 12/12); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |

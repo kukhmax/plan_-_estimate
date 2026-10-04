@@ -14,7 +14,8 @@ Sequences the accepted primitives; it reimplements none of them
                     exported snapshot on a second connection, reads metadata and
                     enforces observed == expected head BEFORE pg_dump starts
   H  encrypt        14D.2B encrypt_dump_artifact (plaintext unlinked only when durable)
-  I  evidence       CompleteRunEvidence -> work/<run_id>/local-run.json (0600, fsynced)
+  I  sidecars       ready-assets.txt + recipients.txt (14D.2J: what the later upload needs), then
+                    CompleteRunEvidence -> work/<run_id>/local-run.json (0600, fsynced)
   J  promote        atomic renameat2 work/<run_id> -> encrypted/<run_id>
   K  success
 
@@ -51,6 +52,12 @@ from app.backup.evidence import (
 )
 from app.backup.pg_connection import PgConnectionConfig, validate_passfile
 from app.backup.run_id import new_run_id
+from app.backup.run_sidecars import (
+    READY_ASSETS_NAME,
+    RECIPIENTS_NAME,
+    ready_assets_bytes,
+    recipients_bytes,
+)
 from app.backup.schema_revision import (
     DEFAULT_SCRIPT_LOCATION,
     check_revision,
@@ -90,7 +97,10 @@ from app.core.pg_snapshot_dump import (
     SnapshotDumpResult,
     snapshot_bound_dump,
 )
-from app.domain.services.media_backup_ready_set import ReadySetFormatError
+from app.domain.services.media_backup_ready_set import (
+    ReadySetFormatError,
+    ready_set_digest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -332,9 +342,14 @@ class BackupOrchestrator:
             raise
         state.encrypted = encrypted
 
-        # I -- complete evidence, written durably BEFORE promotion
+        # I -- sidecars (the READY assets and recipients the upload needs), then complete evidence,
+        # all written durably BEFORE promotion
         state.stage = FailureStage.EVIDENCE
         assert state.started_at is not None
+        if ready_set_digest(dump.ready_assets) != dump.ready:
+            raise SnapshotMetadataError("the READY assets do not match the READY set digest of the snapshot")
+        self.data_root.write_run_file(workspace.run_id, READY_ASSETS_NAME, ready_assets_bytes(dump.ready_assets))
+        self.data_root.write_run_file(workspace.run_id, RECIPIENTS_NAME, recipients_bytes(encrypted.recipients))
         evidence = CompleteRunEvidence(
             run_id=workspace.run_id,
             started_at=state.started_at,

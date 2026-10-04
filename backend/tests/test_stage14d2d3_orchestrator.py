@@ -46,8 +46,7 @@ HEAD = "0032_photo_attachments"
 RECIPIENT = "age1" + "q" * 58
 FAKE_PASSWORD = "fakePwNeverLogged0123456789"
 DUMP = b"--\n-- PostgreSQL database dump\n--\nSELECT 1;\n--\n-- PostgreSQL database dump complete\n--\n"
-READY = ready_set_digest(
-    [
+READY_ASSETS = tuple(
         ReadyAsset(
             asset_id=__import__("uuid").UUID(int=i + 1),
             key_original=f"photos/v1/{i}/original.jpg",
@@ -59,8 +58,8 @@ READY = ready_set_digest(
             sha256=f"{i:064x}",
         )
         for i in range(3)
-    ]
 )
+READY = ready_set_digest(READY_ASSETS)
 
 
 class Clock:
@@ -123,6 +122,7 @@ class Harness:
             dump_path=output_path,
             dump_size=len(DUMP),
             dump_sha256=hashlib.sha256(DUMP).hexdigest(),
+            ready_assets=READY_ASSETS,
         )
 
     async def encrypt(self, dump: SnapshotDumpResult, recipients, *, age_binary, timeout_seconds):
@@ -210,7 +210,9 @@ async def test_success_sequence_evidence_and_promotion(root, tmp_path):
     run_dir = root / "encrypted" / result.run_id
     assert result.run_directory == run_dir
     assert list((root / "work").iterdir()) == [] and list((root / "evidence").iterdir()) == []
-    assert sorted(p.name for p in run_dir.iterdir()) == ["local-run.json", "plan-estimate.sql.gz.age"]
+    assert sorted(p.name for p in run_dir.iterdir()) == [
+        "local-run.json", "plan-estimate.sql.gz.age", "ready-assets.txt", "recipients.txt",
+    ]
     raw = (run_dir / "local-run.json").read_bytes()
     assert raw == result.evidence.to_canonical_json()
     assert stat.S_IMODE((run_dir / "local-run.json").stat().st_mode) == 0o600

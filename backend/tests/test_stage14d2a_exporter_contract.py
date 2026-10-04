@@ -16,6 +16,7 @@ import pytest
 
 from app.core import pg_snapshot_dump as mod
 from app.core.pg_snapshot_dump import PgDumpCommand, PgDumpFailedError, SnapshotDumpError, snapshot_bound_dump
+from app.domain.services.media_backup_ready_set import ready_set_digest
 
 SNAPSHOT = "00000003-0000001B-1"
 
@@ -155,3 +156,6 @@ async def test_inventory_rows_feed_the_ready_digest(harness, tmp_path):
     }])
     result = await snapshot_bound_dump("dsn", CMD, tmp_path / "d.sql", session_tag="pe-snapshot-ut")
     assert result.ready.ready_count == 1 and len(result.ready.ready_set_sha256) == 64
+    (asset,) = result.ready_assets  # 14D.2J: the very assets the digest was computed from
+    assert asset.asset_id == asset_id and asset.sha256 == "a" * 64 and asset.byte_size == 3
+    assert ready_set_digest(result.ready_assets) == result.ready

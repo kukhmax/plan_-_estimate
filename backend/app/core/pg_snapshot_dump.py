@@ -137,6 +137,8 @@ class SnapshotDumpResult:
     dump_path: Path
     dump_size: int
     dump_sha256: str
+    # The READY assets of the same snapshot (14D.2J): the digest above is computed from exactly these.
+    ready_assets: tuple[ReadyAsset, ...] = ()
 
 
 def parse_pg_dump_major(version_output: str) -> int:
@@ -306,7 +308,7 @@ async def snapshot_bound_dump(
             await after_export(snapshot_id)
 
         rows = await conn.fetch(READY_INVENTORY_SQL)
-        ready = ready_set_digest(
+        assets = tuple(
             ReadyAsset(
                 asset_id=uuid.UUID(str(row["id"])),
                 key_original=row["storage_key_original"],
@@ -319,6 +321,7 @@ async def snapshot_bound_dump(
             )
             for row in rows
         )
+        ready = ready_set_digest(assets)
 
         dump_started = True
         await run_dump_process(command.dump_argv(snapshot_id, dump_app), output_path, timeout_seconds)
@@ -331,6 +334,7 @@ async def snapshot_bound_dump(
             dump_path=output_path,
             dump_size=output_path.stat().st_size,
             dump_sha256=_file_sha256(output_path),
+            ready_assets=assets,
         )
     finally:
         await asyncio.shield(_cleanup(conn, dump_app if dump_started else None))
