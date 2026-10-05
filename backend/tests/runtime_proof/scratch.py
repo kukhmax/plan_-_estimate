@@ -173,6 +173,7 @@ async def setup(server: ProofServer, backup_passfile: Path) -> dict[str, Any]:
 
 async def verify_run(server: ProofServer, data_root: Path, identity: Path, run_id: str) -> dict[str, Any]:
     from app.backup.run_id import validate_run_id
+    from app.backup.run_sidecars import SIDECAR_NAMES
     from app.backup.schema_revision import resolve_expected_head
 
     run_dir = data_root / "encrypted" / validate_run_id(run_id)
@@ -212,7 +213,7 @@ async def verify_run(server: ProofServer, data_root: Path, identity: Path, run_i
             await admin.close()
 
     checks = {
-        "files": names == ["local-run.json", "plan-estimate.sql.gz.age"],
+        "files": names == sorted({"local-run.json", "plan-estimate.sql.gz.age"} | SIDECAR_NAMES),
         "status_complete": evidence.get("status") == "complete" and evidence.get("run_id") == run_id,
         "artifact_sha256": hashlib.sha256(artifact).hexdigest() == evidence["artifact"]["sha256"],
         "artifact_size": len(artifact) == evidence["artifact"]["size"],

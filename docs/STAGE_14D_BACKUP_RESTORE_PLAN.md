@@ -1538,6 +1538,9 @@ procedure. **Nothing was built, started or changed on any server.**
   exactly three objects into the target), no `pe_*` role. Finding while preparing P1: `owner_proof.sh` generated its throwaway age identity with
   `age-keygen` **on the host** — the VM has no `age` and the owner's rule is that no private identity is generated on it; the script now generates
   the synthetic identity with the image under test after the build (contract test + mutation checks).
+- **P1 findings (2026-10-05):** the ARM64 gate caught two defects before any production data was touched — (1) building from the production
+  checkout copies its `0600` file modes into the image, so builds must use a `git archive` directory (also P5); (2) the 14D.2D.5 proof
+  tooling pre-dated the 14D.2J sidecars and expected a two-file run directory (fixed, pinned by contract tests). Details in runbook §P1.
 - **Not done here (14D.6B, owner, each step with its own approval):** the ARM64 gate on the production host, the backup role in the
   production PostgreSQL, IAM Phase B, the production read-only R2 token, the first production `db-dump`, `upload`, `verify` and the
   restore of the real dump (plan §11 step 7) — see the runbook. `docker compose` with the new external network was only checked

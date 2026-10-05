@@ -28,6 +28,11 @@ PROJECT = "plan-estimate-14d2d5-proof"
 NETWORK = f"{PROJECT}_internal"
 ARTIFACT = "plan-estimate.sql.gz.age"
 EVIDENCE = "local-run.json"
+# Sidecars written by `db-dump` since 14D.2J (app.backup.run_sidecars); this host-side script cannot import the app,
+# a contract test pins these names to the constants there.
+READY_ASSETS = "ready-assets.txt"
+RECIPIENTS = "recipients.txt"
+EXPECTED_FILES = sorted([EVIDENCE, ARTIFACT, READY_ASSETS, RECIPIENTS])
 PLAINTEXT = "plan-estimate.sql"
 
 
@@ -58,7 +63,7 @@ def check_run(data_dir: Path, run_id: str | None, expect_runs: int | None) -> di
         artifact = run_dir / ARTIFACT
         artifact_sha = sha256_file(artifact)
         checks.update({
-            "exact_files": names == [EVIDENCE, ARTIFACT],
+            "exact_files": names == EXPECTED_FILES,
             "no_plaintext": not (run_dir / PLAINTEXT).exists() and not (work / chosen / PLAINTEXT).exists(),
             "evidence_complete": evidence.get("status") == "complete" and evidence.get("run_id") == chosen,
             "revision_is_head": evidence["database"]["alembic_revision"] == evidence["database"]["expected_alembic_head"],

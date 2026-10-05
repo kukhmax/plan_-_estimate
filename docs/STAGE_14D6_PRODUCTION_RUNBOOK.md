@@ -91,6 +91,18 @@ cleanup of the scratch resources (the cleanup block of plan §16.7 plus `shred -
 build cache, transient scratch containers and CPU load beside the running stack; not the production stack, volumes, networks or
 database. *PASS:* `FAIL count 0` and `docker image inspect` shows `arm64`.
 
+*P1 attempts (2026-10-05), recorded as they happened.* **Attempt 1 — FAIL, cause: file modes of the production checkout.** Run from
+`~/apps/plan_-_estimate`, the build copied the checkout's file modes into the image; many tracked files there are `0600` (e.g.
+`backend/app/core/config.py`) although git stores `100644`, so the non-root process could not read them (`PermissionError`) and every
+step after the build failed. The image itself built natively (`arm64`), the PGDG key and `age` checksums verified, the network checks
+passed. **Rule from this:** never build from the production checkout — build from a `git archive` directory (git modes), as P1a now does:
+`git archive HEAD backend docker-compose.prod.yml | tar -x` into `~/apps/plan_-_estimate-14d6/`, checked for readable files. The same rule
+applies to the P5 uploader build. **Attempt 2 — 5 FAIL, all one cause in the proof tooling:** the host checker and the in-container
+verifier still expected a run directory of exactly `local-run.json` + the artifact, but `db-dump` has also written `ready-assets.txt` and
+`recipients.txt` since 14D.2J. Every security-relevant check passed on `aarch64` (hardening, locks incl. SIGKILL release, SIGTERM exit 6
+in 1 s, `CANCELLED` evidence, stale-work refusal, no egress, no secret leak, independent decrypt + READY digest + revision). Fixed in the
+tooling (`check_host.py`, `scratch.py`, contract tests pinning the names to `run_sidecars`); attempt 3 repeats P1 from scratch.
+
 **P2 — backup role and data root.** Create `pe_backup` (the frozen policy) in the production PostgreSQL, the data root and the
 pgpass, `backup.env`. *Touches:* **production PostgreSQL (a role is created)**. *PASS:* `db-dump`'s `preflight --workspace`
 passes inside the `backup` service; `\du pe_backup` shows LOGIN only with `pg_read_all_data`.

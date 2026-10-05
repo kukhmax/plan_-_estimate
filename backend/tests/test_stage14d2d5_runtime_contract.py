@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 import yaml
 
+from app.backup import run_sidecars
 from tests.runtime_proof import bind_ops, check_host
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -124,6 +125,9 @@ def make_data(tmp_path: Path, *, run_id: str = RUN_A, tamper: bool = False) -> P
         evidence["artifact"]["size"] += 1
     (run / "local-run.json").write_text(json.dumps(evidence))
     (run / "local-run.json").chmod(0o600)
+    for sidecar in run_sidecars.SIDECAR_NAMES:       # written by `db-dump` since 14D.2J
+        (run / sidecar).write_text("sidecar\n")
+        (run / sidecar).chmod(0o600)
     lock = data / "run.lock"
     lock.write_text("")
     lock.chmod(0o600)
@@ -136,7 +140,7 @@ def test_check_run_passes_on_a_complete_layout(tmp_path):
     assert result["run_id"] == RUN_A and len(result["artifact_sha256"]) == 64
 
 
-@pytest.mark.parametrize("problem", ["tamper", "work", "evidence", "plaintext", "lock", "mode"])
+@pytest.mark.parametrize("problem", ["tamper", "work", "evidence", "plaintext", "lock", "mode", "no-sidecar", "extra-file"])
 def test_check_run_detects_problems(tmp_path, problem):
     data = make_data(tmp_path, tamper=problem == "tamper")
     if problem == "work":
@@ -149,7 +153,21 @@ def test_check_run_detects_problems(tmp_path, problem):
         (data / "run.lock").unlink()
     elif problem == "mode":
         (data / "encrypted" / RUN_A / "plan-estimate.sql.gz.age").chmod(0o644)
+    elif problem == "no-sidecar":
+        (data / "encrypted" / RUN_A / run_sidecars.RECIPIENTS_NAME).unlink()
+    elif problem == "extra-file":
+        (data / "encrypted" / RUN_A / "unexpected.txt").write_text("x")
     assert not check_host.check_run(data, RUN_A, None)["pass"]
+
+
+def test_proof_tooling_expects_exactly_the_files_db_dump_seals():
+    """The host checker cannot import the app, so its literal names are pinned to the real constants; the in-container
+    verifier derives its set from them (a stale list made the first ARM64 gate run fail on the sidecars)."""
+    assert {check_host.READY_ASSETS, check_host.RECIPIENTS} == set(run_sidecars.SIDECAR_NAMES)
+    assert check_host.EXPECTED_FILES == sorted(
+        {"local-run.json", "plan-estimate.sql.gz.age"} | set(run_sidecars.SIDECAR_NAMES))
+    scratch = (BACKEND / "tests" / "runtime_proof" / "scratch.py").read_text()
+    assert "| SIDECAR_NAMES" in scratch and 'names == ["local-run.json"' not in scratch
 
 
 def container_info(**overrides: Any) -> dict[str, Any]:
