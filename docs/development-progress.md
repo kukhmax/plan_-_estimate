@@ -1101,7 +1101,8 @@ needs no contact with production. No Alembic change, no change to the web image,
   files are `0600` (build copies modes; non-root process unreadable) — builds now come from a `git archive` directory; attempt 2 passed every
   security check on `aarch64` but 5 checks failed on a stale expectation of the run-directory file set (the 14D.2J sidecars
   `ready-assets.txt` / `recipients.txt`). Fixed in `check_host.py` / `scratch.py` with contract tests (45 pass, 3 mutations killed); attempt 3
-  needs the owner's approval. Scratch resources of attempt 1 were cleaned; attempt 2's remain until its cleanup.
+  was run from `6e3de1a` and **PASSED on the production VM (`aarch64`): `FAIL count: 0`, image `arm64/linux`**. Scratch resources of attempts 1–2 were
+  cleaned; attempt 3's are cleaned by P1c.
 - **Pending (needs explicit owner approval, 14D.6B):** the phases P0–P8 of the runbook — the first of them is read-only, the first
   write to production is the backup role in PostgreSQL (P2) and the first permanent write is the first object in
   `plan-estimate-backup-prod` (P5).

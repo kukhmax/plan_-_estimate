@@ -101,7 +101,9 @@ applies to the P5 uploader build. **Attempt 2 — 5 FAIL, all one cause in the p
 verifier still expected a run directory of exactly `local-run.json` + the artifact, but `db-dump` has also written `ready-assets.txt` and
 `recipients.txt` since 14D.2J. Every security-relevant check passed on `aarch64` (hardening, locks incl. SIGKILL release, SIGTERM exit 6
 in 1 s, `CANCELLED` evidence, stale-work refusal, no egress, no secret leak, independent decrypt + READY digest + revision). Fixed in the
-tooling (`check_host.py`, `scratch.py`, contract tests pinning the names to `run_sidecars`); attempt 3 repeats P1 from scratch.
+tooling (`check_host.py`, `scratch.py`, contract tests pinning the names to `run_sidecars`). **Attempt 3 — PASS (commit `6e3de1a`, built from a
+`git archive` directory): `FAIL count: 0`, 33 checks PASS, image `arm64/linux` (537.6 MB), runs `20261005T205035Z-ce42d740` and
+`20261005T205530Z-20741fd6`; the production stack was untouched (same containers, same uptime). The production checkout stayed at `68a06d5`.**
 
 **P2 — backup role and data root.** Create `pe_backup` (the frozen policy) in the production PostgreSQL, the data root and the
 pgpass, `backup.env`. *Touches:* **production PostgreSQL (a role is created)**. *PASS:* `db-dump`'s `preflight --workspace`
