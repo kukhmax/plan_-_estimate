@@ -1093,6 +1093,10 @@ needs no contact with production. No Alembic change, no change to the web image,
 - **Verification:** full backend suite (non-root) **4026 passed, 54 skipped, 0 failed** (3986 passed before); new code Ruff clean, `mypy --strict` no findings in
   `verify_command.py`; `requirements-oci.txt` installed with `--no-deps` in a clean Python 3.12 environment, `pip check` clean, the
   commands import.
+- **14D.6B, P0 executed 2026-10-05 (read-only, PASS):** VM `aarch64`, Docker 29.8.0, 38 GiB free, IMDS guard active, new Compose file valid,
+  Alembic at head, `photo_assets` empty, no `pe_*` role (runbook §4a). Preparing P1 found that `owner_proof.sh` generated its throwaway age
+  identity with host `age-keygen`; it now uses the image under test (no `age` on the VM). Contract test `test_owner_script_needs_no_age_on_the_host`;
+  full suite 3927 passed, 54 skipped.
 - **Pending (needs explicit owner approval, 14D.6B):** the phases P0–P8 of the runbook — the first of them is read-only, the first
   write to production is the backup role in PostgreSQL (P2) and the first permanent write is the first object in
   `plan-estimate-backup-prod` (P5).

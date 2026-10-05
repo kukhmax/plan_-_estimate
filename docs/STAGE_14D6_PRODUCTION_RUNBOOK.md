@@ -1,8 +1,8 @@
-# Stage 14D.6 — First production backup run: runbook (DRAFT until executed)
+# Stage 14D.6 — First production backup run: runbook (IN PROGRESS — P0 executed 2026-10-05)
 
-> **Status:** DRAFT, written in 14D.6A together with the tooling it needs (`verify` command, uploader image, `backup-upload`
-> Compose service; plan §16.19). **Nothing in this document has been executed.** Every phase below touches production in some
-> way and is run by the owner only after an explicit decision for *that* phase (`CLAUDE.md`: SSH, `git pull`, Docker build,
+> **Status:** written in 14D.6A together with the tooling it needs (`verify` command, uploader image, `backup-upload`
+> Compose service; plan §16.19). **P0 (read-only facts) was executed on 2026-10-05 — result in §4a; no other phase has been run.**
+> Every phase below touches production in some way and is run by the owner only after an explicit decision for *that* phase (`CLAUDE.md`: SSH, `git pull`, Docker build,
 > Docker up, any data-modifying operation each need their own approval). Production photo uploads stay **OFF**
 > (`PHOTO_UPLOADS_ENABLED=false`); nothing here enables them (that is Stage 14E).
 >
@@ -58,12 +58,38 @@ Each phase lists **what it touches** and **PASS**. A phase is not started before
 revision of the production database. *Touches:* nothing. *PASS:* all as expected; `photo_assets` counts recorded as the
 "before" snapshot of the production database (they are compared again in P8).
 
-**P1 — ARM64 gate (before 14D.6, plan §16.8).** On the VM: the checkout is moved to the verified commit (`git pull`; own
-approval), `docker compose --profile backup build backup` (Docker build on the production host; CPU and disk contention with
-the running stack — own approval), then the 14D.2D.5 runtime proof (`backend/tests/runtime_proof/owner_proof.sh`) against
-**scratch** resources only: Python 3.12, `pg_dump` 16, `age` 1.3.2, non-root hardening, `renameat2(RENAME_NOREPLACE)`, fsync,
-`flock`, an encrypted scratch backup and an independent restore. *Touches:* the image store and scratch containers; not the
-production stack or database. *PASS:* `FAIL count 0` on `aarch64`.
+### 4a. P0 — executed 2026-10-05 (read-only; the owner's "yes, P0")
+
+Facts (no secrets): the VM is `aarch64`, Ubuntu 24.04.5, kernel 6.17 (Oracle), Docker 29.8.0 `linux/arm64`, Compose 5.5.1; 38 GiB free of
+45 GiB, 5.9 GiB RAM (≈5 GiB available); the production stack (`caddy`, `backend` healthy, `frontend`, `postgres` healthy) was up; the
+network `pe-upload` (172.30.250.0/24) exists with no attached container; `plan-estimate-imds-guard.service` is `active` and `enabled`
+(`/usr/local/sbin/pe-imds-guard.sh`; its `status` needs root and was not run); no `plan-estimate-backup*` image exists; the production
+checkout `~/apps/plan_-_estimate` is at `1931e78` on `stage-14`, clean, `.env.production` is 0600; `~/backups/plan-estimate` is 0700 and
+holds the older ad-hoc dumps and `drill-secrets` — there is **no** `db-backup` root yet. The new `docker-compose.prod.yml`, fed to the
+VM's Compose through stdin (`-f -`), is valid: services `backend, backup, backup-upload, caddy, frontend, postgres`, `pe-upload` external,
+`backup-upload` attached to `pe-upload` only. Production database (a `default_transaction_read_only` session): PostgreSQL 16.15, Alembic
+`0032_photo_attachments` (= repository head), 11.8 MB, **no `pe_*` role**, `photo_assets` empty (no photo exists: the first run has
+`ready_count = 0`, so the target will receive exactly three objects). Baseline row counts, for P8 (differences are expected only from the
+owner's own use of the application between P0 and P8; the backup itself changes no row): `users` 1, `clients` 2, `projects` 2, `rooms` 4,
+`surfaces` 25, `openings` 8, `inspections` 4, `estimates` 3, `estimate_lines` 43, `surface_planned_works` 41, `photo_assets` 0,
+`photo_attachments` 0, `price_items` 50, `workflow_template_steps` 128 (all other tables are listed by the P0 query).
+
+Observation, not a blocker: `~/backups/plan-estimate` holds older plaintext dumps (`before-stage*.sql`, 0664, inside the 0700 directory).
+Encrypting or removing them is the owner's decision; 14D.6 does not touch them.
+
+**P1 — ARM64 gate (before 14D.6, plan §16.8).** Three sub-steps, each with its own approval; the running stack is never rebuilt or
+restarted and the production checkout is **not** touched (no `git pull`): the verified commit is shipped as a `git archive` of
+`backend` and `docker-compose.prod.yml` into the separate directory `~/apps/plan_-_estimate-14d6/`.
+*P1a* ship the archive (writes one directory). *P1b* run `bash backend/tests/runtime_proof/owner_proof.sh` there: it builds the backup
+image **natively on `aarch64`** (`plan-estimate-backup:local`; PGDG key and `age` release are SHA-256-verified, Python 3.12, `pg_dump` 16,
+`age` 1.3.2) and then proves non-root hardening, the actual `/backup` bind, `renameat2(RENAME_NOREPLACE)`, fsync, `flock`, SIGTERM
+handling, no egress, an encrypted scratch backup and an independent restore — against **scratch** resources only (its own project
+`plan-estimate-14d2d5-proof`, an internal network, a disposable `postgres:16-alpine`, `/tmp/pe-14d2d5-proof.*`). The synthetic proof needs
+a throwaway age identity: since 14D.6A the image under test generates it (the host needs no `age`; nothing is installed on the VM). It
+exists for the minutes of the proof under `/tmp/pe-14d2d5-proof.*/identity` (0600, synthetic data only) and is `shred`-ed in *P1c*, the
+cleanup of the scratch resources (the cleanup block of plan §16.7 plus `shred -u` of the identity). *Touches:* the image store (+ ~0.4 GiB),
+build cache, transient scratch containers and CPU load beside the running stack; not the production stack, volumes, networks or
+database. *PASS:* `FAIL count 0` and `docker image inspect` shows `arm64`.
 
 **P2 — backup role and data root.** Create `pe_backup` (the frozen policy) in the production PostgreSQL, the data root and the
 pgpass, `backup.env`. *Touches:* **production PostgreSQL (a role is created)**. *PASS:* `db-dump`'s `preflight --workspace`

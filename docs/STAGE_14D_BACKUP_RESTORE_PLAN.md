@@ -1533,6 +1533,11 @@ procedure. **Nothing was built, started or changed on any server.**
   uses the application's names for its R2 *source*). The invariant was widened, narrowly: `backup-upload` may carry exactly the six
   `MEDIA_S3_*` / `MEDIA_STORAGE_NAME` keys and each must be fed from a `BACKUP_UPLOAD_*` host variable; any other service, any other
   key or any value from the backend's variables still fails (mutation-checked).
+- **14D.6B, P0 executed (read-only, 2026-10-05):** the VM facts and the production database baseline are in the runbook §4a — `aarch64`, Docker 29.8.0,
+  38 GiB free, IMDS guard active, new Compose file valid, Alembic at head, **`photo_assets` empty** (so `ready_count = 0` and the first run puts
+  exactly three objects into the target), no `pe_*` role. Finding while preparing P1: `owner_proof.sh` generated its throwaway age identity with
+  `age-keygen` **on the host** — the VM has no `age` and the owner's rule is that no private identity is generated on it; the script now generates
+  the synthetic identity with the image under test after the build (contract test + mutation checks).
 - **Not done here (14D.6B, owner, each step with its own approval):** the ARM64 gate on the production host, the backup role in the
   production PostgreSQL, IAM Phase B, the production read-only R2 token, the first production `db-dump`, `upload`, `verify` and the
   restore of the real dump (plan §11 step 7) — see the runbook. `docker compose` with the new external network was only checked
