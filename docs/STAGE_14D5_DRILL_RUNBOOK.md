@@ -1,7 +1,11 @@
-# Stage 14D.5 — Isolated backup / restore drill: runbook (DRAFT until executed)
+# Stage 14D.5 — Isolated backup / restore drill: runbook (EXECUTED 2026-10-05 — PASS)
 
-> **Status:** DRAFT. Written in 14D.5A together with the drill tool (`backend/scripts/stage14d5_drill_tool.py`, plan
-> §16.17). Every phase is executed by the owner; each ends with an explicit PASS condition and the output to send back.
+> **Status:** EXECUTED by the owner on 2026-10-05 (run `20261005T052617Z-66a27f56`): steps 1–6 of plan §11 **PASS**; step 7
+> (the real production dump) belongs to 14D.6. Results and the problems met on the way: plan §16.18. The verified
+> command blocks, in their corrected final form, are in `docs/STAGE_14D5_DRILL_COMMANDS.md`.
+>
+> Written in 14D.5A together with the drill tool (`backend/scripts/stage14d5_drill_tool.py`, plan
+> §16.17). Every phase was executed by the owner; each ends with an explicit PASS condition and the output to send back.
 > Nothing here touches production data: production PostgreSQL, the production R2 bucket and the production Oracle backup
 > bucket are neither written nor used as a restore target. The only production contact is the optional read-only
 > "before / after" inventory of §6 / §13 — each such command needs your explicit decision to run it.
@@ -98,8 +102,10 @@ and `pe_restore_scratch_drill` (`TEMPLATE template0`, empty); the backup image
 `alembic upgrade head` to `pe_drill_source`. PASS: `pe-drill-pg` accepts connections, `GET /api/health` of the scratch
 backend returns `{"status":"ok"}`, `alembic_version` is the repository head.
 
-The exact command blocks for each phase are issued one phase at a time (the owner pastes the output of each phase
-back); this document records the verified result. *Commands are inserted here as each phase is verified.*
+The command blocks were issued one phase at a time (the owner pasted the output of each phase back); the verified, corrected
+blocks are in `docs/STAGE_14D5_DRILL_COMMANDS.md`. Operational note from the execution: R2 API tokens can be restricted to a
+client IP address (the drill tokens were restricted to the VM): add the workstation's public IP to both drill tokens before
+Phase C, otherwise every call from the workstation is `403 AccessDenied`.
 
 ## 6. Phase B — production "before" inventories (read-only, optional, owner decision)
 

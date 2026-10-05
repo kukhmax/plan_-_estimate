@@ -26,7 +26,9 @@
 > **PASS 8/8** (2026-10-04, 10/10 synthetic objects removed afterwards); the database half of the restore on real data is
 > still proven only by the development sandbox until the 14D.5 drill. 14D.2J — the `upload` and `restore` commands that wire all of this to the operator's environment (§16.16) — implemented
 > and tested; not run live yet. 14D.5A — drill tooling and runbook draft (§16.17, `docs/STAGE_14D5_DRILL_RUNBOOK.md`) —
-> implemented; the drill itself (14D.5B) is NOT executed yet. Rest of the plan: 14D.5B–14D.7 — NOT STARTED: no production backup
+> implemented. 14D.5B — the isolated drill (§16.18) — **EXECUTED by the owner on 2026-10-05: steps 1–6 of §11 PASS** (seed through
+> the real upload pipeline, `db-dump`, `upload`, restore of the database and of the media, integrity check before and after,
+> serving 8/8; production Oracle backup bucket unchanged). Rest of the plan: 14D.6–14D.7 — NOT STARTED: no production backup
 > upload or media copy has run and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
 >
@@ -1460,6 +1462,42 @@ Implementation: `backend/scripts/stage14d5_drill_tool.py`, `backend/app/backup/r
   access is the owner's explicit decision. The restore principal's API key must be re-created by the owner.
 - **Not in this stage:** executing any phase (14D.5B), step 7 of §11 (the real production dump: 14D.6), a dedicated
   uploader image.
+
+### 16.18 The isolated drill — executed (Stage 14D.5B, 2026-10-05)
+
+Procedure: `docs/STAGE_14D5_DRILL_RUNBOOK.md`; verified command blocks: `docs/STAGE_14D5_DRILL_COMMANDS.md`; tooling: §16.17.
+Run id `20261005T052617Z-66a27f56` (taken at schema head `0032_photo_attachments`). **Result: steps 1–6 of §11 PASS.**
+
+**Topology.** Workstation W (Docker, amd64): scratch PostgreSQL 16 (`postgres:16-alpine`, no published port), the scratch backend
+(uploads enabled, mock authentication — a throw-away drill service), `db-dump` in the backup image with the production
+service's hardening flags (read-only root, `--cap-drop ALL`, `no-new-privileges`, 512 MiB / 0.5 CPU / 64 pids, non-root host
+UID), `restore` with the restore principal's API key and the private drill age identity. Oracle VM V: only `upload`, in a
+container on `pe-upload` with the instance principal and no restore credentials. Nothing was built, pulled or changed on
+the production checkout of V (the source went over as a `git archive` of `backend/app` into a separate directory).
+
+| §11 step | Result (numbers are the observed ones) |
+|---|---|
+| 1 seed through the real upload pipeline | `seeded … images=4`; 4 `READY`; drill-source bucket 12 objects, 90 667 bytes |
+| 2 backup → drill-backup → COMPLETE | `backup complete … ready_count=4` (artifact 12 271 bytes, four files 0600 in `encrypted/<run_id>/`); `upload complete … published objects=12 ready_assets=4 prior=-`; a second `upload` exits 8 (`ALREADY_PUBLISHED`); `published.json` 0600 |
+| 3 §9 chain into a fresh scratch database | `restore … phase=database ready_count=4`; Alembic `0032_photo_attachments` = repository head; status counts READY 4 / PENDING 0 / FAILED 0 (plaintext 112 852 bytes) |
+| 5 integrity **before** media | `Assets checked: READY=4`, `Findings: MISSING_DERIVATIVE=8, MISSING_ORIGINAL=4`, `Result: 12 error(s)` (exit 1) — exactly the 12 objects of the empty destination |
+| 4 media into the empty drill-restore bucket | `restore … phase=media restored=12 already_present=0 total=12` (90 667 bytes) |
+| 5 integrity **after** (`--verify-sha256 --strict`) | `Findings: none`, `0 error(s), 0 warning(s)`, exit 0; the drill-restore bucket has the same objects, bytes **and listing digest** (keys, sizes, ETags) as drill-source after seeding |
+| 6 the backend on the restored database + bucket | `verify-serving` **8/8**: list = fixture = manifest (4), thumbnail / display URLs for all, 8 presigned URLs fetched without Authorization hash to the manifest's SHA-256, originals equal the fixture, dimensions unchanged, the EXIF case is portrait, no original exposed |
+| no write to production | Oracle `plan-estimate-backup-prod`: 0 objects before and after, `inventories identical`. The uploader cannot delete, so 0 objects before the restore phases also covers the earlier phases. |
+
+**Problems met and what they changed** (none changed the system under test; four were defects of the drill's own command blocks):
+1. *Secret generator under `pipefail`* — `tr … | head -c N` dies of SIGPIPE and silently ends the script. Fixed (`od`); the block now also checks every secret's size.
+2. *R2 drill tokens bound to the VM's IP* — every call from the workstation was `403 AccessDenied` (diagnosed with a read-only three-call script run on both machines). The owner added the workstation's IP to both tokens.
+3. *Seeding ran twice* (once earlier, once again) — 8 assets and 24 objects instead of 4 and 12, which would have made the §11 numbers false. Not adjusted around: the scratch database was recreated, the 24 drill-source objects were deleted (drill token, bucket name enforced in code), the mistaken local run removed, and the seed repeated. The seed and `db-dump` blocks now refuse a non-empty bucket, database or `encrypted/`.
+4. *`ssh` inside `bash <<EOF`* read the remaining script from stdin and ended the block after its first call (the run was not shipped). Fixed with `ssh -n` where stdin is not given explicitly.
+5. *The public key was taken for the private one* when the restore principal's key pair was laid out (the Console offers both downloads). The layout step now checks for `PRIVATE KEY` and the config script verifies that the Console fingerprint belongs to `key.pem`.
+6. *`docker run --tmpfs` is `noexec`* — noted and handled up front (`--tmpfs /tmp:rw,exec`) for the `pip --target` installs.
+7. *A prediction of mine was wrong:* the Oracle **drill** bucket holds 42 objects, not the 15 this run wrote — it still holds the leftovers of the earlier smoke tests (14D.2F–H, 14D.4) that the create-only uploader cannot delete. This run's objects are proven by `restore` having read and verified them, not by the bucket total. The inventory tool has no prefix filter.
+
+**Deviations from the plan, stated plainly.** (a) The drill is split between the workstation and the VM (restore credentials must not live on the production VM; the instance principal exists only there). (b) Production PostgreSQL and the production R2 bucket were not inventoried: no tool of the drill connects to either (all databases were scratch, every R2 call used a drill-scoped token), and no production R2 token exists before 14D.6. Only the production Oracle bucket was inventoried. (c) Step 7 of §11 (a real production dump) is 14D.6. (d) A sealed run was not separately verified in the target with a stand-alone `verify` command — `restore` verified the seal and every object, but the 14D.2H engine has no command-line entry point yet.
+
+**Not done / open.** Cleanup (Phase J) awaits the owner's sign-off: the three scratch containers and the network on W, `~/pe-drill-14d5` (secrets), the copied run and env file on V, the 12 + 12 drill-source / drill-restore objects (drill tokens can delete), the Oracle drill-bucket objects (administrator only), and the restore principal's API key created for the drill (revoke it in the Console). A dedicated uploader image with `oci` pinned, a `verify` command and `inventory --prefix` are follow-ups for 14D.6. Uploads stay OFF.
 
 ## 17. Stage 14D PASS criteria
 

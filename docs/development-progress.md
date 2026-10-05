@@ -1052,6 +1052,29 @@ was executed on any server; production uploads remain OFF.
   no findings in the drill tool; the VM dependency set installed and the commands imported in a clean Python 3.12 environment.
 - **Pending (owner):** Phase 0 facts and re-creating the restore principal's API key, then the phases A–J of the runbook;
   results are recorded in 14D.5B.
+### Stage 14D.5B — the isolated drill, executed (2026-10-05, OWNER RUN — steps 1–6 of plan §11 PASS)
+
+Record: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.18; procedure `docs/STAGE_14D5_DRILL_RUNBOOK.md`; verified command blocks
+`docs/STAGE_14D5_DRILL_COMMANDS.md`. Documentation only in this entry: no code change; production uploads remain OFF; nothing was
+changed in production (the Oracle production backup bucket: 0 objects before and after).
+
+- **Result (run `20261005T052617Z-66a27f56`):** fixture seeded through the real upload endpoint (4 images, 12 objects) →
+  `db-dump` (4 READY) → `upload` on the VM with the instance principal (12 objects, 4 assets; a second upload exits 8) →
+  database restored into a fresh scratch database (Alembic = head, READY digest and counts equal the manifest) → integrity
+  check before the media: exactly 12 missing objects → media restored (12 / 90 667 bytes) → integrity after with
+  `--verify-sha256 --strict`: clean; drill-restore bucket identical to drill-source (objects, bytes, listing digest) → the backend
+  on the restored data serves list / detail / presigned URLs, `verify-serving` 8/8.
+- **Problems met (seven, none in the system under test):** secret generator killed by SIGPIPE under `pipefail`; R2 drill tokens
+  bound to the VM's IP; the seed ran twice (reset and repeated, guards added); `ssh` swallowing the block's stdin; the public key
+  taken for the private one; `--tmpfs` `noexec`; and a wrong prediction of mine about the drill bucket's total (it holds earlier
+  smoke leftovers). Details and fixes in §16.18.
+- **Deviations stated:** workstation + VM topology; production PostgreSQL / R2 not inventoried (not touched by construction; no
+  production R2 token exists yet); step 7 → 14D.6; no stand-alone `verify` command.
+- **Pending:** the owner's sign-off, then cleanup (Phase J); revoke the restore principal's API key created for the drill; the Oracle
+  administrator's removal of drill-bucket objects.
+- **Next (needs explicit owner approval):** 14D.6 — the first production non-destructive backup run — and its prerequisites
+  (a dedicated uploader image with `oci` pinned, the production read-only R2 token, a `verify` command).
+
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
 Design and owner Console runbook: `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`; summary in
