@@ -1070,8 +1070,10 @@ changed in production (the Oracle production backup bucket: 0 objects before and
   smoke leftovers). Details and fixes in §16.18.
 - **Deviations stated:** workstation + VM topology; production PostgreSQL / R2 not inventoried (not touched by construction; no
   production R2 token exists yet); step 7 → 14D.6; no stand-alone `verify` command.
-- **Pending:** the owner's sign-off, then cleanup (Phase J); revoke the restore principal's API key created for the drill; the Oracle
-  administrator's removal of drill-bucket objects.
+- **Cleanup (2026-10-05):** after the owner's sign-off, J1–J4 PASS — drill-source and drill-restore buckets emptied, the copied run and
+  env file removed from the VM, scratch containers / database / network and `~/pe-drill-14d5` removed from the workstation.
+- **Pending (by hand):** revoke the restore principal's API key created for the drill (and delete its files from the workstation);
+  remove the workstation's IP from the R2 drill tokens; the Oracle administrator's removal of the drill-bucket objects.
 - **Next (needs explicit owner approval):** 14D.6 — the first production non-destructive backup run — and its prerequisites
   (a dedicated uploader image with `oci` pinned, the production read-only R2 token, a `verify` command).
 
