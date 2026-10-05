@@ -109,10 +109,29 @@ tooling (`check_host.py`, `scratch.py`, contract tests pinning the names to `run
 pgpass, `backup.env`. *Touches:* **production PostgreSQL (a role is created)**. *PASS:* `db-dump`'s `preflight --workspace`
 passes inside the `backup` service; `\du pe_backup` shows LOGIN only with `pg_read_all_data`.
 
+*P2 executed 2026-10-05 — PASS.* P2-0 (read-only): PostgreSQL 16.15, `log_statement = none`, `password_encryption = scram-sha-256`, `ssl = off`
+(→ `BACKUP_PGSSLMODE=disable` on the internal bridge), no `pe_*` role, `pg_hba` `host all all all scram-sha-256`; Compose project `plan-estimate`,
+networks `plan-estimate_internal` and `pe-upload`; VM uid:gid `1001:1001`. P2a: `~/backups/plan-estimate/db-backup/` (0700; `data/{work,encrypted,evidence}`,
+`secrets/{pgpass,backup.env}` 0600; password generated on the VM, never printed; recipients A and B, public). P2b: one transaction in the production
+database — `CREATE ROLE pe_backup LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, `GRANT CONNECT`, `GRANT pg_read_all_data`;
+verified: member of `pg_read_all_data` only, SELECT yes, INSERT / UPDATE / DELETE / CREATE (schema, database) no. P2c: `preflight --workspace` PASS and
+a connection as `pe_backup` from a container with the service's hardening (`docker run`, network `plan-estimate_internal`); `CREATE TABLE` →
+`permission denied for schema public`. **Decision:** the production `db-dump` is started with `docker run` mirroring the `backup` service
+(not `docker compose -p plan-estimate`): the production network carries a Compose `config-hash` label and a divergence could make Compose recreate it
+under the running stack. The uploader (P5) has only the external `pe-upload` network and may use Compose.
+
 **P3 — the first production `db-dump`.** `docker compose … run --rm --no-deps backup db-dump`. *Touches:* reads production in
 one read-only snapshot (brief `ACCESS SHARE` locks); writes `encrypted/<run_id>/` locally. *PASS:* `backup complete: run_id=…
 ready_count=<n>` with `n` equal to the READY count of P0; four files 0600; `work/` and `evidence/` empty; the artifact is
 age-encrypted for exactly the configured recipients.
+
+*P3 executed 2026-10-05 — PASS (first production `db-dump`, local only).* Run `20261005T214112Z-c00c8951`, exit 0, `ready_count = 0` (= P0), snapshot
+method `exported-snapshot`, Alembic `0032_photo_attachments` = expected head, PostgreSQL 16.15, plaintext 338 443 B → age artifact 66 534 B
+(SHA-256 `62b4443a…5cfe`, equal to the evidence and to the file on disk), 2 recipients (A and B, public), format header `age-encryption.org/v1`.
+Layout: `encrypted/<run_id>/` holds exactly `plan-estimate.sql.gz.age`, `local-run.json`, `ready-assets.txt`, `recipients.txt` (all 0600, directory
+0700); `work/` and `evidence/` empty; `run.lock` 0600; no plaintext dump anywhere; the production stack unchanged (same uptime). Incident: the first
+P3 command block was missing line continuations and ran nothing (`command not found`, exit 127) — no container started, no data written; the
+second (array-based) block succeeded. The decryption proof is P7 (private identity on the workstation only).
 
 **P4 — cloud authority.** IAM Phase B and the R2 read-only token (owner, Console / Cloudflare), the upload env file on the VM,
 `pe-upload` check. *Touches:* IAM and Cloudflare; no data. *PASS:* a read-only check that the uploader's principal can `HEAD`

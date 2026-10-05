@@ -1103,6 +1103,11 @@ needs no contact with production. No Alembic change, no change to the web image,
   `ready-assets.txt` / `recipients.txt`). Fixed in `check_host.py` / `scratch.py` with contract tests (45 pass, 3 mutations killed); attempt 3
   was run from `6e3de1a` and **PASSED on the production VM (`aarch64`): `FAIL count: 0`, image `arm64/linux`**. Scratch resources of attempts 1–2 were
   cleaned; attempt 3's are cleaned by P1c.
+- **P2 executed 2026-10-05 — PASS (production PostgreSQL: one new role):** `pe_backup` (LOGIN, `pg_read_all_data`, no other attributes), data root and
+  pgpass / `backup.env` on the VM; `preflight --workspace` PASS and a role connection test from a hardened container; write attempt denied. Details in
+  the runbook (P2). The first production `db-dump` (P3) is run with `docker run` mirroring the service, not Compose, to avoid touching the production network.
+- **P3 executed 2026-10-05 — PASS:** first production `db-dump` (local, encrypted for recipients A and B), run `20261005T214112Z-c00c8951`, `ready_count = 0`,
+  artifact 66 534 B, SHA-256 equal to the evidence; four 0600 files, `work/` and `evidence/` empty, no plaintext, stack unchanged. Nothing has left the VM.
 - **Pending (needs explicit owner approval, 14D.6B):** the phases P0–P8 of the runbook — the first of them is read-only, the first
   write to production is the backup role in PostgreSQL (P2) and the first permanent write is the first object in
   `plan-estimate-backup-prod` (P5).
