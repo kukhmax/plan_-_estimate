@@ -28,7 +28,8 @@
 > and tested; not run live yet. 14D.5A — drill tooling and runbook draft (§16.17, `docs/STAGE_14D5_DRILL_RUNBOOK.md`) —
 > implemented. 14D.5B — the isolated drill (§16.18) — **EXECUTED by the owner on 2026-10-05: steps 1–6 of §11 PASS** (seed through
 > the real upload pipeline, `db-dump`, `upload`, restore of the database and of the media, integrity check before and after,
-> serving 8/8; production Oracle backup bucket unchanged). Rest of the plan: 14D.6–14D.7 — NOT STARTED: no production backup
+> serving 8/8; production Oracle backup bucket unchanged). 14D.6A — production-run tooling (`verify` command, uploader image, `backup-upload` service, production runbook draft; §16.19) —
+> implemented, nothing run on production. Rest of the plan: 14D.6B–14D.7 — NOT STARTED: no production backup
 > upload or media copy has run and no schedule exists yet. Executable procedures stay **DRAFT** until the sub-stage that
 > verifies them.
 >
@@ -1498,6 +1499,44 @@ the production checkout of V (the source went over as a `git archive` of `backen
 **Deviations from the plan, stated plainly.** (a) The drill is split between the workstation and the VM (restore credentials must not live on the production VM; the instance principal exists only there). (b) Production PostgreSQL and the production R2 bucket were not inventoried: no tool of the drill connects to either (all databases were scratch, every R2 call used a drill-scoped token), and no production R2 token exists before 14D.6. Only the production Oracle bucket was inventoried. (c) Step 7 of §11 (a real production dump) is 14D.6. (d) A sealed run was not separately verified in the target with a stand-alone `verify` command — `restore` verified the seal and every object, but the 14D.2H engine has no command-line entry point yet.
 
 **Cleanup (Phase J) — done after the owner's sign-off (2026-10-05), J1–J4 PASS:** the 12 + 12 objects of the drill-source / drill-restore buckets (drill tokens; each bucket checked empty afterwards), the copied run, source and `drill-upload.env` on V, the three scratch containers with the scratch PostgreSQL volume and the network on W, and `~/pe-drill-14d5` (scratch passwords, run, reports, fixture). **Still open, by hand:** the Oracle drill-bucket objects (administrator only; the create-only uploader cannot delete), revoking the restore principal's API key created for the drill and removing its files from the workstation, removing the workstation's IP from the R2 drill tokens (they expire 2026-11-09), and the two local drill images. A dedicated uploader image with `oci` pinned, a `verify` command and `inventory --prefix` are follow-ups for 14D.6. Uploads stay OFF.
+
+### 16.19 Production-run tooling (Stage 14D.6A)
+
+Implementation: `backend/app/backup/verify_command.py` (+ `__main__.py`), `backend/Dockerfile.uploader`,
+`backend/requirements-oci.txt`, the `backup-upload` service and the `pe-upload` network entry in `docker-compose.prod.yml`;
+runbook `docs/STAGE_14D6_PRODUCTION_RUNBOOK.md` (DRAFT). Tests: `test_stage14d6a_verify_command.py` (26),
+`test_stage14d6a_uploader_contract.py` (14), `test_stage14d2c_image_contract.py` (two assertions widened) and `test_stage14b4_production_templates.py` (one). 14D.6A is the part
+of 14D.6 that needs no contact with production: it closes the follow-ups the drill left (§16.18) and drafts the production
+procedure. **Nothing was built, started or changed on any server.**
+
+- **`python -m app.backup verify --run-id ID [--mode quick|full]`.** The 14D.2H engine got its command: read-only, no database,
+  no age identity, no write authority. QUICK = seal, manifest, dump size, one HEAD per object; FULL (default) re-hashes the dump and
+  every object. Reader: the instance principal (inside the uploader on the VM) or, with `--oci-config`, the restore principal's API
+  key (the independent reader on the workstation). `--expect-recipient` (repeatable) or the public `BACKUP_AGE_RECIPIENTS` of the
+  backup environment: the run must have been encrypted for each of them (`RECIPIENTS_MISMATCH`). A short summary is printed; the
+  canonical secret-free report goes to `--report-file` (new file, 0600). Exit codes 0 verified / 1 problems / 2 usage /
+  5 configuration or principal / 6 interrupted / 7 report not written.
+- **Uploader image (`Dockerfile.uploader`).** A thin layer on top of the accepted backup image — `Dockerfile.backup` stays
+  byte-identical (its hash is pinned by a test), so the local-only `db-dump` image does not get the Oracle SDK. The layer
+  installs `requirements-oci.txt` with `--no-deps` and `pip check`: `oci==2.187.1` and the 17 packages it adds, every one pinned
+  (resolved against `requirements.txt` in a clean Python 3.12 environment, which none of its pins changed). The image also
+  carries `age` and `psql`, so it is what the workstation can use for `restore` without a `pip install` at run time.
+- **`backup-upload` Compose service.** Profile-gated and one-shot like `backup`, the same hardening (non-root host UID, read-only
+  root, `cap_drop: ALL`, `no-new-privileges`, 512 MiB / 0.5 CPU / 64 pids), **no database and no pgpass**, its only network the
+  external `pe-upload` bridge (the one behind the IMDS guard), a tmpfs `/tmp` of 256 MiB, and a writable data root (`upload` takes
+  `run.lock` and writes `evidence/<run_id>.published.json`; the artifacts there are age-encrypted — this deviates from the
+  "read-only `/backup`" sketch of the O2 design and is a stated trade-off). Its R2 settings come from **its own variable names**
+  (`BACKUP_UPLOAD_S3_*` → `MEDIA_S3_*` inside the container), so `--env-file .env.production` can never hand it the backend's
+  read-write token. Its default command is `upload --help`; the real one needs `--environment production --allow-production`.
+  The contract tests pin all of this (mutation-checked: 21 mutations, 1 invalid, 0 survivors). **A finding of the full suite:** the
+  14B.4 invariant "MEDIA_* / PHOTO_* settings reach the backend service only" failed on the new service (the uploader's container
+  uses the application's names for its R2 *source*). The invariant was widened, narrowly: `backup-upload` may carry exactly the six
+  `MEDIA_S3_*` / `MEDIA_STORAGE_NAME` keys and each must be fed from a `BACKUP_UPLOAD_*` host variable; any other service, any other
+  key or any value from the backend's variables still fails (mutation-checked).
+- **Not done here (14D.6B, owner, each step with its own approval):** the ARM64 gate on the production host, the backup role in the
+  production PostgreSQL, IAM Phase B, the production read-only R2 token, the first production `db-dump`, `upload`, `verify` and the
+  restore of the real dump (plan §11 step 7) — see the runbook. `docker compose` with the new external network was only checked
+  statically (`yaml`); the owner runs `docker compose config` as the first read-only step on the host.
 
 ## 17. Stage 14D PASS criteria
 

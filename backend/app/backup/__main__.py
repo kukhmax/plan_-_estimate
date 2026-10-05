@@ -11,6 +11,7 @@ every reported value is selected explicitly and non-secret.
                            for its exit codes
     upload                 (14D.2J) the uploader container: media sync + publication of one promoted run
                            to the Oracle target -- see app.backup.upload_command
+    verify                 (14D.6A) check a sealed run in the target, read-only -- see app.backup.verify_command
     restore                (14D.2J) the restore principal's command: seal -> scratch database -> media into a
                            drill bucket, with a canonical report -- see app.backup.restore_command
 
@@ -154,8 +155,13 @@ def main(argv: Sequence[str] | None = None, *, env: Mapping[str, str] | None = N
     preflight.add_argument("--workspace", action="store_true", help="also check mounts, connection and passfile")
     commands.add_parser("db-dump", help="run one local encrypted database backup into the data root")
     commands.add_parser("upload", add_help=False, help="upload one promoted run to the backup target (own options)")
+    commands.add_parser("verify", add_help=False, help="verify a sealed run in the backup target (own options)")
     commands.add_parser("restore", add_help=False, help="restore one sealed run into scratch targets (own options)")
     raw = list(sys.argv[1:] if argv is None else argv)
+    if raw and raw[0] == "verify":
+        from app.backup.verify_command import run_verify
+
+        return run_verify(os.environ if env is None else env, raw[1:], sys.stdout if out is None else out)
     if raw and raw[0] == "restore":
         from app.backup.restore_command import run_restore
 

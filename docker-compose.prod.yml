@@ -174,6 +174,62 @@ services:
     networks:
       - internal
 
+  # Stage 14D.6A uploader (docs/STAGE_14D_BACKUP_RESTORE_PLAN.md §16.19; design: STAGE_14D3 O2). Profile-gated like
+  # `backup`, one-shot, always --no-deps. It is the ONLY service that talks to R2 and Oracle: it has NO database
+  # connection, NO pgpass and NO route to PostgreSQL (its only network is the external `pe-upload` bridge, the one
+  # network behind the IMDS guard that may reach the instance principal, 14D.4), and the production backend's
+  # read-write R2 token is never used: the R2 variables below have their own names (BACKUP_UPLOAD_S3_*) so that
+  # `--env-file .env.production` cannot leak MEDIA_S3_* into it. `/backup` is writable because `upload` takes
+  # run.lock and writes evidence/<run_id>.published.json there; the artifacts in it are age-encrypted.
+  #   docker compose --env-file .env.production --env-file <backup env> --env-file <upload env> -p plan-estimate \
+  #     -f docker-compose.prod.yml run --rm --no-deps backup-upload upload --environment production --allow-production
+  backup-upload:
+    profiles: ["backup-upload"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.uploader
+      args:
+        BACKUP_IMAGE: plan-estimate-backup:local
+    image: plan-estimate-backup-upload:local
+    entrypoint: ["python", "-m", "app.backup"]
+    command: ["upload", "--help"]
+    user: "${BACKUP_UID:-65534}:${BACKUP_GID:-65534}"
+    restart: "no"
+    stop_grace_period: 45s
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 64
+    environment:
+      MEDIA_S3_ENDPOINT_URL: ${BACKUP_UPLOAD_S3_ENDPOINT_URL:-}
+      MEDIA_S3_BUCKET: ${BACKUP_UPLOAD_S3_BUCKET:-}
+      MEDIA_S3_REGION: ${BACKUP_UPLOAD_S3_REGION:-auto}
+      MEDIA_S3_ACCESS_KEY_ID: ${BACKUP_UPLOAD_S3_ACCESS_KEY_ID:-}
+      MEDIA_S3_SECRET_ACCESS_KEY: ${BACKUP_UPLOAD_S3_SECRET_ACCESS_KEY:-}
+      MEDIA_STORAGE_NAME: ${BACKUP_UPLOAD_SOURCE_NAME:-r2-primary}
+      BACKUP_OCI_NAMESPACE: ${BACKUP_OCI_NAMESPACE:-}
+      BACKUP_OCI_BUCKET: ${BACKUP_OCI_BUCKET:-}
+      BACKUP_OCI_REGION: ${BACKUP_OCI_REGION:-eu-frankfurt-1}
+      BACKUP_TOOL_COMMIT: ${BACKUP_TOOL_COMMIT:-}
+      BACKUP_AGE_RECIPIENTS: ${BACKUP_AGE_RECIPIENTS:-}
+    volumes:
+      - type: bind
+        source: ${BACKUP_HOST_ROOT:-/nonexistent/plan-estimate-backup-root-not-configured}/data
+        target: /backup
+        bind:
+          create_host_path: false
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 268435456
+    networks:
+      - pe-upload
+
 volumes:
   postgres_data:
     driver: local
@@ -187,3 +243,7 @@ volumes:
 networks:
   internal:
     driver: bridge
+  # Created by hand in 14D.4 (bridge br-pe-upload, the IMDS guard's allow-list); never created by Compose.
+  pe-upload:
+    external: true
+    name: pe-upload

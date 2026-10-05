@@ -1077,6 +1077,26 @@ changed in production (the Oracle production backup bucket: 0 objects before and
 - **Next (needs explicit owner approval):** 14D.6 — the first production non-destructive backup run — and its prerequisites
   (a dedicated uploader image with `oci` pinned, the production read-only R2 token, a `verify` command).
 
+### Stage 14D.6A — production-run tooling (2026-10-05, IMPLEMENTED — automated verification PASS — nothing run on production)
+
+Contract: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` §16.19; runbook `docs/STAGE_14D6_PRODUCTION_RUNBOOK.md` (DRAFT). The part of 14D.6 that
+needs no contact with production. No Alembic change, no change to the web image, no server touched; production uploads remain OFF.
+
+- **Added:** `verify` command (`app/backup/verify_command.py`); `backend/Dockerfile.uploader` and fully pinned
+  `backend/requirements-oci.txt` (the OCI SDK and its 17 additions); the `backup-upload` service and the external `pe-upload` network
+  in `docker-compose.prod.yml`; `docs/STAGE_14D6_PRODUCTION_RUNBOOK.md`.
+- **Changed:** two assertions of the 14D.2C image contract (the service set, profile gating) and one of the 14B.4 invariant
+  ("media settings reach the backend only": a narrow, pinned exemption for the uploader's own `BACKUP_UPLOAD_*`-fed keys) now know the uploader;
+  `Dockerfile.backup` and the web `Dockerfile` are unchanged (hash-pinned).
+- **Tests:** 40 new (`verify` 26, uploader image / service contract 14). Mutation checks: `verify` 9, contracts 12, 0 survivors (one
+  mutation was invalid — it hit the older `backup` service — and was redone against the uploader).
+- **Verification:** full backend suite (non-root) **4026 passed, 54 skipped, 0 failed** (3986 passed before); new code Ruff clean, `mypy --strict` no findings in
+  `verify_command.py`; `requirements-oci.txt` installed with `--no-deps` in a clean Python 3.12 environment, `pip check` clean, the
+  commands import.
+- **Pending (needs explicit owner approval, 14D.6B):** the phases P0–P8 of the runbook — the first of them is read-only, the first
+  write to production is the backup role in PostgreSQL (P2) and the first permanent write is the first object in
+  `plan-estimate-backup-prod` (P5).
+
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
 Design and owner Console runbook: `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`; summary in

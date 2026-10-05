@@ -352,7 +352,7 @@ def test_web_backend_dockerfile_keeps_its_contract():
 def test_backup_service_is_profile_gated(backup_service, all_services):
     assert backup_service["profiles"] == ["backup"]
     for name, service in all_services.items():
-        if name != "backup":
+        if name not in ("backup", "backup-upload"):  # 14D.6A: the uploader is profile-gated too
             assert "profiles" not in service, name  # normal services stay active by default
 
 
@@ -461,7 +461,7 @@ def test_compose_file_avoids_required_variable_syntax_in_backup_service():
 
 
 def test_other_services_unchanged_by_backup_contract(all_services):
-    assert set(all_services) == {"postgres", "backend", "frontend", "caddy", "backup"}
+    assert set(all_services) == {"postgres", "backend", "frontend", "caddy", "backup", "backup-upload"}  # 14D.6A added the uploader
     assert all_services["postgres"]["image"] == "postgres:16-alpine"
     assert "ports" not in all_services["postgres"]
     assert all_services["backend"]["build"] == {"context": "./backend", "dockerfile": "Dockerfile"}

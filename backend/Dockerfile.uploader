@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+#
+# Plan & Estimate — uploader image (Stage 14D.6A).
+# Contract: docs/STAGE_14D_BACKUP_RESTORE_PLAN.md §16.19; design: docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md (O2).
+#
+# A thin layer on top of the accepted backup image (backend/Dockerfile.backup, which stays byte-identical): the
+# Oracle Cloud Infrastructure SDK and everything it adds, fully pinned in requirements-oci.txt. It is what the
+# `backup-upload` Compose service runs (`upload`, `verify`) and what the restore principal's workstation can use
+# (`restore`: this image also carries age and psql). The local-only `backup` service keeps the image without the SDK.
+#
+# Build order (the base must exist locally first):
+#   docker compose --profile backup build backup
+#   docker compose --profile backup-upload build backup-upload
+ARG BACKUP_IMAGE=plan-estimate-backup:local
+FROM ${BACKUP_IMAGE}
+
+USER 0:0
+COPY requirements-oci.txt ./
+# --no-deps: exactly the pinned set, nothing resolved at build time; `pip check` fails the build on any gap.
+RUN set -eu; \
+    pip install --no-cache-dir --no-deps -r requirements-oci.txt; \
+    pip check; \
+    python -c "import oci; assert oci.__version__ == '2.187.1', oci.__version__"; \
+    rm requirements-oci.txt
+
+# Non-root default; the Compose service overrides it with the host UID:GID.
+USER 65534:65534
+
+ENTRYPOINT ["python", "-m", "app.backup"]
+CMD ["--help"]

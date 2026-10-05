@@ -12,6 +12,9 @@ COMPOSE = ROOT / "docker-compose.prod.yml"
 EXAMPLE = ROOT / ".env.production.example"
 MEDIA_PREFIXES = ("MEDIA_", "PHOTO_")
 MEDIA_SETTINGS = sorted(n for n in Settings.model_fields if n.startswith(MEDIA_PREFIXES))
+UPLOADER_MEDIA_KEYS = sorted(
+    ["MEDIA_S3_ENDPOINT_URL", "MEDIA_S3_BUCKET", "MEDIA_S3_REGION", "MEDIA_S3_ACCESS_KEY_ID", "MEDIA_S3_SECRET_ACCESS_KEY", "MEDIA_STORAGE_NAME"]
+)
 
 
 def compose() -> dict:
@@ -43,7 +46,14 @@ def test_media_settings_wired_to_backend_only():
             continue
         env = service.get("environment") or {}
         keys = env.keys() if isinstance(env, dict) else [e.split("=")[0] for e in env]
-        assert not [k for k in keys if k.startswith(MEDIA_PREFIXES)], name
+        media_keys = [k for k in keys if k.startswith(MEDIA_PREFIXES)]
+        if name == "backup-upload":
+            # 14D.6A: the read-only uploader sees the application's container names for its R2 *source*, but fed from its OWN
+            # host variables, never from the backend's (the full pin is in test_stage14d6a_uploader_contract.py).
+            assert sorted(media_keys) == UPLOADER_MEDIA_KEYS
+            assert all(str(env[k]).startswith("${BACKUP_UPLOAD_") for k in media_keys)
+        else:
+            assert not media_keys, name
         assert "MEDIA_" not in str(service.get("build", "")), name
 
 
