@@ -244,8 +244,14 @@ schedule:** the backup is as fresh as its last manual run — automation, retent
 `plan-estimate-backup-media-read-prod` stays). Workstation: `~/backups/plan-estimate/drill-secrets/` (`age-drill.key`, `r2-drill-restore.env`, `r2-drill-source.env`)
 `shred`-ed and removed. VM: the two archive directories `~/apps/plan_-_estimate-14d6` and `~/apps/plan_-_estimate-14d6-6e3de1a` and the logs `~/p1b.log`,
 `~/p1b2.log`, `~/p1b3.log`, `~/p4-build.log` removed; the production checkout (`68a06d5`, clean), the production backup and the four production containers untouched.
-Still open: the older plaintext dumps and pre-migration backups in `~/backups/plan-estimate` on the VM (owner's decision: encrypt for recipients A and B, delete, or
-keep), the 42 objects of `plan-estimate-backup-drill` (administrator only), and the drill-secrets directory on the VM (to be listed first).
+**Older plaintext dumps on the VM — encrypted (owner's option A), 2026-10-06.** The 11 plaintext copies in `~/backups/plan-estimate` (six `before-stage*.sql`, three
+`db-20260914-*.sql.gz`, `db-pre-14b5-…sql.gz`, `db-pre-14c7-…sql.gz`) were encrypted for recipients A and B inside the backup image (`age`, no network, non-root) into
+`~/backups/plan-estimate/legacy-encrypted/` (11 `.age` files + `plaintext.sha256`, all 0600); on the workstation all 11 were decrypted with identity A and their SHA-256
+equalled the recorded hashes of the plaintext (11 / 0 mismatches); only then, after a re-check of the plaintext hashes and the owner's confirmation, the 11 plaintext files
+were `shred`-ed. The VM's `drill-secrets` (two dead R2 drill token files) was shredded and removed. Left in that directory: `db-backup`, `legacy-encrypted`, the two `.sha256`
+files of the pre-migration backups (now orphaned), `pre-14b5-state.txt`, `backend-pre-14c7-pip-freeze.txt`. The encrypted legacy copies exist only on the VM; a second copy
+and a retention policy are the owner's call.
+Still open: the 42 objects of `plan-estimate-backup-drill` (administrator only — Console → Object Storage → bucket → select all → delete).
 
 **Lessons recorded.** Never build images from the production checkout (file modes — build from a `git archive` directory); `read` inside `bash <<'EOF'` consumes the
 script (use `< /dev/tty`); a pasted multi-line `docker run` needs line continuations or an array; do not reuse paths of cleaned-up drill state; Compose against the

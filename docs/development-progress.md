@@ -1127,7 +1127,7 @@ needs no contact with production. No Alembic change, no change to the web image,
   production backup is published, verified by two independent readers, restored on the workstation and equal to production; uploads remain OFF. Open items (drill leftovers, VM clean-up,
   no schedule yet) are listed in the runbook §7.
 - **14D.6B — done (see the entries above):** phases P0–P8 of the runbook were run one at a time with the owner's explicit approval; the first write to production was the backup
-  role in PostgreSQL (P2), the first permanent write the first object in `plan-estimate-backup-prod` (P5). The owner accepted 14D.6 on 2026-10-06.
+  role in PostgreSQL (P2), the first permanent write the first object in `plan-estimate-backup-prod` (P5). The owner accepted 14D.6 on 2026-10-06 and the post-acceptance clean-up was executed (drill secrets and temporary directories removed, 11 older plaintext dumps on the VM encrypted for recipients A and B and the plaintext shredded after a verified decrypt on the workstation); the only item left is the administrator-only clean-up of the 42 drill-bucket objects.
 
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
