@@ -1142,6 +1142,26 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14E.1 — photo UI interface contract (2026-10-06, ACCEPTED by the owner with clarifications)
+
+Documentation only: no code, dependency, migration, infrastructure or production change; production photo uploads stay **OFF**. Contract:
+`docs/STAGE_14E_PHOTO_UI_CONTRACT.md`.
+
+- **Defines:** scope and non-scope of 14E; the UX model (one reusable collapsed `Zdjęcia (n)` section inside the existing cards, two-tap capture, defaults, progressive
+  disclosure); entry points for PROJECT / ROOM / SURFACE / OPENING; components, hooks and files; the picker (camera + gallery, ≤ 10 files, local advisory checks, no client-side
+  resize); the upload transport (XHR with progress, no manual `Content-Type`, idle watchdog, one lane) and the queue state machine (GET-first retry protocol, foreground
+  reconcile); a single table mapping every backend error code to UI behaviour; the viewer (display URL from the detail call, caption / category / report toggle / archive,
+  no download / delete / original); signed-URL refresh rules; the Telegram BackButton integration (`PhotoBackContext`); the additive `GET /photos/counts` endpoint (C14);
+  i18n keys and draft category labels PL / RU; the mobile acceptance matrix; the owner's device checks; sub-stages 14E.2–14E.7; the first controlled enablement procedure
+  (the first backup with `ready_count > 0` proves the media path on production data); decisions D1–D10 and D-DEV with recommendations.
+- **Verified baseline facts:** no router / state library / icon library / Playwright in the frontend; `apiRequest` forces a JSON `Content-Type` when a body exists (so uploads
+  need their own transport); the BackButton is a single global hook owned by `ProjectWorkspace`; no CSP; backend 14C routes and error codes as documented.
+- **Owner acceptance (2026-10-06):** "по рекомендациям" (D1–D9, D12; D-DEV = a separate dev R2 bucket) plus three clarifications recorded in §3a: **C-1** a compact photo button
+  in the upper-right corner of every card (always visible, shows the count); **C-2** every photo shows `location → date (time) · source` (location built in the frontend from names,
+  captured-or-uploaded time, a declared capture source); **C-3** the project-level section lists all photos of the object with path labels. Further recommendations (category
+  badge, filter chips, two timestamps in the viewer, offline queue as a later 14E.8) are listed there.
+- **Open decisions:** D10 (backup cadence / RPO, before 14E.7) and **D11** (store the capture source = Alembic migration `0033`, recommended, or omit it = no migration).
+
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
 Design and owner Console runbook: `docs/STAGE_14D3_ORACLE_BACKUP_PROVISIONING.md`; summary in
@@ -1319,7 +1339,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | EXECUTED 2026-10-05 — steps 1–6 of plan §11 PASS (run `20261005T052617Z-66a27f56`; 14D.5B), cleanup J1–J4 PASS, OWNER SIGN-OFF 2026-10-05 |
 | └ 14D.6 | First production non-destructive backup run + runbook final | 14D.6A tooling committed 2026-10-05; 14D.6B P0–P8 EXECUTED 2026-10-05/06 — all PASS (first production backup published, verified by two readers, restored and compared with production); OWNER ACCEPTED 2026-10-06 |
 | └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | COMPLETE / OWNER SIGNED OFF 2026-10-06 (plan §17.1; runbook §72 finalized) |
-| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
+| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; open: D10 backup cadence, D11 capture source (needs migration `0033`); no code yet) |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
 | 14G | POINT annotations (API + editor) | NOT STARTED |
 | 14H | WORK execution photos in Realizacja | NOT STARTED |
