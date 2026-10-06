@@ -1521,7 +1521,9 @@
       "thumb_unavailable": "Brak podglądu",
       "media_unavailable_note": "Podgląd zdjęć jest chwilowo niedostępny.",
       "options_toggle": "Opcje zdjęć",
-      "project_title": "Zdjęcia obiektu"
+      "project_title": "Zdjęcia obiektu",
+      "empty_aggregated": "Brak zdjęć. Dodaj je w karcie ściany, podłogi lub sufitu.",
+      "room_title": "Zdjęcia pomieszczenia"
     },
     "picker": {
       "take_photo": "Zrób zdjęcie",

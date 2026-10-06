@@ -216,6 +216,23 @@ module not needed for 14E.)
   openings of walls only if any opening has photos; ≤ 6 parallel requests). A name that cannot be loaded or resolved shows a dash. Leaf cards (room, surface, opening) build the path from the names they already hold.
 - *Counts:* the provider counts finished uploads once; the section reports only archive / restore corrections; counts are refetched whenever a section expands and when an upload finds its target gone.
 
+**Implementation notes (14E.6, 2026-10-06; found in a real Chromium at 320 / 390 / 412 px; they refine §3 and §7):**
+
+- *Grid:* **2 columns up to 479 px, 3 from 480 px** (earlier text: "3 per row, 2 at ≤ 340 px"). The grid sits inside a padded card and a padded section, so 3 columns left ~85 px per tile — too narrow for the caption line and the badge.
+- *Viewer placement:* the viewer is rendered through a **portal into `document.body`** so that it covers the whole screen regardless of the host card's spacing, stacking context or clipping.
+- *Check on an unreachable server:* the GET-first check of the queue keeps the original transport failure ("no connection", retryable) when it gets no HTTP answer at all.
+
+**Model change after the owner's first browser check (14E.6, 2026-10-06) — this SUPERSEDES the entry-point table of §3, C-1 and the D9 placement where they differ:**
+
+- Photos are **added only on surfaces**: wall cards (*Ściana 1…N*), the **floor** card and the **ceiling** card (a floor / ceiling photo goes to the canonical plane surface, `SURFACE` context). The object card, the room cards, the room view and the opening rows have **no picker**.
+  Opening rows have **no photo button at all** (photos of a door / window are taken on its wall; path in the caption shows the wall). The backend still accepts all four contexts; the UI offers only `SURFACE`.
+- The **object card** ("Zdjęcia obiektu") and **each room** (the room card on the object tab and a new "Zdjęcia pomieszczenia" card in the room view) are **aggregated lists for viewing and editing only** (caption, category, report flag, archive / restore, archive view, category chips, day grouping):
+  the object lists every photo of the object, a room lists every photo of the room — its own, those of its surfaces and of their openings — each with its full path (`room → surface → opening → date (time) · source`).
+  Photos attached earlier directly to an object, a room or an opening (before this change) stay visible and editable there.
+- The number on a room button is the room's **total** (`room_totals`), so the card on the object tab and the room view always agree; a surface button shows the surface's own photos; the object button shows every photo.
+- Backend (additive, no migration): `counts.room_totals` and the `in_room_id` list filter (see `STAGE_14C_MEDIA_API_CONTRACT.md` §21).
+- After an upload finishes or a photo is archived / restored, the badges are corrected at once and then **confirmed by a refetch of the counts** (a room's total spans surfaces and openings, which the client cannot always attribute).
+
 ## 9. Backend addition — `GET /api/projects/{project_id}/photos/counts` (14E.2)
 
 Additive, read-only (the endpoint itself needs no migration; the separate capture-source column of D11 = A is migration `0033`), owner-scoped (foreign / missing project → 404 `PROJECT_NOT_FOUND`), available with uploads disabled (C11).

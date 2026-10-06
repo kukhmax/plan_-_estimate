@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotoCounts } from '../types/photo';
 import { makeItem } from '../test/photoFixtures';
-import { EMPTY_LOCATIONS, PhotoLocationData, PhotoLocationLabels, loadPhotoLocations, resolveLocationSegments } from './photoLocations';
+import {
+  EMPTY_LOCATIONS,
+  PhotoLocationData,
+  PhotoLocationLabels,
+  loadPhotoLocations,
+  mergeLocations,
+  resolveLocationSegments,
+} from './photoLocations';
 
 vi.mock('../api/rooms', () => ({ fetchRooms: vi.fn() }));
 vi.mock('../api/surfaces', () => ({ fetchSurfaces: vi.fn() }));
@@ -10,7 +17,7 @@ import { fetchOpenings } from '../api/openings';
 import { fetchRooms } from '../api/rooms';
 import { fetchSurfaces } from '../api/surfaces';
 
-const counts = (over: Partial<PhotoCounts> = {}): PhotoCounts => ({ project: 0, rooms: {}, surfaces: {}, openings: {}, ...over });
+const counts = (over: Partial<PhotoCounts> = {}): PhotoCounts => ({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, ...over });
 const room = (id: string, name: string) => ({ id, name }) as never;
 const surface = (id: string, roomId: string, name: string, type = 'WALL') => ({ id, room_id: roomId, name, surface_type: type }) as never;
 const opening = (id: string, type: string, name: string | null) => ({ id, opening_type: type, name }) as never;
@@ -87,6 +94,38 @@ describe('loadPhotoLocations — loads only as deep as the photos need', () => {
     expect(partial.complete).toBe(false);
     expect(partial.rooms.r1).toBe('Salon');
     expect(Object.keys(partial.surfaces)).toEqual(['s3']);
+  });
+});
+
+describe('loadPhotoLocations — one room only (the room view)', () => {
+  it('reads just that room structure and only when the room has photos below its own level', async () => {
+    const data = await loadPhotoLocations('p', counts({ rooms: { r1: 1 }, room_totals: { r1: 4 }, surfaces: { s1: 3 } }), 'r1');
+    expect(fetchSurfaces).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fetchSurfaces).mock.calls[0][1]).toBe('r1');
+    expect(Object.keys(data.surfaces).sort()).toEqual(['s1', 's2']);
+    expect(data.rooms).toEqual({ r1: 'Salon', r2: 'Kuchnia' }); // names of all rooms are cheap and harmless
+  });
+
+  it('skips the surfaces when everything of the room sits at the room level', async () => {
+    await loadPhotoLocations('p', counts({ rooms: { r1: 2 }, room_totals: { r1: 2 } }), 'r1');
+    expect(fetchSurfaces).not.toHaveBeenCalled();
+  });
+
+  it('asks for the openings of that room walls only', async () => {
+    await loadPhotoLocations('p', counts({ room_totals: { r1: 2 }, surfaces: { s1: 1 }, openings: { o1: 1 } }), 'r1');
+    expect(vi.mocked(fetchOpenings).mock.calls.map((call) => call[2])).toEqual(['s1']);
+  });
+});
+
+describe('mergeLocations', () => {
+  it('adds the names of several loads and is complete only when both are', () => {
+    const a: PhotoLocationData = { rooms: { r1: 'A' }, surfaces: {}, openings: {}, complete: true };
+    const b: PhotoLocationData = { rooms: { r2: 'B' }, surfaces: { s: { roomId: 'r2', name: 'x', surfaceType: 'WALL' } }, openings: {}, complete: false };
+    const merged = mergeLocations(a, b);
+    expect(merged.rooms).toEqual({ r1: 'A', r2: 'B' });
+    expect(Object.keys(merged.surfaces)).toEqual(['s']);
+    expect(merged.complete).toBe(false);
+    expect(mergeLocations(a, a).complete).toBe(true);
   });
 });
 

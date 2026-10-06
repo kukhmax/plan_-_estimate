@@ -13,7 +13,13 @@ vi.mock('./PhotoSection', () => ({
   },
 }));
 
-const COUNTS: PhotoCounts = { project: 1, rooms: { r1: 2 }, surfaces: { s1: 3 }, openings: { o1: 4 } };
+const COUNTS: PhotoCounts = {
+  project: 1,
+  rooms: { r1: 2 },
+  surfaces: { s1: 3 },
+  openings: { o1: 4 },
+  room_totals: { r1: 2 + 3 + 4 }, // the room's own, its surface's and the surface's opening's
+};
 
 function value(over: Partial<ProjectPhotosValue> = {}, expanded: string[] = []): ProjectPhotosValue {
   return {
@@ -56,11 +62,11 @@ describe('without a project photo context (existing screens and tests)', () => {
 
 describe('PhotoCardButton', () => {
   it.each([
-    ['ROOM', 'r1', 'Zdjęcia: 2'],
+    ['ROOM', 'r1', 'Zdjęcia: 9'], // a room's button shows every photo of the room, surfaces and openings included
     ['SURFACE', 's1', 'Zdjęcia: 3'],
     ['OPENING', 'o1', 'Zdjęcia: 4'],
     ['ROOM', 'unknown', 'Zdjęcia: 0'],
-  ] as const)('%s %s shows its own count', (context, targetId, name) => {
+  ] as const)('%s %s shows its count', (context, targetId, name) => {
     renderWith(<PhotoCardButton context={context} targetId={targetId} />, value());
     expect(screen.getByRole('button', { name })).toBeInTheDocument();
   });
@@ -96,18 +102,35 @@ describe('PhotoCardPanel', () => {
     expect(sectionProps).not.toHaveBeenCalled();
   });
 
-  it('passes the target, the host names as a fixed location and the count callback', () => {
+  it('a surface panel gets its target, its room, the host names as a fixed location, the count callback — and uploading', () => {
     const provided = value({}, [photoKey('SURFACE', 's1')]);
-    renderWith(<PhotoCardPanel context="SURFACE" targetId="s1" locationSegments={['Salon', 'Ściana 1']} />, provided);
+    renderWith(<PhotoCardPanel context="SURFACE" targetId="s1" roomId="r1" locationSegments={['Salon', 'Ściana 1']} />, provided);
     expect(sectionProps).toHaveBeenCalledWith(
       expect.objectContaining({
         projectId: 'p1',
         context: 'SURFACE',
         targetId: 's1',
+        roomId: 'r1',
+        allowUpload: true,
         locationLabel: 'Salon → Ściana 1',
         onCountAdjust: provided.adjust,
       }),
     );
+  });
+
+  it.each([
+    ['PROJECT', undefined],
+    ['ROOM', 'r1'],
+  ] as const)('the %s panel is an aggregated list: no uploading, every photo resolved through the context', (context, targetId) => {
+    const provided = value({}, [photoKey(context, targetId)]);
+    renderWith(<PhotoCardPanel context={context} targetId={targetId} locationSegments={['ignored']} />, provided);
+    expect(sectionProps.mock.calls[0][0]).toMatchObject({ context, targetId, allowUpload: false });
+    expect(sectionProps.mock.calls[0][0].locationLabel).toBe(provided.resolveLocation);
+  });
+
+  it('an opening panel (legacy photos only) never offers uploading', () => {
+    renderWith(<PhotoCardPanel context="OPENING" targetId="o1" locationSegments={['x']} />, value({}, ['OPENING:o1']));
+    expect(sectionProps.mock.calls[0][0]).toMatchObject({ context: 'OPENING', allowUpload: false });
   });
 
   it('writes a dash for a host name that is missing', () => {
@@ -115,20 +138,26 @@ describe('PhotoCardPanel', () => {
     expect(sectionProps.mock.calls[0][0].locationLabel).toBe('— → Ściana 1');
   });
 
-  it('the object panel resolves each photo through the context and loads the names when it opens', () => {
-    const provided = value({}, [photoKey('PROJECT')]);
-    renderWith(<PhotoCardPanel context="PROJECT" />, provided);
-    expect(sectionProps.mock.calls[0][0].locationLabel).toBe(provided.resolveLocation);
-    expect(provided.ensureLocations).toHaveBeenCalledTimes(1);
+  it('an aggregated panel loads the names when it opens: the whole object, or just its own room', () => {
+    const object = value({}, [photoKey('PROJECT')]);
+    renderWith(<PhotoCardPanel context="PROJECT" />, object);
+    expect(object.ensureLocations).toHaveBeenCalledTimes(1);
+    expect(object.ensureLocations).toHaveBeenCalledWith(undefined);
+
+    const room = value({}, [photoKey('ROOM', 'r1')]);
+    renderWith(<PhotoCardPanel context="ROOM" targetId="r1" />, room);
+    expect(room.ensureLocations).toHaveBeenCalledTimes(1);
+    expect(room.ensureLocations).toHaveBeenCalledWith('r1');
   });
 
-  it('does not load names for a collapsed object panel or for a leaf panel', () => {
+  it('does not load names for a collapsed panel or for a surface panel', () => {
     const collapsed = value();
     renderWith(<PhotoCardPanel context="PROJECT" />, collapsed);
+    renderWith(<PhotoCardPanel context="ROOM" targetId="r1" />, collapsed);
     expect(collapsed.ensureLocations).not.toHaveBeenCalled();
 
-    const leaf = value({}, ['ROOM:r1']);
-    renderWith(<PhotoCardPanel context="ROOM" targetId="r1" locationSegments={['Salon']} />, leaf);
-    expect(leaf.ensureLocations).not.toHaveBeenCalled();
+    const surface = value({}, ['SURFACE:s1']);
+    renderWith(<PhotoCardPanel context="SURFACE" targetId="s1" locationSegments={['Salon']} />, surface);
+    expect(surface.ensureLocations).not.toHaveBeenCalled();
   });
 });

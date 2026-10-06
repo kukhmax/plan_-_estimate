@@ -927,6 +927,16 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
             )}
           </article>
 
+          {/* Stage 14E.6: every photo of the room — its surfaces and their openings included — for viewing and editing;
+              photos are ADDED in the surface cards below. */}
+          <article aria-label="room-photos" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{t.photos.section.room_title}</h3>
+              <PhotoCardButton context="ROOM" targetId={selectedRoom.id} />
+            </div>
+            <PhotoCardPanel context="ROOM" targetId={selectedRoom.id} />
+          </article>
+
           {/* Edit Room Form inside Room Detail View */}
           {showRoomForm && (
             <form
@@ -1025,6 +1035,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
           <AreaSegmentList
             projectId={selectedProject.id}
             roomId={selectedRoom.id}
+            roomName={selectedRoom.name}
             onMeasurementChanged={refreshSelectedRoom}
             onInspectPlane={(plane) => openInspectionList({ kind: 'plane', plane })}
           />

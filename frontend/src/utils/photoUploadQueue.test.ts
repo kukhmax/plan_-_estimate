@@ -286,6 +286,26 @@ describe('PhotoUploadQueue', () => {
       expect(queue.getItems()[0]).toMatchObject({ state: 'failed', error: { key: 'network', retryable: true } });
     });
 
+    it('an unreachable server (fetch rejects with a plain TypeError) is a network failure, not an "unexpected error"', async () => {
+      const { queue, calls, fetchDetail } = setup();
+      fetchDetail.mockRejectedValue(new TypeError('Failed to fetch'));
+      queue.enqueue([file()], target, 'GALLERY');
+      await tick();
+      calls[0].reject(new PhotoUploadError('net', 0, 'NETWORK_ERROR'));
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(queue.getItems()[0]).toMatchObject({ state: 'failed', error: { key: 'network', retryable: true } });
+    });
+
+    it('a real HTTP error answer of the check (e.g. 401) is reported as that error', async () => {
+      const { queue, calls, fetchDetail } = setup();
+      fetchDetail.mockRejectedValue(new ApiError('auth', 401));
+      queue.enqueue([file()], target, 'GALLERY');
+      await tick();
+      calls[0].reject(new PhotoUploadError('net', 0, 'NETWORK_ERROR'));
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(queue.getItems()[0]).toMatchObject({ state: 'failed', error: { key: 'session_expired' } });
+    });
+
     it('manual retry keeps the upload_id, resets the automatic budget and re-sends', async () => {
       const { queue, calls, fetchDetail } = setup();
       fetchDetail.mockRejectedValue(new ApiError('net', 0, 'NETWORK_ERROR'));

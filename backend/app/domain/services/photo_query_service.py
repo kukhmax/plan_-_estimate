@@ -30,12 +30,24 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.domain.exceptions import PhotoAttachmentValidationError, PhotoCursorInvalidError
+from app.domain.exceptions import (
+    PhotoAttachmentValidationError,
+    PhotoCursorInvalidError,
+)
 from app.domain.services.photo_asset_service import PhotoAssetService
-from app.domain.services.photo_attachment_service import AttachmentTarget, PhotoAttachmentService
+from app.domain.services.photo_attachment_service import (
+    AttachmentTarget,
+    PhotoAttachmentService,
+)
 from app.domain.services.project_service import ProjectService
+from app.models.opening import Opening
 from app.models.photo_asset import PhotoAsset, PhotoAssetStatus
-from app.models.photo_attachment import PhotoAttachment, PhotoAttachmentContext, PhotoCategory
+from app.models.photo_attachment import (
+    PhotoAttachment,
+    PhotoAttachmentContext,
+    PhotoCategory,
+)
+from app.models.surface import Surface
 
 DEFAULT_LIMIT = 30
 MAX_LIMIT = 100
@@ -52,6 +64,9 @@ class PhotoListFilters:
     category: PhotoCategory | None = None
     include_in_report: bool | None = None
     archived: bool = False
+    # Stage 14E.6: every photo whose target is this room OR lies inside it (its surfaces, their openings). Exclusive with
+    # the single-target filters above.
+    in_room_id: uuid.UUID | None = None
 
     def fingerprint(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> str:
         canonical = json.dumps(
@@ -64,6 +79,7 @@ class PhotoListFilters:
                 self.category.value if self.category else None,
                 self.include_in_report,
                 self.archived,
+                str(self.in_room_id) if self.in_room_id else None,
             ],
             separators=(",", ":"),
         )
@@ -80,6 +96,8 @@ class PhotoCounts:
     rooms: dict[uuid.UUID, int]
     surfaces: dict[uuid.UUID, int]
     openings: dict[uuid.UUID, int]
+    # Stage 14E.6: photos per room INCLUDING those of its surfaces and their openings (the room card shows all of them).
+    room_totals: dict[uuid.UUID, int]
 
 
 @dataclass(frozen=True)
@@ -160,6 +178,15 @@ class PhotoQueryService:
         self, owner_id: uuid.UUID, project_id: uuid.UUID, filters: PhotoListFilters
     ) -> None:
         await ProjectService(self.db).get_project(project_id, owner_id)
+        if filters.in_room_id is not None:
+            if filters.context or filters.room_id or filters.surface_id or filters.opening_id:
+                raise PhotoAttachmentValidationError("in_room_id cannot be combined with a context or a target id")
+            await PhotoAttachmentService(self.db).validate_target(
+                owner_id,
+                project_id,
+                AttachmentTarget(context=PhotoAttachmentContext.ROOM, room_id=filters.in_room_id),
+            )
+            return
         if filters.context is None:
             if filters.room_id or filters.surface_id or filters.opening_id:
                 raise PhotoAttachmentValidationError("a target id requires a matching context")
@@ -214,6 +241,8 @@ class PhotoQueryService:
                 stmt = stmt.where(PhotoAttachment.surface_id == filters.surface_id)
             if filters.opening_id is not None:
                 stmt = stmt.where(PhotoAttachment.opening_id == filters.opening_id)
+        if filters.in_room_id is not None:
+            stmt = stmt.where(self._within_room(filters.in_room_id))
         if filters.category is not None:
             stmt = stmt.where(PhotoAttachment.category == filters.category)
         if filters.include_in_report is not None:
@@ -226,6 +255,17 @@ class PhotoQueryService:
         page = rows[:limit]
         next_cursor = encode_cursor(*page[-1], fingerprint) if len(rows) > limit else None
         return PhotoListPage(items=page, next_cursor=next_cursor)
+
+    @staticmethod
+    def _within_room(room_id: uuid.UUID) -> ColumnElement[bool]:
+        """Target is the room itself, one of its surfaces, or an opening of one of its surfaces."""
+        room_surfaces = select(Surface.id).where(Surface.room_id == room_id)
+        room_openings = select(Opening.id).where(Opening.surface_id.in_(room_surfaces))
+        return or_(
+            and_(PhotoAttachment.context == PhotoAttachmentContext.ROOM, PhotoAttachment.room_id == room_id),
+            and_(PhotoAttachment.context == PhotoAttachmentContext.SURFACE, PhotoAttachment.surface_id.in_(room_surfaces)),
+            and_(PhotoAttachment.context == PhotoAttachmentContext.OPENING, PhotoAttachment.opening_id.in_(room_openings)),
+        )
 
     async def counts(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> PhotoCounts:
         """Badge counts for the whole project in ONE aggregate query (same visibility as the normal
@@ -276,7 +316,22 @@ class PhotoQueryService:
                 surfaces[surface_id] = surfaces.get(surface_id, 0) + int(total)
             elif context is PhotoAttachmentContext.OPENING and opening_id is not None:
                 openings[opening_id] = openings.get(opening_id, 0) + int(total)
-        return PhotoCounts(project=project_total, rooms=rooms, surfaces=surfaces, openings=openings)
+        room_totals = dict(rooms)
+        if surfaces:
+            rows = await self.db.execute(select(Surface.id, Surface.room_id).where(Surface.id.in_(list(surfaces))))
+            for surface_id, room_id in rows.all():
+                room_totals[room_id] = room_totals.get(room_id, 0) + surfaces[surface_id]
+        if openings:
+            rows = await self.db.execute(
+                select(Opening.id, Surface.room_id)
+                .join(Surface, Opening.surface_id == Surface.id)
+                .where(Opening.id.in_(list(openings)))
+            )
+            for opening_id, room_id in rows.all():
+                room_totals[room_id] = room_totals.get(room_id, 0) + openings[opening_id]
+        return PhotoCounts(
+            project=project_total, rooms=rooms, surfaces=surfaces, openings=openings, room_totals=room_totals
+        )
 
     async def get_detail(
         self, owner_id: uuid.UUID, project_id: uuid.UUID, asset_id: uuid.UUID

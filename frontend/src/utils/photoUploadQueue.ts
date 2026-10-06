@@ -414,7 +414,10 @@ export class PhotoUploadQueue {
         });
         return;
       }
-      this.fail(item.id, notThere ? failure : classifyPhotoError(lookup));
+      // The check itself failed: a real HTTP answer (e.g. 401 / 5xx) is reported as such; no answer at all — `fetch`
+      // rejects with a plain TypeError when the server is unreachable — keeps the transport failure that started this.
+      const answered = lookup instanceof ApiError && lookup.status !== 0;
+      this.fail(item.id, notThere || !answered ? failure : classifyPhotoError(lookup));
     }
   }
 

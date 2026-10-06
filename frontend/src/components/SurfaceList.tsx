@@ -739,7 +739,7 @@ export function SurfaceList({
 
                 {/* Stage 14E.5: photo button on the line under Opcje, right-aligned (C-1); nothing without a project context. */}
                 <PhotoCardButton context="SURFACE" targetId={surface.id} rowClassName="flex justify-end" />
-                <PhotoCardPanel context="SURFACE" targetId={surface.id} locationSegments={[roomName, displayName]} />
+                <PhotoCardPanel context="SURFACE" targetId={surface.id} roomId={roomId} locationSegments={[roomName, displayName]} />
 
                 {hasDimensions && (
                   <p className="text-xs text-slate-600">
@@ -946,7 +946,6 @@ export function SurfaceList({
                             projectId={projectId}
                             roomId={roomId}
                             surfaceId={surface.id}
-                            photoPath={[roomName, displayName]}
                             initialType={pendingQuickOpening?.surfaceId === surface.id ? pendingQuickOpening.type : undefined}
                             onOpeningChanged={handleOpeningChanged}
                           />

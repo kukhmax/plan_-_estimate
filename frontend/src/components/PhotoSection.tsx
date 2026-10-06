@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { fetchPhotos } from '../api/photos';
 import { useI18n } from '../hooks/useI18n';
 import { subscribePhotoUploadDone, usePhotoUploadQueue } from '../hooks/usePhotoUploadQueue';
@@ -33,28 +34,51 @@ interface PhotoSectionProps {
   context: PhotoContext;
   /** room / surface / opening id for the matching context; omitted for PROJECT. */
   targetId?: string;
-  /** Location text of the caption line: fixed for a leaf card, a resolver for the project-wide list. */
+  /** The room a SURFACE section belongs to; travels with each upload so the room's total can follow. */
+  roomId?: string;
+  /**
+   * Whether this section offers the picker and shows the upload queue. Photos are ADDED only on surfaces; the object's
+   * and a room's sections (PROJECT / ROOM) list every photo below them for viewing and editing only. Default: no.
+   */
+  allowUpload?: boolean;
+  /** Location text of the caption line: fixed for a surface card, a resolver for the aggregated lists. */
   locationLabel: string | ((attachment: PhotoAttachmentRead) => string);
   /**
-   * Count correction for archive / restore done in the viewer (the attachment's own context and target).
-   * Upload completions are NOT reported here: the host counts them once, whether or not a section is open.
+   * Count correction for archive / restore done in the viewer (the attachment's own context and target; the room when
+   * this section knows it). Upload completions are NOT reported here: the host counts them once, whether or not a
+   * section is open.
    */
-  onCountAdjust?: (context: PhotoContext, targetId: string | undefined, delta: number) => void;
+  onCountAdjust?: (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string) => void;
 }
 
-function buildTarget(projectId: string, context: PhotoContext, targetId: string | undefined): PhotoTarget {
+function buildTarget(
+  projectId: string,
+  context: PhotoContext,
+  targetId: string | undefined,
+  roomId: string | undefined,
+): PhotoTarget {
   return {
     projectId,
     context,
-    roomId: context === 'ROOM' ? targetId : undefined,
+    // Not sent for a SURFACE (the server needs only its own id); it lets the host keep the room's total in step.
+    roomId: context === 'ROOM' ? targetId : roomId,
     surfaceId: context === 'SURFACE' ? targetId : undefined,
     openingId: context === 'OPENING' ? targetId : undefined,
   };
 }
 
-export function PhotoSection({ projectId, context, targetId, locationLabel, onCountAdjust }: PhotoSectionProps) {
+export function PhotoSection({
+  projectId,
+  context,
+  targetId,
+  roomId,
+  allowUpload = false,
+  locationLabel,
+  onCountAdjust,
+}: PhotoSectionProps) {
   const { t } = useI18n();
-  const projectWide = context === 'PROJECT';
+  // The object and a room list everything below them; the other sections list their own target only.
+  const aggregated = context === 'PROJECT' || context === 'ROOM';
   const storage = usePhotoStorage();
   const queue = usePhotoUploadQueue(projectId);
 
@@ -76,20 +100,21 @@ export function PhotoSection({ projectId, context, targetId, locationLabel, onCo
 
   const listParams = useCallback(
     (cursor?: string): PhotoListParams => ({
-      ...(projectWide
+      ...(context === 'PROJECT'
         ? {}
-        : {
-            context,
-            roomId: context === 'ROOM' ? targetId : undefined,
-            surfaceId: context === 'SURFACE' ? targetId : undefined,
-            openingId: context === 'OPENING' ? targetId : undefined,
-          }),
+        : context === 'ROOM'
+          ? { inRoomId: targetId }
+          : {
+              context,
+              surfaceId: context === 'SURFACE' ? targetId : undefined,
+              openingId: context === 'OPENING' ? targetId : undefined,
+            }),
       archived,
       category: categoryFilter ?? undefined,
       limit: PHOTO_PAGE_SIZE,
       cursor,
     }),
-    [projectWide, context, targetId, archived, categoryFilter],
+    [context, targetId, archived, categoryFilter],
   );
 
   const rememberExpiry = (iso: string | null) => {
@@ -176,8 +201,11 @@ export function PhotoSection({ projectId, context, targetId, locationLabel, onCo
   const isRelevant = useCallback(
     (item: QueueItem) =>
       item.target.projectId === projectId &&
-      (projectWide || (item.target.context === context && targetIdOf(item.target) === targetId)),
-    [projectId, projectWide, context, targetId],
+      (context === 'PROJECT' ||
+        (context === 'ROOM'
+          ? item.target.roomId === targetId
+          : item.target.context === context && targetIdOf(item.target) === targetId)),
+    [projectId, context, targetId],
   );
 
   const { dismiss } = queue;
@@ -187,16 +215,21 @@ export function PhotoSection({ projectId, context, targetId, locationLabel, onCo
         if (!isRelevant(item)) return;
         void (async () => {
           await loadRef.current(true);
-          dismiss(item.id); // the photo is in the grid now: the transient row can go
+          // The photo is in the grid now: the transient row can go — but only the section that shows the queue rows
+          // removes them (an aggregated section reloads its list and leaves the rows to the surface's own section).
+          if (allowUpload) dismiss(item.id);
         })();
       }),
-    [isRelevant, dismiss],
+    [isRelevant, dismiss, allowUpload],
   );
 
-  const visibleQueue = useMemo(() => queue.items.filter(isRelevant), [queue.items, isRelevant]);
+  const visibleQueue = useMemo(
+    () => (allowUpload ? queue.items.filter(isRelevant) : []),
+    [queue.items, isRelevant, allowUpload],
+  );
 
   const handleFiles = (files: File[], source: PhotoCaptureSource) => {
-    const result = queue.enqueue(files, buildTarget(projectId, context, targetId), source);
+    const result = queue.enqueue(files, buildTarget(projectId, context, targetId, roomId), source);
     setPickerNote(
       result.ignored > 0 ? t.photos.picker.too_many_selected.replace('{count}', String(MAX_FILES_PER_SELECTION)) : null,
     );
@@ -222,7 +255,7 @@ export function PhotoSection({ projectId, context, targetId, locationLabel, onCo
     const remaining = items.filter((entry) => entry.attachment.id !== attachment.id);
     setItems(remaining);
     const { context: attachmentContext, targetId: attachmentTargetId } = attachmentTarget(attachment);
-    onCountAdjust?.(attachmentContext, attachmentTargetId, action === 'archived' ? -1 : 1);
+    onCountAdjust?.(attachmentContext, attachmentTargetId, action === 'archived' ? -1 : 1, context === 'ROOM' ? targetId : roomId);
     setViewerIndex((current) => {
       if (current === null || remaining.length === 0) return null;
       return Math.min(current, remaining.length - 1);
@@ -230,9 +263,9 @@ export function PhotoSection({ projectId, context, targetId, locationLabel, onCo
   };
 
   const mediaUnavailable = storage.status === 'ready' && !storage.mediaAvailable;
-  const canUpload = storage.status === 'ready' && storage.uploadsEnabled && storage.mediaAvailable;
+  const canUpload = allowUpload && storage.status === 'ready' && storage.uploadsEnabled && storage.mediaAvailable;
   const uploadsOffNote =
-    storage.status === 'ready' && storage.mediaAvailable && !storage.uploadsEnabled
+    allowUpload && storage.status === 'ready' && storage.mediaAvailable && !storage.uploadsEnabled
       ? storage.state === 'FULL'
         ? t.photos.storage.full
         : t.photos.section.uploads_off_note
@@ -298,7 +331,11 @@ export function PhotoSection({ projectId, context, targetId, locationLabel, onCo
           )}
           {status === 'ready' && items.length === 0 && (
             <p className="text-sm text-[var(--tg-theme-hint-color)]">
-              {archived ? t.photos.section.empty_archive : t.photos.section.empty}
+              {archived
+                ? t.photos.section.empty_archive
+                : aggregated
+                  ? t.photos.section.empty_aggregated
+                  : t.photos.section.empty}
             </p>
           )}
           {status === 'ready' && items.length > 0 && (
@@ -310,7 +347,7 @@ export function PhotoSection({ projectId, context, targetId, locationLabel, onCo
               hasMore={nextCursor !== null}
               loadingMore={loadingMore}
               onShowMore={() => void showMore()}
-              groupByDay={projectWide}
+              groupByDay={aggregated}
             />
           )}
           {moreError && (
@@ -342,7 +379,7 @@ export function PhotoSection({ projectId, context, targetId, locationLabel, onCo
               >
                 {archived ? t.photos.section.hide_archive : t.photos.section.show_archive}
               </button>
-              {projectWide && (
+              {aggregated && (
                 <div role="group" aria-label={t.photos.viewer.category} className="flex flex-wrap gap-2">
                   <button type="button" aria-pressed={categoryFilter === null} className={chip(categoryFilter === null)} onClick={() => setCategoryFilter(null)}>
                     {t.photos.section.filter_all}
@@ -365,20 +402,25 @@ export function PhotoSection({ projectId, context, targetId, locationLabel, onCo
         </div>
       )}
 
-      {viewerIndex !== null && items[viewerIndex] && (
-        <PhotoViewer
-          projectId={projectId}
-          items={items}
-          index={viewerIndex}
-          archivedView={archived}
-          captionFor={captionFor}
-          onIndexChange={setViewerIndex}
-          onClose={() => setViewerIndex(null)}
-          onAttachmentUpdated={handleAttachmentUpdated}
-          onAttachmentRemoved={handleAttachmentRemoved}
-          onRefresh={() => void load(false)}
-        />
-      )}
+      {/* A portal: the full-screen sheet must not inherit the card's spacing (`space-y-*` shifted it by 12 px), its
+          stacking context or its clipping. */}
+      {viewerIndex !== null &&
+        items[viewerIndex] &&
+        createPortal(
+          <PhotoViewer
+            projectId={projectId}
+            items={items}
+            index={viewerIndex}
+            archivedView={archived}
+            captionFor={captionFor}
+            onIndexChange={setViewerIndex}
+            onClose={() => setViewerIndex(null)}
+            onAttachmentUpdated={handleAttachmentUpdated}
+            onAttachmentRemoved={handleAttachmentRemoved}
+            onRefresh={() => void load(false)}
+          />,
+          document.body,
+        )}
     </section>
   );
 }

@@ -20,7 +20,7 @@ vi.mock('../utils/photoLocations', async () => {
 import { fetchPhotoCounts, uploadPhoto } from '../api/photos';
 import { loadPhotoLocations } from '../utils/photoLocations';
 
-const COUNTS: PhotoCounts = { project: 1, rooms: { r1: 2 }, surfaces: { s1: 3 }, openings: {} };
+const COUNTS: PhotoCounts = { project: 1, rooms: { r1: 2 }, surfaces: { s1: 3 }, openings: {}, room_totals: { r1: 5 } };
 const registry: PhotoBackRegistry = { register: () => () => undefined };
 
 function setup(initial: string | null = 'p1') {
@@ -82,11 +82,19 @@ describe('ProjectPhotosProvider', () => {
     expect(photoKey('ROOM', 'r1')).not.toBe(photoKey('SURFACE', 'r1'));
   });
 
-  it('applies optimistic corrections', async () => {
+  it('applies a correction at once and then takes the server numbers as the truth', async () => {
     const { result } = setup();
     await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
+    let release: (value: PhotoCounts) => void = () => undefined;
+    vi.mocked(fetchPhotoCounts).mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
     act(() => result.current?.adjust('ROOM', 'r1', -1));
-    expect(photoCountFor(result.current!.counts, 'ROOM', 'r1')).toBe(1);
+    expect(photoCountFor(result.current!.counts, 'ROOM', 'r1')).toBe(1); // at once
+    expect(result.current!.counts.room_totals.r1).toBe(4);
+    expect(fetchPhotoCounts).toHaveBeenCalledTimes(2); // the confirmation was requested
+
+    await act(async () => release({ ...COUNTS, rooms: { r1: 7 }, room_totals: { r1: 9 } }));
+    expect(photoCountFor(result.current!.counts, 'ROOM', 'r1')).toBe(7); // the server wins
+    expect(result.current!.counts.room_totals.r1).toBe(9);
   });
 
   describe('counting finished uploads (once, by the host)', () => {
@@ -103,30 +111,53 @@ describe('ProjectPhotosProvider', () => {
       );
     }
 
-    it('+1 for the room the photo was uploaded to, with no section open', async () => {
+    /** The confirming refetch stays pending, so the immediate (optimistic) numbers can be read. */
+    const holdConfirmation = () => vi.mocked(fetchPhotoCounts).mockImplementation(() => new Promise(() => undefined));
+
+    it('+1 for the surface and for its room when the upload carries its room, with no section open', async () => {
       const { result } = setup();
       await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
-      await finishUpload({ projectId: 'p1', context: 'ROOM', roomId: 'r1' });
-      expect(photoCountFor(result.current!.counts, 'ROOM', 'r1')).toBe(3);
+      holdConfirmation();
+      await finishUpload({ projectId: 'p1', context: 'SURFACE', surfaceId: 's1', roomId: 'r1' });
+      expect(photoCountFor(result.current!.counts, 'SURFACE', 's1')).toBe(4);
+      expect(result.current!.counts.room_totals.r1).toBe(6);
       expect(result.current!.counts.project).toBe(1);
     });
 
-    it('+1 for the object itself and for a surface / opening', async () => {
+    it('then confirms with the server, whose numbers replace the optimistic ones', async () => {
       const { result } = setup();
       await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
-      await finishUpload({ projectId: 'p1', context: 'PROJECT' });
-      expect(result.current!.counts.project).toBe(2);
+      vi.mocked(fetchPhotoCounts).mockResolvedValue({ ...COUNTS, surfaces: { s1: 4 }, room_totals: { r1: 6 } });
+      await finishUpload({ projectId: 'p1', context: 'SURFACE', surfaceId: 's1', roomId: 'r1' });
+      await waitFor(() => expect(fetchPhotoCounts).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(result.current!.counts.room_totals.r1).toBe(6));
+    });
+
+    it('a surface upload without a known room moves only the surface; the refetch brings the room total', async () => {
+      const { result } = setup();
+      await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
+      holdConfirmation();
       await finishUpload({ projectId: 'p1', context: 'SURFACE', surfaceId: 's1' });
       expect(photoCountFor(result.current!.counts, 'SURFACE', 's1')).toBe(4);
-      await finishUpload({ projectId: 'p1', context: 'OPENING', openingId: 'o9' });
-      expect(photoCountFor(result.current!.counts, 'OPENING', 'o9')).toBe(1);
+      expect(result.current!.counts.room_totals.r1).toBe(5);
+      expect(fetchPhotoCounts).toHaveBeenCalledTimes(2);
+    });
+
+    it('+1 for the object itself', async () => {
+      const { result } = setup();
+      await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
+      holdConfirmation();
+      await finishUpload({ projectId: 'p1', context: 'PROJECT' });
+      expect(result.current!.counts.project).toBe(2);
     });
 
     it('ignores an upload that belongs to another object', async () => {
       const { result } = setup();
       await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
-      await finishUpload({ projectId: 'other', context: 'ROOM', roomId: 'r1' });
-      expect(photoCountFor(result.current!.counts, 'ROOM', 'r1')).toBe(2);
+      holdConfirmation();
+      await finishUpload({ projectId: 'other', context: 'SURFACE', surfaceId: 's1', roomId: 'r1' });
+      expect(photoCountFor(result.current!.counts, 'SURFACE', 's1')).toBe(3);
+      expect(fetchPhotoCounts).toHaveBeenCalledTimes(1);
     });
 
     it('refetches the counts when an upload found its target gone', async () => {
@@ -136,10 +167,10 @@ describe('ProjectPhotosProvider', () => {
       let reject: (error: unknown) => void = () => undefined;
       vi.mocked(uploadPhoto).mockImplementation(() => new Promise((_, r) => (reject = r)));
       await act(async () => {
-        queue.enqueue([file()], { projectId: 'p1', context: 'ROOM', roomId: 'r1' }, 'GALLERY');
+        queue.enqueue([file()], { projectId: 'p1', context: 'SURFACE', surfaceId: 's1', roomId: 'r1' }, 'GALLERY');
       });
       const { PhotoUploadError } = await import('../api/photos');
-      await act(async () => reject(new PhotoUploadError('nf', 404, 'ROOM_NOT_FOUND')));
+      await act(async () => reject(new PhotoUploadError('nf', 404, 'SURFACE_NOT_FOUND')));
       await waitFor(() => expect(fetchPhotoCounts).toHaveBeenCalledTimes(2));
     });
   });
@@ -164,31 +195,61 @@ describe('ProjectPhotosProvider', () => {
 
       act(() => result.current?.ensureLocations());
       await waitFor(() => expect(result.current!.resolveLocation(wall)).toBe('Salon → Ściana 1'));
-      expect(loadPhotoLocations).toHaveBeenCalledWith('p1', COUNTS);
+      expect(loadPhotoLocations).toHaveBeenCalledWith('p1', COUNTS, undefined);
     });
 
-    it('uses the counts known at that moment to decide how deep to load', async () => {
+    it('passes the counts known at that moment, and the room when only one room is wanted', async () => {
+      vi.mocked(fetchPhotoCounts).mockResolvedValue({ ...COUNTS, openings: { o1: 1 } });
       vi.mocked(loadPhotoLocations).mockResolvedValue(data);
       const { result } = setup();
-      await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
-      act(() => result.current?.adjust('OPENING', 'o1', 1));
-      act(() => result.current?.ensureLocations());
+      await waitFor(() => expect(result.current?.counts.openings).toEqual({ o1: 1 }));
+      act(() => result.current?.ensureLocations('r1'));
       await waitFor(() => expect(loadPhotoLocations).toHaveBeenCalled());
-      expect(vi.mocked(loadPhotoLocations).mock.calls[0][1].openings).toEqual({ o1: 1 });
+      const [, passedCounts, passedRoom] = vi.mocked(loadPhotoLocations).mock.calls[0];
+      expect(passedCounts.openings).toEqual({ o1: 1 });
+      expect(passedRoom).toBe('r1');
     });
 
-    it('drops the answer of a load superseded by a newer one', async () => {
-      let first: (value: typeof data) => void = () => undefined;
-      vi.mocked(loadPhotoLocations)
-        .mockReturnValueOnce(new Promise((resolve) => (first = resolve)))
-        .mockResolvedValueOnce({ ...data, rooms: { r1: 'Nowy' } });
+    it('ADDS the names of several loads: the room view and the object view can be open together', async () => {
+      const roomPart = { rooms: { r1: 'Salon' }, surfaces: { s1: { roomId: 'r1', name: 'Ściana 1', surfaceType: 'WALL' as const } }, openings: {}, complete: true };
+      const objectPart = { rooms: { r1: 'Salon', r2: 'Kuchnia' }, surfaces: { s9: { roomId: 'r2', name: 'Ściana 2', surfaceType: 'WALL' as const } }, openings: {}, complete: true };
+      vi.mocked(loadPhotoLocations).mockResolvedValueOnce(roomPart).mockResolvedValueOnce(objectPart);
       const { result } = setup();
       await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
+      act(() => result.current?.ensureLocations('r1'));
       act(() => result.current?.ensureLocations());
-      act(() => result.current?.ensureLocations());
-      await waitFor(() => expect(result.current!.resolveLocation(attachment('ROOM', { room_id: 'r1' }))).toBe('Nowy'));
-      await act(async () => first(data)); // the stale answer arrives last
-      expect(result.current!.resolveLocation(attachment('ROOM', { room_id: 'r1' }))).toBe('Nowy');
+      const both = (surface: string) => result.current!.resolveLocation(attachment('SURFACE', { surface_id: surface }));
+      await waitFor(() => expect(both('s9')).toBe('Kuchnia → Ściana 2'));
+      expect(both('s1')).toBe('Salon → Ściana 1'); // the earlier load is not forgotten
     });
+  });
+});
+
+describe('ProjectPhotosProvider — another object', () => {
+  it('forgets expansions, counts and names, and ignores a late answer about the previous object', async () => {
+    let project: string | null = 'p1';
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <I18nProvider>
+        <ProjectPhotosProvider projectId={project} backRegistry={registry}>
+          {children}
+        </ProjectPhotosProvider>
+      </I18nProvider>
+    );
+    let late: (value: { rooms: Record<string, string>; surfaces: Record<string, never>; openings: Record<string, never>; complete: boolean }) => void = () => undefined;
+    vi.mocked(loadPhotoLocations).mockReturnValueOnce(new Promise((resolve) => (late = resolve as never)));
+    const { result, rerender } = renderHook(() => useProjectPhotos(), { wrapper });
+    await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
+    act(() => result.current?.toggle(photoKey('ROOM', 'r1')));
+    act(() => result.current?.ensureLocations());
+
+    vi.mocked(fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {} });
+    project = 'p2';
+    rerender();
+    await waitFor(() => expect(result.current?.counts.project).toBe(0));
+    expect(result.current?.isExpanded(photoKey('ROOM', 'r1'))).toBe(false);
+
+    await act(async () => late({ rooms: { r1: 'OldRoom' }, surfaces: {}, openings: {}, complete: true }));
+    const room = makeItem({ attachment: { context: 'ROOM', room_id: 'r1' } }).attachment;
+    expect(result.current!.resolveLocation(room)).toBe('—'); // the previous object's name did not leak in
   });
 });

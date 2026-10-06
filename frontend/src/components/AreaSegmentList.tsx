@@ -18,12 +18,15 @@ import { SurfaceType } from '../types/surface';
 import { formatMetric } from '../utils/format';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { surfaceTypeTint } from '../utils/surfaceTypeTint';
+import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { SurfaceExecutionView } from './SurfaceExecutionView';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 
 interface AreaSegmentListProps {
   projectId: string;
   roomId: string;
+  /** Room name for the photo caption path (Stage 14E.6); optional. */
+  roomName?: string;
   onMeasurementChanged?: () => void;
   /** Stage 13F-PRE: FLOOR / CEILING inspection lives in the plane's Opcje. */
   onInspectPlane?: (plane: AreaPlane) => void;
@@ -69,6 +72,7 @@ function planeTotals(segments: AreaSegmentType[]): {
 export function AreaSegmentList({
   projectId,
   roomId,
+  roomName,
   onMeasurementChanged,
   onInspectPlane,
 }: AreaSegmentListProps) {
@@ -289,6 +293,19 @@ export function AreaSegmentList({
             </span>
           )}
         </div>
+
+        {/* Stage 14E.6: photos are added on surfaces — the floor and the ceiling are surfaces too. */}
+        {planeSurfaceId && (
+          <>
+            <PhotoCardButton context="SURFACE" targetId={planeSurfaceId} rowClassName="flex justify-end" />
+            <PhotoCardPanel
+              context="SURFACE"
+              targetId={planeSurfaceId}
+              roomId={roomId}
+              locationSegments={[roomName, displayName]}
+            />
+          </>
+        )}
 
         {summary !== undefined && (
           <div className="text-xs text-slate-500 space-y-0.5 border-t border-slate-100 pt-1.5">

@@ -17,14 +17,11 @@ import {
 } from '../types/opening';
 import { formatMetric } from '../utils/format';
 import { localizeApiError } from '../utils/apiErrors';
-import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 
 interface OpeningListProps {
   projectId: string;
   roomId: string;
   surfaceId: string;
-  /** Room and surface names for the photo caption path (Stage 14E.5); optional. */
-  photoPath?: ReadonlyArray<string | null | undefined>;
   initialType?: OpeningTypeValue;
   onOpeningChanged?: () => void;
 }
@@ -63,7 +60,6 @@ export function OpeningList({
   projectId,
   roomId,
   surfaceId,
-  photoPath = [],
   initialType,
   onOpeningChanged,
 }: OpeningListProps) {
@@ -372,8 +368,6 @@ export function OpeningList({
               </div>
 
               <div className="ml-auto flex items-center gap-1.5 flex-wrap justify-end">
-                {/* Stage 14E.5: corner photo button (C-1); nothing without a project photo context. */}
-                <PhotoCardButton context="OPENING" targetId={opening.id} />
                 <button
                   type="button"
                   aria-label={`edit-opening-${opening.id}`}
@@ -392,12 +386,6 @@ export function OpeningList({
                 </button>
               </div>
               </div>
-
-              <PhotoCardPanel
-                context="OPENING"
-                targetId={opening.id}
-                locationSegments={[...photoPath, `${typeLabel(opening.opening_type)}${opening.name ? ` (${opening.name})` : ''}`]}
-              />
 
               {/* Stage 10G.4 — reveal work planning per opening; never shown
                   when reveal is disabled, and never silently enables it. */}

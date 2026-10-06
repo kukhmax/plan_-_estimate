@@ -31,9 +31,29 @@ async function inChunks<T, R>(items: readonly T[], size: number, run: (item: T) 
   return results;
 }
 
-export async function loadPhotoLocations(projectId: string, counts: PhotoCounts): Promise<PhotoLocationData> {
+/** Union of two loads (several open sections may each have loaded their own part); `complete` only when both are. */
+export function mergeLocations(a: PhotoLocationData, b: PhotoLocationData): PhotoLocationData {
+  return {
+    rooms: { ...a.rooms, ...b.rooms },
+    surfaces: { ...a.surfaces, ...b.surfaces },
+    openings: { ...a.openings, ...b.openings },
+    complete: a.complete && b.complete,
+  };
+}
+
+/**
+ * Names for the paths of an aggregated list. `onlyRoomId` limits the structure to one room (the room's own view);
+ * without it every room is read (the object's view).
+ */
+export async function loadPhotoLocations(
+  projectId: string,
+  counts: PhotoCounts,
+  onlyRoomId?: string,
+): Promise<PhotoLocationData> {
   const data: PhotoLocationData = { rooms: {}, surfaces: {}, openings: {}, complete: true };
-  const needSurfaces = Object.keys(counts.surfaces).length > 0 || Object.keys(counts.openings).length > 0;
+  const needSurfaces = onlyRoomId
+    ? (counts.room_totals?.[onlyRoomId] ?? 0) > (counts.rooms[onlyRoomId] ?? 0)
+    : Object.keys(counts.surfaces).length > 0 || Object.keys(counts.openings).length > 0;
   const needOpenings = Object.keys(counts.openings).length > 0;
 
   let rooms;
@@ -46,7 +66,7 @@ export async function loadPhotoLocations(projectId: string, counts: PhotoCounts)
   if (!needSurfaces) return data;
 
   const surfaceLists = await Promise.all(
-    rooms.map(async (room) => {
+    rooms.filter((room) => !onlyRoomId || room.id === onlyRoomId).map(async (room) => {
       try {
         return (await fetchSurfaces(projectId, room.id, true)).items;
       } catch {

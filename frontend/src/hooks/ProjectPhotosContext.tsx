@@ -5,6 +5,7 @@ import {
   EMPTY_LOCATIONS,
   PhotoLocationData,
   loadPhotoLocations,
+  mergeLocations,
   resolveLocationSegments,
 } from '../utils/photoLocations';
 import { targetIdOf } from '../utils/photoTarget';
@@ -25,11 +26,12 @@ export interface ProjectPhotosValue {
   counts: PhotoCounts;
   isExpanded: (key: string) => boolean;
   toggle: (key: string) => void;
-  adjust: (context: PhotoContext, targetId: string | undefined, delta: number) => void;
+  /** Optimistic correction of the badges, followed by a refetch for the server's truth (room totals need it). */
+  adjust: (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string) => void;
   /** Location text of an attachment for the project-wide list (names resolved lazily; a dash when unknown). */
   resolveLocation: (attachment: PhotoAttachmentRead) => string;
-  /** Start (re)loading the names; called when the project-wide section opens. */
-  ensureLocations: () => void;
+  /** Start (re)loading the names for an aggregated section: the whole object, or one room's structure. */
+  ensureLocations: (roomId?: string) => void;
 }
 
 export const ProjectPhotosContext = createContext<ProjectPhotosValue | null>(null);
@@ -51,11 +53,13 @@ interface ProjectPhotosProviderProps {
 
 export function ProjectPhotosProvider({ projectId, backRegistry, children }: ProjectPhotosProviderProps) {
   const { t } = useI18n();
-  const { counts, refresh, adjust } = usePhotoCounts(projectId);
+  const { counts, refresh, adjust: adjustLocally } = usePhotoCounts(projectId);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [locations, setLocations] = useState<PhotoLocationData>(EMPTY_LOCATIONS);
-  const locationToken = useRef(0);
+  // Incremented when the object changes: an answer that belongs to the previous object is dropped.
+  const locationEpoch = useRef(0);
   const countsRef = useRef(counts);
+
   useEffect(() => {
     countsRef.current = counts;
   }, [counts]);
@@ -64,15 +68,25 @@ export function ProjectPhotosProvider({ projectId, backRegistry, children }: Pro
   useEffect(() => {
     setExpanded(new Set());
     setLocations(EMPTY_LOCATIONS);
-    locationToken.current += 1;
+    locationEpoch.current += 1;
   }, [projectId]);
+
+  // Every change of the numbers is corrected at once on screen and then confirmed by the server: a room's total spans
+  // its surfaces and openings, which a client-side correction cannot always attribute.
+  const adjust = useCallback(
+    (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string) => {
+      adjustLocally(context, targetId, delta, roomId);
+      void refresh();
+    },
+    [adjustLocally, refresh],
+  );
 
   // Upload completions of this object are counted HERE (not by a section): the upload continues after its section is
   // collapsed and several sections can be open at once, so a section-level count would be missed or doubled.
   useEffect(() => {
     if (!projectId) return;
     const offDone = subscribePhotoUploadDone((item) => {
-      if (item.target.projectId === projectId) adjust(item.target.context, targetIdOf(item.target), 1);
+      if (item.target.projectId === projectId) adjust(item.target.context, targetIdOf(item.target), 1, item.target.roomId);
     });
     const offRefetch = subscribePhotoUploadRefetch((what, item) => {
       if (what === 'parent' && item.target.projectId === projectId) void refresh();
@@ -98,13 +112,17 @@ export function ProjectPhotosProvider({ projectId, backRegistry, children }: Pro
     [expanded, refresh],
   );
 
-  const ensureLocations = useCallback(() => {
-    if (!projectId) return;
-    const token = ++locationToken.current;
-    void loadPhotoLocations(projectId, countsRef.current).then((data) => {
-      if (token === locationToken.current) setLocations(data);
-    });
-  }, [projectId]);
+  const ensureLocations = useCallback(
+    (roomId?: string) => {
+      if (!projectId) return;
+      const epoch = locationEpoch.current;
+      void loadPhotoLocations(projectId, countsRef.current, roomId).then((data) => {
+        // Several aggregated sections can be open: each load ADDS its names to what is known.
+        if (epoch === locationEpoch.current) setLocations((previous) => mergeLocations(previous, data));
+      });
+    },
+    [projectId],
+  );
 
   const labels = useMemo(
     () => ({

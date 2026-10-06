@@ -100,6 +100,8 @@ export interface PhotoCounts {
   rooms: Record<string, number>;
   surfaces: Record<string, number>;
   openings: Record<string, number>;
+  /** Photos per room INCLUDING those of its surfaces and their openings (what a room card shows). */
+  room_totals: Record<string, number>;
 }
 
 export interface PhotoListParams {
@@ -107,6 +109,8 @@ export interface PhotoListParams {
   roomId?: string;
   surfaceId?: string;
   openingId?: string;
+  /** Every photo of this room: the room itself, its surfaces and their openings (no other target filter). */
+  inRoomId?: string;
   category?: PhotoCategory;
   includeInReport?: boolean;
   archived?: boolean;

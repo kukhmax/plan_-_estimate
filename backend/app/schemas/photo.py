@@ -136,6 +136,8 @@ class PhotoCountsResponse(BaseModel):
     rooms: dict[uuid.UUID, int]
     surfaces: dict[uuid.UUID, int]
     openings: dict[uuid.UUID, int]
+    # Photos per room including its surfaces and their openings (Stage 14E.6); `rooms` stays the room's own photos.
+    room_totals: dict[uuid.UUID, int]
 
 
 class PhotoStorageStatus(BaseModel):

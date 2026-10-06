@@ -5,7 +5,7 @@ import { PhotoContext, PhotoCounts } from '../types/photo';
 // Badge counts for the open project (contract §9): one request per workspace load, optimistic adjustments after
 // upload / archive / restore, refetch on demand.
 
-export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {} };
+export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {} };
 
 /** Visible photos attached directly to a target. `targetId` is ignored for PROJECT. */
 export function photoCountFor(counts: PhotoCounts, context: PhotoContext, targetId?: string): number {
@@ -15,22 +15,46 @@ export function photoCountFor(counts: PhotoCounts, context: PhotoContext, target
   return bucket[targetId] ?? 0;
 }
 
+/** Every visible photo of a room: its own, those of its surfaces and of their openings (the room card's number). */
+export function roomPhotoTotal(counts: PhotoCounts, roomId: string): number {
+  return counts.room_totals?.[roomId] ?? 0;
+}
+
 /** Every visible attachment of the object (what the project-level list shows, C-3). */
 export function totalPhotoCount(counts: PhotoCounts): number {
   const sum = (bucket: Record<string, number>) => Object.values(bucket).reduce((total, value) => total + value, 0);
   return counts.project + sum(counts.rooms) + sum(counts.surfaces) + sum(counts.openings);
 }
 
-/** Pure counterpart of the optimistic update; never goes below zero and drops emptied targets. */
-export function adjustPhotoCounts(counts: PhotoCounts, context: PhotoContext, targetId: string | undefined, delta: number): PhotoCounts {
+function bump(bucket: Record<string, number>, id: string, delta: number): Record<string, number> {
+  const next = Math.max(0, (bucket[id] ?? 0) + delta);
+  const copy = { ...bucket };
+  if (next === 0) delete copy[id];
+  else copy[id] = next;
+  return copy;
+}
+
+/**
+ * Pure counterpart of the optimistic update; never goes below zero and drops emptied targets. `roomId` is the room a
+ * SURFACE / OPENING photo belongs to when the caller knows it: it keeps the room's total in step. Without it the room
+ * total is left alone (the host refetches the counts for the truth).
+ */
+export function adjustPhotoCounts(
+  counts: PhotoCounts,
+  context: PhotoContext,
+  targetId: string | undefined,
+  delta: number,
+  roomId?: string,
+): PhotoCounts {
   if (context === 'PROJECT') return { ...counts, project: Math.max(0, counts.project + delta) };
   if (!targetId) return counts;
   const key = context === 'ROOM' ? 'rooms' : context === 'SURFACE' ? 'surfaces' : 'openings';
-  const next = Math.max(0, (counts[key][targetId] ?? 0) + delta);
-  const bucket = { ...counts[key] };
-  if (next === 0) delete bucket[targetId];
-  else bucket[targetId] = next;
-  return { ...counts, [key]: bucket };
+  const owningRoom = context === 'ROOM' ? targetId : roomId;
+  return {
+    ...counts,
+    [key]: bump(counts[key], targetId, delta),
+    ...(owningRoom ? { room_totals: bump(counts.room_totals ?? {}, owningRoom, delta) } : {}),
+  };
 }
 
 export type PhotoCountsStatus = 'loading' | 'ready' | 'error';
@@ -39,7 +63,7 @@ export interface PhotoCountsView {
   counts: PhotoCounts;
   status: PhotoCountsStatus;
   refresh: () => Promise<void>;
-  adjust: (context: PhotoContext, targetId: string | undefined, delta: number) => void;
+  adjust: (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string) => void;
 }
 
 export function usePhotoCounts(projectId: string | null | undefined): PhotoCountsView {
@@ -70,8 +94,8 @@ export function usePhotoCounts(projectId: string | null | undefined): PhotoCount
     };
   }, [refresh]);
 
-  const adjust = useCallback((context: PhotoContext, targetId: string | undefined, delta: number) => {
-    setCounts((current) => adjustPhotoCounts(current, context, targetId, delta));
+  const adjust = useCallback((context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string) => {
+    setCounts((current) => adjustPhotoCounts(current, context, targetId, delta, roomId));
   }, []);
 
   return { counts, status, refresh, adjust };

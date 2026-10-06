@@ -1,0 +1,22 @@
+# LOCAL DEVELOPMENT ONLY — photo upload check against a separate DEV R2 bucket (Stage 14E.6, decision D-DEV).
+#
+# The base docker-compose.yml passes only a few variables to the backend, so the photo settings in the untracked `.env`
+# would never reach the container. This file adds them. It contains NO secrets: every value is read from `.env`
+# (docker compose substitutes `${NAME}` from the `.env` next to this file). Keep the real keys in `.env` only.
+#
+# Use:  docker compose -f docker-compose.yml -f docker-compose.photos-dev.yml up -d --build
+# Never use it for production (production has its own docker-compose.prod.yml and its own bucket / credentials), and never
+# point it at the production bucket: create a separate dev bucket with a token limited to that bucket.
+#
+# Safe defaults: with nothing set in `.env` the photo storage stays "disabled" and uploads stay OFF — the backend then
+# starts exactly as with the base file alone.
+services:
+  backend:
+    environment:
+      MEDIA_STORAGE_BACKEND: ${MEDIA_STORAGE_BACKEND:-disabled}
+      MEDIA_S3_ENDPOINT_URL: ${MEDIA_S3_ENDPOINT_URL:-}
+      MEDIA_S3_BUCKET: ${MEDIA_S3_BUCKET:-}
+      MEDIA_S3_REGION: ${MEDIA_S3_REGION:-auto}
+      MEDIA_S3_ACCESS_KEY_ID: ${MEDIA_S3_ACCESS_KEY_ID:-}
+      MEDIA_S3_SECRET_ACCESS_KEY: ${MEDIA_S3_SECRET_ACCESS_KEY:-}
+      PHOTO_UPLOADS_ENABLED: ${PHOTO_UPLOADS_ENABLED:-false}

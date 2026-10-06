@@ -3,7 +3,9 @@ import { useI18n } from '../hooks/useI18n';
 import { PhotoListItem } from '../types/photo';
 import { photoDayLabel } from '../utils/photoCaption';
 
-// Thumbnail grid with the caption line under every tile (owner clarification C-2). 2 columns at ≤ 340 px, 3 above;
+// Thumbnail grid with the caption line under every tile (owner clarification C-2). 2 columns up to 479 px, 3 from 480 px
+// (the grid sits inside a padded card and a padded section: 3 columns on a phone left ~85 px per tile, too narrow for the
+// caption line and the category badge — seen in the real-browser check of 14E.6);
 // fixed square cells so nothing jumps while images load; the order is the server's order (cursor pagination).
 
 /** Beyond this many items the project-wide list is grouped by day (C-3). */
@@ -62,7 +64,7 @@ export function PhotoThumbGrid({
               {group.label}
             </h4>
           )}
-          <ul className="grid grid-cols-2 gap-2 min-[341px]:grid-cols-3">
+          <ul className="grid grid-cols-2 gap-2 min-[480px]:grid-cols-3">
             {group.entries.map(({ item, index }) => {
               const caption = captionFor(item);
               const category = item.attachment.category;

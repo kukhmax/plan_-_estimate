@@ -28,6 +28,7 @@ function listQuery(params: PhotoListParams): string {
   if (params.roomId) query.set('room_id', params.roomId);
   if (params.surfaceId) query.set('surface_id', params.surfaceId);
   if (params.openingId) query.set('opening_id', params.openingId);
+  if (params.inRoomId) query.set('in_room_id', params.inRoomId);
   if (params.category) query.set('category', params.category);
   if (params.includeInReport !== undefined) query.set('include_in_report', String(params.includeInReport));
   if (params.archived !== undefined) query.set('archived', String(params.archived));

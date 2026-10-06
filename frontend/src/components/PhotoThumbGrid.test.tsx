@@ -52,9 +52,9 @@ describe('PhotoThumbGrid', () => {
     expect(onImageError).toHaveBeenCalledTimes(1);
   });
 
-  it('mobile grid: 2 columns up to 340 px, 3 above; square fixed cells; captions wrap', () => {
+  it('mobile grid: 2 columns on phones (up to 479 px), 3 from 480 px; square fixed cells; captions wrap', () => {
     const { container } = renderGrid([makeItem()]);
-    expect(container.querySelector('ul')).toHaveClass('grid', 'grid-cols-2', 'min-[341px]:grid-cols-3');
+    expect(container.querySelector('ul')).toHaveClass('grid', 'grid-cols-2', 'min-[480px]:grid-cols-3');
     const tile = screen.getByRole('button');
     expect(tile).toHaveClass('aspect-square', 'w-full', 'overflow-hidden');
     expect(screen.getByText('caption-' + tile.getAttribute('aria-label')!.split('-')[1])).toHaveClass('break-words');

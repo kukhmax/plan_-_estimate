@@ -36,8 +36,12 @@ function renderSection(over: Partial<SectionProps> = {}) {
   const onCountAdjust = vi.fn();
   const props: SectionProps = {
     projectId: PROJECT_ID,
-    context: 'ROOM',
-    targetId: ROOM_ID,
+    // The default section is a SURFACE's: the only kind that offers uploading (the object and a room list everything
+    // below them for viewing and editing).
+    context: 'SURFACE',
+    targetId: SURFACE_ID,
+    roomId: ROOM_ID,
+    allowUpload: true,
     locationLabel: 'Salon',
     onCountAdjust,
     ...over,
@@ -99,10 +103,10 @@ function uploadResult(item = makeItem()): PhotoUploadResponse {
 describe('PhotoSection — listing', () => {
   it.each([
     ['PROJECT', undefined, { archived: false, limit: 30 }],
-    ['ROOM', ROOM_ID, { context: 'ROOM', roomId: ROOM_ID, archived: false, limit: 30 }],
+    ['ROOM', ROOM_ID, { inRoomId: ROOM_ID, archived: false, limit: 30 }],
     ['SURFACE', SURFACE_ID, { context: 'SURFACE', surfaceId: SURFACE_ID, archived: false, limit: 30 }],
     ['OPENING', 'op1', { context: 'OPENING', openingId: 'op1', archived: false, limit: 30 }],
-  ] as const)('%s section asks the server for exactly its own photos (project-wide for PROJECT)', async (context, targetId, expected) => {
+  ] as const)('%s section asks the server for its photos (the object: all; a room: everything in it)', async (context, targetId, expected) => {
     renderSection({ context, targetId });
     await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(1));
     const [projectId, params] = vi.mocked(fetchPhotos).mock.calls[0];
@@ -130,6 +134,21 @@ describe('PhotoSection — listing', () => {
     });
     await screen.findByText(/^Salon → 23\.06\.2026/);
     expect(screen.getByText(/^Kuchnia → Ściana 2 → 23\.06\.2026/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ['the object', { context: 'PROJECT' as const, targetId: undefined }],
+    ['a room', { context: 'ROOM' as const, targetId: ROOM_ID }],
+  ])('%s list is grouped by day once it is long; a surface list never is', async (_name, props) => {
+    const many = Array.from({ length: 14 }, (_, i) => makeItem({ asset: { captured_at: `2026-06-${String(20 + (i % 3)).padStart(2, '0')}T10:00:00` } }));
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage(many));
+    const view = renderSection({ ...props, allowUpload: false, locationLabel: 'x' });
+    await within(view.container).findAllByTestId('photo-day-header');
+    view.unmount();
+
+    renderSection();
+    await screen.findAllByRole('listitem');
+    expect(screen.queryAllByTestId('photo-day-header')).toHaveLength(0);
   });
 
   it('shows the empty state, and a retryable localized error', async () => {
@@ -242,13 +261,19 @@ describe('PhotoSection — uploading', () => {
     await screen.findByRole('button', { name: 'Zrób zdjęcie' });
     await act(async () => pickCamera([file('c.jpg')]));
     expect(uploadPhoto).toHaveBeenCalledTimes(1);
-    expect(uploads[0].params).toMatchObject({ projectId: PROJECT_ID, context: 'ROOM', roomId: ROOM_ID, source: 'CAMERA' });
+    expect(uploads[0].params).toMatchObject({
+      projectId: PROJECT_ID,
+      context: 'SURFACE',
+      surfaceId: SURFACE_ID,
+      roomId: ROOM_ID, // not sent to the server for a surface: it lets the host keep the room's total in step
+      source: 'CAMERA',
+    });
     expect(screen.getByRole('list', { name: 'Wysyłanie zdjęć' })).toBeInTheDocument();
     expect(screen.getByText('c.jpg')).toBeInTheDocument();
   });
 
   it('gallery pick queues several files, one upload at a time, source GALLERY', async () => {
-    renderSection({ context: 'SURFACE', targetId: SURFACE_ID });
+    renderSection();
     await screen.findByRole('button', { name: 'Z galerii' });
     await act(async () => pickGallery([file('1.jpg'), file('2.jpg'), file('3.jpg')]));
     expect(uploadPhoto).toHaveBeenCalledTimes(1);
@@ -256,12 +281,24 @@ describe('PhotoSection — uploading', () => {
     expect(screen.getByText('3.jpg')).toBeInTheDocument();
   });
 
-  it('a project section uploads with the PROJECT context and no target id', async () => {
-    renderSection({ context: 'PROJECT', targetId: undefined, locationLabel: 'Obiekt' });
-    await screen.findByRole('button', { name: 'Zrób zdjęcie' });
-    await act(async () => pickCamera([file()]));
-    expect(uploads[0].params).toMatchObject({ context: 'PROJECT' });
-    expect(uploads[0].params.roomId).toBeUndefined();
+  it.each([
+    ['the object', { context: 'PROJECT' as const, targetId: undefined, roomId: undefined }],
+    ['a room', { context: 'ROOM' as const, targetId: ROOM_ID, roomId: undefined }],
+  ])('%s list is for viewing and editing only: no picker, no upload notes (photos are added on surfaces)', async (_name, props) => {
+    renderSection({ ...props, allowUpload: false, locationLabel: 'x' });
+    await screen.findByText('Brak zdjęć. Dodaj je w karcie ściany, podłogi lub sufitu.');
+    expect(screen.queryByRole('button', { name: 'Zrób zdjęcie' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Z galerii' })).toBeNull();
+    expect(screen.queryByTestId('photo-input-camera')).toBeNull();
+  });
+
+  it('an aggregated list stays free of upload notices even when the server has uploads off or storage full', async () => {
+    vi.mocked(fetchPhotoStorage).mockResolvedValue(storageStatus({ uploads_enabled: false, state: 'FULL' }));
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([makeItem()]));
+    renderSection({ context: 'PROJECT', targetId: undefined, allowUpload: false, locationLabel: 'x' });
+    await screen.findByRole('list');
+    expect(screen.queryByText(/wyłączone/)).toBeNull();
+    expect(screen.queryByText(/Limit miejsca/)).toBeNull();
   });
 
   it('when an upload finishes the grid is refreshed and the transient row disappears', async () => {
@@ -296,26 +333,89 @@ describe('PhotoSection — uploading', () => {
     expect(screen.getByRole('button', { name: 'Zamknij' })).toBeInTheDocument();
   });
 
-  it('a room section ignores uploads of another room; the project-wide list refreshes for any', async () => {
-    const roomView = renderSection({ targetId: ROOM_ID });
-    const projectView = render(
-      <I18nProvider>
-        <PhotoSection projectId={PROJECT_ID} context="PROJECT" locationLabel="Obiekt" />
-      </I18nProvider>,
-    );
-    await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(2));
-    await within(projectView.container).findByRole('button', { name: 'Z galerii' });
+  describe('which sections refresh when an upload finishes', () => {
+    async function startUpload(target: Parameters<ReturnType<(typeof import('../hooks/usePhotoUploadQueue'))['getPhotoUploadQueue']>['enqueue']>[1]) {
+      const { getPhotoUploadQueue } = await import('../hooks/usePhotoUploadQueue');
+      await act(async () => {
+        getPhotoUploadQueue().enqueue([file('o.jpg')], target, 'GALLERY');
+      });
+    }
 
-    // an upload started for ANOTHER room (not shown by the first section)
-    const { getPhotoUploadQueue } = await import('../hooks/usePhotoUploadQueue');
-    await act(async () => {
-      getPhotoUploadQueue().enqueue([file('o.jpg')], { projectId: PROJECT_ID, context: 'ROOM', roomId: 'other-room' }, 'GALLERY');
+    it('the surface itself, every aggregated list that contains it — and nothing else', async () => {
+      const surfaceView = renderSection();
+      const roomView = render(
+        <I18nProvider>
+          <PhotoSection projectId={PROJECT_ID} context="ROOM" targetId={ROOM_ID} locationLabel="x" />
+        </I18nProvider>,
+      );
+      const otherRoomView = render(
+        <I18nProvider>
+          <PhotoSection projectId={PROJECT_ID} context="ROOM" targetId="other-room" locationLabel="x" />
+        </I18nProvider>,
+      );
+      const projectView = render(
+        <I18nProvider>
+          <PhotoSection projectId={PROJECT_ID} context="PROJECT" locationLabel="x" />
+        </I18nProvider>,
+      );
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(4));
+      await within(surfaceView.container).findByRole('button', { name: 'Z galerii' });
+
+      await startUpload({ projectId: PROJECT_ID, context: 'SURFACE', surfaceId: SURFACE_ID, roomId: ROOM_ID });
+      vi.mocked(fetchPhotos).mockClear();
+      await act(async () => uploads[0].resolve(uploadResult(makeItem())));
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(3)); // surface + its room + the object
+      const reloaded = vi.mocked(fetchPhotos).mock.calls.map((call) => JSON.stringify(call[1]));
+      expect(reloaded.some((p) => p.includes(SURFACE_ID))).toBe(true);
+      expect(reloaded.some((p) => p.includes(`"inRoomId":"${ROOM_ID}"`))).toBe(true);
+      expect(reloaded.some((p) => p.includes('other-room'))).toBe(false);
+      for (const view of [surfaceView, roomView, otherRoomView, projectView]) view.unmount();
     });
-    vi.mocked(fetchPhotos).mockClear();
-    await act(async () => uploads[0].resolve(uploadResult(makeItem())));
-    await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(1)); // only the project-wide list
-    expect(lastListParams()?.context).toBeUndefined();
-    roomView.unmount();
+
+    it('an upload of another surface does not refresh this surface', async () => {
+      renderSection();
+      await screen.findByRole('button', { name: 'Z galerii' });
+      await startUpload({ projectId: PROJECT_ID, context: 'SURFACE', surfaceId: 'another-surface', roomId: ROOM_ID });
+      vi.mocked(fetchPhotos).mockClear();
+      await act(async () => uploads[0].resolve(uploadResult(makeItem())));
+      await act(async () => undefined);
+      expect(fetchPhotos).not.toHaveBeenCalled();
+    });
+
+    it('the queue rows are shown by the surface section only, not by the lists that contain it', async () => {
+      const surfaceView = renderSection();
+      const roomView = render(
+        <I18nProvider>
+          <PhotoSection projectId={PROJECT_ID} context="ROOM" targetId={ROOM_ID} locationLabel="x" />
+        </I18nProvider>,
+      );
+      const projectView = render(
+        <I18nProvider>
+          <PhotoSection projectId={PROJECT_ID} context="PROJECT" locationLabel="x" />
+        </I18nProvider>,
+      );
+      await within(surfaceView.container).findByRole('button', { name: 'Z galerii' });
+      await startUpload({ projectId: PROJECT_ID, context: 'SURFACE', surfaceId: SURFACE_ID, roomId: ROOM_ID });
+      expect(within(surfaceView.container).getByRole('list', { name: 'Wysyłanie zdjęć' })).toBeInTheDocument();
+      expect(within(roomView.container).queryByRole('list', { name: 'Wysyłanie zdjęć' })).toBeNull();
+      expect(within(projectView.container).queryByRole('list', { name: 'Wysyłanie zdjęć' })).toBeNull();
+      for (const view of [surfaceView, roomView, projectView]) view.unmount();
+    });
+
+    it('an aggregated list reloads on a finished upload but leaves the queue row to the surface section', async () => {
+      const roomView = render(
+        <I18nProvider>
+          <PhotoSection projectId={PROJECT_ID} context="ROOM" targetId={ROOM_ID} locationLabel="x" />
+        </I18nProvider>,
+      );
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(1));
+      const { getPhotoUploadQueue } = await import('../hooks/usePhotoUploadQueue');
+      await startUpload({ projectId: PROJECT_ID, context: 'SURFACE', surfaceId: SURFACE_ID, roomId: ROOM_ID });
+      await act(async () => uploads[0].resolve(uploadResult(makeItem())));
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(2));
+      expect(getPhotoUploadQueue().getItems()[0].state).toBe('done'); // not dismissed by the aggregated list
+      roomView.unmount();
+    });
   });
 });
 
@@ -355,7 +455,12 @@ describe('PhotoSection — options (archive view, category filter)', () => {
     await waitFor(() => expect(lastListParams()?.category).toBeUndefined());
   });
 
-  it('room sections have no category chips', async () => {
+  it('a room list (everything in the room) has the category chips too; a surface section has none', async () => {
+    const room = renderSection({ context: 'ROOM', targetId: ROOM_ID, allowUpload: false, locationLabel: 'x' });
+    fireEvent.click(await within(room.container).findByRole('button', { name: 'Opcje zdjęć' }));
+    expect(within(room.container).getByRole('group', { name: 'Kategoria' })).toBeInTheDocument();
+    room.unmount();
+
     renderSection();
     fireEvent.click(await screen.findByRole('button', { name: 'Opcje zdjęć' }));
     expect(screen.queryByRole('group', { name: 'Kategoria' })).toBeNull();
@@ -374,6 +479,14 @@ describe('PhotoSection — viewer integration', () => {
     return { items, ...view };
   }
 
+  it('renders the viewer at the top level of the page, outside the card (no inherited spacing, stacking or clipping)', async () => {
+    const { container } = await openFirst();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.parentElement).toBe(document.body);
+    expect(container.contains(dialog)).toBe(false);
+    expect(dialog).toHaveClass('fixed', 'inset-0');
+  });
+
   it('opens the viewer on a tapped tile and closes it back to the grid', async () => {
     await openFirst();
     fireEvent.click(screen.getByRole('button', { name: 'Zamknij' }));
@@ -386,7 +499,7 @@ describe('PhotoSection — viewer integration', () => {
     vi.mocked(archivePhotoAttachment).mockResolvedValue({ ...items[0].attachment, archived_at: '2026-06-23T12:00:00Z' });
     fireEvent.click(screen.getByRole('button', { name: 'Archiwizuj' }));
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archiwizuj' }));
-    await waitFor(() => expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, -1));
+    await waitFor(() => expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, -1, ROOM_ID));
     await waitFor(() => expect(screen.getByText('1 / 1')).toBeInTheDocument());
   });
 
@@ -396,7 +509,7 @@ describe('PhotoSection — viewer integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Archiwizuj' }));
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archiwizuj' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, -1);
+    expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, -1, ROOM_ID);
     expect(await screen.findByText('Brak zdjęć.')).toBeInTheDocument();
   });
 
@@ -412,7 +525,7 @@ describe('PhotoSection — viewer integration', () => {
     await screen.findByRole('dialog');
     vi.mocked(restorePhotoAttachment).mockResolvedValue({ ...archivedItem.attachment, archived_at: null });
     fireEvent.click(await screen.findByRole('button', { name: 'Przywróć' }));
-    await waitFor(() => expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, 1));
+    await waitFor(() => expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, 1, ROOM_ID));
   });
 
   it('a category change in the viewer shows on the tile at once', async () => {

@@ -5,6 +5,7 @@ import {
   EMPTY_PHOTO_COUNTS,
   adjustPhotoCounts,
   photoCountFor,
+  roomPhotoTotal,
   totalPhotoCount,
   usePhotoCounts,
 } from './usePhotoCounts';
@@ -12,7 +13,13 @@ import {
 vi.mock('../api/photos', () => ({ fetchPhotoCounts: vi.fn() }));
 import { fetchPhotoCounts } from '../api/photos';
 
-const counts: PhotoCounts = { project: 2, rooms: { r1: 3 }, surfaces: { s1: 1, s2: 4 }, openings: { o1: 1 } };
+const counts: PhotoCounts = {
+  project: 2,
+  rooms: { r1: 3 },
+  surfaces: { s1: 1, s2: 4 },
+  openings: { o1: 1 },
+  room_totals: { r1: 3 + 1 + 4 + 1 },
+};
 
 describe('photo count helpers', () => {
   it('reads the count of a target per context and zero when absent', () => {
@@ -22,6 +29,23 @@ describe('photo count helpers', () => {
     expect(photoCountFor(counts, 'OPENING', 'o1')).toBe(1);
     expect(photoCountFor(counts, 'ROOM', 'missing')).toBe(0);
     expect(photoCountFor(counts, 'ROOM')).toBe(0);
+  });
+
+  it('a room total spans its surfaces and openings and is zero for an unknown room', () => {
+    expect(roomPhotoTotal(counts, 'r1')).toBe(9);
+    expect(roomPhotoTotal(counts, 'nope')).toBe(0);
+    expect(roomPhotoTotal({ ...counts, room_totals: undefined } as unknown as PhotoCounts, 'r1')).toBe(0);
+  });
+
+  it('keeps a room total in step when the owning room is known', () => {
+    const afterSurface = adjustPhotoCounts(counts, 'SURFACE', 's1', 1, 'r1');
+    expect(afterSurface.surfaces.s1).toBe(2);
+    expect(afterSurface.room_totals.r1).toBe(10);
+    expect(adjustPhotoCounts(counts, 'OPENING', 'o1', -1, 'r1').room_totals.r1).toBe(8);
+    expect(adjustPhotoCounts(counts, 'ROOM', 'r1', 1).room_totals.r1).toBe(10); // a room photo knows its room by itself
+    // unknown room: only the leaf moves, the host refetches for the truth
+    expect(adjustPhotoCounts(counts, 'SURFACE', 's1', 1).room_totals).toEqual(counts.room_totals);
+    expect(adjustPhotoCounts(counts, 'SURFACE', 's1', -99, 'r1').room_totals.r1).toBeUndefined();
   });
 
   it('totals every visible attachment of the object (the project-wide list, C-3)', () => {

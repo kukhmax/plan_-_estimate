@@ -31,8 +31,8 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import ClientDisconnect
 
-from app.api.deps import PhotoRuntime, get_current_user, get_photo_runtime
 from app.api import upload_guard
+from app.api.deps import PhotoRuntime, get_current_user, get_photo_runtime
 from app.api.upload_guard import (
     RequestBodyIdleTimeoutError,
     RequestBodyTooLargeError,
@@ -71,8 +71,16 @@ from app.domain.exceptions import (
 from app.domain.photos.temp import photo_workspace
 from app.domain.services.media_storage import MediaStorage
 from app.domain.services.photo_asset_service import PhotoAssetService
-from app.domain.services.photo_attachment_service import AttachmentTarget, PhotoAttachmentService
-from app.domain.services.photo_query_service import DEFAULT_LIMIT, MAX_LIMIT, PhotoListFilters, PhotoQueryService
+from app.domain.services.photo_attachment_service import (
+    AttachmentTarget,
+    PhotoAttachmentService,
+)
+from app.domain.services.photo_query_service import (
+    DEFAULT_LIMIT,
+    MAX_LIMIT,
+    PhotoListFilters,
+    PhotoQueryService,
+)
 from app.domain.services.photo_quota import logical_usage_bytes, storage_state
 from app.domain.services.photo_upload_service import (
     PhotoUploadConfig,
@@ -471,6 +479,10 @@ async def list_photos(
     room_id: uuid.UUID | None = Query(default=None),
     surface_id: uuid.UUID | None = Query(default=None),
     opening_id: uuid.UUID | None = Query(default=None),
+    in_room_id: uuid.UUID | None = Query(
+        default=None,
+        description="every photo of this room: the room itself, its surfaces and their openings (no other target filter)",
+    ),
     category: PhotoCategory | None = Query(default=None),
     include_in_report: bool | None = Query(default=None),
     archived: bool = Query(default=False, description="false: normal view; true: archive view (restorable items)"),
@@ -482,7 +494,7 @@ async def list_photos(
 ) -> PhotoListResponse:
     filters = PhotoListFilters(
         context=context, room_id=room_id, surface_id=surface_id, opening_id=opening_id,
-        category=category, include_in_report=include_in_report, archived=archived,
+        category=category, include_in_report=include_in_report, archived=archived, in_room_id=in_room_id,
     )
     try:
         page = await PhotoQueryService(db).list_photos(
@@ -521,7 +533,8 @@ async def photo_counts(
     except _LIBRARY_ERRORS as exc:
         raise _map_library_error(exc) from None
     return PhotoCountsResponse(
-        project=counts.project, rooms=counts.rooms, surfaces=counts.surfaces, openings=counts.openings
+        project=counts.project, rooms=counts.rooms, surfaces=counts.surfaces, openings=counts.openings,
+        room_totals=counts.room_totals,
     )
 
 

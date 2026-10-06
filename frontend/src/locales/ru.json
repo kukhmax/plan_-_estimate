@@ -1521,7 +1521,9 @@
       "thumb_unavailable": "Нет превью",
       "media_unavailable_note": "Просмотр фото временно недоступен.",
       "options_toggle": "Опции фото",
-      "project_title": "Фото объекта"
+      "project_title": "Фото объекта",
+      "empty_aggregated": "Фото пока нет. Добавьте их в карточке стены, пола или потолка.",
+      "room_title": "Фото помещения"
     },
     "picker": {
       "take_photo": "Сделать фото",
