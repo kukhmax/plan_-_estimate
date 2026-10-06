@@ -1,4 +1,4 @@
-# Stage 14D.6 — First production backup run: runbook (EXECUTED 2026-10-05 / 2026-10-06 — P0–P8 PASS; awaiting the owner's acceptance)
+# Stage 14D.6 — First production backup run: runbook (EXECUTED 2026-10-05 / 2026-10-06 — P0–P8 PASS; OWNER ACCEPTED 2026-10-06)
 
 > **Status:** written in 14D.6A together with the tooling it needs (`verify` command, uploader image, `backup-upload`
 > Compose service; plan §16.19). **Executed in full on 2026-10-05 / 2026-10-06: P0–P8 PASS (results recorded per phase below; closure in §7).**
@@ -239,6 +239,13 @@ workstation; the 42 objects in `plan-estimate-backup-drill` (administrator only,
 (stale archive), `~/apps/plan_-_estimate-14d6-6e3de1a`, logs `~/p1b*.log`, `~/p4-build.log`, and the older plaintext dumps in `~/backups/plan-estimate`. (d) **There is no
 schedule:** the backup is as fresh as its last manual run — automation, retention and lifecycle of the production bucket are decisions for a later step, not part of
 14D.6. (e) Production photo uploads remain OFF; enabling them (Stage 14E) needs the owner's approval and a fresh backup run first.
+
+**Clean-up executed 2026-10-06 (after the owner's acceptance).** Cloudflare: the drill R2 tokens were deleted by the owner (the production read-only token
+`plan-estimate-backup-media-read-prod` stays). Workstation: `~/backups/plan-estimate/drill-secrets/` (`age-drill.key`, `r2-drill-restore.env`, `r2-drill-source.env`)
+`shred`-ed and removed. VM: the two archive directories `~/apps/plan_-_estimate-14d6` and `~/apps/plan_-_estimate-14d6-6e3de1a` and the logs `~/p1b.log`,
+`~/p1b2.log`, `~/p1b3.log`, `~/p4-build.log` removed; the production checkout (`68a06d5`, clean), the production backup and the four production containers untouched.
+Still open: the older plaintext dumps and pre-migration backups in `~/backups/plan-estimate` on the VM (owner's decision: encrypt for recipients A and B, delete, or
+keep), the 42 objects of `plan-estimate-backup-drill` (administrator only), and the drill-secrets directory on the VM (to be listed first).
 
 **Lessons recorded.** Never build images from the production checkout (file modes — build from a `git archive` directory); `read` inside `bash <<'EOF'` consumes the
 script (use `< /dev/tty`); a pasted multi-line `docker run` needs line continuations or an array; do not reuse paths of cleaned-up drill state; Compose against the

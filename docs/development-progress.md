@@ -1127,7 +1127,7 @@ needs no contact with production. No Alembic change, no change to the web image,
   production backup is published, verified by two independent readers, restored on the workstation and equal to production; uploads remain OFF. Open items (drill leftovers, VM clean-up,
   no schedule yet) are listed in the runbook §7.
 - **14D.6B — done (see the entries above):** phases P0–P8 of the runbook were run one at a time with the owner's explicit approval; the first write to production was the backup
-  role in PostgreSQL (P2), the first permanent write the first object in `plan-estimate-backup-prod` (P5). Pending: the owner's acceptance of 14D.6.
+  role in PostgreSQL (P2), the first permanent write the first object in `plan-estimate-backup-prod` (P5). The owner accepted 14D.6 on 2026-10-06.
 
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
@@ -1304,7 +1304,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | PROVISIONING COMPLETE 2026-10-04 (OCI steps 1–7; age custody A + B verified from paper; R2 EU drill buckets; tokens / restore user deliberately deferred to 14D.4–14D.6); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | EXECUTED 2026-10-04 — all PASS (R2 drill tokens 12/12 ×2; IMDS guard live: only `pe-upload` reaches IMDS; OCI uploader smoke 16/16 + O4 negative exit 3; restore principal 12/12); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |
-| └ 14D.6 | First production non-destructive backup run + runbook final | 14D.6A tooling committed 2026-10-05; 14D.6B P0–P8 EXECUTED 2026-10-05/06 — all PASS (first production backup published, verified by two readers, restored and compared with production); AWAITING OWNER ACCEPTANCE |
+| └ 14D.6 | First production non-destructive backup run + runbook final | 14D.6A tooling committed 2026-10-05; 14D.6B P0–P8 EXECUTED 2026-10-05/06 — all PASS (first production backup published, verified by two readers, restored and compared with production); OWNER ACCEPTED 2026-10-06 |
 | └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
