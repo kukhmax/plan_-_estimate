@@ -328,3 +328,5 @@ single-lane queue is slower than parallel (accepted: predictable, protects the 1
 
 **Accepted by the owner on 2026-10-06** ("принимаю 14E.1 по рекомендациям, но есть уточнения": corner button C-1, caption line C-2, project-wide list C-3 — §3a). Decisions D1–D9 and D12 accepted as recommended; D-DEV = option 1 (a separate dev R2 bucket and token created by the owner); **D11 = A decided 2026-10-06; open: D10**. Approving 14E.1 meant: the scope (§1), the UX model (§3), the transport / queue rules (§5), the error mapping (§6), the counts endpoint (§9) and
 the decisions D1–D10 (with the recommended defaults unless the owner changes them). Next sub-stage: **14E.2** (backend: counts endpoint and, per D11, the capture-source column) — started after the owner answered D11 = A (implemented 2026-10-06, see `docs/development-progress.md`).
+
+**14E.6 accepted by the owner on 2026-10-06** ("принимаю 14E.6") after the browser check, with the model change recorded above the §9 notes (photos are added only on surfaces; the object and the rooms are view / edit lists). Next: **14E.7** — only on the owner's explicit go-ahead and after D10.

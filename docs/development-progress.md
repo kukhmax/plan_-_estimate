@@ -1142,7 +1142,7 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
-### Stage 14E.6 — full verification and the owner's browser check (2026-10-06, VERIFIED AUTOMATICALLY — awaiting the owner's browser check and acceptance, NOT COMMITTED)
+### Stage 14E.6 — full verification and the owner's browser check (2026-10-06, ACCEPTED by the owner 2026-10-06, committed `9cbb065`)
 
 Verification stage: fixes only for what verification found; production photo uploads stay **OFF**; nothing is deployed. Owner instructions: `docs/STAGE_14E6_OWNER_BROWSER_CHECK_RU.md` (dev R2 bucket per D-DEV, native local run, 15-point checklist).
 
@@ -1174,7 +1174,8 @@ Verification stage: fixes only for what verification found; production photo upl
 - **Local Docker variant for the owner's check:** `docker-compose.photos-dev.yml` (dev-only override, no secrets — it forwards the `MEDIA_S3_*` / `PHOTO_UPLOADS_ENABLED` values from the untracked `.env` to the backend container, with safe defaults `disabled` / `false`)
   and section 3b of the owner instructions. The base dev compose does not pass these variables, so without the override the photo settings never reach the container. Docker is not run by the assistant (`CLAUDE.md` rule); the file was validated by
   a YAML parse and by loading the backend settings with the values it produces for four scenarios (defaults, full S3, uploads without S3 = rejected as designed, empty backend string = would crash without the `disabled` default).
-- **Deferred:** the owner's browser check and acceptance (this stage's gate); deployment with uploads OFF and the controlled enablement (14E.7); D10 backup cadence.
+- **Owner acceptance (2026-10-06):** "принимаю 14E.6" after re-checking the build with the new model locally.
+- **Deferred:** deployment with uploads OFF and the controlled enablement (14E.7); D10 backup cadence; the clipped RU labels of the room action row at 320 px (not photo-related; the owner decides whether to fix them separately).
 
 ### Stage 14E.5 — photo entry points wired into the cards (2026-10-06, ACCEPTED, committed `85d07af`)
 
@@ -1476,7 +1477,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | EXECUTED 2026-10-05 — steps 1–6 of plan §11 PASS (run `20261005T052617Z-66a27f56`; 14D.5B), cleanup J1–J4 PASS, OWNER SIGN-OFF 2026-10-05 |
 | └ 14D.6 | First production non-destructive backup run + runbook final | 14D.6A tooling committed 2026-10-05; 14D.6B P0–P8 EXECUTED 2026-10-05/06 — all PASS (first production backup published, verified by two readers, restored and compared with production); OWNER ACCEPTED 2026-10-06 |
 | └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | COMPLETE / OWNER SIGNED OFF 2026-10-06 (plan §17.1; runbook §72 finalized) |
-| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; D11 = A decided; 14E.2 backend (counts endpoint + `capture_source`, migration `0033`) COMMITTED and pushed (`396fd90`); 14E.3 frontend foundation COMMITTED and pushed (`0dd6f39`); 14E.4 components COMMITTED and pushed (`f23f5e6`); 14E.5 wiring into the cards COMMITTED and pushed (`85d07af`); 14E.6 verification done automatically and reworked after the owner's first browser check (photos are added only on surfaces; object and rooms are view / edit lists; backend `room_totals` + `in_room_id`; backend 4077, frontend 1640, real-Chromium matrix 168 views), awaiting the owner's re-check — `docs/STAGE_14E6_OWNER_BROWSER_CHECK_RU.md`; open: D10 backup cadence) |
+| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; D11 = A decided; 14E.2 backend (counts endpoint + `capture_source`, migration `0033`) COMMITTED and pushed (`396fd90`); 14E.3 frontend foundation COMMITTED and pushed (`0dd6f39`); 14E.4 components COMMITTED and pushed (`f23f5e6`); 14E.5 wiring into the cards COMMITTED and pushed (`85d07af`); 14E.6 verification and the owner's browser check ACCEPTED 2026-10-06 (`9cbb065`: photos are added only on surfaces; object and rooms are view / edit lists; backend `room_totals` + `in_room_id`; backend 4077, frontend 1640, real-Chromium matrix 168 views); next: 14E.7 (deployment with uploads OFF, then the controlled enablement) — starts only on the owner's explicit go-ahead, D10 (backup cadence) must be decided first — `docs/STAGE_14E6_OWNER_BROWSER_CHECK_RU.md`; open: D10 backup cadence) |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
 | 14G | POINT annotations (API + editor) | NOT STARTED |
 | 14H | WORK execution photos in Realizacja | NOT STARTED |
