@@ -197,7 +197,7 @@ viewer refetches the detail when its URLs are older than `urls_expire_at − 30 
 - *Done rows:* a finished upload row stays until the grid refetch has put the photo into the list, then it disappears; a refetch failure leaves the row with a Dismiss button.
 - *Back chain:* the viewer registers through `usePhotoBackRegistration`; the workspace must provide a **stable** registry (memoized) — registration is, in any case, independent of the provider's object identity. A pending caption is saved before the viewer
   closes on Back; a failed save keeps it open.
-- *Capture source:* the camera button declares `CAMERA`, the gallery button `GALLERY` (informational, never proof).
+- *Capture source:* the gallery button declares `GALLERY`; the camera button declares `CAMERA` **only when the picked file was modified within 5 minutes of now** (a photo taken a moment ago), otherwise `GALLERY` (informational, never proof). Reason (14E.7, real phone): Telegram on Android ignores `capture` and opens its gallery picker, so the button cannot promise a camera photo (`looksFreshlyTaken` in `PhotoPicker.tsx`). A real in-app camera (`getUserMedia`) is a separate follow-up (spike first).
 
 ## 8. Back navigation (Telegram BackButton)
 

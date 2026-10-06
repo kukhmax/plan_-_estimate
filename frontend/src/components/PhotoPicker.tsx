@@ -8,6 +8,16 @@ import { CameraIcon, GalleryIcon } from './PhotoIcons';
 
 export const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp';
 
+// Some hosts ignore `capture` — Telegram on Android opens its gallery picker instead of the camera (found on a real
+// phone in 14E.7) — so the camera button cannot promise a camera photo. The declared source therefore follows the
+// file: a camera-button file counts as CAMERA only when it was modified within this window of "now" (a photo taken
+// a moment ago); anything older is declared GALLERY. Still informational, never proof.
+export const CAMERA_FRESH_WINDOW_MS = 5 * 60 * 1000;
+
+export function looksFreshlyTaken(file: File, now: number = Date.now()): boolean {
+  return file.lastModified > 0 && Math.abs(now - file.lastModified) <= CAMERA_FRESH_WINDOW_MS;
+}
+
 interface PhotoPickerProps {
   onFiles: (files: File[], source: PhotoCaptureSource) => void;
   disabled?: boolean;
@@ -21,7 +31,10 @@ export function PhotoPicker({ onFiles, disabled = false }: PhotoPickerProps) {
   const handle = (source: PhotoCaptureSource) => (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = ''; // the same file can be picked again
-    if (files.length > 0) onFiles(files, source);
+    if (files.length === 0) return;
+    const declared: PhotoCaptureSource =
+      source === 'CAMERA' && !files.every((file) => looksFreshlyTaken(file)) ? 'GALLERY' : source;
+    onFiles(files, declared);
   };
 
   const buttonBase =

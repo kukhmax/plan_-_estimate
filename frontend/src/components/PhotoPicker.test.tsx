@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../hooks/useI18n';
-import { PHOTO_ACCEPT, PhotoPicker } from './PhotoPicker';
+import { CAMERA_FRESH_WINDOW_MS, PHOTO_ACCEPT, PhotoPicker, looksFreshlyTaken } from './PhotoPicker';
 
 function renderPicker(onFiles = vi.fn(), disabled = false) {
   const view = render(
@@ -14,7 +14,8 @@ function renderPicker(onFiles = vi.fn(), disabled = false) {
 
 const camera = () => screen.getByTestId('photo-input-camera') as HTMLInputElement;
 const gallery = () => screen.getByTestId('photo-input-gallery') as HTMLInputElement;
-const file = (name: string) => new File(['x'], name, { type: 'image/jpeg' });
+const file = (name: string, lastModified: number = Date.now()) =>
+  new File(['x'], name, { type: 'image/jpeg', lastModified });
 
 describe('PhotoPicker', () => {
   beforeEach(() => localStorage.clear());
@@ -64,6 +65,41 @@ describe('PhotoPicker', () => {
       'GALLERY',
     );
     expect(camera().value).toBe('');
+  });
+
+  describe('declared source of the camera button (hosts that ignore `capture`)', () => {
+    it('a file taken a moment ago stays CAMERA', () => {
+      const { onFiles } = renderPicker();
+      fireEvent.change(camera(), { target: { files: [file('new.jpg', Date.now() - 30_000)] } });
+      expect(onFiles).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'new.jpg' })], 'CAMERA');
+    });
+
+    it('an old file chosen through the camera button is declared GALLERY', () => {
+      const { onFiles } = renderPicker();
+      fireEvent.change(camera(), { target: { files: [file('old.jpg', Date.now() - 3_600_000)] } });
+      expect(onFiles).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'old.jpg' })], 'GALLERY');
+    });
+
+    it('a file without a modification time is declared GALLERY', () => {
+      const { onFiles } = renderPicker();
+      fireEvent.change(camera(), { target: { files: [file('nots.jpg', 0)] } });
+      expect(onFiles).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'nots.jpg' })], 'GALLERY');
+    });
+
+    it('the gallery button is always GALLERY, even for a fresh file', () => {
+      const { onFiles } = renderPicker();
+      fireEvent.change(gallery(), { target: { files: [file('fresh.jpg', Date.now())] } });
+      expect(onFiles).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'fresh.jpg' })], 'GALLERY');
+    });
+
+    it('the window is five minutes and tolerates a small clock skew either way', () => {
+      expect(CAMERA_FRESH_WINDOW_MS).toBe(300_000);
+      const now = 1_000_000_000_000;
+      expect(looksFreshlyTaken(file('a.jpg', now - 299_000), now)).toBe(true);
+      expect(looksFreshlyTaken(file('b.jpg', now + 60_000), now)).toBe(true);
+      expect(looksFreshlyTaken(file('c.jpg', now - 301_000), now)).toBe(false);
+      expect(looksFreshlyTaken(file('d.jpg', now + 301_000), now)).toBe(false);
+    });
   });
 
   it('clears the input after a pick so the same photo can be chosen again', () => {
