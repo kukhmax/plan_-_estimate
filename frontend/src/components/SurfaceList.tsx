@@ -723,6 +723,9 @@ export function SurfaceList({
                       </span>
                     )}
                   </div>
+                  {/* Stage 14E.7: the compact photo button sits in the header, left of Opcje (no row of its own);
+                      nothing without a project context. */}
+                  <PhotoCardButton context="SURFACE" targetId={surface.id} />
                   {/* Progressive disclosure: Opcje reveals the card's action grid. */}
                   <button
                     type="button"
@@ -737,8 +740,6 @@ export function SurfaceList({
                   </button>
                 </div>
 
-                {/* Stage 14E.5: photo button on the line under Opcje, right-aligned (C-1); nothing without a project context. */}
-                <PhotoCardButton context="SURFACE" targetId={surface.id} rowClassName="flex justify-end" />
                 <PhotoCardPanel context="SURFACE" targetId={surface.id} roomId={roomId} locationSegments={[roomName, displayName]} />
 
                 {hasDimensions && (

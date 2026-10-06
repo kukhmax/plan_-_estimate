@@ -17,12 +17,7 @@ interface PhotoCardTarget {
   targetId?: string;
 }
 
-interface PhotoCardButtonProps extends PhotoCardTarget {
-  /** Puts the button on a row of its own (e.g. `flex justify-end` under a card header); no row without a provider. */
-  rowClassName?: string;
-}
-
-export function PhotoCardButton({ context, targetId, rowClassName }: PhotoCardButtonProps) {
+export function PhotoCardButton({ context, targetId }: PhotoCardTarget) {
   const photos = useProjectPhotos();
   if (!photos) return null;
   // The object's button shows every photo of the object, a room's button every photo of the room (its surfaces and
@@ -34,8 +29,7 @@ export function PhotoCardButton({ context, targetId, rowClassName }: PhotoCardBu
         ? roomPhotoTotal(photos.counts, targetId)
         : photoCountFor(photos.counts, context, targetId);
   const key = photoKey(context, targetId);
-  const button = <PhotoEntryButton count={count} expanded={photos.isExpanded(key)} onToggle={() => photos.toggle(key)} />;
-  return rowClassName ? <div className={rowClassName}>{button}</div> : button;
+  return <PhotoEntryButton count={count} expanded={photos.isExpanded(key)} onToggle={() => photos.toggle(key)} />;
 }
 
 interface PhotoCardPanelProps extends PhotoCardTarget {

@@ -51,7 +51,7 @@ describe('without a project photo context (existing screens and tests)', () => {
   it('renders nothing at all — not even an empty row', () => {
     const { container } = renderWith(
       <>
-        <PhotoCardButton context="ROOM" targetId="r1" rowClassName="flex justify-end" />
+        <PhotoCardButton context="ROOM" targetId="r1" />
         <PhotoCardPanel context="ROOM" targetId="r1" />
       </>,
       null,
@@ -85,13 +85,9 @@ describe('PhotoCardButton', () => {
     expect(provided.toggle).toHaveBeenCalledWith('SURFACE:s1');
   });
 
-  it('can sit on a row of its own', () => {
-    const { container } = renderWith(
-      <PhotoCardButton context="SURFACE" targetId="s1" rowClassName="flex justify-end" />,
-      value(),
-    );
-    expect(container.firstElementChild).toHaveClass('flex', 'justify-end');
-    expect(container.firstElementChild?.firstElementChild?.tagName).toBe('BUTTON');
+  it('renders the bare button, so a card can place it in its own header line', () => {
+    const { container } = renderWith(<PhotoCardButton context="SURFACE" targetId="s1" />, value());
+    expect(container.firstElementChild?.tagName).toBe('BUTTON');
   });
 });
 

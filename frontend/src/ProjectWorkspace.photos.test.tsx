@@ -439,7 +439,7 @@ describe('ProjectWorkspace photos — rooms show everything in the room (view an
 });
 
 describe('ProjectWorkspace photos — photos are added on surfaces', () => {
-  it('a wall card: the button sits on its own right-aligned line under Opcje, and its section can add', async () => {
+  it('a wall card: the compact button shares the header line, left of Opcje, and its section can add', async () => {
     vi.mocked(photosApi.fetchPhotos).mockResolvedValue(
       listPage([makeItem({ attachment: { context: 'SURFACE', room_id: null, surface_id: wall.id } })]),
     );
@@ -447,9 +447,10 @@ describe('ProjectWorkspace photos — photos are added on surfaces', () => {
     await openSalon();
     const card = screen.getByLabelText(`surface-item-${wall.id}`);
     const button = within(card).getByRole('button', { name: 'Zdjęcia: 3' });
-    expect(button.parentElement).toHaveClass('flex', 'justify-end');
     const options = within(card).getByLabelText(`options-toggle-${wall.id}`);
-    expect(options.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // same header row as Opcje, immediately before it (no row of its own)
+    expect(button.parentElement).toBe(options.parentElement);
+    expect(button.nextElementSibling).toBe(options);
 
     fireEvent.click(button);
     await waitFor(() => expect(lastListParams()).toMatchObject({ context: 'SURFACE', surfaceId: wall.id }));
@@ -469,7 +470,9 @@ describe('ProjectWorkspace photos — photos are added on surfaces', () => {
     await openSalon();
     const card = await screen.findByLabelText(`${planeKey}-segments`);
     const button = await within(card).findByRole('button', { name: 'Zdjęcia: 0' });
-    expect(button.parentElement).toHaveClass('flex', 'justify-end');
+    // same header line as the plane title
+    const heading = within(card).getByRole('heading', { name: label });
+    expect(heading.parentElement).toContainElement(button);
     fireEvent.click(button);
     await waitFor(() => expect(lastListParams()).toMatchObject({ context: 'SURFACE', surfaceId: plane.id }));
     expect(await within(card).findByRole('button', { name: 'Zrób zdjęcie' })).toBeInTheDocument();

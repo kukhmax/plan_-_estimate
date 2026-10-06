@@ -285,26 +285,27 @@ export function AreaSegmentList({
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h4 className="text-sm font-semibold text-slate-900">{displayName}</h4>
-          {hasPlaneArea && (
-            // White background regardless of plane tint — a colored-on-colored
-            // badge (e.g. FLOOR's own emerald tint) would lose contrast.
-            <span className="text-xs px-2 py-0.5 rounded-full bg-white text-emerald-700 font-semibold">
-              {t.area_segments.total}: {formatMetric(totals.net)} {t.common.unit_m2}
-            </span>
-          )}
+          <div className="ml-auto flex items-center gap-2">
+            {hasPlaneArea && (
+              // White background regardless of plane tint — a colored-on-colored
+              // badge (e.g. FLOOR's own emerald tint) would lose contrast.
+              <span className="text-xs px-2 py-0.5 rounded-full bg-white text-emerald-700 font-semibold">
+                {t.area_segments.total}: {formatMetric(totals.net)} {t.common.unit_m2}
+              </span>
+            )}
+            {/* Stage 14E.6 / 14E.7: photos are added on surfaces — the floor and the ceiling are surfaces too; the
+                compact button shares the header line with the total. */}
+            {planeSurfaceId && <PhotoCardButton context="SURFACE" targetId={planeSurfaceId} />}
+          </div>
         </div>
 
-        {/* Stage 14E.6: photos are added on surfaces — the floor and the ceiling are surfaces too. */}
         {planeSurfaceId && (
-          <>
-            <PhotoCardButton context="SURFACE" targetId={planeSurfaceId} rowClassName="flex justify-end" />
-            <PhotoCardPanel
-              context="SURFACE"
-              targetId={planeSurfaceId}
-              roomId={roomId}
-              locationSegments={[roomName, displayName]}
-            />
-          </>
+          <PhotoCardPanel
+            context="SURFACE"
+            targetId={planeSurfaceId}
+            roomId={roomId}
+            locationSegments={[roomName, displayName]}
+          />
         )}
 
         {summary !== undefined && (

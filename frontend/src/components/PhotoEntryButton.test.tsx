@@ -43,6 +43,18 @@ describe('PhotoEntryButton (corner button, C-1)', () => {
     expect(button).toHaveClass('min-h-11', 'min-w-11', 'shrink-0');
   });
 
+  it('is visually compact (28 px pill) while the tap target stays 44 px and costs no card height', () => {
+    renderButton({ count: 7 });
+    const button = screen.getByRole('button');
+    // box = 44 px target, vertical margin pulled in so the extra tap area overlaps the card padding only
+    expect(button).toHaveClass('min-h-11', 'min-w-11', '-my-2');
+    const pill = button.firstElementChild as HTMLElement;
+    expect(pill).toHaveClass('h-7', 'px-2', 'text-xs');
+    expect(pill).not.toHaveClass('px-3', 'text-sm');
+    expect(pill.querySelector('svg')).toHaveAttribute('width', '16');
+    expect(pill).toHaveTextContent('7');
+  });
+
   it('uses theme tokens only, so dark mode needs no extra rules', () => {
     renderButton();
     const html = screen.getByRole('button').outerHTML;

@@ -2521,7 +2521,7 @@ docker run --name pe-backup-prod-dump --rm --init --stop-timeout 45 --read-only 
 # PASS: «backup complete: run_id=… ready_count=…», exit 0; в encrypted/<run_id>/ четыре файла 0600; work/ и evidence/ пусты
 
 # 3. upload: публикация запуска в Oracle (необратимо: загрузчик не умеет перезаписывать и удалять)
-set -a; . "$R/secrets/upload.env"; set +a
+set -a; . "$R/secrets/backup.env"; . "$R/secrets/upload.env"; set +a   # BACKUP_UID/GID и BACKUP_AGE_RECIPIENTS живут только в backup.env
 export MEDIA_S3_ENDPOINT_URL="$BACKUP_UPLOAD_S3_ENDPOINT_URL" MEDIA_S3_BUCKET="$BACKUP_UPLOAD_S3_BUCKET" MEDIA_S3_REGION="$BACKUP_UPLOAD_S3_REGION" \
   MEDIA_S3_ACCESS_KEY_ID="$BACKUP_UPLOAD_S3_ACCESS_KEY_ID" MEDIA_S3_SECRET_ACCESS_KEY="$BACKUP_UPLOAD_S3_SECRET_ACCESS_KEY" MEDIA_STORAGE_NAME="$BACKUP_UPLOAD_SOURCE_NAME"
 docker run --name pe-backup-prod-upload --rm --init --stop-timeout 45 --read-only --cap-drop ALL \
@@ -2534,6 +2534,7 @@ docker run --name pe-backup-prod-upload --rm --init --stop-timeout 45 --read-onl
 # повторный upload того же запуска → «nothing to upload», exit 8
 
 # 4. verify с VM (instance principal), получатели A и B из BACKUP_AGE_RECIPIENTS
+set -a; . "$R/secrets/backup.env"; . "$R/secrets/upload.env"; set +a   # нужен и в новом сеансе: переменные из шагов 2–3 не сохраняются
 docker run --rm --init --read-only --cap-drop ALL --security-opt no-new-privileges:true --user "$BACKUP_UID:$BACKUP_GID" \
   --network pe-upload --tmpfs /tmp:size=256m -e BACKUP_OCI_NAMESPACE -e BACKUP_OCI_BUCKET -e BACKUP_OCI_REGION -e BACKUP_AGE_RECIPIENTS \
   plan-estimate-backup-upload:local verify --run-id <run_id> --mode full
