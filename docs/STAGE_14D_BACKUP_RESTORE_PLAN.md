@@ -1559,6 +1559,24 @@ procedure. **Nothing was built, started or changed on any server.**
 6. Runbook §72 finalized with exact verified commands; progress document updated.
 7. Owner sign-off. Enabling uploads remains the Stage 14E decision.
 
+### 17.1 Gate record (Stage 14D.7, 2026-10-06) — evidence per criterion
+
+| # | Criterion | Evidence | State |
+|---|---|---|---|
+| 1 | Tooling implemented with automated tests; full backend, focused suites, mypy, Ruff green | 14D.2A–14D.2J (snapshot, encrypted artifact, backup image, run contracts, data root, orchestration, manifest v1, Oracle writer, media sync, verify, restore chain, `upload` / `restore` commands) and 14D.6A (`verify` command, uploader image); full backend suite **4030 passed, 54 skipped** at `6e3de1a` (run on 2026-10-05, Ruff, `mypy --strict` on the new modules); real PostgreSQL 16.15 / `age` 1.3.2 owner runs (14D.2D.4 8/8, 14D.2D.5 FAIL count 0 amd64 **and aarch64**) | PASS |
+| 2 | Oracle / R2 resources and least-privilege credentials created by the owner, recorded without secrets | 14D.3 provisioning (OCI steps 1–7, age custody A + B verified from paper, R2 EU drill buckets) accepted 2026-10-04; 14D.6 P2 (role `pe_backup`: `LOGIN`, `CONNECT`, `pg_read_all_data`), P4 (IAM Phase B create-only, production read-only R2 token restricted to the VM's IP) | PASS |
+| 3 | Connectivity / semantics smoke; backup identity cannot delete; restore identity read-only | 14D.4 (2026-10-04: R2 drill tokens 12/12 ×2, OCI uploader smoke 16/16 + O4 negative, restore principal 12/12; IMDS guard — only `pe-upload` reaches IMDS); re-proved in 14D.6: guard `OK`, IMDS refused from `bridge` and `plan-estimate_internal`, a revoked restore key gets `NotAuthenticated` | PASS |
+| 4 | Isolated drill (§11) fully PASS, including the §7 invariant and the §9 chain | 14D.5B (2026-10-05, run `20261005T052617Z-66a27f56`): steps 1–6 PASS (fixture through the real upload endpoint, 4 assets / 12 objects, DB restored, integrity before / after media, serving `verify-serving` 8/8); step 7 (real dump) — 14D.6 P7 PASS | PASS |
+| 5 | Production non-destructive run: encrypted dump off the VM and verified; media run COMPLETE; no production change | 14D.6 P3–P8 (2026-10-05/06): run `20261005T214112Z-c00c8951` published, `verify --mode full` ok from the VM (instance principal) **and** the workstation (restore principal), restored on the workstation, plaintext SHA-256 / size equal the evidence, Alembic = head, **row counts of all tables equal production and the P0 baseline**; Oracle bucket = exactly 3 objects; R2 media bucket = 0 objects (**the production media inventory is empty — `ready_count = 0`, so the media path of a production run was proved in the drill (4 assets / 12 objects), not on production data**); production changes: the role `pe_backup` (owner-approved) and local backup files only — no application data or schema changed, stack unchanged | PASS (with the stated limitation) |
+| 6 | Runbook §72 finalized with exact verified commands; progress document updated | `docs/PRODUCTION_DEPLOYMENT_RUNBOOK_RU.md` §72 rewritten from DRAFT to the final procedure (build from `git archive`, `db-dump`, `upload`, `verify`, restore, what not to do, state); `docs/STAGE_14D6_PRODUCTION_RUNBOOK.md` P0–P8 + closure; `docs/STAGE_14D5_DRILL_COMMANDS.md`; progress log | PASS |
+| 7 | Owner sign-off; enabling uploads remains the Stage 14E decision | **signed by the owner on 2026-10-06** ("подписываю 14D.7"); enabling uploads is **not** part of the signature | SIGNED |
+
+**Stage 14D PASS — signed off by the owner on 2026-10-06.** **Before enabling production uploads (Stage 14E) — still to be decided or done by the owner:** (a) ~~sign this record (14D.7)~~ done;
+(b) the cadence / RPO of backups and, if wanted, a timer, retention and bucket lifecycle (§19 "before 14E") — today the
+backup is manual and only as fresh as 2026-10-05; (c) a fresh backup run immediately before the first real upload;
+(d) the open housekeeping of 14D.6 (administrator-only removal of the 42 drill-bucket objects — optional).
+Not a gate but noted: HEIC stays disabled (14B.H); the Telegram WebView / Cloudflare device checks happen in 14E.
+
 ## 18. Sub-stages (OWNER APPROVED)
 
 | Sub-stage | Scope | Cloud / production |

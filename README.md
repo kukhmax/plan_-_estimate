@@ -187,6 +187,10 @@ GitHub  →  Oracle Cloud VM  →  Docker Compose  →  Caddy (TLS, :80/:443)
 
 Only Caddy publishes ports on the host; PostgreSQL and the backend stay on the internal Docker network. Full step-by-step deployment procedure, migration handling, and rollback notes: [`docs/PRODUCTION_DEPLOYMENT_RUNBOOK_RU.md`](docs/PRODUCTION_DEPLOYMENT_RUNBOOK_RU.md). No secrets, tokens, or credentials are documented here or in that runbook — they are configured directly on the production host.
 
+### Photos and backups (Stage 14)
+
+Photos are stored as private objects in Cloudflare R2 (database rows only point to them) and served through short-lived signed links; an independent, encrypted backup of the database and the photos is kept at a second provider (Oracle Object Storage) and has been restored and verified end to end. Production photo uploads are **off** until the owner enables them (Stage 14E). A plain-language overview — how it works, how it talks to Cloudflare and Oracle, whether it can run on other servers, and which settings it needs (in Russian): [`docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md`](docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md).
+
 ## Development workflow
 
 Every change follows the repository stage gate:

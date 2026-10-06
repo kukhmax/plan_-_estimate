@@ -2436,83 +2436,153 @@ Telegram перезагружает Mini App по новому launch URL, чт�
 интерфейс. `TELEGRAM_BOT_TOKEN` подставляется только внутри команды curl и
 не выводится на экран. Проверка выполняется командой `getChatMenuButton`.
 
-## 72. Stage 14 — MEDIA BACKUP / RESTORE (ЧЕРНОВИК, DRAFT)
+## 72. Stage 14 — MEDIA BACKUP / RESTORE (ФИНАЛЬНАЯ ПРОЦЕДУРА, проверена в 14D)
 
-> **СТАТУС: ЧЕРНОВИК (Stage 14B.4).** Это описание будущей процедуры, а не
-> действующая инструкция. Oracle Object Storage **не настроен**, экспорт
-> **не реализован**, restore-drill **не проводился**. Готовность backup и
-> restore **НЕ заявляется**. Окончательная процедура и её проверка — gate
-> **Stage 14D**. До прохождения 14D и явного решения владельца
-> `PHOTO_UPLOADS_ENABLED` в production остаётся `false`.
-> Архитектура: `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §13,
-> `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` §14, §17, §24.
->
-> **Stage 14D.1 (2026-10-02): архитектура backup/restore УТВЕРЖДЕНА
-> владельцем** — каноничный контракт: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`.
-> Утверждена только **архитектура**: инструменты не реализованы (14D.2),
-> облачные ресурсы и ключи не созданы (14D.3), команды ниже **не проверены**.
-> Раздел остаётся **ЧЕРНОВИКОМ** до проверки в 14D.4–14D.6.
+> **СТАТУС: ФИНАЛЬНЫЙ (Stage 14D.7, 2026-10-06).** Процедура выполнена на
+> production 2026-10-05/06 (Stage 14D.6, фазы P0–P8) и принята владельцем
+> 2026-10-06: первый production-бэкап опубликован в Oracle, проверен двумя
+> независимыми читателями, **восстановлен** в чистую PostgreSQL на рабочей
+> станции и сверен с production (число строк во всех таблицах совпало).
+> Изолированный restore-drill (14D.5) пройден 2026-10-05.
+> **Загрузка фото в production остаётся ВЫКЛЮЧЕННОЙ**
+> (`PHOTO_UPLOADS_ENABLED=false`): включение — отдельное решение владельца в
+> Stage 14E. Расписания бэкапов **нет**: бэкап запускается вручную (см. 72.7).
+> Каноничные документы: `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md` (контракт и
+> §17.1 запись ворот), `docs/STAGE_14D6_PRODUCTION_RUNBOOK.md` (фазы P0–P8 с
+> результатами), `docs/STAGE_14D5_DRILL_COMMANDS.md` (проверенные блоки дрилла).
 
 ### 72.1 Модель хранения
 
 - **Primary:** Cloudflare R2, класс Standard, юрисдикция **EU**, приватный
   bucket `plan-estimate-media-prod` (без публичного доступа, без r2.dev,
-  без custom domain).
-- **Независимая резервная копия:** Oracle Object Storage (отдельный bucket,
-  отдельная учётная запись/ключ только для backup-задачи).
-- **Версионирование R2 (если будет включено) НЕ является независимым
-  backup** — это защита внутри того же провайдера, она лишь дополняет копию
-  в Oracle.
+  без custom domain). Токен для бэкапа — **только чтение**, ограничен по IP VM.
+- **Независимая резервная копия:** Oracle Object Storage, bucket
+  `plan-estimate-backup-prod` (compartment `plan-estimate-backup`, регион
+  `eu-frankfurt-1`, versioning включён). Загрузчик работает по **instance
+  principal** VM с политикой «только создание объектов» (`OBJECT_CREATE`,
+  без перезаписи и удаления); читать бэкап вне VM может только пользователь
+  `plan-estimate-restore-operator` (группа `plan-estimate-backup-restore`,
+  политика только чтения) по API-ключу, который создаётся на время проверки
+  и **удаляется** после.
+- **Версионирование R2 НЕ является независимым backup.**
 - Объекты **write-once**: ключи `photos/v1/{asset_uuid}/original.{ext}`,
   `display.jpg`, `thumb.jpg` никогда не перезаписываются и в v1 не
-  удаляются. Поэтому более поздняя копия объектов — надмножество того, на
-  что ссылается более ранний dump БД.
-- После появления фотографий **`pg_dump` сам по себе больше не является
-  полным backup приложения**: нужны и БД, и объекты. БД + медиа — **не
-  атомарный снимок**; согласованность проверяется integrity-проверкой.
+  удаляются; более поздняя копия объектов — надмножество того, на что
+  ссылается более ранний dump БД.
+- После появления фотографий `pg_dump` сам по себе **не** полный backup:
+  нужны БД и объекты; БД + медиа — не атомарный снимок, согласованность
+  проверяется integrity-проверкой и `verify`.
+- Структура бакета: `db/<run_id>/plan-estimate.sql.gz.age`,
+  `runs/<run_id>/manifest.jsonl`, `runs/<run_id>/COMPLETE.json` (печать,
+  пишется последней), `media/…` для READY assets.
 
-### 72.2 Будущий порядок backup (утверждённая архитектура 14D.1, не проверено)
+### 72.2 Где что лежит
 
+| Что | Где | Права |
+|---|---|---|
+| Данные бэкапа (локально) | VM `~/backups/plan-estimate/db-backup/data/{work,encrypted,evidence}`, `run.lock` | 0700 / файлы 0600 |
+| Пароль роли `pe_backup` | VM `…/db-backup/secrets/pgpass` | 0600, монтируется read-only, не попадает в env/argv |
+| Настройки бэкапа и загрузчика | VM `…/secrets/backup.env`, `…/secrets/upload.env` (R2-токен только чтение, имена целей, `BACKUP_TOOL_COMMIT`) | 0600 |
+| Образы | VM `plan-estimate-backup:local`, `plan-estimate-backup-upload:local` | — |
+| Закрытый ключ age A | рабочая станция `~/.local/share/plan-estimate/age/backup-identity.txt` (+ копия под парольной фразой на флешке); ключ B — только на бумаге | 0600 |
+| Роль БД | `pe_backup` (`LOGIN`, `CONNECT`, `pg_read_all_data`, без других атрибутов) | — |
+
+На VM **никогда** не существует закрытого ключа age и учётных данных
+restore-пользователя.
+
+### 72.3 Порядок backup (проверено в 14D.6)
+
+Образы собирать **только из `git archive` нужного коммита**, не из рабочей
+копии (права файлов рабочей копии попадают в образ). Запуск — командами
+`docker run` по определению сервисов `backup` / `backup-upload` (не
+`docker compose -p plan-estimate`: у production-сети метка `config-hash`,
+расхождение может привести к её пересозданию под работающим стеком).
+
+```bash
+# 1. Образы (на VM, один раз на версию кода)
+cd ~/apps/plan_-_estimate && git fetch origin <ветка>
+COMMIT=$(git rev-parse origin/<ветка>)                 # его же записать в BACKUP_TOOL_COMMIT (upload.env)
+D=$(mktemp -d "$HOME/pe-build.XXXXXX")
+git archive --format=tar "$COMMIT" backend docker-compose.prod.yml | tar -x --no-same-owner -C "$D"
+docker build -f "$D/backend/Dockerfile.backup" -t plan-estimate-backup:local "$D/backend"
+docker build -f "$D/backend/Dockerfile.uploader" --build-arg BACKUP_IMAGE=plan-estimate-backup:local \
+  -t plan-estimate-backup-upload:local "$D/backend"
+rm -r "$D"
+
+# 2. db-dump: локальный зашифрованный бэкап (читает БД одним снимком REPEATABLE READ)
+R="$HOME/backups/plan-estimate/db-backup"; set -a; . "$R/secrets/backup.env"; set +a
+docker run --name pe-backup-prod-dump --rm --init --stop-timeout 45 --read-only --cap-drop ALL \
+  --security-opt no-new-privileges:true --memory 512m --cpus 0.5 --pids-limit 64 \
+  --user "$BACKUP_UID:$BACKUP_GID" --network plan-estimate_internal --tmpfs /tmp:size=16m \
+  -v "$R/data:/backup" -v "$R/secrets/pgpass:/run/secrets/pgpass:ro" \
+  -e PGHOST="$BACKUP_PGHOST" -e PGPORT="$BACKUP_PGPORT" -e PGDATABASE="$BACKUP_PGDATABASE" \
+  -e PGUSER="$BACKUP_PGUSER" -e PGSSLMODE="$BACKUP_PGSSLMODE" -e PGPASSFILE=/run/secrets/pgpass \
+  -e BACKUP_AGE_RECIPIENTS="$BACKUP_AGE_RECIPIENTS" plan-estimate-backup:local db-dump
+# PASS: «backup complete: run_id=… ready_count=…», exit 0; в encrypted/<run_id>/ четыре файла 0600; work/ и evidence/ пусты
+
+# 3. upload: публикация запуска в Oracle (необратимо: загрузчик не умеет перезаписывать и удалять)
+set -a; . "$R/secrets/upload.env"; set +a
+export MEDIA_S3_ENDPOINT_URL="$BACKUP_UPLOAD_S3_ENDPOINT_URL" MEDIA_S3_BUCKET="$BACKUP_UPLOAD_S3_BUCKET" MEDIA_S3_REGION="$BACKUP_UPLOAD_S3_REGION" \
+  MEDIA_S3_ACCESS_KEY_ID="$BACKUP_UPLOAD_S3_ACCESS_KEY_ID" MEDIA_S3_SECRET_ACCESS_KEY="$BACKUP_UPLOAD_S3_SECRET_ACCESS_KEY" MEDIA_STORAGE_NAME="$BACKUP_UPLOAD_SOURCE_NAME"
+docker run --name pe-backup-prod-upload --rm --init --stop-timeout 45 --read-only --cap-drop ALL \
+  --security-opt no-new-privileges:true --memory 512m --cpus 0.5 --pids-limit 64 \
+  --user "$BACKUP_UID:$BACKUP_GID" --network pe-upload --tmpfs /tmp:size=256m -v "$R/data:/backup" \
+  -e MEDIA_S3_ENDPOINT_URL -e MEDIA_S3_BUCKET -e MEDIA_S3_REGION -e MEDIA_S3_ACCESS_KEY_ID -e MEDIA_S3_SECRET_ACCESS_KEY -e MEDIA_STORAGE_NAME \
+  -e BACKUP_OCI_NAMESPACE -e BACKUP_OCI_BUCKET -e BACKUP_OCI_REGION -e BACKUP_TOOL_COMMIT -e BACKUP_AGE_RECIPIENTS \
+  plan-estimate-backup-upload:local upload --environment production --allow-production
+# PASS: «upload complete: run_id=… objects=<медиа-объекты> ready_assets=<n>», exit 0, evidence/<run_id>.published.json;
+# повторный upload того же запуска → «nothing to upload», exit 8
+
+# 4. verify с VM (instance principal), получатели A и B из BACKUP_AGE_RECIPIENTS
+docker run --rm --init --read-only --cap-drop ALL --security-opt no-new-privileges:true --user "$BACKUP_UID:$BACKUP_GID" \
+  --network pe-upload --tmpfs /tmp:size=256m -e BACKUP_OCI_NAMESPACE -e BACKUP_OCI_BUCKET -e BACKUP_OCI_REGION -e BACKUP_AGE_RECIPIENTS \
+  plan-estimate-backup-upload:local verify --run-id <run_id> --mode full
+# PASS: «verify ok: run_id=… mode=full …», exit 0
 ```
-PRIMARY R2
-  → независимое копирование (тот же неизменяемый ключ, по одному объекту)
-  → Oracle Object Storage (отдельный провайдер, versioning включён)
-  → проверка целостности (sha256 всех трёх объектов, manifest v1, COMPLETE.json)
-```
 
-1. Снимок БД и инвентарь READY assets берутся из **одного** снимка
-   PostgreSQL (`pg_export_snapshot()` + `pg_dump --snapshot=…`); в manifest
-   записываются `ready_count` и `ready_set_sha256`.
-2. Dump **шифруется `age` до выхода с VM**: проверенный приватный (0600)
-   SQL-dump → потоковый gzip → потоковый `age` только с публичными
-   recipients (без промежуточного `.gz`-файла; после успешного шифрования
-   plaintext удаляется);
-   удалённый артефакт — `db/<run_id>/plan-estimate.sql.gz.age`; его sha256 и
-   размер записываются в manifest. Ключ расшифровки не должен существовать
-   только на production VM; секреты и приватные ключи — никогда в Git.
-3. Для каждого READY asset копируются **все три** объекта (оригинал,
-   display, thumbnail; производные не считаются регенерируемыми в v1):
-   скачивание из R2 (токен **только чтение**) → проверка sha256/размера
-   против БД → PUT в Oracle → повторное скачивание и проверка sha256.
-4. Уже существующий в Oracle объект принимается только если его sha256
-   пересчитан заново или унаследован из ранее проверенного COMPLETE-запуска
-   при совпадающем размере — **одинаковый размер сам по себе не доказательство**.
-5. `COMPLETE.json` пишется последним и только если каждый READY asset снимка
-   представлен тремя проверенными объектами. Запуск без валидного
-   `COMPLETE.json` — незавершённый.
-6. Отдельная команда на VM со **своим** env-файлом (не окружение backend),
-   без автоматического удаления; таймер в 14D.1/14D.2 не включается.
-7. Исполнение (14D.2C, план §16): отдельный образ `backend/Dockerfile.backup`
-   (web-образ backend не меняется) с `pg_dump` 16 и `age` 1.3.2; сервис
-   `backup` в `docker-compose.prod.yml` под profile `backup`, запуск только
-   `docker compose … run --rm --no-deps backup …` (без `depends_on`: backup
-   никогда не запускает и не пересоздаёт postgres). `pg_dump` работает внутри
-   backup-контейнера по сети Compose к `postgres:5432` — **не** через
-   `docker exec` и **без** Docker socket. Пароль БД — только в
-   `secrets/pgpass` (0600, монтируется read-only), никогда в argv/env.
-   Production-роль БД и ключи `age` — позже, действиями владельца.
+Коды выхода: `db-dump` 0, 1, 3 (блокировка занята), 4 (остатки в `work/`), 5, 6,
+7; `upload` 0, 1, 3, 5, 6, 8 (нечего загружать), 9, 10 (запуск запечатан, но
+локальное evidence не записано — повторить **ту же** команду); `verify` 0, 1,
+5, 6, 7. Если `upload` упал после записи манифеста — нужен **новый** `db-dump`
+(план 14D §15). Загрузчик не удаляет: лишние объекты убирает администратор.
 
-### 72.3 Read-only integrity-проверка (реализована в 14B.4)
+### 72.4 Порядок restore (проверено в 14D.5 и 14D.6, рабочая станция)
+
+1. Restore-пользователь `plan-estimate-restore-operator`: владелец создаёт
+   **новый** API-ключ в консоли Oracle, конфиг собирается с проверкой
+   fingerprint (ключ и `config` — 0600, `key_file=/run/oci/key.pem`).
+2. Образы (`backup` + слой `Dockerfile.uploader` с `oci`) собираются на
+   станции из `git archive`; временная PostgreSQL 16 в отдельной сети без
+   опубликованных портов; суперпользователь — владелец дампа
+   (`plan_estimate`), база `pe_restore_scratch_<…>` (имя и хост должны
+   содержать маркер scratch), пустая.
+3. `docker run … plan-estimate-backup-upload:<тег> restore --phase database
+   --run-id <run_id> --identity-file /run/age/identity.key --scratch-dir /tmp
+   --report-file /out/<новый файл>.json --oci-config /run/oci/config
+   --allowed-host <хост scratch-БД> --forbidden-bucket plan-estimate-media-prod …`
+   (ключ A монтируется только на чтение; дрилловый целевой бакет R2 требуется
+   командой даже без медиа). Затем `--phase media`, если в запуске есть READY
+   assets, и `scripts/media_integrity_check.py --verify-sha256 --strict`.
+4. Сверка: число строк во всех таблицах схемы `public` в восстановленной и
+   боевой базе (`SELECT` в сессии `default_transaction_read_only=on`);
+   `alembic_version` = head репозитория.
+5. Уборка: контейнер и сеть scratch, файлы паролей (`shred`); API-ключ
+   restore-пользователя **удалить** в консоли и убедиться, что старый ключ
+   даёт `NotAuthenticated` (401); `shred` ключа и конфига на станции.
+
+### 72.5 Чего НЕ делать
+
+- Не собирать образы из рабочей копии на сервере; не использовать
+  `docker compose -p plan-estimate` для сервиса `backup`.
+- Не создавать и не хранить закрытый ключ age на VM; не хранить на VM
+  учётные данные restore-пользователя.
+- Не вставлять секреты в чат/Git; `read` внутри `bash <<'EOF'` читает сам
+  скрипт — вводить значения только `read … < /dev/tty`.
+- Не «исправлять» несоответствие правкой evidence, манифеста или бакета
+  вручную; не удалять production-объекты как тест.
+- Не включать `PHOTO_UPLOADS_ENABLED` без явного решения владельца (14E).
+
+### 72.6 Read-only integrity-проверка (реализована в 14B.4)
 
 Команда только читает: никаких записей, удалений, исправлений строк БД,
 presigned URL и вывода секретов. При `MEDIA_STORAGE_BACKEND=disabled`
@@ -2540,33 +2610,16 @@ docker compose --env-file .env.production -p plan-estimate -f docker-compose.pro
 dump БД или брошенная загрузка). Инструмент ничего не считает «безопасным
 для удаления» и ничего не удаляет.
 
-### 72.4 Будущий restore-drill (выполняется в 14D)
+### 72.7 Состояние на 2026-10-06 и что остаётся открытым
 
-1. **Изолированная цель:** отдельные drill-bucket'ы (R2 drill source, R2
-   drill restore, Oracle drill backup — **никогда** не prefix внутри
-   production-bucket) и отдельная scratch-БД. Production-БД никогда не
-   является целью восстановления; production-bucket'ы не изменяются.
-   Синтетический набор: маленькие JPEG / PNG / WebP + случай EXIF-ориентации,
-   без реальных медиа клиентов.
-2. **Никогда не удалять реальный production-объект в качестве теста.**
-   Потеря моделируется только в drill-bucket.
-3. Восстановить БД по цепочке: sha256 зашифрованного артефакта = manifest →
-   расшифровка `age` → проверка gzip → восстановление в изолированный
-   PostgreSQL → Alembic current = head. Восстановить медиа из Oracle в
-   drill-цель; все ключи READY assets присутствуют; sha256 каждого объекта =
-   manifest, sha256 оригиналов = БД; производные **восстановлены из backup**
-   (не регенерированы).
-4. Запустить integrity-проверку против drill-цели
-   (`--expect-storage-name` = логическое хранилище, чьи строки проверяются)
-   — результат чистый или все расхождения объяснены.
-5. Убедиться, что приложение (в изолированном окружении) читает
-   восстановленные медиа.
-6. Зафиксировать команды и результаты; подпись владельца — только после
-   этого возможно решение о `PHOTO_UPLOADS_ENABLED=true` (14E).
-
-### 72.5 Чего этот черновик НЕ делает
-
-- не настраивает Oracle Object Storage, bucket, IAM или ключи;
-- не включает загрузку фото;
-- не проверяет подключение к R2 (подключение проверено отдельно в 14B.6) и к Oracle;
-- не заявляет готовность backup или restore.
+- Первый production-запуск `20261005T214112Z-c00c8951` (БД на момент
+  2026-10-05 21:41 UTC, `ready_count = 0`): три объекта в
+  `plan-estimate-backup-prod`, `verify --mode full` с VM и со станции — ok,
+  восстановление и сверка таблиц — ok. R2 `plan-estimate-media-prod` пуст.
+- **Расписания и политики хранения нет.** Бэкап актуален на момент
+  последнего ручного запуска. Частота (RPO), таймер, хранение и очистка
+  бакета — решение владельца **до включения загрузки фото** (14E).
+- Старые ручные дампы (до 14D) зашифрованы для A и B и лежат в
+  `~/backups/plan-estimate/legacy-encrypted/` (только на VM).
+- Включение загрузки фото (`PHOTO_UPLOADS_ENABLED=true`) — Stage 14E, после
+  подписи 14D.7 и свежего бэкапа.
