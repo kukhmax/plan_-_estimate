@@ -1142,6 +1142,16 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14E.7 — production deployment of 14E and controlled enablement of uploads (2026-10-06, IN PROGRESS — runbook prepared, nothing executed on production yet)
+
+Runbook: `docs/STAGE_14E7_PRODUCTION_RUNBOOK_RU.md` (Russian; every production step needs the owner's explicit approval; the owner runs the commands and pastes the output).
+
+- **Phase A (uploads stay OFF):** A0 read-only state check → A1 deploy-file diff vs `8c53e58` → A2 optional pre-deploy backup (existing images, head `0032`) → A3 `git pull --ff-only` → A4 `config --quiet` + build backend/frontend, rollback tags `:pre-14e7` → **gate M (migration assessment)** → A5 `up -d backend` (entrypoint applies `0033_photo_capture_source`; `alembic current` == `heads`) → A6 frontend → **A6b rebuild backup images + `BACKUP_TOOL_COMMIT`** → A7 Telegram Menu Button cache-bust → A8 phone smoke test.
+- **Phase B (separate decision):** gate D10 (backup cadence; recommended: manual first, timer later) → B0 fresh backup → B1 storage settings → B2 `PHOTO_UPLOADS_ENABLED=true`, recreate backend only → B3 first real photos from a phone (wall / floor / ceiling, camera + gallery) → B4 R2 / DB inventory → B5 second backup with `ready_count>0` + verify (+ restore-compare) → B6 device checks (contract §12).
+- **Finding while preparing:** the backup tool enforces `alembic_version == head of its own image` (`check_revision`, policy v1, no override), so after migration `0033` the backup images must be rebuilt from the new commit (step A6b); until then a backup run fails closed. Pre-deploy backup (A2) must use the *existing* images.
+- **Migration `0033`:** additive nullable column + CHECK, reversible; old code ignores it; `photo_assets` is empty in production.
+- **Status:** no production command has been run; waiting for the owner's A0 output.
+
 ### Stage 14E.6 — full verification and the owner's browser check (2026-10-06, ACCEPTED by the owner 2026-10-06, committed `9cbb065`)
 
 Verification stage: fixes only for what verification found; production photo uploads stay **OFF**; nothing is deployed. Owner instructions: `docs/STAGE_14E6_OWNER_BROWSER_CHECK_RU.md` (dev R2 bucket per D-DEV, native local run, 15-point checklist).
