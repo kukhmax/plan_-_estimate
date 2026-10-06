@@ -1,7 +1,7 @@
-# Stage 14D.6 — First production backup run: runbook (IN PROGRESS — P0 executed 2026-10-05)
+# Stage 14D.6 — First production backup run: runbook (EXECUTED 2026-10-05 / 2026-10-06 — P0–P8 PASS; awaiting the owner's acceptance)
 
 > **Status:** written in 14D.6A together with the tooling it needs (`verify` command, uploader image, `backup-upload`
-> Compose service; plan §16.19). **P0 (read-only facts) was executed on 2026-10-05 — result in §4a; no other phase has been run.**
+> Compose service; plan §16.19). **Executed in full on 2026-10-05 / 2026-10-06: P0–P8 PASS (results recorded per phase below; closure in §7).**
 > Every phase below touches production in some way and is run by the owner only after an explicit decision for *that* phase (`CLAUDE.md`: SSH, `git pull`, Docker build,
 > Docker up, any data-modifying operation each need their own approval). Production photo uploads stay **OFF**
 > (`PHOTO_UPLOADS_ENABLED=false`); nothing here enables them (that is Stage 14E).
@@ -137,21 +137,61 @@ second (array-based) block succeeded. The decryption proof is P7 (private identi
 `pe-upload` check. *Touches:* IAM and Cloudflare; no data. *PASS:* a read-only check that the uploader's principal can `HEAD`
 the production bucket and that the R2 token can list `plan-estimate-media-prod` and **cannot** write.
 
+*P4 executed 2026-10-05 — PASS.* Owner-created: IAM Phase B policy `plan-estimate-backup-uploader-prod-policy` (compartment `plan-estimate-backup`; the three
+§6.2 statements) and the R2 token "Object Read only" for `plan-estimate-media-prod`, restricted to the VM's IP (EU jurisdiction endpoint). On the VM:
+`secrets/upload.env` (0600; endpoint, key id and secret entered by hidden prompt, never printed; namespace, `plan-estimate-backup-prod`,
+`eu-frankfurt-1`, `BACKUP_TOOL_COMMIT=6e3de1a3…`); uploader image `plan-estimate-backup-upload:local` built from the same `git archive` directory
+(`arm64/linux`, oci 2.187.1, boto3 1.43.103) with `docker build` (not Compose). Read-only checks: the R2 token lists the production media bucket
+(`KeyCount = 0`) and a write is denied (`AccessDenied`, 403); the uploader's instance principal reaches the Oracle production bucket
+(`verify --mode quick` of the P3 run → `SEAL_MISSING`, i.e. readable, nothing sealed yet). The production stack was unchanged throughout.
+
+*Pre-P5 checks (§5), 2026-10-05 — PASS.* IMDS guard `OK` (`PE-IMDS-GUARD at DOCKER-USER #1; uploader bridge br-pe-upload`); the IMDS address
+169.254.169.254 is refused from the default bridge and from `plan-estimate_internal` (where the application runs) and reachable only from `pe-upload`.
+Recoverability, before the permanent write: the P3 artifact was copied to the workstation's RAM (`/dev/shm`), decrypted with the working identity A and
+streamed (no plaintext on disk) through `gunzip`: SHA-256 `5e175b12…be52` and size 338 443 B equal the evidence (`dump.plaintext_sha256` /
+`plaintext_size`); the first line is a `pg_dump` comment; the temporary files were removed. The VM holds no private identity (the check that looked for
+one there found none).
+
 **P5 — build the uploader and `upload` (the point of no return).** `docker compose --profile backup-upload build backup-upload`,
 then `docker compose … run --rm --no-deps backup-upload upload --environment production --allow-production`. *Touches:*
 **writes three or more objects to the production backup bucket, permanently** (dump, manifest, `COMPLETE.json`, plus one object
 per READY media file). *PASS:* `upload complete: run_id=… published objects=<3·n> ready_assets=<n>`; a second `upload` exits 8.
 Before it: the checklist of §5.
 
+*P5 executed 2026-10-05 22:17 UTC — PASS (the permanent write).* `upload --environment production --allow-production` for run
+`20261005T214112Z-c00c8951` (uploader image, network `pe-upload`, instance principal): `upload complete … objects=0 ready_assets=0 prior=-`, exit 0
+(`objects` counts the **media** objects of the manifest — 0 while no photo exists; the formula `3·n` above is per READY asset, the three run objects are
+separate); `evidence/<run_id>.published.json` (0600) written, `work/` empty; a second `upload` printed `nothing to upload: every promoted run already has
+published evidence`, exit 8. The production stack was unchanged.
+*P6a executed — PASS (VM, instance principal).* `verify --mode full`: `verify ok … dump=sha256 objects_total=0`, exit 0 (expected recipients A and B from
+`BACKUP_AGE_RECIPIENTS`). Bucket `plan-estimate-backup-prod` holds exactly three objects: `db/20261005T214112Z-c00c8951/plan-estimate.sql.gz.age` (66 534 B),
+`runs/20261005T214112Z-c00c8951/COMPLETE.json` (465 B), `runs/20261005T214112Z-c00c8951/manifest.jsonl` (1 001 B).
+
 **P6 — verify the sealed run.** `verify --mode full` from the VM (instance principal) and from the workstation (restore
 principal, an independent reader), with `--expect-recipient` for every public recipient. *Touches:* reads. *PASS:* `verify ok`
 in both, `RECIPIENTS` as configured.
+
+*P6b executed 2026-10-06 — PASS (independent reader).* On the workstation, with a **new** API key of the restore user `plan-estimate-restore-operator`
+(member of `plan-estimate-backup-restore`; config and key in `~/backups/plan-estimate/prod-restore/oci`, 0600, fingerprint checked against the key before
+use; the downloaded copy shredded) and images built on the workstation from a `git archive` of `origin/stage-14` (`:p67` tags):
+`verify ok: run_id=20261005T214112Z-c00c8951 mode=full dump=sha256 objects_total=0 …`, exit 0, canonical report `out/verify-prod-report.json` (0600).
+Two readers (VM instance principal, workstation API key) therefore agree. Two blocks on the way were wrong and are recorded as such: the first P6b read a
+`~/pe-drill-14d5/env.sh` removed by the drill cleanup, and the first OCI-config block used `read` inside `bash <<'EOF'`, which consumed the script itself
+(stdin) — fixed with `read … < /dev/tty`; nothing had been written either time.
 
 **P7 — restore the real dump (plan §11 step 7).** On the workstation: `restore --phase database` into a fresh scratch
 database with the private recovery identity from RAM, then `--phase media` (nothing to restore if `n = 0`) and the integrity
 checker. *Touches:* scratch only; the private identity exists in RAM for the minutes of the restore, then `shred -u`.
 *PASS:* `restore ok`; Alembic = head; the restored table counts equal the P0 counts (compared by an owner-run `SELECT` on both
 sides, read-only on production).
+
+*P7 executed 2026-10-06 — PASS (the real production dump restored).* On the workstation: a scratch PostgreSQL 16 (`pe-p7-scratch-pg`, no published port, superuser
+`plan_estimate` so the dump's `OWNER TO` statements resolve), `restore --phase database --run-id 20261005T214112Z-c00c8951` with the restore principal's API key and
+identity A mounted read-only (from its normal 0600 file): `restore ok … phase=database ready_count=0`, exit 0; plaintext SHA-256 `5e175b12…be52` and size 338 443 B
+equal the P3 evidence; `alembic_version = 0032_photo_attachments` (= repository head); READY / PENDING / FAILED 0 / 0 / 0; no media phase (manifest has none).
+Row counts of **all** 40 tables of schema `public` (+ `alembic_version`), restored vs production (read-only session, over ssh): identical, and equal to the P0
+baseline (`users 1`, `clients 2`, `projects 2`, `rooms 4`, `surfaces 25`, `openings 8`, `inspections 4`, `estimates 3`, `estimate_lines 43`, `surface_planned_works 41`,
+`photo_assets 0`, `photo_attachments 0`, `price_items 50`, `workflow_template_steps 128`). Therefore the backup is restorable and the backup itself changed no row.
 
 **P8 — "no change" evidence and closure.** The P0 `SELECT` repeated (production counts unchanged), R2 production bucket
 inventory (unchanged — 0 objects while uploads are off), Oracle production bucket inventory (exactly the objects of P5),
@@ -174,3 +214,32 @@ result is recorded in plan §16.x and `docs/development-progress.md`; **uploads 
   Repeating the **same** local run is safe when only the media sync failed; a failure after the manifest was written needs a new
   `db-dump` run (plan §15). Leftover objects stay (the uploader cannot delete); the administrator may remove them.
 * Never "fix" a mismatch by editing evidence, manifests or the bucket by hand.
+
+## 7. Closure (P8, executed 2026-10-06)
+
+**Evidence.** Oracle `plan-estimate-backup-prod` holds exactly the three objects of run `20261005T214112Z-c00c8951` (listed with the VM's instance principal after
+P7): `db/…/plan-estimate.sql.gz.age` 66 534 B, `runs/…/COMPLETE.json` 465 B, `runs/…/manifest.jsonl` 1 001 B; no continuation. R2 `plan-estimate-media-prod`
+holds **0** objects (the read-only token lists, never writes). The production stack ran unchanged throughout (`caddy`, `backend` healthy, `frontend`, `postgres`
+healthy — the same containers with the same uptime from P0 to P8). Row counts of all tables, production vs the restored database, are identical and equal to the
+P0 baseline. Local data on the VM: `encrypted/<run>/` (4 files, 0600), `evidence/<run>.published.json` (0600), empty `work/`, `run.lock`; no plaintext dump of this
+run anywhere. Station evidence (0600) in `~/backups/plan-estimate/prod-restore/out/`: `verify-prod-report.json`, `restore-prod-database-report.json`,
+`p7-counts-prod.txt`, `p7-counts-scratch.txt`.
+
+**Credentials closed.** The restore user's API keys (the new one and the one left from the drill) were deleted in the OCI Console (the list is empty); with the
+old key, `verify` now fails `NotAuthenticated` (401, exit 1) — revocation proven — and the key and config were `shred`-ed from the workstation. The scratch
+PostgreSQL, its network and its password files on the workstation were removed. No restore credential and no private age identity has ever existed on the VM.
+
+**Left deliberately.** (1) `upload.env` on the VM (0600): the production R2 read-only token and the target names — uploads are OFF and nothing runs it; delete
+it if the token should not rest there until Stage 14E. (2) Group `plan-estimate-backup-restore` and user `plan-estimate-restore-operator` (no keys). (3) Images
+`plan-estimate-backup:local` and `plan-estimate-backup-upload:local` on the VM, `:p67` images on the workstation.
+
+**Open items (owner).** (a) Drill leftovers: the drill R2 tokens (still IP-restricted to the VM and the workstation) and `~/backups/plan-estimate/drill-secrets/` on the
+workstation; the 42 objects in `plan-estimate-backup-drill` (administrator only, the uploader cannot delete). (b) The production checkout on the VM was fast-forwarded to
+`68a06d5` by mistake during P1 (working tree only, nothing restarted; harmless — the next deployment pulls anyway). (c) VM leftovers: `~/apps/plan_-_estimate-14d6`
+(stale archive), `~/apps/plan_-_estimate-14d6-6e3de1a`, logs `~/p1b*.log`, `~/p4-build.log`, and the older plaintext dumps in `~/backups/plan-estimate`. (d) **There is no
+schedule:** the backup is as fresh as its last manual run — automation, retention and lifecycle of the production bucket are decisions for a later step, not part of
+14D.6. (e) Production photo uploads remain OFF; enabling them (Stage 14E) needs the owner's approval and a fresh backup run first.
+
+**Lessons recorded.** Never build images from the production checkout (file modes — build from a `git archive` directory); `read` inside `bash <<'EOF'` consumes the
+script (use `< /dev/tty`); a pasted multi-line `docker run` needs line continuations or an array; do not reuse paths of cleaned-up drill state; Compose against the
+production project is avoided (network `config-hash`), `docker run` mirroring the service is used instead.

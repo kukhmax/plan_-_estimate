@@ -1108,9 +1108,26 @@ needs no contact with production. No Alembic change, no change to the web image,
   the runbook (P2). The first production `db-dump` (P3) is run with `docker run` mirroring the service, not Compose, to avoid touching the production network.
 - **P3 executed 2026-10-05 — PASS:** first production `db-dump` (local, encrypted for recipients A and B), run `20261005T214112Z-c00c8951`, `ready_count = 0`,
   artifact 66 534 B, SHA-256 equal to the evidence; four 0600 files, `work/` and `evidence/` empty, no plaintext, stack unchanged. Nothing has left the VM.
-- **Pending (needs explicit owner approval, 14D.6B):** the phases P0–P8 of the runbook — the first of them is read-only, the first
-  write to production is the backup role in PostgreSQL (P2) and the first permanent write is the first object in
-  `plan-estimate-backup-prod` (P5).
+- **P4 executed 2026-10-05 — PASS (cloud authority, no data written):** IAM Phase B policy and a read-only R2 token created by the owner; `upload.env` (0600) on the VM;
+  uploader image built (`arm64`, oci 2.187.1); R2 token reads and cannot write (403); the uploader's instance principal reads the production backup bucket
+  (`SEAL_MISSING`). Next: the §5 checklist, then P5 (permanent write) only with a separate owner approval.
+- **Pre-P5 checks — PASS (2026-10-05):** IMDS guard OK and the IMDS address reachable only from `pe-upload`; the P3 artifact decrypts with identity A on the
+  workstation to the exact plaintext SHA-256 / size of the evidence. Ready for P5 on the owner's explicit approval.
+- **P5 executed 2026-10-05 — PASS (permanent write):** run `20261005T214112Z-c00c8951` published to `plan-estimate-backup-prod` (3 objects: encrypted dump,
+  manifest, `COMPLETE.json`; 0 media objects); a repeat `upload` exits 8. **P6a — PASS:** `verify --mode full` from the VM with the instance principal, exit 0.
+  Next: P6b (independent `verify` from the workstation with the restore principal), P7 (restore), P8 (closure).
+- **P6b executed 2026-10-06 — PASS:** `verify --mode full` from the workstation with the restore principal's new API key (config verified by fingerprint, key copy shredded):
+  `verify ok`, exit 0, report 0600. Two independent readers agree. Next: P7 (restore the real dump into a scratch PostgreSQL on the workstation, compare table counts with
+  production), then P8 (closure, revoke the temporary keys).
+- **P7 executed 2026-10-06 — PASS:** the production run `20261005T214112Z-c00c8951` was restored from the Oracle bucket into a scratch PostgreSQL on the workstation (identity A,
+  restore principal API key): `restore ok`, plaintext SHA-256 / size equal the evidence, Alembic at head, **row counts of all 40 tables identical to production and to the P0 baseline**.
+  Remaining: P7 scratch cleanup, P8 closure (inventories, revoke the temporary keys, remove workstation secrets), then the owner's acceptance of 14D.6.
+- **P8 executed 2026-10-06 — PASS (closure):** Oracle `plan-estimate-backup-prod` = exactly the 3 objects of the run, R2 `plan-estimate-media-prod` = 0 objects, production stack unchanged,
+  restore principal's API keys deleted (the old key now fails `NotAuthenticated`, proven) and shredded from the workstation, scratch resources removed. **14D.6 complete:** the first
+  production backup is published, verified by two independent readers, restored on the workstation and equal to production; uploads remain OFF. Open items (drill leftovers, VM clean-up,
+  no schedule yet) are listed in the runbook §7.
+- **14D.6B — done (see the entries above):** phases P0–P8 of the runbook were run one at a time with the owner's explicit approval; the first write to production was the backup
+  role in PostgreSQL (P2), the first permanent write the first object in `plan-estimate-backup-prod` (P5). Pending: the owner's acceptance of 14D.6.
 
 ### Stage 14D.3 — Oracle Object Storage / IAM provisioning design (2026-10-04, DESIGN APPROVED — PROVISIONING NOT YET EXECUTED)
 
@@ -1287,7 +1304,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14D.3 | Owner manual Oracle / R2 / key setup | PROVISIONING COMPLETE 2026-10-04 (OCI steps 1–7; age custody A + B verified from paper; R2 EU drill buckets; tokens / restore user deliberately deferred to 14D.4–14D.6); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.4 | Connectivity / semantics smoke on drill resources | EXECUTED 2026-10-04 — all PASS (R2 drill tokens 12/12 ×2; IMDS guard live: only `pe-upload` reaches IMDS; OCI uploader smoke 16/16 + O4 negative exit 3; restore principal 12/12); OWNER ACCEPTED 2026-10-04 |
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | NOT STARTED |
-| └ 14D.6 | First production non-destructive backup run + runbook final | NOT STARTED |
+| └ 14D.6 | First production non-destructive backup run + runbook final | 14D.6A tooling committed 2026-10-05; 14D.6B P0–P8 EXECUTED 2026-10-05/06 — all PASS (first production backup published, verified by two readers, restored and compared with production); AWAITING OWNER ACCEPTANCE |
 | └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | NOT STARTED |
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | NOT STARTED |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
