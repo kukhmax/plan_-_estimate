@@ -63,6 +63,12 @@ export function photoMoment(asset: Pick<PhotoAssetRead, 'captured_at' | 'uploade
   return uploaded ? { kind: 'uploaded', text: `${strings.added_prefix} ${uploaded}` } : null;
 }
 
+/** `DD.MM.YYYY` of the photo (captured date when known, else the local upload date) for day grouping. */
+export function photoDayLabel(asset: Pick<PhotoAssetRead, 'captured_at' | 'uploaded_at'>): string {
+  const text = (asset.captured_at ? formatCapturedAt(asset.captured_at) : null) ?? formatUploadedAt(asset.uploaded_at);
+  return text ? text.slice(0, 10) : '';
+}
+
 export function sourceLabel(source: PhotoCaptureSource | null | undefined, strings: PhotoCaptionStrings): string | null {
   if (source === 'CAMERA') return strings.source_camera;
   if (source === 'GALLERY') return strings.source_gallery;

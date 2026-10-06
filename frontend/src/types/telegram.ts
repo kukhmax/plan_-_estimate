@@ -33,6 +33,10 @@ export interface TelegramBackButton {
   offClick: (callback: () => void) => void;
 }
 
+export interface TelegramHapticFeedback {
+  notificationOccurred?: (type: 'error' | 'success' | 'warning') => void;
+}
+
 export interface TelegramWebApp {
   initData: string;
   initDataUnsafe: {
@@ -49,6 +53,7 @@ export interface TelegramWebApp {
   viewportHeight: number;
   viewportStableHeight: number;
   BackButton?: TelegramBackButton;
+  HapticFeedback?: TelegramHapticFeedback;
   ready: () => void;
   expand: () => void;
   close: () => void;

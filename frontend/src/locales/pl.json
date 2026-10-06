@@ -1512,7 +1512,15 @@
       "loading": "Ładowanie zdjęć…",
       "load_error": "Nie udało się wczytać zdjęć.",
       "retry": "Spróbuj ponownie",
-      "uploads_off_note": "Dodawanie zdjęć jest obecnie wyłączone. Możesz przeglądać istniejące zdjęcia."
+      "uploads_off_note": "Dodawanie zdjęć jest obecnie wyłączone. Możesz przeglądać istniejące zdjęcia.",
+      "entry_aria": "Zdjęcia: {count}",
+      "archive_view_title": "Archiwum zdjęć",
+      "empty_archive": "Archiwum jest puste.",
+      "filter_all": "Wszystkie",
+      "in_report": "w raporcie",
+      "thumb_unavailable": "Brak podglądu",
+      "media_unavailable_note": "Podgląd zdjęć jest chwilowo niedostępny.",
+      "options_toggle": "Opcje zdjęć"
     },
     "picker": {
       "take_photo": "Zrób zdjęcie",
@@ -1548,7 +1556,14 @@
       "saved": "Zapisano",
       "captured": "Zrobiono",
       "uploaded": "Dodano",
-      "older_hint": "Zdjęcie starsze niż data dodania"
+      "older_hint": "Zdjęcie starsze niż data dodania",
+      "save": "Zapisz",
+      "cancel": "Anuluj",
+      "counter": "{current} / {total}",
+      "loading": "Ładowanie zdjęcia…",
+      "image_unavailable": "Nie można wyświetlić zdjęcia.",
+      "retry": "Spróbuj ponownie",
+      "dialog_label": "Podgląd zdjęcia"
     },
     "category": {
       "GENERAL": "Ogólne",

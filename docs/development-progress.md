@@ -1142,7 +1142,34 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
-### Stage 14E.3 — frontend foundation for photos (2026-10-06, IMPLEMENTED — awaiting owner acceptance, NOT COMMITTED)
+### Stage 14E.4 — photo UI components (2026-10-06, IMPLEMENTED — awaiting owner acceptance, NOT COMMITTED)
+
+Frontend only; **components exist and are tested but are not mounted anywhere yet** (wiring is 14E.5, so no screen of the app changes); no new dependency, no backend change; production photo uploads stay **OFF**.
+Contract: `docs/STAGE_14E_PHOTO_UI_CONTRACT.md` §3, §7, §8, §10, §11 (implementation notes added at the end of §7).
+
+- **Added:**
+  - `PhotoEntryButton` — the compact corner button (camera glyph + count, `aria-expanded`, ≥ 44 px) of owner clarification C-1.
+  - `PhotoPicker` — two buttons, camera (`capture="environment"`) and gallery (multi-select), JPEG / PNG / WebP only; stacks at 320 px, side by side from 360 px; the input is cleared so the same photo can be picked again.
+  - `PhotoUploadQueueList` — one row per queued file: local preview, name (wraps), state / progress bar / localized error, and only the actions that fit (cancel, retry, retry as new, dismiss).
+  - `PhotoThumbGrid` — 2 columns up to 340 px, 3 above; square lazy-loaded thumbnails without referrer; the caption line `location → date (time) · source` under each tile (C-2); category and "in report" badges; "show more";
+    day grouping with a sticky date line for the project-wide list once it has more than 12 items (C-3).
+  - `PhotoViewer` — full-screen sheet: display image from the detail call, caption line, captured and added times (+ the "older than the add date" hint), caption (≤ 1000, saved on blur / Save, a pending caption is saved before
+    closing or moving on and a failed save keeps the viewer open), category (8 values), "include in report", archive with an explicit confirmation or restore in the archive view (a duplicate on restore is reported), previous / next,
+    close, Escape; refetches signed links before they expire and once after an image error; locks page scroll; **no download, share, delete or original**; Telegram haptics on success / error.
+  - `PhotoSection` — the reusable section: lazy list for its own target (PROJECT = every photo of the object), the picker, the live queue rows, "Opcje" with the archive view and (project-wide only) category filter chips, the viewer;
+    uploads-off / full-storage / media-unavailable states (D5: no buttons, a neutral note), refresh of the grid when an upload of its scope completes, refetch after expired links, one-shot refetch on a failed thumbnail.
+  - `PhotoBackContext` + `usePhotoBackRegistration` — the back-navigation seam (contract §8 / D6); `PhotoIcons`, `utils/photoTarget.ts`, `utils/telegramHaptics.ts`, `photoDayLabel`, test fixtures `src/test/photoFixtures.ts`.
+  - Locale keys added to `photos.section` / `photos.viewer` in `pl.json` and `ru.json` (parity test green); optional `HapticFeedback` added to the Telegram type.
+- **Changed:** nothing outside the photo files above (no existing component, hook or test was edited).
+- **Database / backend:** none.
+- **Tests:** 116 new (`PhotoSection` 38, `PhotoViewer` 33, `PhotoThumbGrid` 12, `PhotoPicker` 10, `PhotoUploadQueueList` 9, `PhotoEntryButton` 5, `PhotoBackContext` 3, `photoTarget` 2, `telegramHaptics` 2, `photoCaption` +2). They assert, per component: both locales
+  (PL / RU), long names and long Russian strings wrapping (`break-words` / `break-all` / `min-w-0`), no fixed pixel widths, ≥ 44 px targets (`min-h-11` / `min-w-11`), 16 px form text, theme tokens only (no `bg-white` / `text-slate` — dark scheme
+  safe), the 320 / 360 / 341 px column rules. 25 mutations of the new code, each caught (one survivor led to an added test); a test of the back-registration hook exposed a re-registration on every provider render, which was fixed.
+- **Verification:** full vitest **69 files / 1555 tests passed** (before 60 / 1439); `tsc --noEmit` clean; `vite build` OK; the `act(...)` warnings of other suites identical to the baseline (10 / 10), none from photo tests.
+  Mobile regression: no existing screen changed. The real 390 / 412 px check and the dark / Russian look in a browser are the owner's check in 14E.6 (components are unmounted until 14E.5).
+- **Deferred:** wiring into Project / Room / Surface / Opening cards, the workspace back chain, counts display and the host-side upload-completion count sync (14E.5); full verification and owner browser check (14E.6); deployment with uploads OFF (14E.7); D10 backup cadence.
+
+### Stage 14E.3 — frontend foundation for photos (2026-10-06, ACCEPTED, committed `0dd6f39`)
 
 Frontend only, **no UI component and no wiring yet** (14E.4 / 14E.5); no new dependency, no backend or infrastructure change; production photo uploads stay **OFF**.
 Contract: `docs/STAGE_14E_PHOTO_UI_CONTRACT.md` §4–§6, §10 (implementation notes added at the end of §5).
@@ -1389,7 +1416,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | EXECUTED 2026-10-05 — steps 1–6 of plan §11 PASS (run `20261005T052617Z-66a27f56`; 14D.5B), cleanup J1–J4 PASS, OWNER SIGN-OFF 2026-10-05 |
 | └ 14D.6 | First production non-destructive backup run + runbook final | 14D.6A tooling committed 2026-10-05; 14D.6B P0–P8 EXECUTED 2026-10-05/06 — all PASS (first production backup published, verified by two readers, restored and compared with production); OWNER ACCEPTED 2026-10-06 |
 | └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | COMPLETE / OWNER SIGNED OFF 2026-10-06 (plan §17.1; runbook §72 finalized) |
-| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; D11 = A decided; 14E.2 backend (counts endpoint + `capture_source`, migration `0033`) COMMITTED and pushed (`396fd90`); 14E.3 frontend foundation (types, API + XHR upload, queue engine, caption helpers, hooks, `photos` locale keys; no UI yet) IMPLEMENTED, awaiting owner acceptance; open: D10 backup cadence) |
+| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; D11 = A decided; 14E.2 backend (counts endpoint + `capture_source`, migration `0033`) COMMITTED and pushed (`396fd90`); 14E.3 frontend foundation COMMITTED and pushed (`0dd6f39`); 14E.4 components (entry button, picker, queue list, grid, viewer, section; not mounted yet) IMPLEMENTED, awaiting owner acceptance; open: D10 backup cadence) |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
 | 14G | POINT annotations (API + editor) | NOT STARTED |
 | 14H | WORK execution photos in Realizacja | NOT STARTED |

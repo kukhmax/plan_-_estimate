@@ -109,3 +109,27 @@ describe('photoCaption', () => {
     expect(isCapturedMuchOlderThanUpload({ ...base, captured_at: null })).toBe(false);
   });
 });
+
+describe('photoDayLabel (day grouping of the project-wide list)', () => {
+  it('uses the captured date as stored, else the local upload date, else nothing', async () => {
+    const { photoDayLabel } = await import('./photoCaption');
+    expect(photoDayLabel({ captured_at: '2026-06-23T23:59:00', uploaded_at: '2026-06-25T08:00:00Z' })).toBe('23.06.2026');
+    vi.spyOn(Date.prototype, 'getDate').mockReturnValue(25);
+    vi.spyOn(Date.prototype, 'getMonth').mockReturnValue(5);
+    vi.spyOn(Date.prototype, 'getFullYear').mockReturnValue(2026);
+    vi.spyOn(Date.prototype, 'getHours').mockReturnValue(10);
+    vi.spyOn(Date.prototype, 'getMinutes').mockReturnValue(0);
+    expect(photoDayLabel({ captured_at: null, uploaded_at: '2026-06-25T08:00:00Z' })).toBe('25.06.2026');
+    vi.restoreAllMocks();
+    expect(photoDayLabel({ captured_at: null, uploaded_at: 'bad' })).toBe('');
+  });
+
+  it('never converts the EXIF time through Date (no timezone shift)', async () => {
+    const { formatCapturedAt } = await import('./photoCaption');
+    const trap = vi.spyOn(Date.prototype, 'getHours').mockImplementation(() => {
+      throw new Error('captured time must not be converted');
+    });
+    expect(formatCapturedAt('2026-06-23T10:15:00')).toBe('23.06.2026 (10:15)');
+    expect(trap).not.toHaveBeenCalled();
+  });
+});

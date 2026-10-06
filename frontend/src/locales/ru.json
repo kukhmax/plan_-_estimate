@@ -1512,7 +1512,15 @@
       "loading": "Загрузка фото…",
       "load_error": "Не удалось загрузить фото.",
       "retry": "Повторить",
-      "uploads_off_note": "Добавление фото сейчас отключено. Существующие фото можно просматривать."
+      "uploads_off_note": "Добавление фото сейчас отключено. Существующие фото можно просматривать.",
+      "entry_aria": "Фото: {count}",
+      "archive_view_title": "Архив фото",
+      "empty_archive": "Архив пуст.",
+      "filter_all": "Все",
+      "in_report": "в отчёте",
+      "thumb_unavailable": "Нет превью",
+      "media_unavailable_note": "Просмотр фото временно недоступен.",
+      "options_toggle": "Опции фото"
     },
     "picker": {
       "take_photo": "Сделать фото",
@@ -1548,7 +1556,14 @@
       "saved": "Сохранено",
       "captured": "Снято",
       "uploaded": "Добавлено",
-      "older_hint": "Фото старше даты добавления"
+      "older_hint": "Фото старше даты добавления",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "counter": "{current} / {total}",
+      "loading": "Загрузка фото…",
+      "image_unavailable": "Не удалось показать фото.",
+      "retry": "Повторить",
+      "dialog_label": "Просмотр фото"
     },
     "category": {
       "GENERAL": "Общее",

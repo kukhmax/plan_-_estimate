@@ -187,6 +187,18 @@ the detail **once** and re-render; (b) when the section is expanded and `Date.no
 viewer refetches the detail when its URLs are older than `urls_expire_at − 30 s` before showing the next photo. URLs are never written to
 `localStorage`, never logged, never put in the query string of app routes.
 
+**Implementation notes (14E.4, 2026-10-06; refine the rules above, none contradicts them):**
+
+- *Files:* `PhotoUploadQueue.tsx` is `PhotoUploadQueueList.tsx` (the name `PhotoUploadQueue` is the engine class); the corner button is its own component `PhotoEntryButton.tsx`; `PhotoSection` renders only the **expanded content** — the host owns the
+  expanded flag, shows `PhotoEntryButton` in the card header and mounts `PhotoSection` only while expanded (so nothing is fetched while collapsed).
+- *Theme:* every photo component uses the Telegram theme tokens (`var(--tg-theme-…)` / `var(--tg-control-…)`) and no fixed light colours. 14E.5 must check how a section looks inside a host card that has a fixed `bg-white`, in the dark scheme.
+- *Counts — one owner:* `PhotoSection` reports only archive / restore corrections (`onCountAdjust`). **An upload completion is counted once by the host** (14E.5: a small hook in the workspace that listens to `subscribePhotoUploadDone` and calls
+  `usePhotoCounts().adjust`), because the upload goes on after its section is collapsed and several sections can be open at once.
+- *Done rows:* a finished upload row stays until the grid refetch has put the photo into the list, then it disappears; a refetch failure leaves the row with a Dismiss button.
+- *Back chain:* the viewer registers through `usePhotoBackRegistration`; the workspace must provide a **stable** registry (memoized) — registration is, in any case, independent of the provider's object identity. A pending caption is saved before the viewer
+  closes on Back; a failed save keeps it open.
+- *Capture source:* the camera button declares `CAMERA`, the gallery button `GALLERY` (informational, never proof).
+
 ## 8. Back navigation (Telegram BackButton)
 
 `ProjectWorkspace` owns the only registered BackButton handler and its priority chain. The viewer (and its unsaved-caption guard) must be the **first**
