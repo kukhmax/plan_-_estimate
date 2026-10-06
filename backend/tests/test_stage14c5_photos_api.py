@@ -690,7 +690,9 @@ async def test_photo_storage_flags(api, http, monkeypatch, enabled, backend, upl
     assert (data["uploads_enabled"], data["media_available"], data["used_bytes"]) == (uploads, media, 0)
 
 
-def test_no_counts_routes():
+def test_only_the_project_photo_counts_route_exists():
+    # Counts were deferred in 14C (C14) and added in Stage 14E.2: exactly one route, read-only.
     paths = app.openapi()["paths"]
-    assert not [p for p in paths if "count" in p]
+    assert [p for p in paths if "count" in p] == ["/api/projects/{project_id}/photos/counts"]
+    assert list(paths["/api/projects/{project_id}/photos/counts"]) == ["get"]
     assert image_bytes  # imported helper kept in use

@@ -94,7 +94,10 @@ def test_revision_chain_and_single_head():
     assert module.down_revision == "0031_photo_assets"
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0032_photo_attachments"]
+    # Stage 14E.2 added 0033 on top; 0032 must stay its direct parent (single linear chain).
+    scripts = ScriptDirectory.from_config(config)
+    assert scripts.get_heads() == ["0033_photo_capture_source"]
+    assert scripts.get_revision("0033_photo_capture_source").down_revision == "0032_photo_attachments"
 
 
 def test_enum_values_are_exact():

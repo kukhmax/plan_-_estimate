@@ -424,7 +424,7 @@ async def test_animated_image_422(api):
 
 
 ASSET_KEYS = {"id", "project_id", "status", "content_type", "byte_size", "width", "height", "original_filename",
-              "captured_at", "uploaded_at", "archived_at"}
+              "captured_at", "capture_source", "uploaded_at", "archived_at"}  # capture_source: 14E.2 (D11)
 
 
 async def test_created_201_with_presigned_urls_and_no_internal_fields(api, monkeypatch):
@@ -661,7 +661,10 @@ async def test_status_ready_rows_after_success(api):
 # failure, gate ordering
 # ---------------------------------------------------------------------------
 
-ALL_OPTIONAL = [("category", "DEFECT"), ("caption", "pełny opis"), ("include_in_report", "true")]
+ALL_OPTIONAL = [
+    ("category", "DEFECT"), ("caption", "pełny opis"), ("include_in_report", "true"),
+    ("source", "CAMERA"),  # 14E.2 (owner decision D11): the optional client-declared entry path
+]
 
 
 @pytest.mark.parametrize(
@@ -673,7 +676,7 @@ async def test_every_maximal_valid_field_set_is_accepted(api, context, target):
     if target:
         scalars.append((target, str(getattr(api, target.removesuffix("_id")))))
     scalars += ALL_OPTIONAL
-    assert len(scalars) == (5 if context == "PROJECT" else 6)  # MAX_FIELDS = 6; the file is a file, not a field
+    assert len(scalars) == (6 if context == "PROJECT" else 7)  # MAX_FIELDS = 7; the file is a file, not a field
     c = await call(path_for(api.project), token=api.token,
                    body=multipart([*scalars, ("file", ("a.jpg", "image/jpeg", image_bytes()))]))
     assert c.status == 201, c.body
@@ -681,10 +684,11 @@ async def test_every_maximal_valid_field_set_is_accepted(api, context, target):
     assert (att["context"], att["category"], att["caption"], att["include_in_report"]) == (
         context, "DEFECT", "pełny opis", True,
     )
+    assert c.json()["asset"]["capture_source"] == "CAMERA"
 
 
-async def test_seventh_distinct_scalar_field_is_rejected(api):
-    body = form(api, extra=[*ALL_OPTIONAL, ("surface_id", str(api.surface))])  # 7 scalar fields
+async def test_eighth_distinct_scalar_field_is_rejected(api):
+    body = form(api, extra=[*ALL_OPTIONAL, ("surface_id", str(api.surface))])  # 8 scalar fields
     c = await call(path_for(api.project), token=api.token, body=body)
     assert c.status == 422 and detail(c)["code"] == "PHOTO_UPLOAD_MALFORMED"
     assert await counts(api.db) == (0, 0)

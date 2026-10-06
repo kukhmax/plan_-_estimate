@@ -61,6 +61,18 @@ class PhotoContentType(str, enum.Enum):
     WEBP = "image/webp"
 
 
+class PhotoCaptureSource(str, enum.Enum):
+    """How the client says the file entered the app (Stage 14E.2, owner decision D11 = A).
+
+    `CAMERA`: chosen with the in-app "take a photo" button; `GALLERY`: chosen from the
+    gallery / file picker. **Declared by the client, informational, never proof**: the server
+    cannot verify it (some phones answer the camera button with the gallery). NULL = unknown
+    (every photo uploaded before the column existed, and clients that do not send it)."""
+
+    CAMERA = "CAMERA"
+    GALLERY = "GALLERY"
+
+
 def _enum_values(enum_cls: type[enum.Enum]) -> list[str]:
     return [member.value for member in enum_cls]
 
@@ -100,6 +112,12 @@ class PhotoAsset(Base):
     original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Camera-local, timezone unknown -- see module docstring.
     captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    # Client-declared entry path, informational only (see PhotoCaptureSource); VARCHAR + CHECK,
+    # not a native enum, so the column is trivially reversible.
+    capture_source: Mapped[PhotoCaptureSource | None] = mapped_column(
+        Enum(PhotoCaptureSource, native_enum=False, length=16, create_constraint=False, values_callable=_enum_values),
+        nullable=True,
+    )
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
@@ -126,6 +144,10 @@ class PhotoAsset(Base):
         CheckConstraint("thumbnail_byte_size > 0", name="ck_photo_assets_thumbnail_byte_size_positive"),
         CheckConstraint("width > 0 AND height > 0", name="ck_photo_assets_dimensions_positive"),
         CheckConstraint("length(trim(storage_name)) > 0", name="ck_photo_assets_storage_name_nonempty"),
+        CheckConstraint(
+            "capture_source IS NULL OR capture_source IN ('CAMERA', 'GALLERY')",
+            name="ck_photo_assets_capture_source",
+        ),
         CheckConstraint(
             "length(storage_key_original) > 0 AND length(storage_key_display) > 0"
             " AND length(storage_key_thumbnail) > 0",

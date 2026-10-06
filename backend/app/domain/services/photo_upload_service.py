@@ -96,7 +96,7 @@ from app.domain.services.photo_quota import (
     storage_state,
 )
 from app.domain.services.project_service import ProjectService
-from app.models.photo_asset import PhotoAsset, PhotoAssetStatus
+from app.models.photo_asset import PhotoAsset, PhotoAssetStatus, PhotoCaptureSource
 from app.models.photo_attachment import PhotoAttachment, PhotoCategory
 
 if TYPE_CHECKING:
@@ -148,6 +148,9 @@ class PhotoUploadRequest:
     caption: str | None = None
     include_in_report: bool = False
     original_filename: str | None = None
+    # Client-declared entry path (14E.2, D11 = A): informational, stored on the FIRST upload only;
+    # a replay / resume of an existing asset never changes it (C16).
+    capture_source: PhotoCaptureSource | None = None
 
 
 class PhotoUploadOutcome(StrEnum):
@@ -286,6 +289,7 @@ class PhotoUploadService:
                 storage_name=self.config.storage_name,
                 processed=processed,
                 original_filename=request.original_filename,
+                capture_source=request.capture_source,
             )
             await self.attachments.add_initial_attachment(
                 asset=asset,

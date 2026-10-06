@@ -218,12 +218,13 @@ asset/inspection were nulled. `occurrence_key` has no FK by design (Stage 13 D13
 | `room_id` / `surface_id` / `opening_id` | exactly the one required by `context`; the others absent | leaf-only target; the server validates the chain to the project |
 | `category` | no | one of the 8 values; default `GENERAL` |
 | `caption` | no | ≤ 1000 characters; trimmed; empty → NULL |
+| `source` | no | `CAMERA` \| `GALLERY` — informational capture source declared by the client (Stage 14E.2, migration `0033`); absent → NULL; any other value → 422 `PHOTO_UPLOAD_MALFORMED`; ignored on replay (C16); never used for authorisation or processing |
 | `include_in_report` | no | boolean; default `false` |
 | `file` | yes | exactly one file part |
 
 - **Controlled parsing**: the route takes `Request` and declares no `File()`/`Form()` parameters, so authentication,
   the upload gate, `Content-Length` and project ownership run **before any body byte is read**. It then calls
-  `request.form(max_files=1, max_fields=6, max_part_size=8 KiB)`. Unknown, duplicated or missing fields and malformed
+  `request.form(max_files=1, max_fields=7, max_part_size=8 KiB)` (6 until Stage 14E.2, which added the optional `source` field). Unknown, duplicated or missing fields and malformed
   multipart → 422 `PHOTO_UPLOAD_MALFORMED`.
 - **Filename**: the multipart filename passes `sanitize_original_filename` (last path segment, no control characters,
   ≤ 255) and is stored as `original_filename` metadata only; never used in keys or paths; never logged.
@@ -626,7 +627,7 @@ covers it entirely. No `Retry-After` is sent with `PHOTO_UPLOADS_DISABLED`. The 
 2. Pre-body checks: authentication, upload gate, `Content-Length`, project ownership (quota is checked after
    identification, §15).
 3. Byte-counting request guard (27 000 000; chunked bodies included).
-4. Controlled multipart parsing (`max_files=1`, `max_fields=6`, `max_part_size=8 KiB`); `python-multipart` pinned to a
+4. Controlled multipart parsing (`max_files=1`, `max_fields=7`, `max_part_size=8 KiB`; 6 before Stage 14E.2); `python-multipart` pinned to a
    current patched version (≥ 0.0.32 at the time of writing).
 5. Image bytes ≤ 25 000 000.
 6. Decoded format validation — JPEG / PNG / WebP only; disguised / corrupt / truncated rejected; animated PNG/WebP
@@ -658,6 +659,7 @@ per-request order: spooled request + workspace original + two derivatives. Resul
 |---|---|---|
 | `POST /projects/{project_id}/photos` | multipart (§9) → 201 / 200 `{asset, attachment, thumbnail_url, display_url, urls_expire_at, storage}` | 401; 503 `PHOTO_UPLOADS_DISABLED`; 404 `PROJECT_NOT_FOUND` / `ROOM_NOT_FOUND` / `SURFACE_NOT_FOUND` / `OPENING_NOT_FOUND`; 409 `PHOTO_UPLOAD_ID_CONFLICT` / `PHOTO_STORAGE_QUOTA_EXCEEDED` / `PHOTO_OBJECT_CONFLICT` / `PHOTO_UPLOAD_RESUME_MISMATCH`; 413 `PHOTO_TOO_LARGE`; 415 `PHOTO_UNSUPPORTED_FORMAT`; 422 `PHOTO_UPLOAD_MALFORMED` / `PHOTO_CONTEXT_NOT_SUPPORTED` / `PHOTO_INVALID_IMAGE` / `PHOTO_TOO_MANY_PIXELS` / `PHOTO_ANIMATED_NOT_SUPPORTED`; 503 `PHOTO_PROCESSING_BUSY` (`Retry-After`) / `PHOTO_STORAGE_UNAVAILABLE` (no `Retry-After`); 500 `PHOTO_STORAGE_ERROR` |
 | `GET /projects/{project_id}/photos?context=&room_id=&surface_id=&opening_id=&category=&include_in_report=&archived=false&limit=30&cursor=` | → `{items: [{attachment, asset, thumbnail_url}], next_cursor, urls_expire_at}`; READY only; `limit` ≤ 100; order `(position, uploaded_at, id)`; `archived=false` = active attachment **AND** non-archived asset; `archived=true` = archive view: archived attachment **OR** archived asset (§18) | 404; 422 |
+| `GET /projects/{project_id}/photos/counts` | (Stage 14E.2) → `{project, rooms: {room_id: n}, surfaces: {surface_id: n}, openings: {opening_id: n}}`; active attachments of READY, non-archived assets, grouped by leaf target, zero-count targets omitted; one aggregate query; works with uploads disabled; declared before `{asset_id}` | 401; 404 `PROJECT_NOT_FOUND` |
 | `GET /projects/{project_id}/photos/{asset_id}` | → `{asset, attachments (each with archived_at), thumbnail_url, display_url, urls_expire_at}` | 404 `PHOTO_NOT_FOUND` |
 | `POST /projects/{project_id}/photos/{asset_id}/attachments` | JSON `{context, room_id\|surface_id\|opening_id, category?, caption?, include_in_report?}` → 201 | 404; 409 `PHOTO_ATTACHMENT_DUPLICATE`; 422 (incl. `PHOTO_CONTEXT_NOT_SUPPORTED`) |
 | `PATCH /projects/{project_id}/photo-attachments/{attachment_id}` | `{caption?, category?, include_in_report?, position?}` → 200 | 404 `PHOTO_ATTACHMENT_NOT_FOUND`; 422 |
@@ -665,7 +667,7 @@ per-request order: spooled request + workspace original + two derivatives. Resul
 | `POST /projects/{project_id}/photos/{asset_id}/archive` · `/restore` | → 200 (idempotent) | 404 |
 | `GET /photo-storage` | → `{uploads_enabled, media_available, used_bytes (logical/reserved), warning_bytes, soft_cap_bytes, state}` | 401 |
 
-**Not in 14C**: `/photos/counts` (C14, 14E), original download, delete, annotations, INSPECTION / FINDING / WORK
+**Not in 14C**: `/photos/counts` (C14; added in Stage 14E.2, see the route above), original download, delete, annotations, INSPECTION / FINDING / WORK
 contexts. Attach is not idempotent (a duplicate returns 409); PATCH, archive and restore are idempotent; upload is
 idempotent by `upload_id` (§12).
 

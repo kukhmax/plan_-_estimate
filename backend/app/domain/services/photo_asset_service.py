@@ -38,7 +38,12 @@ from app.domain.exceptions import (
 from app.domain.photos.image_processing import ProcessedImage
 from app.domain.photos.keys import ORIGINAL_CONTENT_TYPES, build_photo_object_keys
 from app.domain.services.project_service import ProjectService
-from app.models.photo_asset import PhotoAsset, PhotoAssetStatus, PhotoContentType
+from app.models.photo_asset import (
+    PhotoAsset,
+    PhotoAssetStatus,
+    PhotoCaptureSource,
+    PhotoContentType,
+)
 
 SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 MAX_STORAGE_NAME_LENGTH = 40
@@ -108,6 +113,7 @@ class PhotoAssetService:
         storage_name: str,
         processed: ProcessedImage,
         original_filename: str | None = None,
+        capture_source: PhotoCaptureSource | None = None,
     ) -> PhotoAsset:
         """Insert and COMMIT a PENDING asset with complete metadata (processing
         already happened). Verifies the project belongs to the owner."""
@@ -118,6 +124,7 @@ class PhotoAssetService:
             storage_name=storage_name,
             processed=processed,
             original_filename=original_filename,
+            capture_source=capture_source,
         )
         await self.db.commit()
         await self.db.refresh(asset)
@@ -132,6 +139,7 @@ class PhotoAssetService:
         storage_name: str,
         processed: ProcessedImage,
         original_filename: str | None = None,
+        capture_source: PhotoCaptureSource | None = None,
     ) -> PhotoAsset:
         """Validate and add a PENDING asset inside the caller's transaction.
 
@@ -167,6 +175,7 @@ class PhotoAssetService:
             sha256=processed.sha256,
             original_filename=sanitize_original_filename(original_filename),
             captured_at=processed.captured_at,  # camera-local, no timezone
+            capture_source=capture_source,  # client-declared, informational (14E.2, D11)
             uploaded_at=datetime.now(timezone.utc),
         )
         self.db.add(asset)

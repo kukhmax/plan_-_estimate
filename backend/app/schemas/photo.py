@@ -10,7 +10,11 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, field_validator
 
 from app.domain.services.photo_quota import PhotoStorageState
-from app.models.photo_asset import PhotoAssetStatus, PhotoContentType
+from app.models.photo_asset import (
+    PhotoAssetStatus,
+    PhotoCaptureSource,
+    PhotoContentType,
+)
 from app.models.photo_attachment import PhotoAttachmentContext, PhotoCategory
 
 
@@ -26,6 +30,8 @@ class PhotoAssetRead(BaseModel):
     height: int
     original_filename: str | None
     captured_at: datetime | None
+    # Client-declared, informational, never proof; null = unknown (14E.2, D11).
+    capture_source: PhotoCaptureSource | None
     uploaded_at: datetime
     archived_at: datetime | None
 
@@ -121,6 +127,15 @@ class PhotoAttachRequest(BaseModel):
     category: PhotoCategory | None = None
     caption: str | None = None
     include_in_report: StrictBool = False
+
+
+class PhotoCountsResponse(BaseModel):
+    """GET /projects/{p}/photos/counts (14E.2): visible photos per target; empty targets omitted."""
+
+    project: int
+    rooms: dict[uuid.UUID, int]
+    surfaces: dict[uuid.UUID, int]
+    openings: dict[uuid.UUID, int]
 
 
 class PhotoStorageStatus(BaseModel):

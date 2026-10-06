@@ -26,7 +26,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -68,6 +68,18 @@ class PhotoListFilters:
             separators=(",", ":"),
         )
         return hashlib.sha256(canonical.encode()).hexdigest()[:32]
+
+
+@dataclass(frozen=True)
+class PhotoCounts:
+    """Visible photos per target (Stage 14E.2, contract 14E §9): active attachments of READY,
+    non-archived assets of this project, grouped by their (leaf) target. Targets with no photo are
+    absent, so the size is bounded by the number of photographed targets."""
+
+    project: int
+    rooms: dict[uuid.UUID, int]
+    surfaces: dict[uuid.UUID, int]
+    openings: dict[uuid.UUID, int]
 
 
 @dataclass(frozen=True)
@@ -214,6 +226,57 @@ class PhotoQueryService:
         page = rows[:limit]
         next_cursor = encode_cursor(*page[-1], fingerprint) if len(rows) > limit else None
         return PhotoListPage(items=page, next_cursor=next_cursor)
+
+    async def counts(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> PhotoCounts:
+        """Badge counts for the whole project in ONE aggregate query (same visibility as the normal
+        list: active attachment AND non-archived asset, READY only, full ownership chain). Read-only;
+        works with uploads disabled (C11)."""
+        await ProjectService(self.db).get_project(project_id, owner_id)
+        supported = (
+            PhotoAttachmentContext.PROJECT,
+            PhotoAttachmentContext.ROOM,
+            PhotoAttachmentContext.SURFACE,
+            PhotoAttachmentContext.OPENING,
+        )
+        stmt = (
+            select(
+                PhotoAttachment.context,
+                PhotoAttachment.room_id,
+                PhotoAttachment.surface_id,
+                PhotoAttachment.opening_id,
+                func.count(),
+            )
+            .join(PhotoAsset, PhotoAttachment.asset_id == PhotoAsset.id)
+            .where(
+                PhotoAttachment.project_id == project_id,
+                PhotoAsset.project_id == project_id,
+                PhotoAsset.owner_id == owner_id,
+                PhotoAsset.status == PhotoAssetStatus.READY,
+                PhotoAttachment.archived_at.is_(None),
+                PhotoAsset.archived_at.is_(None),
+                PhotoAttachment.context.in_(supported),
+            )
+            .group_by(
+                PhotoAttachment.context,
+                PhotoAttachment.room_id,
+                PhotoAttachment.surface_id,
+                PhotoAttachment.opening_id,
+            )
+        )
+        project_total = 0
+        rooms: dict[uuid.UUID, int] = {}
+        surfaces: dict[uuid.UUID, int] = {}
+        openings: dict[uuid.UUID, int] = {}
+        for context, room_id, surface_id, opening_id, total in (await self.db.execute(stmt)).all():
+            if context is PhotoAttachmentContext.PROJECT:
+                project_total += int(total)
+            elif context is PhotoAttachmentContext.ROOM and room_id is not None:
+                rooms[room_id] = rooms.get(room_id, 0) + int(total)
+            elif context is PhotoAttachmentContext.SURFACE and surface_id is not None:
+                surfaces[surface_id] = surfaces.get(surface_id, 0) + int(total)
+            elif context is PhotoAttachmentContext.OPENING and opening_id is not None:
+                openings[opening_id] = openings.get(opening_id, 0) + int(total)
+        return PhotoCounts(project=project_total, rooms=rooms, surfaces=surfaces, openings=openings)
 
     async def get_detail(
         self, owner_id: uuid.UUID, project_id: uuid.UUID, asset_id: uuid.UUID

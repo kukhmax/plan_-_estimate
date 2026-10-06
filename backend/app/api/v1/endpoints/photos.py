@@ -82,6 +82,7 @@ from app.domain.services.photo_upload_service import (
     parse_upload_id,
 )
 from app.domain.services.project_service import ProjectService
+from app.models.photo_asset import PhotoCaptureSource
 from app.models.photo_attachment import PhotoAttachmentContext, PhotoCategory
 from app.models.user import User
 from app.schemas.photo import (
@@ -89,6 +90,7 @@ from app.schemas.photo import (
     PhotoAttachmentPatch,
     PhotoAttachmentRead,
     PhotoAttachRequest,
+    PhotoCountsResponse,
     PhotoDetailResponse,
     PhotoListItem,
     PhotoListResponse,
@@ -101,15 +103,16 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Multipart limits (contract §9): one file; at most six scalar fields
-# (upload_id, context, one target id, category, caption, include_in_report);
-# scalar parts <= 8 KiB. max_part_size does NOT bound file parts.
+# Multipart limits (contract §9): one file; at most seven scalar fields
+# (upload_id, context, one target id, category, caption, include_in_report, source -- `source`
+# added in 14E.2, owner decision D11); scalar parts <= 8 KiB. max_part_size does NOT bound
+# file parts.
 MAX_FILES = 1
-MAX_FIELDS = 6
+MAX_FIELDS = 7
 MAX_SCALAR_PART_BYTES = 8192
 FILE_FIELD = "file"
 SCALAR_FIELDS = frozenset(
-    {"upload_id", "context", "room_id", "surface_id", "opening_id", "category", "caption", "include_in_report"}
+    {"upload_id", "context", "room_id", "surface_id", "opening_id", "category", "caption", "include_in_report", "source"}
 )
 ORIGINAL_NAME = "original"  # server-chosen workspace file name
 
@@ -253,6 +256,7 @@ def _build_request(
         parse_upload_id(scalars["upload_id"])  # reject before the copy; the service re-validates
         context = PhotoAttachmentContext(scalars["context"])
         category = PhotoCategory(scalars["category"]) if "category" in scalars else None
+        capture_source = PhotoCaptureSource(scalars["source"]) if "source" in scalars else None
     except (PhotoUploadMalformedError, ValueError):
         raise _malformed() from None
     include = scalars.get("include_in_report", "false")
@@ -273,6 +277,7 @@ def _build_request(
         caption=scalars.get("caption"),
         include_in_report=include == "true",
         original_filename=original_filename,
+        capture_source=capture_source,
     )
 
 
@@ -497,6 +502,26 @@ async def list_photos(
         ],
         next_cursor=page.next_cursor,
         urls_expire_at=expires_at if page.items else None,
+    )
+
+
+@router.get(
+    "/projects/{project_id}/photos/counts",
+    response_model=PhotoCountsResponse,
+    summary="Badge counts of visible photos per project / room / surface / opening (one aggregate query)",
+)
+async def photo_counts(
+    project_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoCountsResponse:
+    # Declared BEFORE the `{asset_id}` detail route so "counts" is never parsed as an asset id.
+    try:
+        counts = await PhotoQueryService(db).counts(current_user.id, project_id)
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return PhotoCountsResponse(
+        project=counts.project, rooms=counts.rooms, surfaces=counts.surfaces, openings=counts.openings
     )
 
 

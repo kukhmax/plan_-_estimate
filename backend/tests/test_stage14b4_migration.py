@@ -71,9 +71,12 @@ def test_upgrade_creates_schema_matching_model_and_downgrade_removes_it():
 
     model = Base.metadata.tables["photo_assets"]
     columns = {c["name"]: c for c in insp.get_columns("photo_assets")}
-    assert set(columns) == set(model.columns.keys())
+    # `capture_source` and its CHECK are added by the later revision 0033 (Stage 14E.2), not by 0031.
+    later_columns = {"capture_source"}
+    assert set(columns) == set(model.columns.keys()) - later_columns
     for name, col in model.columns.items():
-        assert columns[name]["nullable"] == col.nullable, name
+        if name not in later_columns:
+            assert columns[name]["nullable"] == col.nullable, name
 
     indexes = {i["name"]: bool(i["unique"]) for i in insp.get_indexes("photo_assets")}
     model_indexes = {i.name: bool(i.unique) for i in model.indexes}
@@ -82,7 +85,8 @@ def test_upgrade_creates_schema_matching_model_and_downgrade_removes_it():
     checks = {c["name"] for c in insp.get_check_constraints("photo_assets")}
     portable_model_checks = {
         c.name for c in model.constraints
-        if c.__class__.__name__ == "CheckConstraint" and c.name != "ck_photo_assets_sha256_hex"
+        if c.__class__.__name__ == "CheckConstraint"
+        and c.name not in {"ck_photo_assets_sha256_hex", "ck_photo_assets_capture_source"}
     }
     assert portable_model_checks <= checks
 

@@ -1,6 +1,6 @@
 # Stage 14E — reusable mobile photo UI: interface contract (14E.1)
 
-> **Status: ACCEPTED by the owner on 2026-10-06 "по рекомендациям" with three clarifications (C-1 corner button, C-2 photo caption line, C-3 project-level list — §3a); open: D10 (backup cadence) and D11 (capture source, needs a migration).** Documentation only: no code, dependency, migration, infrastructure or
+> **Status: ACCEPTED by the owner on 2026-10-06 "по рекомендациям" with three clarifications (C-1 corner button, C-2 photo caption line, C-3 project-level list — §3a); open: D10 (backup cadence); D11 = A (capture source stored, migration `0033`) decided 2026-10-06.** Documentation only: no code, dependency, migration, infrastructure or
 > production change. Production photo uploads stay **OFF** (`PHOTO_UPLOADS_ENABLED=false`). Parent stage: canonical
 > Stage 14 (photo fixation); this is sub-stage 14E of `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §19. Inputs (not reopened):
 > architecture §4/§8/§9/§11/§12/§17, `docs/STAGE_14C_MEDIA_API_CONTRACT.md` (C1–C16, §21 route set), the 14D gate
@@ -184,7 +184,7 @@ module not needed for 14E.)
 
 ## 9. Backend addition — `GET /api/projects/{project_id}/photos/counts` (14E.2)
 
-Additive, **no migration**, read-only, owner-scoped (foreign / missing project → 404 `PROJECT_NOT_FOUND`), available with uploads disabled (C11).
+Additive, read-only (the endpoint itself needs no migration; the separate capture-source column of D11 = A is migration `0033`), owner-scoped (foreign / missing project → 404 `PROJECT_NOT_FOUND`), available with uploads disabled (C11).
 
 ```json
 { "project": 4, "rooms": {"<room_id>": 2}, "surfaces": {"<surface_id>": 1}, "openings": {"<opening_id>": 1} }
@@ -263,7 +263,7 @@ path on production data (the drill proved it on synthetic data); verify and rest
 | D9 | Where the project-level section sits | object card, below the summary, above Rooms |
 | **D-DEV** (accepted: option 1) | How the owner checks the UI before production (the repo forbids local Docker and `MEDIA_STORAGE_BACKEND` has no local-file mode; the in-memory fake produces URLs a browser cannot load) | **(1) a separate dev R2 bucket + its own scoped token** created by the owner, local backend with `MEDIA_STORAGE_BACKEND=s3`, `PHOTO_UPLOADS_ENABLED=true` in a local-only env file (no code, no production contact); alternatives: (2) skip dev E2E and rely on the controlled production enablement; (3) a dev-only local-filesystem adapter (new backend code) |
 | **D10** | Backup cadence / RPO before enablement | decide before 14E.7: manual before each work session, a nightly timer with N copies, or manual first and a timer later — **OPEN** |
-| **D11** | Capture source ("zrobione w aplikacji" / "dodane z galerii") — C-2 | **A (recommended): store it** as an informational column `photo_assets.capture_source` (adds Alembic migration `0033`; the production backup / restore tooling is unaffected — it resolves the head from the repository); **C: do not store it** — omit the source part, the line shows location + date/time only (no migration, 14E stays migration-free as in architecture §19); **B (rejected): derive it from EXIF presence** — a gallery photo taken yesterday also has EXIF, so the label would mislead — **OPEN, owner chooses A or C** |
+| **D11** (**DECIDED 2026-10-06: A**) | Capture source ("zrobione w aplikacji" / "dodane z galerii") — C-2 | **A (recommended): store it** as an informational column `photo_assets.capture_source` (adds Alembic migration `0033`; the production backup / restore tooling is unaffected — it resolves the head from the repository); **C: do not store it** — omit the source part, the line shows location + date/time only (no migration, 14E stays migration-free as in architecture §19); **B (rejected): derive it from EXIF presence** — a gallery photo taken yesterday also has EXIF, so the label would mislead — **DECIDED: A** (implemented in 14E.2) |
 | D12 | Project-level list shows all photos of the object with path labels (C-3) | accepted |
 
 ## 16. Risks
@@ -275,5 +275,5 @@ single-lane queue is slower than parallel (accepted: predictable, protects the 1
 
 ## 17. Owner approval record
 
-**Accepted by the owner on 2026-10-06** ("принимаю 14E.1 по рекомендациям, но есть уточнения": corner button C-1, caption line C-2, project-wide list C-3 — §3a). Decisions D1–D9 and D12 accepted as recommended; D-DEV = option 1 (a separate dev R2 bucket and token created by the owner); **open: D10 and D11**. Approving 14E.1 meant: the scope (§1), the UX model (§3), the transport / queue rules (§5), the error mapping (§6), the counts endpoint (§9) and
-the decisions D1–D10 (with the recommended defaults unless the owner changes them). Next sub-stage: **14E.2** (backend: counts endpoint and, per D11, the capture-source column) — it starts after the owner answers D11.
+**Accepted by the owner on 2026-10-06** ("принимаю 14E.1 по рекомендациям, но есть уточнения": corner button C-1, caption line C-2, project-wide list C-3 — §3a). Decisions D1–D9 and D12 accepted as recommended; D-DEV = option 1 (a separate dev R2 bucket and token created by the owner); **D11 = A decided 2026-10-06; open: D10**. Approving 14E.1 meant: the scope (§1), the UX model (§3), the transport / queue rules (§5), the error mapping (§6), the counts endpoint (§9) and
+the decisions D1–D10 (with the recommended defaults unless the owner changes them). Next sub-stage: **14E.2** (backend: counts endpoint and, per D11, the capture-source column) — started after the owner answered D11 = A (implemented 2026-10-06, see `docs/development-progress.md`).

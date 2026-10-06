@@ -1142,6 +1142,28 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14E.2 — backend: photo counts endpoint + capture source (2026-10-06, IMPLEMENTED — awaiting owner acceptance, NOT COMMITTED)
+
+Backend only; production photo uploads stay **OFF**; nothing is deployed (production receives migration `0033` in 14E.7 with explicit owner approval).
+Contract: `docs/STAGE_14E_PHOTO_UI_CONTRACT.md` §9 / §13 (owner decision D11 = A), `docs/STAGE_14C_MEDIA_API_CONTRACT.md` §9 / §21 updated.
+
+- **Added:** `GET /api/projects/{project_id}/photos/counts` → `{project, rooms, surfaces, openings}` (active attachments of READY, non-archived assets, grouped by leaf
+  target, zero-count targets omitted; one aggregate query; owner-scoped, foreign / missing project → 404; works with uploads disabled; declared before `{asset_id}`).
+  `PhotoQueryService.counts`, `PhotoCounts`, `PhotoCountsResponse`.
+- **Added:** informational capture source — `photo_assets.capture_source` (nullable `VARCHAR(16)` + CHECK `IN ('CAMERA','GALLERY')`, non-native enum), optional multipart field `source`
+  (field cap 6 → 7; any other value → 422 `PHOTO_UPLOAD_MALFORMED`), stored on the new asset only, ignored on replay (C16), returned in `PhotoAssetRead.capture_source`;
+  never used for authorisation or processing. Existing rows stay NULL.
+- **Database:** Alembic `0033_photo_capture_source` (down_revision `0032_photo_attachments`, single head, reversible: drops the CHECK and the column). Additive, no data rewrite, no index.
+- **Tests:** `backend/tests/test_stage14e2_photo_counts_and_source.py` — 30 new (counts: ownership, READY only, archived attachment / asset excluded, grouping per context, empty project,
+  uploads disabled, one aggregate query, route not swallowed by `{asset_id}`, counts equal the visible list totals; source: stored / returned / listed, optional, invalid and duplicate value → malformed with no
+  write, replay and resume keep the first declaration, DB-level CHECK; migration 0033: exactly one nullable column + one CHECK, downgrade is a plain drop).
+  Updated pinned tests: asset key set (`capture_source`), `test_no_counts_routes` → exactly one read-only counts route, 0031 schema comparison excludes the 0033 column and CHECK.
+  Six mutations of the new code were each caught by the new tests.
+- **Verification:** real **PostgreSQL 16.13** scratch cluster (native, no Docker): 0032 → 0033 on a populated `photo_assets`, CHECK accepts `CAMERA` / `GALLERY` / NULL and rejects other values,
+  downgrade with data present, re-upgrade; opt-in PG module `test_stage14c6b_postgres.py` 10 passed; counts aggregate and the new column exercised through the ORM on PostgreSQL.
+  Full backend suite: **4060 passed, 54 skipped, 0 failed** (12 min). `ruff` — no new findings in touched files (pre-existing findings elsewhere unchanged); `mypy --strict` — no errors in touched files (17 pre-existing in other modules).
+- **Deferred:** frontend (14E.3–14E.6); D10 backup cadence (before 14E.7); production deployment and controlled enablement (14E.7).
+
 ### Stage 14E.1 — photo UI interface contract (2026-10-06, ACCEPTED by the owner with clarifications)
 
 Documentation only: no code, dependency, migration, infrastructure or production change; production photo uploads stay **OFF**. Contract:
@@ -1339,7 +1361,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | EXECUTED 2026-10-05 — steps 1–6 of plan §11 PASS (run `20261005T052617Z-66a27f56`; 14D.5B), cleanup J1–J4 PASS, OWNER SIGN-OFF 2026-10-05 |
 | └ 14D.6 | First production non-destructive backup run + runbook final | 14D.6A tooling committed 2026-10-05; 14D.6B P0–P8 EXECUTED 2026-10-05/06 — all PASS (first production backup published, verified by two readers, restored and compared with production); OWNER ACCEPTED 2026-10-06 |
 | └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | COMPLETE / OWNER SIGNED OFF 2026-10-06 (plan §17.1; runbook §72 finalized) |
-| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; open: D10 backup cadence, D11 capture source (needs migration `0033`); no code yet) |
+| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; D11 = A decided; 14E.2 backend (counts endpoint + `capture_source`, migration `0033`) IMPLEMENTED, awaiting owner acceptance; open: D10 backup cadence; no frontend code yet) |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
 | 14G | POINT annotations (API + editor) | NOT STARTED |
 | 14H | WORK execution photos in Realizacja | NOT STARTED |
