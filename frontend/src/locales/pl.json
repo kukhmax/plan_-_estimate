@@ -1499,5 +1499,95 @@
       "preview_error": "Nie udało się sprawdzić pozostałych ścian. Spróbuj ponownie.",
       "other_wall": "Inna ściana"
     }
+  },
+  "photos": {
+    "section": {
+      "title": "Zdjęcia",
+      "title_with_count": "Zdjęcia ({count})",
+      "empty": "Brak zdjęć.",
+      "options": "Opcje",
+      "show_archive": "Pokaż archiwum",
+      "hide_archive": "Ukryj archiwum",
+      "show_more": "Pokaż więcej",
+      "loading": "Ładowanie zdjęć…",
+      "load_error": "Nie udało się wczytać zdjęć.",
+      "retry": "Spróbuj ponownie",
+      "uploads_off_note": "Dodawanie zdjęć jest obecnie wyłączone. Możesz przeglądać istniejące zdjęcia."
+    },
+    "picker": {
+      "take_photo": "Zrób zdjęcie",
+      "from_gallery": "Z galerii",
+      "too_many_selected": "Wybrano zbyt wiele plików — dodano pierwsze {count}."
+    },
+    "queue": {
+      "title": "Wysyłanie zdjęć",
+      "waiting": "Oczekuje",
+      "uploading": "Wysyłanie… {percent}%",
+      "processing": "Przetwarzanie…",
+      "done": "Gotowe",
+      "canceled": "Anulowano",
+      "failed": "Błąd",
+      "retry": "Ponów",
+      "retry_as_new": "Ponów jako nowe",
+      "cancel": "Anuluj",
+      "dismiss": "Zamknij",
+      "preview_alt": "Podgląd wybranego zdjęcia"
+    },
+    "viewer": {
+      "photo_alt": "Zdjęcie",
+      "caption": "Opis",
+      "caption_placeholder": "Dodaj opis…",
+      "category": "Kategoria",
+      "include_in_report": "Uwzględnij w raporcie",
+      "archive": "Archiwizuj",
+      "archive_confirm": "Zarchiwizować to zdjęcie?",
+      "restore": "Przywróć",
+      "close": "Zamknij",
+      "previous": "Poprzednie zdjęcie",
+      "next": "Następne zdjęcie",
+      "saved": "Zapisano",
+      "captured": "Zrobiono",
+      "uploaded": "Dodano",
+      "older_hint": "Zdjęcie starsze niż data dodania"
+    },
+    "category": {
+      "GENERAL": "Ogólne",
+      "BEFORE": "Przed",
+      "DEFECT": "Wada",
+      "PREPARATION": "Przygotowanie",
+      "IN_PROGRESS": "W trakcie",
+      "HIDDEN_WORK": "Roboty zanikające",
+      "AFTER": "Po",
+      "DAMAGE": "Uszkodzenie"
+    },
+    "caption": {
+      "added_prefix": "dodano",
+      "source_camera": "zrobione w aplikacji",
+      "source_gallery": "dodane z galerii",
+      "project_label": "Obiekt",
+      "unknown_location": "—"
+    },
+    "errors": {
+      "session_expired": "Sesja wygasła. Zaloguj się ponownie.",
+      "uploads_disabled": "Dodawanie zdjęć jest wyłączone.",
+      "quota_exceeded": "Limit miejsca na zdjęcia został osiągnięty.",
+      "too_large": "Plik jest za duży (maks. 25 MB).",
+      "unsupported_format": "Użyj JPEG, PNG lub WebP.",
+      "invalid_image": "Nie można odczytać tego zdjęcia.",
+      "generic": "Nie udało się dodać zdjęcia.",
+      "target_not_found": "Miejsce docelowe już nie istnieje.",
+      "conflict": "Konflikt przy zapisie zdjęcia. Spróbuj dodać je jako nowe.",
+      "busy": "Serwer jest zajęty. Spróbuj za chwilę.",
+      "storage_unavailable": "Magazyn zdjęć jest chwilowo niedostępny. Spróbuj ponownie później.",
+      "network": "Brak połączenia. Spróbuj ponownie.",
+      "not_found": "To zdjęcie już nie istnieje.",
+      "duplicate_attachment": "Aktywne zdjęcie już istnieje.",
+      "unknown": "Wystąpił nieoczekiwany błąd."
+    },
+    "storage": {
+      "uploads_disabled": "Dodawanie zdjęć jest wyłączone.",
+      "warning": "Miejsce na zdjęcia zbliża się do limitu.",
+      "full": "Limit miejsca na zdjęcia został osiągnięty. Nowe zdjęcia nie mogą być dodawane."
+    }
   }
 }

@@ -1142,7 +1142,35 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
-### Stage 14E.2 — backend: photo counts endpoint + capture source (2026-10-06, IMPLEMENTED — awaiting owner acceptance, NOT COMMITTED)
+### Stage 14E.3 — frontend foundation for photos (2026-10-06, IMPLEMENTED — awaiting owner acceptance, NOT COMMITTED)
+
+Frontend only, **no UI component and no wiring yet** (14E.4 / 14E.5); no new dependency, no backend or infrastructure change; production photo uploads stay **OFF**.
+Contract: `docs/STAGE_14E_PHOTO_UI_CONTRACT.md` §4–§6, §10 (implementation notes added at the end of §5).
+
+- **Added:**
+  - `src/types/photo.ts` — mirrors of the backend DTOs incl. `capture_source` and the counts response; the four supported contexts and the 8 categories.
+  - `src/api/photos.ts` — JSON calls through `apiRequest` (list with filters / cursor, detail, counts, storage status, PATCH, archive / restore for attachment and asset, attach) and `uploadPhoto`: XHR
+    multipart with progress, **no manual `Content-Type`**, `Authorization` from the same token store, 60 s idle watchdog (restarted by every progress event, no total timeout), a 120 s wait for the answer after
+    the bytes were sent, abort by `AbortSignal`, errors mapped to `ApiError` (`PhotoUploadError` adds `Retry-After`; a proxy 413 page → `PHOTO_TOO_LARGE`; an unreadable 2xx body → `BAD_RESPONSE`).
+  - `src/utils/photoErrors.ts` — the single code → UI behaviour table of contract §6 (key, retryable, retry-as-new, stops queue, gate closed, what to refetch); messages are chosen by code, never by server text.
+  - `src/utils/photoUploadQueue.ts` — UI-free queue engine: one lane, stable `upload_id` per file across retries, local advisory checks (≤ 10 files per selection, ≤ 25 000 000 bytes, JPEG / PNG / WebP; an empty MIME is
+    left to the server), GET-first retry protocol after a transport failure (200 → done, 404 → re-POST the same id with a 2 s / 4 s backoff, at most 2 automatic re-POSTs), `PHOTO_PROCESSING_BUSY` auto-retry once
+    after `Retry-After` (cap 30 s, default 3 s) without blocking the lane, explicit "retry as new" only for identity conflicts, quota / gate / session errors stop the rest of the queue, cancel, dismiss, foreground
+    `reconcile()` that ends an item whose asset already exists and never starts a second concurrent POST.
+  - `src/utils/photoCaption.ts` — pure caption helpers for `location → date (time) · source`: EXIF time shown as stored (no timezone shift), upload time converted to device local time and marked "added", source label
+    (omitted when unknown), location path with a dash for an unresolved segment, the "taken more than a day before it was added" test.
+  - `src/hooks/usePhotoStorage.ts` (one shared status fetch, unknown / failed = uploads unavailable), `usePhotoCounts.ts` (counts, optimistic adjust, stale-answer guard, helpers), `usePhotoUploadQueue.ts` (one queue per
+    session, per-project view, `visibilitychange` / `online` reconcile, done / refetch subscriptions, storage refresh when the server stops the queue).
+  - Locale namespace `photos` (section, picker, queue, viewer, category, caption, errors, storage) in `pl.json` and `ru.json`.
+- **Changed:** `src/api/http.ts` — `API_BASE` is exported (one word) so the upload transport targets the same base URL; nothing else.
+- **Database / backend:** none.
+- **Tests:** 138 new in 8 files (`api/photos` 20, `utils/photoErrors` 33, `utils/photoUploadQueue` 43, `utils/photoCaption` 10, `hooks/usePhotoStorage` 7, `hooks/usePhotoCounts` 8, `hooks/usePhotoUploadQueue` 11,
+  `locales/photos` 6). 18 mutations of the new code, each caught (two survivors of the first round led to two added tests).
+- **Verification:** full vitest **60 files / 1439 tests passed** (baseline 52 / 1301); `tsc --noEmit` clean; `vite build` OK (only the pre-existing chunk-size notice); the `act(...)` warnings in other suites are
+  identical to the baseline (10 before and after). Mobile regression: no rendered UI changed (no component added or edited), existing suites unchanged and green; the 390 / 412 px acceptance starts with 14E.4.
+- **Deferred:** components (14E.4), wiring + BackButton context + counts display (14E.5), full verification and owner browser check (14E.6), deployment with uploads OFF (14E.7), D10 backup cadence.
+
+### Stage 14E.2 — backend: photo counts endpoint + capture source (2026-10-06, ACCEPTED, committed `396fd90`)
 
 Backend only; production photo uploads stay **OFF**; nothing is deployed (production receives migration `0033` in 14E.7 with explicit owner approval).
 Contract: `docs/STAGE_14E_PHOTO_UI_CONTRACT.md` §9 / §13 (owner decision D11 = A), `docs/STAGE_14C_MEDIA_API_CONTRACT.md` §9 / §21 updated.
@@ -1361,7 +1389,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | EXECUTED 2026-10-05 — steps 1–6 of plan §11 PASS (run `20261005T052617Z-66a27f56`; 14D.5B), cleanup J1–J4 PASS, OWNER SIGN-OFF 2026-10-05 |
 | └ 14D.6 | First production non-destructive backup run + runbook final | 14D.6A tooling committed 2026-10-05; 14D.6B P0–P8 EXECUTED 2026-10-05/06 — all PASS (first production backup published, verified by two readers, restored and compared with production); OWNER ACCEPTED 2026-10-06 |
 | └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | COMPLETE / OWNER SIGNED OFF 2026-10-06 (plan §17.1; runbook §72 finalized) |
-| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; D11 = A decided; 14E.2 backend (counts endpoint + `capture_source`, migration `0033`) IMPLEMENTED, awaiting owner acceptance; open: D10 backup cadence; no frontend code yet) |
+| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; D11 = A decided; 14E.2 backend (counts endpoint + `capture_source`, migration `0033`) COMMITTED and pushed (`396fd90`); 14E.3 frontend foundation (types, API + XHR upload, queue engine, caption helpers, hooks, `photos` locale keys; no UI yet) IMPLEMENTED, awaiting owner acceptance; open: D10 backup cadence) |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
 | 14G | POINT annotations (API + editor) | NOT STARTED |
 | 14H | WORK execution photos in Realizacja | NOT STARTED |

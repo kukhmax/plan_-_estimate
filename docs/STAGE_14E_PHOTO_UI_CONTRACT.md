@@ -134,6 +134,19 @@ predictable). `processing` = bytes sent, response pending (the server decodes, b
 5. Never drop a failed item silently: it stays in the queue with a message until dismissed or retried; `done` rows collapse into the grid after the list refetch.
 6. Local previews use `URL.createObjectURL` (revoked when the item is `done` or dismissed); nothing is persisted in v1 (D2).
 
+**Implementation notes (14E.3, 2026-10-06; refine the rules above, none contradicts them):**
+
+- The error table lives in `src/utils/photoErrors.ts` and the queue engine in `src/utils/photoUploadQueue.ts`; one session-wide queue is exposed by `usePhotoUploadQueue` (extra hook, not in the §4 table).
+- *Processing wait:* the idle watchdog covers the sending phase only; after all bytes are sent the transport waits up to **120 s** for the answer (the server needs up to ~60 s), then treats it as a transport failure and
+  the GET-first protocol decides. An unreadable 2xx body is also a transport failure.
+- *Automatic retries:* after a transport failure whose GET-first check answers 404 the queue re-POSTs the same `upload_id` at most **2** times (2 s, then 4 s); a failed check (offline) is not retried silently. A manual
+  *Ponów* resets this budget and keeps the `upload_id`.
+- *Foreground reconcile* only ends an in-flight item whose asset already exists on the server (and aborts the dead request); when the server has nothing yet it does nothing — the transport watchdog stays the single
+  authority, so there is never a second concurrent POST for one file.
+- *Local checks:* an empty `File.type` (some WebViews omit it for camera files) is **not** rejected locally; the server decodes the bytes and never trusts the MIME.
+- *Busy:* a `PHOTO_PROCESSING_BUSY` item is re-queued after `Retry-After` (cap 30 s, default 3 s) and does not hold the lane.
+- *Unknown availability:* until `GET /photo-storage` answers (or when it fails) uploads are treated as unavailable, so no upload button is shown by mistake.
+
 ## 6. Backend errors → UI (single table; PL / RU text keys under `photos.errors.*`)
 
 | Status / `code` | Meaning | UI behaviour | Retry |
