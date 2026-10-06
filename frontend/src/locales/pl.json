@@ -1520,7 +1520,8 @@
       "in_report": "w raporcie",
       "thumb_unavailable": "Brak podglądu",
       "media_unavailable_note": "Podgląd zdjęć jest chwilowo niedostępny.",
-      "options_toggle": "Opcje zdjęć"
+      "options_toggle": "Opcje zdjęć",
+      "project_title": "Zdjęcia obiektu"
     },
     "picker": {
       "take_photo": "Zrób zdjęcie",

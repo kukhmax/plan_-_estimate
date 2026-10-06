@@ -246,7 +246,11 @@ export function PhotoSection({ projectId, context, targetId, locationLabel, onCo
     }`;
 
   return (
-    <section aria-label={t.photos.section.title} className="min-w-0 space-y-3">
+    <section
+      aria-label={t.photos.section.title}
+      // Its own surface: host cards are often a fixed white, so the theme text colours need a theme background.
+      className="min-w-0 space-y-3 rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] p-3 text-[var(--tg-theme-text-color)]"
+    >
       {canUpload && <PhotoPicker onFiles={handleFiles} />}
       {canUpload && storage.state === 'WARNING' && (
         <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">{t.photos.storage.warning}</p>

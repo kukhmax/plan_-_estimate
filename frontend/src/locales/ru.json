@@ -1520,7 +1520,8 @@
       "in_report": "в отчёте",
       "thumb_unavailable": "Нет превью",
       "media_unavailable_note": "Просмотр фото временно недоступен.",
-      "options_toggle": "Опции фото"
+      "options_toggle": "Опции фото",
+      "project_title": "Фото объекта"
     },
     "picker": {
       "take_photo": "Сделать фото",

@@ -207,6 +207,15 @@ branch of that chain. **Recommended (D6):** a small React context provided by `P
 existing hook or chain. (Rejected: a second `useTelegramBackButton` instance — both click handlers would fire; a global stack hook — a refactor of a working
 module not needed for 14E.)
 
+**Implementation notes (14E.5, 2026-10-06; refine the rules above, none contradicts them):**
+
+- *Wiring pattern:* `ProjectWorkspace` mounts one `ProjectPhotosProvider`; a card adds `PhotoCardButton` (header) and `PhotoCardPanel` (under the header). Outside the provider both render nothing, so the existing suites needed no change.
+- *Back chain:* the workspace's Telegram Back handler first calls `closeTop()` of the viewer registry; only when no viewer is open does the previous chain run unchanged. An open viewer with an unsaved caption saves it, then closes.
+- *Object card:* a separate "Zdjęcia obiektu" card (fixed white like `project-detail`) between the estimates entry and the rooms; its button shows the **total** of every photo of the object, matching the project-wide list (C-3).
+- *Names for paths:* a photo stores only its leaf target and the wall numbering exists only in the frontend, so the project-wide list loads the structure names lazily when it opens (rooms; surfaces of all rooms if any surface or opening has photos;
+  openings of walls only if any opening has photos; ≤ 6 parallel requests). A name that cannot be loaded or resolved shows a dash. Leaf cards (room, surface, opening) build the path from the names they already hold.
+- *Counts:* the provider counts finished uploads once; the section reports only archive / restore corrections; counts are refetched whenever a section expands and when an upload finds its target gone.
+
 ## 9. Backend addition — `GET /api/projects/{project_id}/photos/counts` (14E.2)
 
 Additive, read-only (the endpoint itself needs no migration; the separate capture-source column of D11 = A is migration `0033`), owner-scoped (foreign / missing project → 404 `PROJECT_NOT_FOUND`), available with uploads disabled (C11).

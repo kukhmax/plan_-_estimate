@@ -10,6 +10,7 @@ import { useI18n } from '../hooks/useI18n';
 import { saveRoomMeasurementMode } from '../hooks/roomMeasurementMode';
 import { RoomCreatePayload, RoomType, RoomUpdatePayload } from '../types/room';
 import { formatMetric } from '../utils/format';
+import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 
 interface RoomListProps {
   projectId: string;
@@ -432,14 +433,19 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                 aria-label={`room-item-${room.id}`}
                 className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2.5"
               >
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-                  <span className="font-semibold text-slate-900 text-sm min-w-0 break-words">{room.name}</span>
-                  {room.is_archived && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                      {t.common.archived_badge}
-                    </span>
-                  )}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">
+                    <span className="font-semibold text-slate-900 text-sm min-w-0 break-words">{room.name}</span>
+                    {room.is_archived && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                        {t.common.archived_badge}
+                      </span>
+                    )}
+                  </div>
+                  {/* Stage 14E.5: corner photo button (C-1); nothing without a project photo context. */}
+                  <PhotoCardButton context="ROOM" targetId={room.id} />
                 </div>
+                <PhotoCardPanel context="ROOM" targetId={room.id} locationSegments={[room.name]} />
 
                 {summaryParts.length > 0 ? (
                   <p className="text-xs text-slate-600 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">

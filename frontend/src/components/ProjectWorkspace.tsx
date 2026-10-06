@@ -10,6 +10,8 @@ import {
 import { fetchRoom, updateRoom } from '../api/rooms';
 import { useI18n } from '../hooks/useI18n';
 import { resolveRoomMeasurementMode } from '../hooks/roomMeasurementMode';
+import { usePhotoBackStack } from '../hooks/PhotoBackContext';
+import { ProjectPhotosProvider } from '../hooks/ProjectPhotosContext';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { ClientType } from '../types/client';
 import {
@@ -26,6 +28,7 @@ import { EstimateList } from './EstimateList';
 import { EstimateShell } from './EstimateShell';
 import { InspectionFlow } from './InspectionFlow';
 import { InspectionList } from './InspectionList';
+import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { RoomList } from './RoomList';
 import { OpeningGroupList } from './OpeningGroupList';
 import { ProjectSummaryCard } from './ProjectSummaryCard';
@@ -90,6 +93,7 @@ interface ProjectWorkspaceProps {
 
 export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   const { t } = useI18n();
+  const photoBack = usePhotoBackStack();
   const [projects, setProjects] = useState<ProjectType[]>([]);
   const [clients, setClients] = useState<ClientType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -389,6 +393,8 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   }, [resetSignal]);
 
   useTelegramBackButton(isBackButtonVisible, () => {
+    // An open photo viewer takes the press first (contract §8); nothing else navigates then.
+    if (photoBack.closeTop()) return;
     if (showRoomForm) {
       setShowRoomForm(false);
     } else if (activeInspection) {
@@ -410,6 +416,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
   });
 
   return (
+    <ProjectPhotosProvider projectId={selectedProject?.id ?? null} backRegistry={photoBack.registry}>
     <section aria-label="projects-workspace" className="w-full mt-4">
       {selectedProject && (
         <nav aria-label="hierarchy-navigation" className="flex items-center gap-1.5 flex-wrap text-xs text-[var(--tg-theme-hint-color)] mb-3">
@@ -683,6 +690,15 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
             <span className="font-bold text-slate-950 text-sm">{t.estimates.title}</span>
             <span aria-hidden="true" className="text-slate-950 text-lg leading-none">›</span>
           </button>
+
+          {/* Stage 14E.5: photos of the whole object (D9: below the summary, above the rooms). */}
+          <article aria-label="project-photos" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{t.photos.section.project_title}</h3>
+              <PhotoCardButton context="PROJECT" />
+            </div>
+            <PhotoCardPanel context="PROJECT" />
+          </article>
 
           <RoomList
             projectId={selectedProject.id}
@@ -1016,6 +1032,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
           <SurfaceList
             projectId={selectedProject.id}
             roomId={selectedRoom.id}
+            roomName={selectedRoom.name}
             roomHeight={selectedRoom.height}
             hasRoomDimensions={
               selectedRoom.length !== null && selectedRoom.length !== undefined &&
@@ -1099,5 +1116,6 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
         </ul>
       )}
     </section>
+    </ProjectPhotosProvider>
   );
 }

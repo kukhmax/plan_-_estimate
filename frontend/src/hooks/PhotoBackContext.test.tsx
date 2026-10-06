@@ -49,3 +49,38 @@ describe('usePhotoBackRegistration', () => {
     expect(second).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('usePhotoBackStack', () => {
+  it('has a stable registry and closes the most recently registered viewer first', async () => {
+    const { usePhotoBackStack } = await import('./PhotoBackContext');
+    const { result, rerender } = renderHook(() => usePhotoBackStack());
+    const registry = result.current.registry;
+    rerender();
+    expect(result.current.registry).toBe(registry);
+
+    expect(result.current.closeTop()).toBe(false); // nothing open: Back belongs to the workspace
+    const first = vi.fn();
+    const second = vi.fn();
+    const offFirst = registry.register(first);
+    const offSecond = registry.register(second);
+    expect(result.current.closeTop()).toBe(true);
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+
+    offSecond();
+    expect(result.current.closeTop()).toBe(true);
+    expect(first).toHaveBeenCalledTimes(1);
+    offFirst();
+    expect(result.current.closeTop()).toBe(false);
+  });
+
+  it('ignores a second unregister', async () => {
+    const { usePhotoBackStack } = await import('./PhotoBackContext');
+    const { result } = renderHook(() => usePhotoBackStack());
+    const close = vi.fn();
+    const off = result.current.registry.register(close);
+    off();
+    off();
+    expect(result.current.closeTop()).toBe(false);
+  });
+});

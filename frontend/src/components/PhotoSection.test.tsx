@@ -486,6 +486,15 @@ describe('PhotoSection — mobile and locales', () => {
     expect(screen.getByRole('button', { name: 'Опции фото' })).toBeInTheDocument();
   });
 
+  it('has its own theme surface, so it stays readable inside a fixed-white host card in the dark scheme', async () => {
+    document.documentElement.setAttribute('data-color-scheme', 'dark');
+    const { container } = renderSection();
+    const root = container.firstElementChild as HTMLElement;
+    expect(root).toHaveClass('bg-[var(--tg-theme-secondary-bg-color)]', 'text-[var(--tg-theme-text-color)]', 'rounded-xl', 'p-3');
+    await screen.findByText('Brak zdjęć.');
+    document.documentElement.removeAttribute('data-color-scheme');
+  });
+
   it('uses theme tokens only, so the dark scheme needs no extra rules', async () => {
     document.documentElement.setAttribute('data-color-scheme', 'dark');
     vi.mocked(fetchPhotos).mockResolvedValue(listPage([makeItem()]));

@@ -57,7 +57,7 @@ export function PhotoThumbGrid({
           {group.label && (
             <h4
               data-testid="photo-day-header"
-              className="sticky top-0 z-10 bg-[var(--tg-theme-bg-color)] py-1 text-xs font-semibold text-[var(--tg-theme-hint-color)]"
+              className="sticky top-0 z-10 bg-[var(--tg-theme-secondary-bg-color)] py-1 text-xs font-semibold text-[var(--tg-theme-hint-color)]"
             >
               {group.label}
             </h4>

@@ -1142,7 +1142,33 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
-### Stage 14E.4 — photo UI components (2026-10-06, IMPLEMENTED — awaiting owner acceptance, NOT COMMITTED)
+### Stage 14E.5 — photo entry points wired into the cards (2026-10-06, IMPLEMENTED — awaiting owner acceptance, NOT COMMITTED)
+
+Frontend only; production photo uploads stay **OFF** (the sections show their neutral "uploads off" note and no buttons until the server gate opens); no backend, dependency or infrastructure change.
+Contract: `docs/STAGE_14E_PHOTO_UI_CONTRACT.md` §3, §8, §9 (implementation notes added at the end of §8).
+
+- **Added:**
+  - `ProjectPhotosProvider` (hook file `ProjectPhotosContext.tsx`) mounted once in `ProjectWorkspace`: loads the counts of the open object (one request, refetched whenever a section expands), keeps which sections are expanded, **counts every
+    finished upload once** (also when its section was collapsed meanwhile or two sections are open), refetches the counts when an upload finds its target gone, resolves the location names of the project-wide list and provides the BackButton registry.
+  - `PhotoCardButton` / `PhotoCardPanel` — the two pieces a card adds (corner button in its header, panel directly under it). Outside a project photo context they render **nothing**, so every existing screen and test is untouched.
+  - `usePhotoBackStack` (stable registry + `closeTop()`), `loadPhotoLocations` / `resolveLocationSegments` (names loaded lazily and only as deep as the photos need: rooms; + surfaces of every room when a surface or opening has photos;
+    + openings of walls only, at most 6 requests at once; a failed request degrades to a dash, never an error), locale key `photos.section.project_title`.
+- **Changed (existing files, additive):**
+  - `ProjectWorkspace` — provider around the section; Telegram Back first calls `photoBack.closeTop()` (an open viewer takes the press, nothing navigates); a new **"Zdjęcia obiektu"** card between the estimates entry and the rooms (D9), a fixed white
+    surface like `project-detail`, showing the total count of the object; `roomName` passed to `SurfaceList`.
+  - `RoomList` — the header is now `name + badges | photo button`, the panel follows it; `SurfaceList` — the photo button on its own right-aligned line under "Opcje" (as in the owner's mock-up), the panel after it; `OpeningList` — the photo
+    button in the row's action group, the panel below the row; both take optional name props for the caption path.
+  - `PhotoSection` has its own theme surface (rounded panel, theme background and text colour) so it is readable inside the fixed-white host cards in the dark scheme.
+- **Database / backend:** none.
+- **Tests:** 56 new (`ProjectWorkspace.photos` 20 integration tests, `ProjectPhotosContext` 12, `photoLocations` 8, `PhotoCard` 13, `PhotoBackContext` +2, `PhotoSection` +1). Existing suites unchanged and green. 19 mutations of the new / wired code, all caught.
+  Integration scenarios: counts loaded once per object and not on the project list; the object card position and total; project-wide list without a context filter and the full path of every photo (room, wall, opening, object; dashes when names fail);
+  per-card counts and own section only; surface button row under Opcje; opening row button; state kept while navigating and reset for another object; upload counted once with the section collapsed and with two sections open; uploads-off note;
+  **BackButton: viewer first, then navigation as before; an unsaved caption is saved on Back**; Russian.
+- **Verification:** full vitest **73 files / 1611 tests passed** (before 69 / 1555); `tsc --noEmit` clean; `vite build` OK (the main bundle grows 612 → 658 kB, gzip 162 → 175 kB, because the photo code is now reachable);
+  the `act(...)` warnings and stderr blocks of other suites are identical to the baseline (10 / 7). Mobile: class-level assertions per component as in 14E.4; the real 390 / 412 px, Russian and dark-scheme check in a browser is 14E.6.
+- **Deferred:** full verification and the owner's browser check (14E.6, needs the D-DEV bucket); deployment with uploads OFF and the controlled enablement (14E.7); D10 backup cadence.
+
+### Stage 14E.4 — photo UI components (2026-10-06, ACCEPTED, committed `f23f5e6`)
 
 Frontend only; **components exist and are tested but are not mounted anywhere yet** (wiring is 14E.5, so no screen of the app changes); no new dependency, no backend change; production photo uploads stay **OFF**.
 Contract: `docs/STAGE_14E_PHOTO_UI_CONTRACT.md` §3, §7, §8, §10, §11 (implementation notes added at the end of §7).
@@ -1416,7 +1442,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | └ 14D.5 | Isolated restore drill (synthetic fixture) | EXECUTED 2026-10-05 — steps 1–6 of plan §11 PASS (run `20261005T052617Z-66a27f56`; 14D.5B), cleanup J1–J4 PASS, OWNER SIGN-OFF 2026-10-05 |
 | └ 14D.6 | First production non-destructive backup run + runbook final | 14D.6A tooling committed 2026-10-05; 14D.6B P0–P8 EXECUTED 2026-10-05/06 — all PASS (first production backup published, verified by two readers, restored and compared with production); OWNER ACCEPTED 2026-10-06 |
 | └ 14D.7 | Readiness audit + gate record, owner sign-off (enablement stays 14E) | COMPLETE / OWNER SIGNED OFF 2026-10-06 (plan §17.1; runbook §72 finalized) |
-| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; D11 = A decided; 14E.2 backend (counts endpoint + `capture_source`, migration `0033`) COMMITTED and pushed (`396fd90`); 14E.3 frontend foundation COMMITTED and pushed (`0dd6f39`); 14E.4 components (entry button, picker, queue list, grid, viewer, section; not mounted yet) IMPLEMENTED, awaiting owner acceptance; open: D10 backup cadence) |
+| 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; D11 = A decided; 14E.2 backend (counts endpoint + `capture_source`, migration `0033`) COMMITTED and pushed (`396fd90`); 14E.3 frontend foundation COMMITTED and pushed (`0dd6f39`); 14E.4 components COMMITTED and pushed (`f23f5e6`); 14E.5 wiring into the object / room / surface / opening cards, BackButton chain and counts IMPLEMENTED, awaiting owner acceptance; open: D10 backup cadence) |
 | 14F | Finding `lineage_id` + inspection/finding evidence | NOT STARTED |
 | 14G | POINT annotations (API + editor) | NOT STARTED |
 | 14H | WORK execution photos in Realizacja | NOT STARTED |

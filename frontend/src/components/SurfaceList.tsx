@@ -20,6 +20,7 @@ import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatMetric } from '../utils/format';
 import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
+import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { surfaceTypeTint } from '../utils/surfaceTypeTint';
 import { formatOpeningDimension, summarizeOpenings } from '../utils/openingSummary';
 import { OpeningList } from './OpeningList';
@@ -33,6 +34,8 @@ const TYPE_BADGE_CLASS = 'bg-white text-slate-700';
 interface SurfaceListProps {
   projectId: string;
   roomId: string;
+  /** Room name for the photo caption path (Stage 14E.5); optional. */
+  roomName?: string;
   roomHeight?: string | number | null;
   hasRoomDimensions?: boolean;
   wallMode?: WallInputMode;
@@ -75,6 +78,7 @@ const EMPTY_FORM: SurfaceFormState = {
 export function SurfaceList({
   projectId,
   roomId,
+  roomName,
   roomHeight,
   hasRoomDimensions = false,
   wallMode,
@@ -733,6 +737,10 @@ export function SurfaceList({
                   </button>
                 </div>
 
+                {/* Stage 14E.5: photo button on the line under Opcje, right-aligned (C-1); nothing without a project context. */}
+                <PhotoCardButton context="SURFACE" targetId={surface.id} rowClassName="flex justify-end" />
+                <PhotoCardPanel context="SURFACE" targetId={surface.id} locationSegments={[roomName, displayName]} />
+
                 {hasDimensions && (
                   <p className="text-xs text-slate-600">
                     <span>{t.surfaces.dimensions}: </span>
@@ -938,6 +946,7 @@ export function SurfaceList({
                             projectId={projectId}
                             roomId={roomId}
                             surfaceId={surface.id}
+                            photoPath={[roomName, displayName]}
                             initialType={pendingQuickOpening?.surfaceId === surface.id ? pendingQuickOpening.type : undefined}
                             onOpeningChanged={handleOpeningChanged}
                           />
