@@ -87,7 +87,7 @@ npm --prefix frontend run build
 
 Follow this sequence exactly:
 
-**Stage → Implementation → Automated verification → PASS/FAIL report → Owner verification/acceptance → Commit → [explicit owner approval] → Push → [explicit owner approval] → Production deployment → Production verification → next Stage only after explicit owner approval**
+**Stage → Implementation → Automated verification → PASS/FAIL report → Commit (no approval needed, only on PASS) → [explicit owner approval] → Push → [explicit owner approval] → Production deployment → Owner verification/acceptance → Production verification → next Stage only after explicit owner approval**
 
 1. Work only on the stage explicitly requested by the user.
 2. Before editing, determine the last completed stage from `docs/development-progress.md` and Git history. Inspect `git status`, `git diff`, and `git log --oneline -10`.
@@ -97,8 +97,8 @@ Follow this sequence exactly:
 6. Implement the smallest coherent change for the requested stage. Do not refactor unrelated code.
 7. Run focused tests first, then relevant regressions, typechecks, builds, and manual checks where applicable. Do not use local Docker — native tooling only.
 8. Report **PASS** or **FAIL**. On FAIL, do not commit, push, or begin another stage.
-9. On PASS, update `docs/development-progress.md`, inspect the complete diff, and create one logical stage commit. Do not push yet.
-10. **`git push` requires explicit owner approval.** State the proposed push command and wait for approval before executing it.
+9. On PASS, update `docs/development-progress.md`, inspect the complete diff, and create one logical stage commit. **Commits do not need owner approval** (owner decision 2026-10-07) but only on PASS, one logical commit per sub-stage, never with failing checks. Do not push yet.
+10. **`git push` requires explicit owner approval** (an automated stop-hook reminder is not approval). State the proposed push command and wait for approval before executing it.
 11. **Production deployment requires explicit owner approval** for every step: SSH access, `git pull`, Docker build, Docker up, Alembic migration, and any data-modifying operation. When a backend deployment contains a new Alembic migration: inspect the migration file from the checked-out repository, build the new backend image, present the migration assessment for owner approval, then recreate the backend container — the entrypoint auto-applies `alembic upgrade head` on startup. **Never inspect `alembic heads` or `alembic history` from a running container built from the previous image** — it reports the old code head, not the new migration. See `docs/PRODUCTION_DEPLOYMENT_RUNBOOK_RU.md` for the full canonical order.
 12. After production deployment, verify health at `https://plan-estimate.pl/api/health` and provide the Telegram cache-buster URL.
 13. Stop after production verification. Starting the next stage always requires explicit owner approval.
