@@ -46,6 +46,10 @@ class PhotoAttachmentRead(BaseModel):
     room_id: uuid.UUID | None
     surface_id: uuid.UUID | None
     opening_id: uuid.UUID | None
+    # Stage 14F.2: inspection evidence. `question_id` is only set on INSPECTION photos taken for one checklist question.
+    inspection_id: uuid.UUID | None
+    question_id: uuid.UUID | None
+    finding_id: uuid.UUID | None
     category: PhotoCategory
     caption: str | None
     include_in_report: bool
@@ -124,6 +128,9 @@ class PhotoAttachRequest(BaseModel):
     room_id: uuid.UUID | None = None
     surface_id: uuid.UUID | None = None
     opening_id: uuid.UUID | None = None
+    inspection_id: uuid.UUID | None = None
+    question_id: uuid.UUID | None = None
+    finding_id: uuid.UUID | None = None
     category: PhotoCategory | None = None
     caption: str | None = None
     include_in_report: StrictBool = False
@@ -138,6 +145,11 @@ class PhotoCountsResponse(BaseModel):
     openings: dict[uuid.UUID, int]
     # Photos per room including its surfaces and their openings (Stage 14E.6); `rooms` stays the room's own photos.
     room_totals: dict[uuid.UUID, int]
+    # Stage 14F.2: photos per inspection (inspection-level and question-level together), per finding row, and per finding
+    # lineage (the sum over every row of the lineage). They never enter `rooms` / `room_totals`.
+    inspections: dict[uuid.UUID, int]
+    findings: dict[uuid.UUID, int]
+    lineages: dict[uuid.UUID, int]
 
 
 class PhotoStorageStatus(BaseModel):

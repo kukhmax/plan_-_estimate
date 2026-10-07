@@ -108,7 +108,7 @@ def rows(a, w) -> list[tuple[str, str, str, dict | None, int, str | None]]:
          {"context": "SURFACE", "surface_id": rnd}, 404, "SURFACE_NOT_FOUND"),
         ("random opening target", "GET", f"/api/projects/{p}/photos?context=OPENING&opening_id={rnd}", None, 404,
          "OPENING_NOT_FOUND"),
-        ("unsupported context (list)", "GET", f"/api/projects/{p}/photos?context=FINDING", None, 422,
+        ("unsupported context (list)", "GET", f"/api/projects/{p}/photos?context=WORK", None, 422,
          "PHOTO_CONTEXT_NOT_SUPPORTED"),
         ("unsupported context (attach)", "POST", f"/api/projects/{p}/photos/{own_asset}/attachments",
          {"context": "WORK"}, 422, "PHOTO_CONTEXT_NOT_SUPPORTED"),

@@ -349,7 +349,7 @@ async def test_oversized_bytes_rejected_at_hashing(env):
         (lambda e: AttachmentTarget(context=C.ROOM, room_id=e.foreign_room), RoomNotFoundError),
         (lambda e: AttachmentTarget(context=C.ROOM, room_id=e.room2), RoomNotFoundError),
         (lambda e: AttachmentTarget(context=C.OPENING, opening_id=uuid.uuid4()), OpeningNotFoundError),
-        (lambda e: AttachmentTarget(context=C.INSPECTION), PhotoContextNotSupportedError),
+        (lambda e: AttachmentTarget(context=C.WORK), PhotoContextNotSupportedError),
         (lambda e: AttachmentTarget(context=C.ROOM), PhotoAttachmentValidationError),
     ],
     ids=["foreign-room", "other-project-room", "missing-opening", "inspection", "room-missing-id"],

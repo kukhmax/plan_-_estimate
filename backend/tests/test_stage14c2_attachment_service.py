@@ -105,7 +105,7 @@ async def test_create_supported_context_with_defaults(db_session, context):
     assert att.inspection_id is att.question_id is att.finding_id is att.occurrence_key is att.price_item_id is None
 
 
-@pytest.mark.parametrize("context", [C.INSPECTION, C.FINDING, C.WORK])
+@pytest.mark.parametrize("context", [C.WORK])  # INSPECTION / FINDING are enabled since 14F.2 (own tests)
 async def test_future_contexts_not_supported(db_session, context):
     w = await world(db_session)
     with pytest.raises(PhotoContextNotSupportedError) as exc:

@@ -366,7 +366,7 @@ async def test_malformed_multipart_is_422(api, label, body_fn, content_type):
 
 async def test_unsupported_context_is_422_context_code(api):
     c = await call(path_for(api.project), token=api.token,
-                   body=form(api, context="INSPECTION", target=("caption", "x")))
+                   body=form(api, context="WORK", target=("caption", "x")))
     assert c.status == 422 and detail(c)["code"] == "PHOTO_CONTEXT_NOT_SUPPORTED"
 
 

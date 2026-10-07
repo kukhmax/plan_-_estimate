@@ -44,6 +44,9 @@ from app.api.upload_guard import (
 from app.core.config import settings
 from app.core.database import get_db
 from app.domain.exceptions import (
+    ChecklistQuestionNotFoundError,
+    InspectionFindingNotFoundError,
+    InspectionNotFoundError,
     MediaObjectConflict,
     MediaStorageDisabled,
     MediaStorageError,
@@ -111,16 +114,19 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Multipart limits (contract §9): one file; at most seven scalar fields
-# (upload_id, context, one target id, category, caption, include_in_report, source -- `source`
-# added in 14E.2, owner decision D11); scalar parts <= 8 KiB. max_part_size does NOT bound
-# file parts.
+# Multipart limits (contract §9): one file; at most eight scalar fields
+# (upload_id, context, the target id(s), category, caption, include_in_report, source -- `source`
+# added in 14E.2, owner decision D11; an INSPECTION photo may name a question next to its inspection,
+# 14F.2); scalar parts <= 8 KiB. max_part_size does NOT bound file parts.
 MAX_FILES = 1
-MAX_FIELDS = 7
+MAX_FIELDS = 8
 MAX_SCALAR_PART_BYTES = 8192
 FILE_FIELD = "file"
 SCALAR_FIELDS = frozenset(
-    {"upload_id", "context", "room_id", "surface_id", "opening_id", "category", "caption", "include_in_report", "source"}
+    {
+        "upload_id", "context", "room_id", "surface_id", "opening_id", "inspection_id", "question_id", "finding_id",
+        "category", "caption", "include_in_report", "source",
+    }
 )
 ORIGINAL_NAME = "original"  # server-chosen workspace file name
 
@@ -144,6 +150,9 @@ _MESSAGES = {
     "ROOM_NOT_FOUND": "Room not found",
     "SURFACE_NOT_FOUND": "Surface not found",
     "OPENING_NOT_FOUND": "Opening not found",
+    "INSPECTION_NOT_FOUND": "Inspection not found",
+    "QUESTION_NOT_FOUND": "Checklist question not found",
+    "FINDING_NOT_FOUND": "Inspection finding not found",
     "PHOTO_NOT_FOUND": "Photo not found",
     "PHOTO_ATTACHMENT_NOT_FOUND": "Photo attachment not found",
     "PHOTO_ATTACHMENT_DUPLICATE": "An equivalent active attachment already exists",
@@ -177,6 +186,12 @@ def _map_domain_error(exc: Exception) -> HTTPException:
         return _error(status.HTTP_404_NOT_FOUND, "SURFACE_NOT_FOUND")
     if isinstance(exc, OpeningNotFoundError):
         return _error(status.HTTP_404_NOT_FOUND, "OPENING_NOT_FOUND")
+    if isinstance(exc, InspectionNotFoundError):
+        return _error(status.HTTP_404_NOT_FOUND, "INSPECTION_NOT_FOUND")
+    if isinstance(exc, ChecklistQuestionNotFoundError):
+        return _error(status.HTTP_404_NOT_FOUND, "QUESTION_NOT_FOUND")
+    if isinstance(exc, InspectionFindingNotFoundError):
+        return _error(status.HTTP_404_NOT_FOUND, "FINDING_NOT_FOUND")
     if isinstance(exc, PhotoUploadIdConflictError):
         # Fixed §14 message, identical for every conflict cause.
         return _error(status.HTTP_409_CONFLICT, exc.code, message=str(exc))
@@ -213,6 +228,9 @@ _DOMAIN_ERRORS = (
     RoomNotFoundError,
     SurfaceNotFoundError,
     OpeningNotFoundError,
+    InspectionNotFoundError,
+    ChecklistQuestionNotFoundError,
+    InspectionFindingNotFoundError,
     PhotoUploadIdConflictError,
     PhotoStorageQuotaExceededError,
     PhotoUploadResumeMismatchError,
@@ -279,6 +297,9 @@ def _build_request(
             room_id=_optional_uuid(scalars.get("room_id")),
             surface_id=_optional_uuid(scalars.get("surface_id")),
             opening_id=_optional_uuid(scalars.get("opening_id")),
+            inspection_id=_optional_uuid(scalars.get("inspection_id")),
+            question_id=_optional_uuid(scalars.get("question_id")),
+            finding_id=_optional_uuid(scalars.get("finding_id")),
         ),
         original_path=original_path,
         category=category,
@@ -479,9 +500,16 @@ async def list_photos(
     room_id: uuid.UUID | None = Query(default=None),
     surface_id: uuid.UUID | None = Query(default=None),
     opening_id: uuid.UUID | None = Query(default=None),
+    inspection_id: uuid.UUID | None = Query(default=None),
+    question_id: uuid.UUID | None = Query(default=None),
+    finding_id: uuid.UUID | None = Query(default=None),
     in_room_id: uuid.UUID | None = Query(
         default=None,
         description="every photo of this room: the room itself, its surfaces and their openings (no other target filter)",
+    ),
+    lineage: uuid.UUID | None = Query(
+        default=None,
+        description="every FINDING photo of this finding lineage, whichever row of the lineage it was taken on (no other target filter)",
     ),
     category: PhotoCategory | None = Query(default=None),
     include_in_report: bool | None = Query(default=None),
@@ -494,7 +522,9 @@ async def list_photos(
 ) -> PhotoListResponse:
     filters = PhotoListFilters(
         context=context, room_id=room_id, surface_id=surface_id, opening_id=opening_id,
+        inspection_id=inspection_id, question_id=question_id, finding_id=finding_id,
         category=category, include_in_report=include_in_report, archived=archived, in_room_id=in_room_id,
+        lineage_id=lineage,
     )
     try:
         page = await PhotoQueryService(db).list_photos(
@@ -534,7 +564,8 @@ async def photo_counts(
         raise _map_library_error(exc) from None
     return PhotoCountsResponse(
         project=counts.project, rooms=counts.rooms, surfaces=counts.surfaces, openings=counts.openings,
-        room_totals=counts.room_totals,
+        room_totals=counts.room_totals, inspections=counts.inspections, findings=counts.findings,
+        lineages=counts.lineages,
     )
 
 
@@ -587,6 +618,9 @@ async def attach_photo(
                 room_id=payload.room_id,
                 surface_id=payload.surface_id,
                 opening_id=payload.opening_id,
+                inspection_id=payload.inspection_id,
+                question_id=payload.question_id,
+                finding_id=payload.finding_id,
             ),
             category=payload.category,
             caption=payload.caption,

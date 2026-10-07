@@ -756,3 +756,24 @@ explicit approval).
 
 - 2026-09-28: 14C.1 audit/design reviewed; corrections C1–C16 applied; R-1 and R-2 approved; **14C.1 — COMPLETE /
   OWNER APPROVED**. No implementation, migration, dependency, configuration, Caddy or production change was made.
+
+## 28. Addendum — Stage 14F.2: INSPECTION and FINDING contexts (supersedes C1 for these two contexts)
+
+No migration: the `0032` schema already carries the columns, the seven-branch CHECK and the unique indexes (§4–§6). WORK stays rejected (`422 PHOTO_CONTEXT_NOT_SUPPORTED`, 14H).
+
+**Targets (leaf ids; the chain to the project is resolved server-side; foreign, other-project and missing ids give one 404 per kind):**
+
+| Context | Required | Optional | Chain checked | 404 code |
+|---|---|---|---|---|
+| `INSPECTION` | `inspection_id` | `question_id` | inspection → room → project → owner; the question must belong to the inspection's checklist template | `INSPECTION_NOT_FOUND`, `QUESTION_NOT_FOUND` |
+| `FINDING` | `finding_id` | — | finding → inspection → room → project → owner | `FINDING_NOT_FOUND` |
+
+Any other id on a context is a shape error (`PHOTO_UPLOAD_MALFORMED` on upload, `PHOTO_ATTACHMENT_INVALID` elsewhere). Archived inspections / findings are accepted (C12). Duplicates mirror the unique indexes: the same asset on the same inspection (question-less) or on the same inspection + question, or on the same finding, twice among active rows → 409 `PHOTO_ATTACHMENT_DUPLICATE`; an inspection-level and a question-level attachment of one asset coexist.
+
+**Upload (multipart):** new scalar fields `inspection_id`, `question_id`, `finding_id`; the scalar-field limit is **8** (was 7) because an INSPECTION photo may name an inspection and a question. **Attach existing:** `PhotoAttachRequest` gains the same three fields (still `extra="forbid"`). **Patch:** unchanged — context and targets stay immutable.
+
+**Reads:** `PhotoAttachmentRead` gains `inspection_id`, `question_id`, `finding_id` (null for the other contexts).
+`GET /projects/{p}/photos` filters: `context=INSPECTION&inspection_id=[&question_id=]`, `context=FINDING&finding_id=`, and **`lineage=<uuid>`** — every FINDING photo of every row of one finding lineage (`inspection_findings.lineage_id`, 14F.1), exclusive with `context`, the target ids and `in_room_id`; a lineage that is not in the owner's project → 404 `FINDING_NOT_FOUND`. An id without its context, a context without its id, or foreign ids of another context → 422 `PHOTO_ATTACHMENT_INVALID`. The pagination cursor fingerprint now covers the new filters.
+`GET /projects/{p}/photos/counts` gains `inspections` (photos per inspection, inspection- and question-level together), `findings` (per finding row) and `lineages` (per lineage, the sum over its rows); targets without photos are absent. These never enter `rooms` / `room_totals` (the room card keeps its 14E.6 meaning).
+
+**Error codes added to the 14C table (§11b):** `INSPECTION_NOT_FOUND`, `QUESTION_NOT_FOUND`, `FINDING_NOT_FOUND` (all 404).

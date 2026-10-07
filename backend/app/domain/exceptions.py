@@ -389,8 +389,8 @@ class PhotoAttachmentDuplicateError(Exception):
 
 
 class PhotoContextNotSupportedError(Exception):
-    """The attachment context exists in the schema but is not enabled in
-    Stage 14C (INSPECTION/FINDING: 14F, WORK: 14H)."""
+    """The attachment context exists in the schema but is not enabled yet
+    (INSPECTION / FINDING are enabled since Stage 14F.2; WORK: 14H)."""
 
     code = "PHOTO_CONTEXT_NOT_SUPPORTED"
 
@@ -461,3 +461,13 @@ class PhotoCursorInvalidError(Exception):
     filter set."""
 
     code = "PHOTO_CURSOR_INVALID"
+
+
+class ChecklistQuestionNotFoundError(Exception):
+    """A checklist question is not found for the inspection it was named with
+    (missing, or it belongs to another template). Stage 14F.2 photo targets."""
+
+
+class InspectionFindingNotFoundError(Exception):
+    """An inspection finding (or a lineage) is not found within the owner's
+    project. Stage 14F.2 photo targets."""

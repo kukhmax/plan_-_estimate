@@ -9,8 +9,11 @@ duplicate detection. No HTTP mapping, upload orchestration, presigning,
 listing or asset archive (14C.3–14C.5). Exceptions are transport-neutral.
 
 Rules:
-- Stage 14C enables only PROJECT / ROOM / SURFACE / OPENING. INSPECTION /
-  FINDING (14F) and WORK (14H) exist in the schema but are rejected here.
+- Enabled contexts: PROJECT / ROOM / SURFACE / OPENING (Stage 14C) and
+  INSPECTION / FINDING (Stage 14F.2). WORK (14H) exists in the schema but is
+  rejected here. INSPECTION may carry an optional question of the inspection's
+  own checklist template; FINDING names a finding, whose photos are grouped
+  by the finding's lineage when read.
 - Ownership: project -> owner; the asset must belong to the same owner AND
   project; targets are validated along the full chain to the project
   (room -> project, surface -> room -> project, opening -> surface -> room ->
@@ -35,6 +38,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import (
+    ChecklistQuestionNotFoundError,
+    InspectionFindingNotFoundError,
+    InspectionNotFoundError,
     OpeningNotFoundError,
     PhotoAssetNotFoundError,
     PhotoAttachmentDuplicateError,
@@ -45,6 +51,8 @@ from app.domain.exceptions import (
     SurfaceNotFoundError,
 )
 from app.domain.services.project_service import ProjectService
+from app.models.checklist import ChecklistQuestion
+from app.models.inspection import Inspection, InspectionFinding
 from app.models.opening import Opening
 from app.models.photo_asset import PhotoAsset, PhotoAssetStatus
 from app.models.photo_attachment import (
@@ -56,22 +64,29 @@ from app.models.photo_attachment import (
 from app.models.room import Room
 from app.models.surface import Surface
 
-# Contexts enabled by the Stage 14C API (C1).
+# Contexts enabled so far: Stage 14C (C1) + INSPECTION / FINDING (Stage 14F.2).
 SUPPORTED_CONTEXTS: frozenset[PhotoAttachmentContext] = frozenset(
     {
         PhotoAttachmentContext.PROJECT,
         PhotoAttachmentContext.ROOM,
         PhotoAttachmentContext.SURFACE,
         PhotoAttachmentContext.OPENING,
+        PhotoAttachmentContext.INSPECTION,
+        PhotoAttachmentContext.FINDING,
     }
 )
 
-# Target column required by each supported context (PROJECT needs none).
-_REQUIRED_TARGET: dict[PhotoAttachmentContext, str | None] = {
-    PhotoAttachmentContext.PROJECT: None,
-    PhotoAttachmentContext.ROOM: "room_id",
-    PhotoAttachmentContext.SURFACE: "surface_id",
-    PhotoAttachmentContext.OPENING: "opening_id",
+# Target columns each supported context needs (PROJECT needs none), and the optional ones it may add.
+_REQUIRED_TARGET: dict[PhotoAttachmentContext, tuple[str, ...]] = {
+    PhotoAttachmentContext.PROJECT: (),
+    PhotoAttachmentContext.ROOM: ("room_id",),
+    PhotoAttachmentContext.SURFACE: ("surface_id",),
+    PhotoAttachmentContext.OPENING: ("opening_id",),
+    PhotoAttachmentContext.INSPECTION: ("inspection_id",),
+    PhotoAttachmentContext.FINDING: ("finding_id",),
+}
+_OPTIONAL_TARGET: dict[PhotoAttachmentContext, tuple[str, ...]] = {
+    PhotoAttachmentContext.INSPECTION: ("question_id",),
 }
 
 _UNSET: Any = object()
@@ -79,16 +94,26 @@ _UNSET: Any = object()
 
 @dataclass(frozen=True)
 class AttachmentTarget:
-    """Leaf-only target of a Stage 14C attachment: exactly the id the
-    context needs (none for PROJECT); the chain is resolved server-side."""
+    """Leaf-only target of an attachment: exactly the id(s) the context needs
+    (none for PROJECT; INSPECTION may add a question); the chain is resolved server-side."""
 
     context: PhotoAttachmentContext
     room_id: uuid.UUID | None = None
     surface_id: uuid.UUID | None = None
     opening_id: uuid.UUID | None = None
+    inspection_id: uuid.UUID | None = None
+    question_id: uuid.UUID | None = None
+    finding_id: uuid.UUID | None = None
 
     def ids(self) -> dict[str, uuid.UUID | None]:
-        return {"room_id": self.room_id, "surface_id": self.surface_id, "opening_id": self.opening_id}
+        return {
+            "room_id": self.room_id,
+            "surface_id": self.surface_id,
+            "opening_id": self.opening_id,
+            "inspection_id": self.inspection_id,
+            "question_id": self.question_id,
+            "finding_id": self.finding_id,
+        }
 
 
 def normalize_caption(caption: str | None) -> str | None:
@@ -144,10 +169,11 @@ class PhotoAttachmentService:
                 f"photo context {target.context.value} is not supported in this stage"
             )
         required = _REQUIRED_TARGET[target.context]
+        optional = _OPTIONAL_TARGET.get(target.context, ())
         for column, value in target.ids().items():
-            if column == required and value is None:
+            if column in required and value is None:
                 raise PhotoAttachmentValidationError(f"{column} is required for {target.context.value}")
-            if column != required and value is not None:
+            if column not in required and column not in optional and value is not None:
                 raise PhotoAttachmentValidationError(f"{column} is not allowed for {target.context.value}")
 
     async def validate_target(
@@ -179,6 +205,31 @@ class PhotoAttachmentService:
             )
             if (await self.db.execute(stmt)).scalar_one_or_none() is None:
                 raise OpeningNotFoundError(f"Opening {target.opening_id} not found")
+        elif context is PhotoAttachmentContext.INSPECTION:
+            stmt = (
+                select(Inspection.template_id)
+                .join(Room, Inspection.room_id == Room.id)
+                .where(Inspection.id == target.inspection_id, Room.project_id == project_id)
+            )
+            template_id = (await self.db.execute(stmt)).scalar_one_or_none()
+            if template_id is None:
+                raise InspectionNotFoundError(f"Inspection {target.inspection_id} not found")
+            if target.question_id is not None:
+                # the question must belong to the checklist template the inspection was made from
+                stmt = select(ChecklistQuestion.id).where(
+                    ChecklistQuestion.id == target.question_id, ChecklistQuestion.template_id == template_id
+                )
+                if (await self.db.execute(stmt)).scalar_one_or_none() is None:
+                    raise ChecklistQuestionNotFoundError(f"Question {target.question_id} not found")
+        elif context is PhotoAttachmentContext.FINDING:
+            stmt = (
+                select(InspectionFinding.id)
+                .join(Inspection, InspectionFinding.inspection_id == Inspection.id)
+                .join(Room, Inspection.room_id == Room.id)
+                .where(InspectionFinding.id == target.finding_id, Room.project_id == project_id)
+            )
+            if (await self.db.execute(stmt)).scalar_one_or_none() is None:
+                raise InspectionFindingNotFoundError(f"Finding {target.finding_id} not found")
 
     # -- creation ---------------------------------------------------------
 
@@ -245,6 +296,9 @@ class PhotoAttachmentService:
             room_id=target.room_id,
             surface_id=target.surface_id,
             opening_id=target.opening_id,
+            inspection_id=target.inspection_id,
+            question_id=target.question_id,
+            finding_id=target.finding_id,
             category=_validate_category(category),
             caption=normalize_caption(caption),
             include_in_report=_validate_include(include_in_report),
@@ -363,6 +417,15 @@ class PhotoAttachmentService:
             PhotoAttachment.opening_id.is_(None)
             if key.opening_id is None
             else PhotoAttachment.opening_id == key.opening_id,
+            PhotoAttachment.inspection_id.is_(None)
+            if key.inspection_id is None
+            else PhotoAttachment.inspection_id == key.inspection_id,
+            PhotoAttachment.question_id.is_(None)
+            if key.question_id is None
+            else PhotoAttachment.question_id == key.question_id,
+            PhotoAttachment.finding_id.is_(None)
+            if key.finding_id is None
+            else PhotoAttachment.finding_id == key.finding_id,
         )
         if key.exclude_id is not None:
             stmt = stmt.where(PhotoAttachment.id != key.exclude_id)
@@ -391,6 +454,9 @@ class _DuplicateKey:
     room_id: uuid.UUID | None
     surface_id: uuid.UUID | None
     opening_id: uuid.UUID | None
+    inspection_id: uuid.UUID | None
+    question_id: uuid.UUID | None
+    finding_id: uuid.UUID | None
     exclude_id: uuid.UUID | None
 
     @classmethod
@@ -401,5 +467,8 @@ class _DuplicateKey:
             room_id=attachment.room_id,
             surface_id=attachment.surface_id,
             opening_id=attachment.opening_id,
+            inspection_id=attachment.inspection_id,
+            question_id=attachment.question_id,
+            finding_id=attachment.finding_id,
             exclude_id=attachment.id,
         )

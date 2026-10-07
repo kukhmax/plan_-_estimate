@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.domain.exceptions import (
+    InspectionFindingNotFoundError,
     PhotoAttachmentValidationError,
     PhotoCursorInvalidError,
 )
@@ -40,6 +41,7 @@ from app.domain.services.photo_attachment_service import (
     PhotoAttachmentService,
 )
 from app.domain.services.project_service import ProjectService
+from app.models.inspection import Inspection, InspectionFinding
 from app.models.opening import Opening
 from app.models.photo_asset import PhotoAsset, PhotoAssetStatus
 from app.models.photo_attachment import (
@@ -47,6 +49,7 @@ from app.models.photo_attachment import (
     PhotoAttachmentContext,
     PhotoCategory,
 )
+from app.models.room import Room
 from app.models.surface import Surface
 
 DEFAULT_LIMIT = 30
@@ -61,12 +64,18 @@ class PhotoListFilters:
     room_id: uuid.UUID | None = None
     surface_id: uuid.UUID | None = None
     opening_id: uuid.UUID | None = None
+    # Stage 14F.2: INSPECTION photos of one inspection (optionally one question of it) and FINDING photos of one finding row.
+    inspection_id: uuid.UUID | None = None
+    question_id: uuid.UUID | None = None
+    finding_id: uuid.UUID | None = None
     category: PhotoCategory | None = None
     include_in_report: bool | None = None
     archived: bool = False
     # Stage 14E.6: every photo whose target is this room OR lies inside it (its surfaces, their openings). Exclusive with
     # the single-target filters above.
     in_room_id: uuid.UUID | None = None
+    # Stage 14F.2: every FINDING photo of one finding lineage (all rows of the lineage). Exclusive with the target filters.
+    lineage_id: uuid.UUID | None = None
 
     def fingerprint(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> str:
         canonical = json.dumps(
@@ -80,6 +89,10 @@ class PhotoListFilters:
                 self.include_in_report,
                 self.archived,
                 str(self.in_room_id) if self.in_room_id else None,
+                str(self.inspection_id) if self.inspection_id else None,
+                str(self.question_id) if self.question_id else None,
+                str(self.finding_id) if self.finding_id else None,
+                str(self.lineage_id) if self.lineage_id else None,
             ],
             separators=(",", ":"),
         )
@@ -98,6 +111,10 @@ class PhotoCounts:
     openings: dict[uuid.UUID, int]
     # Stage 14E.6: photos per room INCLUDING those of its surfaces and their openings (the room card shows all of them).
     room_totals: dict[uuid.UUID, int]
+    # Stage 14F.2: inspection evidence — kept apart from the room totals above.
+    inspections: dict[uuid.UUID, int]
+    findings: dict[uuid.UUID, int]
+    lineages: dict[uuid.UUID, int]
 
 
 @dataclass(frozen=True)
@@ -178,8 +195,25 @@ class PhotoQueryService:
         self, owner_id: uuid.UUID, project_id: uuid.UUID, filters: PhotoListFilters
     ) -> None:
         await ProjectService(self.db).get_project(project_id, owner_id)
+        target_ids = (
+            filters.room_id, filters.surface_id, filters.opening_id,
+            filters.inspection_id, filters.question_id, filters.finding_id,
+        )
+        if filters.lineage_id is not None:
+            if filters.context or filters.in_room_id or any(target_ids):
+                raise PhotoAttachmentValidationError("lineage cannot be combined with a context or a target id")
+            stmt = (
+                select(InspectionFinding.id)
+                .join(Inspection, InspectionFinding.inspection_id == Inspection.id)
+                .join(Room, Inspection.room_id == Room.id)
+                .where(InspectionFinding.lineage_id == filters.lineage_id, Room.project_id == project_id)
+                .limit(1)
+            )
+            if (await self.db.execute(stmt)).scalar_one_or_none() is None:
+                raise InspectionFindingNotFoundError(f"Finding lineage {filters.lineage_id} not found")
+            return
         if filters.in_room_id is not None:
-            if filters.context or filters.room_id or filters.surface_id or filters.opening_id:
+            if filters.context or any(target_ids):
                 raise PhotoAttachmentValidationError("in_room_id cannot be combined with a context or a target id")
             await PhotoAttachmentService(self.db).validate_target(
                 owner_id,
@@ -188,7 +222,7 @@ class PhotoQueryService:
             )
             return
         if filters.context is None:
-            if filters.room_id or filters.surface_id or filters.opening_id:
+            if any(target_ids):
                 raise PhotoAttachmentValidationError("a target id requires a matching context")
             return
         # Same shape + ownership-chain validation as attach/upload (C12: archived
@@ -201,6 +235,9 @@ class PhotoQueryService:
                 room_id=filters.room_id,
                 surface_id=filters.surface_id,
                 opening_id=filters.opening_id,
+                inspection_id=filters.inspection_id,
+                question_id=filters.question_id,
+                finding_id=filters.finding_id,
             ),
         )
 
@@ -241,6 +278,18 @@ class PhotoQueryService:
                 stmt = stmt.where(PhotoAttachment.surface_id == filters.surface_id)
             if filters.opening_id is not None:
                 stmt = stmt.where(PhotoAttachment.opening_id == filters.opening_id)
+            if filters.inspection_id is not None:
+                stmt = stmt.where(PhotoAttachment.inspection_id == filters.inspection_id)
+            if filters.question_id is not None:
+                stmt = stmt.where(PhotoAttachment.question_id == filters.question_id)
+            if filters.finding_id is not None:
+                stmt = stmt.where(PhotoAttachment.finding_id == filters.finding_id)
+        if filters.lineage_id is not None:
+            lineage_findings = select(InspectionFinding.id).where(InspectionFinding.lineage_id == filters.lineage_id)
+            stmt = stmt.where(
+                PhotoAttachment.context == PhotoAttachmentContext.FINDING,
+                PhotoAttachment.finding_id.in_(lineage_findings),
+            )
         if filters.in_room_id is not None:
             stmt = stmt.where(self._within_room(filters.in_room_id))
         if filters.category is not None:
@@ -277,6 +326,8 @@ class PhotoQueryService:
             PhotoAttachmentContext.ROOM,
             PhotoAttachmentContext.SURFACE,
             PhotoAttachmentContext.OPENING,
+            PhotoAttachmentContext.INSPECTION,
+            PhotoAttachmentContext.FINDING,
         )
         stmt = (
             select(
@@ -284,6 +335,8 @@ class PhotoQueryService:
                 PhotoAttachment.room_id,
                 PhotoAttachment.surface_id,
                 PhotoAttachment.opening_id,
+                PhotoAttachment.inspection_id,
+                PhotoAttachment.finding_id,
                 func.count(),
             )
             .join(PhotoAsset, PhotoAttachment.asset_id == PhotoAsset.id)
@@ -301,13 +354,19 @@ class PhotoQueryService:
                 PhotoAttachment.room_id,
                 PhotoAttachment.surface_id,
                 PhotoAttachment.opening_id,
+                PhotoAttachment.inspection_id,
+                PhotoAttachment.finding_id,
             )
         )
         project_total = 0
         rooms: dict[uuid.UUID, int] = {}
         surfaces: dict[uuid.UUID, int] = {}
         openings: dict[uuid.UUID, int] = {}
-        for context, room_id, surface_id, opening_id, total in (await self.db.execute(stmt)).all():
+        inspections: dict[uuid.UUID, int] = {}
+        findings: dict[uuid.UUID, int] = {}
+        for context, room_id, surface_id, opening_id, inspection_id, finding_id, total in (
+            await self.db.execute(stmt)
+        ).all():
             if context is PhotoAttachmentContext.PROJECT:
                 project_total += int(total)
             elif context is PhotoAttachmentContext.ROOM and room_id is not None:
@@ -316,6 +375,10 @@ class PhotoQueryService:
                 surfaces[surface_id] = surfaces.get(surface_id, 0) + int(total)
             elif context is PhotoAttachmentContext.OPENING and opening_id is not None:
                 openings[opening_id] = openings.get(opening_id, 0) + int(total)
+            elif context is PhotoAttachmentContext.INSPECTION and inspection_id is not None:
+                inspections[inspection_id] = inspections.get(inspection_id, 0) + int(total)
+            elif context is PhotoAttachmentContext.FINDING and finding_id is not None:
+                findings[finding_id] = findings.get(finding_id, 0) + int(total)
         room_totals = dict(rooms)
         if surfaces:
             rows = await self.db.execute(select(Surface.id, Surface.room_id).where(Surface.id.in_(list(surfaces))))
@@ -329,8 +392,16 @@ class PhotoQueryService:
             )
             for opening_id, room_id in rows.all():
                 room_totals[room_id] = room_totals.get(room_id, 0) + openings[opening_id]
+        lineages: dict[uuid.UUID, int] = {}
+        if findings:
+            rows = await self.db.execute(
+                select(InspectionFinding.id, InspectionFinding.lineage_id).where(InspectionFinding.id.in_(list(findings)))
+            )
+            for finding_id, lineage_id in rows.all():
+                lineages[lineage_id] = lineages.get(lineage_id, 0) + findings[finding_id]
         return PhotoCounts(
-            project=project_total, rooms=rooms, surfaces=surfaces, openings=openings, room_totals=room_totals
+            project=project_total, rooms=rooms, surfaces=surfaces, openings=openings, room_totals=room_totals,
+            inspections=inspections, findings=findings, lineages=lineages,
         )
 
     async def get_detail(

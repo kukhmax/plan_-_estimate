@@ -118,7 +118,7 @@ async def test_list_category_and_report_filters(api, http):
 @pytest.mark.parametrize(
     ("params", "status", "expected_code"),
     [
-        ({"context": "INSPECTION"}, 422, "PHOTO_CONTEXT_NOT_SUPPORTED"),
+        ({"context": "WORK"}, 422, "PHOTO_CONTEXT_NOT_SUPPORTED"),
         ({"context": "ROOM"}, 422, "PHOTO_ATTACHMENT_INVALID"),
         ({"room_id": str(uuid.uuid4())}, 422, "PHOTO_ATTACHMENT_INVALID"),
         ({"context": "ROOM", "room_id": "FOREIGN"}, 404, "ROOM_NOT_FOUND"),
@@ -601,7 +601,7 @@ async def test_attach_existing_creates_only_a_db_row(api, http, monkeypatch):
     ("body_fn", "status", "expected_code"),
     [
         (lambda a: {"context": "ROOM", "room_id": str(a.foreign_room)}, 404, "ROOM_NOT_FOUND"),
-        (lambda a: {"context": "INSPECTION"}, 422, "PHOTO_CONTEXT_NOT_SUPPORTED"),
+        (lambda a: {"context": "WORK"}, 422, "PHOTO_CONTEXT_NOT_SUPPORTED"),
         (lambda a: {"context": "ROOM"}, 422, "PHOTO_ATTACHMENT_INVALID"),
         (lambda a: {"context": "PROJECT", "position": 3}, 422, None),
         (lambda a: {"context": "PROJECT", "asset_id": str(uuid.uuid4())}, 422, None),

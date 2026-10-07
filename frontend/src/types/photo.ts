@@ -47,6 +47,10 @@ export interface PhotoAttachmentRead {
   room_id: string | null;
   surface_id: string | null;
   opening_id: string | null;
+  /** Inspection evidence (Stage 14F.2); `question_id` is set only on INSPECTION photos taken for one checklist question. */
+  inspection_id: string | null;
+  question_id: string | null;
+  finding_id: string | null;
   category: PhotoCategory;
   caption: string | null;
   include_in_report: boolean;
@@ -102,6 +106,11 @@ export interface PhotoCounts {
   openings: Record<string, number>;
   /** Photos per room INCLUDING those of its surfaces and their openings (what a room card shows). */
   room_totals: Record<string, number>;
+  /** Inspection evidence (Stage 14F.2), kept apart from the room totals: photos per inspection (inspection- and question-level together). */
+  inspections: Record<string, number>;
+  /** Photos per finding row, and per finding lineage (the sum over every row of the lineage). */
+  findings: Record<string, number>;
+  lineages: Record<string, number>;
 }
 
 export interface PhotoListParams {

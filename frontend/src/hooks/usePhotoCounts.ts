@@ -5,7 +5,7 @@ import { PhotoContext, PhotoCounts } from '../types/photo';
 // Badge counts for the open project (contract §9): one request per workspace load, optimistic adjustments after
 // upload / archive / restore, refetch on demand.
 
-export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {} };
+export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {} };
 
 /** Visible photos attached directly to a target. `targetId` is ignored for PROJECT. */
 export function photoCountFor(counts: PhotoCounts, context: PhotoContext, targetId?: string): number {
