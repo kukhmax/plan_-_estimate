@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { fetchPhotos } from '../api/photos';
 import { useI18n } from '../hooks/useI18n';
 import { subscribePhotoUploadDone, usePhotoUploadQueue } from '../hooks/usePhotoUploadQueue';
+import { PhotoCountScope } from '../hooks/usePhotoCounts';
 import { usePhotoStorage } from '../hooks/usePhotoStorage';
 import {
   PHOTO_CATEGORIES,
@@ -32,8 +33,12 @@ export const PHOTO_PAGE_SIZE = 30;
 interface PhotoSectionProps {
   projectId: string;
   context: PhotoContext;
-  /** room / surface / opening id for the matching context; omitted for PROJECT. */
+  /** room / surface / opening id for the matching context; the inspection for INSPECTION, the finding row for FINDING; omitted for PROJECT. */
   targetId?: string;
+  /** INSPECTION only: the checklist question a section documents; without it the section is the whole inspection's. */
+  questionId?: string;
+  /** FINDING only: the finding's lineage — the section lists the photos of every row of it and uploads to `targetId`. */
+  lineageId?: string;
   /** The room a SURFACE section belongs to; travels with each upload so the room's total can follow. */
   roomId?: string;
   /**
@@ -48,7 +53,7 @@ interface PhotoSectionProps {
    * this section knows it). Upload completions are NOT reported here: the host counts them once, whether or not a
    * section is open.
    */
-  onCountAdjust?: (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string) => void;
+  onCountAdjust?: (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string, scope?: PhotoCountScope) => void;
 }
 
 function buildTarget(
@@ -56,10 +61,16 @@ function buildTarget(
   context: PhotoContext,
   targetId: string | undefined,
   roomId: string | undefined,
+  questionId: string | undefined,
+  lineageId: string | undefined,
 ): PhotoTarget {
   return {
     projectId,
     context,
+    inspectionId: context === 'INSPECTION' ? targetId : undefined,
+    questionId: context === 'INSPECTION' ? questionId : undefined,
+    findingId: context === 'FINDING' ? targetId : undefined,
+    lineageId: context === 'FINDING' ? lineageId : undefined,
     // Not sent for a SURFACE (the server needs only its own id); it lets the host keep the room's total in step.
     roomId: context === 'ROOM' ? targetId : roomId,
     surfaceId: context === 'SURFACE' ? targetId : undefined,
@@ -71,6 +82,8 @@ export function PhotoSection({
   projectId,
   context,
   targetId,
+  questionId,
+  lineageId,
   roomId,
   allowUpload = false,
   locationLabel,
@@ -101,20 +114,26 @@ export function PhotoSection({
   const listParams = useCallback(
     (cursor?: string): PhotoListParams => ({
       ...(context === 'PROJECT'
-        ? {}
+        ? { siteOnly: true } // the object-wide list keeps showing the site photos; inspection evidence lives in the inspection
         : context === 'ROOM'
           ? { inRoomId: targetId }
-          : {
-              context,
-              surfaceId: context === 'SURFACE' ? targetId : undefined,
-              openingId: context === 'OPENING' ? targetId : undefined,
-            }),
+          : context === 'INSPECTION'
+            ? { context, inspectionId: targetId, questionId }
+            : context === 'FINDING'
+              ? lineageId
+                ? { lineageId }
+                : { context, findingId: targetId }
+              : {
+                  context,
+                  surfaceId: context === 'SURFACE' ? targetId : undefined,
+                  openingId: context === 'OPENING' ? targetId : undefined,
+                }),
       archived,
       category: categoryFilter ?? undefined,
       limit: PHOTO_PAGE_SIZE,
       cursor,
     }),
-    [context, targetId, archived, categoryFilter],
+    [context, targetId, questionId, lineageId, archived, categoryFilter],
   );
 
   const rememberExpiry = (iso: string | null) => {
@@ -204,8 +223,15 @@ export function PhotoSection({
       (context === 'PROJECT' ||
         (context === 'ROOM'
           ? item.target.roomId === targetId
-          : item.target.context === context && targetIdOf(item.target) === targetId)),
-    [projectId, context, targetId],
+          : context === 'INSPECTION'
+            ? item.target.context === 'INSPECTION' &&
+              item.target.inspectionId === targetId &&
+              (questionId === undefined || item.target.questionId === questionId)
+            : context === 'FINDING'
+              ? item.target.context === 'FINDING' &&
+                (lineageId ? item.target.lineageId === lineageId : item.target.findingId === targetId)
+              : item.target.context === context && targetIdOf(item.target) === targetId)),
+    [projectId, context, targetId, questionId, lineageId],
   );
 
   const { dismiss } = queue;
@@ -229,7 +255,7 @@ export function PhotoSection({
   );
 
   const handleFiles = (files: File[], source: PhotoCaptureSource) => {
-    const result = queue.enqueue(files, buildTarget(projectId, context, targetId, roomId), source);
+    const result = queue.enqueue(files, buildTarget(projectId, context, targetId, roomId, questionId, lineageId), source);
     setPickerNote(
       result.ignored > 0 ? t.photos.picker.too_many_selected.replace('{count}', String(MAX_FILES_PER_SELECTION)) : null,
     );
@@ -254,8 +280,14 @@ export function PhotoSection({
   const handleAttachmentRemoved = (attachment: PhotoAttachmentRead, action: 'archived' | 'restored') => {
     const remaining = items.filter((entry) => entry.attachment.id !== attachment.id);
     setItems(remaining);
-    const { context: attachmentContext, targetId: attachmentTargetId } = attachmentTarget(attachment);
-    onCountAdjust?.(attachmentContext, attachmentTargetId, action === 'archived' ? -1 : 1, context === 'ROOM' ? targetId : roomId);
+    const { context: attachmentContext, targetId: attachmentTargetId, questionId: attachmentQuestionId } = attachmentTarget(attachment);
+    onCountAdjust?.(
+      attachmentContext,
+      attachmentTargetId,
+      action === 'archived' ? -1 : 1,
+      context === 'ROOM' ? targetId : roomId,
+      { questionId: attachmentQuestionId, lineageId: context === 'FINDING' ? lineageId : undefined },
+    );
     setViewerIndex((current) => {
       if (current === null || remaining.length === 0) return null;
       return Math.min(current, remaining.length - 1);

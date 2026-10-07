@@ -150,6 +150,8 @@ class PhotoCountsResponse(BaseModel):
     inspections: dict[uuid.UUID, int]
     findings: dict[uuid.UUID, int]
     lineages: dict[uuid.UUID, int]
+    # Stage 14F.3: photos taken for one checklist question: inspection id -> question id -> count (never the inspection-level ones).
+    questions: dict[uuid.UUID, dict[uuid.UUID, int]]
 
 
 class PhotoStorageStatus(BaseModel):

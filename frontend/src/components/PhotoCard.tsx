@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { PhotoContext } from '../types/photo';
+import { PhotoAttachmentRead, PhotoContext } from '../types/photo';
 import { photoKey, useProjectPhotos } from '../hooks/ProjectPhotosContext';
 import { useI18n } from '../hooks/useI18n';
 import { photoCountFor, roomPhotoTotal, totalPhotoCount } from '../hooks/usePhotoCounts';
@@ -13,11 +13,15 @@ import { PhotoSection } from './PhotoSection';
 
 interface PhotoCardTarget {
   context: PhotoContext;
-  /** room / surface / opening id; omitted for the object itself. */
+  /** room / surface / opening id; the inspection for INSPECTION, the finding row for FINDING; omitted for the object itself. */
   targetId?: string;
+  /** INSPECTION: the checklist question of a question-level button / panel (without it: the whole inspection's). */
+  questionId?: string;
+  /** FINDING: the lineage whose photos the button counts and the panel lists. */
+  lineageId?: string;
 }
 
-export function PhotoCardButton({ context, targetId }: PhotoCardTarget) {
+export function PhotoCardButton({ context, targetId, questionId, lineageId }: PhotoCardTarget) {
   const photos = useProjectPhotos();
   if (!photos) return null;
   // The object's button shows every photo of the object, a room's button every photo of the room (its surfaces and
@@ -27,8 +31,8 @@ export function PhotoCardButton({ context, targetId }: PhotoCardTarget) {
       ? totalPhotoCount(photos.counts)
       : context === 'ROOM' && targetId
         ? roomPhotoTotal(photos.counts, targetId)
-        : photoCountFor(photos.counts, context, targetId);
-  const key = photoKey(context, targetId);
+        : photoCountFor(photos.counts, context, targetId, { questionId, lineageId });
+  const key = photoKey(context, targetId, questionId);
   return <PhotoEntryButton count={count} expanded={photos.isExpanded(key)} onToggle={() => photos.toggle(key)} />;
 }
 
@@ -37,13 +41,23 @@ interface PhotoCardPanelProps extends PhotoCardTarget {
   locationSegments?: ReadonlyArray<string | null | undefined>;
   /** The room a SURFACE belongs to (keeps the room's total in step when a photo is added or archived there). */
   roomId?: string;
+  /** Overrides the caption location with a resolver (an inspection's panel names each photo's question). */
+  locationLabel?: (attachment: PhotoAttachmentRead) => string;
 }
 
-export function PhotoCardPanel({ context, targetId, locationSegments = [], roomId }: PhotoCardPanelProps) {
+export function PhotoCardPanel({
+  context,
+  targetId,
+  questionId,
+  lineageId,
+  locationSegments = [],
+  roomId,
+  locationLabel,
+}: PhotoCardPanelProps) {
   const photos = useProjectPhotos();
   const { t } = useI18n();
-  const open = photos?.isExpanded(photoKey(context, targetId)) ?? false;
-  // The object and a room show EVERY photo below them (view / edit); photos are ADDED only on surfaces.
+  const open = photos?.isExpanded(photoKey(context, targetId, questionId)) ?? false;
+  // The object and a room show EVERY photo below them (view / edit); photos are ADDED on surfaces and as inspection evidence.
   const aggregated = context === 'PROJECT' || context === 'ROOM';
   const ensureLocations = photos?.ensureLocations;
 
@@ -57,9 +71,13 @@ export function PhotoCardPanel({ context, targetId, locationSegments = [], roomI
       projectId={photos.projectId}
       context={context}
       targetId={targetId}
+      questionId={questionId}
+      lineageId={lineageId}
       roomId={roomId}
-      allowUpload={context === 'SURFACE'}
-      locationLabel={aggregated ? photos.resolveLocation : buildLocationPath(locationSegments, t.photos.caption)}
+      allowUpload={context === 'SURFACE' || context === 'INSPECTION' || context === 'FINDING'}
+      locationLabel={
+        locationLabel ?? (aggregated ? photos.resolveLocation : buildLocationPath(locationSegments, t.photos.caption))
+      }
       onCountAdjust={photos.adjust}
     />
   );

@@ -19,7 +19,7 @@ const counts: PhotoCounts = {
   surfaces: { s1: 1, s2: 4 },
   openings: { o1: 1 },
   room_totals: { r1: 3 + 1 + 4 + 1 },
-  inspections: {}, findings: {}, lineages: {},
+  inspections: {}, findings: {}, lineages: {}, questions: {},
 };
 
 describe('photo count helpers', () => {
@@ -63,6 +63,61 @@ describe('photo count helpers', () => {
     expect(adjustPhotoCounts(counts, 'PROJECT', undefined, -5).project).toBe(0);
     expect(adjustPhotoCounts(counts, 'OPENING', undefined, 1)).toBe(counts);
     expect(JSON.stringify(counts)).toBe(snapshot);
+  });
+});
+
+describe('inspection evidence counts (14F)', () => {
+  const evidence: PhotoCounts = {
+    ...counts,
+    inspections: { i1: 4 },
+    questions: { i1: { q1: 2, q2: 1 } },
+    findings: { f1: 1, f2: 2 },
+    lineages: { L: 3 },
+  };
+
+  it('reads the inspection, one question of it, and a finding through its lineage', () => {
+    expect(photoCountFor(evidence, 'INSPECTION', 'i1')).toBe(4);
+    expect(photoCountFor(evidence, 'INSPECTION', 'i1', { questionId: 'q1' })).toBe(2);
+    expect(photoCountFor(evidence, 'INSPECTION', 'i1', { questionId: 'nope' })).toBe(0);
+    expect(photoCountFor(evidence, 'INSPECTION', 'other')).toBe(0);
+    expect(photoCountFor(evidence, 'FINDING', 'f2', { lineageId: 'L' })).toBe(3); // every row of the lineage
+    expect(photoCountFor(evidence, 'FINDING', 'f2')).toBe(2); // without a lineage: the row's own
+    expect(photoCountFor(evidence, 'FINDING', 'f2', { lineageId: 'unknown' })).toBe(2);
+    expect(photoCountFor(evidence, 'FINDING', undefined)).toBe(0);
+  });
+
+  it('tolerates an answer from a server that does not know the new maps', () => {
+    const old = { ...counts } as unknown as PhotoCounts;
+    expect(photoCountFor(old, 'INSPECTION', 'i1')).toBe(0);
+    expect(photoCountFor(old, 'INSPECTION', 'i1', { questionId: 'q1' })).toBe(0);
+    expect(photoCountFor(old, 'FINDING', 'f1', { lineageId: 'L' })).toBe(0);
+    expect(adjustPhotoCounts(old, 'INSPECTION', 'i1', 1, undefined, { questionId: 'q1' }).inspections.i1).toBe(1);
+  });
+
+  it('adjusts the inspection and its question together, dropping emptied entries', () => {
+    const added = adjustPhotoCounts(evidence, 'INSPECTION', 'i1', 1, undefined, { questionId: 'q1' });
+    expect(added.inspections.i1).toBe(5);
+    expect(added.questions.i1.q1).toBe(3);
+    expect(added.room_totals).toEqual(evidence.room_totals); // evidence never enters the room totals
+    const inspectionLevel = adjustPhotoCounts(evidence, 'INSPECTION', 'i1', 1);
+    expect(inspectionLevel.inspections.i1).toBe(5);
+    expect(inspectionLevel.questions).toEqual(evidence.questions); // no question: the per-question map is untouched
+    let emptied = adjustPhotoCounts(evidence, 'INSPECTION', 'i1', -1, undefined, { questionId: 'q2' });
+    expect(emptied.questions.i1).toEqual({ q1: 2 });
+    emptied = adjustPhotoCounts(emptied, 'INSPECTION', 'i1', -2, undefined, { questionId: 'q1' });
+    expect(emptied.questions).toEqual({});
+    expect(adjustPhotoCounts(evidence, 'INSPECTION', 'i1', -99).inspections).toEqual({});
+  });
+
+  it('adjusts a finding row and its lineage together', () => {
+    const added = adjustPhotoCounts(evidence, 'FINDING', 'f1', 1, undefined, { lineageId: 'L' });
+    expect(added.findings.f1).toBe(2);
+    expect(added.lineages.L).toBe(4);
+    const noLineage = adjustPhotoCounts(evidence, 'FINDING', 'f1', 1);
+    expect(noLineage.findings.f1).toBe(2);
+    expect(noLineage.lineages).toEqual(evidence.lineages);
+    expect(adjustPhotoCounts(evidence, 'FINDING', 'f1', -1, undefined, { lineageId: 'L' }).findings).toEqual({ f2: 2 });
+    expect(adjustPhotoCounts(evidence, 'FINDING', undefined, 1)).toBe(evidence);
   });
 });
 

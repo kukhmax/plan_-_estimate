@@ -104,7 +104,7 @@ function uploadResult(item = makeItem()): PhotoUploadResponse {
 
 describe('PhotoSection — listing', () => {
   it.each([
-    ['PROJECT', undefined, { archived: false, limit: 30 }],
+    ['PROJECT', undefined, { siteOnly: true, archived: false, limit: 30 }], // site photos only: inspection evidence lives in the inspection
     ['ROOM', ROOM_ID, { inRoomId: ROOM_ID, archived: false, limit: 30 }],
     ['SURFACE', SURFACE_ID, { context: 'SURFACE', surfaceId: SURFACE_ID, archived: false, limit: 30 }],
     ['OPENING', 'op1', { context: 'OPENING', openingId: 'op1', archived: false, limit: 30 }],
@@ -503,7 +503,7 @@ describe('PhotoSection — viewer integration', () => {
     vi.mocked(archivePhotoAttachment).mockResolvedValue({ ...items[0].attachment, archived_at: '2026-06-23T12:00:00Z' });
     fireEvent.click(screen.getByRole('button', { name: 'Archiwizuj' }));
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archiwizuj' }));
-    await waitFor(() => expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, -1, ROOM_ID));
+    await waitFor(() => expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, -1, ROOM_ID, { questionId: undefined, lineageId: undefined }));
     await waitFor(() => expect(screen.getByText('1 / 1')).toBeInTheDocument());
   });
 
@@ -513,7 +513,7 @@ describe('PhotoSection — viewer integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Archiwizuj' }));
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archiwizuj' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, -1, ROOM_ID);
+    expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, -1, ROOM_ID, { questionId: undefined, lineageId: undefined });
     expect(await screen.findByText('Brak zdjęć.')).toBeInTheDocument();
   });
 
@@ -529,7 +529,7 @@ describe('PhotoSection — viewer integration', () => {
     await screen.findByRole('dialog');
     vi.mocked(restorePhotoAttachment).mockResolvedValue({ ...archivedItem.attachment, archived_at: null });
     fireEvent.click(await screen.findByRole('button', { name: 'Przywróć' }));
-    await waitFor(() => expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, 1, ROOM_ID));
+    await waitFor(() => expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, 1, ROOM_ID, { questionId: undefined, lineageId: undefined }));
   });
 
   it('a category change in the viewer shows on the tile at once', async () => {
@@ -621,5 +621,136 @@ describe('PhotoSection — mobile and locales', () => {
     expect(container.innerHTML).toContain('var(--tg-');
     expect(container.innerHTML).not.toMatch(/bg-white|text-slate|border-slate|bg-slate/);
     document.documentElement.removeAttribute('data-color-scheme');
+  });
+});
+
+// ---- 14F.3: inspection evidence sections ------------------------------------------------------------------------------
+
+const INSPECTION_ID = 'insp-1';
+const QUESTION_A = 'question-a';
+const QUESTION_B = 'question-b';
+const FINDING_ID = 'finding-1';
+const LINEAGE_ID = 'lineage-1';
+
+describe('PhotoSection — inspection evidence', () => {
+  it.each([
+    ['the whole inspection', { context: 'INSPECTION', targetId: INSPECTION_ID }, { context: 'INSPECTION', inspectionId: INSPECTION_ID, questionId: undefined }],
+    ['one question', { context: 'INSPECTION', targetId: INSPECTION_ID, questionId: QUESTION_A }, { context: 'INSPECTION', inspectionId: INSPECTION_ID, questionId: QUESTION_A }],
+    ['a finding by lineage', { context: 'FINDING', targetId: FINDING_ID, lineageId: LINEAGE_ID }, { lineageId: LINEAGE_ID }],
+    ['a finding without a lineage', { context: 'FINDING', targetId: FINDING_ID }, { context: 'FINDING', findingId: FINDING_ID }],
+  ] as const)('%s asks the server for its own photos', async (_label, props, expected) => {
+    renderSection({ ...props, roomId: undefined });
+    await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(1));
+    expect(lastListParams()).toEqual({ ...expected, archived: false, limit: 30 });
+  });
+
+  it('uploads from a question section as a question-level photo of the inspection', async () => {
+    renderSection({ context: 'INSPECTION', targetId: INSPECTION_ID, questionId: QUESTION_A, roomId: undefined });
+    await screen.findByRole('button', { name: 'Z galerii' });
+    await act(async () => pickGallery([file('q.jpg')]));
+    await waitFor(() => expect(uploads).toHaveLength(1));
+    expect(uploads[0].params).toMatchObject({ context: 'INSPECTION', inspectionId: INSPECTION_ID, questionId: QUESTION_A, source: 'GALLERY' });
+  });
+
+  it('uploads from the header section as an inspection-level photo (no question)', async () => {
+    renderSection({ context: 'INSPECTION', targetId: INSPECTION_ID, roomId: undefined });
+    await screen.findByRole('button', { name: 'Z galerii' });
+    await act(async () => pickGallery([file('h.jpg')]));
+    await waitFor(() => expect(uploads).toHaveLength(1));
+    expect(uploads[0].params).toMatchObject({ context: 'INSPECTION', inspectionId: INSPECTION_ID });
+    expect(uploads[0].params.questionId).toBeUndefined();
+  });
+
+  it('uploads from a finding section onto that finding row, remembering its lineage for the counts', async () => {
+    renderSection({ context: 'FINDING', targetId: FINDING_ID, lineageId: LINEAGE_ID, roomId: undefined });
+    await screen.findByRole('button', { name: 'Z galerii' });
+    await act(async () => pickGallery([file('f.jpg')]));
+    await waitFor(() => expect(uploads).toHaveLength(1));
+    expect(uploads[0].params).toMatchObject({ context: 'FINDING', findingId: FINDING_ID, lineageId: LINEAGE_ID });
+  });
+
+  describe('which sections show and refresh for an upload', () => {
+    async function enqueue(target: Parameters<ReturnType<(typeof import('../hooks/usePhotoUploadQueue'))['getPhotoUploadQueue']>['enqueue']>[1]) {
+      const { getPhotoUploadQueue } = await import('../hooks/usePhotoUploadQueue');
+      await act(async () => {
+        getPhotoUploadQueue().enqueue([file('e.jpg')], target, 'GALLERY');
+      });
+    }
+    const inspectionView = (props: Partial<SectionProps>) =>
+      render(
+        <I18nProvider>
+          <PhotoSection projectId={PROJECT_ID} context="INSPECTION" targetId={INSPECTION_ID} allowUpload locationLabel="x" {...props} />
+        </I18nProvider>,
+      );
+
+    it('a question-level upload shows in its question and the whole inspection, not in another question', async () => {
+      const header = inspectionView({});
+      const a = inspectionView({ questionId: QUESTION_A });
+      const b = inspectionView({ questionId: QUESTION_B });
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(3));
+      await enqueue({ projectId: PROJECT_ID, context: 'INSPECTION', inspectionId: INSPECTION_ID, questionId: QUESTION_A });
+      expect(within(header.container).queryAllByText('e.jpg')).toHaveLength(1);
+      expect(within(a.container).queryAllByText('e.jpg')).toHaveLength(1);
+      expect(within(b.container).queryAllByText('e.jpg')).toHaveLength(0);
+
+      vi.mocked(fetchPhotos).mockClear();
+      await act(async () => uploads[0].resolve(uploadResult(makeItem())));
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(2)); // header + question A, nothing for question B
+      expect(vi.mocked(fetchPhotos).mock.calls.map((call) => (call[1] as { questionId?: string }).questionId).sort()).toEqual([undefined, QUESTION_A].sort());
+    });
+
+    it('an inspection-level upload is not shown in a question section', async () => {
+      const a = inspectionView({ questionId: QUESTION_A });
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(1));
+      await enqueue({ projectId: PROJECT_ID, context: 'INSPECTION', inspectionId: INSPECTION_ID });
+      expect(within(a.container).queryAllByText('e.jpg')).toHaveLength(0);
+    });
+
+    it('a finding upload shows in every section of its lineage and in no other inspection', async () => {
+      const finding = (props: Partial<SectionProps>) =>
+        render(
+          <I18nProvider>
+            <PhotoSection projectId={PROJECT_ID} context="FINDING" allowUpload locationLabel="x" {...props} />
+          </I18nProvider>,
+        );
+      const sameLineageOtherRow = finding({ targetId: 'finding-old', lineageId: LINEAGE_ID });
+      const otherLineage = finding({ targetId: 'finding-x', lineageId: 'other-lineage' });
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(2));
+      await enqueue({ projectId: PROJECT_ID, context: 'FINDING', findingId: FINDING_ID, lineageId: LINEAGE_ID });
+      expect(within(sameLineageOtherRow.container).queryAllByText('e.jpg')).toHaveLength(1);
+      expect(within(otherLineage.container).queryAllByText('e.jpg')).toHaveLength(0);
+    });
+  });
+
+  it('archiving an inspection photo corrects its inspection and question counts', async () => {
+    const photo = makeItem({ attachment: { context: 'INSPECTION', room_id: null, inspection_id: INSPECTION_ID, question_id: QUESTION_A } });
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([photo, makeItem({ attachment: { context: 'INSPECTION', room_id: null, inspection_id: INSPECTION_ID, question_id: QUESTION_A } })]));
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(photo));
+    vi.mocked(archivePhotoAttachment).mockResolvedValue({ ...photo.attachment, archived_at: 'x' });
+    const { onCountAdjust } = renderSection({ context: 'INSPECTION', targetId: INSPECTION_ID, questionId: QUESTION_A, roomId: undefined });
+    fireEvent.click((await screen.findAllByRole('button', { name: /23\.06\.2026/ }))[0]);
+    await screen.findByRole('dialog');
+    await screen.findAllByRole('img');
+    fireEvent.click(screen.getByRole('button', { name: 'Archiwizuj' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archiwizuj' }));
+    await waitFor(() =>
+      expect(onCountAdjust).toHaveBeenCalledWith('INSPECTION', INSPECTION_ID, -1, undefined, { questionId: QUESTION_A, lineageId: undefined }),
+    );
+  });
+
+  it('archiving a finding photo corrects the finding row and its lineage', async () => {
+    const photo = makeItem({ attachment: { context: 'FINDING', room_id: null, finding_id: 'finding-old' } });
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([photo, makeItem({ attachment: { context: 'FINDING', room_id: null, finding_id: FINDING_ID } })]));
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(photo));
+    vi.mocked(archivePhotoAttachment).mockResolvedValue({ ...photo.attachment, archived_at: 'x' });
+    const { onCountAdjust } = renderSection({ context: 'FINDING', targetId: FINDING_ID, lineageId: LINEAGE_ID, roomId: undefined });
+    fireEvent.click((await screen.findAllByRole('button', { name: /23\.06\.2026/ }))[0]);
+    await screen.findByRole('dialog');
+    await screen.findAllByRole('img');
+    fireEvent.click(screen.getByRole('button', { name: 'Archiwizuj' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archiwizuj' }));
+    await waitFor(() =>
+      expect(onCountAdjust).toHaveBeenCalledWith('FINDING', 'finding-old', -1, undefined, { questionId: undefined, lineageId: LINEAGE_ID }),
+    );
   });
 });

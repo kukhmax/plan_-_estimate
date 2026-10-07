@@ -777,3 +777,5 @@ Any other id on a context is a shape error (`PHOTO_UPLOAD_MALFORMED` on upload, 
 `GET /projects/{p}/photos/counts` gains `inspections` (photos per inspection, inspection- and question-level together), `findings` (per finding row) and `lineages` (per lineage, the sum over its rows); targets without photos are absent. These never enter `rooms` / `room_totals` (the room card keeps its 14E.6 meaning).
 
 **Error codes added to the 14C table (§11b):** `INSPECTION_NOT_FOUND`, `QUESTION_NOT_FOUND`, `FINDING_NOT_FOUND` (all 404).
+
+**14F.3 additions.** `GET /photos?site_only=true` — only PROJECT / ROOM / SURFACE / OPENING photos (the object-wide list keeps its 14E meaning now that evidence exists); exclusive with `context`, the target ids, `in_room_id` and `lineage`; the unfiltered list still returns every context. `/photos/counts` gains `questions`: inspection id → question id → number of **question-level** photos only (inspection-level photos are in `inspections` but in no question).

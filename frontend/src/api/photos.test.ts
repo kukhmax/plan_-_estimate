@@ -70,6 +70,23 @@ describe('photos JSON API', () => {
     });
   });
 
+  it('builds the evidence filters (inspection, question, finding, lineage) and the site-only flag', async () => {
+    await fetchPhotos(PROJECT, { context: 'INSPECTION', inspectionId: 'I1', questionId: 'Q1' });
+    expect(Object.fromEntries(new URLSearchParams(lastCall().url.split('?')[1]))).toEqual({
+      context: 'INSPECTION',
+      inspection_id: 'I1',
+      question_id: 'Q1',
+    });
+    await fetchPhotos(PROJECT, { context: 'FINDING', findingId: 'F1' });
+    expect(Object.fromEntries(new URLSearchParams(lastCall().url.split('?')[1]))).toEqual({ context: 'FINDING', finding_id: 'F1' });
+    await fetchPhotos(PROJECT, { lineageId: 'L1', archived: false });
+    expect(Object.fromEntries(new URLSearchParams(lastCall().url.split('?')[1]))).toEqual({ lineage: 'L1', archived: 'false' });
+    await fetchPhotos(PROJECT, { siteOnly: true });
+    expect(Object.fromEntries(new URLSearchParams(lastCall().url.split('?')[1]))).toEqual({ site_only: 'true' });
+    await fetchPhotos(PROJECT, { siteOnly: false });
+    expect(lastCall().url).toBe(`/api/projects/${PROJECT}/photos`); // false is not sent
+  });
+
   it('calls the bare list route when no filter is set', async () => {
     await fetchPhotos(PROJECT);
     expect(lastCall().url).toBe(`/api/projects/${PROJECT}/photos`);
@@ -230,6 +247,25 @@ describe('uploadPhoto (XHR transport)', () => {
     const opening = buildUploadFormData(params({ context: 'OPENING', roomId: ROOM, openingId: 'O1' }));
     expect(opening.get('opening_id')).toBe('O1');
     expect(opening.has('room_id')).toBe(false);
+  });
+
+  it('sends an INSPECTION upload with its inspection, and the question only when the photo documents one', () => {
+    const inspection = buildUploadFormData(params({ context: 'INSPECTION', roomId: undefined, inspectionId: 'I1', questionId: undefined }));
+    expect([...inspection.keys()]).toEqual(['upload_id', 'context', 'inspection_id', 'source', 'file']);
+    expect(inspection.get('inspection_id')).toBe('I1');
+    expect(inspection.has('question_id')).toBe(false);
+    const question = buildUploadFormData(params({ context: 'INSPECTION', roomId: undefined, inspectionId: 'I1', questionId: 'Q1' }));
+    expect(question.get('inspection_id')).toBe('I1');
+    expect(question.get('question_id')).toBe('Q1');
+    // a question without its inspection is never sent
+    const orphan = buildUploadFormData(params({ context: 'INSPECTION', roomId: undefined, inspectionId: undefined, questionId: 'Q1' }));
+    expect(orphan.has('question_id')).toBe(false);
+  });
+
+  it('sends a FINDING upload with its finding only; the lineage never leaves the client', () => {
+    const form = buildUploadFormData(params({ context: 'FINDING', roomId: undefined, findingId: 'F1', lineageId: 'L1', inspectionId: 'I1', questionId: 'Q1' }));
+    expect(form.get('finding_id')).toBe('F1');
+    for (const name of ['inspection_id', 'question_id', 'lineage_id', 'lineage', 'room_id']) expect(form.has(name)).toBe(false);
   });
 
   it('reports progress and the moment all bytes were sent, then resolves with the parsed body', async () => {

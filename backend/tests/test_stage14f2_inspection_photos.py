@@ -379,7 +379,7 @@ async def test_counts_report_inspection_finding_and_lineage_photos_apart_from_ro
 
 async def test_counts_of_a_project_without_evidence_have_empty_maps(api, http):
     data = (await http.get(f"{path_for(api.project)}/counts")).json()
-    assert data["inspections"] == {} and data["findings"] == {} and data["lineages"] == {}
+    assert data["inspections"] == {} and data["findings"] == {} and data["lineages"] == {} and data["questions"] == {}
 
 
 async def test_detail_and_list_items_carry_the_new_target_fields(api, http, w):
@@ -397,3 +397,56 @@ async def test_deleting_nothing_changes_for_existing_contexts(api, http, w):
         attachment = body["attachment"]
         assert attachment["inspection_id"] is None and attachment["question_id"] is None and attachment["finding_id"] is None
     assert (await api.db.execute(select(func.count()).select_from(PhotoAsset))).scalar_one() == 4
+
+
+# ---------------------------------------------------------------------------
+# 14F.3: per-question counts and the site-only list
+# ---------------------------------------------------------------------------
+
+
+async def test_counts_split_question_level_photos_per_inspection_and_question(api, http, w):
+    await evidence(api, w)  # inspection-level x1, question q1 x1, question q2 x1
+    await upload_ok(api, context="INSPECTION", target=("inspection_id", str(w.inspection)), extra=[("question_id", str(w.q1))])
+    data = (await http.get(f"{path_for(api.project)}/counts")).json()
+    assert data["questions"] == {str(w.inspection): {str(w.q1): 2, str(w.q2): 1}}  # the inspection-level photo is in no question
+    assert data["inspections"] == {str(w.inspection): 4}
+    # archived question-level photos leave the map, and an emptied inspection disappears from it
+    attachments = (await http.get(path_for(api.project), params={"context": "INSPECTION", "inspection_id": str(w.inspection), "question_id": str(w.q2)})).json()["items"]
+    await http.post(f"/api/projects/{api.project}/photo-attachments/{attachments[0]['attachment']['id']}/archive")
+    data = (await http.get(f"{path_for(api.project)}/counts")).json()
+    assert data["questions"] == {str(w.inspection): {str(w.q1): 2}}
+
+
+async def test_site_only_list_leaves_out_inspection_evidence(api, http, w):
+    e = await evidence(api, w)
+    base = path_for(api.project)
+    everything = ids(await http.get(base))
+    assert e.insp in everything and e.f_new in everything and e.room in everything  # the unfiltered list is still complete
+    site = ids(await http.get(base, params={"site_only": "true"}))
+    assert site == [e.room]
+    assert ids(await http.get(base, params={"site_only": "true", "archived": "true"})) == []
+    assert ids(await http.get(base, params={"site_only": "true", "category": "GENERAL"})) == [e.room]
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        lambda w, api: {"context": "ROOM", "room_id": str(api.room)},
+        lambda w, api: {"in_room_id": str(api.room)},
+        lambda w, api: {"lineage": str(w.lineage)},
+        lambda w, api: {"inspection_id": str(w.inspection)},
+    ],
+)
+async def test_site_only_cannot_be_combined_with_targets(api, http, w, extra):
+    r = await http.get(path_for(api.project), params={"site_only": "true", **extra(w, api)})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "PHOTO_ATTACHMENT_INVALID"
+
+
+async def test_site_only_cursor_is_bound_to_the_filter(api, http, w):
+    await evidence(api, w)
+    await upload_ok(api, context="ROOM")
+    base = path_for(api.project)
+    first = await http.get(base, params={"site_only": "true", "limit": 1})
+    assert first.json()["next_cursor"]
+    again = await http.get(base, params={"limit": 1, "cursor": first.json()["next_cursor"]})  # same cursor, no site_only
+    assert again.status_code == 422 and again.json()["detail"]["code"] == "PHOTO_CURSOR_INVALID"

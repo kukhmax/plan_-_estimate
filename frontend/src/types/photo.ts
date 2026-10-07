@@ -13,8 +13,8 @@ export const PHOTO_CATEGORIES = [
 ] as const;
 export type PhotoCategory = (typeof PHOTO_CATEGORIES)[number];
 
-// Only the four contexts supported by the 14E UI; INSPECTION / FINDING / WORK arrive in later stages.
-export const PHOTO_CONTEXTS = ['PROJECT', 'ROOM', 'SURFACE', 'OPENING'] as const;
+// The site contexts of the 14E UI plus the inspection evidence of 14F; WORK arrives in 14H.
+export const PHOTO_CONTEXTS = ['PROJECT', 'ROOM', 'SURFACE', 'OPENING', 'INSPECTION', 'FINDING'] as const;
 export type PhotoContext = (typeof PHOTO_CONTEXTS)[number];
 
 export type PhotoCaptureSource = 'CAMERA' | 'GALLERY';
@@ -111,6 +111,8 @@ export interface PhotoCounts {
   /** Photos per finding row, and per finding lineage (the sum over every row of the lineage). */
   findings: Record<string, number>;
   lineages: Record<string, number>;
+  /** Question-level photos only: inspection id → question id → count (inspection-level photos are in no question). */
+  questions: Record<string, Record<string, number>>;
 }
 
 export interface PhotoListParams {
@@ -120,6 +122,14 @@ export interface PhotoListParams {
   openingId?: string;
   /** Every photo of this room: the room itself, its surfaces and their openings (no other target filter). */
   inRoomId?: string;
+  /** INSPECTION: one inspection (`inspectionId`), optionally one of its checklist questions. FINDING: one finding row. */
+  inspectionId?: string;
+  questionId?: string;
+  findingId?: string;
+  /** Every FINDING photo of one finding lineage (all rows of it); exclusive with the target filters. */
+  lineageId?: string;
+  /** Only the site contexts (object, room, surface, opening): the object-wide list, without inspection evidence. */
+  siteOnly?: boolean;
   category?: PhotoCategory;
   includeInReport?: boolean;
   archived?: boolean;
@@ -139,6 +149,9 @@ export interface PhotoAttachPayload {
   room_id?: string;
   surface_id?: string;
   opening_id?: string;
+  inspection_id?: string;
+  question_id?: string;
+  finding_id?: string;
   category?: PhotoCategory;
   caption?: string | null;
   include_in_report?: boolean;
@@ -151,4 +164,10 @@ export interface PhotoTarget {
   roomId?: string;
   surfaceId?: string;
   openingId?: string;
+  /** INSPECTION: the inspection, and the checklist question when the photo documents one answer. */
+  inspectionId?: string;
+  questionId?: string;
+  /** FINDING: the finding row the photo is attached to, and its lineage (lets the counts follow; never sent). */
+  findingId?: string;
+  lineageId?: string;
 }

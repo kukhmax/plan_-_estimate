@@ -507,6 +507,10 @@ async def list_photos(
         default=None,
         description="every photo of this room: the room itself, its surfaces and their openings (no other target filter)",
     ),
+    site_only: bool = Query(
+        default=False,
+        description="only PROJECT / ROOM / SURFACE / OPENING photos, leaving out inspection evidence (no other target filter)",
+    ),
     lineage: uuid.UUID | None = Query(
         default=None,
         description="every FINDING photo of this finding lineage, whichever row of the lineage it was taken on (no other target filter)",
@@ -524,7 +528,7 @@ async def list_photos(
         context=context, room_id=room_id, surface_id=surface_id, opening_id=opening_id,
         inspection_id=inspection_id, question_id=question_id, finding_id=finding_id,
         category=category, include_in_report=include_in_report, archived=archived, in_room_id=in_room_id,
-        lineage_id=lineage,
+        lineage_id=lineage, site_only=site_only,
     )
     try:
         page = await PhotoQueryService(db).list_photos(
@@ -565,7 +569,7 @@ async def photo_counts(
     return PhotoCountsResponse(
         project=counts.project, rooms=counts.rooms, surfaces=counts.surfaces, openings=counts.openings,
         room_totals=counts.room_totals, inspections=counts.inspections, findings=counts.findings,
-        lineages=counts.lineages,
+        lineages=counts.lineages, questions=counts.questions,
     )
 
 

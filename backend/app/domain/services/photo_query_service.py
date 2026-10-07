@@ -52,6 +52,12 @@ from app.models.photo_attachment import (
 from app.models.room import Room
 from app.models.surface import Surface
 
+SITE_CONTEXTS = (
+    PhotoAttachmentContext.PROJECT,
+    PhotoAttachmentContext.ROOM,
+    PhotoAttachmentContext.SURFACE,
+    PhotoAttachmentContext.OPENING,
+)
 DEFAULT_LIMIT = 30
 MAX_LIMIT = 100
 CURSOR_VERSION = 1
@@ -76,6 +82,9 @@ class PhotoListFilters:
     in_room_id: uuid.UUID | None = None
     # Stage 14F.2: every FINDING photo of one finding lineage (all rows of the lineage). Exclusive with the target filters.
     lineage_id: uuid.UUID | None = None
+    # Stage 14F.3: only the four site contexts (PROJECT / ROOM / SURFACE / OPENING): the object-wide list keeps its 14E meaning
+    # now that inspection evidence exists. Exclusive with every other target filter.
+    site_only: bool = False
 
     def fingerprint(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> str:
         canonical = json.dumps(
@@ -93,6 +102,7 @@ class PhotoListFilters:
                 str(self.question_id) if self.question_id else None,
                 str(self.finding_id) if self.finding_id else None,
                 str(self.lineage_id) if self.lineage_id else None,
+                self.site_only,
             ],
             separators=(",", ":"),
         )
@@ -115,6 +125,8 @@ class PhotoCounts:
     inspections: dict[uuid.UUID, int]
     findings: dict[uuid.UUID, int]
     lineages: dict[uuid.UUID, int]
+    # Stage 14F.3: question-level photos only, per inspection then per question (the question button of a checklist).
+    questions: dict[uuid.UUID, dict[uuid.UUID, int]]
 
 
 @dataclass(frozen=True)
@@ -199,6 +211,10 @@ class PhotoQueryService:
             filters.room_id, filters.surface_id, filters.opening_id,
             filters.inspection_id, filters.question_id, filters.finding_id,
         )
+        if filters.site_only:
+            if filters.context or filters.in_room_id or filters.lineage_id or any(target_ids):
+                raise PhotoAttachmentValidationError("site_only cannot be combined with a context or a target id")
+            return
         if filters.lineage_id is not None:
             if filters.context or filters.in_room_id or any(target_ids):
                 raise PhotoAttachmentValidationError("lineage cannot be combined with a context or a target id")
@@ -284,6 +300,8 @@ class PhotoQueryService:
                 stmt = stmt.where(PhotoAttachment.question_id == filters.question_id)
             if filters.finding_id is not None:
                 stmt = stmt.where(PhotoAttachment.finding_id == filters.finding_id)
+        if filters.site_only:
+            stmt = stmt.where(PhotoAttachment.context.in_(SITE_CONTEXTS))
         if filters.lineage_id is not None:
             lineage_findings = select(InspectionFinding.id).where(InspectionFinding.lineage_id == filters.lineage_id)
             stmt = stmt.where(
@@ -336,6 +354,7 @@ class PhotoQueryService:
                 PhotoAttachment.surface_id,
                 PhotoAttachment.opening_id,
                 PhotoAttachment.inspection_id,
+                PhotoAttachment.question_id,
                 PhotoAttachment.finding_id,
                 func.count(),
             )
@@ -355,6 +374,7 @@ class PhotoQueryService:
                 PhotoAttachment.surface_id,
                 PhotoAttachment.opening_id,
                 PhotoAttachment.inspection_id,
+                PhotoAttachment.question_id,
                 PhotoAttachment.finding_id,
             )
         )
@@ -364,7 +384,8 @@ class PhotoQueryService:
         openings: dict[uuid.UUID, int] = {}
         inspections: dict[uuid.UUID, int] = {}
         findings: dict[uuid.UUID, int] = {}
-        for context, room_id, surface_id, opening_id, inspection_id, finding_id, total in (
+        questions: dict[uuid.UUID, dict[uuid.UUID, int]] = {}
+        for context, room_id, surface_id, opening_id, inspection_id, question_id, finding_id, total in (
             await self.db.execute(stmt)
         ).all():
             if context is PhotoAttachmentContext.PROJECT:
@@ -377,6 +398,9 @@ class PhotoQueryService:
                 openings[opening_id] = openings.get(opening_id, 0) + int(total)
             elif context is PhotoAttachmentContext.INSPECTION and inspection_id is not None:
                 inspections[inspection_id] = inspections.get(inspection_id, 0) + int(total)
+                if question_id is not None:
+                    per_question = questions.setdefault(inspection_id, {})
+                    per_question[question_id] = per_question.get(question_id, 0) + int(total)
             elif context is PhotoAttachmentContext.FINDING and finding_id is not None:
                 findings[finding_id] = findings.get(finding_id, 0) + int(total)
         room_totals = dict(rooms)
@@ -401,7 +425,7 @@ class PhotoQueryService:
                 lineages[lineage_id] = lineages.get(lineage_id, 0) + findings[finding_id]
         return PhotoCounts(
             project=project_total, rooms=rooms, surfaces=surfaces, openings=openings, room_totals=room_totals,
-            inspections=inspections, findings=findings, lineages=lineages,
+            inspections=inspections, findings=findings, lineages=lineages, questions=questions,
         )
 
     async def get_detail(

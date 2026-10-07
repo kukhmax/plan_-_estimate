@@ -19,7 +19,7 @@ const COUNTS: PhotoCounts = {
   surfaces: { s1: 3 },
   openings: { o1: 4 },
   room_totals: { r1: 2 + 3 + 4 }, // the room's own, its surface's and the surface's opening's
-  inspections: {}, findings: {}, lineages: {},
+  inspections: {}, findings: {}, lineages: {}, questions: {},
 };
 
 function value(over: Partial<ProjectPhotosValue> = {}, expanded: string[] = []): ProjectPhotosValue {
@@ -70,6 +70,40 @@ describe('PhotoCardButton', () => {
   ] as const)('%s %s shows its count', (context, targetId, name) => {
     renderWith(<PhotoCardButton context={context} targetId={targetId} />, value());
     expect(screen.getByRole('button', { name })).toBeInTheDocument();
+  });
+
+  it('shows inspection evidence counts: the inspection, one of its questions, a finding through its lineage', () => {
+    const evidence = value({
+      counts: { ...COUNTS, inspections: { i1: 5 }, questions: { i1: { q1: 2 } }, findings: { f1: 1 }, lineages: { L: 4 } },
+    });
+    const view = renderWith(
+      <>
+        <PhotoCardButton context="INSPECTION" targetId="i1" />
+        <PhotoCardButton context="INSPECTION" targetId="i1" questionId="q1" />
+        <PhotoCardButton context="FINDING" targetId="f1" lineageId="L" />
+      </>,
+      evidence,
+    );
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Zdjęcia: 5', 'Zdjęcia: 2', 'Zdjęcia: 4']);
+    view.unmount();
+  });
+
+  it('keeps question-level sections apart by key', () => {
+    const provided = value({}, [photoKey('INSPECTION', 'i1', 'q1')]);
+    renderWith(
+      <>
+        <PhotoCardButton context="INSPECTION" targetId="i1" questionId="q1" />
+        <PhotoCardButton context="INSPECTION" targetId="i1" questionId="q2" />
+        <PhotoCardButton context="INSPECTION" targetId="i1" />
+      </>,
+      provided,
+    );
+    const [q1, q2, header] = screen.getAllByRole('button');
+    expect([q1, q2, header].map((b) => b.getAttribute('aria-expanded'))).toEqual(['true', 'false', 'false']);
+    fireEvent.click(q2);
+    expect(provided.toggle).toHaveBeenCalledWith('INSPECTION:i1:q2');
+    fireEvent.click(header);
+    expect(provided.toggle).toHaveBeenCalledWith('INSPECTION:i1');
   });
 
   it('the object button shows the total of every photo of the object (C-3)', () => {
@@ -123,6 +157,30 @@ describe('PhotoCardPanel', () => {
     renderWith(<PhotoCardPanel context={context} targetId={targetId} locationSegments={['ignored']} />, provided);
     expect(sectionProps.mock.calls[0][0]).toMatchObject({ context, targetId, allowUpload: false });
     expect(sectionProps.mock.calls[0][0].locationLabel).toBe(provided.resolveLocation);
+  });
+
+  it('an inspection / question / finding panel offers uploading and passes its identity and caption resolver on', () => {
+    const resolver = vi.fn(() => 'Pytanie');
+    const provided = value({}, [photoKey('INSPECTION', 'i1'), photoKey('INSPECTION', 'i1', 'q1'), photoKey('FINDING', 'f1')]);
+    renderWith(
+      <>
+        <PhotoCardPanel context="INSPECTION" targetId="i1" locationSegments={['Oględziny']} locationLabel={resolver} />
+        <PhotoCardPanel context="INSPECTION" targetId="i1" questionId="q1" locationSegments={['Oględziny', 'Pytanie 1']} />
+        <PhotoCardPanel context="FINDING" targetId="f1" lineageId="L" locationSegments={['Oględziny', 'Pęknięcie']} />
+      </>,
+      provided,
+    );
+    const [header, question, finding] = sectionProps.mock.calls.map((call) => call[0]);
+    expect(header).toMatchObject({ context: 'INSPECTION', targetId: 'i1', allowUpload: true, locationLabel: resolver });
+    expect(question).toMatchObject({ context: 'INSPECTION', targetId: 'i1', questionId: 'q1', allowUpload: true, locationLabel: 'Oględziny → Pytanie 1' });
+    expect(finding).toMatchObject({ context: 'FINDING', targetId: 'f1', lineageId: 'L', allowUpload: true, locationLabel: 'Oględziny → Pęknięcie' });
+    for (const props of [header, question, finding]) expect(props.onCountAdjust).toBe(provided.adjust);
+  });
+
+  it('an inspection panel does not load the project names (it is not an aggregated list)', () => {
+    const provided = value({}, [photoKey('INSPECTION', 'i1')]);
+    renderWith(<PhotoCardPanel context="INSPECTION" targetId="i1" locationSegments={['x']} />, provided);
+    expect(provided.ensureLocations).not.toHaveBeenCalled();
   });
 
   it('an opening panel (legacy photos only) never offers uploading', () => {

@@ -5,12 +5,28 @@ import { PhotoContext, PhotoCounts } from '../types/photo';
 // Badge counts for the open project (contract §9): one request per workspace load, optimistic adjustments after
 // upload / archive / restore, refetch on demand.
 
-export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {} };
+export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {} };
 
-/** Visible photos attached directly to a target. `targetId` is ignored for PROJECT. */
-export function photoCountFor(counts: PhotoCounts, context: PhotoContext, targetId?: string): number {
+/** Extra identity of an inspection-evidence target (Stage 14F): the checklist question of a question-level photo, the lineage of a finding. */
+export interface PhotoCountScope {
+  questionId?: string;
+  lineageId?: string;
+}
+
+/**
+ * Visible photos attached directly to a target. `targetId` is ignored for PROJECT. INSPECTION: the inspection's own count, or
+ * with `questionId` the question-level photos of that question; FINDING: the lineage's count (a finding shows the photos of
+ * every row of its lineage), falling back to the row's own.
+ */
+export function photoCountFor(counts: PhotoCounts, context: PhotoContext, targetId?: string, scope: PhotoCountScope = {}): number {
   if (context === 'PROJECT') return counts.project;
   if (!targetId) return 0;
+  if (context === 'INSPECTION') {
+    return scope.questionId ? (counts.questions?.[targetId]?.[scope.questionId] ?? 0) : (counts.inspections?.[targetId] ?? 0);
+  }
+  if (context === 'FINDING') {
+    return (scope.lineageId ? counts.lineages?.[scope.lineageId] : undefined) ?? counts.findings?.[targetId] ?? 0;
+  }
   const bucket = context === 'ROOM' ? counts.rooms : context === 'SURFACE' ? counts.surfaces : counts.openings;
   return bucket[targetId] ?? 0;
 }
@@ -45,9 +61,27 @@ export function adjustPhotoCounts(
   targetId: string | undefined,
   delta: number,
   roomId?: string,
+  scope: PhotoCountScope = {},
 ): PhotoCounts {
   if (context === 'PROJECT') return { ...counts, project: Math.max(0, counts.project + delta) };
   if (!targetId) return counts;
+  if (context === 'INSPECTION') {
+    const questions = counts.questions ?? {};
+    const inspectionQuestions = scope.questionId ? bump(questions[targetId] ?? {}, scope.questionId, delta) : null;
+    const nextQuestions = { ...questions };
+    if (inspectionQuestions) {
+      if (Object.keys(inspectionQuestions).length === 0) delete nextQuestions[targetId];
+      else nextQuestions[targetId] = inspectionQuestions;
+    }
+    return { ...counts, inspections: bump(counts.inspections ?? {}, targetId, delta), questions: nextQuestions };
+  }
+  if (context === 'FINDING') {
+    return {
+      ...counts,
+      findings: bump(counts.findings ?? {}, targetId, delta),
+      ...(scope.lineageId ? { lineages: bump(counts.lineages ?? {}, scope.lineageId, delta) } : {}),
+    };
+  }
   const key = context === 'ROOM' ? 'rooms' : context === 'SURFACE' ? 'surfaces' : 'openings';
   const owningRoom = context === 'ROOM' ? targetId : roomId;
   return {
@@ -63,7 +97,7 @@ export interface PhotoCountsView {
   counts: PhotoCounts;
   status: PhotoCountsStatus;
   refresh: () => Promise<void>;
-  adjust: (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string) => void;
+  adjust: (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string, scope?: PhotoCountScope) => void;
 }
 
 export function usePhotoCounts(projectId: string | null | undefined): PhotoCountsView {
@@ -94,9 +128,12 @@ export function usePhotoCounts(projectId: string | null | undefined): PhotoCount
     };
   }, [refresh]);
 
-  const adjust = useCallback((context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string) => {
-    setCounts((current) => adjustPhotoCounts(current, context, targetId, delta, roomId));
-  }, []);
+  const adjust = useCallback(
+    (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string, scope?: PhotoCountScope) => {
+      setCounts((current) => adjustPhotoCounts(current, context, targetId, delta, roomId, scope));
+    },
+    [],
+  );
 
   return { counts, status, refresh, adjust };
 }

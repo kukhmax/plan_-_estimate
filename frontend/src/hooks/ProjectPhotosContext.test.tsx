@@ -20,7 +20,7 @@ vi.mock('../utils/photoLocations', async () => {
 import { fetchPhotoCounts, uploadPhoto } from '../api/photos';
 import { loadPhotoLocations } from '../utils/photoLocations';
 
-const COUNTS: PhotoCounts = { project: 1, rooms: { r1: 2 }, surfaces: { s1: 3 }, openings: {}, room_totals: { r1: 5 }, inspections: {}, findings: {}, lineages: {} };
+const COUNTS: PhotoCounts = { project: 1, rooms: { r1: 2 }, surfaces: { s1: 3 }, openings: {}, room_totals: { r1: 5 }, inspections: {}, findings: {}, lineages: {}, questions: {} };
 const registry: PhotoBackRegistry = { register: () => () => undefined };
 
 function setup(initial: string | null = 'p1') {
@@ -122,6 +122,28 @@ describe('ProjectPhotosProvider', () => {
       expect(photoCountFor(result.current!.counts, 'SURFACE', 's1')).toBe(4);
       expect(result.current!.counts.room_totals.r1).toBe(6);
       expect(result.current!.counts.project).toBe(1);
+    });
+
+    it('+1 for the inspection AND its question when a question-level photo finishes (14F.3)', async () => {
+      const { result } = setup();
+      await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
+      holdConfirmation();
+      await finishUpload({ projectId: 'p1', context: 'INSPECTION', inspectionId: 'i1', questionId: 'q1' });
+      expect(result.current!.counts.inspections.i1).toBe(1);
+      expect(result.current!.counts.questions).toEqual({ i1: { q1: 1 } });
+      expect(result.current!.counts.room_totals).toEqual(COUNTS.room_totals); // evidence stays out of the room totals
+      await finishUpload({ projectId: 'p1', context: 'INSPECTION', inspectionId: 'i1' }); // inspection-level: no question
+      expect(result.current!.counts.inspections.i1).toBe(2);
+      expect(result.current!.counts.questions).toEqual({ i1: { q1: 1 } });
+    });
+
+    it('+1 for the finding row AND its lineage when a finding photo finishes (14F.3)', async () => {
+      const { result } = setup();
+      await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
+      holdConfirmation();
+      await finishUpload({ projectId: 'p1', context: 'FINDING', findingId: 'f1', lineageId: 'L1' });
+      expect(result.current!.counts.findings).toEqual({ f1: 1 });
+      expect(result.current!.counts.lineages).toEqual({ L1: 1 });
     });
 
     it('then confirms with the server, whose numbers replace the optimistic ones', async () => {
@@ -242,7 +264,7 @@ describe('ProjectPhotosProvider — another object', () => {
     act(() => result.current?.toggle(photoKey('ROOM', 'r1')));
     act(() => result.current?.ensureLocations());
 
-    vi.mocked(fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {} });
+    vi.mocked(fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {} });
     project = 'p2';
     rerender();
     await waitFor(() => expect(result.current?.counts.project).toBe(0));

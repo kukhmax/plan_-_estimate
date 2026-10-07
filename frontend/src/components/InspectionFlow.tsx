@@ -32,6 +32,9 @@ import {
   InspectionTarget,
 } from '../types/inspection';
 import { formatMetric } from '../utils/format';
+import { buildLocationPath } from '../utils/photoCaption';
+import { PhotoAttachmentRead } from '../types/photo';
+import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { RiskPanel } from './RiskPanel';
 import { RecommendationPanel } from './RecommendationPanel';
 import { CommunicationPanel } from './CommunicationPanel';
@@ -258,6 +261,14 @@ export function InspectionFlow({
     }
     return entries;
   }, [template]);
+
+  // Photos belong to a saved inspection: nothing to attach to while the wizard still asks for substrate / quality (14F.3).
+  const photosOpen = (step === 'active' || step === 'review') && inspection !== null && !inspection.is_archived;
+  const photoBase = useMemo(() => [t.inspections.title, targetLabel(t, target)], [t, target]);
+  const questionLabels = useMemo(
+    () => Object.fromEntries(questions.map(({ question }) => [question.id, resolveKey(t, question.text_key)])),
+    [questions, t],
+  );
 
   const answeredCount = useMemo(
     () =>
@@ -546,7 +557,22 @@ export function InspectionFlow({
                   ? t.inspections.findings_title
                   : t.inspections.review_summary}
         </h3>
+        {photosOpen && inspection ? <PhotoCardButton context="INSPECTION" targetId={inspection.id} /> : null}
       </div>
+
+      {photosOpen && inspection ? (
+        <PhotoCardPanel
+          context="INSPECTION"
+          targetId={inspection.id}
+          locationSegments={photoBase}
+          locationLabel={(attachment: PhotoAttachmentRead) =>
+            buildLocationPath(
+              attachment.question_id ? [...photoBase, questionLabels[attachment.question_id]] : photoBase,
+              t.photos.caption,
+            )
+          }
+        />
+      ) : null}
 
       {error ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
@@ -681,6 +707,8 @@ export function InspectionFlow({
                 options={options}
                 answer={answers[question.id]}
                 readOnly={false}
+                photoInspectionId={photosOpen ? inspection?.id : undefined}
+                photoBase={photoBase}
                 error={numberErrors[question.id]}
                 onNumberBlur={handleBlurNumber}
                 onChange={(patch) => setAnswer(question.id, patch)}
@@ -730,7 +758,7 @@ export function InspectionFlow({
               ) : (
                 <ul className="mt-2 flex flex-col gap-2">
                   {findings.map((finding) => (
-                    <FindingRow key={finding.id} finding={finding} t={t} />
+                    <FindingRow key={finding.id} finding={finding} t={t} photoBase={photoBase} />
                   ))}
                 </ul>
               )
@@ -745,6 +773,8 @@ export function InspectionFlow({
                     options={options}
                     answer={answers[question.id]}
                     readOnly
+                    photoInspectionId={photosOpen ? inspection?.id : undefined}
+                    photoBase={photoBase}
                     onChange={() => undefined}
                     t={t}
                   />
@@ -805,6 +835,8 @@ function QuestionField({
   options,
   answer,
   readOnly,
+  photoInspectionId,
+  photoBase = [],
   onChange,
   onNumberBlur,
   error,
@@ -814,6 +846,10 @@ function QuestionField({
   options: ChecklistOption[];
   answer: InspectionAnswerPayload | undefined;
   readOnly: boolean;
+  /** The saved inspection the question's photos belong to; without it the question has no photo button (14F.3). */
+  photoInspectionId?: string;
+  /** Location names above the question, for the caption of its photos. */
+  photoBase?: string[];
   onChange: (patch: Partial<InspectionAnswerPayload>) => void;
   onNumberBlur?: (questionId: string, raw: string) => void;
   error?: string;
@@ -826,7 +862,22 @@ function QuestionField({
   return (
     <fieldset className="rounded-lg border border-neutral-200 bg-white p-3">
       <legend className="px-1 text-sm font-medium text-neutral-900">{label}</legend>
-      {hint ? <p className="mb-2 text-xs text-neutral-500">{hint}</p> : null}
+      {photoInspectionId ? (
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <p className="min-w-0 flex-1 break-words text-xs text-neutral-500">{hint}</p>
+          <PhotoCardButton context="INSPECTION" targetId={photoInspectionId} questionId={question.id} />
+        </div>
+      ) : hint ? (
+        <p className="mb-2 text-xs text-neutral-500">{hint}</p>
+      ) : null}
+      {photoInspectionId ? (
+        <PhotoCardPanel
+          context="INSPECTION"
+          targetId={photoInspectionId}
+          questionId={question.id}
+          locationSegments={[...photoBase, label]}
+        />
+      ) : null}
 
       {question.answer_type === 'BOOLEAN' ? (
         readOnly ? (
@@ -1000,9 +1051,12 @@ function ReadOnlyMulti({ labelKeys, t }: { labelKeys: string[]; t: ReturnType<ty
 export function FindingRow({
   finding,
   t,
+  photoBase = [],
 }: {
   finding: InspectionFinding;
   t: ReturnType<typeof useI18n>['t'];
+  /** Location names above the finding, for the caption of its photos. */
+  photoBase?: string[];
 }) {
   const label = finding.label_key ? resolveKey(t, finding.label_key) : finding.finding_key;
   const value = finding.value_snapshot;
@@ -1025,8 +1079,21 @@ export function FindingRow({
           : 'border-neutral-200 bg-neutral-100 text-neutral-500 line-through'
       }`}
     >
-      {label}
-      {detail ? ` — ${detail}` : ''}
+      <div className="flex items-start justify-between gap-2">
+        <span className="min-w-0 break-words">
+          {label}
+          {detail ? ` — ${detail}` : ''}
+        </span>
+        {isActive ? <PhotoCardButton context="FINDING" targetId={finding.id} lineageId={finding.lineage_id} /> : null}
+      </div>
+      {isActive ? (
+        <PhotoCardPanel
+          context="FINDING"
+          targetId={finding.id}
+          lineageId={finding.lineage_id}
+          locationSegments={[...photoBase, label]}
+        />
+      ) : null}
     </li>
   );
 }

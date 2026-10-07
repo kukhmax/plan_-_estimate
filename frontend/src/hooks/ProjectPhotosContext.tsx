@@ -12,7 +12,7 @@ import { targetIdOf } from '../utils/photoTarget';
 import { PhotoBackContext, PhotoBackRegistry } from './PhotoBackContext';
 import { useI18n } from './useI18n';
 import { subscribePhotoUploadDone, subscribePhotoUploadRefetch } from './usePhotoUploadQueue';
-import { usePhotoCounts } from './usePhotoCounts';
+import { PhotoCountScope, usePhotoCounts } from './usePhotoCounts';
 
 // Everything the cards of ONE open object share about photos (contract §9, §3, §8):
 //  - the counts of the badges (one request per object, optimistic corrections, refetch when a section expands);
@@ -27,7 +27,7 @@ export interface ProjectPhotosValue {
   isExpanded: (key: string) => boolean;
   toggle: (key: string) => void;
   /** Optimistic correction of the badges, followed by a refetch for the server's truth (room totals need it). */
-  adjust: (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string) => void;
+  adjust: (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string, scope?: PhotoCountScope) => void;
   /** Location text of an attachment for the project-wide list (names resolved lazily; a dash when unknown). */
   resolveLocation: (attachment: PhotoAttachmentRead) => string;
   /** Start (re)loading the names for an aggregated section: the whole object, or one room's structure. */
@@ -40,8 +40,9 @@ export function useProjectPhotos(): ProjectPhotosValue | null {
   return useContext(ProjectPhotosContext);
 }
 
-export function photoKey(context: PhotoContext, targetId?: string): string {
-  return `${context}:${targetId ?? ''}`;
+/** Identity of one photo section: its context and target, plus the checklist question of a question-level section (14F). */
+export function photoKey(context: PhotoContext, targetId?: string, questionId?: string): string {
+  return `${context}:${targetId ?? ''}${questionId ? `:${questionId}` : ''}`;
 }
 
 interface ProjectPhotosProviderProps {
@@ -74,8 +75,8 @@ export function ProjectPhotosProvider({ projectId, backRegistry, children }: Pro
   // Every change of the numbers is corrected at once on screen and then confirmed by the server: a room's total spans
   // its surfaces and openings, which a client-side correction cannot always attribute.
   const adjust = useCallback(
-    (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string) => {
-      adjustLocally(context, targetId, delta, roomId);
+    (context: PhotoContext, targetId: string | undefined, delta: number, roomId?: string, scope?: PhotoCountScope) => {
+      adjustLocally(context, targetId, delta, roomId, scope);
       void refresh();
     },
     [adjustLocally, refresh],
@@ -86,7 +87,12 @@ export function ProjectPhotosProvider({ projectId, backRegistry, children }: Pro
   useEffect(() => {
     if (!projectId) return;
     const offDone = subscribePhotoUploadDone((item) => {
-      if (item.target.projectId === projectId) adjust(item.target.context, targetIdOf(item.target), 1, item.target.roomId);
+      if (item.target.projectId === projectId) {
+        adjust(item.target.context, targetIdOf(item.target), 1, item.target.roomId, {
+          questionId: item.target.questionId,
+          lineageId: item.target.lineageId,
+        });
+      }
     });
     const offRefetch = subscribePhotoUploadRefetch((what, item) => {
       if (what === 'parent' && item.target.projectId === projectId) void refresh();

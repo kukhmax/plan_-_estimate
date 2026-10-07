@@ -160,7 +160,7 @@ const COUNTS: PhotoCounts = {
   surfaces: { [wall.id]: 3 },
   openings: { [door.id]: 1 },
   room_totals: { [salon.id]: 2 + 3 + 1 }, // the room's own, the wall's and the wall's opening's
-  inspections: {}, findings: {}, lineages: {},
+  inspections: {}, findings: {}, lineages: {}, questions: {},
 };
 
 function renderWorkspace() {
@@ -432,7 +432,7 @@ describe('ProjectWorkspace photos — rooms show everything in the room (view an
     await screen.findByRole('region', { name: 'Zdjęcia' });
     fireEvent.click(screen.getByLabelText('back-to-projects'));
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {} });
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {} });
     fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
     const card = await screen.findByLabelText('project-photos');
     expect(await countButton(card, 0)).toHaveAttribute('aria-expanded', 'false');
