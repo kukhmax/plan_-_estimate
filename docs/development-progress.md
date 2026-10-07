@@ -1142,6 +1142,15 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14E.9 — in-app camera spike (2026-10-07, IN PROGRESS — implemented locally, not committed / deployed)
+
+Instruction and decision table: `docs/STAGE_14E9_CAMERA_SPIKE_RU.md`. A sub-stage of Stage 14 (no change to the canonical roadmap); nothing is built beyond a diagnostic screen until the owner has seen its report.
+
+- **Why:** Telegram on the owner's Android ignores `capture` and opens its gallery picker, so "Zrób zdjęcie" cannot take a photo. Question: can a page get the camera by itself (`getUserMedia`), and at what quality?
+- **Added (frontend only):** `CameraSpike` screen (opened from the account window → "Diagnostyka kamery" / "Диагностика камеры"): starts the rear camera with three presets (max 4096×3072, 1920×1080, 1280×720), shows the preview, takes a still two ways (`ImageCapture.takePhoto` and a canvas frame), and prints a text report (environment, Telegram platform / version, permission state, granted size and frame rate, capability ranges, device list, size / type / EXIF of each still, track-ended events); the camera is released on stop, close and unmount. `utils/cameraProbe.ts` holds the helpers. PL / RU strings in the `cameraSpike` namespace. Nothing is uploaded or stored; no backend, database or migration change.
+- **Tests:** frontend 77 files / 1686 tests, `tsc`, `vite build` PASS (new: `cameraProbe` 14, `CameraSpike` 12, `AccountModal` 5); a unit test found that `DOMException` is not always an `Error`, so `describeError` reads `name` / `message` by shape. Real Chromium with a fake camera (`--use-fake-device-for-media-stream`) at 320 / 390 px, PL / RU: stream granted, both stills taken, report complete, no overflow, no target below 44 px, no console errors.
+- **Owner check (pending):** open the screen on the phone, run the max preset, take both stills, send the report (screenshot).
+
 ### Stage 14E.7 — production deployment of 14E and controlled enablement of uploads (2026-10-06 / 07, COMPLETE — ACCEPTED by the owner 2026-10-07)
 
 Runbook: `docs/STAGE_14E7_PRODUCTION_RUNBOOK_RU.md` (Russian; every production step needs the owner's explicit approval; the owner runs the commands and pastes the output).
