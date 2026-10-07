@@ -83,6 +83,9 @@ function byCode(code: string): PhotoErrorInfo | null {
       return info(code, 'not_found', { refetch: 'list' });
     case 'PHOTO_ATTACHMENT_DUPLICATE':
       return info(code, 'duplicate_attachment');
+    case 'WORK_OCCURRENCE_NOT_CURRENT':
+      // The work left the plan while the screen was open: the plan must be read again (the host's refetch), not the upload retried.
+      return info(code, 'work_not_current', { refetch: 'parent' });
     case 'PHOTO_CURSOR_INVALID':
       return info(code, 'generic', { retryable: true, refetch: 'list' });
     default:

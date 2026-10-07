@@ -20,7 +20,7 @@ vi.mock('../utils/photoLocations', async () => {
 import { fetchPhotoCounts, uploadPhoto } from '../api/photos';
 import { loadPhotoLocations } from '../utils/photoLocations';
 
-const COUNTS: PhotoCounts = { project: 1, rooms: { r1: 2 }, surfaces: { s1: 3 }, openings: {}, room_totals: { r1: 5 }, inspections: {}, findings: {}, lineages: {}, questions: {} };
+const COUNTS: PhotoCounts = { project: 1, rooms: { r1: 2 }, surfaces: { s1: 3 }, openings: {}, room_totals: { r1: 5 }, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {} };
 const registry: PhotoBackRegistry = { register: () => () => undefined };
 
 function setup(initial: string | null = 'p1') {
@@ -146,6 +146,18 @@ describe('ProjectPhotosProvider', () => {
       expect(result.current!.counts.lineages).toEqual({ L1: 1 });
     });
 
+    it('+1 for the planned work AND its surface when an execution photo finishes, never for the site numbers (14H)', async () => {
+      const { result } = setup();
+      await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
+      holdConfirmation();
+      await finishUpload({ projectId: 'p1', context: 'WORK', surfaceId: 's1', occurrenceKey: 'k1' });
+      expect(result.current!.counts.works).toEqual({ k1: 1 });
+      expect(result.current!.counts.work_surfaces).toEqual({ s1: 1 });
+      expect(result.current!.counts.surfaces).toEqual(COUNTS.surfaces);
+      expect(result.current!.counts.room_totals).toEqual(COUNTS.room_totals);
+      expect(result.current!.counts.project).toBe(COUNTS.project);
+    });
+
     it('then confirms with the server, whose numbers replace the optimistic ones', async () => {
       const { result } = setup();
       await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
@@ -264,7 +276,7 @@ describe('ProjectPhotosProvider — another object', () => {
     act(() => result.current?.toggle(photoKey('ROOM', 'r1')));
     act(() => result.current?.ensureLocations());
 
-    vi.mocked(fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {} });
+    vi.mocked(fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {} });
     project = 'p2';
     rerender();
     await waitFor(() => expect(result.current?.counts.project).toBe(0));

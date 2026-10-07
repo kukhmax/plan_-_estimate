@@ -180,6 +180,8 @@ const COUNTS: PhotoCounts = {
   findings: { 'f-active': 1, 'f-old': 2 },
   lineages: { 'lineage-1': 3 },
   questions: { 'ins-1': { 'q-bool': 2, 'q-number': 1 } },
+  works: {},
+  work_surfaces: {},
 };
 
 function photos(over: Partial<ProjectPhotosValue> = {}, expanded: string[] = []): ProjectPhotosValue {

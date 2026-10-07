@@ -33,6 +33,7 @@ function listQuery(params: PhotoListParams): string {
   if (params.questionId) query.set('question_id', params.questionId);
   if (params.findingId) query.set('finding_id', params.findingId);
   if (params.lineageId) query.set('lineage', params.lineageId);
+  if (params.occurrenceKey) query.set('occurrence_key', params.occurrenceKey);
   if (params.siteOnly) query.set('site_only', 'true');
   if (params.category) query.set('category', params.category);
   if (params.includeInReport !== undefined) query.set('include_in_report', String(params.includeInReport));
@@ -147,7 +148,8 @@ export function buildUploadFormData(params: UploadPhotoParams): FormData {
   form.append('upload_id', params.uploadId);
   form.append('context', params.context);
   if (params.context === 'ROOM' && params.roomId) form.append('room_id', params.roomId);
-  if (params.context === 'SURFACE' && params.surfaceId) form.append('surface_id', params.surfaceId);
+  if ((params.context === 'SURFACE' || params.context === 'WORK') && params.surfaceId) form.append('surface_id', params.surfaceId);
+  if (params.context === 'WORK' && params.occurrenceKey) form.append('occurrence_key', params.occurrenceKey);
   if (params.context === 'OPENING' && params.openingId) form.append('opening_id', params.openingId);
   if (params.context === 'INSPECTION' && params.inspectionId) form.append('inspection_id', params.inspectionId);
   if (params.context === 'INSPECTION' && params.inspectionId && params.questionId) form.append('question_id', params.questionId);

@@ -39,6 +39,12 @@ interface PhotoSectionProps {
   questionId?: string;
   /** FINDING only: the finding's lineage — the section lists the photos of every row of it and uploads to `targetId`. */
   lineageId?: string;
+  /** WORK only (`targetId` = the surface): one planned work of its plan; without it the section lists every execution photo of the surface. */
+  occurrenceKey?: string;
+  /** WORK only: the category the host suggests for NEW photos (Realizacja derives it from the work's status); the viewer can change it. */
+  defaultCategory?: PhotoCategory;
+  /** WORK without `occurrenceKey`: keys to leave out (the plan's current works), so the section lists only DETACHED evidence. */
+  excludeKeys?: ReadonlySet<string>;
   /** The room a SURFACE section belongs to; travels with each upload so the room's total can follow. */
   roomId?: string;
   /**
@@ -63,6 +69,8 @@ function buildTarget(
   roomId: string | undefined,
   questionId: string | undefined,
   lineageId: string | undefined,
+  occurrenceKey: string | undefined,
+  category: PhotoCategory | undefined,
 ): PhotoTarget {
   return {
     projectId,
@@ -73,8 +81,10 @@ function buildTarget(
     lineageId: context === 'FINDING' ? lineageId : undefined,
     // Not sent for a SURFACE (the server needs only its own id); it lets the host keep the room's total in step.
     roomId: context === 'ROOM' ? targetId : roomId,
-    surfaceId: context === 'SURFACE' ? targetId : undefined,
+    surfaceId: context === 'SURFACE' || context === 'WORK' ? targetId : undefined,
     openingId: context === 'OPENING' ? targetId : undefined,
+    occurrenceKey: context === 'WORK' ? occurrenceKey : undefined,
+    category: context === 'WORK' ? category : undefined,
   };
 }
 
@@ -84,6 +94,9 @@ export function PhotoSection({
   targetId,
   questionId,
   lineageId,
+  occurrenceKey,
+  defaultCategory,
+  excludeKeys,
   roomId,
   allowUpload = false,
   locationLabel,
@@ -123,17 +136,36 @@ export function PhotoSection({
               ? lineageId
                 ? { lineageId }
                 : { context, findingId: targetId }
-              : {
-                  context,
-                  surfaceId: context === 'SURFACE' ? targetId : undefined,
-                  openingId: context === 'OPENING' ? targetId : undefined,
-                }),
+              : context === 'WORK'
+                ? { context, surfaceId: targetId, occurrenceKey }
+                : {
+                    context,
+                    surfaceId: context === 'SURFACE' ? targetId : undefined,
+                    openingId: context === 'OPENING' ? targetId : undefined,
+                  }),
       archived,
       category: categoryFilter ?? undefined,
       limit: PHOTO_PAGE_SIZE,
       cursor,
     }),
-    [context, targetId, questionId, lineageId, archived, categoryFilter],
+    [context, targetId, questionId, lineageId, occurrenceKey, archived, categoryFilter],
+  );
+
+  // Execution evidence of works that left the plan: the plan's current keys are left out. A page that is empty after
+  // that is skipped (the next one is read) so the grid never stops at an empty page while more evidence exists.
+  const readPage = useCallback(
+    async (cursor?: string) => {
+      let next = cursor;
+      for (let guard = 0; ; guard += 1) {
+        const page = await fetchPhotos(projectId, listParams(next));
+        const kept = excludeKeys
+          ? page.items.filter((entry) => !entry.attachment.occurrence_key || !excludeKeys.has(entry.attachment.occurrence_key))
+          : page.items;
+        if (kept.length > 0 || !page.next_cursor || guard >= 9) return { ...page, items: kept };
+        next = page.next_cursor;
+      }
+    },
+    [projectId, listParams, excludeKeys],
   );
 
   const rememberExpiry = (iso: string | null) => {
@@ -152,7 +184,7 @@ export function PhotoSection({
         imageRetryUsed.current = false;
       }
       try {
-        const page = await fetchPhotos(projectId, listParams());
+        const page = await readPage();
         if (token !== requestToken.current) return;
         setItems(page.items);
         setNextCursor(page.next_cursor);
@@ -164,7 +196,7 @@ export function PhotoSection({
         setStatus('error');
       }
     },
-    [projectId, listParams],
+    [readPage],
   );
 
   const loadRef = useRef(load);
@@ -182,7 +214,7 @@ export function PhotoSection({
     setLoadingMore(true);
     setMoreError(null);
     try {
-      const page = await fetchPhotos(projectId, listParams(nextCursor));
+      const page = await readPage(nextCursor);
       if (token !== requestToken.current) return;
       setItems((previous) => {
         const known = new Set(previous.map((entry) => entry.attachment.id));
@@ -230,8 +262,12 @@ export function PhotoSection({
             : context === 'FINDING'
               ? item.target.context === 'FINDING' &&
                 (lineageId ? item.target.lineageId === lineageId : item.target.findingId === targetId)
-              : item.target.context === context && targetIdOf(item.target) === targetId)),
-    [projectId, context, targetId, questionId, lineageId],
+              : context === 'WORK'
+                ? item.target.context === 'WORK' &&
+                  item.target.surfaceId === targetId &&
+                  (occurrenceKey === undefined || item.target.occurrenceKey === occurrenceKey)
+                : item.target.context === context && targetIdOf(item.target) === targetId)),
+    [projectId, context, targetId, questionId, lineageId, occurrenceKey],
   );
 
   const { dismiss } = queue;
@@ -255,7 +291,11 @@ export function PhotoSection({
   );
 
   const handleFiles = (files: File[], source: PhotoCaptureSource) => {
-    const result = queue.enqueue(files, buildTarget(projectId, context, targetId, roomId, questionId, lineageId), source);
+    const result = queue.enqueue(
+      files,
+      buildTarget(projectId, context, targetId, roomId, questionId, lineageId, occurrenceKey, defaultCategory),
+      source,
+    );
     setPickerNote(
       result.ignored > 0 ? t.photos.picker.too_many_selected.replace('{count}', String(MAX_FILES_PER_SELECTION)) : null,
     );
@@ -280,13 +320,22 @@ export function PhotoSection({
   const handleAttachmentRemoved = (attachment: PhotoAttachmentRead, action: 'archived' | 'restored') => {
     const remaining = items.filter((entry) => entry.attachment.id !== attachment.id);
     setItems(remaining);
-    const { context: attachmentContext, targetId: attachmentTargetId, questionId: attachmentQuestionId } = attachmentTarget(attachment);
+    const {
+      context: attachmentContext,
+      targetId: attachmentTargetId,
+      questionId: attachmentQuestionId,
+      occurrenceKey: attachmentOccurrenceKey,
+    } = attachmentTarget(attachment);
     onCountAdjust?.(
       attachmentContext,
       attachmentTargetId,
       action === 'archived' ? -1 : 1,
       context === 'ROOM' ? targetId : roomId,
-      { questionId: attachmentQuestionId, lineageId: context === 'FINDING' ? lineageId : undefined },
+      {
+        questionId: attachmentQuestionId,
+        lineageId: context === 'FINDING' ? lineageId : undefined,
+        occurrenceKey: attachmentOccurrenceKey,
+      },
     );
     setViewerIndex((current) => {
       if (current === null || remaining.length === 0) return null;

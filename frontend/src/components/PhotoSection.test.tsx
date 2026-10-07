@@ -754,3 +754,138 @@ describe('PhotoSection — inspection evidence', () => {
     );
   });
 });
+
+describe('PhotoSection — execution evidence (14H)', () => {
+  const KEY_A = 'work-key-a';
+  const KEY_B = 'work-key-b';
+  const workPhoto = (key: string | null, over: Record<string, unknown> = {}) =>
+    makeItem({ attachment: { context: 'WORK', room_id: null, surface_id: SURFACE_ID, occurrence_key: key, ...over } });
+
+  it.each([
+    ['one planned work', { occurrenceKey: KEY_A }, { context: 'WORK', surfaceId: SURFACE_ID, occurrenceKey: KEY_A }],
+    ['every work of the surface', {}, { context: 'WORK', surfaceId: SURFACE_ID }],
+  ] as const)('%s: asks the server for its execution photos only', async (_label, props, expected) => {
+    renderSection({ context: 'WORK', targetId: SURFACE_ID, roomId: undefined, ...props });
+    await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(1));
+    expect(lastListParams()).toEqual({ ...expected, archived: false, limit: 30 });
+  });
+
+  it('uploads onto its planned work with the suggested category and no site fields', async () => {
+    renderSection({ context: 'WORK', targetId: SURFACE_ID, occurrenceKey: KEY_A, defaultCategory: 'BEFORE', roomId: undefined });
+    await screen.findByRole('button', { name: 'Z galerii' });
+    await act(async () => pickGallery([file('w.jpg')]));
+    await waitFor(() => expect(uploads).toHaveLength(1));
+    expect(uploads[0].params).toMatchObject({
+      context: 'WORK',
+      surfaceId: SURFACE_ID,
+      occurrenceKey: KEY_A,
+      category: 'BEFORE',
+      source: 'GALLERY',
+    });
+    expect(uploads[0].params.roomId).toBeUndefined();
+    expect(uploads[0].params.inspectionId).toBeUndefined();
+  });
+
+  it('a suggested category belongs to execution photos only: a surface section sends none', async () => {
+    renderSection({ defaultCategory: 'BEFORE' });
+    await screen.findByRole('button', { name: 'Z galerii' });
+    await act(async () => pickGallery([file('s.jpg')]));
+    await waitFor(() => expect(uploads).toHaveLength(1));
+    expect(uploads[0].params.category).toBeUndefined();
+    expect(uploads[0].params.occurrenceKey).toBeUndefined();
+  });
+
+  describe('which sections show and refresh for an upload', () => {
+    async function enqueue(target: Parameters<ReturnType<(typeof import('../hooks/usePhotoUploadQueue'))['getPhotoUploadQueue']>['enqueue']>[1]) {
+      const { getPhotoUploadQueue } = await import('../hooks/usePhotoUploadQueue');
+      await act(async () => {
+        getPhotoUploadQueue().enqueue([file('e.jpg')], target, 'GALLERY');
+      });
+    }
+    const workView = (props: Partial<SectionProps>) =>
+      render(
+        <I18nProvider>
+          <PhotoSection projectId={PROJECT_ID} context="WORK" targetId={SURFACE_ID} allowUpload locationLabel="x" {...props} />
+        </I18nProvider>,
+      );
+
+    it('an upload for one work shows under that work and under the whole surface, not under another work or surface', async () => {
+      const a = workView({ occurrenceKey: KEY_A });
+      const b = workView({ occurrenceKey: KEY_B });
+      const wholeSurface = workView({});
+      const otherSurface = workView({ targetId: 'other-surface' });
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(4));
+      await enqueue({ projectId: PROJECT_ID, context: 'WORK', surfaceId: SURFACE_ID, occurrenceKey: KEY_A });
+      expect(within(a.container).queryAllByText('e.jpg')).toHaveLength(1);
+      expect(within(wholeSurface.container).queryAllByText('e.jpg')).toHaveLength(1);
+      expect(within(b.container).queryAllByText('e.jpg')).toHaveLength(0);
+      expect(within(otherSurface.container).queryAllByText('e.jpg')).toHaveLength(0);
+
+      vi.mocked(fetchPhotos).mockClear();
+      await act(async () => uploads[0].resolve(uploadResult(workPhoto(KEY_A))));
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(2)); // that work + the whole surface, nothing else
+      expect(vi.mocked(fetchPhotos).mock.calls.map((call) => (call[1] as { occurrenceKey?: string }).occurrenceKey).sort()).toEqual(
+        [undefined, KEY_A].sort(),
+      );
+    });
+
+    it('a site photo of the same surface is not shown in an execution section', async () => {
+      const a = workView({ occurrenceKey: KEY_A });
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(1));
+      await enqueue({ projectId: PROJECT_ID, context: 'SURFACE', surfaceId: SURFACE_ID });
+      expect(within(a.container).queryAllByText('e.jpg')).toHaveLength(0);
+    });
+  });
+
+  describe('evidence of works that left the plan (excludeKeys)', () => {
+    it('lists only the photos whose work is not in the plan, reading on past a page that is empty after that', async () => {
+      const current = workPhoto(KEY_A);
+      const detached = workPhoto('old-key');
+      vi.mocked(fetchPhotos)
+        .mockResolvedValueOnce({ ...listPage([current]), next_cursor: 'c1' })
+        .mockResolvedValueOnce(listPage([detached]));
+      renderSection({
+        context: 'WORK',
+        targetId: SURFACE_ID,
+        roomId: undefined,
+        allowUpload: false,
+        excludeKeys: new Set([KEY_A, KEY_B]),
+      });
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(2));
+      expect(vi.mocked(fetchPhotos).mock.calls[1][1]).toMatchObject({ cursor: 'c1' });
+      expect(await screen.findAllByRole('button', { name: /23\.06\.2026/ })).toHaveLength(1);
+    });
+
+    it('shows photos of every key when nothing is excluded', async () => {
+      vi.mocked(fetchPhotos).mockResolvedValue(listPage([workPhoto(KEY_A), workPhoto(KEY_B)]));
+      renderSection({ context: 'WORK', targetId: SURFACE_ID, roomId: undefined });
+      expect(await screen.findAllByRole('button', { name: /23\.06\.2026/ })).toHaveLength(2);
+    });
+
+    it('offers no picker in a view-only list', async () => {
+      renderSection({ context: 'WORK', targetId: SURFACE_ID, roomId: undefined, allowUpload: false, excludeKeys: new Set([KEY_A]) });
+      await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(1));
+      expect(screen.queryByRole('button', { name: 'Z galerii' })).toBeNull();
+    });
+  });
+
+  it('archiving an execution photo corrects its planned work and its surface', async () => {
+    const photo = workPhoto(KEY_A);
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([photo, workPhoto(KEY_B)]));
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(photo));
+    vi.mocked(archivePhotoAttachment).mockResolvedValue({ ...photo.attachment, archived_at: 'x' });
+    const { onCountAdjust } = renderSection({ context: 'WORK', targetId: SURFACE_ID, roomId: undefined });
+    fireEvent.click((await screen.findAllByRole('button', { name: /23\.06\.2026/ }))[0]);
+    await screen.findByRole('dialog');
+    await screen.findAllByRole('img');
+    fireEvent.click(screen.getByRole('button', { name: 'Archiwizuj' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archiwizuj' }));
+    await waitFor(() =>
+      expect(onCountAdjust).toHaveBeenCalledWith('WORK', SURFACE_ID, -1, undefined, {
+        questionId: undefined,
+        lineageId: undefined,
+        occurrenceKey: KEY_A,
+      }),
+    );
+  });
+});

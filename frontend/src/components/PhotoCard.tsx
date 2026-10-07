@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { PhotoAttachmentRead, PhotoContext } from '../types/photo';
+import { PhotoAttachmentRead, PhotoCategory, PhotoContext } from '../types/photo';
 import { photoKey, useProjectPhotos } from '../hooks/ProjectPhotosContext';
 import { useI18n } from '../hooks/useI18n';
 import { photoCountFor, roomPhotoTotal, totalPhotoCount } from '../hooks/usePhotoCounts';
@@ -19,9 +19,11 @@ interface PhotoCardTarget {
   questionId?: string;
   /** FINDING: the lineage whose photos the button counts and the panel lists. */
   lineageId?: string;
+  /** WORK (`targetId` = the surface): the planned work of the button / panel; without it, every execution photo of the surface. */
+  occurrenceKey?: string;
 }
 
-export function PhotoCardButton({ context, targetId, questionId, lineageId }: PhotoCardTarget) {
+export function PhotoCardButton({ context, targetId, questionId, lineageId, occurrenceKey }: PhotoCardTarget) {
   const photos = useProjectPhotos();
   if (!photos) return null;
   // The object's button shows every photo of the object, a room's button every photo of the room (its surfaces and
@@ -31,8 +33,8 @@ export function PhotoCardButton({ context, targetId, questionId, lineageId }: Ph
       ? totalPhotoCount(photos.counts)
       : context === 'ROOM' && targetId
         ? roomPhotoTotal(photos.counts, targetId)
-        : photoCountFor(photos.counts, context, targetId, { questionId, lineageId });
-  const key = photoKey(context, targetId, questionId);
+        : photoCountFor(photos.counts, context, targetId, { questionId, lineageId, occurrenceKey });
+  const key = photoKey(context, targetId, questionId ?? occurrenceKey);
   return <PhotoEntryButton count={count} expanded={photos.isExpanded(key)} onToggle={() => photos.toggle(key)} />;
 }
 
@@ -43,6 +45,12 @@ interface PhotoCardPanelProps extends PhotoCardTarget {
   roomId?: string;
   /** Overrides the caption location with a resolver (an inspection's panel names each photo's question). */
   locationLabel?: (attachment: PhotoAttachmentRead) => string;
+  /** WORK: the category suggested for new photos (by the work's status). */
+  defaultCategory?: PhotoCategory;
+  /** WORK without an occurrence: keys to leave out, so the panel lists only the evidence of works that left the plan. */
+  excludeKeys?: ReadonlySet<string>;
+  /** Overrides the default (photos are added on surfaces, inspections, findings and planned works; not on the detached list). */
+  allowUpload?: boolean;
 }
 
 export function PhotoCardPanel({
@@ -50,13 +58,17 @@ export function PhotoCardPanel({
   targetId,
   questionId,
   lineageId,
+  occurrenceKey,
   locationSegments = [],
   roomId,
   locationLabel,
+  defaultCategory,
+  excludeKeys,
+  allowUpload,
 }: PhotoCardPanelProps) {
   const photos = useProjectPhotos();
   const { t } = useI18n();
-  const open = photos?.isExpanded(photoKey(context, targetId, questionId)) ?? false;
+  const open = photos?.isExpanded(photoKey(context, targetId, questionId ?? occurrenceKey)) ?? false;
   // The object and a room show EVERY photo below them (view / edit); photos are ADDED on surfaces and as inspection evidence.
   const aggregated = context === 'PROJECT' || context === 'ROOM';
   const ensureLocations = photos?.ensureLocations;
@@ -73,8 +85,11 @@ export function PhotoCardPanel({
       targetId={targetId}
       questionId={questionId}
       lineageId={lineageId}
+      occurrenceKey={occurrenceKey}
+      defaultCategory={defaultCategory}
+      excludeKeys={excludeKeys}
       roomId={roomId}
-      allowUpload={context === 'SURFACE' || context === 'INSPECTION' || context === 'FINDING'}
+      allowUpload={allowUpload ?? (context === 'SURFACE' || context === 'INSPECTION' || context === 'FINDING' || context === 'WORK')}
       locationLabel={
         locationLabel ?? (aggregated ? photos.resolveLocation : buildLocationPath(locationSegments, t.photos.caption))
       }

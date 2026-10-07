@@ -5,12 +5,13 @@ import { PhotoContext, PhotoCounts } from '../types/photo';
 // Badge counts for the open project (contract §9): one request per workspace load, optimistic adjustments after
 // upload / archive / restore, refetch on demand.
 
-export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {} };
+export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {} };
 
-/** Extra identity of an inspection-evidence target (Stage 14F): the checklist question of a question-level photo, the lineage of a finding. */
+/** Extra identity of an evidence target: the checklist question of a question-level photo and the lineage of a finding (Stage 14F), the planned work of a WORK photo (Stage 14H). */
 export interface PhotoCountScope {
   questionId?: string;
   lineageId?: string;
+  occurrenceKey?: string;
 }
 
 /**
@@ -26,6 +27,10 @@ export function photoCountFor(counts: PhotoCounts, context: PhotoContext, target
   }
   if (context === 'FINDING') {
     return (scope.lineageId ? counts.lineages?.[scope.lineageId] : undefined) ?? counts.findings?.[targetId] ?? 0;
+  }
+  if (context === 'WORK') {
+    // `targetId` is the surface: one planned work (its key) or, without a key, every execution photo of the surface.
+    return scope.occurrenceKey ? (counts.works?.[scope.occurrenceKey] ?? 0) : (counts.work_surfaces?.[targetId] ?? 0);
   }
   const bucket = context === 'ROOM' ? counts.rooms : context === 'SURFACE' ? counts.surfaces : counts.openings;
   return bucket[targetId] ?? 0;
@@ -80,6 +85,14 @@ export function adjustPhotoCounts(
       ...counts,
       findings: bump(counts.findings ?? {}, targetId, delta),
       ...(scope.lineageId ? { lineages: bump(counts.lineages ?? {}, scope.lineageId, delta) } : {}),
+    };
+  }
+  if (context === 'WORK') {
+    // Execution evidence never enters the surface / room numbers of the site photos.
+    return {
+      ...counts,
+      work_surfaces: bump(counts.work_surfaces ?? {}, targetId, delta),
+      ...(scope.occurrenceKey ? { works: bump(counts.works ?? {}, scope.occurrenceKey, delta) } : {}),
     };
   }
   const key = context === 'ROOM' ? 'rooms' : context === 'SURFACE' ? 'surfaces' : 'openings';

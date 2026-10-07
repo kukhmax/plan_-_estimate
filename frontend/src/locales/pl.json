@@ -1450,6 +1450,8 @@
     "detach_confirm": "Potwierdź i kontynuuj",
     "detach_cancel": "Anuluj",
     "detach_working": "Zapisywanie...",
+    "detached_photos_title": "Zdjęcia dawnych prac",
+    "detached_photos_hint": "Prace usunięte lub zastąpione w planie. Zdjęcia zostają jako dokumentacja.",
     "bulk": {
       "open": "Zastosuj statusy dla pozostałych ścian",
       "previewing": "Sprawdzanie pozostałych ścian...",
@@ -1605,6 +1607,7 @@
       "network": "Brak połączenia. Spróbuj ponownie.",
       "not_found": "To zdjęcie już nie istnieje.",
       "duplicate_attachment": "Aktywne zdjęcie już istnieje.",
+      "work_not_current": "Ta praca nie jest już w planie powierzchni. Odśwież widok.",
       "unknown": "Wystąpił nieoczekiwany błąd."
     },
     "storage": {

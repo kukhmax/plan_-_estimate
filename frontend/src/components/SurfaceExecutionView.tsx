@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   applyExecutionToRoomWalls,
   fetchSurfaceWorkPlan,
@@ -8,7 +8,12 @@ import {
   previewExecutionToRoomWalls,
   transitionWorkExecution,
 } from '../api/workPlans';
+import { fetchPriceItems } from '../api/priceItems';
+import { photoKey, useProjectPhotos } from '../hooks/ProjectPhotosContext';
 import { useI18n } from '../hooks/useI18n';
+import { subscribePhotoUploadRefetch } from '../hooks/usePhotoUploadQueue';
+import { PhotoAttachmentRead, PhotoCategory } from '../types/photo';
+import { buildLocationPath } from '../utils/photoCaption';
 import {
   BulkExecutionResultRead,
   SurfacePlannedWorkRead,
@@ -20,6 +25,9 @@ import { formatRecordedDateTime, pluralCount, priceItemLabel } from '../utils/ex
 import { formatWaitHours } from '../utils/waitFormat';
 import { displayCounts, ExecutionBulkSheet, nothingReason } from './ExecutionBulkSheet';
 import { ExecutionStatusBadge } from './ExecutionStatusBadge';
+import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
+import { PhotoEntryButton } from './PhotoEntryButton';
+import { PhotoSection } from './PhotoSection';
 
 interface SurfaceExecutionViewProps {
   projectId: string;
@@ -43,6 +51,88 @@ type BulkNotice =
   | { kind: 'source_changed' | 'error' | 'preview_error' };
 
 type LoadState = 'loading' | 'ready' | 'error';
+
+/** Category suggested for a new photo of a work, by its status (architecture §7); the viewer can change it. */
+function suggestedPhotoCategory(status: WorkExecutionStatus | undefined): PhotoCategory | undefined {
+  if (status === 'NOT_STARTED') return 'BEFORE';
+  if (status === 'IN_PROGRESS') return 'IN_PROGRESS';
+  if (status === 'COMPLETED') return 'AFTER';
+  return undefined;
+}
+
+interface DetachedWorkPhotosProps {
+  surfaceId: string;
+  surfaceName: string;
+  /** Occurrence keys of the works that are in the plan NOW; their photos belong to the cards above. */
+  currentKeys: readonly string[];
+}
+
+/**
+ * Execution evidence of works that left the plan (removed, replaced, re-added as a new work): the photos stay as
+ * documentation of what was done, labelled with the operation snapshotted when they were taken (D14-13). Shown only
+ * when there is some; view / edit / archive only (no new photo can be attached to a work that is no longer planned).
+ */
+function DetachedWorkPhotos({ surfaceId, surfaceName, currentKeys }: DetachedWorkPhotosProps) {
+  const photos = useProjectPhotos();
+  const { t } = useI18n();
+  const [names, setNames] = useState<Record<string, string>>({});
+  const keysSignature = currentKeys.join('|');
+  const excludeKeys = useMemo(() => new Set(currentKeys), [keysSignature]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sectionKey = photoKey('WORK', surfaceId, 'detached');
+  const open = photos?.isExpanded(sectionKey) ?? false;
+
+  // The names of the snapshotted operations come from the Price Book (archived items included); read once, when opened.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void fetchPriceItems({ archived: 'all' })
+      .then((response) => {
+        if (cancelled) return;
+        setNames(Object.fromEntries(response.items.map((item) => [item.id, priceItemLabel(t, item, t.work_plan.unavailable_item)])));
+      })
+      .catch(() => {
+        // Names are decoration: without them the caption shows the "unavailable item" text.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, t]);
+
+  const locationLabel = useMemo(
+    () => (attachment: PhotoAttachmentRead) =>
+      buildLocationPath(
+        [surfaceName, (attachment.price_item_id && names[attachment.price_item_id]) || t.work_plan.unavailable_item],
+        t.photos.caption,
+      ),
+    [surfaceName, names, t],
+  );
+
+  if (!photos) return null;
+  const onSurface = photos.counts.work_surfaces?.[surfaceId] ?? 0;
+  const inPlan = currentKeys.reduce((sum, key) => sum + (photos.counts.works?.[key] ?? 0), 0);
+  const detached = Math.max(0, onSurface - inPlan);
+  if (detached === 0 && !open) return null;
+
+  return (
+    <div aria-label={`execution-detached-photos-${surfaceId}`} className="space-y-2 pt-1 border-t border-[var(--tg-control-border-color)]">
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0 text-sm font-semibold text-[var(--tg-theme-text-color)] break-words">{t.execution.detached_photos_title}</p>
+        <PhotoEntryButton count={detached} expanded={open} onToggle={() => photos.toggle(sectionKey)} />
+      </div>
+      <p className="text-xs text-[var(--tg-theme-hint-color)] break-words">{t.execution.detached_photos_hint}</p>
+      {open && (
+        <PhotoSection
+          projectId={photos.projectId}
+          context="WORK"
+          targetId={surfaceId}
+          excludeKeys={excludeKeys}
+          locationLabel={locationLabel}
+          onCountAdjust={photos.adjust}
+        />
+      )}
+    </div>
+  );
+}
 
 interface CardMessage {
   kind: 'conflict' | 'error';
@@ -111,6 +201,16 @@ export function SurfaceExecutionView({
       loadGeneration.current += 1;
     };
   }, [loadAttempt, projectId, roomId, surfaceId]);
+
+  // A photo was refused because its work is no longer in the plan (changed elsewhere): read the plan again.
+  useEffect(
+    () =>
+      subscribePhotoUploadRefetch((what, item) => {
+        if (what === 'parent' && item.target.context === 'WORK' && item.target.surfaceId === surfaceId) void load(true);
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [surfaceId],
+  );
 
   const transition = async (work: SurfacePlannedWorkRead, status: WorkExecutionStatus) => {
     const expected = work.execution?.status;
@@ -319,8 +419,19 @@ export function SurfaceExecutionView({
                     <span aria-hidden="true" className="text-[var(--tg-theme-hint-color)]">{index + 1}. </span>
                     {priceItemLabel(t, work.price_item, t.work_plan.unavailable_item)}
                   </p>
-                  {status && <ExecutionStatusBadge status={status} ariaLabel={`execution-status-${key}`} />}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    {status ? <ExecutionStatusBadge status={status} ariaLabel={`execution-status-${key}`} /> : <span />}
+                    <PhotoCardButton context="WORK" targetId={surfaceId} occurrenceKey={key} />
+                  </div>
                 </div>
+
+                <PhotoCardPanel
+                  context="WORK"
+                  targetId={surfaceId}
+                  occurrenceKey={key}
+                  defaultCategory={suggestedPhotoCategory(status)}
+                  locationSegments={[surfaceName, priceItemLabel(t, work.price_item, t.work_plan.unavailable_item)]}
+                />
 
                 {work.wait_after_hours !== null && (
                   <p className="text-xs text-[var(--tg-theme-hint-color)] break-words">
@@ -402,6 +513,10 @@ export function SurfaceExecutionView({
             );
           })}
         </ol>
+      )}
+
+      {loadState === 'ready' && (
+        <DetachedWorkPhotos surfaceId={surfaceId} surfaceName={surfaceName} currentKeys={works.map((work) => work.occurrence_key)} />
       )}
 
       {loadState === 'ready' && showBulk && works.length > 0 && (

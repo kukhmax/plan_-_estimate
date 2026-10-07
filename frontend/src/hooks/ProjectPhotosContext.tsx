@@ -40,9 +40,12 @@ export function useProjectPhotos(): ProjectPhotosValue | null {
   return useContext(ProjectPhotosContext);
 }
 
-/** Identity of one photo section: its context and target, plus the checklist question of a question-level section (14F). */
-export function photoKey(context: PhotoContext, targetId?: string, questionId?: string): string {
-  return `${context}:${targetId ?? ''}${questionId ? `:${questionId}` : ''}`;
+/**
+ * Identity of one photo section: its context and target, plus its scope — the checklist question of a question-level
+ * section (14F) or the planned work (occurrence key) of an execution section (14H).
+ */
+export function photoKey(context: PhotoContext, targetId?: string, scopeId?: string): string {
+  return `${context}:${targetId ?? ''}${scopeId ? `:${scopeId}` : ''}`;
 }
 
 interface ProjectPhotosProviderProps {
@@ -91,6 +94,7 @@ export function ProjectPhotosProvider({ projectId, backRegistry, children }: Pro
         adjust(item.target.context, targetIdOf(item.target), 1, item.target.roomId, {
           questionId: item.target.questionId,
           lineageId: item.target.lineageId,
+          occurrenceKey: item.target.occurrenceKey,
         });
       }
     });

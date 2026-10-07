@@ -13,8 +13,8 @@ export const PHOTO_CATEGORIES = [
 ] as const;
 export type PhotoCategory = (typeof PHOTO_CATEGORIES)[number];
 
-// The site contexts of the 14E UI plus the inspection evidence of 14F; WORK arrives in 14H.
-export const PHOTO_CONTEXTS = ['PROJECT', 'ROOM', 'SURFACE', 'OPENING', 'INSPECTION', 'FINDING'] as const;
+// The site contexts of the 14E UI, the inspection evidence of 14F and the execution evidence (WORK) of 14H.
+export const PHOTO_CONTEXTS = ['PROJECT', 'ROOM', 'SURFACE', 'OPENING', 'INSPECTION', 'FINDING', 'WORK'] as const;
 export type PhotoContext = (typeof PHOTO_CONTEXTS)[number];
 
 export type PhotoCaptureSource = 'CAMERA' | 'GALLERY';
@@ -51,6 +51,9 @@ export interface PhotoAttachmentRead {
   inspection_id: string | null;
   question_id: string | null;
   finding_id: string | null;
+  /** Execution evidence (Stage 14H.1): a WORK photo names its surface and the Stage 13 occurrence of the plan, plus the operation snapshotted when it was taken. */
+  occurrence_key: string | null;
+  price_item_id: string | null;
   category: PhotoCategory;
   caption: string | null;
   include_in_report: boolean;
@@ -113,6 +116,9 @@ export interface PhotoCounts {
   lineages: Record<string, number>;
   /** Question-level photos only: inspection id → question id → count (inspection-level photos are in no question). */
   questions: Record<string, Record<string, number>>;
+  /** Execution evidence (Stage 14H.1), kept apart from the site photos: photos per occurrence_key (detached occurrences included) and per surface. */
+  works: Record<string, number>;
+  work_surfaces: Record<string, number>;
 }
 
 export interface PhotoListParams {
@@ -128,6 +134,8 @@ export interface PhotoListParams {
   findingId?: string;
   /** Every FINDING photo of one finding lineage (all rows of it); exclusive with the target filters. */
   lineageId?: string;
+  /** WORK: with `surfaceId`, one occurrence of the surface's work plan (without it: every occurrence of the surface, detached ones included). */
+  occurrenceKey?: string;
   /** Only the site contexts (object, room, surface, opening): the object-wide list, without inspection evidence. */
   siteOnly?: boolean;
   category?: PhotoCategory;
@@ -152,6 +160,7 @@ export interface PhotoAttachPayload {
   inspection_id?: string;
   question_id?: string;
   finding_id?: string;
+  occurrence_key?: string;
   category?: PhotoCategory;
   caption?: string | null;
   include_in_report?: boolean;
@@ -170,4 +179,8 @@ export interface PhotoTarget {
   /** FINDING: the finding row the photo is attached to, and its lineage (lets the counts follow; never sent). */
   findingId?: string;
   lineageId?: string;
+  /** WORK: the planned work (with `surfaceId`) the photo documents. */
+  occurrenceKey?: string;
+  /** Category sent with the upload when the host suggests one (Realizacja: by the work's status); never part of the identity. */
+  category?: PhotoCategory;
 }

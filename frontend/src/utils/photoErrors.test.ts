@@ -34,6 +34,7 @@ describe('classifyPhotoError (contract §6 table)', () => {
     [404, 'PHOTO_NOT_FOUND', 'not_found', false, false, false, false, 'list'],
     [404, 'PHOTO_ATTACHMENT_NOT_FOUND', 'not_found', false, false, false, false, 'list'],
     [409, 'PHOTO_ATTACHMENT_DUPLICATE', 'duplicate_attachment', false, false, false, false, null],
+    [409, 'WORK_OCCURRENCE_NOT_CURRENT', 'work_not_current', false, false, false, false, 'parent'],
     [422, 'PHOTO_CURSOR_INVALID', 'generic', true, false, false, false, 'list'],
   ];
 

@@ -81,6 +81,12 @@ describe('photos JSON API', () => {
     expect(Object.fromEntries(new URLSearchParams(lastCall().url.split('?')[1]))).toEqual({ context: 'FINDING', finding_id: 'F1' });
     await fetchPhotos(PROJECT, { lineageId: 'L1', archived: false });
     expect(Object.fromEntries(new URLSearchParams(lastCall().url.split('?')[1]))).toEqual({ lineage: 'L1', archived: 'false' });
+    await fetchPhotos(PROJECT, { context: 'WORK', surfaceId: 'S1', occurrenceKey: 'K1' });
+    expect(Object.fromEntries(new URLSearchParams(lastCall().url.split('?')[1]))).toEqual({
+      context: 'WORK',
+      surface_id: 'S1',
+      occurrence_key: 'K1',
+    });
     await fetchPhotos(PROJECT, { siteOnly: true });
     expect(Object.fromEntries(new URLSearchParams(lastCall().url.split('?')[1]))).toEqual({ site_only: 'true' });
     await fetchPhotos(PROJECT, { siteOnly: false });
@@ -260,6 +266,24 @@ describe('uploadPhoto (XHR transport)', () => {
     // a question without its inspection is never sent
     const orphan = buildUploadFormData(params({ context: 'INSPECTION', roomId: undefined, inspectionId: undefined, questionId: 'Q1' }));
     expect(orphan.has('question_id')).toBe(false);
+  });
+
+  it('sends a WORK upload with its surface, its planned work and the suggested category (14H)', () => {
+    const work = buildUploadFormData(
+      params({ context: 'WORK', roomId: undefined, surfaceId: 'S1', occurrenceKey: 'K1', category: 'BEFORE' }),
+    );
+    expect([...work.keys()]).toEqual(['upload_id', 'context', 'surface_id', 'occurrence_key', 'category', 'source', 'file']);
+    expect(work.get('surface_id')).toBe('S1');
+    expect(work.get('occurrence_key')).toBe('K1');
+    expect(work.get('category')).toBe('BEFORE');
+    // nothing else names the target: the operation is taken from the plan by the server
+    expect(work.has('price_item_id')).toBe(false);
+    expect(work.has('room_id')).toBe(false);
+    // the key belongs to WORK only
+    const surface = buildUploadFormData(params({ context: 'SURFACE', roomId: undefined, surfaceId: 'S1', occurrenceKey: 'K1' }));
+    expect(surface.has('occurrence_key')).toBe(false);
+    // a work photo without its key is never half-addressed
+    expect(buildUploadFormData(params({ context: 'WORK', roomId: undefined, surfaceId: 'S1' })).has('occurrence_key')).toBe(false);
   });
 
   it('sends a FINDING upload with its finding only; the lineage never leaves the client', () => {

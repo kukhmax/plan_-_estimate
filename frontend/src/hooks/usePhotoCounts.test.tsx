@@ -19,7 +19,7 @@ const counts: PhotoCounts = {
   surfaces: { s1: 1, s2: 4 },
   openings: { o1: 1 },
   room_totals: { r1: 3 + 1 + 4 + 1 },
-  inspections: {}, findings: {}, lineages: {}, questions: {},
+  inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {},
 };
 
 describe('photo count helpers', () => {
@@ -177,5 +177,49 @@ describe('usePhotoCounts', () => {
     const { result } = renderHook(() => usePhotoCounts(null));
     expect(fetchPhotoCounts).not.toHaveBeenCalled();
     expect(result.current.counts).toEqual(EMPTY_PHOTO_COUNTS);
+  });
+});
+
+describe('execution evidence counts (14H)', () => {
+  const work: PhotoCounts = { ...counts, works: { k1: 2, k2: 1 }, work_surfaces: { s1: 3 } };
+
+  it('reads one planned work, or every execution photo of the surface', () => {
+    expect(photoCountFor(work, 'WORK', 's1', { occurrenceKey: 'k1' })).toBe(2);
+    expect(photoCountFor(work, 'WORK', 's1', { occurrenceKey: 'unknown' })).toBe(0);
+    expect(photoCountFor(work, 'WORK', 's1')).toBe(3);
+    expect(photoCountFor(work, 'WORK', 'other')).toBe(0);
+    expect(photoCountFor(work, 'WORK', undefined, { occurrenceKey: 'k1' })).toBe(0);
+    // the site photos of the same surface are a different number
+    expect(photoCountFor(work, 'SURFACE', 's1')).toBe(counts.surfaces.s1 ?? 0);
+  });
+
+  it('tolerates an answer from a server that does not know the execution maps', () => {
+    const old = { ...counts } as unknown as PhotoCounts;
+    expect(photoCountFor(old, 'WORK', 's1', { occurrenceKey: 'k1' })).toBe(0);
+    expect(photoCountFor(old, 'WORK', 's1')).toBe(0);
+    const added = adjustPhotoCounts(old, 'WORK', 's1', 1, undefined, { occurrenceKey: 'k1' });
+    expect(added.works).toEqual({ k1: 1 });
+    expect(added.work_surfaces).toEqual({ s1: 1 });
+  });
+
+  it('adjusts the planned work and its surface together and never touches the site numbers', () => {
+    const added = adjustPhotoCounts(work, 'WORK', 's1', 1, 'r1', { occurrenceKey: 'k1' });
+    expect(added.works).toEqual({ k1: 3, k2: 1 });
+    expect(added.work_surfaces).toEqual({ s1: 4 });
+    expect(added.surfaces).toEqual(work.surfaces);
+    expect(added.rooms).toEqual(work.rooms);
+    expect(added.room_totals).toEqual(work.room_totals); // execution evidence never enters a room's number
+    expect(added.project).toBe(work.project);
+  });
+
+  it('without a key only the surface total moves; emptied entries disappear; nothing goes below zero', () => {
+    const surfaceOnly = adjustPhotoCounts(work, 'WORK', 's1', 1);
+    expect(surfaceOnly.work_surfaces).toEqual({ s1: 4 });
+    expect(surfaceOnly.works).toEqual(work.works);
+    const lower = adjustPhotoCounts(work, 'WORK', 's1', -1, undefined, { occurrenceKey: 'k2' });
+    expect(lower.works).toEqual({ k1: 2 });
+    expect(lower.work_surfaces).toEqual({ s1: 2 });
+    expect(adjustPhotoCounts(work, 'WORK', 's1', -9, undefined, { occurrenceKey: 'k1' }).works).toEqual({ k2: 1 });
+    expect(adjustPhotoCounts(work, 'WORK', undefined, 1)).toBe(work);
   });
 });

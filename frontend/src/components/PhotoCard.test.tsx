@@ -19,7 +19,7 @@ const COUNTS: PhotoCounts = {
   surfaces: { s1: 3 },
   openings: { o1: 4 },
   room_totals: { r1: 2 + 3 + 4 }, // the room's own, its surface's and the surface's opening's
-  inspections: {}, findings: {}, lineages: {}, questions: {},
+  inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {},
 };
 
 function value(over: Partial<ProjectPhotosValue> = {}, expanded: string[] = []): ProjectPhotosValue {
@@ -214,5 +214,68 @@ describe('PhotoCardPanel', () => {
     const surface = value({}, ['SURFACE:s1']);
     renderWith(<PhotoCardPanel context="SURFACE" targetId="s1" locationSegments={['Salon']} />, surface);
     expect(surface.ensureLocations).not.toHaveBeenCalled();
+  });
+});
+
+describe('execution evidence (14H)', () => {
+  const WORK_COUNTS: PhotoCounts = { ...COUNTS, works: { k1: 2, k2: 1 }, work_surfaces: { s1: 5 } };
+
+  it('a work button counts that work, a surface-level one every execution photo, never the site photos', () => {
+    renderWith(
+      <>
+        <PhotoCardButton context="WORK" targetId="s1" occurrenceKey="k1" />
+        <PhotoCardButton context="WORK" targetId="s1" occurrenceKey="k2" />
+        <PhotoCardButton context="WORK" targetId="s1" occurrenceKey="nobody" />
+        <PhotoCardButton context="WORK" targetId="s1" />
+      </>,
+      value({ counts: WORK_COUNTS }),
+    );
+    expect(screen.getByRole('button', { name: 'Zdjęcia: 2' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zdjęcia: 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zdjęcia: 0' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zdjęcia: 5' })).toBeInTheDocument();
+  });
+
+  it('toggles under a key of its own, apart from the surface\'s site section and from other works', () => {
+    const toggle = vi.fn();
+    renderWith(<PhotoCardButton context="WORK" targetId="s1" occurrenceKey="k1" />, value({ counts: WORK_COUNTS, toggle }));
+    fireEvent.click(screen.getByRole('button', { name: 'Zdjęcia: 2' }));
+    expect(toggle).toHaveBeenCalledWith(photoKey('WORK', 's1', 'k1'));
+    expect(photoKey('WORK', 's1', 'k1')).not.toBe(photoKey('SURFACE', 's1'));
+    expect(photoKey('WORK', 's1', 'k1')).not.toBe(photoKey('WORK', 's1', 'k2'));
+  });
+
+  it('the panel mounts one section for the work with the suggested category and uploading allowed', () => {
+    renderWith(
+      <PhotoCardPanel context="WORK" targetId="s1" occurrenceKey="k1" defaultCategory="BEFORE" locationSegments={['Ściana A', 'Gładź']} />,
+      value({ counts: WORK_COUNTS }, [photoKey('WORK', 's1', 'k1')]),
+    );
+    expect(sectionProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        context: 'WORK',
+        targetId: 's1',
+        occurrenceKey: 'k1',
+        defaultCategory: 'BEFORE',
+        allowUpload: true,
+        projectId: 'p1',
+      }),
+    );
+  });
+
+  it('stays closed while another work of the same surface is the open one', () => {
+    renderWith(
+      <PhotoCardPanel context="WORK" targetId="s1" occurrenceKey="k1" locationSegments={['Ściana A']} />,
+      value({ counts: WORK_COUNTS }, [photoKey('WORK', 's1', 'k2')]),
+    );
+    expect(screen.queryByTestId('photo-section')).toBeNull();
+  });
+
+  it('the list of detached evidence can be made view-only and keeps its exclusion list', () => {
+    const exclude = new Set(['k1', 'k2']);
+    renderWith(
+      <PhotoCardPanel context="WORK" targetId="s1" excludeKeys={exclude} allowUpload={false} locationSegments={['Ściana A']} />,
+      value({ counts: WORK_COUNTS }, [photoKey('WORK', 's1')]),
+    );
+    expect(sectionProps).toHaveBeenLastCalledWith(expect.objectContaining({ context: 'WORK', allowUpload: false, excludeKeys: exclude }));
   });
 });

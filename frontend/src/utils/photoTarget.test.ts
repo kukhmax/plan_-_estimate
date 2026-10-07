@@ -10,6 +10,7 @@ describe('photoTarget helpers', () => {
     expect(targetIdOf({ context: 'OPENING', roomId: 'r', surfaceId: 's', openingId: 'o' })).toBe('o');
     expect(targetIdOf({ context: 'INSPECTION', inspectionId: 'i', findingId: 'f' })).toBe('i');
     expect(targetIdOf({ context: 'FINDING', inspectionId: 'i', findingId: 'f' })).toBe('f');
+    expect(targetIdOf({ context: 'WORK', surfaceId: 's', roomId: 'r' })).toBe('s'); // execution evidence: the surface (its work is the scope)
   });
 
   it('reads context and leaf id from an attachment', () => {
@@ -28,5 +29,14 @@ describe('photoTarget helpers', () => {
     expect(attachmentTarget(question)).toEqual({ context: 'INSPECTION', targetId: 'i1', questionId: 'q1' });
     const finding = makeItem({ attachment: { context: 'FINDING', room_id: null, finding_id: 'f1' } }).attachment;
     expect(attachmentTarget(finding)).toEqual({ context: 'FINDING', targetId: 'f1', questionId: undefined });
+  });
+
+  it('reads the surface and the planned work of an execution photo (14H)', () => {
+    const work = makeItem({
+      attachment: { context: 'WORK', room_id: null, surface_id: 's1', occurrence_key: 'k1', price_item_id: 'p1' },
+    }).attachment;
+    expect(attachmentTarget(work)).toEqual({ context: 'WORK', targetId: 's1', questionId: undefined, occurrenceKey: 'k1' });
+    const site = makeItem({ attachment: { context: 'SURFACE', room_id: null, surface_id: 's1' } }).attachment;
+    expect(attachmentTarget(site).occurrenceKey).toBeUndefined();
   });
 });

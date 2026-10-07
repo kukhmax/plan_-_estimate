@@ -46,6 +46,8 @@ export function makeItem(over: {
     inspection_id: null,
     question_id: null,
     finding_id: null,
+    occurrence_key: null,
+    price_item_id: null,
     category: 'GENERAL',
     caption: null,
     include_in_report: false,
