@@ -1650,6 +1650,7 @@
     "copied": "Raport skopiowany.",
     "copy_manual": "Nie można skopiować automatycznie — zaznacz tekst i skopiuj ręcznie albo zrób zrzut ekranu.",
     "stills": "Wykonane zdjęcia testowe",
-    "close": "Zamknij"
+    "close": "Zamknij",
+    "size_test": "Test rozmiarów zdjęć i zoomu"
   }
 }

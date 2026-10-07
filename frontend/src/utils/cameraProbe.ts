@@ -103,7 +103,7 @@ export interface StillResult {
 
 const megabytes = (bytes: number) => `${(bytes / 1048576).toFixed(2)} MB`;
 
-async function describeBlob(blob: Blob): Promise<string> {
+export async function describeBlob(blob: Blob): Promise<string> {
   let size = 'size n/a';
   if (typeof createImageBitmap === 'function') {
     try {
@@ -152,4 +152,136 @@ export async function captureFromVideo(video: HTMLVideoElement): Promise<StillRe
   if (!blob) return { method: 'canvas', ok: false, line: 'canvas: toBlob returned nothing' };
   const took = Math.round(performance.now() - started);
   return { method: 'canvas', ok: true, blob, line: `canvas ok in ${took} ms: ${await describeBlob(blob)}` };
+}
+
+// ---- Stage 14E.10 follow-up: why was the still square, and is there a zoom? ----------------------------------------------
+// The first viewfinder asked for the largest still the camera announced and still got 3472x3472. These probes try a ladder of
+// explicit sizes, an exact-size video stream and the zoom (which Chrome only exposes after a PTZ request) and print what came out.
+
+type PhotoSettingsLike = { imageWidth?: number; imageHeight?: number };
+type PhotoCaptureLike = {
+  takePhoto: (settings?: PhotoSettingsLike) => Promise<Blob>;
+  getPhotoCapabilities?: () => Promise<Record<string, unknown>>;
+};
+type PhotoCaptureCtor = new (track: MediaStreamTrack) => PhotoCaptureLike;
+
+export const SIZE_LADDER: ReadonlyArray<{ width: number; height: number }> = [
+  { width: 4624, height: 3472 },
+  { width: 4000, height: 3000 },
+  { width: 3264, height: 2448 },
+  { width: 2560, height: 1920 },
+  { width: 1920, height: 1440 },
+];
+
+function rangeText(value: unknown): string {
+  if (value && typeof value === 'object') {
+    const r = value as { min?: number; max?: number; step?: number; current?: number };
+    return `${r.min ?? '?'}..${r.max ?? '?'} step ${r.step ?? '?'}`;
+  }
+  return '-';
+}
+
+export async function describePhotoCapabilities(capture: PhotoCaptureLike): Promise<string[]> {
+  if (!capture.getPhotoCapabilities) return ['photoCapabilities: getPhotoCapabilities is not available'];
+  try {
+    const caps = await capture.getPhotoCapabilities();
+    return [
+      `photoCapabilities: imageWidth ${rangeText(caps.imageWidth)} | imageHeight ${rangeText(caps.imageHeight)}`,
+      `photoCapabilities: fillLightMode=${JSON.stringify(caps.fillLightMode ?? null)} redEye=${String(caps.redEyeReduction ?? '-')}`,
+    ];
+  } catch (error) {
+    return [`photoCapabilities failed: ${describeError(error)}`];
+  }
+}
+
+async function dimsOf(blob: Blob): Promise<string> {
+  if (typeof createImageBitmap !== 'function') return 'size n/a';
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const text = `${bitmap.width}x${bitmap.height}`;
+    bitmap.close?.();
+    return text;
+  } catch (error) {
+    return `decode failed (${describeError(error)})`;
+  }
+}
+
+/** takePhoto with the default settings, then with each size of the ladder; one line per attempt. */
+export async function runSizeLadder(track: MediaStreamTrack, win: unknown = window): Promise<string[]> {
+  const Ctor = (win as { ImageCapture?: PhotoCaptureCtor }).ImageCapture;
+  if (!Ctor) return ['sizes: ImageCapture is not available'];
+  const capture = new Ctor(track);
+  const lines = await describePhotoCapabilities(capture);
+  const attempts: Array<{ label: string; settings?: PhotoSettingsLike }> = [
+    { label: 'default' },
+    ...SIZE_LADDER.map((s) => ({ label: `${s.width}x${s.height}`, settings: { imageWidth: s.width, imageHeight: s.height } })),
+  ];
+  for (const attempt of attempts) {
+    const started = performance.now();
+    try {
+      const blob = await capture.takePhoto(attempt.settings);
+      lines.push(`ask ${attempt.label} -> got ${await dimsOf(blob)} ${megabytes(blob.size)} in ${Math.round(performance.now() - started)} ms`);
+    } catch (error) {
+      lines.push(`ask ${attempt.label} -> failed: ${describeError(error)}`);
+    }
+  }
+  return lines;
+}
+
+/** A separate stream asked for the zoom (this triggers Chrome's PTZ request); reports the range and whether it can be set. */
+export async function probeZoom(win: Window & typeof globalThis = window): Promise<string[]> {
+  const devices = win.navigator.mediaDevices;
+  if (!devices?.getUserMedia) return ['zoom: getUserMedia is not available'];
+  let stream: MediaStream | null = null;
+  try {
+    stream = await devices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' }, zoom: true } as unknown as MediaTrackConstraints,
+    });
+    const track = stream.getVideoTracks()[0];
+    const caps = (track?.getCapabilities?.() ?? {}) as Record<string, unknown>;
+    const lines = [`zoom stream ok: capabilities.zoom ${rangeText(caps.zoom)} | settings.zoom=${String((track?.getSettings?.() as Record<string, unknown> | undefined)?.zoom ?? '-')}`];
+    const zoom = caps.zoom as { min?: number; max?: number } | undefined;
+    if (track && zoom?.max && zoom.max > (zoom.min ?? 1)) {
+      const target = Math.min(zoom.max, (zoom.min ?? 1) * 2);
+      try {
+        await track.applyConstraints({ advanced: [{ zoom: target } as MediaTrackConstraintSet] });
+        lines.push(`zoom applyConstraints ${target} ok -> settings.zoom=${String((track.getSettings() as Record<string, unknown>).zoom ?? '-')}`);
+      } catch (error) {
+        lines.push(`zoom applyConstraints ${target} failed: ${describeError(error)}`);
+      }
+    } else {
+      lines.push('zoom: the camera does not report a zoom range');
+    }
+    return lines;
+  } catch (error) {
+    return [`zoom stream failed: ${describeError(error)}`];
+  } finally {
+    stream?.getTracks().forEach((t) => t.stop());
+  }
+}
+
+/** A video stream asked for the sensor size exactly, then a default takePhoto: does the still follow the stream? */
+export async function probeExactStream(win: Window & typeof globalThis = window): Promise<string[]> {
+  const devices = win.navigator.mediaDevices;
+  const Ctor = (win as unknown as { ImageCapture?: PhotoCaptureCtor }).ImageCapture;
+  if (!devices?.getUserMedia || !Ctor) return ['exact: camera API is not available'];
+  let stream: MediaStream | null = null;
+  try {
+    stream = await devices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' }, width: { exact: 4624 }, height: { exact: 3472 } },
+    });
+    const track = stream.getVideoTracks()[0];
+    const settings = track.getSettings();
+    const lines = [`exact 4624x3472 stream ok: settings ${settings.width ?? '?'}x${settings.height ?? '?'}`];
+    const started = performance.now();
+    const blob = await new Ctor(track).takePhoto();
+    lines.push(`exact stream + default takePhoto -> ${await dimsOf(blob)} ${megabytes(blob.size)} in ${Math.round(performance.now() - started)} ms`);
+    return lines;
+  } catch (error) {
+    return [`exact stream failed: ${describeError(error)}`];
+  } finally {
+    stream?.getTracks().forEach((t) => t.stop());
+  }
 }

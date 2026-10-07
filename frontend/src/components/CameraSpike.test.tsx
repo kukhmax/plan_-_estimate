@@ -189,4 +189,25 @@ describe('CameraSpike', () => {
     }
     expect(screen.getByTestId('camera-report')).toHaveClass('whitespace-pre-wrap', 'break-words');
   });
+
+  it('the size test prints the ladder, then the zoom and exact-stream probes, and ends with the camera stopped', async () => {
+    const track = fakeTrack();
+    getUserMedia.mockResolvedValue(fakeStream(track));
+    class FakeImageCapture {
+      takePhoto = async () => new Blob([jpegWithExif()], { type: 'image/jpeg' });
+      getPhotoCapabilities = async () => ({ imageWidth: { min: 1, max: 4624, step: 1 }, imageHeight: { min: 1, max: 3472, step: 1 } });
+    }
+    vi.stubGlobal('ImageCapture', FakeImageCapture);
+    renderSpike();
+    expect(screen.getByRole('button', { name: 'Test rozmiarów zdjęć i zoomu' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Uruchom kamerę — 1920×1080' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Test rozmiarów zdjęć i zoomu' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Test rozmiarów zdjęć i zoomu' }));
+    await waitFor(() => expect(report()).toContain('== exact-size stream =='), { timeout: 4000 });
+    expect(report()).toContain('== size ladder (takePhoto) ==');
+    expect(report()).toContain('photoCapabilities: imageWidth 1..4624');
+    expect(report()).toContain('ask 4624x3472 -> got');
+    expect(report()).toContain('== zoom ==');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zatrzymaj kamerę' })).toBeDisabled());
+  });
 });

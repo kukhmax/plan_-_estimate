@@ -12,6 +12,9 @@ import {
   describeError,
   describePermission,
   describeTrack,
+  probeExactStream,
+  probeZoom,
+  runSizeLadder,
 } from '../utils/cameraProbe';
 
 // Stage 14E.9 spike: a throwaway diagnostic screen (opened from the account window) that answers one question — can this
@@ -126,6 +129,21 @@ export function CameraSpike({ onClose }: CameraSpikeProps) {
     }
   };
 
+  // 14E.10 follow-up: the still came out square and there was no zoom — print what the camera really does.
+  const sizeTest = async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return log('sizes: the camera is not running');
+    setBusy(true);
+    try {
+      log('== size ladder (takePhoto) ==', ...(await runSizeLadder(track)));
+      stopStream(); // the next probes open their own streams
+      log('== zoom ==', ...(await probeZoom(window)));
+      log('== exact-size stream ==', ...(await probeExactStream(window)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const copy = async () => {
     try {
       if (!navigator.clipboard?.writeText) throw new Error('clipboard is not available');
@@ -200,6 +218,9 @@ export function CameraSpike({ onClose }: CameraSpikeProps) {
             <span className="min-w-0 break-words">{t.cameraSpike.take_canvas}</span>
           </button>
         </div>
+        <button type="button" disabled={busy || !running} onClick={sizeTest} className={secondary}>
+          <span className="min-w-0 break-words">{t.cameraSpike.size_test}</span>
+        </button>
         <button type="button" disabled={!running} onClick={stopStream} className={secondary}>
           <span className="min-w-0 break-words">{t.cameraSpike.stop}</span>
         </button>
