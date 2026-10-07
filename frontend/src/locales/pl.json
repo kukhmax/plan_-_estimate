@@ -1633,6 +1633,8 @@
       "discard_text": "Zrobiono {count} zdjęć, które nie zostały jeszcze dodane.",
       "discard_confirm": "Odrzuć",
       "discard_keep": "Wróć do aparatu",
+      "zoom": "Powiększenie {value}×",
+      "sizing": "Pierwsze zdjęcie trwa dłużej: dobieram format 4:3…",
       "torch_failed": "Nie udało się przełączyć latarki."
     }
   },

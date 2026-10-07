@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotoBackContext, usePhotoBackStack } from '../hooks/PhotoBackContext';
 import { I18nProvider } from '../hooks/useI18n';
 import { FakeCameraSetup, installFakeCamera } from '../test/cameraFixtures';
+import { resetStillSizeMemory } from '../utils/inAppCamera';
 import { CameraCapture } from './CameraCapture';
 
 let fake: FakeCameraSetup;
@@ -45,6 +46,7 @@ const shoot = async (times = 1) => {
 
 beforeEach(() => {
   localStorage.clear();
+  resetStillSizeMemory();
   fake = installFakeCamera();
 });
 
@@ -98,10 +100,12 @@ describe('CameraCapture — a series of shots', () => {
   it('a failed shot is reported, does not count, and the next one works', async () => {
     renderCamera();
     await live();
-    fake.takePhoto.mockRejectedValueOnce(new DOMException('x', 'OperationError')).mockRejectedValueOnce(new DOMException('x', 'OperationError'));
+    const working = fake.takePhoto.getMockImplementation();
+    fake.takePhoto.mockRejectedValue(new DOMException('x', 'OperationError')); // every size fails
     fireEvent.click(shutter());
-    expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się zrobić zdjęcia.');
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Nie udało się zrobić zdjęcia.')); // the "saving" note is an alert too
     expect(screen.getByRole('status')).toHaveTextContent('Zrobiono: 0 z 10');
+    fake.takePhoto.mockImplementation(working as NonNullable<typeof working>);
     await shoot();
     expect(screen.getByRole('status')).toHaveTextContent('Zrobiono: 1 z 10');
     expect(screen.queryByRole('alert')).toBeNull();
@@ -287,5 +291,142 @@ describe('CameraCapture — language and mobile rules', () => {
     expect(screen.getByRole('button', { name: 'Zamknij aparat' })).toHaveClass('min-h-11', 'min-w-11');
     expect(screen.getByRole('button', { name: 'Gotowe (0)' })).toHaveClass('min-h-11', 'min-w-0', 'break-words');
     expect(shutter()).toHaveClass('h-[72px]', 'w-[72px]');
+  });
+});
+
+// ---- 14E.10 follow-up: digital zoom (the phone reports no hardware zoom) and the first-shot size hint
+
+function touch(target: Element, type: 'pointerdown' | 'pointermove' | 'pointerup', pointerId: number, x: number, y = 0) {
+  const event = new MouseEvent(type, { bubbles: true, clientX: x, clientY: y }); // jsdom has no PointerEvent
+  Object.defineProperty(event, 'pointerId', { value: pointerId });
+  fireEvent(target, event);
+}
+const preview = () => screen.getByLabelText('camera-preview');
+const scaleOf = () => /scale\(([\d.]+)\)/.exec(preview().getAttribute('style') ?? '')?.[1];
+
+describe('CameraCapture — digital zoom', () => {
+  it('starts at 1x, steps 1x → 2x → 3x → 1x on the pill and scales the preview around its centre', async () => {
+    renderCamera();
+    await live();
+    const pill = () => screen.getByRole('button', { name: /^Powiększenie/ });
+    expect(pill()).toHaveTextContent('1×');
+    expect(scaleOf()).toBe('1');
+    fireEvent.click(pill());
+    expect(pill()).toHaveTextContent('2×');
+    expect(scaleOf()).toBe('2');
+    fireEvent.click(pill());
+    expect(pill()).toHaveTextContent('3×');
+    fireEvent.click(pill());
+    expect(pill()).toHaveTextContent('1×');
+    expect(preview().getAttribute('style')).toContain('transform-origin: center');
+    expect(pill().className).toContain('min-h-11');
+  });
+
+  it('two fingers zoom proportionally to the spread, within 1x–3x; one finger does nothing', async () => {
+    renderCamera();
+    await live();
+    const area = screen.getByTestId('camera-viewfinder');
+    touch(area, 'pointerdown', 1, 100);
+    touch(area, 'pointermove', 1, 300);
+    expect(scaleOf()).toBe('1');
+    touch(area, 'pointermove', 1, 100);
+    touch(area, 'pointerdown', 2, 200);
+    touch(area, 'pointermove', 2, 300); // spread 100 → 200: twice as far apart
+    expect(scaleOf()).toBe('2');
+    touch(area, 'pointermove', 2, 900); // far beyond: clamped to the maximum
+    expect(scaleOf()).toBe('3');
+    touch(area, 'pointermove', 2, 150); // pinch in below 1x: clamped
+    expect(scaleOf()).toBe('1');
+    expect(area.style.touchAction).toBe('none');
+  });
+
+  it('a second pinch starts from the zoom the first one left', async () => {
+    renderCamera();
+    await live();
+    const area = screen.getByTestId('camera-viewfinder');
+    touch(area, 'pointerdown', 1, 100);
+    touch(area, 'pointerdown', 2, 200);
+    touch(area, 'pointermove', 2, 300);
+    expect(scaleOf()).toBe('2');
+    touch(area, 'pointerup', 2, 300);
+    touch(area, 'pointerup', 1, 100);
+    touch(area, 'pointerdown', 3, 100);
+    touch(area, 'pointerdown', 4, 150);
+    touch(area, 'pointermove', 4, 175); // 50 → 75: ×1.5 on top of 2x
+    expect(scaleOf()).toBe('3');
+  });
+
+  it('a zoomed shot is the centre crop of the 4:3 still, and the zoom stays for the next shot of the series', async () => {
+    const drawImage = vi.fn();
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 1440, height: 1920, close: vi.fn() })));
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(new Blob(['zoomed-jpeg'], { type: 'image/jpeg' })));
+    const { onDone } = renderCamera();
+    await live();
+    fireEvent.click(screen.getByRole('button', { name: /^Powiększenie/ }));
+    await shoot(2);
+    expect(drawImage).toHaveBeenCalledTimes(2);
+    expect(drawImage).toHaveBeenLastCalledWith(expect.anything(), 360, 480, 720, 960, 0, 0, 720, 960);
+    expect(screen.getByRole('button', { name: /^Powiększenie/ })).toHaveTextContent('2×');
+    fireEvent.click(screen.getByRole('button', { name: /^Gotowe/ }));
+    const files = onDone.mock.calls[0][0] as File[];
+    expect(files.map((f) => f.size)).toEqual(['zoomed-jpeg'.length, 'zoomed-jpeg'.length]);
+  });
+
+  it('an unzoomed shot is not re-encoded', async () => {
+    const createImageBitmap = vi.fn();
+    vi.stubGlobal('createImageBitmap', createImageBitmap);
+    renderCamera();
+    await live();
+    await shoot();
+    expect(createImageBitmap).not.toHaveBeenCalled();
+  });
+
+  it('a zoomed shot that cannot be cropped is reported as a failed shot, not saved unzoomed', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => { throw new DOMException('no', 'InvalidStateError'); }));
+    renderCamera();
+    await live();
+    fireEvent.click(screen.getByRole('button', { name: /^Powiększenie/ }));
+    fireEvent.click(shutter());
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Nie udało się zrobić zdjęcia.')); // the "saving" note is an alert too
+    expect(counted()).toBe(0);
+  });
+});
+
+describe('CameraCapture — the first shot may take longer', () => {
+  it('says that the 4:3 format is being searched when a shot takes more than a moment, and clears the hint afterwards', async () => {
+    renderCamera();
+    await live();
+    vi.useFakeTimers();
+    try {
+      let release: (blob: Blob) => void = () => undefined;
+      fake.takePhoto.mockImplementationOnce(() => new Promise<Blob>((resolve) => { release = resolve; }));
+      fireEvent.click(shutter());
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(screen.getByRole('alert')).toHaveTextContent('Zapisywanie zdjęcia…');
+      await act(async () => { vi.advanceTimersByTime(1500); });
+      expect(screen.getByRole('alert')).toHaveTextContent('Pierwsze zdjęcie trwa dłużej: dobieram format 4:3…');
+      await act(async () => {
+        release(new Blob(['x'], { type: 'image/jpeg' }));
+        await vi.advanceTimersByTimeAsync(100); // the size check reads the photo through timers that are faked here
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    await waitFor(() => expect(counted()).toBe(1));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('does not show the hint after a quick shot is finished', async () => {
+    renderCamera();
+    await live();
+    await shoot();
+    vi.useFakeTimers();
+    try {
+      await act(async () => { vi.advanceTimersByTime(5000); });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

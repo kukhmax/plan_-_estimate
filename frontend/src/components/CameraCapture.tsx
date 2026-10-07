@@ -5,6 +5,7 @@ import { useI18n } from '../hooks/useI18n';
 import {
   CameraFailure,
   CameraSession,
+  MAX_DIGITAL_ZOOM,
   classifyCameraError,
   closeCamera,
   openCamera,
@@ -32,6 +33,13 @@ interface CameraCaptureProps {
 
 type Phase = 'starting' | 'live' | 'failed';
 
+// The phone's camera reports no hardware zoom here, so zoom is digital: the preview is scaled around its centre and the
+// shot is cropped around the centre of the 4:3 still by the same factor. A tap on the pill steps 1x -> 2x -> 3x -> 1x.
+const ZOOM_STEPS = [1, 2, MAX_DIGITAL_ZOOM];
+const SIZING_HINT_DELAY_MS = 1800; // the very first shot may try several sizes; say so instead of looking frozen
+const clampZoom = (value: number) => Math.min(MAX_DIGITAL_ZOOM, Math.max(1, value));
+const formatZoom = (value: number) => (Math.round(value * 10) / 10).toString();
+
 export function CameraCapture({ onDone, onCancel, onUseNativePicker, onCameraFailed }: CameraCaptureProps) {
   const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -47,6 +55,9 @@ export function CameraCapture({ onDone, onCancel, onUseNativePicker, onCameraFai
   const [note, setNote] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ distance: number; zoom: number } | null>(null);
   const aliveRef = useRef(true);
   const failedRef = useRef(onCameraFailed);
   useEffect(() => {
@@ -133,9 +144,10 @@ export function CameraCapture({ onDone, onCancel, onUseNativePicker, onCameraFai
     if (!session || busy || shots.length >= MAX_FILES_PER_SELECTION) return;
     setBusy(true);
     setNote(t.photos.camera.saving);
+    const hint = window.setTimeout(() => setNote(t.photos.camera.sizing), SIZING_HINT_DELAY_MS);
     try {
       shotCounter.current += 1;
-      const file = await takeStill(session, shotCounter.current);
+      const file = await takeStill(session, shotCounter.current, new Date(), zoom);
       setShots((current) => [...current, file]);
       setLastUrl(URL.createObjectURL(file));
       setNote(null);
@@ -147,8 +159,31 @@ export function CameraCapture({ onDone, onCancel, onUseNativePicker, onCameraFai
       setNote(t.photos.camera.capture_failed);
       hapticNotify('error');
     } finally {
+      window.clearTimeout(hint);
       setBusy(false);
     }
+  };
+
+  const pinchDistance = () => {
+    const [a, b] = Array.from(pointers.current.values());
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+  const onPointerDown = (event: React.PointerEvent) => {
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.current.size === 2) pinch.current = { distance: Math.max(1, pinchDistance()), zoom };
+  };
+  const onPointerMove = (event: React.PointerEvent) => {
+    if (!pointers.current.has(event.pointerId)) return;
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.current.size === 2 && pinch.current) setZoom(clampZoom((pinch.current.zoom * pinchDistance()) / pinch.current.distance));
+  };
+  const onPointerEnd = (event: React.PointerEvent) => {
+    pointers.current.delete(event.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+  };
+  const stepZoom = () => {
+    const next = ZOOM_STEPS.find((step) => step > zoom + 0.05);
+    setZoom(next ?? 1);
   };
 
   const toggleTorch = async () => {
@@ -209,8 +244,34 @@ export function CameraCapture({ onDone, onCancel, onUseNativePicker, onCameraFai
         )}
       </div>
 
-      <div className="relative min-h-0 flex-1">
-        <video ref={videoRef} playsInline muted autoPlay className="h-full w-full bg-black object-contain" aria-label="camera-preview" />
+      <div
+        className="relative min-h-0 flex-1 overflow-hidden"
+        style={{ touchAction: 'none' }}
+        data-testid="camera-viewfinder"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+      >
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          autoPlay
+          className="h-full w-full bg-black object-contain"
+          style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}
+          aria-label="camera-preview"
+        />
+        {phase === 'live' && (
+          <button
+            type="button"
+            onClick={stepZoom}
+            aria-label={t.photos.camera.zoom.replace('{value}', formatZoom(zoom))}
+            className="absolute bottom-2 left-1/2 flex min-h-11 min-w-11 -translate-x-1/2 items-center justify-center rounded-full bg-black/60 px-4 text-sm font-semibold text-white"
+          >
+            {formatZoom(zoom)}×
+          </button>
+        )}
         {flash && <div data-testid="camera-flash" className="pointer-events-none absolute inset-0 bg-white/70" />}
         {phase === 'starting' && (
           <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm">{t.photos.camera.starting}</p>
