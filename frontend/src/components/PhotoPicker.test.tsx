@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../hooks/useI18n';
+import { installFakeCamera } from '../test/cameraFixtures';
 import { jpegFile, jpegWithExif } from '../test/jpegFixtures';
-import { CAMERA_FRESH_WINDOW_MS, PHOTO_ACCEPT, PhotoPicker, isFreshCapture } from './PhotoPicker';
+import { CAMERA_FRESH_WINDOW_MS, PHOTO_ACCEPT, PhotoPicker, isFreshCapture, resetInAppCameraRefusal } from './PhotoPicker';
 
 function renderPicker(onFiles = vi.fn(), disabled = false) {
   const view = render(
@@ -19,7 +20,14 @@ const file = (name: string) => new File(['x'], name, { type: 'image/jpeg' }); //
 const taken = (name: string, ageMs: number) => jpegFile(name, jpegWithExif({ original: new Date(Date.now() - ageMs) }));
 
 describe('PhotoPicker', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    resetInAppCameraRefusal();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it('offers two buttons, camera and gallery, in Polish', () => {
     renderPicker();
@@ -161,5 +169,87 @@ describe('PhotoPicker', () => {
     renderPicker();
     expect(camera()).toHaveAttribute('tabindex', '-1');
     expect(camera()).toHaveClass('hidden');
+  });
+});
+
+describe('PhotoPicker — the in-app camera', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetInAppCameraRefusal();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('opens the viewfinder instead of the native picker when the host supports it', async () => {
+    installFakeCamera();
+    renderPicker();
+    const nativeClick = vi.spyOn(camera(), 'click');
+    fireEvent.click(screen.getByRole('button', { name: 'Zrób zdjęcie' }));
+    expect(await screen.findByRole('dialog', { name: 'Aparat' })).toBeInTheDocument();
+    expect(nativeClick).not.toHaveBeenCalled();
+  });
+
+  it('a finished series is handed over as CAMERA (no guessing from the file) and the viewfinder closes', async () => {
+    installFakeCamera();
+    const { onFiles } = renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Zrób zdjęcie' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Aparat' });
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Zrób zdjęcie' })).toBeEnabled());
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Zrób zdjęcie' }));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Gotowe (1)' })).toBeEnabled());
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Gotowe (1)' }));
+    expect(onFiles).toHaveBeenCalledTimes(1);
+    expect(onFiles).toHaveBeenLastCalledWith([expect.objectContaining({ type: 'image/jpeg' })], 'CAMERA');
+    expect(screen.queryByRole('dialog', { name: 'Aparat' })).toBeNull();
+  });
+
+  it('closing the viewfinder without shots hands nothing over', async () => {
+    installFakeCamera();
+    const { onFiles } = renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Zrób zdjęcie' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Aparat' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Zamknij aparat' }));
+    expect(screen.queryByRole('dialog', { name: 'Aparat' })).toBeNull();
+    expect(onFiles).not.toHaveBeenCalled();
+  });
+
+  it('a refused camera offers the phone picker inside the tap; later taps go straight to it', async () => {
+    const fake = installFakeCamera();
+    fake.getUserMedia.mockRejectedValue({ name: 'NotAllowedError' });
+    renderPicker();
+    const nativeClick = vi.spyOn(camera(), 'click');
+    fireEvent.click(screen.getByRole('button', { name: 'Zrób zdjęcie' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Aparat' });
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Wybierz zdjęcie z telefonu' }));
+    expect(nativeClick).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog', { name: 'Aparat' })).toBeNull();
+    // the refusal is remembered for the session: the next tap does not open the viewfinder again
+    fireEvent.click(screen.getByRole('button', { name: 'Zrób zdjęcie' }));
+    expect(nativeClick).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('dialog', { name: 'Aparat' })).toBeNull();
+    expect(fake.getUserMedia).toHaveBeenCalledTimes(1);
+  });
+
+  it('a busy camera is not remembered as a refusal', async () => {
+    const fake = installFakeCamera();
+    fake.getUserMedia.mockRejectedValueOnce({ name: 'NotReadableError' });
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: 'Zrób zdjęcie' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Aparat' });
+    await within(dialog).findByText(/Aparat jest zajęty/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Zamknij aparat' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Zrób zdjęcie' }));
+    expect(await screen.findByRole('dialog', { name: 'Aparat' })).toBeInTheDocument();
+    expect(fake.getUserMedia).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the native picker where the host has no ImageCapture (iOS keeps working with `capture`)', () => {
+    renderPicker();
+    const nativeClick = vi.spyOn(camera(), 'click');
+    fireEvent.click(screen.getByRole('button', { name: 'Zrób zdjęcie' }));
+    expect(nativeClick).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog', { name: 'Aparat' })).toBeNull();
   });
 });

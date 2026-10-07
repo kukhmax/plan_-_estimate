@@ -1,7 +1,9 @@
-import { ChangeEvent, useRef } from 'react';
+import { ChangeEvent, useRef, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import { PhotoCaptureSource } from '../types/photo';
+import { CameraFailure, inAppCameraSupported } from '../utils/inAppCamera';
 import { readExifCaptureTime } from '../utils/jpegExif';
+import { CameraCapture } from './CameraCapture';
 import { CameraIcon, GalleryIcon } from './PhotoIcons';
 
 // Two buttons (D3): camera (`capture`) and gallery (multi-select), each with its own hidden input. The picked files
@@ -28,6 +30,13 @@ async function declaredCameraSource(files: File[]): Promise<PhotoCaptureSource> 
   return 'CAMERA';
 }
 
+// Once the phone refuses the camera (permission denied), the camera button goes straight to the phone's own picker for the
+// rest of the session instead of showing the failure on every tap.
+let inAppCameraRefused = false;
+export function resetInAppCameraRefusal(): void {
+  inAppCameraRefused = false;
+}
+
 interface PhotoPickerProps {
   onFiles: (files: File[], source: PhotoCaptureSource) => void;
   disabled?: boolean;
@@ -37,6 +46,7 @@ export function PhotoPicker({ onFiles, disabled = false }: PhotoPickerProps) {
   const { t } = useI18n();
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const handle = (source: PhotoCaptureSource) => async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -53,7 +63,7 @@ export function PhotoPicker({ onFiles, disabled = false }: PhotoPickerProps) {
       <button
         type="button"
         disabled={disabled}
-        onClick={() => cameraRef.current?.click()}
+        onClick={() => (inAppCameraSupported() && !inAppCameraRefused ? setCameraOpen(true) : cameraRef.current?.click())}
         className={`${buttonBase} bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)]`}
       >
         <CameraIcon />
@@ -88,6 +98,22 @@ export function PhotoPicker({ onFiles, disabled = false }: PhotoPickerProps) {
         data-testid="photo-input-gallery"
         onChange={handle('GALLERY')}
       />
+      {cameraOpen && (
+        <CameraCapture
+          onDone={(files) => {
+            setCameraOpen(false);
+            onFiles(files, 'CAMERA'); // taken by the app itself: no guessing from the file
+          }}
+          onCancel={() => setCameraOpen(false)}
+          onUseNativePicker={() => {
+            setCameraOpen(false);
+            cameraRef.current?.click(); // runs inside the user's tap, so the browser allows the picker
+          }}
+          onCameraFailed={(failure: CameraFailure) => {
+            if (failure === 'denied') inAppCameraRefused = true;
+          }}
+        />
+      )}
     </div>
   );
 }

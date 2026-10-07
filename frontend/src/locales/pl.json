@@ -1607,6 +1607,33 @@
       "uploads_disabled": "Dodawanie zdjęć jest wyłączone.",
       "warning": "Miejsce na zdjęcia zbliża się do limitu.",
       "full": "Limit miejsca na zdjęcia został osiągnięty. Nowe zdjęcia nie mogą być dodawane."
+    },
+    "camera": {
+      "title": "Aparat",
+      "starting": "Uruchamianie aparatu…",
+      "shutter": "Zrób zdjęcie",
+      "close": "Zamknij aparat",
+      "torch_on": "Włącz latarkę",
+      "torch_off": "Wyłącz latarkę",
+      "counter": "Zrobiono: {count} z {max}",
+      "limit_reached": "Osiągnięto limit {max} zdjęć w jednej serii. Naciśnij „Gotowe”.",
+      "done": "Gotowe ({count})",
+      "last_shot": "Ostatnie zdjęcie",
+      "saving": "Zapisywanie zdjęcia…",
+      "capture_failed": "Nie udało się zrobić zdjęcia. Spróbuj ponownie.",
+      "interrupted": "Aparat został zatrzymany (aplikacja była w tle). Uruchamiam ponownie…",
+      "restart": "Uruchom aparat ponownie",
+      "unavailable_title": "Aparat jest niedostępny",
+      "denied": "Brak zgody na aparat. Zezwól Telegramowi na użycie aparatu w ustawieniach telefonu albo wybierz zdjęcie z telefonu.",
+      "busy": "Aparat jest zajęty przez inną aplikację. Zamknij ją i spróbuj ponownie albo wybierz zdjęcie z telefonu.",
+      "missing": "Nie znaleziono aparatu. Wybierz zdjęcie z telefonu.",
+      "generic": "Nie udało się uruchomić aparatu. Wybierz zdjęcie z telefonu.",
+      "use_phone_picker": "Wybierz zdjęcie z telefonu",
+      "discard_title": "Odrzucić zrobione zdjęcia?",
+      "discard_text": "Zrobiono {count} zdjęć, które nie zostały jeszcze dodane.",
+      "discard_confirm": "Odrzuć",
+      "discard_keep": "Wróć do aparatu",
+      "torch_failed": "Nie udało się przełączyć latarki."
     }
   },
   "cameraSpike": {

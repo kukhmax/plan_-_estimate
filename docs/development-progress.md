@@ -1142,6 +1142,15 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14E.10 — in-app camera, series of shots (2026-10-07, IN PROGRESS — implemented locally, not committed / deployed)
+
+Instruction and phone check: `docs/STAGE_14E10_IN_APP_CAMERA_RU.md`. Frontend only; no backend, database or migration change. Owner decisions: build it (14E.9 result), series mode yes.
+
+- **Added:** `utils/inAppCamera.ts` (support check = secure context + getUserMedia + ImageCapture, so iOS keeps the native `capture` input; rear-camera preview 1920×1440; still at the camera's largest size from `getPhotoCapabilities`, one retry with host defaults; torch; failure classes), `components/CameraCapture.tsx` (full-screen viewfinder in a portal above the photo viewer: series up to 10 shots with counter and last-shot thumbnail, "Gotowe (N)", torch, discard question when closing with shots, release / restart on `visibilitychange` and on a host-ended track, BackButton through the photo back registry, in-screen fallback to the phone's own picker with the reason), `photos.camera.*` strings (PL / RU), test fixtures (`cameraFixtures.ts`).
+- **Changed:** `PhotoPicker`: the camera button opens the viewfinder when supported and not refused this session, otherwise the native input as before; a finished series is handed over as `CAMERA` without guessing from the files (the EXIF rule stays for the native path). The canvas still path of the spike is not used (14 s, no EXIF).
+- **Tests:** frontend 79 files / 1740 tests, `tsc`, `vite build` PASS (new: `inAppCamera` 25, `CameraCapture` 23, `PhotoPicker` 6 more); mutations (no explicit still size, wrong source, no visibility handling) each fail tests; one surviving mutation (the shutter guard at 10) is a second line behind the disabled button. Real Chromium with a fake camera inside the real app (wall card → viewfinder → 3 shots → "Gotowe" → 3 uploads queued and sent) at 320 / 390 / 412 px, PL / RU, light / dark: preview 1920×1440, no overflow, no control below 44 px, no console errors.
+- **Owner check (pending):** the 7 steps of the instruction on the phone (permission, series of 3, full 4:3 frame, torch, discard question, background / return, refused permission fallback).
+
 ### Stage 14E.9 — in-app camera spike (2026-10-07, IN PROGRESS — implemented locally, not committed / deployed)
 
 Instruction and decision table: `docs/STAGE_14E9_CAMERA_SPIKE_RU.md`. A sub-stage of Stage 14 (no change to the canonical roadmap); nothing is built beyond a diagnostic screen until the owner has seen its report.
