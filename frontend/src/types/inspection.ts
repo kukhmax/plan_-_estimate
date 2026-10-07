@@ -51,6 +51,8 @@ export interface InspectionFinding {
   position: number | null;
   answer_id: string | null;
   question_id: string | null;
+  /** Durable identity of the same finding across re-confirmations (Stage 14F); shared by its resolved and re-confirmed rows. */
+  lineage_id: string;
   created_at: string;
   updated_at: string;
 }

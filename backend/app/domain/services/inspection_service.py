@@ -273,6 +273,26 @@ class InspectionService:
         )
         return list((await self.db.execute(stmt)).scalars().all())
 
+    async def _lineage_by_identity(
+        self, inspection_id: uuid.UUID
+    ) -> dict[tuple[uuid.UUID | None, str], uuid.UUID]:
+        """Lineage of the most recent finding (resolved or not) of each source identity.
+
+        The identity is (question_id, finding_key) inside one inspection, as in the
+        reconciliation itself; a NULL question_id is a value like any other.
+        """
+        rows = (
+            await self.db.execute(
+                select(InspectionFinding)
+                .where(InspectionFinding.inspection_id == inspection_id)
+                .order_by(InspectionFinding.created_at.desc(), InspectionFinding.id.desc())
+            )
+        ).scalars().all()
+        lineage: dict[tuple[uuid.UUID | None, str], uuid.UUID] = {}
+        for finding in rows:
+            lineage.setdefault((finding.question_id, finding.finding_key), finding.lineage_id)
+        return lineage
+
     async def _reconcile_findings(
         self,
         inspection_id: uuid.UUID,
@@ -302,6 +322,7 @@ class InspectionService:
             (finding.question_id, finding.finding_key): finding
             for finding in active
         }
+        lineage_by_identity = await self._lineage_by_identity(inspection_id)
         now = datetime.now(timezone.utc)
 
         seen_identities: set[tuple[uuid.UUID | None, str]] = set()
@@ -324,6 +345,10 @@ class InspectionService:
                         value_snapshot=spec.value_snapshot,
                         is_active=True,
                         position=position,
+                        # A finding confirmed again after it was resolved is a new
+                        # row (its UUID drives Stage 7 / 11 signatures) but the same
+                        # lineage, so earlier photo evidence stays with it.
+                        lineage_id=lineage_by_identity.get(identity) or uuid.uuid4(),
                     )
                 )
             else:

@@ -192,6 +192,17 @@ class InspectionFinding(Base):
         comment="When the finding was marked inactive (no longer confirmed)",
     )
     position: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    lineage_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        nullable=False,
+        default=uuid.uuid4,
+        index=True,
+        comment=(
+            "Durable lineage of the same finding across re-confirmations "
+            "(Stage 14F): shared by every row with the same "
+            "(inspection_id, question_id, finding_key); never changes"
+        ),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

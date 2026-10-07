@@ -90,6 +90,7 @@ class InspectionFindingRead(BaseModel):
     position: int | None = None
     answer_id: uuid.UUID | None = None
     question_id: uuid.UUID | None = None
+    lineage_id: uuid.UUID
     created_at: datetime
     updated_at: datetime
 
