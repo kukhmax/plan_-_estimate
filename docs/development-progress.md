@@ -1142,6 +1142,10 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14F.4 — production deployment of 14F (2026-10-07, RUNBOOK WRITTEN — nothing executed yet)
+
+Runbook: `docs/STAGE_14F4_PRODUCTION_RUNBOOK_RU.md` (Russian; every production step needs the owner's explicit approval; the owner runs the commands and pastes the output). Order: A0 read-only state → A1 deploy-file diff (expected empty: compose / Caddy / Dockerfiles / requirements unchanged since the last backend deployment `4d4707a`; only 9 application files and migration `0034`) → A2 pre-deploy backup (recommended, existing images, head `0033`) → A3 `git pull --ff-only` → A4 `config --quiet` + build backend / frontend, rollback tags `:pre-14f4` → M0 head of the NEW image → **gate M (migration assessment: one column + index, one transaction, millisecond locks on a small table, reversible; rolling back the backend image without `alembic downgrade 0033` is unsafe for completing inspections because the old code cannot fill the NOT NULL column)** → A5 `up -d --no-deps backend` → A6 frontend → A6b rebuild backup images + `BACKUP_TOOL_COMMIT` → A7 Menu Button cache-bust → A8 phone check.
+
 ### Stage 14F.3 — inspection evidence UI (2026-10-07, IMPLEMENTED LOCALLY — not deployed; frontend + two small backend additions, no migration)
 
 Plan: `docs/STAGE_14F_FINDING_EVIDENCE_PLAN_RU.md`. Owner decisions (2026-10-07): a general photo button in the inspection header ("да в шапке"); a button on every checklist question, collapsed (proposal accepted). Mobile-first rules applied (44 px targets, wrapping, PL / RU).
