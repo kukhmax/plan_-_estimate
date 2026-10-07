@@ -154,12 +154,13 @@ describe('PhotoPicker', () => {
     expect(screen.getByRole('button', { name: 'Z galerii' })).toBeDisabled();
   });
 
-  it('mobile layout: stacked at 320 px, side by side from 360 px, full-width ≥ 44 px targets, long labels wrap', () => {
+  it('mobile layout: one compact row of two at every width, ≥ 44 px targets, long labels wrap inside their button', () => {
     const { container } = renderPicker();
-    expect(container.firstElementChild).toHaveClass('grid', 'grid-cols-1', 'min-[360px]:grid-cols-2');
+    expect(container.firstElementChild).toHaveClass('grid', 'grid-cols-2');
+    expect(container.firstElementChild).not.toHaveClass('grid-cols-1');
     for (const name of ['Zrób zdjęcie', 'Z galerii']) {
       const button = screen.getByRole('button', { name });
-      expect(button).toHaveClass('min-h-11', 'w-full', 'min-w-0');
+      expect(button).toHaveClass('min-h-11', 'w-full', 'min-w-0', 'text-xs');
       expect(button.querySelector('span')).toHaveClass('break-words');
     }
     expect(container.innerHTML).not.toMatch(/\bw-\[\d+px\]|\bwidth:\s*\d+px/);

@@ -1142,6 +1142,20 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14H.4 — compact photo buttons (2026-10-08, IMPLEMENTED LOCALLY — frontend only, not deployed; no backend change, no migration)
+
+Owner request after the 14H.3 phone check ("надо только кнопки минимизировать"); scope chosen by the owner: the photo buttons "Zrób zdjęcie / Z galerii" (RU "Сделать фото / Из галереи").
+- **`PhotoPicker`:** always one row of two buttons (`grid-cols-2`, no stacking at 320 px), smaller text (`text-xs`), padding and gap, 16 px icons; the buttons keep `min-h-11` (44 px) and wrapping labels. Applies to every photo section (object, room, surface, inspection, finding, work). `GalleryIcon` accepts `size` like `CameraIcon`.
+- **Tests:** frontend 81 files / 1850 tests, `tsc` PASS (layout test of the picker updated: two columns at every width, `text-xs`, 44 px, wrapping). Real Chromium (temporary harness, removed) at 320 / 390 / 412 px, PL / RU: both buttons 44 px high in one row (122 / 157 / 168 px wide each), no horizontal overflow; at 320 px RU "Сделать фото" wraps to two lines inside its own 44 px button.
+- **Production:** none yet (needs the owner's push and deployment approval).
+
+### Stage 14H.3 — production deployment and owner check of 14H.1 + 14H.2 (2026-10-07 / 08, DONE — owner check PASS)
+
+Runbook: `docs/STAGE_14H3_PRODUCTION_RUNBOOK_RU.md` (no migration). Deployed commit `ee1d086` (backend + frontend rebuilt, backup images not rebuilt: migration head unchanged). Rollback images tagged `plan-estimate-backend:pre-14h` / `plan-estimate-frontend:pre-14h`.
+- **A0–A7 (owner-run, each PASS):** state check (`alembic current` = `0034_finding_lineage`, app R2 key `97bfe5…6dab`), diff check (only the 5 expected backend files, no deploy / migration / backup-tool changes), `git pull --ff-only`, config + build, backend recreate (health ok, `MAX_FIELDS` 8, `occurrence_key` accepted), presigned thumbnail fetched from a foreign address (HTTP 200 `image/jpeg`), frontend recreate, Telegram menu button `?v=ee1d086`.
+- **A8 phone check (owner, 2026-10-08, "все пункты прошли"):** a photo button on every work card (not started included); BEFORE photo does not start the work; categories BEFORE / IN_PROGRESS / AFTER follow the status (screenshots: "До", "В процессе", "После" on one work); captions name the surface and the operation; general object / room counts unchanged; a work removed from the plan keeps its photo in "Фото прежних работ" with the old operation; layout fine on the phone. One remark: make the photo buttons smaller → 14H.4.
+- **Open:** owner acceptance of 14H after 14H.4 is deployed; `:pre-14h` and older rollback tags to be removed about a week after acceptance (owner-run).
+
 ### Stage 14H.2 — photos in Realizacja (2026-10-07, IMPLEMENTED LOCALLY — not deployed; frontend only, no backend change, no migration)
 
 Plan: `docs/STAGE_14H_WORK_PHOTOS_PLAN_RU.md`. Owner started 14H and approved 14H.2 on 2026-10-07 ("да"; default accepted: the photo button is also shown on a work that is not started yet, so a BEFORE photo can be taken). Mobile-first rules applied (44 px targets, wrapping, PL / RU, 320 / 390 / 412 px).
@@ -1600,7 +1614,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | 14E | Reusable mobile photo UI + Project/Room/Surface/Opening contexts; first controlled upload enablement | IN PROGRESS (14E.1 interface contract ACCEPTED 2026-10-06 with clarifications — `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`; D11 = A decided; 14E.2 backend (counts endpoint + `capture_source`, migration `0033`) COMMITTED and pushed (`396fd90`); 14E.3 frontend foundation COMMITTED and pushed (`0dd6f39`); 14E.4 components COMMITTED and pushed (`f23f5e6`); 14E.5 wiring into the cards COMMITTED and pushed (`85d07af`); 14E.6 verification and the owner's browser check ACCEPTED 2026-10-06 (`9cbb065`: photos are added only on surfaces; object and rooms are view / edit lists; backend `room_totals` + `in_room_id`; backend 4077, frontend 1640, real-Chromium matrix 168 views); next: 14E.7 (deployment with uploads OFF, then the controlled enablement) — starts only on the owner's explicit go-ahead, D10 (backup cadence) must be decided first — `docs/STAGE_14E6_OWNER_BROWSER_CHECK_RU.md`; open: D10 backup cadence) |
 | 14F | Finding `lineage_id` + inspection/finding evidence | COMPLETE / OWNER ACCEPTED 2026-10-07 (14F.1–14F.3 + 14F.4 production, `9ec1704`; A8 phone check PASS after an R2-key incident — see 14F.4) |
 | 14G | POINT annotations (API + editor) | NOT STARTED |
-| 14H | WORK execution photos in Realizacja | IN PROGRESS (owner started 2026-10-07; 14H.1 WORK API committed `bed5b43` and pushed; 14H.2 Realizacja UI implemented locally; 14H.3 deployment and owner check pending) |
+| 14H | WORK execution photos in Realizacja | IN PROGRESS (owner started 2026-10-07; 14H.1 WORK API committed `bed5b43` and pushed; 14H.2 Realizacja UI and 14H.3 deployment `ee1d086` done, owner phone check PASS 2026-10-08; 14H.4 compact photo buttons implemented locally, deployment and acceptance pending) |
 | 14I | Stage 15 report read model / report-inclusion boundary | NOT STARTED |
 | 14J | Adversarial / full verification | NOT STARTED |
 | 14K | Owner production walkthrough | NOT STARTED |

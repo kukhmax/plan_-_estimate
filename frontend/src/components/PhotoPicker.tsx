@@ -56,17 +56,18 @@ export function PhotoPicker({ onFiles, disabled = false }: PhotoPickerProps) {
   };
 
   const buttonBase =
-    'flex min-h-11 w-full min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition disabled:opacity-50';
+    'flex min-h-11 w-full min-w-0 items-center justify-center gap-1.5 rounded-xl px-2 py-1 text-xs font-semibold leading-tight transition disabled:opacity-50';
 
+  // Always one compact row (two columns even at 320 px): a label that does not fit wraps inside its own 44 px button.
   return (
-    <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
+    <div className="grid grid-cols-2 gap-2">
       <button
         type="button"
         disabled={disabled}
         onClick={() => (inAppCameraSupported() && !inAppCameraRefused ? setCameraOpen(true) : cameraRef.current?.click())}
         className={`${buttonBase} bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)]`}
       >
-        <CameraIcon />
+        <CameraIcon size={16} />
         <span className="min-w-0 break-words">{t.photos.picker.take_photo}</span>
       </button>
       <button
@@ -75,7 +76,7 @@ export function PhotoPicker({ onFiles, disabled = false }: PhotoPickerProps) {
         onClick={() => galleryRef.current?.click()}
         className={`${buttonBase} border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)]`}
       >
-        <GalleryIcon />
+        <GalleryIcon size={16} />
         <span className="min-w-0 break-words">{t.photos.picker.from_gallery}</span>
       </button>
       <input
