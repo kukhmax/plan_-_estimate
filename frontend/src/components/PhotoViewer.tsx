@@ -18,11 +18,13 @@ import {
 import { formatCapturedAt, formatUploadedAt, isCapturedMuchOlderThanUpload } from '../utils/photoCaption';
 import { PhotoErrorKey, classifyPhotoError } from '../utils/photoErrors';
 import { hapticNotify } from '../utils/telegramHaptics';
-import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from './PhotoIcons';
+import { PhotoFullscreen } from './PhotoFullscreen';
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, ExpandIcon } from './PhotoIcons';
 
 // Full-screen sheet (contract §7). Loads the detail for the DISPLAY image (lists carry thumbnails only), edits the
 // metadata of THIS attachment (caption / category / report flag), archives or restores it in this context.
 // No download, no share, no delete, no original. Closing is guarded: an unsaved caption is saved first.
+// A tap on the photo (or the corner button) opens it on the whole screen, where it can be zoomed with two fingers.
 
 export const CAPTION_MAX_LENGTH = 1000;
 /** Signed links are refetched this long before they expire (contract §7c). */
@@ -85,6 +87,7 @@ export function PhotoViewer({
   const [loadError, setLoadError] = useState<PhotoErrorKey | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const [caption, setCaption] = useState(attachment?.caption ?? '');
   const [saving, setSaving] = useState(false);
@@ -206,11 +209,16 @@ export function PhotoViewer({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') void requestClose();
+      if (event.key === 'Escape' && !fullscreen) void requestClose(); // the full-screen view closes itself first
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [requestClose]);
+  }, [requestClose, fullscreen]);
+
+  // Another photo (or none to show): back to the normal view.
+  useEffect(() => {
+    setFullscreen(false);
+  }, [assetId]);
 
   if (!item || !attachment) return null;
   const currentAssetId = item.asset.id;
@@ -264,13 +272,15 @@ export function PhotoViewer({
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="relative flex h-[50vh] shrink-0 items-center justify-center bg-black">
           {loadState === 'ready' && detail?.display_url && !imageFailed && (
-            <img
-              src={detail.display_url}
-              alt={attachment.caption || t.photos.viewer.photo_alt}
-              referrerPolicy="no-referrer"
-              onError={onImageError}
-              className="max-h-full max-w-full object-contain"
-            />
+            <div className="flex h-full w-full items-center justify-center" onClick={() => setFullscreen(true)}>
+              <img
+                src={detail.display_url}
+                alt={attachment.caption || t.photos.viewer.photo_alt}
+                referrerPolicy="no-referrer"
+                onError={onImageError}
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
           )}
           {loadState === 'loading' && <p className="px-4 text-center text-sm text-white">{t.photos.viewer.loading}</p>}
           {(loadState === 'error' || imageFailed || (loadState === 'ready' && !detail?.display_url)) && (
@@ -307,6 +317,16 @@ export function PhotoViewer({
               <CloseIcon />
             </button>
           </div>
+          {loadState === 'ready' && detail?.display_url && !imageFailed && (
+            <button
+              type="button"
+              aria-label={t.photos.viewer.fullscreen_open}
+              className={`${iconButton} absolute bottom-2 right-2`}
+              onClick={() => setFullscreen(true)}
+            >
+              <ExpandIcon />
+            </button>
+          )}
           <button
             type="button"
             aria-label={t.photos.viewer.previous}
@@ -456,6 +476,15 @@ export function PhotoViewer({
           )}
         </div>
       </div>
+      {fullscreen && detail?.display_url && !imageFailed && (
+        <PhotoFullscreen
+          src={detail.display_url}
+          alt={attachment.caption || t.photos.viewer.photo_alt}
+          counter={t.photos.viewer.counter.replace('{current}', String(index + 1)).replace('{total}', String(items.length))}
+          onClose={() => setFullscreen(false)}
+          onImageError={onImageError}
+        />
+      )}
     </div>
   );
 }

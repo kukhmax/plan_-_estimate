@@ -56,3 +56,11 @@ export function ChevronRightIcon() {
     </svg>
   );
 }
+
+export function ExpandIcon() {
+  return (
+    <svg {...common}>
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+    </svg>
+  );
+}

@@ -1567,7 +1567,12 @@
       "loading": "Ładowanie zdjęcia…",
       "image_unavailable": "Nie można wyświetlić zdjęcia.",
       "retry": "Spróbuj ponownie",
-      "dialog_label": "Podgląd zdjęcia"
+      "dialog_label": "Podgląd zdjęcia",
+      "fullscreen_open": "Otwórz na pełnym ekranie",
+      "fullscreen_close": "Zamknij pełny ekran",
+      "fullscreen_label": "Zdjęcie na pełnym ekranie",
+      "fullscreen_hint": "Rozsuń dwa palce, aby powiększyć · stuknij dwa razy, aby przybliżyć",
+      "zoom_reset": "Powiększenie {value}× — stuknij, aby wrócić do 1×"
     },
     "category": {
       "GENERAL": "Ogólne",

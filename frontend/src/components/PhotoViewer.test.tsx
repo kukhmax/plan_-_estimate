@@ -488,3 +488,119 @@ describe('PhotoViewer — mobile, locales, theme', () => {
     document.documentElement.removeAttribute('data-color-scheme');
   });
 });
+
+describe('PhotoViewer — the photo on the whole screen (zoom)', () => {
+  const fullscreen = () => screen.queryByRole('dialog', { name: 'Zdjęcie na pełnym ekranie' });
+
+  it('a tap on the photo and the corner button both open it full screen with the same display image; the viewer stays underneath', async () => {
+    const item = makeItem();
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item));
+    const { onClose } = setup({ items: [item, makeItem()] });
+    await ready();
+    expect(fullscreen()).toBeNull();
+    const corner = screen.getByRole('button', { name: 'Otwórz na pełnym ekranie' });
+    expect(corner).toHaveClass('min-h-11', 'min-w-11');
+
+    fireEvent.click(screen.getByRole('img'));
+    const dialog = fullscreen();
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveClass('fixed', 'inset-0');
+    const shown = dialog?.querySelector('img');
+    expect(shown).toHaveAttribute('src', `https://r2.example/d/${item.asset.id}.jpg`);
+    expect(dialog).toHaveTextContent('1 / 2');
+    expect(dialog).toHaveTextContent('Rozsuń dwa palce, aby powiększyć');
+    expect(screen.getByRole('dialog', { name: 'Podgląd zdjęcia' })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Zamknij pełny ekran' }));
+    expect(fullscreen()).toBeNull();
+    fireEvent.click(corner);
+    expect(fullscreen()).toBeInTheDocument();
+  });
+
+  it('the close button is at least 44 px, and the hint disappears after the first touch', async () => {
+    const item = makeItem();
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item));
+    setup({ items: [item] });
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Otwórz na pełnym ekranie' }));
+    expect(screen.getByRole('button', { name: 'Zamknij pełny ekran' })).toHaveClass('min-h-11', 'min-w-11');
+    fireEvent.wheel(screen.getByTestId('zoomable-image'), { deltaY: -100 });
+    expect(fullscreen()).not.toHaveTextContent('Rozsuń dwa palce');
+  });
+
+  it('Escape closes the full-screen view first and the viewer only on the next press', async () => {
+    const item = makeItem();
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item));
+    const { onClose } = setup({ items: [item] });
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Otwórz na pełnym ekranie' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(fullscreen()).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('the Telegram BackButton closes the full-screen view first, then the viewer', async () => {
+    const item = makeItem();
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item));
+    const stack: Array<() => void> = [];
+    const registry = {
+      register: (close: () => void) => {
+        stack.push(close);
+        return () => {
+          stack.splice(stack.lastIndexOf(close), 1);
+        };
+      },
+    };
+    const back = () => stack[stack.length - 1]?.();
+    const { onClose } = setup({ items: [item], registry });
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Otwórz na pełnym ekranie' }));
+    expect(stack).toHaveLength(2);
+    await act(async () => back());
+    expect(fullscreen()).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(stack).toHaveLength(1);
+    await act(async () => back());
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('is not offered while loading or when the image cannot be shown', async () => {
+    const item = makeItem();
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item, { display_url: null }));
+    setup({ items: [item] });
+    expect(screen.queryByRole('button', { name: 'Otwórz na pełnym ekranie' })).toBeNull();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Otwórz na pełnym ekranie' })).toBeNull();
+  });
+
+  it('going to another photo leaves the full-screen view', async () => {
+    const items = [makeItem(), makeItem()];
+    vi.mocked(fetchPhoto).mockImplementation(async (_p, assetId) => detailFor(items.find((i) => i.asset.id === assetId) as PhotoListItem));
+    const view = setup({ items });
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Otwórz na pełnym ekranie' }));
+    expect(fullscreen()).toBeInTheDocument();
+    view.rerenderAt(1);
+    await waitFor(() => expect(fetchPhoto).toHaveBeenCalledTimes(2));
+    await ready();
+    await act(async () => undefined);
+    expect(fullscreen()).toBeNull(); // not only while the next photo loads: it stays closed once it is shown
+    expect(screen.getByRole('button', { name: 'Otwórz na pełnym ekranie' })).toBeInTheDocument();
+  });
+
+  it('a link that expired while zooming is refetched once and the full-screen image follows the new link', async () => {
+    const item = makeItem();
+    vi.mocked(fetchPhoto)
+      .mockResolvedValueOnce(detailFor(item))
+      .mockResolvedValueOnce(detailFor(item, { display_url: 'https://r2.example/d/fresh.jpg' }));
+    setup({ items: [item] });
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Otwórz na pełnym ekranie' }));
+    fireEvent.error(fullscreen()?.querySelector('img') as HTMLImageElement);
+    await waitFor(() => expect(fetchPhoto).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fullscreen()?.querySelector('img')).toHaveAttribute('src', 'https://r2.example/d/fresh.jpg'));
+  });
+});
