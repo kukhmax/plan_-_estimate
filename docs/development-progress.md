@@ -1142,6 +1142,16 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14E.12 — room action row on narrow phones (2026-10-07, IMPLEMENTED LOCALLY — not deployed)
+
+Open item from the 14E.7 phone check: the Russian labels "Редактировать" / "Архивировать" were clipped in the room card's action row. Frontend only; a sub-stage of Stage 14 (no change to the canonical roadmap).
+
+- **Reproduced (real Chromium, before the fix):** with three equal columns the buttons were 81 px wide at 320 px, 94 px at 360 px and 104 px at 390 px; "Редактировать" and "Архивировать" were clipped at 320 and 360, "Редактировать" at 390.
+- **Changed:** `RoomList` action row: "Открыть" takes the full width on top, "Редактировать" and "Архивировать" share the row below (two columns, 124 px each at 320 px); `break-words` as a safety net for any longer label; the `sm:` flex layout is unchanged. Touch targets stay 44 px.
+- **After the fix (real Chromium):** nothing clipped at 320 / 360 / 390 / 412 px, RU and PL, no horizontal page scroll.
+- **Tests:** `RoomList` 3 (1 new; fails when the row goes back to three columns); frontend 79 files / 1769 tests (the 7D.1 mobile-layout test now expects the two-column row), `tsc`, `vite build` PASS.
+- **Owner check (pending after deployment):** the room card at 320 px with the Russian interface.
+
 ### Stage 14E.11 — photo zoom in the viewer (2026-10-07, COMPLETE — ACCEPTED by the owner 2026-10-07; deployed `e92778a`)
 
 Instruction and phone check: `docs/STAGE_14E11_PHOTO_ZOOM_RU.md`. Frontend only; no backend, database or migration change. A sub-stage of Stage 14 (no change to the canonical roadmap). Owner request after the 14E.10 phone check: zoom a photo with the fingers when looking at it, ideally full screen — the customer is shown small details.

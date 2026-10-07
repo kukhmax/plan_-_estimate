@@ -311,7 +311,7 @@ describe('RoomList', () => {
     expect(roomsApi.fetchRooms).toHaveBeenCalledTimes(2);
   });
 
-  it('stacks the room card on mobile with a full-width 3-column action grid, wrapping name, and touch targets (Stage 7D.1 D1)', async () => {
+  it('stacks the room card on mobile with a full-width open button over a 2-column edit / archive row, wrapping name, and touch targets (Stage 7D.1 D1, 14E.12)', async () => {
     const measuredRoom: RoomType = {
       ...room,
       name: 'Salon z bardzo długą nazwą, która nie może uciskać przycisków akcji',
@@ -339,10 +339,12 @@ describe('RoomList', () => {
     // The name owns a wrapping row of its own — it can never crowd the action buttons.
     expect(screen.getByText(/Salon z bardzo długą nazwą/)).toHaveClass('break-words');
 
-    // Actions live in a dedicated container: 3 equal columns on narrow mobile…
+    // Actions live in a dedicated container: "open" on its own full-width row, "edit" / "archive" sharing the next one
+    // (three equal columns clipped the long Russian labels at 320-390 px, 14E.12)…
     const actions = screen.getByLabelText(`room-actions-${room.id}`);
     expect(actions).toHaveClass('grid');
-    expect(actions).toHaveClass('grid-cols-3');
+    expect(actions).toHaveClass('grid-cols-2');
+    expect(screen.getByLabelText(`open-room-${room.id}`)).toHaveClass('col-span-2');
     // …and an inline flex row from the sm breakpoint up.
     expect(actions).toHaveClass('sm:flex');
 

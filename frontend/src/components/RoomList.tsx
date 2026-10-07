@@ -466,13 +466,13 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
 
                 <div
                   aria-label={`room-actions-${room.id}`}
-                  className="mt-auto grid grid-cols-3 gap-1.5 min-h-11 sm:flex sm:flex-wrap sm:justify-end sm:gap-2"
+                  className="mt-auto grid grid-cols-2 gap-1.5 min-h-11 sm:flex sm:flex-wrap sm:justify-end sm:gap-2"
                 >
                   <button
                     type="button"
                     aria-label={`open-room-${room.id}`}
                     onClick={() => onOpenRoom(room)}
-                    className="min-h-11 min-w-0 text-xs px-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
+                    className="col-span-2 min-h-11 min-w-0 break-words text-xs px-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition sm:col-auto"
                   >
                     {t.common.open}
                   </button>
@@ -480,7 +480,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                     type="button"
                     aria-label={`edit-room-${room.id}`}
                     onClick={() => startEdit(room)}
-                    className="min-h-11 min-w-0 text-xs px-2.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                    className="min-h-11 min-w-0 break-words text-xs px-2.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                   >
                     {t.common.edit}
                   </button>
@@ -488,7 +488,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                     type="button"
                     aria-label={`${room.is_archived ? 'restore' : 'archive'}-room-${room.id}`}
                     onClick={() => void changeArchiveState(room)}
-                    className="min-h-11 min-w-0 text-xs px-2.5 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                    className="min-h-11 min-w-0 break-words text-xs px-2.5 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
                   >
                     {room.is_archived ? t.common.restore : t.common.archive}
                   </button>

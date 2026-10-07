@@ -83,3 +83,23 @@ describe('RoomList measurement inputs', () => {
     );
   });
 });
+describe('RoomList action row on a narrow phone', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
+  });
+
+  it('stacks "open" over a two-column "edit / archive" row so long Russian labels fit at 320 px, with 44 px targets', async () => {
+    renderList();
+    const actions = await screen.findByLabelText('room-actions-room-1');
+    expect(actions).toHaveClass('grid', 'grid-cols-2');
+    expect(actions).not.toHaveClass('grid-cols-3');
+    const open = screen.getByLabelText('open-room-room-1');
+    expect(open).toHaveClass('col-span-2', 'min-h-11');
+    for (const label of ['edit-room-room-1', 'archive-room-room-1']) {
+      const button = screen.getByLabelText(label);
+      expect(button).toHaveClass('min-h-11', 'min-w-0', 'break-words');
+    }
+    expect(open).toHaveClass('break-words');
+  });
+});
