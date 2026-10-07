@@ -50,6 +50,10 @@ class PhotoAttachmentRead(BaseModel):
     inspection_id: uuid.UUID | None
     question_id: uuid.UUID | None
     finding_id: uuid.UUID | None
+    # Stage 14H.1: execution evidence. A WORK photo names its surface (`surface_id`) and the Stage 13 occurrence of the plan
+    # (`occurrence_key`, no FK) plus the snapshot of the occurrence's operation (`price_item_id`, so a detached work stays labelled).
+    occurrence_key: uuid.UUID | None
+    price_item_id: uuid.UUID | None
     category: PhotoCategory
     caption: str | None
     include_in_report: bool
@@ -131,6 +135,8 @@ class PhotoAttachRequest(BaseModel):
     inspection_id: uuid.UUID | None = None
     question_id: uuid.UUID | None = None
     finding_id: uuid.UUID | None = None
+    # WORK (14H.1): with `surface_id`; the server derives `price_item_id` from the plan's current occurrence.
+    occurrence_key: uuid.UUID | None = None
     category: PhotoCategory | None = None
     caption: str | None = None
     include_in_report: StrictBool = False
@@ -152,6 +158,10 @@ class PhotoCountsResponse(BaseModel):
     lineages: dict[uuid.UUID, int]
     # Stage 14F.3: photos taken for one checklist question: inspection id -> question id -> count (never the inspection-level ones).
     questions: dict[uuid.UUID, dict[uuid.UUID, int]]
+    # Stage 14H.1: execution evidence (WORK), kept apart from site photos: photos per occurrence_key (detached ones included)
+    # and per surface (the sum over its occurrences). They never enter `surfaces`, `rooms` or `room_totals`.
+    works: dict[uuid.UUID, int]
+    work_surfaces: dict[uuid.UUID, int]
 
 
 class PhotoStorageStatus(BaseModel):

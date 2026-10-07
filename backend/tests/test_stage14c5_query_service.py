@@ -13,7 +13,6 @@ import pytest
 from app.domain.exceptions import (
     PhotoAssetNotFoundError,
     PhotoAttachmentValidationError,
-    PhotoContextNotSupportedError,
     PhotoCursorInvalidError,
     ProjectNotFoundError,
     RoomNotFoundError,
@@ -124,7 +123,7 @@ async def test_filters(db_session):
         (lambda w: PhotoListFilters(context=C.ROOM), PhotoAttachmentValidationError),  # context without target
         (lambda w: PhotoListFilters(context=C.PROJECT, room_id=w.room.id), PhotoAttachmentValidationError),
         (lambda w: PhotoListFilters(context=C.ROOM, room_id=uuid.uuid4()), RoomNotFoundError),
-        (lambda w: PhotoListFilters(context=C.WORK), PhotoContextNotSupportedError),
+        (lambda w: PhotoListFilters(context=C.WORK), PhotoAttachmentValidationError),
     ],
     ids=["target-no-context", "context-no-target", "project-with-room", "foreign-room", "inspection"],
 )

@@ -74,6 +74,8 @@ class PhotoListFilters:
     inspection_id: uuid.UUID | None = None
     question_id: uuid.UUID | None = None
     finding_id: uuid.UUID | None = None
+    # Stage 14H.1: WORK photos of one surface (all its occurrences, detached ones included), or of one occurrence.
+    occurrence_key: uuid.UUID | None = None
     category: PhotoCategory | None = None
     include_in_report: bool | None = None
     archived: bool = False
@@ -103,6 +105,7 @@ class PhotoListFilters:
                 str(self.finding_id) if self.finding_id else None,
                 str(self.lineage_id) if self.lineage_id else None,
                 self.site_only,
+                str(self.occurrence_key) if self.occurrence_key else None,
             ],
             separators=(",", ":"),
         )
@@ -127,6 +130,9 @@ class PhotoCounts:
     lineages: dict[uuid.UUID, int]
     # Stage 14F.3: question-level photos only, per inspection then per question (the question button of a checklist).
     questions: dict[uuid.UUID, dict[uuid.UUID, int]]
+    # Stage 14H.1: execution evidence (WORK) per occurrence_key and per surface -- never in surfaces / rooms / room_totals.
+    works: dict[uuid.UUID, int]
+    work_surfaces: dict[uuid.UUID, int]
 
 
 @dataclass(frozen=True)
@@ -211,6 +217,8 @@ class PhotoQueryService:
             filters.room_id, filters.surface_id, filters.opening_id,
             filters.inspection_id, filters.question_id, filters.finding_id,
         )
+        if filters.occurrence_key is not None and filters.context is not PhotoAttachmentContext.WORK:
+            raise PhotoAttachmentValidationError("occurrence_key requires the WORK context")
         if filters.site_only:
             if filters.context or filters.in_room_id or filters.lineage_id or any(target_ids):
                 raise PhotoAttachmentValidationError("site_only cannot be combined with a context or a target id")
@@ -240,6 +248,21 @@ class PhotoQueryService:
         if filters.context is None:
             if any(target_ids):
                 raise PhotoAttachmentValidationError("a target id requires a matching context")
+            return
+        if filters.context is PhotoAttachmentContext.WORK:
+            # A surface's execution photos, or one occurrence of it. The occurrence is NOT required to be current: the
+            # evidence of a removed / replaced work (detached) stays listable. Only the surface chain is validated.
+            if filters.surface_id is None:
+                raise PhotoAttachmentValidationError("surface_id is required for WORK")
+            if any(v is not None for v in (
+                filters.room_id, filters.opening_id, filters.inspection_id, filters.question_id, filters.finding_id,
+            )):
+                raise PhotoAttachmentValidationError("only surface_id and occurrence_key are allowed for WORK")
+            await PhotoAttachmentService(self.db).validate_target(
+                owner_id,
+                project_id,
+                AttachmentTarget(context=PhotoAttachmentContext.SURFACE, surface_id=filters.surface_id),
+            )
             return
         # Same shape + ownership-chain validation as attach/upload (C12: archived
         # targets are accepted; unsupported contexts are rejected).
@@ -300,6 +323,8 @@ class PhotoQueryService:
                 stmt = stmt.where(PhotoAttachment.question_id == filters.question_id)
             if filters.finding_id is not None:
                 stmt = stmt.where(PhotoAttachment.finding_id == filters.finding_id)
+            if filters.occurrence_key is not None:
+                stmt = stmt.where(PhotoAttachment.occurrence_key == filters.occurrence_key)
         if filters.site_only:
             stmt = stmt.where(PhotoAttachment.context.in_(SITE_CONTEXTS))
         if filters.lineage_id is not None:
@@ -346,6 +371,7 @@ class PhotoQueryService:
             PhotoAttachmentContext.OPENING,
             PhotoAttachmentContext.INSPECTION,
             PhotoAttachmentContext.FINDING,
+            PhotoAttachmentContext.WORK,
         )
         stmt = (
             select(
@@ -356,6 +382,7 @@ class PhotoQueryService:
                 PhotoAttachment.inspection_id,
                 PhotoAttachment.question_id,
                 PhotoAttachment.finding_id,
+                PhotoAttachment.occurrence_key,
                 func.count(),
             )
             .join(PhotoAsset, PhotoAttachment.asset_id == PhotoAsset.id)
@@ -376,6 +403,7 @@ class PhotoQueryService:
                 PhotoAttachment.inspection_id,
                 PhotoAttachment.question_id,
                 PhotoAttachment.finding_id,
+                PhotoAttachment.occurrence_key,
             )
         )
         project_total = 0
@@ -385,7 +413,9 @@ class PhotoQueryService:
         inspections: dict[uuid.UUID, int] = {}
         findings: dict[uuid.UUID, int] = {}
         questions: dict[uuid.UUID, dict[uuid.UUID, int]] = {}
-        for context, room_id, surface_id, opening_id, inspection_id, question_id, finding_id, total in (
+        works: dict[uuid.UUID, int] = {}
+        work_surfaces: dict[uuid.UUID, int] = {}
+        for context, room_id, surface_id, opening_id, inspection_id, question_id, finding_id, occurrence_key, total in (
             await self.db.execute(stmt)
         ).all():
             if context is PhotoAttachmentContext.PROJECT:
@@ -403,6 +433,9 @@ class PhotoQueryService:
                     per_question[question_id] = per_question.get(question_id, 0) + int(total)
             elif context is PhotoAttachmentContext.FINDING and finding_id is not None:
                 findings[finding_id] = findings.get(finding_id, 0) + int(total)
+            elif context is PhotoAttachmentContext.WORK and occurrence_key is not None and surface_id is not None:
+                works[occurrence_key] = works.get(occurrence_key, 0) + int(total)
+                work_surfaces[surface_id] = work_surfaces.get(surface_id, 0) + int(total)
         room_totals = dict(rooms)
         if surfaces:
             rows = await self.db.execute(select(Surface.id, Surface.room_id).where(Surface.id.in_(list(surfaces))))
@@ -426,6 +459,7 @@ class PhotoQueryService:
         return PhotoCounts(
             project=project_total, rooms=rooms, surfaces=surfaces, openings=openings, room_totals=room_totals,
             inspections=inspections, findings=findings, lineages=lineages, questions=questions,
+            works=works, work_surfaces=work_surfaces,
         )
 
     async def get_detail(

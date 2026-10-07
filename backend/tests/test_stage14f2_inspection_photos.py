@@ -227,12 +227,14 @@ async def test_the_same_target_twice_is_a_duplicate_but_archive_frees_it(api, ht
     assert third.status_code == 201  # an archived duplicate does not block a new active one
 
 
-async def test_attach_to_work_is_still_unsupported_and_extra_fields_are_rejected(api, http, w):
+async def test_attach_work_needs_its_ids_and_foreign_ids_are_rejected(api, http, w):
     asset_id = (await upload_ok(api, context="ROOM"))["asset"]["id"]
     url = f"{path_for(api.project)}/{asset_id}/attachments"
-    r = await http.post(url, json={"context": "WORK"})
-    assert r.status_code == 422 and r.json()["detail"]["code"] == "PHOTO_CONTEXT_NOT_SUPPORTED"
+    r = await http.post(url, json={"context": "WORK"})  # WORK is enabled since 14H.1: a bare WORK is a shape error
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "PHOTO_ATTACHMENT_INVALID"
     r = await http.post(url, json={"context": "FINDING", "finding_id": str(w.new_row), "occurrence_key": str(uuid.uuid4())})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "PHOTO_ATTACHMENT_INVALID"  # an occurrence_key is WORK-only
+    r = await http.post(url, json={"context": "FINDING", "finding_id": str(w.new_row), "bogus": 1})
     assert r.status_code == 422  # still extra="forbid"
     r = await http.post(url, json={"context": "FINDING", "finding_id": str(w.foreign_finding)})
     assert r.status_code == 404 and r.json()["detail"]["code"] == "FINDING_NOT_FOUND"

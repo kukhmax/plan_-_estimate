@@ -67,6 +67,7 @@ from app.domain.exceptions import (
     PhotoUploadResumeMismatchError,
     PhotoUploadsDisabledError,
     PhotoValidationError,
+    PhotoWorkOccurrenceNotCurrentError,
     ProjectNotFoundError,
     RoomNotFoundError,
     SurfaceNotFoundError,
@@ -117,7 +118,8 @@ router = APIRouter()
 # Multipart limits (contract §9): one file; at most eight scalar fields
 # (upload_id, context, the target id(s), category, caption, include_in_report, source -- `source`
 # added in 14E.2, owner decision D11; an INSPECTION photo may name a question next to its inspection,
-# 14F.2); scalar parts <= 8 KiB. max_part_size does NOT bound file parts.
+# 14F.2; a WORK photo names a surface and an occurrence_key, 14H.1 -- both are the largest forms and
+# still fit in eight); scalar parts <= 8 KiB. max_part_size does NOT bound file parts.
 MAX_FILES = 1
 MAX_FIELDS = 8
 MAX_SCALAR_PART_BYTES = 8192
@@ -125,7 +127,7 @@ FILE_FIELD = "file"
 SCALAR_FIELDS = frozenset(
     {
         "upload_id", "context", "room_id", "surface_id", "opening_id", "inspection_id", "question_id", "finding_id",
-        "category", "caption", "include_in_report", "source",
+        "occurrence_key", "category", "caption", "include_in_report", "source",
     }
 )
 ORIGINAL_NAME = "original"  # server-chosen workspace file name
@@ -153,6 +155,7 @@ _MESSAGES = {
     "INSPECTION_NOT_FOUND": "Inspection not found",
     "QUESTION_NOT_FOUND": "Checklist question not found",
     "FINDING_NOT_FOUND": "Inspection finding not found",
+    "WORK_OCCURRENCE_NOT_CURRENT": "This work is no longer part of the surface plan",
     "PHOTO_NOT_FOUND": "Photo not found",
     "PHOTO_ATTACHMENT_NOT_FOUND": "Photo attachment not found",
     "PHOTO_ATTACHMENT_DUPLICATE": "An equivalent active attachment already exists",
@@ -192,6 +195,8 @@ def _map_domain_error(exc: Exception) -> HTTPException:
         return _error(status.HTTP_404_NOT_FOUND, "QUESTION_NOT_FOUND")
     if isinstance(exc, InspectionFindingNotFoundError):
         return _error(status.HTTP_404_NOT_FOUND, "FINDING_NOT_FOUND")
+    if isinstance(exc, PhotoWorkOccurrenceNotCurrentError):
+        return _error(status.HTTP_409_CONFLICT, "WORK_OCCURRENCE_NOT_CURRENT")
     if isinstance(exc, PhotoUploadIdConflictError):
         # Fixed §14 message, identical for every conflict cause.
         return _error(status.HTTP_409_CONFLICT, exc.code, message=str(exc))
@@ -231,6 +236,7 @@ _DOMAIN_ERRORS = (
     InspectionNotFoundError,
     ChecklistQuestionNotFoundError,
     InspectionFindingNotFoundError,
+    PhotoWorkOccurrenceNotCurrentError,
     PhotoUploadIdConflictError,
     PhotoStorageQuotaExceededError,
     PhotoUploadResumeMismatchError,
@@ -300,6 +306,7 @@ def _build_request(
             inspection_id=_optional_uuid(scalars.get("inspection_id")),
             question_id=_optional_uuid(scalars.get("question_id")),
             finding_id=_optional_uuid(scalars.get("finding_id")),
+            occurrence_key=_optional_uuid(scalars.get("occurrence_key")),
         ),
         original_path=original_path,
         category=category,
@@ -503,6 +510,10 @@ async def list_photos(
     inspection_id: uuid.UUID | None = Query(default=None),
     question_id: uuid.UUID | None = Query(default=None),
     finding_id: uuid.UUID | None = Query(default=None),
+    occurrence_key: uuid.UUID | None = Query(
+        default=None,
+        description="with context=WORK and surface_id: one occurrence of the surface's work plan (detached ones included)",
+    ),
     in_room_id: uuid.UUID | None = Query(
         default=None,
         description="every photo of this room: the room itself, its surfaces and their openings (no other target filter)",
@@ -526,7 +537,7 @@ async def list_photos(
 ) -> PhotoListResponse:
     filters = PhotoListFilters(
         context=context, room_id=room_id, surface_id=surface_id, opening_id=opening_id,
-        inspection_id=inspection_id, question_id=question_id, finding_id=finding_id,
+        inspection_id=inspection_id, question_id=question_id, finding_id=finding_id, occurrence_key=occurrence_key,
         category=category, include_in_report=include_in_report, archived=archived, in_room_id=in_room_id,
         lineage_id=lineage, site_only=site_only,
     )
@@ -569,7 +580,7 @@ async def photo_counts(
     return PhotoCountsResponse(
         project=counts.project, rooms=counts.rooms, surfaces=counts.surfaces, openings=counts.openings,
         room_totals=counts.room_totals, inspections=counts.inspections, findings=counts.findings,
-        lineages=counts.lineages, questions=counts.questions,
+        lineages=counts.lineages, questions=counts.questions, works=counts.works, work_surfaces=counts.work_surfaces,
     )
 
 
@@ -625,6 +636,7 @@ async def attach_photo(
                 inspection_id=payload.inspection_id,
                 question_id=payload.question_id,
                 finding_id=payload.finding_id,
+                occurrence_key=payload.occurrence_key,
             ),
             category=payload.category,
             caption=payload.caption,

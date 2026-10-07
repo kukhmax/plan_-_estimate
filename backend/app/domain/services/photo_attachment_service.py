@@ -9,11 +9,16 @@ duplicate detection. No HTTP mapping, upload orchestration, presigning,
 listing or asset archive (14C.3–14C.5). Exceptions are transport-neutral.
 
 Rules:
-- Enabled contexts: PROJECT / ROOM / SURFACE / OPENING (Stage 14C) and
-  INSPECTION / FINDING (Stage 14F.2). WORK (14H) exists in the schema but is
-  rejected here. INSPECTION may carry an optional question of the inspection's
-  own checklist template; FINDING names a finding, whose photos are grouped
-  by the finding's lineage when read.
+- Enabled contexts: PROJECT / ROOM / SURFACE / OPENING (Stage 14C),
+  INSPECTION / FINDING (Stage 14F.2) and WORK (Stage 14H.1). INSPECTION may
+  carry an optional question of the inspection's own checklist template;
+  FINDING names a finding, whose photos are grouped by the finding's lineage
+  when read. WORK names a surface and a Stage 13 `occurrence_key` that must be
+  CURRENT in that surface's work plan at attach time (else
+  PhotoWorkOccurrenceNotCurrentError); `price_item_id` is never sent by the
+  client -- it is the operation of the plan's occurrence, snapshotted on the
+  attachment so a later detached occurrence stays labelled. Existing WORK
+  attachments are never touched by work-plan edits (matching is by key only).
 - Ownership: project -> owner; the asset must belong to the same owner AND
   project; targets are validated along the full chain to the project
   (room -> project, surface -> room -> project, opening -> surface -> room ->
@@ -29,7 +34,7 @@ Rules:
 """
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -47,6 +52,7 @@ from app.domain.exceptions import (
     PhotoAttachmentNotFoundError,
     PhotoAttachmentValidationError,
     PhotoContextNotSupportedError,
+    PhotoWorkOccurrenceNotCurrentError,
     RoomNotFoundError,
     SurfaceNotFoundError,
 )
@@ -63,8 +69,9 @@ from app.models.photo_attachment import (
 )
 from app.models.room import Room
 from app.models.surface import Surface
+from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
 
-# Contexts enabled so far: Stage 14C (C1) + INSPECTION / FINDING (Stage 14F.2).
+# Contexts enabled: Stage 14C (C1) + INSPECTION / FINDING (Stage 14F.2) + WORK (Stage 14H.1).
 SUPPORTED_CONTEXTS: frozenset[PhotoAttachmentContext] = frozenset(
     {
         PhotoAttachmentContext.PROJECT,
@@ -73,6 +80,7 @@ SUPPORTED_CONTEXTS: frozenset[PhotoAttachmentContext] = frozenset(
         PhotoAttachmentContext.OPENING,
         PhotoAttachmentContext.INSPECTION,
         PhotoAttachmentContext.FINDING,
+        PhotoAttachmentContext.WORK,
     }
 )
 
@@ -84,6 +92,7 @@ _REQUIRED_TARGET: dict[PhotoAttachmentContext, tuple[str, ...]] = {
     PhotoAttachmentContext.OPENING: ("opening_id",),
     PhotoAttachmentContext.INSPECTION: ("inspection_id",),
     PhotoAttachmentContext.FINDING: ("finding_id",),
+    PhotoAttachmentContext.WORK: ("surface_id", "occurrence_key"),
 }
 _OPTIONAL_TARGET: dict[PhotoAttachmentContext, tuple[str, ...]] = {
     PhotoAttachmentContext.INSPECTION: ("question_id",),
@@ -104,6 +113,11 @@ class AttachmentTarget:
     inspection_id: uuid.UUID | None = None
     question_id: uuid.UUID | None = None
     finding_id: uuid.UUID | None = None
+    # WORK: the Stage 13 durable occurrence identity (no FK). `price_item_id` is
+    # server-resolved from the plan's occurrence by `validate_target`; a caller
+    # that sets it on an incoming target is rejected (see `_check_target_shape`).
+    occurrence_key: uuid.UUID | None = None
+    price_item_id: uuid.UUID | None = None
 
     def ids(self) -> dict[str, uuid.UUID | None]:
         return {
@@ -113,6 +127,8 @@ class AttachmentTarget:
             "inspection_id": self.inspection_id,
             "question_id": self.question_id,
             "finding_id": self.finding_id,
+            "occurrence_key": self.occurrence_key,
+            "price_item_id": self.price_item_id,
         }
 
 
@@ -178,9 +194,11 @@ class PhotoAttachmentService:
 
     async def validate_target(
         self, owner_id: uuid.UUID, project_id: uuid.UUID, target: AttachmentTarget
-    ) -> None:
+    ) -> AttachmentTarget:
         """Shape + full ownership chain. Foreign and missing targets raise the
-        same not-found error; archived targets are accepted (C12)."""
+        same not-found error; archived targets are accepted (C12). Returns the
+        target to persist: the input, except that a WORK target gets the
+        `price_item_id` of the plan's current occurrence."""
         self._check_target_shape(target)
         await ProjectService(self.db).get_project(project_id, owner_id)
         context = target.context
@@ -230,6 +248,29 @@ class PhotoAttachmentService:
             )
             if (await self.db.execute(stmt)).scalar_one_or_none() is None:
                 raise InspectionFindingNotFoundError(f"Finding {target.finding_id} not found")
+        elif context is PhotoAttachmentContext.WORK:
+            stmt = (
+                select(Surface.id)
+                .join(Room, Surface.room_id == Room.id)
+                .where(Surface.id == target.surface_id, Room.project_id == project_id)
+            )
+            if (await self.db.execute(stmt)).scalar_one_or_none() is None:
+                raise SurfaceNotFoundError(f"Surface {target.surface_id} not found")
+            # The key must be a CURRENT occurrence of THIS surface's plan; one error for a stale,
+            # removed, foreign or invented key (nothing about other plans is disclosed).
+            stmt = (
+                select(SurfacePlannedWork.price_item_id)
+                .join(SurfaceWorkPlan, SurfacePlannedWork.work_plan_id == SurfaceWorkPlan.id)
+                .where(
+                    SurfaceWorkPlan.surface_id == target.surface_id,
+                    SurfacePlannedWork.occurrence_key == target.occurrence_key,
+                )
+            )
+            price_item_id = (await self.db.execute(stmt)).scalar_one_or_none()
+            if price_item_id is None:
+                raise PhotoWorkOccurrenceNotCurrentError("occurrence is not a current work of this surface")
+            return replace(target, price_item_id=price_item_id)
+        return target
 
     # -- creation ---------------------------------------------------------
 
@@ -247,7 +288,7 @@ class PhotoAttachmentService:
     ) -> PhotoAttachment:
         """Attach an existing READY asset (archived allowed, C12) to a
         supported context and COMMIT."""
-        await self.validate_target(owner_id, project_id, target)
+        target = await self.validate_target(owner_id, project_id, target)
         asset = await self._get_asset(owner_id, project_id, asset_id)
         if asset.status is not PhotoAssetStatus.READY:
             raise PhotoAssetNotFoundError("photo asset not found")
@@ -274,7 +315,7 @@ class PhotoAttachmentService:
         The asset is new, so no duplicate can exist."""
         if asset.owner_id != owner_id or asset.status is not PhotoAssetStatus.PENDING:
             raise PhotoAssetNotFoundError("photo asset not found")
-        await self.validate_target(owner_id, asset.project_id, target)
+        target = await self.validate_target(owner_id, asset.project_id, target)
         attachment = self._build(asset, target, category, caption, include_in_report, 0)
         self.db.add(attachment)
         await self.db.flush()
@@ -299,6 +340,8 @@ class PhotoAttachmentService:
             inspection_id=target.inspection_id,
             question_id=target.question_id,
             finding_id=target.finding_id,
+            occurrence_key=target.occurrence_key,
+            price_item_id=target.price_item_id,
             category=_validate_category(category),
             caption=normalize_caption(caption),
             include_in_report=_validate_include(include_in_report),
@@ -426,6 +469,9 @@ class PhotoAttachmentService:
             PhotoAttachment.finding_id.is_(None)
             if key.finding_id is None
             else PhotoAttachment.finding_id == key.finding_id,
+            PhotoAttachment.occurrence_key.is_(None)
+            if key.occurrence_key is None
+            else PhotoAttachment.occurrence_key == key.occurrence_key,
         )
         if key.exclude_id is not None:
             stmt = stmt.where(PhotoAttachment.id != key.exclude_id)
@@ -457,6 +503,7 @@ class _DuplicateKey:
     inspection_id: uuid.UUID | None
     question_id: uuid.UUID | None
     finding_id: uuid.UUID | None
+    occurrence_key: uuid.UUID | None
     exclude_id: uuid.UUID | None
 
     @classmethod
@@ -470,5 +517,6 @@ class _DuplicateKey:
             inspection_id=attachment.inspection_id,
             question_id=attachment.question_id,
             finding_id=attachment.finding_id,
+            occurrence_key=attachment.occurrence_key,
             exclude_id=attachment.id,
         )

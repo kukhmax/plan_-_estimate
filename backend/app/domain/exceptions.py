@@ -390,9 +390,19 @@ class PhotoAttachmentDuplicateError(Exception):
 
 class PhotoContextNotSupportedError(Exception):
     """The attachment context exists in the schema but is not enabled yet
-    (INSPECTION / FINDING are enabled since Stage 14F.2; WORK: 14H)."""
+    (INSPECTION / FINDING are enabled since Stage 14F.2, WORK since Stage 14H.1;
+    no context is pending any more)."""
 
     code = "PHOTO_CONTEXT_NOT_SUPPORTED"
+
+
+class PhotoWorkOccurrenceNotCurrentError(Exception):
+    """A WORK photo names an occurrence_key that is not a CURRENT occurrence of
+    the surface's work plan (stale screen, removed / replaced work, foreign or
+    invented key). One error for all of them, so nothing about other plans is
+    disclosed (Stage 14H.1, architecture §7)."""
+
+    code = "WORK_OCCURRENCE_NOT_CURRENT"
 
 
 class PhotoAttachmentValidationError(Exception):

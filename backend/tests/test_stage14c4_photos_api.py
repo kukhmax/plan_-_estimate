@@ -364,10 +364,11 @@ async def test_malformed_multipart_is_422(api, label, body_fn, content_type):
     assert await counts(api.db) == (0, 0) and temp_clean(api) and api.runtime.admission.in_use == 0
 
 
-async def test_unsupported_context_is_422_context_code(api):
+async def test_work_without_surface_and_occurrence_is_malformed(api):
+    # WORK is enabled since 14H.1; without its surface and occurrence the form is a shape error (no context is unsupported).
     c = await call(path_for(api.project), token=api.token,
                    body=form(api, context="WORK", target=("caption", "x")))
-    assert c.status == 422 and detail(c)["code"] == "PHOTO_CONTEXT_NOT_SUPPORTED"
+    assert c.status == 422 and detail(c)["code"] == "PHOTO_UPLOAD_MALFORMED"
 
 
 async def test_foreign_target_is_404(api):

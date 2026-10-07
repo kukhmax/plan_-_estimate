@@ -16,7 +16,6 @@ from app.domain.exceptions import (
     PhotoAttachmentDuplicateError,
     PhotoAttachmentNotFoundError,
     PhotoAttachmentValidationError,
-    PhotoContextNotSupportedError,
     ProjectNotFoundError,
     RoomNotFoundError,
     SurfaceNotFoundError,
@@ -105,12 +104,17 @@ async def test_create_supported_context_with_defaults(db_session, context):
     assert att.inspection_id is att.question_id is att.finding_id is att.occurrence_key is att.price_item_id is None
 
 
-@pytest.mark.parametrize("context", [C.WORK])  # INSPECTION / FINDING are enabled since 14F.2 (own tests)
-async def test_future_contexts_not_supported(db_session, context):
+def test_no_context_is_pending_any_more():
+    # INSPECTION / FINDING since 14F.2, WORK since 14H.1 (own tests): every enum value is enabled.
+    from app.domain.services.photo_attachment_service import SUPPORTED_CONTEXTS
+
+    assert set(SUPPORTED_CONTEXTS) == set(C)
+
+
+async def test_work_without_its_ids_is_a_shape_error_not_an_unsupported_context(db_session):
     w = await world(db_session)
-    with pytest.raises(PhotoContextNotSupportedError) as exc:
-        await attach(db_session, w, target=AttachmentTarget(context=context))
-    assert exc.value.code == "PHOTO_CONTEXT_NOT_SUPPORTED"
+    with pytest.raises(PhotoAttachmentValidationError):
+        await attach(db_session, w, target=AttachmentTarget(context=C.WORK))
     assert await count(db_session) == 0
 
 

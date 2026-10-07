@@ -28,8 +28,8 @@ def counts_url(project) -> str:
     return f"{path_for(project)}/counts"
 
 
-# 14F.2 added the inspection-evidence maps (empty here: these tests photograph only the four 14C contexts).
-EMPTY = {"project": 0, "rooms": {}, "surfaces": {}, "openings": {}, "room_totals": {}, "inspections": {}, "findings": {}, "lineages": {}, "questions": {}}
+# 14F.2 added the inspection-evidence maps, 14H.1 the execution-evidence maps (empty here: these tests photograph only the four 14C contexts).
+EMPTY = {"project": 0, "rooms": {}, "surfaces": {}, "openings": {}, "room_totals": {}, "inspections": {}, "findings": {}, "lineages": {}, "questions": {}, "works": {}, "work_surfaces": {}}
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +62,8 @@ async def test_counts_group_by_context_and_target(api, http):
         "findings": {},
         "lineages": {},
         "questions": {},
+        "works": {},
+        "work_surfaces": {},
     }
 
 

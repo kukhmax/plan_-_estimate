@@ -759,7 +759,7 @@ explicit approval).
 
 ## 28. Addendum — Stage 14F.2: INSPECTION and FINDING contexts (supersedes C1 for these two contexts)
 
-No migration: the `0032` schema already carries the columns, the seven-branch CHECK and the unique indexes (§4–§6). WORK stays rejected (`422 PHOTO_CONTEXT_NOT_SUPPORTED`, 14H).
+No migration: the `0032` schema already carries the columns, the seven-branch CHECK and the unique indexes (§4–§6). WORK was still rejected at 14F.2 (`422 PHOTO_CONTEXT_NOT_SUPPORTED`); it is enabled by §29 (Stage 14H.1).
 
 **Targets (leaf ids; the chain to the project is resolved server-side; foreign, other-project and missing ids give one 404 per kind):**
 
@@ -779,3 +779,18 @@ Any other id on a context is a shape error (`PHOTO_UPLOAD_MALFORMED` on upload, 
 **Error codes added to the 14C table (§11b):** `INSPECTION_NOT_FOUND`, `QUESTION_NOT_FOUND`, `FINDING_NOT_FOUND` (all 404).
 
 **14F.3 additions.** `GET /photos?site_only=true` — only PROJECT / ROOM / SURFACE / OPENING photos (the object-wide list keeps its 14E meaning now that evidence exists); exclusive with `context`, the target ids, `in_room_id` and `lineage`; the unfiltered list still returns every context. `/photos/counts` gains `questions`: inspection id → question id → number of **question-level** photos only (inspection-level photos are in `inspections` but in no question).
+
+## 29. Addendum — Stage 14H.1: WORK context (execution evidence) (supersedes C1 for WORK; no context is pending any more)
+
+No migration: the `0032` schema already carries the `WORK` value, the columns, the CHECK branch (`surface_id`, `occurrence_key`, `price_item_id` all required, nothing else) and the partial unique index `uq_photo_att_work_active (asset_id, surface_id, occurrence_key)` (§4–§6). Architecture: `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §7, D14-12 … D14-16, D14-24.
+
+**Target.** `WORK` = `surface_id` + `occurrence_key` (the Stage 13 durable identity of one planned work; **never** `SurfacePlannedWork.id`). The client sends **only these two**; `price_item_id` is taken by the server from the plan's current occurrence at attach time and stored as a snapshot, so a later detached occurrence stays labelled. A client-sent `price_item_id` is refused (`extra="forbid"` on attach, unknown field on upload). Any other target id on `WORK`, and `occurrence_key` on any other context, is a shape error (`PHOTO_UPLOAD_MALFORMED` on upload, `PHOTO_ATTACHMENT_INVALID` elsewhere).
+
+**Chain and rules.** surface → room → project → owner (foreign, other-project and missing surfaces → 404 `SURFACE_NOT_FOUND`). The `occurrence_key` must be a **current** occurrence of **that surface's** plan, otherwise **409 `WORK_OCCURRENCE_NOT_CURRENT`** — one code for a stale, removed, replaced, other-surface, other-project, foreign or invented key (nothing about other plans is disclosed). The check happens before any processing or storage write. A photo before the work needs **no** `SurfaceWorkExecution` row. Work-plan edits never touch photos: APPEND and apply-to-all do not copy them, REPLACE / removal do not delete them (the evidence stays listable, countable, patchable, archivable and restorable as detached evidence), and a re-added item is a **new** occurrence that inherits nothing (matching is by key only). Duplicates: the same asset twice on the same surface + occurrence among active rows → 409 `PHOTO_ATTACHMENT_DUPLICATE`; the same asset on another occurrence (or surface) is a different attachment.
+
+**Upload (multipart):** new scalar field `occurrence_key`; a WORK form is `upload_id`, `context`, `surface_id`, `occurrence_key`, `category`, `caption`, `include_in_report`, `source` = exactly **8** fields — the limit stays 8. **Attach existing:** `PhotoAttachRequest` gains `occurrence_key` (still `extra="forbid"`). **Patch:** unchanged (context and target immutable).
+
+**Reads.** `PhotoAttachmentRead` gains `occurrence_key` and `price_item_id` (null for the other contexts). `GET /projects/{p}/photos?context=WORK&surface_id=…[&occurrence_key=…]` lists a surface's execution photos or one occurrence's, **detached ones included** — the listing validates only the surface chain, not that the key is current (an unknown key lists nothing). Without `surface_id`, with other target ids, or `occurrence_key` outside `context=WORK` → 422 `PHOTO_ATTACHMENT_INVALID`. The cursor fingerprint covers `occurrence_key`. WORK photos belong to Realizacja, like inspection evidence: `site_only`, `in_room_id`, `context=SURFACE` and the room totals never include them; the unfiltered list still returns every context.
+`GET /projects/{p}/photos/counts` gains `works` (photos per `occurrence_key`, detached included) and `work_surfaces` (per surface, the sum over its occurrences); empty targets are absent, and they never enter `surfaces`, `rooms` or `room_totals`.
+
+**Error code added to the table (§11b):** `WORK_OCCURRENCE_NOT_CURRENT` (409).
