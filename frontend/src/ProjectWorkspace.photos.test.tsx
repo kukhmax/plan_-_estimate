@@ -1,3 +1,4 @@
+import { jpegFile, jpegWithExif } from './test/jpegFixtures';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as areaSegmentsApi from './api/areaSegments';
@@ -514,7 +515,7 @@ describe('ProjectWorkspace photos — counts and uploads', () => {
     const button = within(card).getByRole('button', { name: 'Zdjęcia: 3' });
     fireEvent.click(button);
     fireEvent.change(await within(card).findByTestId('photo-input-camera'), {
-      target: { files: [new File(['x'], 'c.jpg', { type: 'image/jpeg' })] },
+      target: { files: [jpegFile('c.jpg', jpegWithExif({ original: new Date() }))] },
     });
     await waitFor(() => expect(photosApi.uploadPhoto).toHaveBeenCalledTimes(1));
     return { card, button };

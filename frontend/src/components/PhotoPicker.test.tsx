@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../hooks/useI18n';
-import { CAMERA_FRESH_WINDOW_MS, PHOTO_ACCEPT, PhotoPicker, looksFreshlyTaken } from './PhotoPicker';
+import { jpegFile, jpegWithExif } from '../test/jpegFixtures';
+import { CAMERA_FRESH_WINDOW_MS, PHOTO_ACCEPT, PhotoPicker, isFreshCapture } from './PhotoPicker';
 
 function renderPicker(onFiles = vi.fn(), disabled = false) {
   const view = render(
@@ -14,8 +15,8 @@ function renderPicker(onFiles = vi.fn(), disabled = false) {
 
 const camera = () => screen.getByTestId('photo-input-camera') as HTMLInputElement;
 const gallery = () => screen.getByTestId('photo-input-gallery') as HTMLInputElement;
-const file = (name: string, lastModified: number = Date.now()) =>
-  new File(['x'], name, { type: 'image/jpeg', lastModified });
+const file = (name: string) => new File(['x'], name, { type: 'image/jpeg' }); // no EXIF
+const taken = (name: string, ageMs: number) => jpegFile(name, jpegWithExif({ original: new Date(Date.now() - ageMs) }));
 
 describe('PhotoPicker', () => {
   beforeEach(() => localStorage.clear());
@@ -55,11 +56,13 @@ describe('PhotoPicker', () => {
     expect(galleryClick).toHaveBeenCalledTimes(1);
   });
 
-  it('hands the picked files over with the declared source and resets the input', () => {
+  it('hands the picked files over with the declared source and resets the input', async () => {
     const { onFiles } = renderPicker();
-    fireEvent.change(camera(), { target: { files: [file('c.jpg')] } });
+    fireEvent.change(camera(), { target: { files: [taken('c.jpg', 20_000)] } });
+    await waitFor(() => expect(onFiles).toHaveBeenCalledTimes(1));
     expect(onFiles).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'c.jpg' })], 'CAMERA');
     fireEvent.change(gallery(), { target: { files: [file('g1.jpg'), file('g2.jpg')] } });
+    await waitFor(() => expect(onFiles).toHaveBeenCalledTimes(2));
     expect(onFiles).toHaveBeenLastCalledWith(
       [expect.objectContaining({ name: 'g1.jpg' }), expect.objectContaining({ name: 'g2.jpg' })],
       'GALLERY',
@@ -68,37 +71,50 @@ describe('PhotoPicker', () => {
   });
 
   describe('declared source of the camera button (hosts that ignore `capture`)', () => {
-    it('a file taken a moment ago stays CAMERA', () => {
+    it('a photo taken a moment ago (EXIF) stays CAMERA', async () => {
       const { onFiles } = renderPicker();
-      fireEvent.change(camera(), { target: { files: [file('new.jpg', Date.now() - 30_000)] } });
+      fireEvent.change(camera(), { target: { files: [taken('new.jpg', 30_000)] } });
+      await waitFor(() => expect(onFiles).toHaveBeenCalled());
       expect(onFiles).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'new.jpg' })], 'CAMERA');
     });
 
-    it('an old file chosen through the camera button is declared GALLERY', () => {
+    it('an old photo chosen through the camera button is declared GALLERY', async () => {
       const { onFiles } = renderPicker();
-      fireEvent.change(camera(), { target: { files: [file('old.jpg', Date.now() - 3_600_000)] } });
+      fireEvent.change(camera(), { target: { files: [taken('old.jpg', 35 * 24 * 3_600_000)] } });
+      await waitFor(() => expect(onFiles).toHaveBeenCalled());
       expect(onFiles).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'old.jpg' })], 'GALLERY');
     });
 
-    it('a file without a modification time is declared GALLERY', () => {
+    it('a file without EXIF (screenshot, download) is declared GALLERY even though the host copied it just now', async () => {
       const { onFiles } = renderPicker();
-      fireEvent.change(camera(), { target: { files: [file('nots.jpg', 0)] } });
-      expect(onFiles).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'nots.jpg' })], 'GALLERY');
+      const copied = new File(['x'], 'shot.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+      fireEvent.change(camera(), { target: { files: [copied, jpegFile('bare.jpg')] } });
+      await waitFor(() => expect(onFiles).toHaveBeenCalled());
+      expect(onFiles).toHaveBeenLastCalledWith(expect.any(Array), 'GALLERY');
     });
 
-    it('the gallery button is always GALLERY, even for a fresh file', () => {
+    it('every file must be fresh for CAMERA', async () => {
       const { onFiles } = renderPicker();
-      fireEvent.change(gallery(), { target: { files: [file('fresh.jpg', Date.now())] } });
+      fireEvent.change(camera(), { target: { files: [taken('a.jpg', 10_000), taken('b.jpg', 3_600_000)] } });
+      await waitFor(() => expect(onFiles).toHaveBeenCalled());
+      expect(onFiles).toHaveBeenLastCalledWith(expect.any(Array), 'GALLERY');
+    });
+
+    it('the gallery button is always GALLERY, even for a fresh photo', async () => {
+      const { onFiles } = renderPicker();
+      fireEvent.change(gallery(), { target: { files: [taken('fresh.jpg', 1_000)] } });
+      await waitFor(() => expect(onFiles).toHaveBeenCalled());
       expect(onFiles).toHaveBeenLastCalledWith([expect.objectContaining({ name: 'fresh.jpg' })], 'GALLERY');
     });
 
     it('the window is five minutes and tolerates a small clock skew either way', () => {
       expect(CAMERA_FRESH_WINDOW_MS).toBe(300_000);
       const now = 1_000_000_000_000;
-      expect(looksFreshlyTaken(file('a.jpg', now - 299_000), now)).toBe(true);
-      expect(looksFreshlyTaken(file('b.jpg', now + 60_000), now)).toBe(true);
-      expect(looksFreshlyTaken(file('c.jpg', now - 301_000), now)).toBe(false);
-      expect(looksFreshlyTaken(file('d.jpg', now + 301_000), now)).toBe(false);
+      expect(isFreshCapture(new Date(now - 299_000), now)).toBe(true);
+      expect(isFreshCapture(new Date(now + 60_000), now)).toBe(true);
+      expect(isFreshCapture(new Date(now - 301_000), now)).toBe(false);
+      expect(isFreshCapture(new Date(now + 301_000), now)).toBe(false);
+      expect(isFreshCapture(null, now)).toBe(false);
     });
   });
 

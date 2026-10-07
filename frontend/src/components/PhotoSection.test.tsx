@@ -5,6 +5,7 @@ import { I18nProvider } from '../hooks/useI18n';
 import { resetPhotoStorage } from '../hooks/usePhotoStorage';
 import { resetPhotoUploadQueue } from '../hooks/usePhotoUploadQueue';
 import { PhotoUploadResponse } from '../types/photo';
+import { jpegFile, jpegWithExif } from '../test/jpegFixtures';
 import { detailFor, listPage, makeItem, PROJECT_ID, ROOM_ID, storageStatus, SURFACE_ID } from '../test/photoFixtures';
 import { PhotoSection } from './PhotoSection';
 
@@ -58,7 +59,8 @@ const lastListParams = () => {
   const calls = vi.mocked(fetchPhotos).mock.calls;
   return calls[calls.length - 1][1];
 };
-const file = (name = 'a.jpg') => new File(['x'], name, { type: 'image/jpeg' });
+// a photo the camera has just taken (fresh EXIF capture time): the camera button declares it CAMERA
+const file = (name = 'a.jpg') => jpegFile(name, jpegWithExif({ original: new Date() }));
 const pickCamera = (files: File[]) =>
   fireEvent.change(screen.getByTestId('photo-input-camera'), { target: { files } });
 const pickGallery = (files: File[]) =>
@@ -260,7 +262,7 @@ describe('PhotoSection — uploading', () => {
     renderSection();
     await screen.findByRole('button', { name: 'Zrób zdjęcie' });
     await act(async () => pickCamera([file('c.jpg')]));
-    expect(uploadPhoto).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(uploadPhoto).toHaveBeenCalledTimes(1));
     expect(uploads[0].params).toMatchObject({
       projectId: PROJECT_ID,
       context: 'SURFACE',
@@ -306,6 +308,7 @@ describe('PhotoSection — uploading', () => {
     renderSection();
     await screen.findByRole('button', { name: 'Zrób zdjęcie' });
     await act(async () => pickCamera([file('c.jpg')]));
+    await waitFor(() => expect(uploads).toHaveLength(1));
     expect(fetchPhotos).toHaveBeenCalledTimes(1);
 
     vi.mocked(fetchPhotos).mockResolvedValue(listPage([item]));
@@ -328,6 +331,7 @@ describe('PhotoSection — uploading', () => {
     renderSection();
     await screen.findByRole('button', { name: 'Zrób zdjęcie' });
     await act(async () => pickCamera([file('c.jpg')]));
+    await waitFor(() => expect(uploads).toHaveLength(1));
     await act(async () => uploads[0].reject(new ApiError('x', 415, 'PHOTO_UNSUPPORTED_FORMAT')));
     expect(await screen.findByText('Użyj JPEG, PNG lub WebP.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Zamknij' })).toBeInTheDocument();

@@ -1,6 +1,7 @@
 import { ChangeEvent, useRef } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import { PhotoCaptureSource } from '../types/photo';
+import { readExifCaptureTime } from '../utils/jpegExif';
 import { CameraIcon, GalleryIcon } from './PhotoIcons';
 
 // Two buttons (D3): camera (`capture`) and gallery (multi-select), each with its own hidden input. The picked files
@@ -9,13 +10,22 @@ import { CameraIcon, GalleryIcon } from './PhotoIcons';
 export const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp';
 
 // Some hosts ignore `capture` — Telegram on Android opens its gallery picker instead of the camera (found on a real
-// phone in 14E.7) — so the camera button cannot promise a camera photo. The declared source therefore follows the
-// file: a camera-button file counts as CAMERA only when it was modified within this window of "now" (a photo taken
-// a moment ago); anything older is declared GALLERY. Still informational, never proof.
+// phone in 14E.7) and hands over a COPY of the picked file, so neither the button nor the file's modification time
+// says anything about where the photo came from. The declared source therefore follows the photo itself: a
+// camera-button file counts as CAMERA only when its EXIF capture time (written by the camera, read here as device-local
+// time) is within this window of "now"; anything older, or without EXIF (screenshots, downloads), is declared GALLERY.
+// Still informational, never proof.
 export const CAMERA_FRESH_WINDOW_MS = 5 * 60 * 1000;
 
-export function looksFreshlyTaken(file: File, now: number = Date.now()): boolean {
-  return file.lastModified > 0 && Math.abs(now - file.lastModified) <= CAMERA_FRESH_WINDOW_MS;
+export function isFreshCapture(captured: Date | null, now: number = Date.now()): boolean {
+  return captured !== null && Math.abs(now - captured.getTime()) <= CAMERA_FRESH_WINDOW_MS;
+}
+
+async function declaredCameraSource(files: File[]): Promise<PhotoCaptureSource> {
+  for (const file of files) {
+    if (!isFreshCapture(await readExifCaptureTime(file))) return 'GALLERY';
+  }
+  return 'CAMERA';
 }
 
 interface PhotoPickerProps {
@@ -28,13 +38,11 @@ export function PhotoPicker({ onFiles, disabled = false }: PhotoPickerProps) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
-  const handle = (source: PhotoCaptureSource) => (event: ChangeEvent<HTMLInputElement>) => {
+  const handle = (source: PhotoCaptureSource) => async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
-    event.target.value = ''; // the same file can be picked again
+    event.target.value = ''; // the same file can be picked again (reset before anything is awaited)
     if (files.length === 0) return;
-    const declared: PhotoCaptureSource =
-      source === 'CAMERA' && !files.every((file) => looksFreshlyTaken(file)) ? 'GALLERY' : source;
-    onFiles(files, declared);
+    onFiles(files, source === 'CAMERA' ? await declaredCameraSource(files) : source);
   };
 
   const buttonBase =
