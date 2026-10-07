@@ -94,9 +94,9 @@ def test_revision_chain_and_single_head():
     assert module.down_revision == "0031_photo_assets"
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    # Stage 14E.2 added 0033 and Stage 14F.1 added 0034 on top; 0032 must stay 0033's direct parent (single linear chain).
+    # Stage 14E.2 added 0033, 14F.1 added 0034 and 14G.1 added 0035 on top; 0032 must stay 0033's direct parent (single linear chain).
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0034_finding_lineage"]
+    assert scripts.get_heads() == ["0035_photo_annotations"]
     assert scripts.get_revision("0034_finding_lineage").down_revision == "0033_photo_capture_source"
     assert scripts.get_revision("0033_photo_capture_source").down_revision == "0032_photo_attachments"
 

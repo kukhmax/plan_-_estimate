@@ -794,3 +794,24 @@ No migration: the `0032` schema already carries the `WORK` value, the columns, t
 `GET /projects/{p}/photos/counts` gains `works` (photos per `occurrence_key`, detached included) and `work_surfaces` (per surface, the sum over its occurrences); empty targets are absent, and they never enter `surfaces`, `rooms` or `room_totals`.
 
 **Error code added to the table (§11b):** `WORK_OCCURRENCE_NOT_CURRENT` (409).
+
+## 30. Addendum — Stage 14G.1: point markers (annotations) on attachments (migration `0035_photo_annotations`)
+
+Design: `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §6.4 / §15.4, plan `docs/STAGE_14G_POINT_ANNOTATIONS_PLAN_RU.md`. A marker only says **where** on the picture something is; it carries no defect data (no finding, severity, status, category). It belongs to the **attachment**, so the same image attached to two places has two independent marker sets.
+
+**Marker (`PhotoAnnotationRead`):** `id`, `attachment_id`, `kind` (`POINT`), `x`, `y` (fractions 0..1 of the correctly oriented display image; origin top-left, `x` right, `y` down; stored with six decimals), `label` (null or 1–40 characters, trimmed; whitespace-only → null), `position` (display order, assigned by the server after the last marker, gaps after deletes are not reused), `created_at`, `updated_at`.
+
+| Method & path | Purpose |
+|---|---|
+| `GET /projects/{p}/photo-attachments/{id}/annotations` | `{items, max_per_photo}` in display order (`position`, then `created_at`, `id`); archived attachments are readable |
+| `POST …/annotations` body `{x, y, label?}` | 201 + marker. `x`, `y` must be JSON numbers (a bool / text / missing → standard 422); the range and the label length are checked by the service → 422 `PHOTO_ANNOTATION_INVALID`. Unknown fields (`finding_id`, `position`, `kind` …) → 422 |
+| `PATCH …/annotations/{aid}` body `{label}` | label only (`null` clears); a marker is never moved or reordered — delete it and place a new one |
+| `DELETE …/annotations/{aid}` | 204; hard delete of the marker only (photo, attachment, asset untouched) |
+
+**Rules.** Chain owner → project → attachment of a READY asset; foreign / missing → the existing 404s (`PROJECT_NOT_FOUND`, `PHOTO_ATTACHMENT_NOT_FOUND`), an unknown marker on this attachment → 404 `PHOTO_ANNOTATION_NOT_FOUND`. Writes need an **active** attachment of an **active** asset, otherwise 409 `PHOTO_ANNOTATION_READ_ONLY` (reads stay allowed; archive → restore returns the very same markers). **At most 10 markers per attachment** (owner decision Q1): the 11th → 409 `PHOTO_ANNOTATION_LIMIT_REACHED`; the check runs under a row lock on the attachment so two simultaneous requests cannot both pass.
+
+**Reads.** `GET /photos` items gain `annotation_count` (0 when none; also in the archive view). `GET /photos/{asset_id}` gains `annotations` (every marker of every attachment of the asset, each with its `attachment_id`, in display order) and `annotation_limit` (10). `PhotoAttachmentRead`, `PhotoAssetRead` and the counts endpoint are unchanged; markers do not affect any count.
+
+**Error codes added to the table (§11b):** `PHOTO_ANNOTATION_NOT_FOUND` (404), `PHOTO_ANNOTATION_INVALID` (422), `PHOTO_ANNOTATION_LIMIT_REACHED` (409), `PHOTO_ANNOTATION_READ_ONLY` (409).
+
+**PDF / report (14I, Stage 15):** the marker data (`x`, `y`, `position`, `label`) is final; how markers are drawn into a document is decided with the report.

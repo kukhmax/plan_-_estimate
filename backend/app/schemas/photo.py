@@ -7,9 +7,20 @@ presigned derivative URLs are the only delivery references (C5).
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    StrictBool,
+    StrictFloat,
+    StrictInt,
+    field_validator,
+)
 
 from app.domain.services.photo_quota import PhotoStorageState
+from app.models.photo_annotation import (
+    MAX_ANNOTATIONS_PER_ATTACHMENT,
+    PhotoAnnotationKind,
+)
 from app.models.photo_asset import (
     PhotoAssetStatus,
     PhotoCaptureSource,
@@ -63,6 +74,47 @@ class PhotoAttachmentRead(BaseModel):
     updated_at: datetime
 
 
+class PhotoAnnotationRead(BaseModel):
+    """A point marker (Stage 14G): where on the display image, optional short label, display order.
+    No finding / severity / status data (architecture D14-9, D14-10)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    attachment_id: uuid.UUID
+    kind: PhotoAnnotationKind
+    x: float
+    y: float
+    label: str | None
+    position: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class PhotoAnnotationListResponse(BaseModel):
+    items: list[PhotoAnnotationRead]
+    max_per_photo: int = MAX_ANNOTATIONS_PER_ATTACHMENT
+
+
+class PhotoAnnotationCreate(BaseModel):
+    """Numbers only (a bool or text is a validation error); the range 0..1 and the label length are checked
+    by the service so they come back in the photo error envelope."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    x: StrictInt | StrictFloat
+    y: StrictInt | StrictFloat
+    label: str | None = None
+
+
+class PhotoAnnotationPatch(BaseModel):
+    """Label only: a marker is never moved or reordered (owner decision Q5). `label: null` clears it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str | None = None
+
+
 class PhotoStorageRead(BaseModel):
     state: PhotoStorageState
 
@@ -87,6 +139,7 @@ class PhotoListItem(BaseModel):
     attachment: PhotoAttachmentRead
     asset: PhotoAssetRead
     thumbnail_url: str | None
+    annotation_count: int = 0
 
 
 class PhotoListResponse(BaseModel):
@@ -101,6 +154,9 @@ class PhotoDetailResponse(BaseModel):
     thumbnail_url: str | None
     display_url: str | None
     urls_expire_at: datetime | None
+    # Point markers of every attachment of the asset (each carries its attachment_id), in display order.
+    annotations: list[PhotoAnnotationRead] = []
+    annotation_limit: int = MAX_ANNOTATIONS_PER_ATTACHMENT
 
 
 class PhotoAttachmentPatch(BaseModel):

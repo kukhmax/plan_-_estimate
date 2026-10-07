@@ -85,7 +85,7 @@ async def test_list_all_contexts_with_thumbnail_only(api, http):
     data = r.json()
     assert [i["attachment"]["id"] for i in data["items"]] == [m["attachment"]["id"] for m in made]
     for item in data["items"]:
-        assert set(item) == {"attachment", "asset", "thumbnail_url"}
+        assert set(item) == {"attachment", "asset", "thumbnail_url", "annotation_count"}
         assert item["thumbnail_url"].startswith("memory://media/") and "/thumb.jpg" in item["thumbnail_url"]
     assert data["next_cursor"] is None and data["urls_expire_at"]
     assets = [await row(api.db, PhotoAsset, m["asset"]["id"]) for m in made]
@@ -313,7 +313,7 @@ async def test_detail_returns_asset_all_attachments_and_both_urls(api, http, mon
     await http.post(f"{base}/photo-attachments/{extra['id']}/archive")
     r = await http.get(f"{base}/photos/{made['asset']['id']}")
     data = r.json()
-    assert set(data) == {"asset", "attachments", "thumbnail_url", "display_url", "urls_expire_at"}
+    assert set(data) == {"asset", "attachments", "thumbnail_url", "display_url", "urls_expire_at", "annotations", "annotation_limit"}
     assert [(a["id"], a["archived_at"] is not None) for a in data["attachments"]] == [
         (made["attachment"]["id"], False), (extra["id"], True)]
     assert data["thumbnail_url"].endswith("/thumb.jpg?expires=90")

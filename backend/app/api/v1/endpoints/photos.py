@@ -52,6 +52,10 @@ from app.domain.exceptions import (
     MediaStorageError,
     MediaStorageUnavailable,
     OpeningNotFoundError,
+    PhotoAnnotationLimitReachedError,
+    PhotoAnnotationNotFoundError,
+    PhotoAnnotationReadOnlyError,
+    PhotoAnnotationValidationError,
     PhotoAssetNotFoundError,
     PhotoAttachmentDuplicateError,
     PhotoAttachmentNotFoundError,
@@ -74,6 +78,7 @@ from app.domain.exceptions import (
 )
 from app.domain.photos.temp import photo_workspace
 from app.domain.services.media_storage import MediaStorage
+from app.domain.services.photo_annotation_service import PhotoAnnotationService
 from app.domain.services.photo_asset_service import PhotoAssetService
 from app.domain.services.photo_attachment_service import (
     AttachmentTarget,
@@ -98,6 +103,10 @@ from app.models.photo_asset import PhotoCaptureSource
 from app.models.photo_attachment import PhotoAttachmentContext, PhotoCategory
 from app.models.user import User
 from app.schemas.photo import (
+    PhotoAnnotationCreate,
+    PhotoAnnotationListResponse,
+    PhotoAnnotationPatch,
+    PhotoAnnotationRead,
     PhotoAssetRead,
     PhotoAttachmentPatch,
     PhotoAttachmentRead,
@@ -161,6 +170,10 @@ _MESSAGES = {
     "PHOTO_ATTACHMENT_DUPLICATE": "An equivalent active attachment already exists",
     "PHOTO_ATTACHMENT_INVALID": "Invalid photo attachment data",
     "PHOTO_CURSOR_INVALID": "Invalid list cursor",
+    "PHOTO_ANNOTATION_NOT_FOUND": "Photo marker not found",
+    "PHOTO_ANNOTATION_INVALID": "Invalid photo marker data",
+    "PHOTO_ANNOTATION_LIMIT_REACHED": "The photo already has the maximum number of markers",
+    "PHOTO_ANNOTATION_READ_ONLY": "Markers of an archived photo cannot be changed",
 }
 
 
@@ -463,6 +476,10 @@ _LIBRARY_ERRORS = (
     PhotoAttachmentNotFoundError,
     PhotoAttachmentDuplicateError,
     PhotoCursorInvalidError,
+    PhotoAnnotationNotFoundError,
+    PhotoAnnotationValidationError,
+    PhotoAnnotationLimitReachedError,
+    PhotoAnnotationReadOnlyError,
 )
 
 
@@ -478,6 +495,14 @@ def _map_library_error(exc: Exception) -> HTTPException:
         return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, "PHOTO_ATTACHMENT_INVALID")
     if isinstance(exc, PhotoCursorInvalidError):
         return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, "PHOTO_CURSOR_INVALID")
+    if isinstance(exc, PhotoAnnotationNotFoundError):
+        return _error(status.HTTP_404_NOT_FOUND, "PHOTO_ANNOTATION_NOT_FOUND")
+    if isinstance(exc, PhotoAnnotationValidationError):
+        return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, "PHOTO_ANNOTATION_INVALID")
+    if isinstance(exc, PhotoAnnotationLimitReachedError):
+        return _error(status.HTTP_409_CONFLICT, "PHOTO_ANNOTATION_LIMIT_REACHED")
+    if isinstance(exc, PhotoAnnotationReadOnlyError):
+        return _error(status.HTTP_409_CONFLICT, "PHOTO_ANNOTATION_READ_ONLY")
     return _map_domain_error(exc)
 
 
@@ -546,6 +571,7 @@ async def list_photos(
             current_user.id, project_id, filters, limit=limit, cursor=cursor
         )
         urls, expires_at = await _sign(runtime.storage, [asset.storage_key_thumbnail for _, asset in page.items])
+        marker_counts = await PhotoAnnotationService(db).counts_for_attachments([a.id for a, _ in page.items])
     except _LIBRARY_ERRORS as exc:
         raise _map_library_error(exc) from None
     return PhotoListResponse(
@@ -554,6 +580,7 @@ async def list_photos(
                 attachment=PhotoAttachmentRead.model_validate(attachment),
                 asset=PhotoAssetRead.model_validate(asset),
                 thumbnail_url=url,
+                annotation_count=marker_counts.get(attachment.id, 0),
             )
             for (attachment, asset), url in zip(page.items, urls, strict=True)
         ],
@@ -599,6 +626,7 @@ async def get_photo(
     try:
         asset, attachments = await PhotoQueryService(db).get_detail(current_user.id, project_id, asset_id)
         urls, expires_at = await _sign(runtime.storage, [asset.storage_key_thumbnail, asset.storage_key_display])
+        markers = await PhotoAnnotationService(db).list_for_attachments([a.id for a in attachments])
     except _LIBRARY_ERRORS as exc:
         raise _map_library_error(exc) from None
     return PhotoDetailResponse(
@@ -607,6 +635,7 @@ async def get_photo(
         thumbnail_url=urls[0],
         display_url=urls[1],
         urls_expire_at=expires_at,
+        annotations=[PhotoAnnotationRead.model_validate(m) for m in markers],
     )
 
 
@@ -754,6 +783,92 @@ async def restore_photo(
     db: AsyncSession = Depends(get_db),
 ) -> PhotoAssetRead:
     return await _asset_state(project_id, asset_id, current_user.id, db, archive=False)
+
+
+@router.get(
+    "/projects/{project_id}/photo-attachments/{attachment_id}/annotations",
+    response_model=PhotoAnnotationListResponse,
+    summary="Point markers of one attachment (archived attachments included), in display order",
+)
+async def list_photo_annotations(
+    project_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAnnotationListResponse:
+    try:
+        await ProjectService(db).get_project(project_id, current_user.id)
+        markers = await PhotoAnnotationService(db).list_for_attachment(current_user.id, project_id, attachment_id)
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return PhotoAnnotationListResponse(items=[PhotoAnnotationRead.model_validate(m) for m in markers])
+
+
+@router.post(
+    "/projects/{project_id}/photo-attachments/{attachment_id}/annotations",
+    response_model=PhotoAnnotationRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Place a point marker (x, y = fractions of the display image; at most 10 per attachment)",
+)
+async def create_photo_annotation(
+    project_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    payload: PhotoAnnotationCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAnnotationRead:
+    try:
+        await ProjectService(db).get_project(project_id, current_user.id)
+        marker = await PhotoAnnotationService(db).create(
+            current_user.id, project_id, attachment_id, x=payload.x, y=payload.y, label=payload.label
+        )
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return PhotoAnnotationRead.model_validate(marker)
+
+
+@router.patch(
+    "/projects/{project_id}/photo-attachments/{attachment_id}/annotations/{annotation_id}",
+    response_model=PhotoAnnotationRead,
+    summary="Change the label of a marker (a marker is never moved or reordered)",
+)
+async def update_photo_annotation(
+    project_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    annotation_id: uuid.UUID,
+    payload: PhotoAnnotationPatch,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAnnotationRead:
+    changes = {name: getattr(payload, name) for name in payload.model_fields_set}
+    try:
+        await ProjectService(db).get_project(project_id, current_user.id)
+        marker = await PhotoAnnotationService(db).update_label(
+            current_user.id, project_id, attachment_id, annotation_id, **changes
+        )
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return PhotoAnnotationRead.model_validate(marker)
+
+
+@router.delete(
+    "/projects/{project_id}/photo-attachments/{attachment_id}/annotations/{annotation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a marker for good (the photo is untouched)",
+)
+async def delete_photo_annotation(
+    project_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    annotation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    try:
+        await ProjectService(db).get_project(project_id, current_user.id)
+        await PhotoAnnotationService(db).delete(current_user.id, project_id, attachment_id, annotation_id)
+    except _LIBRARY_ERRORS as exc:
+        raise _map_library_error(exc) from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(

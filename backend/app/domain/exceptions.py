@@ -412,6 +412,35 @@ class PhotoAttachmentValidationError(Exception):
 
 
 # ---------------------------------------------------------------------------
+# Stage 14G.1 — point annotations (markers) on photo attachments.
+# ---------------------------------------------------------------------------
+
+
+class PhotoAnnotationNotFoundError(Exception):
+    """The marker does not exist on this attachment (missing, other attachment, other project or owner)."""
+
+    code = "PHOTO_ANNOTATION_NOT_FOUND"
+
+
+class PhotoAnnotationValidationError(Exception):
+    """Marker input is invalid (coordinates outside 0..1 or not numbers, label too long / not text)."""
+
+    code = "PHOTO_ANNOTATION_INVALID"
+
+
+class PhotoAnnotationLimitReachedError(Exception):
+    """The attachment already carries the maximum number of markers."""
+
+    code = "PHOTO_ANNOTATION_LIMIT_REACHED"
+
+
+class PhotoAnnotationReadOnlyError(Exception):
+    """Markers of an archived attachment (or of an archived photo) can be read but not changed."""
+
+    code = "PHOTO_ANNOTATION_READ_ONLY"
+
+
+# ---------------------------------------------------------------------------
 # Stage 14C.3 — upload orchestration (transport-neutral; HTTP mapping is 14C.4).
 # Storage failures keep the provider-neutral MediaStorageError subclasses
 # (MediaStorageUnavailable / MediaStorageMisconfigured / MediaObjectConflict).

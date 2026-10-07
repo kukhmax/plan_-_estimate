@@ -28,6 +28,7 @@ from app.models.opening_reveal_planned_work import (
     OpeningRevealPlannedWork,
     OpeningRevealPlannedWorkCoefficientAssignment,
 )
+from app.models.photo_annotation import PhotoAnnotation, PhotoAnnotationKind
 from app.models.photo_asset import PhotoAsset, PhotoAssetStatus, PhotoContentType
 from app.models.photo_attachment import PhotoAttachment, PhotoAttachmentContext, PhotoCategory
 from app.models.price_coefficient import (
@@ -93,6 +94,8 @@ __all__ = [
     "OpeningRevealPlannedWork",
     "OpeningRevealPlannedWorkCoefficientAssignment",
     "OpeningType",
+    "PhotoAnnotation",
+    "PhotoAnnotationKind",
     "PhotoAsset",
     "PhotoAssetStatus",
     "PhotoAttachment",
