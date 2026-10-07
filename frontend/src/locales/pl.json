@@ -23,8 +23,7 @@
       "telegram_auth_expired": "Dane logowania Telegram wygasły. Otwórz aplikację ponownie.",
       "backend_unavailable": "Serwer autoryzacji jest niedostępny. Spróbuj ponownie później.",
       "request_failed": "Nie udało się zalogować. Spróbuj ponownie."
-    },
-    "camera_diagnostics": "Diagnostyka kamery"
+    }
   },
   "navigation": {
     "clients": "Klienci",
@@ -1642,22 +1641,5 @@
       "sizing": "Pierwsze zdjęcie trwa dłużej: dobieram format 4:3…",
       "torch_failed": "Nie udało się przełączyć latarki."
     }
-  },
-  "cameraSpike": {
-    "title": "Diagnostyka kamery",
-    "intro": "Test sprawdza, czy ta aplikacja w Telegramie może używać kamery telefonu. Nic nie jest zapisywane ani wysyłane.",
-    "start_max": "Uruchom kamerę — maksymalna rozdzielczość",
-    "start_fhd": "Uruchom kamerę — 1920×1080",
-    "start_hd": "Uruchom kamerę — 1280×720",
-    "stop": "Zatrzymaj kamerę",
-    "take_photo": "Zdjęcie: takePhoto",
-    "take_canvas": "Zdjęcie: klatka z podglądu",
-    "report": "Raport do wysłania",
-    "copy": "Skopiuj raport",
-    "copied": "Raport skopiowany.",
-    "copy_manual": "Nie można skopiować automatycznie — zaznacz tekst i skopiuj ręcznie albo zrób zrzut ekranu.",
-    "stills": "Wykonane zdjęcia testowe",
-    "close": "Zamknij",
-    "size_test": "Test rozmiarów zdjęć i zoomu"
   }
 }
