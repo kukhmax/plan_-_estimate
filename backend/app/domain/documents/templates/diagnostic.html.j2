@@ -1,0 +1,19 @@
+{% extends "_layout.html.j2" %}
+{% block body %}
+<p>{{ t('diagnostic.intro') }}</p>
+<p>{{ t('diagnostic.diacritics') }}</p>
+<p>{{ t('diagnostic.cyrillic') }}</p>
+<p>{{ t('diagnostic.symbols') }}</p>
+<p>{{ t('diagnostic.long_text') }}</p>
+{% if rows %}
+<table>
+  <thead><tr><th>{{ t('diagnostic.table.item') }}</th><th class="num">{{ t('diagnostic.table.quantity') }}</th><th class="num">{{ t('diagnostic.table.amount') }}</th></tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr><td>{{ t('diagnostic.sample_row', n=loop.index) }} {{ row.note }}</td><td class="num">{{ row.quantity | area }}</td><td class="num">{{ row.amount | money }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% if image %}<p><img src="assets/{{ image }}" alt="" style="max-width: 60mm"></p>{% endif %}
+{% endblock %}

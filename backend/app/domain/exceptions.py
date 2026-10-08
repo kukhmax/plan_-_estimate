@@ -510,3 +510,39 @@ class ChecklistQuestionNotFoundError(Exception):
 class InspectionFindingNotFoundError(Exception):
     """An inspection finding (or a lineage) is not found within the owner's
     project. Stage 14F.2 photo targets."""
+
+
+# ---------------------------------------------------------------------------
+# Stage 15B — documents / PDF rendering (transport-neutral; HTTP mapping comes with 15F).
+# ---------------------------------------------------------------------------
+
+
+class DocumentRenderError(Exception):
+    """Base of every document rendering failure."""
+
+    code = "DOCUMENT_RENDER_FAILED"
+
+
+class DocumentTemplateError(DocumentRenderError):
+    """A template is unknown, broken, or asked for a value / label that does not exist (a programming error, never user input)."""
+
+    code = "DOCUMENT_TEMPLATE_INVALID"
+
+
+class DocumentTooLargeError(DocumentRenderError):
+    """The document exceeds a configured limit (HTML, assets, pages or PDF size)."""
+
+    code = "DOCUMENT_TOO_LARGE"
+
+
+class DocumentRenderBusyError(DocumentRenderError):
+    """Another document is being rendered and the wait ran out (one render at a time)."""
+
+    code = "DOCUMENT_RENDER_BUSY"
+
+
+class DocumentRenderTimeoutError(DocumentRenderError):
+    """The render took longer than the limit; the worker process was killed."""
+
+    code = "DOCUMENT_RENDER_TIMEOUT"
+

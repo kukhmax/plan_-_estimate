@@ -1,0 +1,34 @@
+@font-face { font-family: "DejaVu Sans"; font-weight: 400; font-style: normal; src: url("{{ fonts_url }}/DejaVuSans.ttf"); }
+@font-face { font-family: "DejaVu Sans"; font-weight: 700; font-style: normal; src: url("{{ fonts_url }}/DejaVuSans-Bold.ttf"); }
+
+@page {
+  size: A4;
+  margin: 18mm 15mm 20mm 15mm;
+  @bottom-left { content: element(footer); font: 400 7.5pt "DejaVu Sans"; color: #555; vertical-align: top; padding-top: 3mm; }
+  @bottom-right { content: "{{ t('doc.page') }} " counter(page) " {{ t('doc.of') }} " counter(pages); font: 400 7.5pt "DejaVu Sans"; color: #555; vertical-align: top; padding-top: 3mm; }
+}
+
+html { font-family: "DejaVu Sans", sans-serif; font-size: 9.5pt; line-height: 1.4; color: #111; }
+body { margin: 0; }
+.running-footer { position: running(footer); font-size: 7.5pt; color: #555; }
+h1 { font-size: 17pt; margin: 0 0 4mm 0; }
+h2 { font-size: 12pt; margin: 6mm 0 2mm 0; page-break-after: avoid; }
+p { margin: 0 0 2.5mm 0; orphans: 3; widows: 3; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; vertical-align: top; padding: 1.6mm 2mm; }
+th { font-weight: 700; border-bottom: 0.4mm solid #111; }
+td { border-bottom: 0.2mm solid #bbb; }
+tr { page-break-inside: avoid; }
+thead { display: table-header-group; }
+.num { text-align: right; white-space: nowrap; }
+.meta { width: auto; margin-bottom: 4mm; }
+.meta td { border: 0; padding: 0.6mm 4mm 0.6mm 0; }
+.meta .label { color: #555; }
+.parties { display: flex; gap: 8mm; margin-bottom: 5mm; }
+.party { flex: 1 1 0; border: 0.3mm solid #999; padding: 2.5mm 3mm; min-height: 22mm; }
+.party .role { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #555; margin-bottom: 1mm; }
+.party .name { font-weight: 700; }
+.party .missing { color: #888; }
+.signatures { display: flex; gap: 14mm; margin-top: 18mm; page-break-inside: avoid; }
+.signature { flex: 1 1 0; border-top: 0.3mm solid #111; padding-top: 1.5mm; font-size: 8pt; color: #333; }
+.generated-by { margin-top: 8mm; font-size: 7.5pt; color: #777; }

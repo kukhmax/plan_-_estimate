@@ -34,8 +34,30 @@ s3transfer==0.19.2
 urllib3==2.8.0
 Pillow==12.3.0
 
+# Documents / PDF (Stage 15): Jinja2 templates rendered to PDF by WeasyPrint. The whole rendering chain is pinned because
+# the output (layout, fonts, PDF structure) depends on every one of these packages. WeasyPrint also needs the system
+# libraries installed by backend/Dockerfile (Pango, HarfBuzz).
+Jinja2==3.1.6
+MarkupSafe==3.0.4
+weasyprint==70.0
+pydyf==0.12.1
+tinycss2==1.5.1
+tinyhtml5==2.1.0
+cssselect2==0.10.1
+webencodings==0.6.1
+fonttools[woff]==4.66.1
+brotli==1.2.0
+zopfli==0.4.3
+Pyphen==0.18.1
+cffi==2.1.1
+pycparser==3.0
+
+# Time zone database for zoneinfo (documents print Polish local dates; the slim image has no system tzdata guarantee)
+tzdata==2026.5
+
 # Tests (also installed in the image)
 pytest==8.4.2
 pytest-asyncio==0.26.0
 httpx==0.28.1
 aiosqlite==0.22.1
+pypdf==6.19.0

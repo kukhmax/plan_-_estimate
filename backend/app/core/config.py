@@ -64,6 +64,15 @@ class Settings(BaseSettings):
     # (14B plan §23.12); configuration values, not domain invariants.
     PHOTO_TEMP_STALE_AFTER_SECONDS: int = Field(default=86400, gt=0)
     PHOTO_PROCESSING_WAIT_SECONDS: float = Field(default=30.0, gt=0)
+    # Stage 15 documents / PDF: the render runs in a separate, resource-limited process, one at a time.
+    DOCUMENT_RENDER_TIMEOUT_SECONDS: float = Field(default=90.0, gt=0)
+    DOCUMENT_RENDER_WAIT_SECONDS: float = Field(default=30.0, ge=0)
+    DOCUMENT_RENDER_MEMORY_MB: int = Field(default=2048, ge=256)
+    DOCUMENT_MAX_PAGES: int = Field(default=200, gt=0)
+    DOCUMENT_MAX_PDF_BYTES: int = Field(default=40_000_000, gt=0)  # Telegram sendDocument accepts up to 50 MB
+    DOCUMENT_MAX_HTML_BYTES: int = Field(default=8_000_000, gt=0)
+    DOCUMENT_MAX_ASSETS: int = Field(default=300, gt=0)
+    DOCUMENT_MAX_ASSET_BYTES: int = Field(default=60_000_000, gt=0)  # all assets of one document together
 
     @model_validator(mode="after")
     def _validate_media_configuration(self) -> "Settings":

@@ -32,7 +32,9 @@ PGDG_KEY_SHA256 = "0144068502a1eddd2a0280ede10ef607d1ec592ce819940991203941564e8
 PGDG_KEY_FINGERPRINT = "B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8"
 PGDG_KEY_PATH = "/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc"
 # backend/Dockerfile at d8062c7 (web image; must stay byte-identical in Stage 14D.2C)
-WEB_DOCKERFILE_SHA256 = "e47175e5eddb7336670af20c3cc103242d7f47b5c87297b4b7b9008f01c57885"
+# Stage 15B changed the web Dockerfile on purpose (the system libraries of the PDF engine: Pango, HarfBuzz, fontconfig, a font);
+# this hash is the deliberate record of that change -- any further edit must update it consciously.
+WEB_DOCKERFILE_SHA256 = "6fcaabb54c716bc62d4a9392b280179bc0b36a26ac11ee546c3a7c30702445c6"
 
 
 def instructions(dockerfile: Path) -> list[str]:

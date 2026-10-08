@@ -1,0 +1,21 @@
+{% macro party(role_label, p) %}
+<div class="party">
+  <div class="role">{{ role_label }}</div>
+  {% if p %}
+    <div class="name">{{ p.name }}</div>
+    {% for line in p.address_lines %}<div>{{ line }}</div>{% endfor %}
+    {% if p.tax_id %}<div>{{ t('party.tax_id') }}: {{ p.tax_id }}</div>{% endif %}
+    {% if p.phone %}<div>{{ t('party.phone') }} {{ p.phone }}</div>{% endif %}
+    {% if p.email %}<div>{{ t('party.email') }}: {{ p.email }}</div>{% endif %}
+  {% else %}
+    <div class="missing">{{ t('party.missing') }}</div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro signatures() %}
+<div class="signatures">
+  <div class="signature">{{ t('signature.executor') }}</div>
+  <div class="signature">{{ t('signature.client') }}</div>
+</div>
+{% endmacro %}

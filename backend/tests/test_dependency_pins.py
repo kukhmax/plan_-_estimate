@@ -23,7 +23,12 @@ REQUIREMENTS = Path(__file__).resolve().parents[1] / "requirements.txt"
 
 # Imported directly by app code or part of the runtime contract, yet only
 # transitive dependencies of the declared packages.
-REQUIRED_EXPLICIT = ("starlette", "anyio", "botocore", "greenlet", "s3transfer")
+REQUIRED_EXPLICIT = (
+    "starlette", "anyio", "botocore", "greenlet", "s3transfer",
+    # Stage 15: the PDF rendering chain (the output depends on every package of it)
+    "jinja2", "markupsafe", "weasyprint", "pydyf", "tinycss2", "tinyhtml5", "cssselect2", "fonttools", "pyphen", "cffi",
+    "tzdata",
+)
 
 PIN = re.compile(
     r"^(?P<name>[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)"

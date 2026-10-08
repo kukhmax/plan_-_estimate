@@ -1,0 +1,28 @@
+{% import "_macros.html.j2" as ui with context %}<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>{{ layout.meta.title }}</title>
+  <style>{{ css }}</style>
+</head>
+<body>
+  <div class="running-footer">{% if layout.meta.number %}{{ layout.meta.number }} · {% endif %}{{ layout.meta.title }}</div>
+  <header>
+    <h1>{{ layout.meta.title }}</h1>
+    <table class="meta">
+      {% if layout.meta.number %}<tr><td class="label">{{ t('doc.number') }}</td><td>{{ layout.meta.number }}</td></tr>{% endif %}
+      <tr><td class="label">{{ t('doc.issued_on') }}</td><td>{{ layout.meta.issued_on | date }}</td></tr>
+      {% if layout.meta.place %}<tr><td class="label">{{ t('doc.place') }}</td><td>{{ layout.meta.place }}</td></tr>{% endif %}
+    </table>
+  </header>
+  {% if layout.executor or layout.client %}
+  <section class="parties">
+    {{ ui.party(t('party.executor'), layout.executor) }}
+    {{ ui.party(t('party.client'), layout.client) }}
+  </section>
+  {% endif %}
+  <main>{% block body %}{% endblock %}</main>
+  {% if layout.signatures %}{{ ui.signatures() }}{% endif %}
+  <p class="generated-by">{{ t('doc.generated_by') }}</p>
+</body>
+</html>
