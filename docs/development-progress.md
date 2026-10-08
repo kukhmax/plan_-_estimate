@@ -1142,9 +1142,16 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
-### Stage 14K — owner production walkthrough: runbook written (2026-10-08, started; nothing executed yet)
+### Stage 14K — owner production walkthrough (2026-10-08; deployment, walkthrough W1–W9, P1 and the backup chain PASS; awaiting the owner's acceptance)
 
 Owner started 14K on 2026-10-08. Runbook: `docs/STAGE_14K_PRODUCTION_RUNBOOK_RU.md`. Production runs `333fa8d`; the branch has two backend application files more (`photo_report_read_model.py` of 14I, not wired to any route; the `none_as_null` fix of 14J), no migration, no frontend change, no infrastructure change, backup images unchanged. Steps (each only on the owner's explicit approval): A0 read-only state → A3 `git pull` → A4 build backend (rollback tag `:pre-14k`) → A5 recreate backend → P1 read-only report summary (numbers only; the script was tested on the 14I fixtures) → the owner's phone walkthrough W1–W9 over the whole of Stage 14 → B backup chain `db-dump` → `upload` → `verify` in a separate session → optional O normalisation of JSON-null contours. The owner's PASS closes Stage 14.
+
+**Executed 2026-10-08 (owner-run on production, output pasted step by step):**
+- **A0–A5.** A0 read-only state PASS; A3 `git pull --ff-only` to `175f97c`; A4 `build backend` (rollback tag `plan-estimate-backend:pre-14k` = image `021c21c20779`); A5 `up -d --no-deps backend` — `alembic current` stayed `0036_photo_annotation_outline` (no `Running upgrade`), health ok, application key `97bfe5…6dab`, bucket `plan-estimate-media-prod`, endpoint R2. Frontend, infrastructure, migration and backup images untouched. Production runs `175f97c` (backend), the frontend of `333fa8d`.
+- **P1 (read-only report summary, 14I service on real data).** Before the walkthrough: project 2 — 0 of 9 visible photos in the report. After the owner marked "Uwzględnij w raporcie" on the phone: **4 of 10 visible photos in the report, markers 4, contours 4**, tree of the report 1 room / 3 surfaces / 1 inspection / 1 question; project 1 empty. No error.
+- **W1–W9 (the owner's phone walkthrough over the whole of Stage 14): all items PASS** ("W1–W9 все пункты прошли").
+- **B (backup chain, separate SSH session).** B1 `db-dump`: run `20261008T164731Z-bab30f9b`, `ready_count=10`, exit 0, four files `0600`, `work/` empty. B2 `upload`: `published objects=30 ready_assets=10`, exit 0 (prior run `20261008T104906Z-645c8fcc`). B3 `verify --mode full`: **`objects_total=30 size_checked=30 sha_checked=30`, 12 185 080 bytes hashed, exit 0**.
+- **Not done / optional:** O (normalising contours cleared before the 14J fix, JSON `null` → SQL `NULL`) — not run, optional and only with the owner's explicit approval; the 14J interface TODO (back button 39×40 px, RU "Все" chip, favicon) stays in the backlog for the final UI pass.
 
 ### Stage 14J — owner acceptance (2026-10-08)
 
