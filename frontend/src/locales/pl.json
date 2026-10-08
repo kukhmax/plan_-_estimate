@@ -1779,7 +1779,8 @@
       "DOCUMENT_TEMPLATE_INVALID": "Błąd szablonu dokumentu. Zgłoś to do obsługi aplikacji.",
       "DOCUMENT_DELIVERY_FAILED": "Nie udało się wysłać dokumentu do czatu. Spróbuj ponownie.",
       "DRAFT_NUMBERED": "Wersja robocza nie dostaje numeru.",
-      "RECOMMENDED_WORK_UNPRICED": "Rekomendowane prace dodatkowe nie mają ceny w kosztorysie: {works}. Zaakceptuj zalecenie w badaniu (trafi do planu prac i kosztorysu) albo je odrzuć, a potem spróbuj ponownie."
+      "RECOMMENDED_WORK_UNPRICED": "Rekomendowane prace dodatkowe nie mają ceny w kosztorysie: {works}. Zaakceptuj zalecenie w badaniu (trafi do planu prac i kosztorysu) albo je odrzuć, a potem spróbuj ponownie.",
+      "SKELETON_SECTION_UNKNOWN": "Dokument ma sekcję, której nie przewiduje jego wzór. Zgłoś to do obsługi aplikacji."
     },
     "recommended_works": "Rekomendowane prace dodatkowe: {count}",
     "unpriced_title": "Brak ceny w kosztorysie — dokument nie zostanie wysłany:",

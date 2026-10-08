@@ -1,0 +1,22 @@
+{% extends "_layout.html.j2" %}
+{% block body %}
+<div class="object">
+  <div class="role">{{ t('estimate.object') }}</div>
+  <div><strong>{{ doc.object_name }}</strong></div>
+  {% for line in doc.object_lines %}<div>{{ line }}</div>{% endfor %}
+</div>
+{% for section in doc.sections %}
+<section class="skeleton-section">
+  <h2>{% if section.title %}{{ section.title }}{% else %}{{ t('skeleton.section', n=section.number) }}{% endif %}</h2>
+  {% for paragraph in section.paragraphs %}<p>{{ paragraph }}</p>{% else %}<p class="muted">{{ t('skeleton.section_empty') }}</p>{% endfor %}
+</section>
+{% endfor %}
+{% if doc.attachments %}
+<section class="skeleton-attachments">
+  <h2>{{ t('skeleton.attachments') }}</h2>
+  <ol>
+    {% for title in doc.attachments %}<li><strong>{{ t('skeleton.attachment', n=loop.index) }}</strong>{% if title %}: {{ title }}{% endif %}</li>{% endfor %}
+  </ol>
+</section>
+{% endif %}
+{% endblock %}

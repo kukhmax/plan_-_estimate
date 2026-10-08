@@ -147,7 +147,7 @@ def test_every_registered_template_exists_and_is_versioned():
 
 def test_an_unknown_kind_has_no_template():
     with pytest.raises(DocumentTemplateError, match="no template"):
-        get_template("CONTRACT")  # type: ignore[arg-type]
+        get_template("NO_SUCH_KIND")  # type: ignore[arg-type]
 
 
 def test_templates_load_no_network_resource_and_run_no_script():

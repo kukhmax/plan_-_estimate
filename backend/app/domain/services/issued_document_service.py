@@ -20,6 +20,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.documents.formatting import POLAND
+from app.domain.documents.registry import TEMPLATES, DocumentKind
 from app.domain.exceptions import IssuedDocumentNotFoundError, ProjectNotFoundError
 from app.models.issued_document import (
     IssuedDocument,
@@ -30,9 +31,9 @@ from app.models.project import Project
 from app.models.user import User
 
 PENDING_TTL = timedelta(minutes=15)
+# The prefix of a number is the template's own (`documents/registry.py`): one source for every kind that is issued.
 NUMBER_PREFIX: dict[IssuedDocumentKind, str] = {
-    IssuedDocumentKind.ESTIMATE: "KOSZ",
-    IssuedDocumentKind.PHOTO_REPORT: "FOTO",
+    kind: TEMPLATES[DocumentKind(kind.value)].number_prefix or "" for kind in IssuedDocumentKind
 }
 
 

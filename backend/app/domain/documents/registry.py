@@ -1,5 +1,10 @@
-"""Registry of document templates (Stage 15B). Every template has a kind and a version; the version is written to the
-journal of issued documents (15F), so an old document can always be traced to the layout that produced it."""
+"""Registry of document templates (Stage 15B, 15G). Every template has a kind and a version; the version is written to the
+journal of issued documents (15F), so an old document can always be traced to the layout that produced it.
+
+A kind also knows the prefix of its number (`KOSZ/2026/10/08/1953`) and, for the contract and protocol skeletons of 15G, the
+keys of the sections it is expected to have. The keys are internal identifiers: they carry no wording. The titles and the text
+of the sections are written in Stage 16 / 17 and arrive as data; until then the skeleton prints "Sekcja 1", "Sekcja 2", ...
+"""
 
 import enum
 from dataclasses import dataclass
@@ -11,7 +16,10 @@ class DocumentKind(str, enum.Enum):
     DIAGNOSTIC = "DIAGNOSTIC"  # the control page: layout, Polish / Cyrillic glyphs, page numbering
     ESTIMATE = "ESTIMATE"  # Kosztorys (15D)
     PHOTO_REPORT = "PHOTO_REPORT"  # Raport fotograficzny (15E)
-    # The contract / protocol skeletons (15G) are added with their templates.
+    CONTRACT = "CONTRACT"  # Umowa: a skeleton, the text is Stage 16 (15G)
+    HANDOVER_PROTOCOL = "HANDOVER_PROTOCOL"  # Protokół przekazania terenu / obiektu: a skeleton (15G)
+    CONCEALED_WORKS_PROTOCOL = "CONCEALED_WORKS_PROTOCOL"  # Protokół odbioru robót zanikających: a skeleton (15G)
+    FINAL_PROTOCOL = "FINAL_PROTOCOL"  # Protokół odbioru końcowego: a skeleton (15G)
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,13 +27,36 @@ class DocumentTemplate:
     kind: DocumentKind
     version: str
     file: str
+    number_prefix: str | None = None  # None: never numbered (the control page)
+    sections: tuple[str, ...] = ()  # keys of the sections of a skeleton, in order (no wording: titles are data)
 
+
+SKELETON_FILE = "skeleton.html.j2"
+SKELETON_VERSION = "skeleton-1"
 
 TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
     DocumentKind.DIAGNOSTIC: DocumentTemplate(DocumentKind.DIAGNOSTIC, "1", "diagnostic.html.j2"),
-    DocumentKind.ESTIMATE: DocumentTemplate(DocumentKind.ESTIMATE, "1", "estimate.html.j2"),
-    DocumentKind.PHOTO_REPORT: DocumentTemplate(DocumentKind.PHOTO_REPORT, "1", "photo_report.html.j2"),
+    DocumentKind.ESTIMATE: DocumentTemplate(DocumentKind.ESTIMATE, "1", "estimate.html.j2", "KOSZ"),
+    DocumentKind.PHOTO_REPORT: DocumentTemplate(DocumentKind.PHOTO_REPORT, "1", "photo_report.html.j2", "FOTO"),
+    DocumentKind.CONTRACT: DocumentTemplate(
+        DocumentKind.CONTRACT, SKELETON_VERSION, SKELETON_FILE, "UMOWA",
+        ("subject", "scope_of_work", "price", "schedule", "payment_terms", "acceptance", "warranty", "other_provisions"),
+    ),
+    DocumentKind.HANDOVER_PROTOCOL: DocumentTemplate(
+        DocumentKind.HANDOVER_PROTOCOL, SKELETON_VERSION, SKELETON_FILE, "PRZEK",
+        ("site_description", "condition_at_handover", "utilities_and_access", "remarks"),
+    ),
+    DocumentKind.CONCEALED_WORKS_PROTOCOL: DocumentTemplate(
+        DocumentKind.CONCEALED_WORKS_PROTOCOL, SKELETON_VERSION, SKELETON_FILE, "ZANIK",
+        ("works_covered", "inspection_result", "photo_evidence", "remarks"),
+    ),
+    DocumentKind.FINAL_PROTOCOL: DocumentTemplate(
+        DocumentKind.FINAL_PROTOCOL, SKELETON_VERSION, SKELETON_FILE, "ODBIOR",
+        ("scope_completed", "inspection_result", "defects_found", "deadlines_for_defects", "remarks"),
+    ),
 }
+
+SKELETON_KINDS: tuple[DocumentKind, ...] = tuple(kind for kind, template in TEMPLATES.items() if template.file == SKELETON_FILE)
 
 
 def get_template(kind: DocumentKind) -> DocumentTemplate:

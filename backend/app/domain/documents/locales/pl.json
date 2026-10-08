@@ -99,5 +99,13 @@
   "photo_report.recommended_note": "Ceny wg kosztorysu, wersja {n}.",
   "photo_report.recommended_note_draft": "Ceny wg kosztorysu, wersja {n} (wersja robocza).",
   "photo_report.recommended_reason": "Powód",
-  "photo_report.recommended_total": "Razem — rekomendowane prace dodatkowe"
+  "photo_report.recommended_total": "Razem — rekomendowane prace dodatkowe",
+  "skeleton.title.contract": "Umowa",
+  "skeleton.title.handover": "Protokół przekazania",
+  "skeleton.title.concealed": "Protokół odbioru robót zanikających",
+  "skeleton.title.final": "Protokół odbioru końcowego",
+  "skeleton.section": "Sekcja {n}",
+  "skeleton.section_empty": "— do uzupełnienia —",
+  "skeleton.attachments": "Załączniki",
+  "skeleton.attachment": "Załącznik {n}"
 }
