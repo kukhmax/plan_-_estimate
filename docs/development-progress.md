@@ -1142,6 +1142,10 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14K — owner production walkthrough: runbook written (2026-10-08, started; nothing executed yet)
+
+Owner started 14K on 2026-10-08. Runbook: `docs/STAGE_14K_PRODUCTION_RUNBOOK_RU.md`. Production runs `333fa8d`; the branch has two backend application files more (`photo_report_read_model.py` of 14I, not wired to any route; the `none_as_null` fix of 14J), no migration, no frontend change, no infrastructure change, backup images unchanged. Steps (each only on the owner's explicit approval): A0 read-only state → A3 `git pull` → A4 build backend (rollback tag `:pre-14k`) → A5 recreate backend → P1 read-only report summary (numbers only; the script was tested on the 14I fixtures) → the owner's phone walkthrough W1–W9 over the whole of Stage 14 → B backup chain `db-dump` → `upload` → `verify` in a separate session → optional O normalisation of JSON-null contours. The owner's PASS closes Stage 14.
+
 ### Stage 14J — owner acceptance (2026-10-08)
 
 The owner accepted **Stage 14J** ("принимаем 14J"). The interface observations of 14J.4 (inspection back button 39×40 px, RU filter chip "Все" 36 px wide, no `favicon.ico`) are **not fixed now**: the owner will rework the interface at the end, after all functionality; they are recorded as TODO in the "Backlog / Deferred Items" table below. Remaining in Stage 14: 14K (owner production walkthrough; first deployment of the accumulated backend changes, no migration) and the deferred offline queue 14E.8, each only on explicit owner approval.
@@ -1729,7 +1733,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | 14H | WORK execution photos in Realizacja (+ photo indicators) | **COMPLETE / OWNER ACCEPTED 2026-10-08** (14H.1 WORK API, 14H.2 Realizacja UI, 14H.3 deployment, 14H.4 compact photo buttons, 14H.5 / 14H.6 photo indicators on "Realizacja" and "Badanie …", 14H.7 no photo control on a finding, 14H.8 inspection header panel without upload; all deployed, last at `333fa8d`, owner phone checks PASS; contract §29, §32, §33) |
 | 14I | Stage 15 report read model / report-inclusion boundary | **COMPLETE / OWNER ACCEPTED 2026-10-08** (14I.1 `PhotoReportReadModel` committed `24dd694`: service only, no route, no migration, nothing to deploy; rules R1–R11 of `docs/STAGE_14I_REPORT_READ_MODEL_PLAN_RU.md` approved by the owner; contract `docs/STAGE_14C_MEDIA_API_CONTRACT.md` §34) |
 | 14J | Adversarial / full verification | **COMPLETE / OWNER ACCEPTED 2026-10-08** (PostgreSQL 16, HTTP ownership guard and browser gates PASS; one defect, a cleared contour stored as JSON `null`, found and fixed in the model — ships with the next backend deployment; interface observations moved to the backlog for the final UI pass; plan `docs/STAGE_14J_VERIFICATION_PLAN_RU.md`) |
-| 14K | Owner production walkthrough | NOT STARTED |
+| 14K | Owner production walkthrough | **STARTED 2026-10-08** (owner: «давай делать 14K»; runbook `docs/STAGE_14K_PRODUCTION_RUNBOOK_RU.md`: deployment of the accumulated backend changes — no migration, no frontend, no backup rebuild — then the owner's phone walkthrough W1–W9, a read-only report summary P1, a final backup chain B; owner PASS closes Stage 14) |
 
 14B.2 record (non-secret): see `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` §22.
 
