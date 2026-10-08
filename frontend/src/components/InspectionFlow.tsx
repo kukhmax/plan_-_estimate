@@ -758,7 +758,7 @@ export function InspectionFlow({
               ) : (
                 <ul className="mt-2 flex flex-col gap-2">
                   {findings.map((finding) => (
-                    <FindingRow key={finding.id} finding={finding} t={t} photoBase={photoBase} />
+                    <FindingRow key={finding.id} finding={finding} t={t} />
                   ))}
                 </ul>
               )
@@ -1048,16 +1048,8 @@ function ReadOnlyMulti({ labelKeys, t }: { labelKeys: string[]; t: ReturnType<ty
   );
 }
 
-export function FindingRow({
-  finding,
-  t,
-  photoBase = [],
-}: {
-  finding: InspectionFinding;
-  t: ReturnType<typeof useI18n>['t'];
-  /** Location names above the finding, for the caption of its photos. */
-  photoBase?: string[];
-}) {
+// A finding carries no photo control: photos are taken on the checklist question that produced it (owner decision, Stage 14H.7).
+export function FindingRow({ finding, t }: { finding: InspectionFinding; t: ReturnType<typeof useI18n>['t'] }) {
   const label = finding.label_key ? resolveKey(t, finding.label_key) : finding.finding_key;
   const value = finding.value_snapshot;
   let detail = '';
@@ -1079,21 +1071,10 @@ export function FindingRow({
           : 'border-neutral-200 bg-neutral-100 text-neutral-500 line-through'
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 break-words">
-          {label}
-          {detail ? ` — ${detail}` : ''}
-        </span>
-        {isActive ? <PhotoCardButton context="FINDING" targetId={finding.id} lineageId={finding.lineage_id} /> : null}
-      </div>
-      {isActive ? (
-        <PhotoCardPanel
-          context="FINDING"
-          targetId={finding.id}
-          lineageId={finding.lineage_id}
-          locationSegments={[...photoBase, label]}
-        />
-      ) : null}
+      <span className="min-w-0 break-words">
+        {label}
+        {detail ? ` — ${detail}` : ''}
+      </span>
     </li>
   );
 }

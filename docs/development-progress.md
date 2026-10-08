@@ -1142,6 +1142,14 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14H.7 — no photo control on a finding (2026-10-08, IMPLEMENTED LOCALLY — not deployed; frontend only)
+
+Owner decision after the 14H.5 phone check (options offered: keep / show question photos on the finding / remove the camera): **remove the camera from the finding**. A photo is taken only on the checklist question that produced the finding ("Czy występują pęknięcia?"), so there is one place for it and no confusing second counter that showed 0.
+- **Changed:** `FindingRow` (the "Ustalenia" list after completion) no longer renders a photo button or a photo panel for active findings; it is a plain text row (long labels still wrap). The `photoBase` prop is gone.
+- **Not changed:** backend, API, the `FINDING` photo context and the counts (`findings`, `lineages`) stay; photos that were already attached to findings (none in production: test photos were removed) would still be counted in the "Badanie …" indicator and in the per-inspection numbers, but could no longer be opened from the finding. The question photos, the inspection header button and the indicators are unchanged.
+- **Tests:** the two finding-button tests replaced by one (no button or panel for an active or a resolved finding; no `FINDING` section is created); a mutation that brings the button back fails it. Frontend **86 files / 2006 tests**, `tsc`, `vite build` PASS. No layout work to verify: the change only removes a control from a text row.
+- **Production:** none yet — deploys together with 14H.6 (backend + frontend, no migration, no backup rebuild).
+
 ### Stage 14H.6 — the ceiling / floor inspection indicator (2026-10-08, IMPLEMENTED LOCALLY — not deployed; backend counts field + frontend, no migration)
 
 Found in the owner's phone check of 14H.5 (A8): the wall indicators worked, but "Badanie sufitu" showed no number although the ceiling inspection had photos. Cause: an inspection of a whole floor / ceiling targets the plane of the room (`plane`, no `surface_id`), and 14H.5 only counted inspections that name a surface.

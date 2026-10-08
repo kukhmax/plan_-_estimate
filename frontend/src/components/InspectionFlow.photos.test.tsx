@@ -14,7 +14,7 @@ import { Inspection, InspectionDetail, InspectionFinding, InspectionTarget } fro
 import { PhotoCounts } from '../types/photo';
 import { InspectionFlow } from './InspectionFlow';
 
-// Photo evidence in the inspection (Stage 14F.3): the header button, one button per checklist question, one per ACTIVE finding.
+// Photo evidence in the inspection (Stage 14F.3): the header button, one button per checklist question, none on a finding (14H.7).
 // The section itself is mocked: its own behaviour (listing, uploading, counts) is covered by PhotoSection.test.tsx.
 
 vi.mock('../api/checklists', () => ({ fetchChecklistTemplates: vi.fn(), fetchChecklistTemplate: vi.fn() }));
@@ -324,30 +324,20 @@ describe('InspectionFlow — photo evidence', () => {
     expect(photoButtons()[0]).toHaveAttribute('aria-label', 'Zdjęcia: 7');
   });
 
-  it('after completion every ACTIVE finding has a button counting its whole lineage; resolved ones have none', async () => {
+  it('after completion a finding has no photo button or panel (photos are taken on the question), active or resolved', async () => {
     vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue(completedDetail());
     vi.mocked(inspectionsApi.fetchInspectionFindings).mockResolvedValue({
       items: [finding({}), finding({ id: 'f-old', is_active: false, resolved_at: '2026-09-09T11:00:00Z' })],
       total: 2,
     });
-    renderFlow();
+    renderFlow({ provided: photos({}, [photoKey('FINDING', 'f-active')]) });
     const list = await screen.findByRole('list');
     expect(within(list).getAllByRole('listitem')).toHaveLength(2);
-    expect(within(list).getAllByRole('button', { name: /^Zdjęcia: \d+$/ })).toHaveLength(1);
-    expect(within(list).getByRole('button', { name: 'Zdjęcia: 3' })).toBeInTheDocument(); // lineage-1: both rows' photos
+    expect(within(list).queryAllByRole('button')).toHaveLength(0);
+    expect(sectionProps.mock.calls.map((call) => call[0]).some((p) => p.context === 'FINDING')).toBe(false);
   });
 
-  it('a finding panel is a FINDING section of that row with its lineage', async () => {
-    vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue(completedDetail());
-    vi.mocked(inspectionsApi.fetchInspectionFindings).mockResolvedValue({ items: [finding({})], total: 1 });
-    renderFlow({ provided: photos({}, [photoKey('FINDING', 'f-active')]) });
-    await screen.findByRole('list');
-    const props = sectionProps.mock.calls.map((call) => call[0]).find((p) => p.context === 'FINDING');
-    expect(props).toMatchObject({ targetId: 'f-active', lineageId: 'lineage-1', allowUpload: true });
-    expect(props?.locationLabel).toMatch(/^Badania podłoża → .+ → .+/);
-  });
-
-  it('the finding row keeps its text and wraps long labels next to the button', async () => {
+  it('the finding row keeps its text and wraps long labels', async () => {
     vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue(completedDetail());
     vi.mocked(inspectionsApi.fetchInspectionFindings).mockResolvedValue({ items: [finding({})], total: 1 });
     renderFlow();
