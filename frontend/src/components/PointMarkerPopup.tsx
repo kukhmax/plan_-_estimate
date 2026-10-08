@@ -17,11 +17,27 @@ interface PointMarkerPopupProps {
   busy: boolean;
   error: PhotoErrorKey | null;
   onSaveLabel: (label: string | null) => void;
+  /** The marker has a contour around the defect (Stage 14G.5). */
+  hasOutline: boolean;
+  onDrawOutline: () => void;
+  onRemoveOutline: () => void;
   onDelete: () => void;
   onClose: () => void;
 }
 
-export function PointMarkerPopup({ marker, number, readOnly, busy, error, onSaveLabel, onDelete, onClose }: PointMarkerPopupProps) {
+export function PointMarkerPopup({
+  marker,
+  number,
+  readOnly,
+  busy,
+  error,
+  onSaveLabel,
+  hasOutline,
+  onDrawOutline,
+  onRemoveOutline,
+  onDelete,
+  onClose,
+}: PointMarkerPopupProps) {
   const { t } = useI18n();
   const [label, setLabel] = useState(marker.label ?? '');
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -100,6 +116,24 @@ export function PointMarkerPopup({ marker, number, readOnly, busy, error, onSave
               >
                 {t.photos.markers.popup_save}
               </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onDrawOutline}
+                className="min-h-11 w-full rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] px-3 py-2 text-sm font-semibold text-[var(--tg-theme-text-color)] disabled:opacity-50"
+              >
+                {hasOutline ? t.photos.markers.outline_redraw : t.photos.markers.outline_draw}
+              </button>
+              {hasOutline && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={onRemoveOutline}
+                  className="min-h-11 w-full rounded-xl border border-[var(--tg-control-border-color)] px-3 py-2 text-sm font-semibold text-[var(--tg-theme-destructive-text-color)] disabled:opacity-50"
+                >
+                  {t.photos.markers.outline_remove}
+                </button>
+              )}
               <button
                 type="button"
                 disabled={busy}

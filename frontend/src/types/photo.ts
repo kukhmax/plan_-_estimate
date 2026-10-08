@@ -85,6 +85,8 @@ export interface PhotoAnnotationRead {
   x: number;
   y: number;
   label: string | null;
+  /** A freehand contour around the defect (Stage 14G.4): points as fractions 0..1 like x / y; null = none. */
+  outline: Array<[number, number]> | null;
   position: number;
   created_at: string;
   updated_at: string;
@@ -103,6 +105,8 @@ export interface PhotoDetailResponse {
   annotations: PhotoAnnotationRead[];
   /** Most markers one attachment may carry. */
   annotation_limit: number;
+  /** Most points of one marker's contour. */
+  outline_max_points: number;
 }
 
 export interface PhotoUploadResponse {

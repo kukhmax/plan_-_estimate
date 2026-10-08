@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { usePhotoBackRegistration } from '../hooks/PhotoBackContext';
 import { useI18n } from '../hooks/useI18n';
 import { PhotoAnnotationRead } from '../types/photo';
+import { OutlinePoint } from '../utils/outline';
 import { CloseIcon, PinIcon } from './PhotoIcons';
 import { ZoomableImage } from './ZoomableImage';
 
@@ -24,6 +25,12 @@ interface PhotoFullscreenProps {
   placing?: boolean;
   onPlacingChange?: (placing: boolean) => void;
   onPlace?: (x: number, y: number) => void;
+  /** Contour drawing (Stage 14G.5): a finger draws a line around a defect; the finished stroke goes to `onStroke`. */
+  drawing?: boolean;
+  onStroke?: (points: OutlinePoint[]) => void;
+  onCancelDrawing?: () => void;
+  /** A message under the picture (a refused contour, a failed save). */
+  notice?: string | null;
 }
 
 export function PhotoFullscreen({
@@ -39,6 +46,10 @@ export function PhotoFullscreen({
   placing = false,
   onPlacingChange,
   onPlace,
+  drawing = false,
+  onStroke,
+  onCancelDrawing,
+  notice = null,
 }: PhotoFullscreenProps) {
   const { t } = useI18n();
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -67,7 +78,16 @@ export function PhotoFullscreen({
       <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
         <span className="shrink-0 whitespace-nowrap rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold">{counter}</span>
         <div className="flex min-w-0 items-center gap-2">
-          {canPlaceMarkers && onPlacingChange && (
+          {drawing && onCancelDrawing && (
+            <button
+              type="button"
+              onClick={onCancelDrawing}
+              className="flex min-h-11 min-w-0 items-center rounded-full bg-white px-4 text-xs font-semibold text-black"
+            >
+              <span className="min-w-0 break-words">{t.photos.markers.outline_cancel}</span>
+            </button>
+          )}
+          {!drawing && canPlaceMarkers && onPlacingChange && (
             <button
               type="button"
               aria-pressed={placing}
@@ -104,9 +124,18 @@ export function PhotoFullscreen({
           onMarkerSelect={onMarkerSelect}
           placing={placing}
           onPlace={onPlace}
+          drawing={drawing}
+          onStroke={onStroke}
         />
       </div>
-      {placing ? (
+      {notice && (
+        <p role="alert" className="shrink-0 break-words px-4 pt-2 text-center text-sm font-medium text-white">
+          {notice}
+        </p>
+      )}
+      {drawing ? (
+        <p className="shrink-0 break-words px-4 py-2 text-center text-xs text-white/80">{t.photos.markers.outline_hint}</p>
+      ) : placing ? (
         <p className="shrink-0 break-words px-4 py-2 text-center text-xs text-white/80">{t.photos.markers.fullscreen_hint_add}</p>
       ) : (
         hintVisible && <p className="shrink-0 break-words px-4 py-2 text-center text-xs text-white/70">{t.photos.viewer.fullscreen_hint}</p>

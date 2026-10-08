@@ -83,3 +83,74 @@ describe('PointMarkerLayer', () => {
     expect(screen.queryAllByTestId('photo-marker')).toHaveLength(0);
   });
 });
+
+describe('PointMarkerLayer — contours', () => {
+  beforeEach(() => localStorage.clear());
+  const loop: Array<[number, number]> = [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4], [0.1, 0.4]];
+
+  it('draws a marker\'s contour as a line in a 0..1 box that stretches with the picture', () => {
+    const marker = makeMarker(ATT, { outline: loop });
+    renderLayer({ markers: [marker, makeMarker(ATT, { position: 1 })] });
+    const svg = screen.getByTestId('outline-layer');
+    expect(svg).toHaveAttribute('viewBox', '0 0 1 1');
+    expect(svg).toHaveAttribute('preserveAspectRatio', 'none');
+    expect(svg).toHaveClass('pointer-events-none');
+    expect(screen.getAllByTestId('marker-outline')).toHaveLength(1); // only the marker that has one
+    const lines = svg.querySelectorAll('g[data-testid="marker-outline"] polyline');
+    expect(lines).toHaveLength(2); // a white under-line and the red line
+    expect(lines[0]).toHaveAttribute('points', '0.1,0.1 0.4,0.1 0.4,0.4 0.1,0.4');
+    expect(lines[1]).toHaveAttribute('points', '0.1,0.1 0.4,0.1 0.4,0.4 0.1,0.4');
+  });
+
+  it('the line is thin, one colour, with a white under-line, rounded, and does not scale with the picture', () => {
+    renderLayer({ markers: [makeMarker(ATT, { outline: loop })] });
+    const [under, line] = Array.from(screen.getByTestId('outline-layer').querySelectorAll('polyline'));
+    expect(under).toHaveAttribute('stroke', '#ffffff');
+    expect(line).toHaveAttribute('stroke', '#dc2626');
+    expect(Number(line.getAttribute('stroke-width'))).toBe(1.5);
+    expect(Number(under.getAttribute('stroke-width'))).toBeGreaterThan(Number(line.getAttribute('stroke-width')));
+    for (const polyline of [under, line]) {
+      expect(polyline).toHaveAttribute('fill', 'none');
+      expect(polyline).toHaveAttribute('stroke-linecap', 'round');
+      expect(polyline).toHaveAttribute('stroke-linejoin', 'round');
+      expect(polyline).toHaveAttribute('vector-effect', 'non-scaling-stroke');
+    }
+  });
+
+  it('keeps the line the same width while zoomed (scaled back like the dots)', () => {
+    renderLayer({ markers: [makeMarker(ATT, { outline: loop })], inverseScale: 0.25 });
+    const [, line] = Array.from(screen.getByTestId('outline-layer').querySelectorAll('polyline'));
+    expect(Number(line.getAttribute('stroke-width'))).toBeCloseTo(0.375);
+  });
+
+  it('draws nothing for a marker without a contour, for a one-point scrap, or for no markers', () => {
+    renderLayer({ markers: [makeMarker(ATT), makeMarker(ATT, { outline: [[0.5, 0.5]] })] });
+    expect(screen.queryAllByTestId('marker-outline')).toHaveLength(0);
+  });
+
+  it('shows the stroke being drawn live, and only when it has a line to show', () => {
+    const { rerender } = (() => {
+      const view = render(
+        <I18nProvider>
+          <PointMarkerLayer markers={[]} onSelect={vi.fn()} draft={[[0.1, 0.1]]} />
+        </I18nProvider>,
+      );
+      return view;
+    })();
+    expect(screen.queryByTestId('outline-draft')).toBeNull();
+    rerender(
+      <I18nProvider>
+        <PointMarkerLayer markers={[]} onSelect={vi.fn()} draft={[[0.1, 0.1], [0.2, 0.3]]} />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId('outline-draft').querySelector('polyline')).toHaveAttribute('points', '0.1,0.1 0.2,0.3');
+  });
+
+  it('while drawing the dots do not catch touches (a stroke may start on top of one)', () => {
+    renderLayer({ interactive: false });
+    for (const button of screen.getAllByTestId('photo-marker')) {
+      expect(button).toHaveClass('pointer-events-none');
+      expect(button).not.toHaveClass('pointer-events-auto');
+    }
+  });
+});

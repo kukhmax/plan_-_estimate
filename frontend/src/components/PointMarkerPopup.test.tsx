@@ -8,12 +8,12 @@ import { PointMarkerPopup } from './PointMarkerPopup';
 const ATT = 'b0000000-0000-4000-8000-000000000001';
 
 function renderPopup(over: Partial<React.ComponentProps<typeof PointMarkerPopup>> = {}, registry: { register: (close: () => void) => () => void } | null = null) {
-  const handlers = { onSaveLabel: vi.fn(), onDelete: vi.fn(), onClose: vi.fn() };
+  const handlers = { onSaveLabel: vi.fn(), onDrawOutline: vi.fn(), onRemoveOutline: vi.fn(), onDelete: vi.fn(), onClose: vi.fn() };
   const marker = over.marker ?? makeMarker(ATT, { label: 'rysa przy oknie' });
   const view = render(
     <I18nProvider>
       <PhotoBackContext.Provider value={registry}>
-        <PointMarkerPopup marker={marker} number={3} readOnly={false} busy={false} error={null} {...handlers} {...over} />
+        <PointMarkerPopup marker={marker} number={3} readOnly={false} busy={false} error={null} hasOutline={false} {...handlers} {...over} />
       </PhotoBackContext.Provider>
     </I18nProvider>,
   );
@@ -127,5 +127,43 @@ describe('PointMarkerPopup', () => {
     renderPopup();
     expect(screen.getByRole('dialog', { name: 'Метка 3' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Удалить метку' })).toBeInTheDocument();
+  });
+
+  it('offers to draw a contour when there is none, and to draw it again (and remove it) when there is one', () => {
+    const { onDrawOutline, unmount } = renderPopup();
+    expect(screen.queryByRole('button', { name: 'Usuń obrys' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Obrysuj wadę' }));
+    expect(onDrawOutline).toHaveBeenCalledTimes(1);
+    unmount();
+    const second = renderPopup({ hasOutline: true });
+    expect(screen.queryByRole('button', { name: 'Obrysuj wadę' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Obrysuj ponownie' }));
+    expect(second.onDrawOutline).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Usuń obrys' }));
+    expect(second.onRemoveOutline).toHaveBeenCalledTimes(1);
+    expect(second.onDelete).not.toHaveBeenCalled();
+  });
+
+  it('read only: no contour buttons', () => {
+    renderPopup({ readOnly: true, hasOutline: true });
+    for (const name of ['Obrysuj wadę', 'Obrysuj ponownie', 'Usuń obrys']) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
+  });
+
+  it('the contour buttons are 44 px, full width, and stop while busy', () => {
+    renderPopup({ hasOutline: true, busy: true });
+    for (const name of ['Obrysuj ponownie', 'Usuń obrys']) {
+      const button = screen.getByRole('button', { name });
+      expect(button).toHaveClass('min-h-11', 'w-full');
+      expect(button).toBeDisabled();
+    }
+  });
+
+  it('Russian contour buttons', () => {
+    localStorage.setItem('locale', 'ru');
+    renderPopup({ hasOutline: true });
+    expect(screen.getByRole('button', { name: 'Обвести заново' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Удалить контур' })).toBeInTheDocument();
   });
 });

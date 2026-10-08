@@ -13,6 +13,7 @@ import {
   pinchView,
   zoomAt,
 } from '../utils/zoomMath';
+import { OutlinePoint, STROKE_POINT_SPACING } from '../utils/outline';
 import { PointMarkerLayer } from './PointMarkerLayer';
 
 // A picture that can be zoomed with two fingers, panned with one finger when zoomed, double-tapped (closer / back) and, on a
@@ -40,6 +41,10 @@ interface ZoomableImageProps {
   /** Marker placing mode: a tap puts a marker (x, y = fractions of the picture) instead of waiting for a double tap. */
   placing?: boolean;
   onPlace?: (x: number, y: number) => void;
+  /** Contour drawing mode: one finger draws (it no longer pans), two fingers still zoom and drop the stroke. */
+  drawing?: boolean;
+  /** The finished stroke (points as fractions of the picture) when the finger is lifted. */
+  onStroke?: (points: OutlinePoint[]) => void;
 }
 
 interface ImageBox {
@@ -62,6 +67,8 @@ export function ZoomableImage({
   onMarkerSelect,
   placing = false,
   onPlace,
+  drawing = false,
+  onStroke,
 }: ZoomableImageProps) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,6 +103,23 @@ export function ZoomableImage({
     };
   }, []);
 
+  // The stroke being drawn (kept in a ref for the handlers, in state for the live line).
+  const strokeRef = useRef<OutlinePoint[] | null>(null);
+  const [draft, setDraft] = useState<OutlinePoint[]>([]);
+  const pictureFraction = (clientX: number, clientY: number): OutlinePoint | null => {
+    const rect = imageRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+    const clamp = (value: number) => Math.min(1, Math.max(0, value));
+    return [clamp((clientX - rect.left) / rect.width), clamp((clientY - rect.top) / rect.height)];
+  };
+  const dropStroke = () => {
+    strokeRef.current = null;
+    setDraft([]);
+  };
+  useEffect(() => {
+    if (!drawing) dropStroke();
+  }, [drawing]);
+
   const commit = (next: View) => {
     viewRef.current = next;
     setView(next);
@@ -116,7 +140,13 @@ export function ZoomableImage({
   const onPointerDown = (event: React.PointerEvent) => {
     onInteract?.();
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (drawing && pointers.current.size === 1) {
+      const first = pictureFraction(event.clientX, event.clientY);
+      strokeRef.current = first ? [first] : null;
+      setDraft(first ? [first] : []);
+    }
     if (pointers.current.size === 2) {
+      if (strokeRef.current) dropStroke(); // a second finger: this is a zoom, not a contour
       const [a, b] = Array.from(pointers.current.values());
       const { origin } = measure();
       pinchStart.current = { view: viewRef.current, mid: relative(midpoint(a, b), origin), distance: distanceBetween(a, b) };
@@ -139,6 +169,15 @@ export function ZoomableImage({
     }
     const start = tapStart.current;
     if (start && Math.hypot(current.x - start.x, current.y - start.y) > TAP_SLOP) tapStart.current = null;
+    if (drawing && pointers.current.size === 1 && strokeRef.current) {
+      const point = pictureFraction(current.x, current.y);
+      const last = strokeRef.current[strokeRef.current.length - 1];
+      if (point && Math.hypot(point[0] - last[0], point[1] - last[1]) >= STROKE_POINT_SPACING) {
+        strokeRef.current = [...strokeRef.current, point];
+        setDraft(strokeRef.current);
+      }
+      return;
+    }
     if (pointers.current.size === 1 && viewRef.current.scale > ZOOMED_THRESHOLD) {
       const now = viewRef.current;
       commit(clampView({ scale: now.scale, x: now.x + current.x - previous.x, y: now.y + current.y - previous.y }, box, MAX_ZOOM));
@@ -149,6 +188,15 @@ export function ZoomableImage({
     if (!pointers.current.has(event.pointerId)) return;
     pointers.current.delete(event.pointerId);
     if (pointers.current.size < 2) pinchStart.current = null;
+    if (strokeRef.current) {
+      const stroke = strokeRef.current;
+      dropStroke();
+      if (event.type === 'pointerup') {
+        const end = pictureFraction(event.clientX, event.clientY);
+        onStroke?.(end && stroke.length > 0 ? [...stroke, end] : stroke);
+      }
+      tapStart.current = null; // a stroke is not a tap: nothing below (double tap, placing) applies to it
+    }
     const start = tapStart.current;
     tapStart.current = null;
     if (event.type !== 'pointerup' || !start || pointers.current.size > 0) return;
@@ -204,7 +252,7 @@ export function ZoomableImage({
         className="max-h-full max-w-full object-contain"
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: 'center', willChange: 'transform' }}
       />
-      {imageBox && markers.length > 0 && onMarkerSelect && (
+      {imageBox && (markers.length > 0 || draft.length > 0) && onMarkerSelect && (
         <div
           className="pointer-events-none absolute"
           style={{
@@ -217,7 +265,14 @@ export function ZoomableImage({
             willChange: 'transform',
           }}
         >
-          <PointMarkerLayer markers={markers} selectedId={selectedMarkerId} onSelect={onMarkerSelect} inverseScale={1 / view.scale} />
+          <PointMarkerLayer
+            markers={markers}
+            selectedId={selectedMarkerId}
+            onSelect={onMarkerSelect}
+            inverseScale={1 / view.scale}
+            draft={draft}
+            interactive={!drawing}
+          />
         </div>
       )}
       {zoomed && (

@@ -451,6 +451,14 @@ describe('photo marker (annotation) API', () => {
     expect(JSON.parse(lastFetch().init.body as string)).toEqual({ label: null });
   });
 
+  it('sets or clears the contour with a PATCH of outline only', async () => {
+    await patchPhotoAnnotation(PROJECT, 'att', 'm1', { outline: [[0.1, 0.2], [0.3, 0.4], [0.5, 0.2]] });
+    expect(lastFetch().init.method).toBe('PATCH');
+    expect(JSON.parse(lastFetch().init.body as string)).toEqual({ outline: [[0.1, 0.2], [0.3, 0.4], [0.5, 0.2]] });
+    await patchPhotoAnnotation(PROJECT, 'att', 'm1', { outline: null });
+    expect(JSON.parse(lastFetch().init.body as string)).toEqual({ outline: null });
+  });
+
   it('deletes with a DELETE and no body, and a 204 answer is fine', async () => {
     vi.mocked(fetch).mockResolvedValue({ ok: true, status: 204, json: vi.fn() } as unknown as Response);
     await expect(deletePhotoAnnotation(PROJECT, 'att', 'm1')).resolves.toBeUndefined();

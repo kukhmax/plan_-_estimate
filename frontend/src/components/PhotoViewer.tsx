@@ -20,6 +20,7 @@ import {
   PhotoListItem,
 } from '../types/photo';
 import { formatCapturedAt, formatUploadedAt, isCapturedMuchOlderThanUpload } from '../utils/photoCaption';
+import { OUTLINE_POINT_BUDGET, OutlinePoint, outlineFromStroke } from '../utils/outline';
 import { PhotoErrorKey, classifyPhotoError } from '../utils/photoErrors';
 import { hapticNotify } from '../utils/telegramHaptics';
 import { PhotoFullscreen } from './PhotoFullscreen';
@@ -113,6 +114,9 @@ export function PhotoViewer({
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [markerBusy, setMarkerBusy] = useState(false);
   const [markerError, setMarkerError] = useState<PhotoErrorKey | null>(null);
+  // The marker whose contour is being drawn on the full-screen picture (Stage 14G.5), and a refused stroke.
+  const [drawingMarkerId, setDrawingMarkerId] = useState<string | null>(null);
+  const [strokeTooShort, setStrokeTooShort] = useState(false);
 
   // ---- detail (display URL) ----
   useEffect(() => {
@@ -160,6 +164,8 @@ export function PhotoViewer({
     setMarkMode(false);
     setSelectedMarkerId(null);
     setMarkerError(null);
+    setDrawingMarkerId(null);
+    setStrokeTooShort(false);
   }, [attachment?.id]);
 
   const attachmentId = attachment?.id;
@@ -326,6 +332,50 @@ export function PhotoViewer({
     } finally {
       setMarkerBusy(false);
     }
+  };
+
+  // ---- contour around a defect ----
+  const drawingMarker = markers.find((marker) => marker.id === drawingMarkerId) ?? null;
+  const outlinePointBudget = Math.min(detail?.outline_max_points ?? OUTLINE_POINT_BUDGET, OUTLINE_POINT_BUDGET);
+
+  const startDrawing = (marker: PhotoAnnotationRead) => {
+    setSelectedMarkerId(null);
+    setMarkerError(null);
+    setStrokeTooShort(false);
+    setMarkMode(false);
+    setDrawingMarkerId(marker.id);
+    setFullscreen(true); // drawn on the big picture, where it can be zoomed for accuracy
+  };
+
+  const saveOutline = async (marker: PhotoAnnotationRead, outline: OutlinePoint[] | null) => {
+    setMarkerBusy(true);
+    setMarkerError(null);
+    try {
+      const updated = await patchPhotoAnnotation(projectId, attachment.id, marker.id, { outline });
+      commitMarkers(
+        attachment.id,
+        markers.map((entry) => (entry.id === updated.id ? updated : entry)),
+      );
+      setSelectedMarkerId(null);
+      setDrawingMarkerId(null);
+      hapticNotify('success');
+    } catch (caught) {
+      failMarkerCall(caught);
+    } finally {
+      setMarkerBusy(false);
+    }
+  };
+
+  const onStroke = (stroke: OutlinePoint[]) => {
+    if (!drawingMarker || markerBusy) return;
+    const outline = outlineFromStroke(stroke, outlinePointBudget);
+    if (!outline) {
+      setStrokeTooShort(true);
+      hapticNotify('error');
+      return;
+    }
+    setStrokeTooShort(false);
+    void saveOutline(drawingMarker, outline);
   };
 
   const deleteMarker = async (marker: PhotoAnnotationRead) => {
@@ -666,15 +716,32 @@ export function PhotoViewer({
           src={detail.display_url}
           alt={attachment.caption || t.photos.viewer.photo_alt}
           counter={t.photos.viewer.counter.replace('{current}', String(index + 1)).replace('{total}', String(items.length))}
-          onClose={() => setFullscreen(false)}
+          onClose={() => {
+            // Back / close while drawing only leaves the drawing; the picture stays
+            if (drawingMarker) {
+              setDrawingMarkerId(null);
+              setStrokeTooShort(false);
+            } else {
+              setFullscreen(false);
+            }
+          }}
           onImageError={onImageError}
           markers={markers}
-          selectedMarkerId={selectedMarkerId}
+          selectedMarkerId={drawingMarker ? drawingMarker.id : selectedMarkerId}
           onMarkerSelect={(marker) => setSelectedMarkerId(marker.id)}
           canPlaceMarkers={!markersReadOnly && (markMode || !atMarkerLimit)}
           placing={placing}
           onPlacingChange={setMarkMode}
           onPlace={(x, y) => void placeMarker(x, y)}
+          drawing={drawingMarker !== null}
+          onStroke={onStroke}
+          onCancelDrawing={() => {
+            setDrawingMarkerId(null);
+            setStrokeTooShort(false);
+          }}
+          notice={
+            strokeTooShort ? t.photos.markers.outline_too_short : markerError && !selectedMarker ? t.photos.errors[markerError] : null
+          }
         />
       )}
       {selectedMarker && (
@@ -685,6 +752,9 @@ export function PhotoViewer({
           busy={markerBusy}
           error={markerError}
           onSaveLabel={(label) => void saveMarkerLabel(selectedMarker, label)}
+          hasOutline={selectedMarker.outline !== null}
+          onDrawOutline={() => startDrawing(selectedMarker)}
+          onRemoveOutline={() => void saveOutline(selectedMarker, null)}
           onDelete={() => void deleteMarker(selectedMarker)}
           onClose={() => {
             setSelectedMarkerId(null);

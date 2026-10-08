@@ -43,6 +43,7 @@ function detail(id: string): PhotoDetailResponse {
     urls_expire_at: null,
     annotations: [],
     annotation_limit: 10,
+    outline_max_points: 120,
   };
 }
 

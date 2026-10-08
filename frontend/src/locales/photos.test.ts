@@ -44,7 +44,7 @@ describe('photos locale namespace (PL / RU)', () => {
   });
 
   it('has every marker (Stage 14G) text and error in both languages', () => {
-    const keys = ['add', 'add_done', 'count', 'hint_add', 'hint_view', 'limit_reached', 'marker_aria', 'marker_aria_labeled', 'popup_title', 'popup_label', 'popup_placeholder', 'popup_counter', 'popup_no_label', 'popup_save', 'popup_delete', 'popup_close', 'thumb_badge', 'fullscreen_hint_add'];
+    const keys = ['add', 'add_done', 'count', 'hint_add', 'hint_view', 'limit_reached', 'marker_aria', 'marker_aria_labeled', 'popup_title', 'popup_label', 'popup_placeholder', 'popup_counter', 'popup_no_label', 'popup_save', 'popup_delete', 'popup_close', 'thumb_badge', 'fullscreen_hint_add', 'outline_draw', 'outline_redraw', 'outline_remove', 'outline_hint', 'outline_cancel', 'outline_too_short'];
     for (const key of keys) {
       expect((pl.photos.markers as Dict)[key], key).toBeTruthy();
       expect((ru.photos.markers as Dict)[key], key).toBeTruthy();

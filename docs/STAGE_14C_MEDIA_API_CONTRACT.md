@@ -815,3 +815,17 @@ Design: `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md` §6.4 / §15.4, plan `doc
 **Error codes added to the table (§11b):** `PHOTO_ANNOTATION_NOT_FOUND` (404), `PHOTO_ANNOTATION_INVALID` (422), `PHOTO_ANNOTATION_LIMIT_REACHED` (409), `PHOTO_ANNOTATION_READ_ONLY` (409).
 
 **PDF / report (14I, Stage 15):** the marker data (`x`, `y`, `position`, `label`) is final; how markers are drawn into a document is decided with the report.
+
+## 31. Addendum — Stage 14G.4: a contour around the defect (migration `0036_photo_annotation_outline`)
+
+Design: `docs/STAGE_14G_POINT_ANNOTATIONS_PLAN_RU.md` §6 (owner decisions 2026-10-08). A marker may carry **one freehand contour** drawn around the defect it points at. It is presentation data like the marker itself: no defect category, severity or status.
+
+**Field.** `PhotoAnnotationRead.outline`: `null` (no contour) or a list of `[x, y]` points, each a number 0..1 in the same fractions of the correctly oriented display image as the marker's `x` / `y` (origin top-left, `x` right, `y` down). **3..120 points**, rounded to six decimals, not all the same point. Vector data on purpose: it fits every screen size, the thumbnail and a later PDF without touching the original photo.
+
+**Write.** `PATCH /projects/{p}/photo-attachments/{id}/annotations/{aid}` body `{label?, outline?}`: a present `outline` **replaces** the previous contour, `outline: null` removes it, an absent field is unchanged; the label and the contour are independent. `x`, `y`, `position`, `kind` and any other field are still refused (422). Wrong numbers, shapes or counts → 422 `PHOTO_ANNOTATION_INVALID`; non-number types → standard 422. Same chain, ownership and archive rules as §30 (409 `PHOTO_ANNOTATION_READ_ONLY` on an archived attachment or photo; contours stay readable and come back unchanged after a restore).
+
+**Reads.** Markers in the annotation list and in `GET /photos/{asset_id}` (`annotations`) carry `outline`; the detail also returns `outline_max_points` (120). The list of photos (`annotation_count`) and the counts endpoint are unchanged: a contour is not a marker.
+
+**Lifetime.** The contour is deleted with its marker (`DELETE …/annotations/{aid}`); it is never edited in place (delete it and draw again).
+
+**PDF / report (14I, Stage 15):** the data is final; how contours are drawn into a document is decided with the report.

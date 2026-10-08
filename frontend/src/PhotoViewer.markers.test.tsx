@@ -482,3 +482,286 @@ describe('PhotoViewer — marker controls on a phone', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Następne zdjęcie' })).toBeEnabled());
   });
 });
+
+describe('PhotoViewer — contour around a defect', () => {
+  const loop = [
+    [100, 150], [200, 130], [300, 150], [310, 200], [300, 230], [200, 240], [100, 230], [90, 190], [100, 155],
+  ] as const; // a loop around the middle of the 400x200 picture at (0, 100)
+
+  const pointer = (area: Element, type: 'pointerdown' | 'pointermove' | 'pointerup', x: number, y: number) => {
+    const event = new MouseEvent(type, { bubbles: true, clientX: x, clientY: y });
+    Object.defineProperty(event, 'pointerId', { value: 1 });
+    fireEvent(area, event);
+  };
+  const drawLoop = (area: Element) => {
+    pointer(area, 'pointerdown', loop[0][0], loop[0][1]);
+    for (const [x, y] of loop.slice(1)) pointer(area, 'pointermove', x, y);
+    pointer(area, 'pointerup', loop[loop.length - 1][0], loop[loop.length - 1][1]);
+  };
+
+  async function openDrawing(over: Partial<ReturnType<typeof makeMarker>> = {}) {
+    const item = makeItem();
+    const marker = makeMarker(item.attachment.id, { label: 'rysa', ...over });
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item, { annotations: [marker] }));
+    const view = setup({ items: [item] });
+    await ready();
+    fireEvent.click(screen.getByTestId('photo-marker'));
+    fireEvent.click(screen.getByRole('button', { name: marker.outline ? 'Obrysuj ponownie' : 'Obrysuj wadę' }));
+    const fullscreen = screen.getByRole('dialog', { name: 'Zdjęcie na pełnym ekranie' });
+    const picture = within(fullscreen).getByAltText('Zdjęcie');
+    picture.getBoundingClientRect = () => ({ left: 0, top: 100, width: 400, height: 200, right: 400, bottom: 300, x: 0, y: 100, toJSON: () => ({}) });
+    return { item, marker, fullscreen, area: within(fullscreen).getByTestId('zoomable-image'), ...view };
+  }
+
+  it('"Obrysuj wadę" in the pop-up closes it and opens the big picture in drawing mode, with a hint and a cancel button', async () => {
+    const { fullscreen } = await openDrawing();
+    expect(screen.queryByRole('dialog', { name: 'Znacznik 1' })).toBeNull();
+    expect(within(fullscreen).getByText(/Obrysuj wadę palcem/)).toBeInTheDocument();
+    expect(within(fullscreen).getByRole('button', { name: 'Anuluj' })).toBeInTheDocument();
+    expect(within(fullscreen).queryByRole('button', { name: 'Dodaj znacznik' })).toBeNull(); // no placing while drawing
+    expect(within(fullscreen).getByTestId('photo-marker')).toHaveClass('pointer-events-none');
+  });
+
+  it('a finished stroke is thinned, saved on the marker and drawing ends', async () => {
+    const { item, marker, area, fullscreen } = await openDrawing();
+    vi.mocked(patchPhotoAnnotation).mockImplementation(async (_p, _a, _id, patch) => ({ ...marker, outline: patch.outline ?? null }));
+    drawLoop(area);
+    await waitFor(() => expect(patchPhotoAnnotation).toHaveBeenCalledTimes(1));
+    const [projectId, attachmentId, markerId, patch] = vi.mocked(patchPhotoAnnotation).mock.calls[0];
+    expect([projectId, attachmentId, markerId]).toEqual([PROJECT_ID, item.attachment.id, marker.id]);
+    expect(Object.keys(patch)).toEqual(['outline']); // only the contour, the label stays as it is
+    const points = patch.outline!;
+    expect(points.length).toBeGreaterThanOrEqual(3);
+    expect(points.length).toBeLessThanOrEqual(100);
+    for (const [x, y] of points) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(1);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThanOrEqual(1);
+    }
+    expect(points[0]).toEqual([0.25, 0.25]); // (100-0)/400, (150-100)/200
+    await waitFor(() => expect(within(fullscreen).queryByText(/Obrysuj wadę palcem/)).toBeNull());
+    expect(within(fullscreen).getAllByTestId('marker-outline')).toHaveLength(1);
+    expect(within(fullscreen).getByTestId('photo-marker')).toHaveClass('pointer-events-auto');
+  });
+
+  it('the saved contour is on the picture in the viewer too, and the label is untouched', async () => {
+    const { marker, area } = await openDrawing();
+    vi.mocked(patchPhotoAnnotation).mockImplementation(async (_p, _a, _id, patch) => ({ ...marker, outline: patch.outline ?? null }));
+    drawLoop(area);
+    await waitFor(() => expect(screen.getAllByTestId('marker-outline').length).toBeGreaterThanOrEqual(1));
+    expect(screen.getAllByRole('button', { name: 'Znacznik 1: rysa' }).length).toBeGreaterThan(0);
+  });
+
+  it('a stroke that is only a touch is refused with a message, nothing is sent, and drawing goes on', async () => {
+    const { area, fullscreen } = await openDrawing();
+    pointer(area, 'pointerdown', 100, 150);
+    pointer(area, 'pointermove', 102, 151);
+    pointer(area, 'pointerup', 102, 151);
+    expect(await within(fullscreen).findByRole('alert')).toHaveTextContent('Obrys jest za krótki');
+    expect(patchPhotoAnnotation).not.toHaveBeenCalled();
+    expect(within(fullscreen).getByText(/Obrysuj wadę palcem/)).toBeInTheDocument(); // still drawing
+  });
+
+  it('a save that fails says why under the picture and leaves drawing on, so the stroke can be repeated', async () => {
+    const { area, fullscreen } = await openDrawing();
+    vi.mocked(patchPhotoAnnotation).mockRejectedValue(err(409, 'PHOTO_ANNOTATION_READ_ONLY'));
+    drawLoop(area);
+    expect(await within(fullscreen).findByRole('alert')).toHaveTextContent('Znaczników zarchiwizowanego zdjęcia nie można zmieniać.');
+    expect(within(fullscreen).getByText(/Obrysuj wadę palcem/)).toBeInTheDocument();
+  });
+
+  it('"Anuluj" leaves drawing without saving; the big picture stays open', async () => {
+    const { fullscreen } = await openDrawing();
+    fireEvent.click(within(fullscreen).getByRole('button', { name: 'Anuluj' }));
+    expect(within(fullscreen).queryByText(/Obrysuj wadę palcem/)).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Zdjęcie na pełnym ekranie' })).toBeInTheDocument();
+    expect(patchPhotoAnnotation).not.toHaveBeenCalled();
+  });
+
+  it('closing the big picture while drawing (the Back button, the X) only leaves drawing; a second close closes the picture', async () => {
+    const { fullscreen } = await openDrawing();
+    fireEvent.click(within(fullscreen).getByRole('button', { name: 'Zamknij pełny ekran' }));
+    expect(screen.getByRole('dialog', { name: 'Zdjęcie na pełnym ekranie' })).toBeInTheDocument();
+    expect(within(fullscreen).queryByText(/Obrysuj wadę palcem/)).toBeNull();
+    fireEvent.click(within(fullscreen).getByRole('button', { name: 'Zamknij pełny ekran' }));
+    expect(screen.queryByRole('dialog', { name: 'Zdjęcie na pełnym ekranie' })).toBeNull();
+  });
+
+  it('a marker that has a contour offers to draw it again, and drawing replaces it', async () => {
+    const outline: Array<[number, number]> = [[0.1, 0.1], [0.2, 0.3], [0.3, 0.1]];
+    const { marker, area } = await openDrawing({ outline });
+    vi.mocked(patchPhotoAnnotation).mockImplementation(async (_p, _a, _id, patch) => ({ ...marker, outline: patch.outline ?? null }));
+    drawLoop(area);
+    await waitFor(() => expect(patchPhotoAnnotation).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(patchPhotoAnnotation).mock.calls[0][3].outline).not.toEqual(outline);
+  });
+
+  it('"Usuń obrys" clears the contour (null), keeps the marker and its label and closes the pop-up', async () => {
+    const item = makeItem();
+    const marker = makeMarker(item.attachment.id, { label: 'rysa', outline: [[0.1, 0.1], [0.2, 0.3], [0.3, 0.1]] });
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item, { annotations: [marker] }));
+    vi.mocked(patchPhotoAnnotation).mockResolvedValue({ ...marker, outline: null });
+    setup({ items: [item] });
+    await ready();
+    expect(screen.getAllByTestId('marker-outline')).toHaveLength(1);
+    fireEvent.click(screen.getByTestId('photo-marker'));
+    fireEvent.click(screen.getByRole('button', { name: 'Usuń obrys' }));
+    await waitFor(() => expect(patchPhotoAnnotation).toHaveBeenCalledWith(PROJECT_ID, item.attachment.id, marker.id, { outline: null }));
+    await waitFor(() => expect(screen.queryByTestId('marker-outline')).toBeNull());
+    expect(screen.getByRole('button', { name: 'Znacznik 1: rysa' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Znacznik 1' })).toBeNull();
+  });
+
+  it('contours of other attachments of the same photo are not drawn', async () => {
+    const item = makeItem();
+    const mine = makeMarker(item.attachment.id);
+    const theirs = makeMarker('other-attachment', { outline: [[0.1, 0.1], [0.2, 0.3], [0.3, 0.1]] });
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item, { annotations: [mine, theirs] }));
+    setup({ items: [item] });
+    await ready();
+    expect(screen.queryByTestId('marker-outline')).toBeNull();
+  });
+
+  it('an archived photo shows contours but cannot draw, redraw or remove them', async () => {
+    const item = makeItem({ attachment: { archived_at: '2026-10-08T08:00:00Z' } });
+    const marker = makeMarker(item.attachment.id, { outline: [[0.1, 0.1], [0.2, 0.3], [0.3, 0.1]] });
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item, { annotations: [marker] }));
+    setup({ items: [item], archivedView: true });
+    await ready();
+    expect(screen.getAllByTestId('marker-outline')).toHaveLength(1);
+    fireEvent.click(screen.getByTestId('photo-marker'));
+    for (const name of ['Obrysuj wadę', 'Obrysuj ponownie', 'Usuń obrys']) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
+  });
+
+  it('while drawing, the marker being outlined is highlighted', async () => {
+    const { fullscreen } = await openDrawing();
+    expect(within(fullscreen).getByTestId('photo-marker').querySelector('span')!.className).toContain('ring-2');
+  });
+
+  it('after the contour is saved the add-marker switch is off, even if it was on when drawing began', async () => {
+    const item = makeItem();
+    const marker = makeMarker(item.attachment.id);
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item, { annotations: [marker] }));
+    vi.mocked(patchPhotoAnnotation).mockImplementation(async (_p, _a, _id, patch) => ({ ...marker, outline: patch.outline ?? null }));
+    setup({ items: [item] });
+    await ready();
+    fireEvent.click(addButton()); // placing mode on
+    fireEvent.click(screen.getByTestId('photo-marker'));
+    fireEvent.click(screen.getByRole('button', { name: 'Obrysuj wadę' }));
+    const fullscreen = screen.getByRole('dialog', { name: 'Zdjęcie na pełnym ekranie' });
+    const picture = within(fullscreen).getByAltText('Zdjęcie');
+    picture.getBoundingClientRect = () => ({ left: 0, top: 100, width: 400, height: 200, right: 400, bottom: 300, x: 0, y: 100, toJSON: () => ({}) });
+    drawLoop(within(fullscreen).getByTestId('zoomable-image'));
+    await waitFor(() => expect(patchPhotoAnnotation).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(within(fullscreen).queryByText(/Obrysuj wadę palcem/)).toBeNull());
+    expect(within(fullscreen).getByRole('button', { name: 'Dodaj znacznik' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('a second stroke while the first is still being saved is ignored', async () => {
+    const { marker, area } = await openDrawing();
+    let finish!: (value: typeof marker) => void;
+    vi.mocked(patchPhotoAnnotation).mockReturnValue(new Promise((done) => { finish = done; }));
+    drawLoop(area);
+    await waitFor(() => expect(patchPhotoAnnotation).toHaveBeenCalledTimes(1));
+    drawLoop(area);
+    expect(patchPhotoAnnotation).toHaveBeenCalledTimes(1);
+    await act(async () => finish({ ...marker, outline: [[0.1, 0.1], [0.2, 0.2], [0.3, 0.1]] }));
+  });
+
+  it('the contour keeps within the point limit the server names (a smaller limit than the phone\'s own)', async () => {
+    const item = makeItem();
+    const marker = makeMarker(item.attachment.id);
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item, { annotations: [marker], outline_max_points: 6 }));
+    vi.mocked(patchPhotoAnnotation).mockImplementation(async (_p, _a, _id, patch) => ({ ...marker, outline: patch.outline ?? null }));
+    setup({ items: [item] });
+    await ready();
+    fireEvent.click(screen.getByTestId('photo-marker'));
+    fireEvent.click(screen.getByRole('button', { name: 'Obrysuj wadę' }));
+    const fullscreen = screen.getByRole('dialog', { name: 'Zdjęcie na pełnym ekranie' });
+    const picture = within(fullscreen).getByAltText('Zdjęcie');
+    picture.getBoundingClientRect = () => ({ left: 0, top: 100, width: 400, height: 200, right: 400, bottom: 300, x: 0, y: 100, toJSON: () => ({}) });
+    const area = within(fullscreen).getByTestId('zoomable-image');
+    pointer(area, 'pointerdown', 50, 150);
+    for (let i = 1; i <= 60; i += 1) pointer(area, 'pointermove', 50 + i * 5, 200 + 40 * Math.sin(i / 3)); // a wavy line
+    pointer(area, 'pointerup', 350, 200);
+    await waitFor(() => expect(patchPhotoAnnotation).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(patchPhotoAnnotation).mock.calls[0][3].outline!.length).toBeLessThanOrEqual(6);
+  });
+
+  it('coming back to a photo does not reopen its drawing mode', async () => {
+    const [a, b] = [makeItem(), makeItem()];
+    const marker = makeMarker(a.attachment.id);
+    vi.mocked(fetchPhoto).mockImplementation(async (_p, assetId) => (assetId === a.asset.id ? detailFor(a, { annotations: [marker] }) : detailFor(b)));
+    const ui = (index: number) => (
+      <I18nProvider>
+        <PhotoViewer
+          projectId={PROJECT_ID}
+          items={[a, b]}
+          index={index}
+          archivedView={false}
+          captionFor={(item) => `line-${item.attachment.position}`}
+          onIndexChange={vi.fn()}
+          onClose={vi.fn()}
+          onAttachmentUpdated={vi.fn()}
+          onAttachmentRemoved={vi.fn()}
+        />
+      </I18nProvider>
+    );
+    const view = render(ui(0));
+    await ready();
+    fireEvent.click(screen.getByTestId('photo-marker'));
+    fireEvent.click(screen.getByRole('button', { name: 'Obrysuj wadę' }));
+    view.rerender(ui(1));
+    await waitFor(() => expect(screen.queryByText(/Obrysuj wadę palcem/)).toBeNull());
+    view.rerender(ui(0));
+    await waitFor(() => expect(screen.getByTestId('photo-marker')).toBeInTheDocument());
+    fireEvent.click(screen.getByAltText('Zdjęcie')); // the big picture opens again
+    expect(screen.getByRole('dialog', { name: 'Zdjęcie na pełnym ekranie' })).toBeInTheDocument();
+    expect(screen.queryByText(/Obrysuj wadę palcem/)).toBeNull();
+  });
+
+  it('the next photo starts without drawing', async () => {
+    const [a, b] = [makeItem(), makeItem()];
+    const marker = makeMarker(a.attachment.id);
+    vi.mocked(fetchPhoto).mockImplementation(async (_p, assetId) => (assetId === a.asset.id ? detailFor(a, { annotations: [marker] }) : detailFor(b)));
+    const ui = (index: number) => (
+      <I18nProvider>
+        <PhotoViewer
+          projectId={PROJECT_ID}
+          items={[a, b]}
+          index={index}
+          archivedView={false}
+          captionFor={(item) => `line-${item.attachment.position}`}
+          onIndexChange={vi.fn()}
+          onClose={vi.fn()}
+          onAttachmentUpdated={vi.fn()}
+          onAttachmentRemoved={vi.fn()}
+        />
+      </I18nProvider>
+    );
+    const view = render(ui(0));
+    await ready();
+    fireEvent.click(screen.getByTestId('photo-marker'));
+    fireEvent.click(screen.getByRole('button', { name: 'Obrysuj wadę' }));
+    expect(screen.getByText(/Obrysuj wadę palcem/)).toBeInTheDocument();
+    view.rerender(ui(1));
+    await waitFor(() => expect(screen.queryByText(/Obrysuj wadę palcem/)).toBeNull());
+  });
+
+  it('Russian drawing texts', async () => {
+    localStorage.setItem('locale', 'ru');
+    const item = makeItem();
+    const marker = makeMarker(item.attachment.id);
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item, { annotations: [marker] }));
+    setup({ items: [item] });
+    await waitFor(() => expect(screen.getByTestId('photo-marker')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('photo-marker'));
+    fireEvent.click(screen.getByRole('button', { name: 'Обвести дефект' }));
+    expect(screen.getByText(/Обведите дефект пальцем/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Отмена' })).toBeInTheDocument();
+  });
+});
+

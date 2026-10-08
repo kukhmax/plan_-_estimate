@@ -193,7 +193,7 @@ describe('ZoomableImage — markers and marker placing', () => {
     image.getBoundingClientRect = () => ({ left: 0, top: 150, width: 400, height: 300, right: 400, bottom: 450, x: 0, y: 150, toJSON: () => ({}) });
   };
   const marker = (over: Partial<import('../types/photo').PhotoAnnotationRead> = {}): import('../types/photo').PhotoAnnotationRead => ({
-    id: 'm1', attachment_id: 'att', kind: 'POINT', x: 0.5, y: 0.5, label: null, position: 0, created_at: '', updated_at: '', ...over,
+    id: 'm1', attachment_id: 'att', kind: 'POINT', x: 0.5, y: 0.5, label: null, outline: null, position: 0, created_at: '', updated_at: '', ...over,
   });
   const tap = (area: Element, x: number, y: number, pointerId = 1) => {
     touch(area, 'pointerdown', pointerId, x, y);
@@ -294,3 +294,171 @@ describe('ZoomableImage — markers and marker placing', () => {
     expect(screen.queryByTestId('marker-layer')).toBeNull();
   });
 });
+
+describe('ZoomableImage — drawing a contour', () => {
+  // The picture: 400x300 on screen at (0,150).
+  const stubPictureRect = (image: HTMLElement) => {
+    image.getBoundingClientRect = () => ({ left: 0, top: 150, width: 400, height: 300, right: 400, bottom: 450, x: 0, y: 150, toJSON: () => ({}) });
+  };
+  const draw = (area: Element, path: Array<[number, number]>, end: 'pointerup' | 'pointercancel' = 'pointerup') => {
+    touch(area, 'pointerdown', 1, path[0][0], path[0][1]);
+    for (const [x, y] of path.slice(1)) touch(area, 'pointermove', 1, x, y);
+    const last = path[path.length - 1];
+    touch(area, end, 1, last[0], last[1]);
+  };
+  it('one finger draws: the path comes back as fractions of the picture when the finger is lifted', () => {
+    const onStroke = vi.fn();
+    const { area, image } = renderImage({ drawing: true, onStroke });
+    stubPictureRect(image);
+    draw(area, [[100, 225], [200, 225], [200, 375]]);
+    expect(onStroke).toHaveBeenCalledTimes(1);
+    expect(onStroke.mock.calls[0][0]).toEqual([[0.25, 0.25], [0.5, 0.25], [0.5, 0.75], [0.5, 0.75]]); // the lift point is added
+  });
+
+  it('shows the line while it is drawn and clears it afterwards', () => {
+    const { area, image } = renderImage({ drawing: true, onStroke: vi.fn(), markers: [], onMarkerSelect: vi.fn() });
+    stubPictureRect(image);
+    touch(area, 'pointerdown', 1, 100, 225);
+    touch(area, 'pointermove', 1, 200, 225);
+    touch(area, 'pointermove', 1, 200, 300);
+    expect(screen.getByTestId('outline-draft').querySelector('polyline')).toHaveAttribute('points', '0.25,0.25 0.5,0.25 0.5,0.5');
+    touch(area, 'pointerup', 1, 200, 300);
+    expect(screen.queryByTestId('outline-draft')).toBeNull();
+  });
+
+  it('points outside the picture are held on its edge, and points closer than the spacing are not recorded', () => {
+    const onStroke = vi.fn();
+    const { area, image } = renderImage({ drawing: true, onStroke });
+    stubPictureRect(image);
+    draw(area, [[-50, 100], [0.4, 150.1], [500, 600]]);
+    expect(onStroke.mock.calls[0][0]).toEqual([[0, 0], [1, 1], [1, 1]]);
+  });
+
+  it('a wiggle that never leaves one spot adds no points (only the first and the lift)', () => {
+    const onStroke = vi.fn();
+    const { area, image } = renderImage({ drawing: true, onStroke });
+    stubPictureRect(image);
+    draw(area, [[100, 225], [100.2, 225.1], [100.3, 225.2]]);
+    expect(onStroke.mock.calls[0][0]).toHaveLength(2);
+  });
+
+  it('drawing never pans the picture, even when it is zoomed', () => {
+    const onStroke = vi.fn();
+    const { area, image } = renderImage({ drawing: true, onStroke });
+    stubPictureRect(image);
+    // zoom to 2x with two fingers first
+    touch(area, 'pointerdown', 1, 100);
+    touch(area, 'pointerdown', 2, 300);
+    touch(area, 'pointermove', 2, 400);
+    touch(area, 'pointermove', 1, 0);
+    touch(area, 'pointerup', 2, 400);
+    touch(area, 'pointerup', 1, 0);
+    expect(transformOf(image).scale).toBe(2);
+    draw(area, [[100, 225], [250, 260], [250, 400]]);
+    expect(transformOf(image)).toEqual({ x: 0, y: 0, scale: 2 });
+    expect(onStroke).toHaveBeenCalledTimes(1);
+  });
+
+  it('two fingers zoom and drop the stroke that the first finger had begun', () => {
+    const onStroke = vi.fn();
+    const { area, image } = renderImage({ drawing: true, onStroke });
+    stubPictureRect(image);
+    touch(area, 'pointerdown', 1, 100, 225);
+    touch(area, 'pointermove', 1, 150, 225);
+    touch(area, 'pointerdown', 2, 300, 225);
+    touch(area, 'pointermove', 2, 400, 225);
+    touch(area, 'pointermove', 1, 0, 225);
+    touch(area, 'pointerup', 2, 400, 225);
+    touch(area, 'pointerup', 1, 0, 225);
+    expect(transformOf(image).scale).toBeGreaterThan(1);
+    expect(onStroke).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('outline-draft')).toBeNull();
+  });
+
+  it('the half-drawn line disappears at once when a second finger comes down (it is a zoom now)', () => {
+    const { area, image } = renderImage({ drawing: true, onStroke: vi.fn(), markers: [], onMarkerSelect: vi.fn() });
+    stubPictureRect(image);
+    touch(area, 'pointerdown', 1, 100, 225);
+    touch(area, 'pointermove', 1, 200, 300);
+    expect(screen.getByTestId('outline-draft')).toBeInTheDocument();
+    touch(area, 'pointerdown', 2, 300, 225);
+    expect(screen.queryByTestId('outline-draft')).toBeNull();
+  });
+
+  it('a double tap in drawing mode does not zoom (a tap is not a stroke and not a zoom gesture)', () => {
+    const { area, image } = renderImage({ drawing: true, onStroke: vi.fn() });
+    stubPictureRect(image);
+    touch(area, 'pointerdown', 1, 100, 225);
+    touch(area, 'pointerup', 1, 100, 225);
+    touch(area, 'pointerdown', 1, 102, 226);
+    touch(area, 'pointerup', 1, 102, 226);
+    expect(transformOf(image).scale).toBe(1);
+  });
+
+  it('a cancelled touch (the system took it over) draws nothing', () => {
+    const onStroke = vi.fn();
+    const { area, image } = renderImage({ drawing: true, onStroke });
+    stubPictureRect(image);
+    draw(area, [[100, 225], [200, 225], [200, 375]], 'pointercancel');
+    expect(onStroke).not.toHaveBeenCalled();
+  });
+
+  it('turning drawing off throws a half-drawn line away', () => {
+    const onStroke = vi.fn();
+    const props = { src: 'https://r2.example/d/x.jpg', alt: 'Foto', onStroke, markers: [], onMarkerSelect: vi.fn() };
+    const view = render(
+      <I18nProvider>
+        <ZoomableImage {...props} drawing />
+      </I18nProvider>,
+    );
+    const area = screen.getByTestId('zoomable-image');
+    const image = screen.getByAltText('Foto');
+    stubPictureRect(image);
+    touch(area, 'pointerdown', 1, 100, 225);
+    touch(area, 'pointermove', 1, 200, 300);
+    expect(screen.getByTestId('outline-draft')).toBeInTheDocument();
+    view.rerender(
+      <I18nProvider>
+        <ZoomableImage {...props} drawing={false} />
+      </I18nProvider>,
+    );
+    expect(screen.queryByTestId('outline-draft')).toBeNull();
+    touch(area, 'pointerup', 1, 200, 300);
+    expect(onStroke).not.toHaveBeenCalled();
+  });
+
+  it('without the drawing mode a finger never draws', () => {
+    const onStroke = vi.fn();
+    const { area, image } = renderImage({ onStroke });
+    stubPictureRect(image);
+    draw(area, [[100, 225], [200, 225], [200, 375]]);
+    expect(onStroke).not.toHaveBeenCalled();
+  });
+
+  it('drawing takes the place of placing: a stroke does not also put a marker', () => {
+    const onPlace = vi.fn();
+    const onStroke = vi.fn();
+    const { area, image } = renderImage({ drawing: true, placing: true, onPlace, onStroke });
+    stubPictureRect(image);
+    draw(area, [[100, 225], [200, 225], [200, 375]]);
+    expect(onStroke).toHaveBeenCalledTimes(1);
+    expect(onPlace).not.toHaveBeenCalled();
+  });
+
+  it('the dots under a drawing finger do not catch it', () => {
+    const marker = {
+      id: 'm1', attachment_id: 'att', kind: 'POINT' as const, x: 0.5, y: 0.5, label: null, outline: null, position: 0, created_at: '', updated_at: '',
+    };
+    renderImage({ drawing: true, onStroke: vi.fn(), markers: [marker], onMarkerSelect: vi.fn() });
+    expect(screen.getByTestId('photo-marker')).toHaveClass('pointer-events-none');
+  });
+
+  it('draws the contours of the markers over the picture too', () => {
+    const marker = {
+      id: 'm1', attachment_id: 'att', kind: 'POINT' as const, x: 0.5, y: 0.5, label: null, outline: [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4]] as Array<[number, number]>, position: 0, created_at: '', updated_at: '',
+    };
+    renderImage({ markers: [marker], onMarkerSelect: vi.fn() });
+    expect(screen.getByTestId('marker-outline').querySelector('polyline')).toHaveAttribute('points', '0.1,0.1 0.4,0.1 0.4,0.4');
+  });
+});
+

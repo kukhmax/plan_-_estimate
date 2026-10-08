@@ -1593,6 +1593,12 @@
       "popup_delete": "Usuń znacznik",
       "popup_close": "Zamknij",
       "thumb_badge": "Znaczniki: {count}",
+      "outline_draw": "Obrysuj wadę",
+      "outline_redraw": "Obrysuj ponownie",
+      "outline_remove": "Usuń obrys",
+      "outline_hint": "Obrysuj wadę palcem. Po oderwaniu palca obrys zostanie zapisany. Dwoma palcami możesz powiększać.",
+      "outline_cancel": "Anuluj",
+      "outline_too_short": "Obrys jest za krótki. Spróbuj jeszcze raz.",
       "fullscreen_hint_add": "Stuknij zdjęcie, aby postawić znacznik · rozsuń palce, aby dokładniej wskazać miejsce"
     },
     "category": {

@@ -281,12 +281,12 @@ export function createPhotoAnnotation(
   return apiRequest(annotationsPath(projectId, attachmentId), { method: 'POST', body: JSON.stringify(payload) });
 }
 
-/** The label is the only thing a marker lets you change (it is never moved: delete it and place a new one). */
+/** A marker lets you change its label and its contour (it is never moved: delete it and place a new one); null clears. */
 export function patchPhotoAnnotation(
   projectId: string,
   attachmentId: string,
   annotationId: string,
-  patch: { label: string | null },
+  patch: { label?: string | null; outline?: Array<[number, number]> | null },
 ): Promise<PhotoAnnotationRead> {
   return apiRequest(`${annotationsPath(projectId, attachmentId)}/${annotationId}`, {
     method: 'PATCH',

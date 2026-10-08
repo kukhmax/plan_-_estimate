@@ -76,6 +76,7 @@ export function makeMarker(attachmentId: string, over: Partial<PhotoAnnotationRe
     x: 0.25,
     y: 0.75,
     label: null,
+    outline: null,
     position: 0,
     created_at: '2026-10-08T08:00:00Z',
     updated_at: '2026-10-08T08:00:00Z',
@@ -96,6 +97,7 @@ export function detailFor(item: PhotoListItem, over: Partial<PhotoDetailResponse
     urls_expire_at: '2099-01-01T00:00:00Z',
     annotations: [],
     annotation_limit: 10,
+    outline_max_points: 120,
     ...over,
   };
 }
