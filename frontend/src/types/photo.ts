@@ -147,6 +147,8 @@ export interface PhotoCounts {
   work_surfaces: Record<string, number>;
   /** Photos kept only in the inspections of a surface (inspection-, question- and finding-level), per surface (Stage 14H.5). */
   inspection_surfaces: Record<string, number>;
+  /** The same for an inspection of a whole floor / ceiling (no surface): room id → plane → count (Stage 14H.6). */
+  inspection_planes: Record<string, Record<string, number>>;
 }
 
 export interface PhotoListParams {

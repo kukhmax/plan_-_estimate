@@ -608,7 +608,7 @@ async def photo_counts(
         project=counts.project, rooms=counts.rooms, surfaces=counts.surfaces, openings=counts.openings,
         room_totals=counts.room_totals, inspections=counts.inspections, findings=counts.findings,
         lineages=counts.lineages, questions=counts.questions, works=counts.works, work_surfaces=counts.work_surfaces,
-        inspection_surfaces=counts.inspection_surfaces,
+        inspection_surfaces=counts.inspection_surfaces, inspection_planes=counts.inspection_planes,
     )
 
 

@@ -136,6 +136,8 @@ class PhotoCounts:
     # Stage 14H.5: every photo that lives only in the inspections of a surface (inspection-, question- and finding-level),
     # per surface -- the number the "inspect the wall / floor / ceiling" button shows. Never in surfaces / rooms / room_totals.
     inspection_surfaces: dict[uuid.UUID, int]
+    # Stage 14H.6: the same for an inspection of a whole floor / ceiling (no surface, only a plane): room id -> plane -> count.
+    inspection_planes: dict[uuid.UUID, dict[str, int]]
 
 
 @dataclass(frozen=True)
@@ -459,8 +461,8 @@ class PhotoQueryService:
             )
             for finding_id, lineage_id in rows.all():
                 lineages[lineage_id] = lineages.get(lineage_id, 0) + findings[finding_id]
-        # Inspection evidence per surface: the photos of an inspection plus those of its findings (a room-level
-        # inspection has no surface and is not counted here).
+        # Inspection evidence per surface (or per floor / ceiling plane of a room): the photos of an inspection plus those of its
+        # findings (a room-level inspection has neither and is not counted here).
         per_inspection = dict(inspections)
         if findings:
             rows = await self.db.execute(
@@ -477,10 +479,21 @@ class PhotoQueryService:
             )
             for inspection_id, surface_id in rows.all():
                 inspection_surfaces[surface_id] = inspection_surfaces.get(surface_id, 0) + per_inspection[inspection_id]
+        inspection_planes: dict[uuid.UUID, dict[str, int]] = {}
+        if per_inspection:
+            rows = await self.db.execute(
+                select(Inspection.id, Inspection.room_id, Inspection.plane).where(
+                    Inspection.id.in_(list(per_inspection)), Inspection.surface_id.is_(None), Inspection.plane.is_not(None)
+                )
+            )
+            for inspection_id, room_id, plane in rows.all():
+                per_plane = inspection_planes.setdefault(room_id, {})
+                per_plane[plane.value] = per_plane.get(plane.value, 0) + per_inspection[inspection_id]
         return PhotoCounts(
             project=project_total, rooms=rooms, surfaces=surfaces, openings=openings, room_totals=room_totals,
             inspections=inspections, findings=findings, lineages=lineages, questions=questions,
             works=works, work_surfaces=work_surfaces, inspection_surfaces=inspection_surfaces,
+            inspection_planes=inspection_planes,
         )
 
     async def get_detail(

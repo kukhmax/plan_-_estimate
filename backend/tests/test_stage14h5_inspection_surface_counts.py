@@ -14,6 +14,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+from app.models.area_segment import AreaPlane
 from app.models.checklist import AnswerType, ChecklistQuestion, Substrate
 from app.models.inspection import Inspection, InspectionFinding, InspectionStatus
 from tests import test_stage14c4_photos_api as c4
@@ -31,13 +32,14 @@ async def http(api):
         yield client
 
 
-async def make_inspection(db, room_id, template_id, surface_id=None) -> Inspection:
+async def make_inspection(db, room_id, template_id, surface_id=None, plane=None) -> Inspection:
     inspection = Inspection(
-        room_id=room_id, surface_id=surface_id, template_id=template_id, substrate=Substrate.CONCRETE,
+        room_id=room_id, surface_id=surface_id, plane=plane, template_id=template_id, substrate=Substrate.CONCRETE,
         status=InspectionStatus.COMPLETED,
     )
     db.add(inspection)
     await db.commit()
+    await db.refresh(inspection)
     return inspection
 
 
@@ -162,3 +164,52 @@ async def test_the_response_declares_the_field_for_every_project(http, api):
 def test_the_field_is_required_in_the_published_contract():
     schema = app.openapi()["components"]["schemas"]["PhotoCountsResponse"]
     assert "inspection_surfaces" in schema["required"]
+
+
+# --- Stage 14H.6: an inspection of a whole floor / ceiling has a plane, not a surface -------------------------------------
+
+
+async def test_a_ceiling_or_floor_inspection_is_counted_per_room_and_plane(http, api, w):
+    db = api.db
+    ceiling = (await make_inspection(db, api.room, w.template, None, AreaPlane.CEILING)).id
+    floor = (await make_inspection(db, api.room, w.template, None, AreaPlane.FLOOR)).id
+    ceiling_finding = InspectionFinding(inspection_id=ceiling, finding_key="CRACK", lineage_id=uuid.uuid4())
+    db.add(ceiling_finding)
+    await db.commit()
+    await db.refresh(ceiling_finding)
+    ceiling_finding_id = ceiling_finding.id
+    await photo(api, context="INSPECTION", inspection_id=ceiling)
+    await photo(api, context="INSPECTION", inspection_id=ceiling, question_id=w.question)
+    await photo(api, context="FINDING", finding_id=ceiling_finding_id)
+    await photo(api, context="INSPECTION", inspection_id=floor)
+    data = await counts(http, api)
+    assert data["inspection_planes"] == {str(api.room): {"CEILING": 3, "FLOOR": 1}}
+    assert data["inspection_surfaces"] == {}  # a plane inspection never lands on a surface
+    assert data["surfaces"] == {} and data["rooms"] == {} and data["room_totals"] == {}
+
+
+async def test_plane_counts_ignore_wall_and_room_level_inspections_and_restore_after_archive(http, api, w):
+    ceiling = (await make_inspection(api.db, api.room, w.template, None, AreaPlane.CEILING)).id
+    await photo(api, context="INSPECTION", inspection_id=w.a1)  # a wall
+    await photo(api, context="INSPECTION", inspection_id=w.room_level)  # room level: neither surface nor plane
+    assert (await counts(http, api))["inspection_planes"] == {}
+    first = await photo(api, context="INSPECTION", inspection_id=ceiling)
+    assert (await counts(http, api))["inspection_planes"] == {str(api.room): {"CEILING": 1}}
+    base = f"/api/projects/{api.project}/photo-attachments/{first}"
+    assert (await http.post(f"{base}/archive")).status_code == 200
+    assert (await counts(http, api))["inspection_planes"] == {}
+    assert (await http.post(f"{base}/restore")).status_code == 200
+    assert (await counts(http, api))["inspection_planes"] == {str(api.room): {"CEILING": 1}}
+
+
+async def test_the_plane_map_is_declared_for_every_project(http, api):
+    data = await counts(http, api)
+    assert data["inspection_planes"] == {}
+
+
+async def test_an_inspection_that_names_a_surface_is_never_also_counted_on_a_plane(http, api, w):
+    both = (await make_inspection(api.db, api.room, w.template, api.surface, AreaPlane.CEILING)).id
+    await photo(api, context="INSPECTION", inspection_id=both)
+    data = await counts(http, api)
+    assert data["inspection_surfaces"] == {str(w.surface_a): 1}
+    assert data["inspection_planes"] == {}

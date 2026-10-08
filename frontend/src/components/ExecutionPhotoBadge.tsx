@@ -1,6 +1,6 @@
 import { useProjectPhotos } from '../hooks/ProjectPhotosContext';
 import { useI18n } from '../hooks/useI18n';
-import { inspectionSurfaceCount, photoCountFor } from '../hooks/usePhotoCounts';
+import { inspectionPlaneCount, inspectionSurfaceCount, photoCountFor } from '../hooks/usePhotoCounts';
 import { CameraIcon } from './PhotoIcons';
 
 // Small indicators on the rows that lead to photos nobody sees in the object's and the room's photo lists: execution photos
@@ -54,11 +54,21 @@ export function ExecutionPhotoBadge({ surfaceId }: { surfaceId: string }) {
   );
 }
 
-export function InspectionPhotoBadge({ surfaceId }: { surfaceId: string }) {
+interface InspectionPhotoBadgeProps {
+  /** A wall's (or any surface's) inspections. */
+  surfaceId?: string | null;
+  /** The floor / ceiling inspections of a room: they target the plane of the room, not a surface, so both are summed. */
+  roomId?: string;
+  plane?: 'FLOOR' | 'CEILING';
+}
+
+export function InspectionPhotoBadge({ surfaceId = null, roomId, plane }: InspectionPhotoBadgeProps) {
   const photos = useProjectPhotos();
   const { t } = useI18n();
   if (!photos) return null;
-  const count = inspectionSurfaceCount(photos.counts, surfaceId);
+  const count =
+    (surfaceId ? inspectionSurfaceCount(photos.counts, surfaceId) : 0) +
+    (roomId && plane ? inspectionPlaneCount(photos.counts, roomId, plane) : 0);
   if (count <= 0) return null;
   return (
     <CountBadge

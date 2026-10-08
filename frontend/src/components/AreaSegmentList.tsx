@@ -400,7 +400,7 @@ export function AreaSegmentList({
                 className={`w-full min-h-11 text-xs rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition ${INSPECT_BUTTON_WITH_BADGE}`}
               >
                 <span className="min-w-0 break-words">{plane === 'FLOOR' ? t.inspections.inspect_floor : t.inspections.inspect_ceiling}</span>
-                {planeSurfaceId && <InspectionPhotoBadge surfaceId={planeSurfaceId} />}
+                <InspectionPhotoBadge surfaceId={planeSurfaceId} roomId={roomId} plane={plane} />
               </button>
             )}
             <div className="flex gap-2 flex-wrap">

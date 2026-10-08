@@ -228,6 +228,8 @@ class PhotoCountsResponse(BaseModel):
     # Stage 14H.5: photos kept only in the inspections of a surface (inspection-, question- and finding-level), per surface;
     # they never enter `surfaces`, `rooms` or `room_totals`.
     inspection_surfaces: dict[uuid.UUID, int]
+    # Stage 14H.6: the same for an inspection of a whole floor / ceiling (no surface): room id -> plane (FLOOR / CEILING) -> count.
+    inspection_planes: dict[uuid.UUID, dict[str, int]]
 
 
 class PhotoStorageStatus(BaseModel):

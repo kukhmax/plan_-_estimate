@@ -84,7 +84,7 @@ describe('ExecutionPhotoBadge', () => {
 describe('InspectionPhotoBadge', () => {
   beforeEach(() => localStorage.clear());
 
-  const renderInspection = (counts: Partial<PhotoCounts> | null, surfaceId = SURFACE) => {
+  const renderInspection = (counts: Partial<PhotoCounts> | null, surfaceId: string | null = SURFACE, plane?: { roomId: string; plane: 'FLOOR' | 'CEILING' }) => {
     const value: ProjectPhotosValue | null =
       counts === null
         ? null
@@ -95,7 +95,7 @@ describe('InspectionPhotoBadge', () => {
     return render(
       <I18nProvider>
         <ProjectPhotosContext.Provider value={value}>
-          <InspectionPhotoBadge surfaceId={surfaceId} />
+          <InspectionPhotoBadge surfaceId={surfaceId} roomId={plane?.roomId} plane={plane?.plane} />
         </ProjectPhotosContext.Provider>
       </I18nProvider>,
     );
@@ -107,6 +107,27 @@ describe('InspectionPhotoBadge', () => {
     expect(badge).toHaveTextContent('5');
     expect(badge.querySelector('svg')).not.toBeNull();
     expect(screen.queryByTestId('execution-photo-badge')).toBeNull();
+  });
+
+  it('a floor / ceiling inspection is counted per room and plane (no surface), and the other plane or room is not', () => {
+    const counts = { inspection_planes: { room1: { CEILING: 4, FLOOR: 1 }, room2: { CEILING: 9 } } };
+    const { unmount } = renderInspection(counts, null, { roomId: 'room1', plane: 'CEILING' });
+    expect(screen.getByTestId('inspection-photo-badge')).toHaveTextContent('4');
+    unmount();
+    const floor = renderInspection(counts, null, { roomId: 'room1', plane: 'FLOOR' });
+    expect(screen.getByTestId('inspection-photo-badge')).toHaveTextContent('1');
+    floor.unmount();
+    renderInspection({ inspection_planes: { room2: { CEILING: 9 } } }, null, { roomId: 'room1', plane: 'CEILING' });
+    expect(screen.queryByTestId('inspection-photo-badge')).toBeNull();
+  });
+
+  it('adds the surface and the plane numbers when both exist, and ignores the plane without a room', () => {
+    const counts = { inspection_surfaces: { [SURFACE]: 2 }, inspection_planes: { room1: { CEILING: 4 } } };
+    const { unmount } = renderInspection(counts, SURFACE, { roomId: 'room1', plane: 'CEILING' });
+    expect(screen.getByTestId('inspection-photo-badge')).toHaveTextContent('6');
+    unmount();
+    renderInspection(counts, null);
+    expect(screen.queryByTestId('inspection-photo-badge')).toBeNull();
   });
 
   it('names itself in Polish and in Russian', () => {

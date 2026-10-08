@@ -20,7 +20,7 @@ vi.mock('../utils/photoLocations', async () => {
 import { fetchPhotoCounts, uploadPhoto } from '../api/photos';
 import { loadPhotoLocations } from '../utils/photoLocations';
 
-const COUNTS: PhotoCounts = { project: 1, rooms: { r1: 2 }, surfaces: { s1: 3 }, openings: {}, room_totals: { r1: 5 }, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {} };
+const COUNTS: PhotoCounts = { project: 1, rooms: { r1: 2 }, surfaces: { s1: 3 }, openings: {}, room_totals: { r1: 5 }, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {} };
 const registry: PhotoBackRegistry = { register: () => () => undefined };
 
 function setup(initial: string | null = 'p1') {
@@ -276,7 +276,7 @@ describe('ProjectPhotosProvider — another object', () => {
     act(() => result.current?.toggle(photoKey('ROOM', 'r1')));
     act(() => result.current?.ensureLocations());
 
-    vi.mocked(fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {} });
+    vi.mocked(fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {} });
     project = 'p2';
     rerender();
     await waitFor(() => expect(result.current?.counts.project).toBe(0));

@@ -19,7 +19,7 @@ const COUNTS: PhotoCounts = {
   surfaces: { s1: 3 },
   openings: { o1: 4 },
   room_totals: { r1: 2 + 3 + 4 }, // the room's own, its surface's and the surface's opening's
-  inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {},
+  inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {},
 };
 
 function value(over: Partial<ProjectPhotosValue> = {}, expanded: string[] = []): ProjectPhotosValue {

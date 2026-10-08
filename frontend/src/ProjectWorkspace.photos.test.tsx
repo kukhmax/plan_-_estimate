@@ -160,7 +160,7 @@ const COUNTS: PhotoCounts = {
   surfaces: { [wall.id]: 3 },
   openings: { [door.id]: 1 },
   room_totals: { [salon.id]: 2 + 3 + 1 }, // the room's own, the wall's and the wall's opening's
-  inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {},
+  inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {},
 };
 
 function renderWorkspace() {
@@ -432,7 +432,7 @@ describe('ProjectWorkspace photos — rooms show everything in the room (view an
     await screen.findByRole('region', { name: 'Zdjęcia' });
     fireEvent.click(screen.getByLabelText('back-to-projects'));
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {} });
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {} });
     fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
     const card = await screen.findByLabelText('project-photos');
     expect(await countButton(card, 0)).toHaveAttribute('aria-expanded', 'false');
@@ -709,8 +709,9 @@ describe('ProjectWorkspace photos — inspection photos are marked on the "Badan
   });
 
   it('the ceiling inspection button shows its own number (the floor offers no inspection button)', async () => {
+    // A ceiling / floor inspection targets the plane of the room (no surface), so it is counted per room and plane.
     vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({
-      ...COUNTS, inspection_surfaces: { [floorSurface.id]: 3, [ceilingSurface.id]: 8 },
+      ...COUNTS, inspection_planes: { [salon.id]: { FLOOR: 3, CEILING: 8 }, [kuchnia.id]: { CEILING: 40 } },
     });
     renderWorkspace();
     await openSalon();
@@ -722,6 +723,18 @@ describe('ProjectWorkspace photos — inspection photos are marked on the "Badan
     const floor = await screen.findByLabelText('floor-segments');
     fireEvent.click(within(floor).getByLabelText('options-toggle-floor'));
     expect(within(floor).queryByLabelText('inspect-floor')).toBeNull();
+  });
+
+  it('the ceiling button also counts the photos of inspections that did target the ceiling surface itself', async () => {
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({
+      ...COUNTS, inspection_surfaces: { [ceilingSurface.id]: 2 }, inspection_planes: { [salon.id]: { CEILING: 8 } },
+    });
+    renderWorkspace();
+    await openSalon();
+    const ceiling = await screen.findByLabelText('ceiling-segments');
+    fireEvent.click(within(ceiling).getByLabelText('options-toggle-ceiling'));
+    const button = await within(ceiling).findByLabelText('inspect-ceiling');
+    await waitFor(() => expect(within(button).getByTestId('inspection-photo-badge')).toHaveTextContent('10'));
   });
 
   it('the object, room and wall photo counts do not include inspection photos', async () => {

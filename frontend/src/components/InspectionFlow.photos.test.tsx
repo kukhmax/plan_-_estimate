@@ -181,7 +181,7 @@ const COUNTS: PhotoCounts = {
   lineages: { 'lineage-1': 3 },
   questions: { 'ins-1': { 'q-bool': 2, 'q-number': 1 } },
   works: {},
-  work_surfaces: {}, inspection_surfaces: {},
+  work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {},
 };
 
 function photos(over: Partial<ProjectPhotosValue> = {}, expanded: string[] = []): ProjectPhotosValue {

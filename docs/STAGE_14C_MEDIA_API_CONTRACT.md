@@ -839,3 +839,11 @@ Execution photos (WORK) and inspection photos (INSPECTION / FINDING) live only i
 
 The field is required in the published schema (always present, `{}` when there is nothing).
 
+## 33. Addendum — Stage 14H.6: `inspection_planes` in `GET /photos/counts` (no migration)
+
+An inspection of a whole floor or ceiling targets the **plane of the room** (`inspections.plane`, `surface_id` is null), not a surface, so §32 did not see it. The counts endpoint gains:
+
+- `inspection_planes`: `{room_id: {"FLOOR": n, "CEILING": n}}` — for every room, the photos of **all** its floor / ceiling inspections (inspection-level, question-level and the findings of those inspections), per plane. An inspection that names a surface is counted only in `inspection_surfaces`; a room-level inspection (neither surface nor plane) is counted in neither. Same visibility as every other count; empty rooms and planes are absent; the map never enters `surfaces`, `rooms` or `room_totals`.
+
+The field is required in the published schema (always present, `{}` when there is nothing). The indicator on "Badanie sufitu" shows `inspection_surfaces[surface]` + `inspection_planes[room][CEILING]`.
+

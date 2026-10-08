@@ -17,7 +17,7 @@ import { fetchOpenings } from '../api/openings';
 import { fetchRooms } from '../api/rooms';
 import { fetchSurfaces } from '../api/surfaces';
 
-const counts = (over: Partial<PhotoCounts> = {}): PhotoCounts => ({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, ...over });
+const counts = (over: Partial<PhotoCounts> = {}): PhotoCounts => ({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {}, ...over });
 const room = (id: string, name: string) => ({ id, name }) as never;
 const surface = (id: string, roomId: string, name: string, type = 'WALL') => ({ id, room_id: roomId, name, surface_type: type }) as never;
 const opening = (id: string, type: string, name: string | null) => ({ id, opening_type: type, name }) as never;

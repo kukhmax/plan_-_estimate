@@ -19,7 +19,7 @@ const counts: PhotoCounts = {
   surfaces: { s1: 1, s2: 4 },
   openings: { o1: 1 },
   room_totals: { r1: 3 + 1 + 4 + 1 },
-  inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {},
+  inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {},
 };
 
 describe('photo count helpers', () => {
