@@ -561,6 +561,10 @@ class DocumentDataError(Exception):
         self.details = details or {}
 
 
+class IssuedDocumentNotFoundError(Exception):
+    """A document of the journal that does not exist, or is not this owner's / this project's (Stage 15F)."""
+
+
 # ---------------------------------------------------------------------------
 # Stage 15C — executor profile.
 # ---------------------------------------------------------------------------
