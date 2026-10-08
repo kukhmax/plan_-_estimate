@@ -40,6 +40,7 @@ git diff --name-only HEAD origin/stage-14 -- backend/alembic backend/app
 **PASS:** первая команда пуста; вторая — ровно 7 файлов: `alembic/versions/0035_photo_annotations.py`, `app/api/v1/endpoints/photos.py`, `app/domain/exceptions.py`, `app/domain/services/photo_annotation_service.py`, `app/models/__init__.py`, `app/models/photo_annotation.py`, `app/schemas/photo.py`.
 
 ### A2 — бэкап перед миграцией *(рекомендую)* → ждёт «да, A2»
+**Выполнять в отдельной SSH-сессии и закрыть её после `verify`.** Шаги `upload` / `verify` экспортируют `MEDIA_S3_*` бэкапа; в той же сессии `docker compose up` подставит их в backend вместо `.env.production` (так случилось на 14G.3: ключ приложения стал `ab8171…048b`; исправлено пересозданием в новой сессии, см. 72.5 основного runbook). Перед каждым `PC up` — новая сессия и `env | grep -c '^MEDIA_S3\|^BACKUP_'` = 0.
 Схема меняется (новая таблица), поэтому рекомендую один прогон `db-dump` + `upload` + `verify` **существующими образами** (голова `0034` — они собраны на 14F.4 и до миграции подходят): раздел 72.3 основного runbook, шаги 2–4; перед ними загрузить **оба** файла (`. backup.env; . upload.env`). Последний проверенный запуск: `20261007T203639Z-bfab5242` (`ready_count=26`). **PASS:** `backup complete … ready_count=<число фото>`, `upload complete`, `verify ok`.
 
 ### A3 — получить код → ждёт «да, A3»
@@ -79,7 +80,7 @@ curl -fsS https://plan-estimate.pl/api/health; echo
 docker exec plan_estimate_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select count(*) from photo_annotations; select count(*) from photo_attachments;"'
 docker exec plan_estimate_backend python -c "from app.core.config import settings as s; k=s.MEDIA_S3_ACCESS_KEY_ID.get_secret_value(); print('ключ приложения:', k[:6]+'…'+k[-4:])"
 ```
-**PASS:** `current` = `heads` = `0035_photo_annotations`; в логах нет ошибок; health ok (если не сразу — подождать 20 секунд); `photo_annotations` = **0** строк, `photo_attachments` — прежнее число; ключ приложения `97bfe5…6dab`.
+**PASS:** `env | grep -c '^MEDIA_S3\|^BACKUP_'` = 0 **до** `up` (новая сессия); `current` = `heads` = `0035_photo_annotations`; в логах нет ошибок; health ok (если не сразу — подождать 20 секунд); `photo_annotations` = **0** строк, `photo_attachments` — прежнее число; ключ приложения `97bfe5…6dab`, бакет `plan-estimate-media-prod`, endpoint `r2.cloudflarestorage.com` (команда проверки добавлена в A5: `print('бакет:', s.MEDIA_S3_BUCKET)` и endpoint).
 
 ### A5b — подписанная ссылка с чужого адреса (обязательно, урок 14F.4) → ждёт «да, A5b»
 Как в runbook 14H.3: ссылку на миниатюру получить на VM и **вставить в локальный терминал компьютера** (не в SSH и не в чат):
