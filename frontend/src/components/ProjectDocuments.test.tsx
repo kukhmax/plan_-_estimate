@@ -17,7 +17,7 @@ const KUCHNIA = 'r-kuchnia';
 
 function summary(over: Partial<PhotoReportSummary> = {}): PhotoReportSummary {
   return {
-    photo_count: 5, project_photos: 1, limit: 60, over_limit: false, has_content: true,
+    photo_count: 5, project_photos: 1, limit: 60, over_limit: false, has_content: true, recommended_count: 0, unpriced_works: [],
     rooms: [
       { room_id: SALON, name: 'Salon', photos: 3, has_inspection_content: true },
       { room_id: KUCHNIA, name: 'Kuchnia', photos: 1, has_inspection_content: false },
@@ -165,6 +165,35 @@ describe('ProjectDocuments (Stage 15F.3)', () => {
     fireEvent.click(await screen.findByLabelText('Kuchnia — 1'));
     await act(async () => { fireEvent.click(screen.getByLabelText('send-photo-report-part')); });
     expect(documentsApi.issuePhotoReport).toHaveBeenCalledWith('p1', { room_ids: [KUCHNIA], include_project_photos: false });
+  });
+
+  it('says how many recommended extra works the report lists', async () => {
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary({ recommended_count: 2 }));
+    renderCard();
+    await open();
+    expect(await screen.findByText('Rekomendowane prace dodatkowe: 2')).toBeInTheDocument();
+    expect(screen.queryByLabelText('unpriced-works')).toBeNull();
+    expect(screen.getByLabelText('send-photo-report')).toBeEnabled();
+  });
+
+  it('names the recommended works without a price and does not offer to send until they are settled', async () => {
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary({
+      recommended_count: 2, unpriced_works: ['Salon › Ściana A: Gruntowanie gruntem penetrującym (pod szpachlowanie)'] }));
+    renderCard();
+    await open();
+    const alert = await screen.findByLabelText('unpriced-works');
+    expect(alert).toHaveTextContent('Brak ceny w kosztorysie — dokument nie zostanie wysłany:');
+    expect(alert).toHaveTextContent('Salon › Ściana A: Gruntowanie gruntem penetrującym');
+    expect(alert).toHaveTextContent('Zaakceptuj zalecenie w badaniu');
+    expect(screen.getByLabelText('send-photo-report')).toBeDisabled();
+  });
+
+  it('blocks the part of a report too, and shows the server\'s list when it refuses', async () => {
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary({ photo_count: 90, over_limit: true, unpriced_works: ['Salon › Ściana A: X'] }));
+    renderCard();
+    await open();
+    fireEvent.click(await screen.findByLabelText('Kuchnia — 1'));
+    expect(screen.getByLabelText('send-photo-report-part')).toBeDisabled();
   });
 
   it('every room line is a touch-sized control', async () => {

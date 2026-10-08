@@ -83,3 +83,5 @@ class PhotoReportSummaryRead(BaseModel):
     over_limit: bool
     has_content: bool
     rooms: list[RoomSummaryRead]
+    recommended_count: int  # recommended extra works the report would list
+    unpriced_works: list[str]  # those without a price in the current estimate: they block issuing

@@ -21,6 +21,7 @@ import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -58,6 +59,11 @@ from app.domain.services.photo_report_read_model import (
     ReportMarker,
     ReportPhoto,
     ReportRoom,
+)
+from app.domain.services.recommended_work_read_model import (
+    RecommendedWork,
+    RecommendedWorkReadModel,
+    RecommendedWorks,
 )
 from app.models.client import Client
 from app.models.executor_profile import ExecutorProfile
@@ -191,6 +197,28 @@ class Block:
 
 
 @dataclass(frozen=True, slots=True)
+class RecommendedRow:
+    place: str  # "Salon › Ściana A"
+    work: str
+    reason: str
+    quantity: Decimal
+    unit: str  # PriceUnit value
+    unit_price: Decimal
+    amount: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class RecommendedView:
+    """The block "Rekomendowane prace dodatkowe": risk -> work -> price, the price exactly as in the current estimate."""
+
+    estimate_version: int
+    estimate_is_draft: bool
+    rows: tuple[RecommendedRow, ...]
+    total: Decimal
+    currency: str
+
+
+@dataclass(frozen=True, slots=True)
 class PhotoReportDocument:
     layout: DocumentLayout
     object_name: str
@@ -198,6 +226,7 @@ class PhotoReportDocument:
     blocks: tuple[Block, ...]
     photo_count: int
     scope_rooms: tuple[str, ...] = field(default=())  # names of the rooms of a partial report
+    recommended: RecommendedView | None = None
 
     def context(self) -> dict[str, object]:
         return {"layout": self.layout, "doc": self}
@@ -394,6 +423,64 @@ def _risk_view(risk: RiskLine) -> RiskView:
     )
 
 
+# --- recommended extra works ------------------------------------------------------------------------------------------------------
+
+
+def _work_name(work: RecommendedWork) -> str:
+    name = work.work_display_name or work.work_name_key or work.work_code
+    return localize_description(name)
+
+
+def _work_reason(work: RecommendedWork) -> str:
+    reasons = [localize_risk_text(key) for key in work.risk_title_keys]
+    reasons += [localize_checklist_text(key) for key in work.finding_label_keys]
+    return "; ".join(reasons)
+
+
+def unpriced_text(works: RecommendedWorks) -> str:
+    return "; ".join(f"{w.room_name} › {w.surface_name}: {_work_name(w)}" for w in works.unpriced)
+
+
+def check_recommended_works(works: RecommendedWorks) -> None:
+    """No unknown price in a document that is issued: every recommended work must have its priced line in the estimate."""
+    if works.unpriced:
+        raise DocumentDataError(
+            "RECOMMENDED_WORK_UNPRICED",
+            "a recommended extra work has no price in the current estimate",
+            {"count": len(works.unpriced), "works": unpriced_text(works), "estimate_version": works.estimate_version},
+        )
+
+
+def recommended_view(works: RecommendedWorks) -> RecommendedView | None:
+    """The block, or None when nothing is recommended. Raises for a work without a price."""
+    if not works.items:
+        return None
+    check_recommended_works(works)
+    rows = [
+        RecommendedRow(
+            place=f"{work.room_name} › {work.surface_name}",
+            work=_work_name(work),
+            reason=_work_reason(work),
+            quantity=price.quantity,
+            unit=price.unit,
+            unit_price=price.unit_price,
+            amount=price.amount,
+        )
+        for work in works.items
+        for price in work.prices
+    ]
+    currencies = {price.currency for work in works.items for price in work.prices}
+    if len(currencies) != 1:
+        raise DocumentDataError("ESTIMATE_CURRENCY_MIXED", "recommended works in more than one currency cannot be added up")
+    return RecommendedView(
+        estimate_version=works.estimate_version,
+        estimate_is_draft=works.estimate_status == "DRAFT",
+        rows=tuple(rows),
+        total=sum((row.amount for row in rows), Decimal(0)),
+        currency=currencies.pop(),
+    )
+
+
 # --- geometry -------------------------------------------------------------------------------------------------------------
 
 
@@ -451,6 +538,7 @@ def build_photo_report_document(
     number: str | None = None,
     sequence: int | None = None,
     scope_rooms: tuple[str, ...] = (),
+    recommended: RecommendedWorks | None = None,
 ) -> PhotoReportDocument:
     """`images` is keyed by asset id and must hold every photo of `steps`."""
     if executor is None:
@@ -505,6 +593,7 @@ def build_photo_report_document(
         blocks=tuple(blocks),
         photo_count=counter,
         scope_rooms=scope_rooms,
+        recommended=recommended_view(recommended) if recommended else None,
     )
 
 
@@ -534,6 +623,8 @@ class PhotoReportSummary:
     project_photos: int
     limit: int
     rooms: tuple[RoomSummary, ...]
+    recommended_count: int = 0  # recommended extra works that the report would list
+    unpriced_works: tuple[str, ...] = ()  # the ones without a price in the current estimate: they block issuing
 
     @property
     def has_content(self) -> bool:
@@ -561,9 +652,10 @@ class PhotoReportDocumentService:
         *,
         room_ids: frozenset[uuid.UUID] | None = None,
         include_project_photos: bool | None = None,
-    ) -> tuple[Project, InspectionReportData, tuple[_Step, ...]]:
-        """The project, what its inspections say and the plan of the document; raises `DocumentDataError` for an empty
-        report or one over the photo limit. Nothing is downloaded yet: the limit is checked before a single photo is read."""
+    ) -> tuple[Project, InspectionReportData, tuple[_Step, ...], RecommendedWorks]:
+        """The project, what its inspections say, the plan of the document and the recommended extra works with their
+        prices; raises `DocumentDataError` for an empty report, one over the photo limit, or a recommended work without a
+        price in the current estimate. Nothing is downloaded yet: the limits are checked before a single photo is read."""
         report = await PhotoReportReadModel(self.db).build(owner_id, project_id)
         details = await InspectionReportReadModel(self.db).build(owner_id, project_id)
         project = (
@@ -575,7 +667,9 @@ class PhotoReportDocumentService:
             report, details, project_name=project.name, room_ids=room_ids, include_project_photos=include_project_photos
         )
         check_limit(report, details, steps, self.max_photos)
-        return project, details, steps
+        recommended = (await RecommendedWorkReadModel(self.db).build(owner_id, project_id)).in_rooms(room_ids)
+        check_recommended_works(recommended)
+        return project, details, steps, recommended
 
     async def build(
         self,
@@ -588,7 +682,7 @@ class PhotoReportDocumentService:
         room_ids: frozenset[uuid.UUID] | None = None,
         include_project_photos: bool | None = None,
     ) -> tuple[PhotoReportDocument, dict[str, bytes]]:
-        project, details, steps = await self.prepare(
+        project, details, steps, recommended = await self.prepare(
             owner_id, project_id, room_ids=room_ids, include_project_photos=include_project_photos
         )
         executor = await ExecutorProfileService(self.db).get(owner_id)
@@ -603,7 +697,7 @@ class PhotoReportDocumentService:
         scope = tuple(room.name for room in details.rooms if room_ids is not None and room.room_id in room_ids)
         document = build_photo_report_document(
             steps, images, project, client, executor, issued_on=issued_on, number=number, sequence=sequence,
-            scope_rooms=scope,
+            scope_rooms=scope, recommended=recommended,
         )
         return document, asset_files(document, steps, images)
 
@@ -620,11 +714,14 @@ class PhotoReportDocumentService:
             content = any(step.info for step in steps)
             if photos or content:
                 rooms.append(RoomSummary(room_info.room_id, room_info.name, photos, content))
+        recommended = await RecommendedWorkReadModel(self.db).build(owner_id, project_id)
         return PhotoReportSummary(
             photo_count=len(report.project_photos) + sum(room.photos for room in rooms),
             project_photos=len(report.project_photos),
             limit=self.max_photos,
             rooms=tuple(rooms),
+            recommended_count=len(recommended.items),
+            unpriced_works=tuple(f"{w.room_name} › {w.surface_name}: {_work_name(w)}" for w in recommended.unpriced),
         )
 
     @staticmethod

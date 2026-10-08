@@ -18,6 +18,14 @@ describe('documentErrorText', () => {
     expect(documentErrorText(errors, error)).toBe('Zdjęć jest za dużo na jeden dokument (72 > 60). Wyślij raport w częściach.');
   });
 
+  it('puts the list of works without a price into the refusal', () => {
+    const error = new ApiError('x', 422, 'RECOMMENDED_WORK_UNPRICED', {
+      code: 'RECOMMENDED_WORK_UNPRICED', details: { count: 1, works: 'Salon › Ściana A: Gruntowanie' } });
+    const text = documentErrorText(errors, error);
+    expect(text).toContain('Salon › Ściana A: Gruntowanie');
+    expect(text).toContain('nie mają ceny w kosztorysie');
+  });
+
   it('knows a bare code from the journal (a failed row) and falls back for anything else', () => {
     expect(documentErrorText(errors, 'TELEGRAM_CHAT_UNAVAILABLE')).toBe(errors.TELEGRAM_CHAT_UNAVAILABLE);
     expect(documentErrorText(errors, undefined)).toBe(errors.UNKNOWN);

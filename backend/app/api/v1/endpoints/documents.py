@@ -160,6 +160,8 @@ async def photo_report_summary(
         over_limit=summary.over_limit,
         has_content=summary.has_content,
         rooms=[RoomSummaryRead.model_validate(room) for room in summary.rooms],
+        recommended_count=summary.recommended_count,
+        unpriced_works=list(summary.unpriced_works),
     )
 
 

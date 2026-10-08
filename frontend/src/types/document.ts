@@ -41,6 +41,9 @@ export interface PhotoReportSummary {
   over_limit: boolean;
   has_content: boolean;
   rooms: PhotoReportRoomSummary[];
+  /** Recommended extra works the report would list, and those without a price in the current estimate (they block it). */
+  recommended_count: number;
+  unpriced_works: string[];
 }
 
 export interface DocumentPreviewResult {

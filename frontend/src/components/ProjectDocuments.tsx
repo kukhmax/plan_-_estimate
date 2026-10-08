@@ -92,6 +92,8 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
     .filter((room) => chosen.has(room.room_id))
     .reduce((sum, room) => sum + room.photos, 0) + (withProject ? summary?.project_photos ?? 0 : 0);
   const tooBig = summary !== null && selectedCount > summary.limit;
+  // a recommended extra work without a price blocks the report (the server refuses it too): say so instead of failing
+  const blocked = (summary?.unpriced_works.length ?? 0) > 0;
 
   const send = async (part?: { room_ids: string[]; include_project_photos: boolean }) => {
     if (busy) return;
@@ -160,12 +162,28 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
               <p className="text-sm text-slate-700 break-words">
                 {text.photo_summary.replace('{count}', String(summary.photo_count)).replace('{limit}', String(summary.limit))}
               </p>
+              {summary.recommended_count > 0 && (
+                <p className="text-sm text-slate-700 break-words">
+                  {text.recommended_works.replace('{count}', String(summary.recommended_count))}
+                </p>
+              )}
+              {summary.unpriced_works.length > 0 && (
+                <div role="alert" aria-label="unpriced-works" className="text-sm text-red-700 space-y-1">
+                  <p className="font-medium break-words">{text.unpriced_title}</p>
+                  <ul className="list-disc pl-5 space-y-0.5">
+                    {summary.unpriced_works.map((work) => (
+                      <li key={work} className="break-words">{work}</li>
+                    ))}
+                  </ul>
+                  <p className="break-words">{text.unpriced_hint}</p>
+                </div>
+              )}
               {!summary.over_limit ? (
                 <button
                   type="button"
                   aria-label="send-photo-report"
                   onClick={() => void send()}
-                  disabled={busy}
+                  disabled={busy || blocked}
                   className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-sky-700 rounded-xl hover:bg-sky-800 disabled:opacity-60 transition break-words"
                 >
                   {busy ? text.sending : text.send_pdf}
@@ -212,7 +230,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                     type="button"
                     aria-label="send-photo-report-part"
                     onClick={() => void send({ room_ids: [...chosen], include_project_photos: withProject })}
-                    disabled={busy || tooBig || chosen.size === 0}
+                    disabled={busy || blocked || tooBig || chosen.size === 0}
                     className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-sky-700 rounded-xl hover:bg-sky-800 disabled:opacity-60 transition break-words"
                   >
                     {busy ? text.sending : text.send_part}

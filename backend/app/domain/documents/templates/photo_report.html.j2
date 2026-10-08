@@ -3,6 +3,7 @@
 {% set surface_types = {'WALL': t('photo_report.surface.wall'), 'CEILING': t('photo_report.surface.ceiling'), 'FLOOR': t('photo_report.surface.floor'), 'OTHER': t('photo_report.surface.other')} %}
 {% set severities = {'LOW': t('photo_report.severity.low'), 'MEDIUM': t('photo_report.severity.medium'), 'HIGH': t('photo_report.severity.high'), 'CRITICAL': t('photo_report.severity.critical')} %}
 {% set substrates = {'CONCRETE': t('photo_report.substrate_name.concrete'), 'GYPSUM_PLASTER': t('photo_report.substrate_name.gypsum_plaster'), 'CEMENT_LIME_PLASTER': t('photo_report.substrate_name.cement_lime_plaster'), 'GYPSUM_BOARD': t('photo_report.substrate_name.gypsum_board'), 'PAINTED': t('photo_report.substrate_name.painted'), 'OTHER': t('photo_report.substrate_name.other')} %}
+{% set units = {'M2': t('unit.m2'), 'LM': t('unit.lm'), 'PCS': t('unit.pcs'), 'HOUR': t('unit.hour'), 'DAY': t('unit.day'), 'FLAT': t('unit.flat')} %}
 {% set statuses = {'DRAFT': t('photo_report.status.draft'), 'COMPLETED': t('photo_report.status.completed')} %}
 {% block body %}
 <div class="report">
@@ -90,5 +91,39 @@
   </table>
   {% endif %}
 {% endfor %}
+{% if doc.recommended %}
+  {% set rec = doc.recommended %}
+  <section class="recommended">
+    <h2>{{ t('photo_report.recommended_title') }}</h2>
+    <p>{{ t('photo_report.recommended_intro') }}</p>
+    <p class="muted">{% if rec.estimate_is_draft %}{{ t('photo_report.recommended_note_draft', n=rec.estimate_version) }}{% else %}{{ t('photo_report.recommended_note', n=rec.estimate_version) }}{% endif %}</p>
+    <table class="estimate">
+      <thead>
+        <tr>
+          <th>{{ t('estimate.col.description') }}</th>
+          <th class="unit">{{ t('estimate.col.unit') }}</th>
+          <th class="num">{{ t('estimate.col.quantity') }}</th>
+          <th class="num">{{ t('estimate.col.unit_price') }}</th>
+          <th class="num">{{ t('estimate.col.amount') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rec.rows %}
+        <tr>
+          <td>{{ row.work }}<div class="detail">{{ row.place }}{% if row.reason %} · {{ t('photo_report.recommended_reason') }}: {{ row.reason }}{% endif %}</div></td>
+          <td class="unit">{{ units[row.unit] }}</td>
+          <td class="num">{{ row.quantity | quantity }}</td>
+          <td class="num">{{ row.unit_price | money(rec.currency) }}</td>
+          <td class="num">{{ row.amount | money(rec.currency) }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="grand-total">
+          <td colspan="4" class="num">{{ t('photo_report.recommended_total') }}</td>
+          <td class="num">{{ rec.total | money(rec.currency) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+{% endif %}
 </div>
 {% endblock %}

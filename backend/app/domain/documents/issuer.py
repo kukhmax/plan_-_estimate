@@ -127,7 +127,7 @@ class DocumentIssuer:
         self._ensure_capacity()
         owner_id = user.id
         service = self._photo_service(db)
-        project, details, _ = await service.prepare(
+        project, details, _, _ = await service.prepare(
             owner_id, project_id, room_ids=room_ids, include_project_photos=include_project_photos
         )
         if await ExecutorProfileService(db).get(owner_id) is None:

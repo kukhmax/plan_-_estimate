@@ -93,5 +93,11 @@
   "photo_report.substrate_name.gypsum_board": "płyta g-k",
   "photo_report.substrate_name.painted": "stara farba",
   "photo_report.substrate_name.other": "inne",
-  "doc.sequence": "Nr kolejny dokumentu dla obiektu"
+  "doc.sequence": "Nr kolejny dokumentu dla obiektu",
+  "photo_report.recommended_title": "Rekomendowane prace dodatkowe",
+  "photo_report.recommended_intro": "Prace zalecane w związku z wykrytymi ryzykami, wraz z ceną z kosztorysu.",
+  "photo_report.recommended_note": "Ceny wg kosztorysu, wersja {n}.",
+  "photo_report.recommended_note_draft": "Ceny wg kosztorysu, wersja {n} (wersja robocza).",
+  "photo_report.recommended_reason": "Powód",
+  "photo_report.recommended_total": "Razem — rekomendowane prace dodatkowe"
 }

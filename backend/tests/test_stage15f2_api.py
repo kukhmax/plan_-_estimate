@@ -176,6 +176,7 @@ async def test_the_summary_and_the_limit_and_a_part_by_room(async_client: AsyncC
     assert summary.status_code == 200 and (body["photo_count"], body["project_photos"], body["limit"], body["over_limit"], body["has_content"]) == (5, 1, 3, True, True)
     assert [(r["room_id"], r["name"], r["photos"]) for r in body["rooms"]] == [(salon_id, "Salon", 3), (kuchnia_id, "Kuchnia", 1)]
     assert set(body["rooms"][0]) == {"room_id", "name", "photos", "has_inspection_content"}
+    assert (body["recommended_count"], body["unpriced_works"]) == (0, [])
     over = await async_client.post(f"/api/projects/{project_id}/documents", json={"kind": "PHOTO_REPORT"}, headers=headers)
     assert over.status_code == 422 and over.json()["detail"]["code"] == "PHOTO_LIMIT_EXCEEDED"
     details = over.json()["detail"]["details"]
