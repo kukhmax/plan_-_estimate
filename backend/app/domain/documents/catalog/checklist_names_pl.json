@@ -17,5 +17,7 @@
   "checklist.question.notes": "Uwagi",
   "checklist.question.present_defects": "Wykryte wady",
   "checklist.question.substrate_condition": "Stan podłoża",
-  "checklist.question.unevenness_mm": "Nierówności podłoża"
+  "checklist.question.unevenness_mm": "Nierówności podłoża",
+  "checklist.section.drywall_joints": "Połączenia płyt g-k",
+  "checklist.section.general_conditions": "Stan ogólny"
 }

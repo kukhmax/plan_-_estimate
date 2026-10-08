@@ -37,6 +37,7 @@ from app.domain.documents.photo_report_document import (
 from app.domain.documents.renderer import DocumentRenderer
 from app.domain.exceptions import DocumentDataError, ProjectNotFoundError
 from app.domain.services.executor_profile_service import ExecutorProfileService
+from app.domain.services.inspection_report_read_model import InspectionInfo, InspectionReportData, RoomInfo
 from app.domain.services.media_storage import InMemoryMediaStorage
 from app.domain.services.photo_report_read_model import (
     PhotoReport,
@@ -138,6 +139,21 @@ def make_report() -> tuple[PhotoReport, dict]:
     return report, {wall_id: "Ściana A"}
 
 
+def details_for(report: PhotoReport, names: dict, infos: tuple = ()) -> InspectionReportData:
+    """The inspection details that go with a synthetic photo tree: every room and tree inspection, no answers or risks."""
+    rooms = tuple(RoomInfo(r.room_id, r.name, T0 + timedelta(hours=i)) for i, r in enumerate(report.rooms))
+    inspections = infos or tuple(
+        InspectionInfo(i.inspection_id, r.room_id, i.surface_id, names.get(i.surface_id), i.plane, i.status,
+                       T0 + timedelta(minutes=n), None, "CONCRETE", None, None, (), ())
+        for r in report.rooms for n, i in enumerate(r.inspections)
+    )
+    return InspectionReportData(rooms, inspections)
+
+
+def plan(report, names, **kw):
+    return plan_photo_report(report, kw.pop("details", None) or details_for(report, names), project_name="Mieszkanie Mokotów", **kw)
+
+
 def reason_of(fn, *args, **kw) -> DocumentDataError:
     with pytest.raises(DocumentDataError) as caught:
         fn(*args, **kw)
@@ -230,7 +246,7 @@ def kinds(steps):
 
 def test_the_plan_follows_the_document_order_of_the_read_model():
     report, names = make_report()
-    steps = plan_photo_report(report, names)
+    steps = plan(report, names)
     assert kinds(steps) == ["project", "room", "surface", "opening", "work", "work", "inspection", "question", "finding", "finding",
                             "inspection", "room"]
     photos = photos_of(steps)
@@ -240,7 +256,7 @@ def test_the_plan_follows_the_document_order_of_the_read_model():
 
 def test_names_are_polish_and_owner_names_are_kept():
     report, names = make_report()
-    steps = plan_photo_report(report, names)
+    steps = plan(report, names)
     works = [s for s in steps if s.kind == "work"]
     assert works[0].title.startswith("Zabezpieczenie podłóg") and not works[0].muted
     assert works[1].title == "Gładź na wymiar" and works[1].muted
@@ -256,18 +272,18 @@ def test_names_are_polish_and_owner_names_are_kept():
 def test_a_text_finding_keeps_its_text():
     finding = ReportFinding(uuid.uuid4(), uuid.uuid4(), "X", None, {"text": "wilgoć przy oknie"}, True, (rphoto(C.FINDING),))
     room = ReportRoom(uuid.uuid4(), "Salon", (), (), (ReportInspection(uuid.uuid4(), None, None, "COMPLETED", (), (), (finding,)),))
-    step = next(s for s in plan_photo_report(PhotoReport(uuid.uuid4(), (), (room,)), {}) if s.kind == "finding")
+    step = next(s for s in plan(PhotoReport(uuid.uuid4(), (), (room,)), {}) if s.kind == "finding")
     assert (step.title, step.detail) == (None, "wilgoć przy oknie")
 
 
 def test_a_part_of_the_report_is_chosen_by_room_and_leaves_the_project_photos_out_unless_asked():
     report, names = make_report()
     kuchnia = report.rooms[1].room_id
-    part = plan_photo_report(report, names, room_ids=frozenset({kuchnia}), include_project_photos=False)
+    part = plan(report, names, room_ids=frozenset({kuchnia}), include_project_photos=False)
     assert kinds(part) == ["room"] and part[0].title == "Kuchnia"
-    with_project = plan_photo_report(report, names, room_ids=frozenset({kuchnia}))
+    with_project = plan(report, names, room_ids=frozenset({kuchnia}))
     assert kinds(with_project) == ["project", "room"]
-    assert plan_photo_report(report, names, room_ids=frozenset(), include_project_photos=False) == ()
+    assert plan(report, names, room_ids=frozenset(), include_project_photos=False) == ()
 
 
 def test_exactly_the_limit_passes_and_one_more_is_refused_with_counts_per_room():
@@ -275,19 +291,19 @@ def test_exactly_the_limit_passes_and_one_more_is_refused_with_counts_per_room()
         return ReportRoom(uuid.uuid4(), name, tuple(rphoto(C.ROOM) for _ in range(count)), (), ())
 
     report = PhotoReport(uuid.uuid4(), (rphoto(C.PROJECT),), (room("Salon", 40), room("Kuchnia", 19)))
-    steps = plan_photo_report(report, {})
-    check_limit(report, steps, 60)  # 1 + 40 + 19 = 60
+    steps = plan(report, {})
+    check_limit(report, details_for(report, {}), steps, 60)  # 1 + 40 + 19 = 60
     bigger = PhotoReport(uuid.uuid4(), (rphoto(C.PROJECT),), (room("Salon", 40), room("Kuchnia", 20)))
-    error = reason_of(check_limit, bigger, plan_photo_report(bigger, {}), 60)
+    error = reason_of(check_limit, bigger, details_for(bigger, {}), plan(bigger, {}), 60)
     assert error.reason == "PHOTO_LIMIT_EXCEEDED"
     assert error.details["count"] == 61 and error.details["limit"] == 60 and error.details["project_photos"] == 1
     assert [(r["name"], r["count"]) for r in error.details["rooms"]] == [("Salon", 40), ("Kuchnia", 20)]
-    part = plan_photo_report(bigger, {}, room_ids=frozenset({bigger.rooms[1].room_id}), include_project_photos=False)
-    check_limit(bigger, part, 60)
+    part = plan(bigger, {}, room_ids=frozenset({bigger.rooms[1].room_id}), include_project_photos=False)
+    check_limit(bigger, details_for(bigger, {}), part, 60)
 
 
 def test_a_report_without_photos_is_refused():
-    assert reason_of(check_limit, PhotoReport(uuid.uuid4(), (), ()), (), 60).reason == "REPORT_EMPTY"
+    assert reason_of(check_limit, PhotoReport(uuid.uuid4(), (), ()), details_for(PhotoReport(uuid.uuid4(), (), ()), {}), (), 60).reason == "REPORT_EMPTY"
 
 
 # --- the document --------------------------------------------------------------------------------------------------------------------
@@ -296,7 +312,7 @@ def test_a_report_without_photos_is_refused():
 def build(report=None, names=None, **kw):
     if report is None:
         report, names = make_report()
-    steps = plan_photo_report(report, names or {})
+    steps = plan(report, names or {})
     images = images_for(photos_of(steps))
     kw.setdefault("issued_on", TODAY)
     document = build_photo_report_document(steps, images, PROJECT, CLIENT, kw.pop("executor", EXECUTOR), **kw)
@@ -345,16 +361,16 @@ def test_the_same_picture_is_one_file_and_every_reference_has_a_file():
     assert used == set(files) and len(files) == len(photos_of(steps)) - 1  # the twin shares the picture
 
 
-def test_markers_carry_their_numbers_and_only_labelled_ones_are_in_the_legend():
+def test_markers_carry_their_numbers_and_every_marker_is_in_the_legend_labelled_or_not():
     document, *_ = build()
     view = next(v for b in document.blocks for row in b.rows for v in row if v.markers)
     assert [m.number for m in view.markers] == [1, 2]
-    assert view.legend == ((1, "rysa przy oknie"),) and len(view.outlines) == 1
+    assert view.legend == ((1, "rysa przy oknie"), (2, None)) and len(view.outlines) == 1
 
 
 def test_a_missing_picture_or_executor_is_an_error():
     report, names = make_report()
-    steps = plan_photo_report(report, names)
+    steps = plan(report, names)
     partial = images_for(photos_of(steps)[:-1])
     assert reason_of(build_photo_report_document, steps, partial, PROJECT, CLIENT, EXECUTOR, issued_on=TODAY).reason == "PHOTO_UNAVAILABLE"
     assert reason_of(build_photo_report_document, steps, images_for(photos_of(steps)), PROJECT, CLIENT, None, issued_on=TODAY).reason == "EXECUTOR_PROFILE_REQUIRED"
@@ -384,7 +400,7 @@ def test_the_marker_and_contour_are_drawn_where_the_geometry_says():
 def test_a_partial_report_says_so():
     report, names = make_report()
     kuchnia = report.rooms[1]
-    steps = plan_photo_report(report, names, room_ids=frozenset({kuchnia.room_id}), include_project_photos=False)
+    steps = plan(report, names, room_ids=frozenset({kuchnia.room_id}), include_project_photos=False)
     document = build_photo_report_document(steps, images_for(photos_of(steps)), PROJECT, CLIENT, EXECUTOR, issued_on=TODAY, scope_rooms=("Kuchnia",))
     assert "Raport częściowy — pomieszczenia: Kuchnia" in PhotoReportDocumentService.html(document)
     assert "Raport częściowy" not in PhotoReportDocumentService.html(build()[0])
@@ -407,6 +423,7 @@ def test_every_built_in_question_and_option_has_a_polish_text_and_nothing_else_i
     keys = set()
     for template in build_baseline_templates():
         for section in template.sections:
+            keys.add(section.title_key)
             for question in section.questions:
                 keys.add(question.text_key)
                 keys |= {option.label_key for option in question.options}
@@ -644,8 +661,8 @@ async def test_sixty_photos_make_a_document_well_inside_the_limits():
     for r in range(6):
         report_rooms.append(ReportRoom(uuid.uuid4(), f"Pomieszczenie {r + 1}", tuple(rphoto(C.ROOM, caption="Opis zdjęcia", minute=r * 10 + i) for i in range(10)), (), ()))
     report = PhotoReport(uuid.uuid4(), (), tuple(report_rooms))
-    steps = plan_photo_report(report, {})
-    check_limit(report, steps, 60)
+    steps = plan(report, {})
+    check_limit(report, details_for(report, {}), steps, 60)
     shot = prepare_print_image(jpeg(2048, 1536))
     images = {p.asset_id: shot for p in photos_of(steps)}
     document = build_photo_report_document(steps, images, PROJECT, CLIENT, EXECUTOR, issued_on=TODAY)

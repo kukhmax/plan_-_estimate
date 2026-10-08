@@ -1,6 +1,8 @@
 {% extends "_layout.html.j2" %}
 {% set categories = {'GENERAL': t('photo_category.general'), 'BEFORE': t('photo_category.before'), 'DEFECT': t('photo_category.defect'), 'PREPARATION': t('photo_category.preparation'), 'IN_PROGRESS': t('photo_category.in_progress'), 'HIDDEN_WORK': t('photo_category.hidden_work'), 'AFTER': t('photo_category.after'), 'DAMAGE': t('photo_category.damage')} %}
 {% set surface_types = {'WALL': t('photo_report.surface.wall'), 'CEILING': t('photo_report.surface.ceiling'), 'FLOOR': t('photo_report.surface.floor'), 'OTHER': t('photo_report.surface.other')} %}
+{% set severities = {'LOW': t('photo_report.severity.low'), 'MEDIUM': t('photo_report.severity.medium'), 'HIGH': t('photo_report.severity.high'), 'CRITICAL': t('photo_report.severity.critical')} %}
+{% set substrates = {'CONCRETE': t('photo_report.substrate_name.concrete'), 'GYPSUM_PLASTER': t('photo_report.substrate_name.gypsum_plaster'), 'CEMENT_LIME_PLASTER': t('photo_report.substrate_name.cement_lime_plaster'), 'GYPSUM_BOARD': t('photo_report.substrate_name.gypsum_board'), 'PAINTED': t('photo_report.substrate_name.painted'), 'OTHER': t('photo_report.substrate_name.other')} %}
 {% set statuses = {'DRAFT': t('photo_report.status.draft'), 'COMPLETED': t('photo_report.status.completed')} %}
 {% block body %}
 <div class="report">
@@ -20,6 +22,38 @@
   {% elif b.kind == 'inspection' %}<h3>{{ t('photo_report.inspection') }}{% if b.title %} — {{ b.title }}{% elif b.code == 'FLOOR' %} — {{ surface_types['FLOOR'] }}{% elif b.code == 'CEILING' %} — {{ surface_types['CEILING'] }}{% endif %} <span class="muted">({{ statuses[b.detail] }})</span></h3>
   {% elif b.kind == 'question' %}<h4>{{ b.title }}</h4>
   {% elif b.kind == 'finding' %}<h4{% if b.muted %} class="muted"{% endif %}>{{ t('photo_report.finding') }}{% if b.title %}: {{ b.title }}{% endif %}{% if b.detail %} — {{ b.detail }}{% endif %}{% if b.muted %} ({{ t('photo_report.finding_inactive') }}){% endif %}</h4>
+  {% endif %}
+  {% if b.inspection %}
+  {% set ins = b.inspection %}
+  <div class="inspection">
+    <table class="facts">
+      <tr><td class="label">{{ t('photo_report.substrate') }}</td><td>{{ substrates[ins.substrate] }}</td></tr>
+      {% if ins.quality_target %}<tr><td class="label">{{ t('photo_report.quality_target') }}</td><td>{{ ins.quality_target }}</td></tr>{% endif %}
+      {% if ins.completed_on %}<tr><td class="label">{{ t('photo_report.completed_on') }}</td><td>{{ ins.completed_on | date }}</td></tr>{% endif %}
+      {% if ins.notes %}<tr><td class="label">{{ t('photo_report.notes') }}</td><td>{{ ins.notes }}</td></tr>{% endif %}
+    </table>
+    {% if ins.groups %}
+    <h4>{{ t('photo_report.answers') }}</h4>
+    {% for g in ins.groups %}
+    <table class="answers">
+      {% if g.title %}<tr class="answers-title"><td colspan="2">{{ g.title }}</td></tr>{% endif %}
+      {% for r in g.rows %}<tr><td>{{ r.question }}</td><td class="answer">{{ r.answer }}</td></tr>{% endfor %}
+    </table>
+    {% endfor %}
+    {% endif %}
+    {% if ins.risks %}
+    <h4>{{ t('photo_report.risks') }}</h4>
+    {% for risk in ins.risks %}
+    <div class="risk risk-{{ risk.severity | lower }}">
+      <div class="risk-title"><span class="severity">{{ severities[risk.severity] }}</span> {{ risk.title }}</div>
+      <div>{{ risk.explanation }}</div>
+      <div><strong>{{ t('photo_report.consequence') }}:</strong> {{ risk.consequence }}</div>
+      <div><strong>{{ t('photo_report.proposal') }}:</strong> {{ risk.proposal }}</div>
+      {% if risk.blocks_finishing %}<div class="blocks">{{ t('photo_report.blocks_finishing') }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
   {% endif %}
   {% if b.rows %}
   <table class="photos">
@@ -43,9 +77,10 @@
           {% endif %}
         </div>
         <div class="photo-caption">
+          {% if p.place %}<div class="place">{{ p.place }}</div>{% endif %}
           <strong>{{ t('photo_report.photo', n=p.number) }}</strong>{% if p.show_category %} · {{ categories[p.category] }}{% endif %} · {{ p.taken_on | datetime }}
           {% if p.caption %}<div>{{ p.caption }}</div>{% endif %}
-          {% if p.legend %}<div class="legend">{{ t('photo_report.markers') }}: {% for number, label in p.legend %}{{ number }} – {{ label }}{% if not loop.last %}; {% endif %}{% endfor %}</div>{% endif %}
+          {% if p.legend %}<div class="legend">{{ t('photo_report.markers') }}: {% for number, label in p.legend %}{{ number }} – {% if label %}{{ label }}{% else %}{{ t('photo_report.marker_no_label') }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}</div>{% endif %}
         </div>
       </td>
       {% endfor %}

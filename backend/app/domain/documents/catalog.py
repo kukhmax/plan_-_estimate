@@ -16,9 +16,12 @@ from app.domain.exceptions import DocumentDataError
 CATALOG_DIR = Path(__file__).resolve().parent / "catalog"
 CATALOG_FILE = CATALOG_DIR / "price_names_pl.json"
 CHECKLIST_FILE = CATALOG_DIR / "checklist_names_pl.json"
+RISK_FILE = CATALOG_DIR / "risk_texts_pl.json"
 # What a built-in name key looks like. Owner-typed names that merely contain a dot ("Wałek 2.5") do not match.
 KEY_PATTERN = re.compile(r"^pricebook\.[a-z0-9_]+(\.[a-z0-9_]+)+$")
-CHECKLIST_KEY_PATTERN = re.compile(r"^checklist\.(question|option)\.[a-z0-9_]+$")
+CHECKLIST_KEY_PATTERN = re.compile(r"^checklist\.(question|option|section)\.[a-z0-9_]+$")
+# The built-in risk texts: risk.<rule code>.<title | explanation | consequence | communication>.
+RISK_KEY_PATTERN = re.compile(r"^risk\.[a-z0-9_]+\.(title|explanation|consequence|communication)$")
 
 
 def _load(path: Path) -> dict[str, str]:
@@ -35,7 +38,7 @@ def price_names() -> dict[str, str]:
 
 @cache
 def checklist_names() -> dict[str, str]:
-    """Polish texts of the built-in inspection questions and answer options (Stage 15E)."""
+    """Polish texts of the built-in inspection sections, questions and answer options (Stage 15E)."""
     return _load(CHECKLIST_FILE)
 
 
@@ -47,6 +50,24 @@ def localize_description(description: str) -> str:
         return price_names()[description]
     except KeyError:
         raise DocumentDataError("CATALOG_NAME_UNKNOWN", f"no Polish name for the price item key {description!r}") from None
+
+
+@cache
+def risk_texts() -> dict[str, str]:
+    """Polish client-facing texts of the built-in risk rules (Stage 15E). The `mitigation` texts are instructions to the
+    contractor ("Wzmocnij podłoże ..."), not for the client, so they are not part of this catalog; the `communication`
+    text is the contractor's own words to the client."""
+    return _load(RISK_FILE)
+
+
+def localize_risk_text(key: str) -> str:
+    """The Polish text of a built-in risk key; any other key is an error (a risk always carries its own keys)."""
+    if not RISK_KEY_PATTERN.match(key):
+        raise DocumentDataError("CATALOG_NAME_UNKNOWN", f"not a risk text key: {key!r}")
+    try:
+        return risk_texts()[key]
+    except KeyError:
+        raise DocumentDataError("CATALOG_NAME_UNKNOWN", f"no Polish text for the risk key {key!r}") from None
 
 
 def localize_checklist_text(text: str) -> str:
