@@ -160,7 +160,7 @@ const COUNTS: PhotoCounts = {
   surfaces: { [wall.id]: 3 },
   openings: { [door.id]: 1 },
   room_totals: { [salon.id]: 2 + 3 + 1 }, // the room's own, the wall's and the wall's opening's
-  inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {},
+  inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {},
 };
 
 function renderWorkspace() {
@@ -432,7 +432,7 @@ describe('ProjectWorkspace photos — rooms show everything in the room (view an
     await screen.findByRole('region', { name: 'Zdjęcia' });
     fireEvent.click(screen.getByLabelText('back-to-projects'));
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {} });
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {} });
     fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
     const card = await screen.findByLabelText('project-photos');
     expect(await countButton(card, 0)).toHaveAttribute('aria-expanded', 'false');
@@ -648,3 +648,88 @@ describe('ProjectWorkspace photos — locales', () => {
     expect(await within(card).findByRole('button', { name: 'Сделать фото' })).toBeInTheDocument();
   });
 });
+
+describe('ProjectWorkspace photos — execution photos are marked on the "Realizacja" row', () => {
+  it('a wall with execution photos shows a camera and its number on the row; the row still opens the execution view', async () => {
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ ...COUNTS, work_surfaces: { [wall.id]: 2 } });
+    renderWorkspace();
+    await openSalon();
+    const row = screen.getByLabelText(`execution-${wall.id}`);
+    await waitFor(() => expect(within(row).getByTestId('execution-photo-badge')).toHaveTextContent('2'));
+    expect(row).toHaveTextContent('Realizacja');
+    expect(row).toHaveClass('flex', 'flex-wrap', 'items-center', 'justify-center');
+  });
+
+  it('a wall without execution photos shows no badge', async () => {
+    renderWorkspace();
+    await openSalon();
+    const row = screen.getByLabelText(`execution-${wall.id}`);
+    await waitFor(() => expect(photosApi.fetchPhotoCounts).toHaveBeenCalled());
+    expect(within(row).queryByTestId('execution-photo-badge')).toBeNull();
+  });
+
+  it('each surface shows its own number, and the floor row has the badge too', async () => {
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ ...COUNTS, work_surfaces: { [wall.id]: 2, [floorSurface.id]: 5 } });
+    renderWorkspace();
+    await openSalon();
+    await waitFor(() => expect(within(screen.getByLabelText(`execution-${wall.id}`)).getByTestId('execution-photo-badge')).toHaveTextContent('2'));
+    const floorRow = await screen.findByLabelText(`execution-${floorSurface.id}`);
+    expect(within(floorRow).getByTestId('execution-photo-badge')).toHaveTextContent('5');
+  });
+
+  it('the object, room and wall photo counts do not include execution photos (and the badge does not change them)', async () => {
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ ...COUNTS, work_surfaces: { [wall.id]: 2 } });
+    renderWorkspace();
+    await openSalon();
+    const card = screen.getByLabelText(`surface-item-${wall.id}`);
+    expect(within(card).getByRole('button', { name: 'Zdjęcia: 3' })).toBeInTheDocument(); // the wall's own count from COUNTS
+  });
+
+  it('Russian: the tooltip and name of the badge', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ ...COUNTS, work_surfaces: { [wall.id]: 2 } });
+    renderWorkspace();
+    await screen.findByLabelText(`open-project-${project.id}`);
+    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    fireEvent.click(await screen.findByLabelText(`open-room-${salon.id}`));
+    await screen.findByLabelText(`surface-item-${wall.id}`);
+    expect(await screen.findByRole('img', { name: 'Фото выполнения: 2' })).toBeInTheDocument();
+  });
+});
+
+describe('ProjectWorkspace photos — inspection photos are marked on the "Badanie" buttons', () => {
+  it('the wall inspection button shows how many photos its inspections have', async () => {
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ ...COUNTS, inspection_surfaces: { [wall.id]: 5 } });
+    renderWorkspace();
+    await openSalon();
+    fireEvent.click(screen.getByLabelText(`options-toggle-${wall.id}`));
+    const button = await screen.findByLabelText(`inspect-surface-${wall.id}`);
+    await waitFor(() => expect(within(button).getByTestId('inspection-photo-badge')).toHaveTextContent('5'));
+    expect(button).toHaveTextContent('Badanie ściany');
+  });
+
+  it('the ceiling inspection button shows its own number (the floor offers no inspection button)', async () => {
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({
+      ...COUNTS, inspection_surfaces: { [floorSurface.id]: 3, [ceilingSurface.id]: 8 },
+    });
+    renderWorkspace();
+    await openSalon();
+    const ceiling = await screen.findByLabelText('ceiling-segments');
+    fireEvent.click(within(ceiling).getByLabelText('options-toggle-ceiling'));
+    const button = await within(ceiling).findByLabelText('inspect-ceiling');
+    await waitFor(() => expect(within(button).getByTestId('inspection-photo-badge')).toHaveTextContent('8'));
+    expect(button).toHaveTextContent('Badanie sufitu');
+    const floor = await screen.findByLabelText('floor-segments');
+    fireEvent.click(within(floor).getByLabelText('options-toggle-floor'));
+    expect(within(floor).queryByLabelText('inspect-floor')).toBeNull();
+  });
+
+  it('the object, room and wall photo counts do not include inspection photos', async () => {
+    vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ ...COUNTS, inspection_surfaces: { [wall.id]: 5 } });
+    renderWorkspace();
+    await openSalon();
+    const card = screen.getByLabelText(`surface-item-${wall.id}`);
+    expect(within(card).getByRole('button', { name: 'Zdjęcia: 3' })).toBeInTheDocument();
+  });
+});
+

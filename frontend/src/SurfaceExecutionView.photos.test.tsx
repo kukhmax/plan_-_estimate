@@ -82,6 +82,7 @@ const BASE: PhotoCounts = {
   // k-ns 2, k-done 1, plus 3 photos of a work that is no longer in the plan
   works: { 'k-ns': 2, 'k-done': 1, 'k-old': 3 },
   work_surfaces: { [S]: 6 },
+  inspection_surfaces: {},
 };
 
 function provided(over: Partial<ProjectPhotosValue> = {}, expanded: string[] = []): ProjectPhotosValue {
@@ -210,7 +211,7 @@ describe('evidence of works that left the plan', () => {
   });
 
   it('is hidden when the surface has no execution photo at all', async () => {
-    renderView(provided({ counts: { ...BASE, works: {}, work_surfaces: {} } }));
+    renderView(provided({ counts: { ...BASE, works: {}, work_surfaces: {}, inspection_surfaces: {} } }));
     await screen.findByLabelText(`execution-works-${S}`);
     expect(screen.queryByLabelText(`execution-detached-photos-${S}`)).toBeNull();
   });

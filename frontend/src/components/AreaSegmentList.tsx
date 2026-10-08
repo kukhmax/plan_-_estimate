@@ -1,3 +1,4 @@
+import { EXECUTION_ROW_WITH_BADGE, ExecutionPhotoBadge, INSPECT_BUTTON_WITH_BADGE, InspectionPhotoBadge } from './ExecutionPhotoBadge';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import {
   archiveAreaSegment,
@@ -367,9 +368,10 @@ export function AreaSegmentList({
               aria-label={`execution-${planeSurfaceId}`}
               aria-expanded={isExecutionOpen}
               onClick={() => toggleExecution(plane)}
-              className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+              className={`w-full min-h-11 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
             >
-              {t.execution.open}
+              <span className="min-w-0 break-words">{t.execution.open}</span>
+              <ExecutionPhotoBadge surfaceId={planeSurfaceId} />
             </button>
 
             {isExecutionOpen && (
@@ -395,9 +397,10 @@ export function AreaSegmentList({
                 type="button"
                 aria-label={`inspect-${planeKey}`}
                 onClick={() => onInspectPlane(plane)}
-                className="w-full min-h-11 text-xs px-3 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
+                className={`w-full min-h-11 text-xs rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition ${INSPECT_BUTTON_WITH_BADGE}`}
               >
-                {plane === 'FLOOR' ? t.inspections.inspect_floor : t.inspections.inspect_ceiling}
+                <span className="min-w-0 break-words">{plane === 'FLOOR' ? t.inspections.inspect_floor : t.inspections.inspect_ceiling}</span>
+                {planeSurfaceId && <InspectionPhotoBadge surfaceId={planeSurfaceId} />}
               </button>
             )}
             <div className="flex gap-2 flex-wrap">

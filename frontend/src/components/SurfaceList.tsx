@@ -1,3 +1,4 @@
+import { EXECUTION_ROW_WITH_BADGE, ExecutionPhotoBadge, INSPECT_BUTTON_WITH_BADGE, InspectionPhotoBadge } from './ExecutionPhotoBadge';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { fetchOpenings } from '../api/openings';
 import {
@@ -848,9 +849,10 @@ export function SurfaceList({
                       aria-label={`execution-${surface.id}`}
                       aria-expanded={isExecutionOpen}
                       onClick={() => toggleExecution(surface.id)}
-                      className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+                      className={`w-full min-h-11 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
                     >
-                      {t.execution.open}
+                      <span className="min-w-0 break-words">{t.execution.open}</span>
+                      <ExecutionPhotoBadge surfaceId={surface.id} />
                     </button>
 
                     {isExecutionOpen && (
@@ -878,9 +880,10 @@ export function SurfaceList({
                               type="button"
                               aria-label={`inspect-surface-${surface.id}`}
                               onClick={() => onInspectSurface(surface.id, displayName)}
-                              className="min-h-11 w-full text-xs px-2 rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition"
+                              className={`min-h-11 w-full text-xs rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition ${INSPECT_BUTTON_WITH_BADGE}`}
                             >
-                              {t.inspections.inspect_wall}
+                              <span className="min-w-0 break-words">{t.inspections.inspect_wall}</span>
+                              <InspectionPhotoBadge surfaceId={surface.id} />
                             </button>
                           )}
                           {hasDimensions && (
@@ -1003,9 +1006,10 @@ export function SurfaceList({
                       aria-label={`execution-${surface.id}`}
                       aria-expanded={isExecutionOpen}
                       onClick={() => toggleExecution(surface.id)}
-                      className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+                      className={`w-full min-h-11 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
                     >
-                      {t.execution.open}
+                      <span className="min-w-0 break-words">{t.execution.open}</span>
+                      <ExecutionPhotoBadge surfaceId={surface.id} />
                     </button>
 
                     {isExecutionOpen && (

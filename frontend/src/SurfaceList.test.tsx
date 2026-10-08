@@ -6,6 +6,8 @@ import * as surfacesApi from './api/surfaces';
 import * as workPlansApi from './api/workPlans';
 import { SurfaceList } from './components/SurfaceList';
 import { I18nProvider } from './hooks/useI18n';
+import { ProjectPhotosContext } from './hooks/ProjectPhotosContext';
+import { EMPTY_PHOTO_COUNTS } from './hooks/usePhotoCounts';
 import { OpeningType } from './types/opening';
 import { SurfaceType } from './types/surface';
 import { surfaceCardTint } from './utils/surfaceColorTint';
@@ -1377,3 +1379,70 @@ describe('Realizacja entry (Stage 13H.5)', () => {
     expect(screen.queryByLabelText(`execution-view-${surface.id}`)).not.toBeInTheDocument();
   });
 });
+
+describe('Realizacja row — execution photo badge (Stage 14H.5)', () => {
+  const photosValue = (workSurfaces: Record<string, number>) => ({
+    projectId,
+    counts: { ...EMPTY_PHOTO_COUNTS, work_surfaces: workSurfaces },
+    isExpanded: () => false,
+    toggle: () => {},
+    adjust: () => {},
+    resolveLocation: () => '',
+    ensureLocations: () => {},
+  });
+  const renderWithPhotos = (workSurfaces: Record<string, number>, inspectionSurfaces: Record<string, number> = {}) =>
+    render(
+      <I18nProvider>
+        <ProjectPhotosContext.Provider
+          value={{ ...photosValue(workSurfaces), counts: { ...EMPTY_PHOTO_COUNTS, work_surfaces: workSurfaces, inspection_surfaces: inspectionSurfaces } }}
+        >
+          <SurfaceList projectId={projectId} roomId={roomId} onInspectSurface={() => {}} />
+        </ProjectPhotosContext.Provider>
+      </I18nProvider>,
+    );
+
+  it('a wall shows the number of its execution photos on the row', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [{ ...surface, width: 5, height: 2.7, gross_area: '13.500', net_area: '13.500' }], total: 1 });
+    renderWithPhotos({ [surface.id]: 4 });
+    const row = await screen.findByLabelText(`execution-${surface.id}`);
+    expect(within(row).getByTestId('execution-photo-badge')).toHaveTextContent('4');
+  });
+
+  it('another kind of surface (OTHER) shows it on its row as well', async () => {
+    const other: SurfaceType = { ...surface, id: '44444444-4444-4444-4444-444444444444', name: 'Kolumna', surface_type: 'OTHER' };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [other], total: 1 });
+    renderWithPhotos({ [other.id]: 6, [surface.id]: 1 });
+    const row = await screen.findByLabelText(`execution-${other.id}`);
+    expect(within(row).getByTestId('execution-photo-badge')).toHaveTextContent('6');
+  });
+
+  it('no execution photos, no badge', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [surface], total: 1 });
+    renderWithPhotos({});
+    const row = await screen.findByLabelText(`execution-${surface.id}`);
+    expect(within(row).queryByTestId('execution-photo-badge')).toBeNull();
+  });
+
+  it('the wall inspection button shows the number of its inspection photos, and the Realizacja row its own number', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [{ ...surface, width: 5, height: 2.7, gross_area: '13.500', net_area: '13.500' }], total: 1 });
+    renderWithPhotos({ [surface.id]: 4 }, { [surface.id]: 7 });
+    await screen.findByLabelText(`execution-${surface.id}`);
+    fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
+    const inspect = await screen.findByLabelText(`inspect-surface-${surface.id}`);
+    expect(within(inspect).getByTestId('inspection-photo-badge')).toHaveTextContent('7');
+    expect(within(inspect).queryByTestId('execution-photo-badge')).toBeNull();
+    expect(within(screen.getByLabelText(`execution-${surface.id}`)).getByTestId('execution-photo-badge')).toHaveTextContent('4');
+    expect(inspect).toHaveClass('flex', 'flex-wrap', 'items-center', 'justify-center');
+    expect(inspect).toHaveTextContent('Badanie ściany');
+  });
+
+  it('a wall without inspection photos shows no mark on its inspection button', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [surface], total: 1 });
+    renderWithPhotos({}, { 'another-surface': 3 });
+    await screen.findByLabelText(`execution-${surface.id}`);
+    fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
+    const inspect = await screen.findByLabelText(`inspect-surface-${surface.id}`);
+    expect(within(inspect).queryByTestId('inspection-photo-badge')).toBeNull();
+  });
+});
+

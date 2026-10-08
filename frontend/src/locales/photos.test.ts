@@ -49,6 +49,10 @@ describe('photos locale namespace (PL / RU)', () => {
       expect((pl.photos.markers as Dict)[key], key).toBeTruthy();
       expect((ru.photos.markers as Dict)[key], key).toBeTruthy();
     }
+    expect((pl.photos as Dict).execution_badge).toBeTruthy();
+    expect((pl.photos as Dict).inspection_badge).toBeTruthy();
+    expect((ru.photos as Dict).inspection_badge).toBeTruthy();
+    expect((ru.photos as Dict).execution_badge).toBeTruthy();
     for (const key of ['marker_limit', 'marker_read_only', 'marker_invalid', 'marker_not_found']) {
       expect((pl.photos.errors as Dict)[key], key).toBeTruthy();
       expect((ru.photos.errors as Dict)[key], key).toBeTruthy();

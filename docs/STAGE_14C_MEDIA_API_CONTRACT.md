@@ -829,3 +829,13 @@ Design: `docs/STAGE_14G_POINT_ANNOTATIONS_PLAN_RU.md` §6 (owner decisions 2026-
 **Lifetime.** The contour is deleted with its marker (`DELETE …/annotations/{aid}`); it is never edited in place (delete it and draw again).
 
 **PDF / report (14I, Stage 15):** the data is final; how contours are drawn into a document is decided with the report.
+
+## 32. Addendum — Stage 14H.5: `inspection_surfaces` in `GET /photos/counts` (no migration)
+
+Execution photos (WORK) and inspection photos (INSPECTION / FINDING) live only in their own screens and are kept out of the object's and the room's photo lists on purpose. To let a row say "there are photos in here", the counts endpoint gains:
+
+- `inspection_surfaces`: `{surface_id: n}` — for every surface, the photos of **all** its inspections: inspection-level and question-level photos plus the photos of the findings of those inspections. A room-level inspection (no surface) is not counted here. Same visibility as every other count (active attachment of a READY, non-archived asset, full ownership chain); empty surfaces are absent; the map never enters `surfaces`, `rooms` or `room_totals`.
+- The execution indicator uses the existing `work_surfaces` (§29).
+
+The field is required in the published schema (always present, `{}` when there is nothing).
+

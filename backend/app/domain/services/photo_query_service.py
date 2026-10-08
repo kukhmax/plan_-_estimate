@@ -133,6 +133,9 @@ class PhotoCounts:
     # Stage 14H.1: execution evidence (WORK) per occurrence_key and per surface -- never in surfaces / rooms / room_totals.
     works: dict[uuid.UUID, int]
     work_surfaces: dict[uuid.UUID, int]
+    # Stage 14H.5: every photo that lives only in the inspections of a surface (inspection-, question- and finding-level),
+    # per surface -- the number the "inspect the wall / floor / ceiling" button shows. Never in surfaces / rooms / room_totals.
+    inspection_surfaces: dict[uuid.UUID, int]
 
 
 @dataclass(frozen=True)
@@ -456,10 +459,28 @@ class PhotoQueryService:
             )
             for finding_id, lineage_id in rows.all():
                 lineages[lineage_id] = lineages.get(lineage_id, 0) + findings[finding_id]
+        # Inspection evidence per surface: the photos of an inspection plus those of its findings (a room-level
+        # inspection has no surface and is not counted here).
+        per_inspection = dict(inspections)
+        if findings:
+            rows = await self.db.execute(
+                select(InspectionFinding.id, InspectionFinding.inspection_id).where(InspectionFinding.id.in_(list(findings)))
+            )
+            for finding_id, inspection_id in rows.all():
+                per_inspection[inspection_id] = per_inspection.get(inspection_id, 0) + findings[finding_id]
+        inspection_surfaces: dict[uuid.UUID, int] = {}
+        if per_inspection:
+            rows = await self.db.execute(
+                select(Inspection.id, Inspection.surface_id).where(
+                    Inspection.id.in_(list(per_inspection)), Inspection.surface_id.is_not(None)
+                )
+            )
+            for inspection_id, surface_id in rows.all():
+                inspection_surfaces[surface_id] = inspection_surfaces.get(surface_id, 0) + per_inspection[inspection_id]
         return PhotoCounts(
             project=project_total, rooms=rooms, surfaces=surfaces, openings=openings, room_totals=room_totals,
             inspections=inspections, findings=findings, lineages=lineages, questions=questions,
-            works=works, work_surfaces=work_surfaces,
+            works=works, work_surfaces=work_surfaces, inspection_surfaces=inspection_surfaces,
         )
 
     async def get_detail(

@@ -5,7 +5,7 @@ import { PhotoContext, PhotoCounts } from '../types/photo';
 // Badge counts for the open project (contract §9): one request per workspace load, optimistic adjustments after
 // upload / archive / restore, refetch on demand.
 
-export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {} };
+export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {} };
 
 /** Extra identity of an evidence target: the checklist question of a question-level photo and the lineage of a finding (Stage 14F), the planned work of a WORK photo (Stage 14H). */
 export interface PhotoCountScope {
@@ -19,6 +19,11 @@ export interface PhotoCountScope {
  * with `questionId` the question-level photos of that question; FINDING: the lineage's count (a finding shows the photos of
  * every row of its lineage), falling back to the row's own.
  */
+/** Photos that live only in the inspections of a surface (what the "inspect the wall / floor / ceiling" button shows). */
+export function inspectionSurfaceCount(counts: PhotoCounts, surfaceId: string): number {
+  return counts.inspection_surfaces?.[surfaceId] ?? 0;
+}
+
 export function photoCountFor(counts: PhotoCounts, context: PhotoContext, targetId?: string, scope: PhotoCountScope = {}): number {
   if (context === 'PROJECT') return counts.project;
   if (!targetId) return 0;

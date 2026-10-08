@@ -225,6 +225,9 @@ class PhotoCountsResponse(BaseModel):
     # and per surface (the sum over its occurrences). They never enter `surfaces`, `rooms` or `room_totals`.
     works: dict[uuid.UUID, int]
     work_surfaces: dict[uuid.UUID, int]
+    # Stage 14H.5: photos kept only in the inspections of a surface (inspection-, question- and finding-level), per surface;
+    # they never enter `surfaces`, `rooms` or `room_totals`.
+    inspection_surfaces: dict[uuid.UUID, int]
 
 
 class PhotoStorageStatus(BaseModel):

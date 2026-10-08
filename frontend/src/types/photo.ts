@@ -145,6 +145,8 @@ export interface PhotoCounts {
   /** Execution evidence (Stage 14H.1), kept apart from the site photos: photos per occurrence_key (detached occurrences included) and per surface. */
   works: Record<string, number>;
   work_surfaces: Record<string, number>;
+  /** Photos kept only in the inspections of a surface (inspection-, question- and finding-level), per surface (Stage 14H.5). */
+  inspection_surfaces: Record<string, number>;
 }
 
 export interface PhotoListParams {

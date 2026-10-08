@@ -1575,6 +1575,8 @@
       "fullscreen_hint": "Rozsuń dwa palce, aby powiększyć · stuknij dwa razy, aby przybliżyć",
       "zoom_reset": "Powiększenie {value}× — stuknij, aby wrócić do 1×"
     },
+    "inspection_badge": "Zdjęcia z badania: {count}",
+    "execution_badge": "Zdjęcia wykonania: {count}",
     "markers": {
       "add": "Dodaj znacznik",
       "add_done": "Zakończ dodawanie",
