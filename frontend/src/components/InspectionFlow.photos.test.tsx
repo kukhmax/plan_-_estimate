@@ -291,11 +291,11 @@ describe('InspectionFlow — photo evidence', () => {
     expect(screen.getAllByTestId('photo-section')).toHaveLength(1);
   });
 
-  it('the header panel lists the whole inspection and names the question of each photo in its caption', async () => {
+  it('the header panel lists the whole inspection and names the question of each photo in its caption; it takes no photos itself', async () => {
     renderFlow({ provided: photos({}, [photoKey('INSPECTION', 'ins-1')]) });
     await screen.findAllByRole('group');
     const props = sectionProps.mock.calls.map((call) => call[0]).find((p) => p.questionId === undefined && p.context === 'INSPECTION');
-    expect(props).toMatchObject({ targetId: 'ins-1', allowUpload: true });
+    expect(props).toMatchObject({ targetId: 'ins-1', allowUpload: false }); // photos are taken on the questions only
     const label = props?.locationLabel as (attachment: { question_id: string | null }) => string;
     const general = label({ question_id: null });
     const forQuestion = label({ question_id: 'q-bool' });

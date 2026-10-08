@@ -561,9 +561,11 @@ export function InspectionFlow({
       </div>
 
       {photosOpen && inspection ? (
+        // The header panel only shows and edits every photo of the inspection; photos are taken on the questions (14H.8).
         <PhotoCardPanel
           context="INSPECTION"
           targetId={inspection.id}
+          allowUpload={false}
           locationSegments={photoBase}
           locationLabel={(attachment: PhotoAttachmentRead) =>
             buildLocationPath(

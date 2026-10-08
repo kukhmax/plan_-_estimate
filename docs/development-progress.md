@@ -1142,6 +1142,13 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14H.8 — the inspection header panel takes no photos (2026-10-08, IMPLEMENTED LOCALLY — not deployed; frontend only)
+
+Owner remark in the phone check of 14H.6 / 14H.7 (all other points PASS: the ceiling indicator, no camera on a finding, question photos, walls): the panel at the top of the inspection screen ("Przejrzyj i zakończ", with the count) still offered "Zrób zdjęcie" / "Z galerii". Photos must be taken **only on the questions**; the top panel only shows and edits (caption, category, "in report", archive, markers, contour).
+- **Changed:** the inspection header `PhotoCardPanel` gets `allowUpload={false}`: no camera / gallery buttons, no upload queue and storage notices there; it still lists every photo of the inspection (question photos with the question in the caption) and opens the viewer. The question panels keep their buttons.
+- **Tests:** the header panel contract now expects `allowUpload: false` (the question panel keeps `true`); a mutation that puts the upload back fails it. Frontend 86 files / 2006 tests, `tsc`, `vite build` PASS. No layout work (a control is removed, the list is unchanged).
+- **Production:** none yet — frontend only, no backend, no migration.
+
 ### Stage 14H.7 — no photo control on a finding (2026-10-08, IMPLEMENTED LOCALLY — not deployed; frontend only)
 
 Owner decision after the 14H.5 phone check (options offered: keep / show question photos on the finding / remove the camera): **remove the camera from the finding**. A photo is taken only on the checklist question that produced the finding ("Czy występują pęknięcia?"), so there is one place for it and no confusing second counter that showed 0.
