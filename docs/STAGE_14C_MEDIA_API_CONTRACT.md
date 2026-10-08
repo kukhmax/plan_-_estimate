@@ -847,3 +847,18 @@ An inspection of a whole floor or ceiling targets the **plane of the room** (`in
 
 The field is required in the published schema (always present, `{}` when there is nothing). The indicator on "Badanie sufitu" shows `inspection_surfaces[surface]` + `inspection_planes[room][CEILING]`.
 
+## 34. Stage 14I — the report read model for Stage 15 (service only, no HTTP, no migration)
+
+`PhotoReportReadModel(db).build(owner_id, project_id, *, only_included=True) -> PhotoReport` (`app/domain/services/photo_report_read_model.py`). Plan and rules: `docs/STAGE_14I_REPORT_READ_MODEL_PLAN_RU.md`. It is an in-process read contract: there is no route, no OpenAPI schema and no URL; it writes nothing and calls no storage.
+
+**Selection.** Attachments with `include_in_report = true` (all visible ones with `only_included=False`), READY asset, active attachment and asset, full ownership chain (attachment project = asset project = project, asset owner = owner). A project that is not the owner's raises `ProjectNotFoundError` before anything is read. Photos of an archived room, surface, opening or inspection are left out together with everything below them (an inspection targeting an archived surface too); data is not changed.
+
+**Tree** (immutable dataclasses, tuples, names stay keys / source names — translation is Stage 15's):
+`PhotoReport(project_id, project_photos, rooms)` → `ReportRoom(room_id, name, photos, surfaces, inspections)` → `ReportSurface(surface_id, name, surface_type, photos, openings, works)` with `ReportOpening(opening_id, name, photos)` and `ReportWork(occurrence_key, price_item_id, price_item_code, price_item_name_key, price_item_display_name, current, photos)` (current = still in the surface's plan; detached works keep their evidence); `ReportInspection(inspection_id, surface_id, plane, status, photos, questions, findings)` with `ReportQuestion(question_id, text_key, position, photos)` and `ReportFinding(lineage_id, finding_id, finding_key, label_key, value_snapshot, is_active, photos)` (one per lineage: photos of all its rows, header = the active row, else the last row). An inspection hangs on its **room**; `surface_id` / `plane` say what it targets. A node without selected photos and without selected descendants is not in the tree.
+
+**Photo** (`ReportPhoto`): attachment and asset ids, `context`, target ids, `category`, `caption`, `include_in_report`, `position`, `price_item_id` (WORK), `width` / `height` (after orientation), `content_type`, `byte_size`, `sha256`, `captured_at` / `uploaded_at` (UTC-aware), `storage_name`, `storage_key_display`, `storage_key_original` (server-side reading keys; no thumbnail, no URL), and `markers` (`ReportMarker`: `id`, `x`, `y`, `label`, `position`, `outline` as a tuple of `(x, y)` or `None`) in display order.
+
+**Order (deterministic).** Rooms by `created_at`, `id`; surfaces by `position` (unknown last), `created_at`, `id`; openings by `created_at`, `id`; inspections by `created_at`, `id`; questions by the question's `position`, `id`; findings by the header row's `position` (unknown last), `created_at`, `id`; works: current ones in plan order, then detached ones by first upload; photos in a node by `position`, `captured_at` (unknown last), `uploaded_at`, attachment `id` — and inside a work first by the execution order of categories BEFORE → PREPARATION → IN_PROGRESS → HIDDEN_WORK → AFTER, then GENERAL, DEFECT, DAMAGE.
+
+**Cost.** One statement per layer (photos with assets, markers, rooms, surfaces, openings, inspections, findings, questions, work plans, price items); the number of statements does not grow with the number of photos, and all of them are `SELECT`.
+
