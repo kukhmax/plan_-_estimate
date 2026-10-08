@@ -830,6 +830,8 @@ Design: `docs/STAGE_14G_POINT_ANNOTATIONS_PLAN_RU.md` §6 (owner decisions 2026-
 
 **PDF / report (14I, Stage 15):** the data is final; how contours are drawn into a document is decided with the report.
 
+**Stored value (Stage 14J).** A contour that was never drawn or was cleared is stored as SQL `NULL` (`JSON(none_as_null=True)`; no schema change). Before 14J a cleared contour was stored as the JSON document `null` on PostgreSQL: the API read it back as no contour, but `outline IS NULL` / `count(outline)` counted it. Rows cleared before the fix can be normalised with `UPDATE photo_annotations SET outline = NULL WHERE outline::text = 'null'` (optional, data only).
+
 ## 32. Addendum — Stage 14H.5: `inspection_surfaces` in `GET /photos/counts` (no migration)
 
 Execution photos (WORK) and inspection photos (INSPECTION / FINDING) live only in their own screens and are kept out of the object's and the room's photo lists on purpose. To let a row say "there are photos in here", the counts endpoint gains:

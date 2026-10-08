@@ -65,8 +65,9 @@ class PhotoAnnotation(Base):
     x: Mapped[float] = mapped_column(Numeric(7, 6, asdecimal=False), nullable=False)
     y: Mapped[float] = mapped_column(Numeric(7, 6, asdecimal=False), nullable=False)
     label: Mapped[str | None] = mapped_column(String(MAX_LABEL_LENGTH), nullable=True)
-    # [[x, y], ...] in the same fractions as x / y (3..120 points, validated by the service); NULL = no contour.
-    outline: Mapped[list[list[float]] | None] = mapped_column(JSON, nullable=True)
+    # [[x, y], ...] in the same fractions as x / y (3..120 points, validated by the service); SQL NULL = no contour
+    # (`none_as_null`: a cleared contour is NULL, not the JSON document `null`; Stage 14J).
+    outline: Mapped[list[list[float]] | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
