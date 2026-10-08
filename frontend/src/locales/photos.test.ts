@@ -43,6 +43,18 @@ describe('photos locale namespace (PL / RU)', () => {
     expect(Object.keys(pl.photos.category).sort()).toEqual([...PHOTO_CATEGORIES].sort());
   });
 
+  it('has every marker (Stage 14G) text and error in both languages', () => {
+    const keys = ['add', 'add_done', 'count', 'hint_add', 'hint_view', 'limit_reached', 'marker_aria', 'marker_aria_labeled', 'popup_title', 'popup_label', 'popup_placeholder', 'popup_counter', 'popup_no_label', 'popup_save', 'popup_delete', 'popup_close', 'thumb_badge', 'fullscreen_hint_add'];
+    for (const key of keys) {
+      expect((pl.photos.markers as Dict)[key], key).toBeTruthy();
+      expect((ru.photos.markers as Dict)[key], key).toBeTruthy();
+    }
+    for (const key of ['marker_limit', 'marker_read_only', 'marker_invalid', 'marker_not_found']) {
+      expect((pl.photos.errors as Dict)[key], key).toBeTruthy();
+      expect((ru.photos.errors as Dict)[key], key).toBeTruthy();
+    }
+  });
+
   it('really is Polish and Russian (not copy-pasted across)', () => {
     expect(pl.photos.picker.take_photo).not.toBe(ru.photos.picker.take_photo);
     expect(ru.photos.picker.take_photo).toMatch(/[а-яА-Я]/);

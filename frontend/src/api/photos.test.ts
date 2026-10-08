@@ -12,10 +12,13 @@ import {
   archivePhotoAttachment,
   attachPhoto,
   buildUploadFormData,
+  createPhotoAnnotation,
+  deletePhotoAnnotation,
   fetchPhoto,
   fetchPhotoCounts,
   fetchPhotoStorage,
   fetchPhotos,
+  patchPhotoAnnotation,
   patchPhotoAttachment,
   restorePhoto,
   restorePhotoAttachment,
@@ -414,3 +417,46 @@ describe('uploadPhoto (XHR transport)', () => {
     expect(FakeXhr.instances[0].aborted).toBe(false);
   });
 });
+
+describe('photo marker (annotation) API', () => {
+  const lastFetch = () => {
+    const calls = vi.mocked(fetch).mock.calls;
+    const [url, init] = calls[calls.length - 1] as [string, RequestInit];
+    return { url, init };
+  };
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem('access_token', 'tok');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({})));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('places a marker with a POST of x, y (and the label when given)', async () => {
+    await createPhotoAnnotation(PROJECT, 'att', { x: 0.25, y: 0.75 });
+    expect(lastFetch().url).toBe(`/api/projects/${PROJECT}/photo-attachments/att/annotations`);
+    expect(lastFetch().init.method).toBe('POST');
+    expect(JSON.parse(lastFetch().init.body as string)).toEqual({ x: 0.25, y: 0.75 });
+    await createPhotoAnnotation(PROJECT, 'att', { x: 0, y: 1, label: 'rysa' });
+    expect(JSON.parse(lastFetch().init.body as string)).toEqual({ x: 0, y: 1, label: 'rysa' });
+  });
+
+  it('changes only the label with a PATCH (null clears it)', async () => {
+    await patchPhotoAnnotation(PROJECT, 'att', 'm1', { label: 'nowy' });
+    expect(lastFetch().url).toBe(`/api/projects/${PROJECT}/photo-attachments/att/annotations/m1`);
+    expect(lastFetch().init.method).toBe('PATCH');
+    expect(JSON.parse(lastFetch().init.body as string)).toEqual({ label: 'nowy' });
+    await patchPhotoAnnotation(PROJECT, 'att', 'm1', { label: null });
+    expect(JSON.parse(lastFetch().init.body as string)).toEqual({ label: null });
+  });
+
+  it('deletes with a DELETE and no body, and a 204 answer is fine', async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 204, json: vi.fn() } as unknown as Response);
+    await expect(deletePhotoAnnotation(PROJECT, 'att', 'm1')).resolves.toBeUndefined();
+    expect(lastFetch().url).toBe(`/api/projects/${PROJECT}/photo-attachments/att/annotations/m1`);
+    expect(lastFetch().init.method).toBe('DELETE');
+    expect(lastFetch().init.body).toBeUndefined();
+  });
+});
+

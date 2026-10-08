@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
+import { PhotoAnnotationRead } from '../types/photo';
 import {
   Box,
   IDENTITY_VIEW,
@@ -12,6 +13,7 @@ import {
   pinchView,
   zoomAt,
 } from '../utils/zoomMath';
+import { PointMarkerLayer } from './PointMarkerLayer';
 
 // A picture that can be zoomed with two fingers, panned with one finger when zoomed, double-tapped (closer / back) and, on a
 // desktop, zoomed with the wheel. The picture is the display image (the original is never served, contract §7), so zooming
@@ -22,6 +24,8 @@ const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_DISTANCE = 30;
 const TAP_SLOP = 10;
 const WHEEL_STEP = 0.002;
+/** While placing a marker a tap this short counts (no double-tap wait, so the marker lands immediately). */
+const PLACE_TAP_MS = 600;
 
 interface ZoomableImageProps {
   src: string;
@@ -29,12 +33,36 @@ interface ZoomableImageProps {
   onError?: () => void;
   /** Called on the first gesture (the host may hide its hint). */
   onInteract?: () => void;
+  /** Point markers drawn over the picture; they follow its zoom and pan. */
+  markers?: readonly PhotoAnnotationRead[];
+  selectedMarkerId?: string | null;
+  onMarkerSelect?: (marker: PhotoAnnotationRead) => void;
+  /** Marker placing mode: a tap puts a marker (x, y = fractions of the picture) instead of waiting for a double tap. */
+  placing?: boolean;
+  onPlace?: (x: number, y: number) => void;
+}
+
+interface ImageBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 const distanceBetween = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 const midpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
-export function ZoomableImage({ src, alt, onError, onInteract }: ZoomableImageProps) {
+export function ZoomableImage({
+  src,
+  alt,
+  onError,
+  onInteract,
+  markers = [],
+  selectedMarkerId = null,
+  onMarkerSelect,
+  placing = false,
+  onPlace,
+}: ZoomableImageProps) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -44,6 +72,29 @@ export function ZoomableImage({ src, alt, onError, onInteract }: ZoomableImagePr
   const pinchStart = useRef<PinchStart | null>(null);
   const tapStart = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastTap = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  // Where the picture sits inside the container (the marker layer is laid over exactly this box).
+  const [imageBox, setImageBox] = useState<ImageBox | null>(null);
+  const measureImage = () => {
+    const image = imageRef.current;
+    if (!image) return;
+    setImageBox((previous) => {
+      const next = { left: image.offsetLeft, top: image.offsetTop, width: image.offsetWidth, height: image.offsetHeight };
+      return previous && previous.left === next.left && previous.top === next.top && previous.width === next.width && previous.height === next.height
+        ? previous
+        : next;
+    });
+  };
+  useLayoutEffect(measureImage, [src]);
+  useEffect(() => {
+    window.addEventListener('resize', measureImage);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measureImage);
+    if (observer && containerRef.current) observer.observe(containerRef.current);
+    return () => {
+      window.removeEventListener('resize', measureImage);
+      observer?.disconnect();
+    };
+  }, []);
 
   const commit = (next: View) => {
     viewRef.current = next;
@@ -102,6 +153,15 @@ export function ZoomableImage({ src, alt, onError, onInteract }: ZoomableImagePr
     tapStart.current = null;
     if (event.type !== 'pointerup' || !start || pointers.current.size > 0) return;
     const now = Date.now();
+    if (placing && onPlace) {
+      const rect = imageRef.current?.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0 && now - start.time <= PLACE_TAP_MS) {
+        const x = (start.x - rect.left) / rect.width;
+        const y = (start.y - rect.top) / rect.height;
+        if (x >= 0 && x <= 1 && y >= 0 && y <= 1) onPlace(x, y);
+      }
+      return;
+    }
     if (now - start.time > DOUBLE_TAP_MS) return;
     const previous = lastTap.current;
     if (previous && now - previous.time <= DOUBLE_TAP_MS && Math.hypot(start.x - previous.x, start.y - previous.y) <= DOUBLE_TAP_DISTANCE) {
@@ -144,6 +204,22 @@ export function ZoomableImage({ src, alt, onError, onInteract }: ZoomableImagePr
         className="max-h-full max-w-full object-contain"
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: 'center', willChange: 'transform' }}
       />
+      {imageBox && markers.length > 0 && onMarkerSelect && (
+        <div
+          className="pointer-events-none absolute"
+          style={{
+            left: imageBox.left,
+            top: imageBox.top,
+            width: imageBox.width,
+            height: imageBox.height,
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+            transformOrigin: 'center',
+            willChange: 'transform',
+          }}
+        >
+          <PointMarkerLayer markers={markers} selectedId={selectedMarkerId} onSelect={onMarkerSelect} inverseScale={1 / view.scale} />
+        </div>
+      )}
       {zoomed && (
         <button
           type="button"

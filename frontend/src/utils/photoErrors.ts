@@ -86,6 +86,15 @@ function byCode(code: string): PhotoErrorInfo | null {
     case 'WORK_OCCURRENCE_NOT_CURRENT':
       // The work left the plan while the screen was open: the plan must be read again (the host's refetch), not the upload retried.
       return info(code, 'work_not_current', { refetch: 'parent' });
+    case 'PHOTO_ANNOTATION_LIMIT_REACHED':
+      return info(code, 'marker_limit');
+    case 'PHOTO_ANNOTATION_READ_ONLY':
+      return info(code, 'marker_read_only');
+    case 'PHOTO_ANNOTATION_INVALID':
+      return info(code, 'marker_invalid');
+    case 'PHOTO_ANNOTATION_NOT_FOUND':
+      // The marker is already gone (deleted elsewhere): the viewer reloads the photo's markers.
+      return info(code, 'marker_not_found', { refetch: 'parent' });
     case 'PHOTO_CURSOR_INVALID':
       return info(code, 'generic', { retryable: true, refetch: 'list' });
     default:

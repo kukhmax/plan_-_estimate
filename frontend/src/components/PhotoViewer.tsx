@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   archivePhotoAttachment,
+  createPhotoAnnotation,
+  deletePhotoAnnotation,
   fetchPhoto,
+  patchPhotoAnnotation,
   patchPhotoAttachment,
   restorePhotoAttachment,
 } from '../api/photos';
@@ -9,6 +12,7 @@ import { usePhotoBackRegistration } from '../hooks/PhotoBackContext';
 import { useI18n } from '../hooks/useI18n';
 import {
   PHOTO_CATEGORIES,
+  PhotoAnnotationRead,
   PhotoAttachmentPatch,
   PhotoAttachmentRead,
   PhotoCategory,
@@ -19,7 +23,9 @@ import { formatCapturedAt, formatUploadedAt, isCapturedMuchOlderThanUpload } fro
 import { PhotoErrorKey, classifyPhotoError } from '../utils/photoErrors';
 import { hapticNotify } from '../utils/telegramHaptics';
 import { PhotoFullscreen } from './PhotoFullscreen';
-import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, ExpandIcon } from './PhotoIcons';
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, ExpandIcon, PinIcon } from './PhotoIcons';
+import { PointMarkerLayer } from './PointMarkerLayer';
+import { PointMarkerPopup } from './PointMarkerPopup';
 
 // Full-screen sheet (contract §7). Loads the detail for the DISPLAY image (lists carry thumbnails only), edits the
 // metadata of THIS attachment (caption / category / report flag), archives or restores it in this context.
@@ -27,6 +33,8 @@ import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, ExpandIcon } from './Phot
 // A tap on the photo (or the corner button) opens it on the whole screen, where it can be zoomed with two fingers.
 
 export const CAPTION_MAX_LENGTH = 1000;
+/** Used until the detail (which names the server's limit) has arrived. */
+const DEFAULT_MARKER_LIMIT = 10;
 /** Signed links are refetched this long before they expire (contract §7c). */
 const URL_REFRESH_MARGIN_MS = 30_000;
 
@@ -42,6 +50,8 @@ interface PhotoViewerProps {
   onAttachmentRemoved: (attachment: PhotoAttachmentRead, action: 'archived' | 'restored') => void;
   /** The photo vanished meanwhile: the host should refetch its list. */
   onRefresh?: () => void;
+  /** The number of point markers on an attachment changed (the grid shows it on the tile). */
+  onAnnotationCount?: (attachmentId: string, count: number) => void;
 }
 
 interface CachedDetail {
@@ -72,6 +82,7 @@ export function PhotoViewer({
   onAttachmentUpdated,
   onAttachmentRemoved,
   onRefresh,
+  onAnnotationCount,
 }: PhotoViewerProps) {
   const { t } = useI18n();
   const item = items[index];
@@ -81,6 +92,7 @@ export function PhotoViewer({
   const cache = useRef(new Map<string, CachedDetail>());
   const imageRetried = useRef(new Set<string>());
   const closeButton = useRef<HTMLButtonElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   const [detail, setDetail] = useState<PhotoDetailResponse | null>(null);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -95,6 +107,12 @@ export function PhotoViewer({
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState<PhotoErrorKey | null>(null);
   const [saved, setSaved] = useState(false);
+
+  // Point markers (Stage 14G): placing mode, the marker whose pop-up is open, and the state of the last marker call.
+  const [markMode, setMarkMode] = useState(false);
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [markerBusy, setMarkerBusy] = useState(false);
+  const [markerError, setMarkerError] = useState<PhotoErrorKey | null>(null);
 
   // ---- detail (display URL) ----
   useEffect(() => {
@@ -139,7 +157,16 @@ export function PhotoViewer({
     setConfirmArchive(false);
     setError(null);
     setSaved(false);
+    setMarkMode(false);
+    setSelectedMarkerId(null);
+    setMarkerError(null);
   }, [attachment?.id]);
+
+  const attachmentId = attachment?.id;
+  const markers = useMemo(
+    () => (detail && attachmentId ? detail.annotations.filter((marker) => marker.attachment_id === attachmentId) : []),
+    [detail, attachmentId],
+  );
 
   // The draft follows the stored caption (another attachment, or the saved value coming back).
   useEffect(() => {
@@ -223,6 +250,115 @@ export function PhotoViewer({
   if (!item || !attachment) return null;
   const currentAssetId = item.asset.id;
 
+  // ---- point markers ----
+  const markerLimit = detail?.annotation_limit ?? DEFAULT_MARKER_LIMIT;
+  // An archived attachment (or photo) shows its markers but cannot change them.
+  const markersReadOnly = archivedView || attachment.archived_at !== null || item.asset.archived_at !== null;
+  const atMarkerLimit = markers.length >= markerLimit;
+  const selectedMarker = markers.find((marker) => marker.id === selectedMarkerId) ?? null;
+  const imageShown = loadState === 'ready' && !!detail?.display_url && !imageFailed;
+  const showMarkerControls = imageShown && (!markersReadOnly || markers.length > 0);
+  const placing = markMode; // the switch is not offered on a read only photo, and placeMarker refuses it anyway
+
+  const commitMarkers = (forAttachmentId: string, next: PhotoAnnotationRead[]) => {
+    if (detail) {
+      const merged: PhotoDetailResponse = {
+        ...detail,
+        annotations: [...detail.annotations.filter((marker) => marker.attachment_id !== forAttachmentId), ...next],
+      };
+      setDetail(merged);
+      cache.current.set(detail.asset.id, { detail: merged });
+    }
+    onAnnotationCount?.(forAttachmentId, next.length);
+  };
+
+  const failMarkerCall = (caught: unknown) => {
+    const info = classifyPhotoError(caught);
+    if (info.refetch === 'list') {
+      onRefresh?.();
+      onClose();
+      return;
+    }
+    if (info.key === 'marker_not_found') {
+      // Deleted elsewhere: read the photo's markers again.
+      setSelectedMarkerId(null);
+      cache.current.delete(currentAssetId);
+      setReloadTick((tick) => tick + 1);
+    }
+    setMarkerError(info.key);
+    hapticNotify('error');
+  };
+
+  const placeMarker = async (x: number, y: number) => {
+    if (markerBusy || markersReadOnly) return;
+    if (atMarkerLimit) {
+      setMarkerError('marker_limit');
+      hapticNotify('error');
+      return;
+    }
+    setMarkerBusy(true);
+    setMarkerError(null);
+    try {
+      const created = await createPhotoAnnotation(projectId, attachment.id, { x, y });
+      commitMarkers(attachment.id, [...markers, created]);
+      setSelectedMarkerId(created.id); // the pop-up opens so the marker can be named at once (skippable)
+      hapticNotify('success');
+    } catch (caught) {
+      failMarkerCall(caught);
+    } finally {
+      setMarkerBusy(false);
+    }
+  };
+
+  const saveMarkerLabel = async (marker: PhotoAnnotationRead, label: string | null) => {
+    setMarkerBusy(true);
+    setMarkerError(null);
+    try {
+      const updated = await patchPhotoAnnotation(projectId, attachment.id, marker.id, { label });
+      commitMarkers(
+        attachment.id,
+        markers.map((entry) => (entry.id === updated.id ? updated : entry)),
+      );
+      setSelectedMarkerId(null);
+      hapticNotify('success');
+    } catch (caught) {
+      failMarkerCall(caught);
+    } finally {
+      setMarkerBusy(false);
+    }
+  };
+
+  const deleteMarker = async (marker: PhotoAnnotationRead) => {
+    setMarkerBusy(true);
+    setMarkerError(null);
+    try {
+      await deletePhotoAnnotation(projectId, attachment.id, marker.id);
+      commitMarkers(
+        attachment.id,
+        markers.filter((entry) => entry.id !== marker.id),
+      );
+      setSelectedMarkerId(null);
+      hapticNotify('success');
+    } catch (caught) {
+      failMarkerCall(caught);
+    } finally {
+      setMarkerBusy(false);
+    }
+  };
+
+  // A tap on the picture: places a marker while placing, otherwise opens the full-screen view.
+  const onPictureClick = (event: React.MouseEvent) => {
+    if (!placing) {
+      setFullscreen(true);
+      return;
+    }
+    const rect = imageRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
+    if (x >= 0 && x <= 1 && y >= 0 && y <= 1) void placeMarker(x, y);
+  };
+
   const changeArchiveState = async (action: 'archived' | 'restored') => {
     setBusy(true);
     setError(null);
@@ -260,7 +396,7 @@ export function PhotoViewer({
 
   const capturedText = item.asset.captured_at ? formatCapturedAt(item.asset.captured_at) : null;
   const uploadedText = formatUploadedAt(item.asset.uploaded_at);
-  const disabled = busy || saving;
+  const disabled = busy || saving || markerBusy;
 
   return (
     <div
@@ -272,14 +408,22 @@ export function PhotoViewer({
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="relative flex h-[50vh] shrink-0 items-center justify-center bg-black">
           {loadState === 'ready' && detail?.display_url && !imageFailed && (
-            <div className="flex h-full w-full items-center justify-center" onClick={() => setFullscreen(true)}>
-              <img
-                src={detail.display_url}
-                alt={attachment.caption || t.photos.viewer.photo_alt}
-                referrerPolicy="no-referrer"
-                onError={onImageError}
-                className="max-h-full max-w-full object-contain"
-              />
+            <div className="flex h-full w-full items-center justify-center" onClick={onPictureClick}>
+              {/* The wrapper is exactly the picture's box, so the marker layer fills it (the box is 50vh high). */}
+              <div className="relative max-w-full" style={{ lineHeight: 0 }}>
+                <img
+                  ref={imageRef}
+                  src={detail.display_url}
+                  alt={attachment.caption || t.photos.viewer.photo_alt}
+                  referrerPolicy="no-referrer"
+                  onError={onImageError}
+                  className="block max-w-full object-contain"
+                  style={{ maxHeight: '50vh' }}
+                />
+                {markers.length > 0 && (
+                  <PointMarkerLayer markers={markers} selectedId={selectedMarkerId} onSelect={(marker) => setSelectedMarkerId(marker.id)} />
+                )}
+              </div>
             </div>
           )}
           {loadState === 'loading' && <p className="px-4 text-center text-sm text-white">{t.photos.viewer.loading}</p>}
@@ -348,6 +492,47 @@ export function PhotoViewer({
         </div>
 
         <div className="space-y-3 p-4">
+          {showMarkerControls && (
+            <div data-testid="marker-controls" className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {!markersReadOnly && (
+                  <button
+                    type="button"
+                    aria-pressed={markMode}
+                    disabled={disabled || (!markMode && atMarkerLimit)}
+                    onClick={() => setMarkMode((on) => !on)}
+                    className={`flex min-h-11 min-w-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
+                      markMode
+                        ? 'bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)]'
+                        : 'border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)]'
+                    }`}
+                  >
+                    <PinIcon size={16} />
+                    <span className="min-w-0 break-words text-left">{markMode ? t.photos.markers.add_done : t.photos.markers.add}</span>
+                  </button>
+                )}
+                <span className="text-xs text-[var(--tg-theme-hint-color)]">
+                  {t.photos.markers.count.replace('{count}', String(markers.length)).replace('{max}', String(markerLimit))}
+                </span>
+              </div>
+              {markMode && !markersReadOnly && (
+                <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">{t.photos.markers.hint_add}</p>
+              )}
+              {!markMode && markers.length > 0 && (
+                <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">{t.photos.markers.hint_view}</p>
+              )}
+              {atMarkerLimit && !markersReadOnly && (
+                <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">
+                  {t.photos.markers.limit_reached.replace('{max}', String(markerLimit))}
+                </p>
+              )}
+              {markerError && !selectedMarker && (
+                <p role="alert" className="break-words text-sm font-medium text-[var(--tg-theme-destructive-text-color)]">
+                  {t.photos.errors[markerError]}
+                </p>
+              )}
+            </div>
+          )}
           <p data-testid="viewer-caption-line" className="break-words text-sm font-medium">
             {captionFor(item)}
           </p>
@@ -483,6 +668,28 @@ export function PhotoViewer({
           counter={t.photos.viewer.counter.replace('{current}', String(index + 1)).replace('{total}', String(items.length))}
           onClose={() => setFullscreen(false)}
           onImageError={onImageError}
+          markers={markers}
+          selectedMarkerId={selectedMarkerId}
+          onMarkerSelect={(marker) => setSelectedMarkerId(marker.id)}
+          canPlaceMarkers={!markersReadOnly && (markMode || !atMarkerLimit)}
+          placing={placing}
+          onPlacingChange={setMarkMode}
+          onPlace={(x, y) => void placeMarker(x, y)}
+        />
+      )}
+      {selectedMarker && (
+        <PointMarkerPopup
+          marker={selectedMarker}
+          number={markers.indexOf(selectedMarker) + 1}
+          readOnly={markersReadOnly}
+          busy={markerBusy}
+          error={markerError}
+          onSaveLabel={(label) => void saveMarkerLabel(selectedMarker, label)}
+          onDelete={() => void deleteMarker(selectedMarker)}
+          onClose={() => {
+            setSelectedMarkerId(null);
+            setMarkerError(null);
+          }}
         />
       )}
     </div>

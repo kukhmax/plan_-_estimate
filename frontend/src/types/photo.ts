@@ -67,6 +67,8 @@ export interface PhotoListItem {
   attachment: PhotoAttachmentRead;
   asset: PhotoAssetRead;
   thumbnail_url: string | null;
+  /** Point markers on this attachment (Stage 14G). */
+  annotation_count: number;
 }
 
 export interface PhotoListResponse {
@@ -75,12 +77,32 @@ export interface PhotoListResponse {
   urls_expire_at: string | null;
 }
 
+/** A point marker (Stage 14G): where on the display image, as fractions 0..1 from the top-left corner. */
+export interface PhotoAnnotationRead {
+  id: string;
+  attachment_id: string;
+  kind: 'POINT';
+  x: number;
+  y: number;
+  label: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A marker label holds at most this many characters (the server enforces the same limit). */
+export const MAX_MARKER_LABEL_LENGTH = 40;
+
 export interface PhotoDetailResponse {
   asset: PhotoAssetRead;
   attachments: PhotoAttachmentRead[];
   thumbnail_url: string | null;
   display_url: string | null;
   urls_expire_at: string | null;
+  /** Markers of every attachment of the asset (each names its attachment), in display order. */
+  annotations: PhotoAnnotationRead[];
+  /** Most markers one attachment may carry. */
+  annotation_limit: number;
 }
 
 export interface PhotoUploadResponse {

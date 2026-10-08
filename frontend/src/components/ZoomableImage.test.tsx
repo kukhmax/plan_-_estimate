@@ -186,3 +186,111 @@ describe('ZoomableImage', () => {
     expect(onError).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('ZoomableImage — markers and marker placing', () => {
+  // The picture: 400x300, centred in the 400x600 area, so it spans y 150..450 on screen.
+  const stubPictureRect = (image: HTMLElement) => {
+    image.getBoundingClientRect = () => ({ left: 0, top: 150, width: 400, height: 300, right: 400, bottom: 450, x: 0, y: 150, toJSON: () => ({}) });
+  };
+  const marker = (over: Partial<import('../types/photo').PhotoAnnotationRead> = {}): import('../types/photo').PhotoAnnotationRead => ({
+    id: 'm1', attachment_id: 'att', kind: 'POINT', x: 0.5, y: 0.5, label: null, position: 0, created_at: '', updated_at: '', ...over,
+  });
+  const tap = (area: Element, x: number, y: number, pointerId = 1) => {
+    touch(area, 'pointerdown', pointerId, x, y);
+    touch(area, 'pointerup', pointerId, x, y);
+  };
+
+  it('placing: a quick tap reports the tapped fraction of the PICTURE (not of the screen) at once, with no double-tap wait', () => {
+    const onPlace = vi.fn();
+    const { area, image } = renderImage({ placing: true, onPlace });
+    stubPictureRect(image);
+    tap(area, 100, 225); // x 100/400, y (225-150)/300
+    expect(onPlace).toHaveBeenCalledTimes(1);
+    expect(onPlace).toHaveBeenCalledWith(0.25, 0.25);
+  });
+
+  it('placing: a second quick tap places a second marker instead of zooming in', () => {
+    const onPlace = vi.fn();
+    const { area, image } = renderImage({ placing: true, onPlace });
+    stubPictureRect(image);
+    tap(area, 100, 225);
+    tap(area, 105, 228); // right next to the first tap and at once: a double tap anywhere else would zoom
+    expect(onPlace).toHaveBeenCalledTimes(2);
+    expect(transformOf(image).scale).toBe(1);
+  });
+
+  it('placing: taps outside the picture, drags and long presses place nothing', () => {
+    const onPlace = vi.fn();
+    const { area, image } = renderImage({ placing: true, onPlace });
+    stubPictureRect(image);
+    tap(area, 100, 100); // above the picture
+    tap(area, 100, 460); // below it
+    touch(area, 'pointerdown', 1, 100, 225);
+    touch(area, 'pointermove', 1, 160, 225); // dragged
+    touch(area, 'pointerup', 1, 160, 225);
+    touch(area, 'pointerdown', 1, 100, 225);
+    vi.advanceTimersByTime(700); // held too long
+    touch(area, 'pointerup', 1, 100, 225);
+    expect(onPlace).not.toHaveBeenCalled();
+  });
+
+  it('placing: a tap while zoomed is measured on the zoomed picture (the point under the finger)', () => {
+    const onPlace = vi.fn();
+    const { area, image } = renderImage({ placing: true, onPlace });
+    // the zoomed picture now spans x -200..600, y 0..600 on screen
+    image.getBoundingClientRect = () => ({ left: -200, top: 0, width: 800, height: 600, right: 600, bottom: 600, x: -200, y: 0, toJSON: () => ({}) });
+    tap(area, 200, 300);
+    expect(onPlace).toHaveBeenCalledWith(0.5, 0.5);
+  });
+
+  it('placing: two fingers still zoom (placing does not switch zooming off)', () => {
+    const { area, image } = renderImage({ placing: true, onPlace: vi.fn() });
+    touch(area, 'pointerdown', 1, 100);
+    touch(area, 'pointerdown', 2, 300);
+    touch(area, 'pointermove', 2, 400);
+    touch(area, 'pointermove', 1, 0);
+    expect(transformOf(image).scale).toBe(2);
+  });
+
+  it('not placing: a tap never places, and a double tap still zooms', () => {
+    const onPlace = vi.fn();
+    const { area, image } = renderImage({ onPlace });
+    stubPictureRect(image);
+    tap(area, 100, 225);
+    vi.advanceTimersByTime(100);
+    tap(area, 100, 225);
+    expect(onPlace).not.toHaveBeenCalled();
+    expect(transformOf(image).scale).toBeGreaterThan(1);
+  });
+
+  it('draws the markers over the picture box and moves and zooms them together with it', () => {
+    const { area, image } = renderImage({ markers: [marker({ x: 0.2, y: 0.4 })], onMarkerSelect: vi.fn() });
+    const layerBox = screen.getByTestId('marker-layer').parentElement!;
+    expect(layerBox.style.transform).toBe(image.style.transform);
+    touch(area, 'pointerdown', 1, 100);
+    touch(area, 'pointerdown', 2, 300);
+    touch(area, 'pointermove', 2, 400);
+    touch(area, 'pointermove', 1, 0);
+    expect(layerBox.style.transform).toBe(image.style.transform); // both at 2x
+    expect(screen.getByTestId('photo-marker').style.transform).toContain('scale(0.5)'); // the dot keeps its size
+    expect(screen.getByTestId('photo-marker').style.left).toBe('20%');
+  });
+
+  it('a tap on a marker selects it and does not start a tap, a drag or a placing of its own', () => {
+    const onPlace = vi.fn();
+    const onMarkerSelect = vi.fn();
+    const { area, image } = renderImage({ placing: true, onPlace, markers: [marker()], onMarkerSelect });
+    stubPictureRect(image);
+    const button = screen.getByTestId('photo-marker');
+    fireEvent.pointerDown(button);
+    fireEvent.click(button);
+    touch(area, 'pointerup', 1, 200, 300);
+    expect(onMarkerSelect).toHaveBeenCalledTimes(1);
+    expect(onPlace).not.toHaveBeenCalled();
+  });
+
+  it('draws no layer without markers or without a handler for them', () => {
+    renderImage({ markers: [] });
+    expect(screen.queryByTestId('marker-layer')).toBeNull();
+  });
+});

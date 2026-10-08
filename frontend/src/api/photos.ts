@@ -1,5 +1,6 @@
 import { API_BASE, ApiError, apiRequest } from './http';
 import {
+  PhotoAnnotationRead,
   PhotoAttachPayload,
   PhotoAttachmentPatch,
   PhotoAttachmentRead,
@@ -265,4 +266,34 @@ export function uploadPhoto(params: UploadPhotoParams, options: UploadPhotoOptio
     arm(idleMs);
     xhr.send(buildUploadFormData(params));
   });
+}
+
+function annotationsPath(projectId: string, attachmentId: string): string {
+  return `${attachmentPath(projectId, attachmentId)}/annotations`;
+}
+
+/** Places a point marker (x, y = fractions 0..1 of the display image); the server numbers it after the last one. */
+export function createPhotoAnnotation(
+  projectId: string,
+  attachmentId: string,
+  payload: { x: number; y: number; label?: string | null },
+): Promise<PhotoAnnotationRead> {
+  return apiRequest(annotationsPath(projectId, attachmentId), { method: 'POST', body: JSON.stringify(payload) });
+}
+
+/** The label is the only thing a marker lets you change (it is never moved: delete it and place a new one). */
+export function patchPhotoAnnotation(
+  projectId: string,
+  attachmentId: string,
+  annotationId: string,
+  patch: { label: string | null },
+): Promise<PhotoAnnotationRead> {
+  return apiRequest(`${annotationsPath(projectId, attachmentId)}/${annotationId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deletePhotoAnnotation(projectId: string, attachmentId: string, annotationId: string): Promise<void> {
+  return apiRequest(`${annotationsPath(projectId, attachmentId)}/${annotationId}`, { method: 'DELETE' });
 }

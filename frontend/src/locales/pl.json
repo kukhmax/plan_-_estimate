@@ -1575,6 +1575,26 @@
       "fullscreen_hint": "Rozsuń dwa palce, aby powiększyć · stuknij dwa razy, aby przybliżyć",
       "zoom_reset": "Powiększenie {value}× — stuknij, aby wrócić do 1×"
     },
+    "markers": {
+      "add": "Dodaj znacznik",
+      "add_done": "Zakończ dodawanie",
+      "count": "Znaczniki: {count} z {max}",
+      "hint_add": "Stuknij zdjęcie, aby postawić znacznik. Stuknij znacznik, aby go otworzyć.",
+      "hint_view": "Stuknij znacznik, aby zobaczyć podpis.",
+      "limit_reached": "Osiągnięto maksymalną liczbę znaczników ({max}). Usuń któryś, aby dodać nowy.",
+      "marker_aria": "Znacznik {number}",
+      "marker_aria_labeled": "Znacznik {number}: {label}",
+      "popup_title": "Znacznik {number}",
+      "popup_label": "Podpis znacznika",
+      "popup_placeholder": "Np. rysa przy oknie",
+      "popup_counter": "{count} / {max}",
+      "popup_no_label": "Bez podpisu",
+      "popup_save": "Zapisz podpis",
+      "popup_delete": "Usuń znacznik",
+      "popup_close": "Zamknij",
+      "thumb_badge": "Znaczniki: {count}",
+      "fullscreen_hint_add": "Stuknij zdjęcie, aby postawić znacznik · rozsuń palce, aby dokładniej wskazać miejsce"
+    },
     "category": {
       "GENERAL": "Ogólne",
       "BEFORE": "Przed",
@@ -1608,6 +1628,10 @@
       "not_found": "To zdjęcie już nie istnieje.",
       "duplicate_attachment": "Aktywne zdjęcie już istnieje.",
       "work_not_current": "Ta praca nie jest już w planie powierzchni. Odśwież widok.",
+      "marker_limit": "Zdjęcie ma już maksymalną liczbę znaczników. Usuń któryś, aby dodać nowy.",
+      "marker_read_only": "Znaczników zarchiwizowanego zdjęcia nie można zmieniać.",
+      "marker_invalid": "Nieprawidłowy znacznik. Spróbuj ponownie.",
+      "marker_not_found": "Tego znacznika już nie ma.",
       "unknown": "Wystąpił nieoczekiwany błąd."
     },
     "storage": {

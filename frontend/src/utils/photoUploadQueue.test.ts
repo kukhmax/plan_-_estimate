@@ -41,6 +41,8 @@ function detail(id: string): PhotoDetailResponse {
     thumbnail_url: 't',
     display_url: 'd',
     urls_expire_at: null,
+    annotations: [],
+    annotation_limit: 10,
   };
 }
 

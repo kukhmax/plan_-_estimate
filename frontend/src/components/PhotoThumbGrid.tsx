@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import { PhotoListItem } from '../types/photo';
 import { photoDayLabel } from '../utils/photoCaption';
+import { PinIcon } from './PhotoIcons';
 
 // Thumbnail grid with the caption line under every tile (owner clarification C-2). 2 columns up to 479 px, 3 from 480 px
 // (the grid sits inside a padded card and a padded section: 3 columns on a phone left ~85 px per tile, too narrow for the
@@ -89,6 +90,18 @@ export function PhotoThumbGrid({
                     ) : (
                       <span className="flex h-full w-full items-center justify-center p-1 text-center text-[11px] text-[var(--tg-theme-hint-color)]">
                         {t.photos.section.thumb_unavailable}
+                      </span>
+                    )}
+                    {item.annotation_count > 0 && (
+                      <span
+                        data-testid="photo-marker-badge"
+                        title={t.photos.markers.thumb_badge.replace('{count}', String(item.annotation_count))}
+                        className="absolute right-1 top-1 flex items-center gap-0.5 rounded bg-black/65 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-white"
+                      >
+                        <PinIcon size={10} />
+                        <span aria-label={t.photos.markers.thumb_badge.replace('{count}', String(item.annotation_count))}>
+                          {item.annotation_count}
+                        </span>
                       </span>
                     )}
                     {(category !== 'GENERAL' || item.attachment.include_in_report) && (

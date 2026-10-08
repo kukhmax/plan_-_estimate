@@ -6,7 +6,7 @@ import { resetPhotoStorage } from '../hooks/usePhotoStorage';
 import { resetPhotoUploadQueue } from '../hooks/usePhotoUploadQueue';
 import { PhotoUploadResponse } from '../types/photo';
 import { jpegFile, jpegWithExif } from '../test/jpegFixtures';
-import { detailFor, listPage, makeItem, PROJECT_ID, ROOM_ID, storageStatus, SURFACE_ID } from '../test/photoFixtures';
+import { detailFor, listPage, makeItem, makeMarker, PROJECT_ID, ROOM_ID, storageStatus, SURFACE_ID } from '../test/photoFixtures';
 import { PhotoSection } from './PhotoSection';
 
 vi.mock('../api/photos', async () => {
@@ -20,10 +20,14 @@ vi.mock('../api/photos', async () => {
     patchPhotoAttachment: vi.fn(),
     archivePhotoAttachment: vi.fn(),
     restorePhotoAttachment: vi.fn(),
+    createPhotoAnnotation: vi.fn(),
+    deletePhotoAnnotation: vi.fn(),
   };
 });
 import {
   archivePhotoAttachment,
+  createPhotoAnnotation,
+  deletePhotoAnnotation,
   fetchPhoto,
   fetchPhotos,
   fetchPhotoStorage,
@@ -489,6 +493,35 @@ describe('PhotoSection — viewer integration', () => {
     expect(dialog.parentElement).toBe(document.body);
     expect(container.contains(dialog)).toBe(false);
     expect(dialog).toHaveClass('fixed', 'inset-0');
+  });
+
+  it('the tile shows the number of markers and follows what is placed and deleted in the viewer', async () => {
+    const items = [makeItem({ annotation_count: 1 }), makeItem()];
+    const existing = makeMarker(items[0].attachment.id);
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage(items));
+    vi.mocked(fetchPhoto).mockImplementation(async (_p, id) => {
+      const item = items.find((i) => i.asset.id === id)!;
+      return detailFor(item, { annotations: item === items[0] ? [existing] : [] });
+    });
+    vi.mocked(createPhotoAnnotation).mockImplementation(async (_p, attachmentId, payload) => makeMarker(attachmentId, { ...payload, position: 1 }));
+    vi.mocked(deletePhotoAnnotation).mockResolvedValue(undefined);
+    renderSection();
+    const tiles = await screen.findAllByRole('button', { name: /23\.06\.2026/ });
+    expect(screen.getAllByTestId('photo-marker-badge')).toHaveLength(1);
+    expect(screen.getByTestId('photo-marker-badge')).toHaveTextContent('1');
+    fireEvent.click(tiles[0]);
+    const image = await within(await screen.findByRole('dialog')).findByAltText('Zdjęcie');
+    image.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.click(screen.getByRole('button', { name: 'Dodaj znacznik' }));
+    fireEvent.click(image, { clientX: 50, clientY: 50 });
+    await screen.findByRole('dialog', { name: 'Znacznik 2' });
+    expect(screen.getByTestId('photo-marker-badge')).toHaveTextContent('2');
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Znacznik 2' })).getByRole('button', { name: 'Usuń znacznik' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Znacznik 2' })).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'Zamknij' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByTestId('photo-marker-badge')).toHaveTextContent('1'); // 1 -> 2 -> 1
+    expect(createPhotoAnnotation).toHaveBeenCalledTimes(1);
   });
 
   it('opens the viewer on a tapped tile and closes it back to the grid', async () => {

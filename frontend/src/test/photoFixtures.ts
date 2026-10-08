@@ -1,4 +1,5 @@
 import {
+  PhotoAnnotationRead,
   PhotoAssetRead,
   PhotoAttachmentRead,
   PhotoDetailResponse,
@@ -17,6 +18,7 @@ export function makeItem(over: {
   asset?: Partial<PhotoAssetRead>;
   attachment?: Partial<PhotoAttachmentRead>;
   thumbnail_url?: string | null;
+  annotation_count?: number;
 } = {}): PhotoListItem {
   seq += 1;
   const assetId = `a0000000-0000-4000-8000-${String(seq).padStart(12, '0')}`;
@@ -61,6 +63,23 @@ export function makeItem(over: {
     attachment,
     asset,
     thumbnail_url: over.thumbnail_url === undefined ? `https://r2.example/t/${asset.id}.jpg` : over.thumbnail_url,
+    annotation_count: over.annotation_count ?? 0,
+  };
+}
+
+export function makeMarker(attachmentId: string, over: Partial<PhotoAnnotationRead> = {}): PhotoAnnotationRead {
+  seq += 1;
+  return {
+    id: `c0000000-0000-4000-8000-${String(seq).padStart(12, '0')}`,
+    attachment_id: attachmentId,
+    kind: 'POINT',
+    x: 0.25,
+    y: 0.75,
+    label: null,
+    position: 0,
+    created_at: '2026-10-08T08:00:00Z',
+    updated_at: '2026-10-08T08:00:00Z',
+    ...over,
   };
 }
 
@@ -75,6 +94,8 @@ export function detailFor(item: PhotoListItem, over: Partial<PhotoDetailResponse
     thumbnail_url: item.thumbnail_url,
     display_url: `https://r2.example/d/${item.asset.id}.jpg`,
     urls_expire_at: '2099-01-01T00:00:00Z',
+    annotations: [],
+    annotation_limit: 10,
     ...over,
   };
 }

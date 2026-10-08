@@ -135,4 +135,18 @@ describe('PhotoThumbGrid', () => {
       expect(screen.getAllByTestId('photo-day-header')).toHaveLength(13);
     });
   });
+
+  it('shows how many markers a photo has on its tile (and nothing for none)', () => {
+    renderGrid([makeItem({ annotation_count: 3 }), makeItem()]);
+    const badges = screen.getAllByTestId('photo-marker-badge');
+    expect(badges).toHaveLength(1);
+    expect(badges[0]).toHaveTextContent('3');
+    expect(badges[0]).toHaveAttribute('title', 'Znaczniki: 3');
+    expect(screen.getByLabelText('Znaczniki: 3')).toBeInTheDocument();
+  });
+
+  it('the marker badge sits in the top corner, away from the category badges at the bottom', () => {
+    renderGrid([makeItem({ annotation_count: 2, attachment: { category: 'DEFECT' } })]);
+    expect(screen.getByTestId('photo-marker-badge')).toHaveClass('absolute', 'right-1', 'top-1');
+  });
 });

@@ -317,6 +317,12 @@ export function PhotoSection({
     );
   };
 
+  const handleAnnotationCount = (attachmentId: string, count: number) => {
+    setItems((previous) =>
+      previous.map((entry) => (entry.attachment.id === attachmentId ? { ...entry, annotation_count: count } : entry)),
+    );
+  };
+
   const handleAttachmentRemoved = (attachment: PhotoAttachmentRead, action: 'archived' | 'restored') => {
     const remaining = items.filter((entry) => entry.attachment.id !== attachment.id);
     setItems(remaining);
@@ -497,6 +503,7 @@ export function PhotoSection({
             onIndexChange={setViewerIndex}
             onClose={() => setViewerIndex(null)}
             onAttachmentUpdated={handleAttachmentUpdated}
+            onAnnotationCount={handleAnnotationCount}
             onAttachmentRemoved={handleAttachmentRemoved}
             onRefresh={() => void load(false)}
           />,
