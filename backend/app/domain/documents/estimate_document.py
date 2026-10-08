@@ -80,7 +80,7 @@ def party_from_client(client: Client) -> Party:
     return Party(name=name, tax_id=tax_id, phone=client.phone, email=client.email)
 
 
-def _object_lines(project: Project) -> tuple[str, ...]:
+def object_lines(project: Project) -> tuple[str, ...]:
     city_line = " ".join(part for part in (project.postal_code, project.city) if part)
     return tuple(line for line in (project.address, city_line) if line)
 
@@ -162,7 +162,7 @@ def build_estimate_document(
         name=estimate.name,
         version=estimate.version,
         object_name=project.name,
-        object_lines=_object_lines(project),
+        object_lines=object_lines(project),
         groups=tuple(groups),
         total=total,
         currency=estimate.currency,

@@ -1,0 +1,21 @@
+{
+  "checklist.option.defect_blow_holes": "Raki / pęcherze",
+  "checklist.option.defect_delamination": "Odpryski",
+  "checklist.option.defect_efflorescence": "Wykwity",
+  "checklist.option.defect_mold": "Pleśń / grzyb",
+  "checklist.option.substrate_dusty": "Zakurzone",
+  "checklist.option.substrate_loose": "Luzne",
+  "checklist.option.substrate_oily": "Zatłuszczone",
+  "checklist.option.substrate_solid": "Zwarte",
+  "checklist.question.adhesion_weak": "Czy przyczepność jest słaba?",
+  "checklist.question.board_movement": "Czy płyty g-k się ruszają?",
+  "checklist.question.cracks_present": "Czy występują pęknięcia?",
+  "checklist.question.fastener_corrosion": "Czy łączniki korodują?",
+  "checklist.question.joint_gap_mm": "Szczelina na łączeniu",
+  "checklist.question.joint_tape_missing": "Czy brakuje taśmy na spoinach?",
+  "checklist.question.moisture_high": "Czy wilgotność jest podwyższona?",
+  "checklist.question.notes": "Uwagi",
+  "checklist.question.present_defects": "Wykryte wady",
+  "checklist.question.substrate_condition": "Stan podłoża",
+  "checklist.question.unevenness_mm": "Nierówności podłoża"
+}

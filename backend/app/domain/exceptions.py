@@ -549,14 +549,16 @@ class DocumentRenderTimeoutError(DocumentRenderError):
 
 class DocumentDataError(Exception):
     """The data of a document cannot be printed as it is (Stage 15D): no executor profile for an issued document, an
-    archived estimate, a total that does not match its lines, a built-in name without a Polish text. `reason` is a stable
-    code (EXECUTOR_PROFILE_REQUIRED, ESTIMATE_ARCHIVED, ESTIMATE_TOTAL_MISMATCH, CATALOG_NAME_UNKNOWN, ...)."""
+    archived estimate, a total that does not match its lines, a built-in name without a Polish text, a photo report with too
+    many photos. `reason` is a stable code (EXECUTOR_PROFILE_REQUIRED, ESTIMATE_ARCHIVED, ESTIMATE_TOTAL_MISMATCH,
+    CATALOG_NAME_UNKNOWN, PHOTO_LIMIT_EXCEEDED, ...); `details` carries what a screen needs to explain it (counts, limits)."""
 
     code = "DOCUMENT_DATA_INVALID"
 
-    def __init__(self, reason: str, message: str) -> None:
+    def __init__(self, reason: str, message: str, details: dict | None = None) -> None:
         super().__init__(message)
         self.reason = reason
+        self.details = details or {}
 
 
 # ---------------------------------------------------------------------------

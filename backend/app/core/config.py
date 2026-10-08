@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     DOCUMENT_MAX_PDF_BYTES: int = Field(default=40_000_000, gt=0)  # Telegram sendDocument accepts up to 50 MB
     DOCUMENT_MAX_HTML_BYTES: int = Field(default=8_000_000, gt=0)
     DOCUMENT_MAX_ASSETS: int = Field(default=300, gt=0)
+    DOCUMENT_MAX_PHOTOS: int = Field(default=60, gt=0)  # photos in one photo report (owner decision 2026-10-08)
     DOCUMENT_MAX_ASSET_BYTES: int = Field(default=60_000_000, gt=0)  # all assets of one document together
 
     @model_validator(mode="after")

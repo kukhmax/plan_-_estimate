@@ -1,0 +1,59 @@
+{% extends "_layout.html.j2" %}
+{% set categories = {'GENERAL': t('photo_category.general'), 'BEFORE': t('photo_category.before'), 'DEFECT': t('photo_category.defect'), 'PREPARATION': t('photo_category.preparation'), 'IN_PROGRESS': t('photo_category.in_progress'), 'HIDDEN_WORK': t('photo_category.hidden_work'), 'AFTER': t('photo_category.after'), 'DAMAGE': t('photo_category.damage')} %}
+{% set surface_types = {'WALL': t('photo_report.surface.wall'), 'CEILING': t('photo_report.surface.ceiling'), 'FLOOR': t('photo_report.surface.floor'), 'OTHER': t('photo_report.surface.other')} %}
+{% set statuses = {'DRAFT': t('photo_report.status.draft'), 'COMPLETED': t('photo_report.status.completed')} %}
+{% block body %}
+<div class="report">
+<p class="summary">{{ t('photo_report.summary', n=doc.photo_count) }}</p>
+{% if doc.scope_rooms %}<p class="notice">{{ t('photo_report.partial', rooms=doc.scope_rooms | join(', ')) }}</p>{% endif %}
+<div class="object">
+  <div class="role">{{ t('estimate.object') }}</div>
+  <div><strong>{{ doc.object_name }}</strong></div>
+  {% for line in doc.object_lines %}<div>{{ line }}</div>{% endfor %}
+</div>
+{% for b in doc.blocks %}
+  {% if b.kind == 'project' %}<h2>{{ t('photo_report.project_photos') }}</h2>
+  {% elif b.kind == 'room' %}<h2>{{ b.title }}</h2>
+  {% elif b.kind == 'surface' %}<h3>{{ b.title }} <span class="muted">· {{ surface_types[b.code] }}</span></h3>
+  {% elif b.kind == 'opening' %}<h4>{{ t('photo_report.opening') }}{% if b.title %}: {{ b.title }}{% endif %}</h4>
+  {% elif b.kind == 'work' %}<h4{% if b.muted %} class="muted"{% endif %}>{{ t('photo_report.work') }}{% if b.title %}: {{ b.title }}{% endif %}{% if b.muted %} — {{ t('photo_report.work_detached') }}{% endif %}</h4>
+  {% elif b.kind == 'inspection' %}<h3>{{ t('photo_report.inspection') }}{% if b.title %} — {{ b.title }}{% elif b.code == 'FLOOR' %} — {{ surface_types['FLOOR'] }}{% elif b.code == 'CEILING' %} — {{ surface_types['CEILING'] }}{% endif %} <span class="muted">({{ statuses[b.detail] }})</span></h3>
+  {% elif b.kind == 'question' %}<h4>{{ b.title }}</h4>
+  {% elif b.kind == 'finding' %}<h4{% if b.muted %} class="muted"{% endif %}>{{ t('photo_report.finding') }}{% if b.title %}: {{ b.title }}{% endif %}{% if b.detail %} — {{ b.detail }}{% endif %}{% if b.muted %} ({{ t('photo_report.finding_inactive') }}){% endif %}</h4>
+  {% endif %}
+  {% if b.rows %}
+  <table class="photos">
+    {% for row in b.rows %}
+    <tr>
+      {% for p in row %}
+      <td>
+        <div class="frame" style="width: {{ p.frame_mm }}mm">
+          <img src="assets/{{ p.asset_name }}" alt="">
+          {% if p.markers or p.outlines %}
+          <svg class="overlay" viewBox="0 0 {{ p.width }} {{ p.height }}">
+            {% for o in p.outlines %}
+            <polyline points="{{ o.points }}" fill="none" stroke="#ffffff" stroke-width="{{ o.under_width }}" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="{{ o.points }}" fill="none" stroke="#dc2626" stroke-width="{{ o.width }}" stroke-linecap="round" stroke-linejoin="round"/>
+            {% endfor %}
+            {% for m in p.markers %}
+            <circle cx="{{ m.cx }}" cy="{{ m.cy }}" r="{{ m.r }}" fill="#dc2626" stroke="#ffffff" stroke-width="{{ m.stroke }}"/>
+            <text x="{{ m.cx }}" y="{{ m.ty }}" text-anchor="middle" font-family="DejaVu Sans" font-weight="700" font-size="{{ m.font }}" fill="#ffffff">{{ m.number }}</text>
+            {% endfor %}
+          </svg>
+          {% endif %}
+        </div>
+        <div class="photo-caption">
+          <strong>{{ t('photo_report.photo', n=p.number) }}</strong>{% if p.show_category %} · {{ categories[p.category] }}{% endif %} · {{ p.taken_on | datetime }}
+          {% if p.caption %}<div>{{ p.caption }}</div>{% endif %}
+          {% if p.legend %}<div class="legend">{{ t('photo_report.markers') }}: {% for number, label in p.legend %}{{ number }} – {{ label }}{% if not loop.last %}; {% endif %}{% endfor %}</div>{% endif %}
+        </div>
+      </td>
+      {% endfor %}
+      {% if row | length < 2 %}<td></td>{% endif %}
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+{% endfor %}
+</div>
+{% endblock %}
