@@ -1703,4 +1703,26 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
     expect(within(card).getByLabelText('object-summary-openings-DOOR')).toHaveTextContent('Двери');
     expect(within(card).getByLabelText('object-summary-openings-WINDOW')).toHaveTextContent('Окна');
   });
+
+  it('hands the Telegram BackButton to an overlay while backSuspended is set (Stage 15C)', async () => {
+    const backButton = { isVisible: false, show: vi.fn(), hide: vi.fn(), onClick: vi.fn(), offClick: vi.fn() };
+    window.Telegram = {
+      WebApp: {
+        initData: '', initDataUnsafe: {}, version: '8.0', platform: 'web', colorScheme: 'light', themeParams: {},
+        isExpanded: false, viewportHeight: 800, viewportStableHeight: 800, ready: vi.fn(), expand: vi.fn(),
+        close: vi.fn(), BackButton: backButton,
+      },
+    };
+    try {
+      const view = render(<I18nProvider><ProjectWorkspace backSuspended={false} /></I18nProvider>);
+      fireEvent.click(await screen.findByLabelText(`open-project-${project.id}`));
+      await waitFor(() => expect(backButton.onClick).toHaveBeenCalledTimes(1));
+      view.rerender(<I18nProvider><ProjectWorkspace backSuspended /></I18nProvider>);
+      await waitFor(() => expect(backButton.offClick).toHaveBeenCalledTimes(1));
+      view.rerender(<I18nProvider><ProjectWorkspace backSuspended={false} /></I18nProvider>);
+      await waitFor(() => expect(backButton.onClick).toHaveBeenCalledTimes(2));
+    } finally {
+      delete window.Telegram;
+    }
+  });
 });

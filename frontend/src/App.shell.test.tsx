@@ -258,3 +258,35 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     expect(border).toBeTruthy();
   });
 });
+describe('App shell — executor profile entry (Stage 15C)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    vi.mocked(api.fetchCurrentUser).mockResolvedValue(mockUser);
+  });
+
+  it('opens the profile from the account dialog without closing the dialog, and closes back to it', async () => {
+    mockDevAuth();
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: 'open-account' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Profil wykonawcy' }));
+    expect(await screen.findByRole('dialog', { name: 'Profil wykonawcy' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Dane użytkownika' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'close-executor-profile' }));
+    expect(screen.queryByRole('dialog', { name: 'Profil wykonawcy' })).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Dane użytkownika' })).toBeInTheDocument();
+  });
+
+  it('Escape closes the profile first and the dialog second', async () => {
+    mockDevAuth();
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: 'open-account' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Profil wykonawcy' }));
+    await screen.findByRole('dialog', { name: 'Profil wykonawcy' });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Profil wykonawcy' })).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Dane użytkownika' })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Dane użytkownika' })).toBeNull();
+  });
+});

@@ -392,4 +392,15 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
     expect((pl.estimates as Dict).price_override_badge).toBeDefined();
     expect((ru.estimates as Dict).price_override_badge).toBeDefined();
   });
+
+  it('has identical executor profile key structure in PL and RU (Stage 15C)', () => {
+    expect(keySet(pl.executor_profile)).toEqual(keySet(ru.executor_profile));
+    // every code the backend can return for a field has a message in both languages
+    for (const code of [
+      'NAME_REQUIRED', 'NIP_INVALID', 'POSTAL_CODE_INVALID', 'EMAIL_INVALID', 'PHONE_INVALID', 'BANK_ACCOUNT_INVALID',
+    ]) {
+      expect(Object.keys(pl.executor_profile.errors)).toContain(code);
+      expect(Object.keys(ru.executor_profile.errors)).toContain(code);
+    }
+  });
 });

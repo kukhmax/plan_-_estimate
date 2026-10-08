@@ -200,7 +200,7 @@ const AppContent: React.FC = () => {
             {activeSection === 'clients' ? (
               <ClientList />
             ) : activeSection === 'projects' ? (
-              <ProjectWorkspace resetSignal={projectsNavToken} />
+              <ProjectWorkspace resetSignal={projectsNavToken} backSuspended={showAccount} />
             ) : (
               <PriceBook />
             )}

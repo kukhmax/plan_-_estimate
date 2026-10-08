@@ -546,3 +546,19 @@ class DocumentRenderTimeoutError(DocumentRenderError):
 
     code = "DOCUMENT_RENDER_TIMEOUT"
 
+
+# ---------------------------------------------------------------------------
+# Stage 15C — executor profile.
+# ---------------------------------------------------------------------------
+
+
+class ExecutorProfileValidationError(Exception):
+    """One or more fields of the executor profile are wrong. `fields` maps the field name to a stable code
+    (NAME_REQUIRED, NIP_INVALID, POSTAL_CODE_INVALID, EMAIL_INVALID, PHONE_INVALID, BANK_ACCOUNT_INVALID), all at once."""
+
+    code = "EXECUTOR_PROFILE_INVALID"
+
+    def __init__(self, fields: dict[str, str]) -> None:
+        super().__init__(", ".join(f"{field}: {code}" for field, code in fields.items()))
+        self.fields = fields
+

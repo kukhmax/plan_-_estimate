@@ -89,9 +89,11 @@ function formFromProject(project: ProjectType): ProjectFormState {
 
 interface ProjectWorkspaceProps {
   resetSignal?: number;
+  /** An overlay above the workspace (the account dialog) owns the Telegram BackButton while it is open. */
+  backSuspended?: boolean;
 }
 
-export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({ resetSignal, backSuspended = false }: ProjectWorkspaceProps) {
   const { t } = useI18n();
   const photoBack = usePhotoBackStack();
   const [projects, setProjects] = useState<ProjectType[]>([]);
@@ -392,7 +394,7 @@ export function ProjectWorkspace({ resetSignal }: ProjectWorkspaceProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetSignal]);
 
-  useTelegramBackButton(isBackButtonVisible, () => {
+  useTelegramBackButton(isBackButtonVisible && !backSuspended, () => {
     // An open photo viewer takes the press first (contract §8); nothing else navigates then.
     if (photoBack.closeTop()) return;
     if (showRoomForm) {

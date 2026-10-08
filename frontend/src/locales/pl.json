@@ -1676,5 +1676,39 @@
       "sizing": "Pierwsze zdjęcie trwa dłużej: dobieram format 4:3…",
       "torch_failed": "Nie udało się przełączyć latarki."
     }
+  },
+  "executor_profile": {
+    "button": "Profil wykonawcy",
+    "title": "Profil wykonawcy",
+    "intro": "Te dane pojawiają się w nagłówku każdego dokumentu PDF.",
+    "loading": "Ładowanie profilu…",
+    "load_failed": "Nie udało się wczytać profilu.",
+    "retry": "Spróbuj ponownie",
+    "save_failed": "Nie udało się zapisać profilu.",
+    "saved": "Profil zapisany.",
+    "invalid_summary": "Popraw zaznaczone pola.",
+    "fields": {
+      "name": "Nazwa firmy lub imię i nazwisko",
+      "nip": "NIP",
+      "street": "Ulica i numer",
+      "postal_code": "Kod pocztowy",
+      "city": "Miejscowość",
+      "phone": "Telefon",
+      "email": "E-mail",
+      "bank_account": "Numer rachunku bankowego"
+    },
+    "placeholders": {
+      "nip": "774-000-14-54",
+      "postal_code": "00-000",
+      "bank_account": "61 1090 1014 0000 0712 1981 2874"
+    },
+    "errors": {
+      "NAME_REQUIRED": "Podaj nazwę wykonawcy.",
+      "NIP_INVALID": "Niepoprawny NIP (10 cyfr, suma kontrolna).",
+      "POSTAL_CODE_INVALID": "Kod pocztowy w formacie 00-000.",
+      "EMAIL_INVALID": "Niepoprawny adres e-mail.",
+      "PHONE_INVALID": "Niepoprawny numer telefonu.",
+      "BANK_ACCOUNT_INVALID": "Niepoprawny numer rachunku (26 cyfr)."
+    }
   }
 }
