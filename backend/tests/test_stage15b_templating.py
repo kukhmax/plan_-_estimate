@@ -9,7 +9,7 @@ import pytest
 from app.domain.documents.labels import LOCALES_DIR, Labels, load_labels
 from app.domain.documents.layout import DocumentLayout, DocumentMeta, Party
 from app.domain.documents.registry import TEMPLATES, DocumentKind, get_template
-from app.domain.documents.templating import FONTS_DIR, TEMPLATES_DIR, render_html
+from app.domain.documents.templating import FONTS_DIR, PACKAGE_DIR, TEMPLATES_DIR, render_html
 from app.domain.exceptions import DocumentTemplateError
 
 META = DocumentMeta("Dokument", date(2026, 10, 8), "DOC/1", "Kraków")
@@ -33,6 +33,8 @@ def used_label_keys() -> set[str]:
     keys: set[str] = set()
     for text in template_sources().values():
         keys |= set(re.findall(r"""\bt\(\s*['"]([a-z0-9_.]+)['"]""", text))
+    for path in PACKAGE_DIR.glob("*.py"):  # labels the Python side asks for: Labels()("key")
+        keys |= set(re.findall(r"""Labels\(\)\(\s*['"]([a-z0-9_.]+)['"]""", path.read_text(encoding="utf-8")))
     return keys
 
 

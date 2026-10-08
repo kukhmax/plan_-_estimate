@@ -9,7 +9,8 @@ from app.domain.exceptions import DocumentTemplateError
 
 class DocumentKind(str, enum.Enum):
     DIAGNOSTIC = "DIAGNOSTIC"  # the control page: layout, Polish / Cyrillic glyphs, page numbering
-    # ESTIMATE (15D), PHOTO_REPORT (15E) and the contract / protocol skeletons (15G) are added with their templates.
+    ESTIMATE = "ESTIMATE"  # Kosztorys (15D)
+    # PHOTO_REPORT (15E) and the contract / protocol skeletons (15G) are added with their templates.
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,6 +22,7 @@ class DocumentTemplate:
 
 TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
     DocumentKind.DIAGNOSTIC: DocumentTemplate(DocumentKind.DIAGNOSTIC, "1", "diagnostic.html.j2"),
+    DocumentKind.ESTIMATE: DocumentTemplate(DocumentKind.ESTIMATE, "1", "estimate.html.j2"),
 }
 
 

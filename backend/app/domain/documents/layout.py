@@ -29,3 +29,4 @@ class DocumentLayout:
     executor: Party | None = None
     client: Party | None = None
     signatures: bool = False
+    draft: bool = False  # a working version: printed with a diagonal "WERSJA ROBOCZA" on every page

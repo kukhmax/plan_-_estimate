@@ -32,3 +32,18 @@ thead { display: table-header-group; }
 .signatures { display: flex; gap: 14mm; margin-top: 18mm; page-break-inside: avoid; }
 .signature { flex: 1 1 0; border-top: 0.3mm solid #111; padding-top: 1.5mm; font-size: 8pt; color: #333; }
 .generated-by { margin-top: 8mm; font-size: 7.5pt; color: #777; }
+
+.watermark { position: fixed; top: 105mm; left: 0; width: 100%; text-align: center; transform: rotate(-30deg); font-size: 46pt; font-weight: 700; letter-spacing: 2pt; color: rgba(190, 30, 30, 0.16); z-index: -1; }
+.object { margin-bottom: 4mm; }
+.object .role { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #555; }
+.version { color: #555; margin: -2mm 0 4mm 0; }
+.notice { border: 0.3mm solid #b45309; color: #92400e; padding: 1.5mm 3mm; margin-bottom: 4mm; font-size: 8.5pt; }
+.group-title { break-after: avoid; page-break-after: avoid; }
+.group-title td { background: #eee; font-weight: 700; border-bottom: 0.3mm solid #999; }
+.group-total td { font-weight: 700; border-bottom: 0.3mm solid #999; }
+.grand-total td { font-weight: 700; font-size: 11pt; border-top: 0.5mm solid #111; border-bottom: 0; padding-top: 3mm; }
+.detail { color: #555; font-size: 8pt; }
+.estimate th.num, .estimate td.num { text-align: right; }
+.estimate .lp { width: 9mm; white-space: nowrap; }
+.estimate .unit { width: 14mm; white-space: nowrap; }
+.pending { color: #92400e; font-style: italic; }

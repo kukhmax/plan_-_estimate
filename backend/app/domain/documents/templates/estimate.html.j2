@@ -1,0 +1,46 @@
+{% extends "_layout.html.j2" %}
+{% set units = {'M2': t('unit.m2'), 'LM': t('unit.lm'), 'PCS': t('unit.pcs'), 'HOUR': t('unit.hour'), 'DAY': t('unit.day'), 'FLAT': t('unit.flat')} %}
+{% block body %}
+<p class="version">{{ t('estimate.version', n=doc.version) }}{% if doc.name %} · {{ doc.name }}{% endif %}</p>
+{% if layout.draft %}<p class="notice">{{ t('estimate.draft_notice') }}</p>{% endif %}
+<div class="object">
+  <div class="role">{{ t('estimate.object') }}</div>
+  <div><strong>{{ doc.object_name }}</strong></div>
+  {% for line in doc.object_lines %}<div>{{ line }}</div>{% endfor %}
+</div>
+<table class="estimate">
+  <thead>
+    <tr>
+      <th class="lp">{{ t('estimate.col.number') }}</th>
+      <th>{{ t('estimate.col.description') }}</th>
+      <th class="unit">{{ t('estimate.col.unit') }}</th>
+      <th class="num">{{ t('estimate.col.quantity') }}</th>
+      <th class="num">{{ t('estimate.col.unit_price') }}</th>
+      <th class="num">{{ t('estimate.col.amount') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for group in doc.groups %}
+    <tr class="group-title"><td colspan="6">{% if group.title %}{{ group.title }}{% else %}{{ t('estimate.group_general') }}{% endif %}</td></tr>
+    {% for line in group.lines %}
+    <tr>
+      <td class="lp">{{ line.number }}</td>
+      <td>{{ line.description }}{% if line.detail %}<div class="detail">{{ line.detail }}</div>{% endif %}</td>
+      <td class="unit">{{ units[line.unit] }}</td>
+      <td class="num">{{ line.quantity | quantity }}</td>
+      <td class="num">{% if line.unit_price is none %}<span class="pending">{{ t('estimate.to_be_set') }}</span>{% else %}{{ line.unit_price | money(doc.currency) }}{% endif %}</td>
+      <td class="num">{% if line.amount is none %}<span class="pending">{{ t('estimate.to_be_set') }}</span>{% else %}{{ line.amount | money(doc.currency) }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+    <tr class="group-total">
+      <td colspan="5" class="num">{{ t('estimate.group_total', name=(group.title if group.title else t('estimate.group_general'))) }}</td>
+      <td class="num">{% if group.subtotal is none %}<span class="pending">{{ t('estimate.to_be_set') }}</span>{% else %}{{ group.subtotal | money(doc.currency) }}{% endif %}</td>
+    </tr>
+  {% endfor %}
+    <tr class="grand-total">
+      <td colspan="5" class="num">{{ t('estimate.total') }}</td>
+      <td class="num">{% if doc.total is none %}<span class="pending">{{ t('estimate.to_be_set') }}</span>{% else %}{{ doc.total | money(doc.currency) }}{% endif %}</td>
+    </tr>
+  </tbody>
+</table>
+{% endblock %}

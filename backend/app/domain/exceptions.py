@@ -547,6 +547,18 @@ class DocumentRenderTimeoutError(DocumentRenderError):
     code = "DOCUMENT_RENDER_TIMEOUT"
 
 
+class DocumentDataError(Exception):
+    """The data of a document cannot be printed as it is (Stage 15D): no executor profile for an issued document, an
+    archived estimate, a total that does not match its lines, a built-in name without a Polish text. `reason` is a stable
+    code (EXECUTOR_PROFILE_REQUIRED, ESTIMATE_ARCHIVED, ESTIMATE_TOTAL_MISMATCH, CATALOG_NAME_UNKNOWN, ...)."""
+
+    code = "DOCUMENT_DATA_INVALID"
+
+    def __init__(self, reason: str, message: str) -> None:
+        super().__init__(message)
+        self.reason = reason
+
+
 # ---------------------------------------------------------------------------
 # Stage 15C — executor profile.
 # ---------------------------------------------------------------------------

@@ -54,6 +54,13 @@ def format_quantity(value: Number, places: int = 2) -> str:
     return format_decimal(value, places)
 
 
+def format_quantity_exact(value: Number) -> str:
+    """A snapshot quantity (three decimal places in the database) as it was typed: `12,50` but `12,345` -- never rounded
+    away, because the amount of the line was computed from the exact value."""
+    number = to_decimal(value)
+    return format_decimal(number, 2 if number == number.quantize(Decimal("0.01")) else 3)
+
+
 def format_area(value: Number, places: int = 2) -> str:
     return f"{format_decimal(value, places)}{NBSP}m²"
 

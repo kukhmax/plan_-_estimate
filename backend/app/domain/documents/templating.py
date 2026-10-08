@@ -37,6 +37,7 @@ def _environment(*, autoescape: bool) -> SandboxedEnvironment:
     env.filters.update(
         money=formatting.format_money,
         qty=formatting.format_quantity,
+        quantity=formatting.format_quantity_exact,
         area=formatting.format_area,
         percent=formatting.format_percent,
         date=formatting.format_date,
