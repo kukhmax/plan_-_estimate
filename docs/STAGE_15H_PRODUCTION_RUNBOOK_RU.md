@@ -129,7 +129,7 @@ docker exec plan_estimate_backend python -c "from app.core.config import setting
 ### A4b — разовая проверка доставки в Telegram из контейнера (токен не печатается) → «да, A4b»
 Проверяем, что backend достаёт `api.telegram.org` и токен рабочий; выводим только признак `ok` и имя бота.
 ```bash
-docker exec plan_estimate_backend python - <<'PY'
+docker exec -i plan_estimate_backend python - <<'PY'
 import httpx
 from app.core.config import settings
 r = httpx.get(f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/getMe", timeout=15)
