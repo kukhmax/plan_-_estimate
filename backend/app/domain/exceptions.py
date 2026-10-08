@@ -561,6 +561,42 @@ class DocumentDataError(Exception):
         self.details = details or {}
 
 
+class DocumentQueueFullError(Exception):
+    """Too many documents are being made at once; try again in a moment (Stage 15F)."""
+
+    code = "DOCUMENT_QUEUE_FULL"
+
+
+class DocumentDeliveryError(Exception):
+    """A finished document could not be handed to the owner (Stage 15F). The message never carries a token or a URL."""
+
+    code = "DOCUMENT_DELIVERY_FAILED"
+
+
+class DocumentChatUnavailableError(DocumentDeliveryError):
+    """Telegram refuses the chat: the owner has not started the bot, blocked it, or the chat does not exist."""
+
+    code = "TELEGRAM_CHAT_UNAVAILABLE"
+
+
+class DocumentDeliveryUnavailableError(DocumentDeliveryError):
+    """Telegram could not be reached (network, timeout, 429 or a server error): worth trying again later."""
+
+    code = "TELEGRAM_UNAVAILABLE"
+
+
+class DocumentDeliveryRejectedError(DocumentDeliveryError):
+    """Telegram answered but refused the document (too large, wrong request): trying again will not help."""
+
+    code = "TELEGRAM_REJECTED"
+
+
+class DocumentDeliveryDisabledError(DocumentDeliveryError):
+    """Delivery is switched off (DOCUMENT_DELIVERY=disabled) or has no bot token."""
+
+    code = "DELIVERY_DISABLED"
+
+
 class IssuedDocumentNotFoundError(Exception):
     """A document of the journal that does not exist, or is not this owner's / this project's (Stage 15F)."""
 

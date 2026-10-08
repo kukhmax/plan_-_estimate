@@ -13,6 +13,7 @@ from app.api.v1.endpoints.estimates import router as estimates_router
 from app.api.v1.endpoints.inspections import router as inspections_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.openings import router as openings_router
+from app.api.v1.endpoints.documents import router as documents_router
 from app.api.v1.endpoints.executor_profile import router as executor_profile_router
 from app.api.v1.endpoints.photos import router as photos_router
 from app.api.v1.endpoints.price_coefficients import router as price_coefficients_router
@@ -75,3 +76,4 @@ app.include_router(work_recommendations_router, prefix="/api", tags=["work-recom
 app.include_router(workflow_templates_router, prefix="/api", tags=["workflow-templates"])
 app.include_router(photos_router, prefix="/api", tags=["photos"])
 app.include_router(executor_profile_router, prefix="/api", tags=["executor-profile"])
+app.include_router(documents_router, prefix="/api", tags=["documents"])

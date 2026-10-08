@@ -21,6 +21,7 @@ class DocumentMeta:
     issued_on: date
     number: str | None = None
     place: str | None = None
+    sequence: int | None = None  # the running number of the documents of this object (journal, Stage 15F)
 
 
 @dataclass(frozen=True, slots=True)

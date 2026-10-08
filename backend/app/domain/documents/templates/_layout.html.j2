@@ -12,6 +12,7 @@
     <h1>{{ layout.meta.title }}</h1>
     <table class="meta">
       {% if layout.meta.number %}<tr><td class="label">{{ t('doc.number') }}</td><td>{{ layout.meta.number }}</td></tr>{% endif %}
+      {% if layout.meta.sequence %}<tr><td class="label">{{ t('doc.sequence') }}</td><td>{{ layout.meta.sequence }}</td></tr>{% endif %}
       <tr><td class="label">{{ t('doc.issued_on') }}</td><td>{{ layout.meta.issued_on | date }}</td></tr>
       {% if layout.meta.place %}<tr><td class="label">{{ t('doc.place') }}</td><td>{{ layout.meta.place }}</td></tr>{% endif %}
     </table>

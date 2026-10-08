@@ -38,6 +38,7 @@ PHOTO_OPERATIONS = {
     ("POST", "/api/projects/{project_id}/photo-attachments/{attachment_id}/restore"),
     ("GET", "/api/projects/{project_id}/photos"),
     ("POST", "/api/projects/{project_id}/photos"),
+    ("GET", "/api/projects/{project_id}/photo-report/summary"),  # Stage 15F: counts for the document screen
     ("GET", "/api/projects/{project_id}/photos/counts"),
     ("GET", "/api/projects/{project_id}/photos/{asset_id}"),
     ("POST", "/api/projects/{project_id}/photos/{asset_id}/archive"),

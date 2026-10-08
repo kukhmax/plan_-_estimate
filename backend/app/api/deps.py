@@ -10,8 +10,8 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.s3_media_storage import create_media_storage
 from app.core.security import decode_access_token
+from app.domain.photos.image_processing import ImagePipelineConfig, ImageProcessor
 from app.domain.services.area_segment_service import AreaSegmentService
-from app.domain.photos.image_processing import ImageProcessor, ImagePipelineConfig
 from app.domain.services.auth_service import TelegramAuthService
 from app.domain.services.checklist_service import ChecklistService
 from app.domain.services.client_service import ClientService
@@ -212,3 +212,28 @@ def get_photo_runtime() -> PhotoRuntime:
             admission=UploadAdmission(MAX_CONCURRENT_UPLOAD_REQUESTS),
         )
     return _photo_runtime
+
+
+_document_issuer = None
+
+
+def get_document_issuer():
+    """The process-wide document issuer (Stage 15F): one renderer (one render at a time), one delivery, the photo store.
+    Created on first use from the validated settings; tests override this dependency."""
+    from app.core.database import async_session_maker
+    from app.domain.documents.delivery import delivery_from_settings
+    from app.domain.documents.issuer import DocumentIssuer
+    from app.domain.documents.renderer import renderer_from_settings
+
+    global _document_issuer
+    if _document_issuer is None:
+        _document_issuer = DocumentIssuer(
+            session_factory=async_session_maker,
+            renderer=renderer_from_settings(settings),
+            delivery=delivery_from_settings(settings),
+            storage=lambda: get_photo_runtime().storage,
+            storage_name=settings.MEDIA_STORAGE_NAME,
+            max_photos=settings.DOCUMENT_MAX_PHOTOS,
+            max_active=settings.DOCUMENT_MAX_ACTIVE,
+        )
+    return _document_issuer

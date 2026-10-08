@@ -92,5 +92,6 @@
   "photo_report.substrate_name.cement_lime_plaster": "tynk cementowo-wapienny",
   "photo_report.substrate_name.gypsum_board": "płyta g-k",
   "photo_report.substrate_name.painted": "stara farba",
-  "photo_report.substrate_name.other": "inne"
+  "photo_report.substrate_name.other": "inne",
+  "doc.sequence": "Nr kolejny dokumentu dla obiektu"
 }

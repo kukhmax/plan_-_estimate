@@ -449,6 +449,7 @@ def build_photo_report_document(
     *,
     issued_on: date,
     number: str | None = None,
+    sequence: int | None = None,
     scope_rooms: tuple[str, ...] = (),
 ) -> PhotoReportDocument:
     """`images` is keyed by asset id and must hold every photo of `steps`."""
@@ -492,6 +493,7 @@ def build_photo_report_document(
             issued_on=issued_on,
             number=number,
             place=executor.city or None,
+            sequence=sequence,
         ),
         executor=party_from_executor_profile(executor),
         client=party_from_client(client) if client else None,
@@ -514,6 +516,32 @@ def asset_files(document: PhotoReportDocument, steps: tuple[_Step, ...], images:
         name = names.setdefault(photo.asset_id, f"p{len(names) + 1}.jpg")
         files[name] = images[photo.asset_id].data
     return files
+
+
+@dataclass(frozen=True, slots=True)
+class RoomSummary:
+    room_id: uuid.UUID
+    name: str
+    photos: int
+    has_inspection_content: bool  # answers or risks of a finished inspection
+
+
+@dataclass(frozen=True, slots=True)
+class PhotoReportSummary:
+    """What a report of this object would hold, for the screen that offers it (and parts of it when it is too big)."""
+
+    photo_count: int
+    project_photos: int
+    limit: int
+    rooms: tuple[RoomSummary, ...]
+
+    @property
+    def has_content(self) -> bool:
+        return self.photo_count > 0 or any(room.has_inspection_content for room in self.rooms)
+
+    @property
+    def over_limit(self) -> bool:
+        return self.photo_count > self.limit
 
 
 # --- the service -----------------------------------------------------------------------------------------------------------------
@@ -556,6 +584,7 @@ class PhotoReportDocumentService:
         *,
         issued_on: date,
         number: str | None = None,
+        sequence: int | None = None,
         room_ids: frozenset[uuid.UUID] | None = None,
         include_project_photos: bool | None = None,
     ) -> tuple[PhotoReportDocument, dict[str, bytes]]:
@@ -573,9 +602,30 @@ class PhotoReportDocumentService:
         images = await self._images(photos_of(steps))
         scope = tuple(room.name for room in details.rooms if room_ids is not None and room.room_id in room_ids)
         document = build_photo_report_document(
-            steps, images, project, client, executor, issued_on=issued_on, number=number, scope_rooms=scope
+            steps, images, project, client, executor, issued_on=issued_on, number=number, sequence=sequence,
+            scope_rooms=scope,
         )
         return document, asset_files(document, steps, images)
+
+    async def summary(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> PhotoReportSummary:
+        """Counts only (no photo is read): the whole report, its rooms, the limit."""
+        report = await PhotoReportReadModel(self.db).build(owner_id, project_id)
+        details = await InspectionReportReadModel(self.db).build(owner_id, project_id)
+        tree = {room.room_id: room for room in report.rooms}
+        rooms: list[RoomSummary] = []
+        for room_info in details.rooms:
+            infos = details.of_room(room_info.room_id)
+            steps = list(_room_steps(tree.get(room_info.room_id), room_info.name, infos))
+            photos = len(photos_of(steps))
+            content = any(step.info for step in steps)
+            if photos or content:
+                rooms.append(RoomSummary(room_info.room_id, room_info.name, photos, content))
+        return PhotoReportSummary(
+            photo_count=len(report.project_photos) + sum(room.photos for room in rooms),
+            project_photos=len(report.project_photos),
+            limit=self.max_photos,
+            rooms=tuple(rooms),
+        )
 
     @staticmethod
     def html(document: PhotoReportDocument) -> str:
@@ -589,11 +639,12 @@ class PhotoReportDocumentService:
         *,
         issued_on: date,
         number: str | None = None,
+        sequence: int | None = None,
         room_ids: frozenset[uuid.UUID] | None = None,
         include_project_photos: bool | None = None,
     ) -> RenderedPdf:
         document, assets = await self.build(
-            owner_id, project_id, issued_on=issued_on, number=number, room_ids=room_ids,
+            owner_id, project_id, issued_on=issued_on, number=number, sequence=sequence, room_ids=room_ids,
             include_project_photos=include_project_photos,
         )
         return await renderer.render(self.html(document), assets)

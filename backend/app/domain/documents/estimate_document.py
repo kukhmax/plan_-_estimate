@@ -93,6 +93,7 @@ def build_estimate_document(
     *,
     issued_on: date,
     number: str | None = None,
+    sequence: int | None = None,
 ) -> EstimateDocument:
     if estimate.status is EstimateStatus.ARCHIVED:
         raise DocumentDataError("ESTIMATE_ARCHIVED", "an archived estimate cannot be printed")
@@ -150,6 +151,7 @@ def build_estimate_document(
         issued_on=issued_on,
         number=number,
         place=executor.city if executor and executor.city else None,
+        sequence=sequence,
     )
     layout = DocumentLayout(
         meta=meta,
@@ -184,6 +186,7 @@ class EstimateDocumentService:
         *,
         issued_on: date,
         number: str | None = None,
+        sequence: int | None = None,
     ) -> EstimateDocument:
         estimate = await EstimateService(self.db).get_estimate_read_with_provenance(project_id, estimate_id, owner_id)
         project = (
@@ -197,7 +200,9 @@ class EstimateDocumentService:
                 )
             ).scalar_one_or_none()
         executor = await ExecutorProfileService(self.db).get(owner_id)
-        return build_estimate_document(estimate, project, client, executor, issued_on=issued_on, number=number)
+        return build_estimate_document(
+            estimate, project, client, executor, issued_on=issued_on, number=number, sequence=sequence
+        )
 
     @staticmethod
     def html(document: EstimateDocument) -> str:
@@ -212,6 +217,7 @@ class EstimateDocumentService:
         *,
         issued_on: date,
         number: str | None = None,
+        sequence: int | None = None,
     ) -> RenderedPdf:
-        document = await self.build(project_id, estimate_id, owner_id, issued_on=issued_on, number=number)
+        document = await self.build(project_id, estimate_id, owner_id, issued_on=issued_on, number=number, sequence=sequence)
         return await renderer.render(self.html(document))
