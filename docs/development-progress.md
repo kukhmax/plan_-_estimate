@@ -13,7 +13,7 @@
 >
 > **Last index update**: 2026-10-08 (Stage 14 **IN PROGRESS** — 14A–14D complete; **14E photo UI deployed**: production runs
 > `0f2f0c6`-era frontend, backend `0033_photo_capture_source`, `PHOTO_UPLOADS_ENABLED=true`, photos stored in R2 and covered
-> by the verified backup / restore chain; 14E.7 ACCEPTED by the owner 2026-10-07; 14F, 14G and 14H deployed and ACCEPTED by the owner by 2026-10-08; 14I (service only) accepted 2026-10-08; 14J, 14K and the offline queue 14E.8 NOT STARTED).
+> by the verified backup / restore chain; 14E.7 ACCEPTED by the owner 2026-10-07; 14F, 14G and 14H deployed and ACCEPTED by the owner by 2026-10-08; 14I (service only) and 14J accepted 2026-10-08; 14K and the offline queue 14E.8 NOT STARTED).
 
 ---
 
@@ -41,7 +41,7 @@ explicitly supports.
 | 11 | Inspection → recommended work → add to estimate | COMPLETE / OWNER ACCEPTED (2026-09-21; `main` `73493d7`) | PRODUCTION VERIFIED (deploy `b8de1dc` + Telegram walkthrough) | `docs/stage-11-architecture.md` |
 | 12 | Price coefficients | COMPLETE / OWNER ACCEPTED | PRODUCTION VERIFIED (release `d60390b`, Telegram walkthrough PASS) | `docs/stage-12-architecture.md` |
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
-| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B, 14C, 14D and 14E complete — 14E.7 production deployment done 2026-10-06 / 07 and ACCEPTED by the owner; 14F finding `lineage_id` + inspection / finding evidence ACCEPTED 2026-10-07; 14G POINT annotations (markers + contour) and 14H WORK photos / indicators ACCEPTED 2026-10-08; 14I report read model ACCEPTED 2026-10-08 (service only); 14J verification, 14K production walkthrough and the offline queue 14E.8 NOT STARTED) | Backend `197f558e9d07` with migration `0033_photo_capture_source`; frontend with the photo UI; `MEDIA_STORAGE_BACKEND=s3` (R2 `r2-primary`, bucket `plan-estimate-media-prod`), `PHOTO_UPLOADS_ENABLED=true`; backup `20261006T223913Z-cd32ca8e` (3 photos) published, verified and restored on the workstation | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md`, `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`, `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`, `docs/STAGE_14E7_PRODUCTION_RUNBOOK_RU.md` |
+| 14 | Photo Fixation & Defect Annotations | **IN PROGRESS** (14A, 14B, 14C, 14D and 14E complete — 14E.7 production deployment done 2026-10-06 / 07 and ACCEPTED by the owner; 14F finding `lineage_id` + inspection / finding evidence ACCEPTED 2026-10-07; 14G POINT annotations (markers + contour) and 14H WORK photos / indicators ACCEPTED 2026-10-08; 14I report read model ACCEPTED 2026-10-08 (service only); 14J verification ACCEPTED 2026-10-08; 14K production walkthrough and the offline queue 14E.8 NOT STARTED) | Backend `197f558e9d07` with migration `0033_photo_capture_source`; frontend with the photo UI; `MEDIA_STORAGE_BACKEND=s3` (R2 `r2-primary`, bucket `plan-estimate-media-prod`), `PHOTO_UPLOADS_ENABLED=true`; backup `20261006T223913Z-cd32ca8e` (3 photos) published, verified and restored on the workstation | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md`, `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`, `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`, `docs/STAGE_14E7_PRODUCTION_RUNBOOK_RU.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | NOT STARTED / PLANNED | — | — |
 | 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
@@ -1142,6 +1142,10 @@ Documentation only: no code, migration, Compose, image or production change; pro
 - **Before enabling uploads (14E):** the owner decides the backup cadence / RPO (and any timer / retention / lifecycle); a fresh backup run just before the first real upload.
 - **Plain-language overview** added for the owner and for future maintainers: `docs/STAGE_14_PHOTOS_AND_BACKUP_EXPLAINED_RU.md` (how photos and the backup work, how Cloudflare R2 and Oracle are used, portability to other servers, the settings), linked from `README.md`.
 
+### Stage 14J — owner acceptance (2026-10-08)
+
+The owner accepted **Stage 14J** ("принимаем 14J"). The interface observations of 14J.4 (inspection back button 39×40 px, RU filter chip "Все" 36 px wide, no `favicon.ico`) are **not fixed now**: the owner will rework the interface at the end, after all functionality; they are recorded as TODO in the "Backlog / Deferred Items" table below. Remaining in Stage 14: 14K (owner production walkthrough; first deployment of the accumulated backend changes, no migration) and the deferred offline queue 14E.8, each only on explicit owner approval.
+
 ### Stage 14J — adversarial / full verification of Stage 14 (2026-10-08, IMPLEMENTED LOCALLY — not deployed; tests, one model fix, no migration)
 
 Owner started 14J on 2026-10-08. Plan: `docs/STAGE_14J_VERIFICATION_PLAN_RU.md`. No new features; the gates of architecture §19 were run and what they found was fixed.
@@ -1724,7 +1728,7 @@ backup/restore gate passes** and the owner explicitly enables them.
 | 14G | POINT annotations (API + editor) | **COMPLETE / OWNER ACCEPTED 2026-10-08** (markers 14G.1–14G.3, migration `0035`, deployed with the owner phone check PASS; contour drawing 14G.4–14G.6, migration `0036`, deployed and verified on the phone; plan `docs/STAGE_14G_POINT_ANNOTATIONS_PLAN_RU.md`, contract `docs/STAGE_14C_MEDIA_API_CONTRACT.md` §30–§31) |
 | 14H | WORK execution photos in Realizacja (+ photo indicators) | **COMPLETE / OWNER ACCEPTED 2026-10-08** (14H.1 WORK API, 14H.2 Realizacja UI, 14H.3 deployment, 14H.4 compact photo buttons, 14H.5 / 14H.6 photo indicators on "Realizacja" and "Badanie …", 14H.7 no photo control on a finding, 14H.8 inspection header panel without upload; all deployed, last at `333fa8d`, owner phone checks PASS; contract §29, §32, §33) |
 | 14I | Stage 15 report read model / report-inclusion boundary | **COMPLETE / OWNER ACCEPTED 2026-10-08** (14I.1 `PhotoReportReadModel` committed `24dd694`: service only, no route, no migration, nothing to deploy; rules R1–R11 of `docs/STAGE_14I_REPORT_READ_MODEL_PLAN_RU.md` approved by the owner; contract `docs/STAGE_14C_MEDIA_API_CONTRACT.md` §34) |
-| 14J | Adversarial / full verification | **IMPLEMENTED LOCALLY 2026-10-08, awaiting owner acceptance** (plan `docs/STAGE_14J_VERIFICATION_PLAN_RU.md`; PostgreSQL 16, HTTP guard and browser gates PASS; one defect found and fixed — a cleared marker contour was stored as JSON `null`; not deployed) |
+| 14J | Adversarial / full verification | **COMPLETE / OWNER ACCEPTED 2026-10-08** (PostgreSQL 16, HTTP ownership guard and browser gates PASS; one defect, a cleared contour stored as JSON `null`, found and fixed in the model — ships with the next backend deployment; interface observations moved to the backlog for the final UI pass; plan `docs/STAGE_14J_VERIFICATION_PLAN_RU.md`) |
 | 14K | Owner production walkthrough | NOT STARTED |
 
 14B.2 record (non-secret): see `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md` §22.
@@ -1763,6 +1767,10 @@ Known deferred work. None of these reopens a completed stage or changes the Stag
 | Quality-level technical reference (Q1–Q4, S1–S4 detailed content) | Roadmap Note D | Future knowledge-base content (relates to Stage 17) |
 | Stage 14 still-PROPOSED values (Caddy multipart allowance, Cache-Control / delivery caching policy) | 14B.1 §18 | DECIDED in 14C.1: `PHOTO_MAX_REQUEST_BYTES=27_000_000` (Caddy upload route too); presign `private, max-age=<TTL>`, `inline` (14C contract §10, §17); implemented from 14C.4/14C.5 |
 | Photo temp disk-space guard | 14C.1 C15 | NOT ADDED; measure worst-case temp usage in 14C.6; any threshold only with measured evidence + owner approval |
+| Final UI/UX pass (owner decision 2026-10-08: the interface is reworked at the end, after all functionality): touch targets — the inspection back button ("Wstecz / Назад", `min-h-10 px-3`, 39×40 px) in `InspectionFlow` and `InspectionList`; the filter chip "Все" (36×44 px in RU at 320 px) in `RiskPanel`, `RecommendationPanel`, `CommunicationPanel` | Stage 14J.4 browser gate (Chromium 320 / 390 / 412 px, PL / RU) | TODO for the final UI pass; both are a few Tailwind classes (`min-h-11 min-w-11`); check at 320 px PL / RU when done |
+| Final UI/UX pass: the application has no `favicon.ico` (harmless 404 on the first load, no effect inside Telegram) | Stage 14J.4 | TODO for the final UI pass (cosmetic) |
+| Optional data normalisation on production: marker contours cleared before 14J are stored as JSON `null` (read as no contour; `outline IS NULL` does not match them): `UPDATE photo_annotations SET outline = NULL WHERE outline::text = 'null'` | Stage 14J (defect 14J-1, contract §31) | OPTIONAL, owner-run, only with the owner's explicit approval; harmless to skip |
+| Stage 14K — owner production walkthrough; first deploy the accumulated backend changes (14I read model, 14J contour fix; no migration) | Stage 14 | NOT STARTED, only on explicit owner approval |
 
 Completed and no longer backlog: Stage 5F Opening Reveals / Ościeża (committed `22afddc`, migration
 `0019_add_opening_reveals`, owner accepted 2026-09-17).
