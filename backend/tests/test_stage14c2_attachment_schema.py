@@ -96,7 +96,7 @@ def test_revision_chain_and_single_head():
     config.set_main_option("script_location", str(BACKEND / "alembic"))
     # Stage 14E.2 added 0033, 14F.1 added 0034 and 14G.1 added 0035 on top; 0032 must stay 0033's direct parent (single linear chain).
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0035_photo_annotations"]
+    assert scripts.get_heads() == ["0036_photo_annotation_outline"]
     assert scripts.get_revision("0034_finding_lineage").down_revision == "0033_photo_capture_source"
     assert scripts.get_revision("0033_photo_capture_source").down_revision == "0032_photo_attachments"
 

@@ -82,7 +82,7 @@ def test_revision_chain_and_single_head():
     assert module.down_revision == "0034_finding_lineage"
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0035_photo_annotations"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0036_photo_annotation_outline"]
 
 
 def test_upgrade_creates_the_model_table_and_downgrade_removes_only_it():
@@ -92,7 +92,8 @@ def test_upgrade_creates_the_model_table_and_downgrade_removes_only_it():
     insp = inspect(engine)
     assert set(insp.get_table_names()) == before | {"photo_annotations"}
     columns = {c["name"]: c for c in insp.get_columns("photo_annotations")}
-    model_columns = {c.name: c for c in PhotoAnnotation.__table__.columns}
+    # 0035 alone: the contour column (14G.4, migration 0036) is not there yet
+    model_columns = {c.name: c for c in PhotoAnnotation.__table__.columns if c.name != "outline"}
     assert set(columns) == set(model_columns) == {
         "id", "attachment_id", "kind", "x", "y", "label", "position", "created_at", "updated_at",
     }
@@ -247,7 +248,8 @@ async def test_create_returns_the_marker(http, api, photo):
     r = await put(http, api, attachment, x=0.25, y=0.75, label="  rysa przy oknie ")
     assert r.status_code == 201, r.text
     marker = r.json()
-    assert set(marker) == {"id", "attachment_id", "kind", "x", "y", "label", "position", "created_at", "updated_at"}
+    assert set(marker) == {"id", "attachment_id", "kind", "x", "y", "label", "outline", "position", "created_at", "updated_at"}
+    assert marker["outline"] is None
     assert marker["attachment_id"] == attachment and marker["kind"] == "POINT"
     assert (marker["x"], marker["y"]) == (0.25, 0.75)
     assert marker["label"] == "rysa przy oknie" and marker["position"] == 0
@@ -331,7 +333,7 @@ async def test_label_is_the_only_editable_field(http, api, photo):
     assert (r.json()["x"], r.json()["y"], r.json()["position"]) == (0.1, 0.2, 0)
     assert (await http.patch(url, json={"label": None})).json()["label"] is None
     assert (await http.patch(url, json={})).status_code == 200  # nothing to change
-    for payload in ({"x": 0.9}, {"y": 0.9}, {"position": 3}, {"label": "a", "x": 0.3}, {"kind": "POINT"}):
+    for payload in ({"x": 0.9}, {"y": 0.9}, {"position": 3}, {"label": "a", "x": 0.3}, {"kind": "POINT"}, {"outline": [[0, 0], [1, 1]], "x": 0.3}):
         assert (await http.patch(url, json=payload)).status_code == 422
     too_long = await http.patch(url, json={"label": "a" * 41})
     assert too_long.status_code == 422 and code(too_long) == "PHOTO_ANNOTATION_INVALID"

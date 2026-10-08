@@ -830,7 +830,7 @@ async def create_photo_annotation(
 @router.patch(
     "/projects/{project_id}/photo-attachments/{attachment_id}/annotations/{annotation_id}",
     response_model=PhotoAnnotationRead,
-    summary="Change the label of a marker (a marker is never moved or reordered)",
+    summary="Change the label and / or contour of a marker (a marker is never moved or reordered)",
 )
 async def update_photo_annotation(
     project_id: uuid.UUID,
@@ -843,7 +843,7 @@ async def update_photo_annotation(
     changes = {name: getattr(payload, name) for name in payload.model_fields_set}
     try:
         await ProjectService(db).get_project(project_id, current_user.id)
-        marker = await PhotoAnnotationService(db).update_label(
+        marker = await PhotoAnnotationService(db).update(
             current_user.id, project_id, attachment_id, annotation_id, **changes
         )
     except _LIBRARY_ERRORS as exc:

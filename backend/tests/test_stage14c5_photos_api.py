@@ -313,7 +313,7 @@ async def test_detail_returns_asset_all_attachments_and_both_urls(api, http, mon
     await http.post(f"{base}/photo-attachments/{extra['id']}/archive")
     r = await http.get(f"{base}/photos/{made['asset']['id']}")
     data = r.json()
-    assert set(data) == {"asset", "attachments", "thumbnail_url", "display_url", "urls_expire_at", "annotations", "annotation_limit"}
+    assert set(data) == {"asset", "attachments", "thumbnail_url", "display_url", "urls_expire_at", "annotations", "annotation_limit", "outline_max_points"}
     assert [(a["id"], a["archived_at"] is not None) for a in data["attachments"]] == [
         (made["attachment"]["id"], False), (extra["id"], True)]
     assert data["thumbnail_url"].endswith("/thumb.jpg?expires=90")

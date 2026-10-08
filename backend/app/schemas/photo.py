@@ -19,6 +19,7 @@ from pydantic import (
 from app.domain.services.photo_quota import PhotoStorageState
 from app.models.photo_annotation import (
     MAX_ANNOTATIONS_PER_ATTACHMENT,
+    MAX_OUTLINE_POINTS,
     PhotoAnnotationKind,
 )
 from app.models.photo_asset import (
@@ -86,6 +87,8 @@ class PhotoAnnotationRead(BaseModel):
     x: float
     y: float
     label: str | None
+    # A contour drawn around the defect (Stage 14G.4): [[x, y], ...] in the same fractions; null = none.
+    outline: list[list[float]] | None = None
     position: int
     created_at: datetime
     updated_at: datetime
@@ -108,11 +111,13 @@ class PhotoAnnotationCreate(BaseModel):
 
 
 class PhotoAnnotationPatch(BaseModel):
-    """Label only: a marker is never moved or reordered (owner decision Q5). `label: null` clears it."""
+    """Label and contour only: a marker is never moved or reordered (owner decision Q5). `null` clears a field; the
+    contour's point count and range are checked by the service, so every refusal comes in the photo error envelope."""
 
     model_config = ConfigDict(extra="forbid")
 
     label: str | None = None
+    outline: list[list[StrictInt | StrictFloat]] | None = None
 
 
 class PhotoStorageRead(BaseModel):
@@ -157,6 +162,8 @@ class PhotoDetailResponse(BaseModel):
     # Point markers of every attachment of the asset (each carries its attachment_id), in display order.
     annotations: list[PhotoAnnotationRead] = []
     annotation_limit: int = MAX_ANNOTATIONS_PER_ATTACHMENT
+    # Most points of one marker's contour (Stage 14G.4).
+    outline_max_points: int = MAX_OUTLINE_POINTS
 
 
 class PhotoAttachmentPatch(BaseModel):

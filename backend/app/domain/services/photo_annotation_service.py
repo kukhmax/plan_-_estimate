@@ -2,7 +2,8 @@
 
 Canonical design: docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md §6.4 and docs/STAGE_14G_POINT_ANNOTATIONS_PLAN_RU.md.
 
-A marker is only a place on the picture (normalized x / y of the display image) with an optional short label.
+A marker is only a place on the picture (normalized x / y of the display image) with an optional short label and an
+optional freehand contour around the defect (14G.4).
 Rules:
   * owner -> project -> attachment of a READY asset, exactly as every other photo operation (foreign / missing
     -> the same not-found);
@@ -32,6 +33,8 @@ from app.domain.services.photo_attachment_service import PhotoAttachmentService
 from app.models.photo_annotation import (
     MAX_ANNOTATIONS_PER_ATTACHMENT,
     MAX_LABEL_LENGTH,
+    MAX_OUTLINE_POINTS,
+    MIN_OUTLINE_POINTS,
     PhotoAnnotation,
     PhotoAnnotationKind,
 )
@@ -61,6 +64,27 @@ def normalize_label(label: Any) -> str | None:
     if len(cleaned) > MAX_LABEL_LENGTH:
         raise PhotoAnnotationValidationError(f"label must be at most {MAX_LABEL_LENGTH} characters")
     return cleaned or None
+
+
+def normalize_outline(outline: Any) -> list[list[float]] | None:
+    """A contour: 3..120 points, each [x, y] with numbers 0..1 (rounded like a marker's own x / y); None = no contour.
+    All points identical is a dot, not a contour."""
+    if outline is None:
+        return None
+    if not isinstance(outline, (list, tuple)):
+        raise PhotoAnnotationValidationError("outline must be a list of points")
+    if not MIN_OUTLINE_POINTS <= len(outline) <= MAX_OUTLINE_POINTS:
+        raise PhotoAnnotationValidationError(
+            f"outline must have between {MIN_OUTLINE_POINTS} and {MAX_OUTLINE_POINTS} points"
+        )
+    points: list[list[float]] = []
+    for point in outline:
+        if not isinstance(point, (list, tuple)) or len(point) != 2:
+            raise PhotoAnnotationValidationError("an outline point must be [x, y]")
+        points.append([normalize_coordinate(point[0], "x"), normalize_coordinate(point[1], "y")])
+    if len({(x, y) for x, y in points}) < 2:
+        raise PhotoAnnotationValidationError("outline must not be a single point")
+    return points
 
 
 class PhotoAnnotationService:
@@ -138,7 +162,7 @@ class PhotoAnnotationService:
         await self.db.refresh(marker)
         return marker
 
-    async def update_label(
+    async def update(
         self,
         owner_id: uuid.UUID,
         project_id: uuid.UUID,
@@ -146,13 +170,18 @@ class PhotoAnnotationService:
         annotation_id: uuid.UUID,
         *,
         label: Any = _UNSET,
+        outline: Any = _UNSET,
     ) -> PhotoAnnotation:
-        """The only editable field is the label (coordinates and order never change, Q5)."""
+        """The editable fields are the label and the contour (coordinates and order never change, Q5): a new contour
+        replaces the old one, `None` removes it."""
         label_value = normalize_label(label) if label is not _UNSET else _UNSET
+        outline_value = normalize_outline(outline) if outline is not _UNSET else _UNSET
         await self._writable_attachment(owner_id, project_id, attachment_id)
         marker = await self._get_marker(attachment_id, annotation_id)
         if label_value is not _UNSET:
             marker.label = label_value
+        if outline_value is not _UNSET:
+            marker.outline = outline_value
         await self.db.commit()
         await self.db.refresh(marker)
         return marker
