@@ -355,6 +355,15 @@ describe('ProjectWorkspace', () => {
     expect(await screen.findByLabelText('no-rooms')).toBeInTheDocument();
   });
 
+  it('shows the closed documents card between the photos and the rooms (Stage 15F.3)', async () => {
+    renderWorkspace();
+    fireEvent.click(await screen.findByLabelText(`open-project-${project.id}`));
+    const card = await screen.findByLabelText('project-documents');
+    expect(within(card).getByRole('button', { name: 'toggle-project-documents' })).toHaveAttribute('aria-expanded', 'false');
+    expect(within(card).queryByLabelText('photo-report-card')).toBeNull();
+    expect(screen.getByLabelText('project-photos').compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('navigates from a project through a room to surfaces and back', async () => {
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
     renderWorkspace();

@@ -403,4 +403,19 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
       expect(Object.keys(ru.executor_profile.errors)).toContain(code);
     }
   });
+
+  it('has identical document key structure in PL and RU, and a text for every code the backend can send (Stage 15F)', () => {
+    expect(keySet(pl.documents)).toEqual(keySet(ru.documents));
+    for (const code of [
+      'EXECUTOR_PROFILE_REQUIRED', 'ESTIMATE_NOT_FINAL', 'ESTIMATE_ARCHIVED', 'ESTIMATE_EMPTY', 'ESTIMATE_UNPRICED',
+      'ESTIMATE_TOTAL_MISMATCH', 'ESTIMATE_CURRENCY_MIXED', 'PREVIEW_ONLY_FOR_DRAFT', 'PHOTO_LIMIT_EXCEEDED', 'REPORT_EMPTY',
+      'PHOTO_UNAVAILABLE', 'PHOTO_UNREADABLE', 'CATALOG_NAME_UNKNOWN', 'TELEGRAM_CHAT_UNAVAILABLE', 'TELEGRAM_UNAVAILABLE',
+      'TELEGRAM_REJECTED', 'DELIVERY_DISABLED', 'DOCUMENT_QUEUE_FULL', 'DOCUMENT_RENDER_BUSY', 'DOCUMENT_RENDER_TIMEOUT',
+      'DOCUMENT_TOO_LARGE', 'DOCUMENT_RENDER_FAILED', 'INTERRUPTED', 'INTERNAL_ERROR', 'PROJECT_NOT_FOUND', 'ESTIMATE_NOT_FOUND',
+      'DOCUMENT_NOT_FOUND', 'DOCUMENT_TEMPLATE_INVALID', 'DOCUMENT_DELIVERY_FAILED', 'DRAFT_NUMBERED', 'UNKNOWN',
+    ]) {
+      expect(Object.keys(pl.documents.errors)).toContain(code);
+      expect(Object.keys(ru.documents.errors)).toContain(code);
+    }
+  });
 });

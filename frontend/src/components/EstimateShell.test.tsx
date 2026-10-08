@@ -5050,3 +5050,30 @@ describe('Stage 12F — coefficient provenance', () => {
     expect(block).not.toHaveTextContent('Высота работ');
   });
 });
+
+describe('EstimateShell — documents (Stage 15F.3)', () => {
+  it('offers "Wyślij PDF" on the summary of a finished estimate and "Podgląd PDF" on a draft', async () => {
+    const final = makeSummary({ status: 'FINAL' });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], final));
+    const first = renderShell(final, null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByRole('button', { name: 'estimate-send-pdf' })).toHaveTextContent('Wyślij PDF');
+    expect(screen.queryByRole('button', { name: 'estimate-preview-pdf' })).toBeNull();
+    first.unmount();
+
+    const draft = makeSummary({ status: 'DRAFT' });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], draft));
+    renderShell(draft, null);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByRole('button', { name: 'estimate-preview-pdf' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'estimate-send-pdf' })).toBeNull();
+  });
+
+  it('does not show the buttons inside a group detail, only on the estimate as a whole', async () => {
+    const final = makeSummary({ status: 'FINAL' });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([makeLine()], final));
+    renderShell(final);
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    expect(screen.queryByRole('button', { name: 'estimate-send-pdf' })).toBeNull();
+  });
+});

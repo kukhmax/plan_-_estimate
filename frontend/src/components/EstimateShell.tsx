@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { addManualEstimateLine, deleteEstimateLine, finalizeEstimate, getEstimate, patchEstimateLine, previewEstimateRegeneration, regenerateEstimate } from '../api/estimates';
 import { useI18n } from '../hooks/useI18n';
+import { EstimateDocumentActions } from './EstimateDocumentActions';
 import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue, LineChangeEntry, LineChangeTypeValue, ManualLineCreatePayload, RegenerationPreviewResponse } from '../types/estimate';
 import { PRICE_UNITS, type PriceScopeValue, type PriceUnitValue } from '../types/priceItem';
 import { sumDecimalStrings } from '../utils/decimalArithmetic';
@@ -1624,6 +1625,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
       {regenerationSection}
       {manualLineSection}
       {finalizeSection}
+      <EstimateDocumentActions projectId={estimate.project_id} estimateId={estimate.id} status={detail.status} />
 
       <div aria-label="estimate-groups" className="space-y-2">
         {groups.map((group, index) => {

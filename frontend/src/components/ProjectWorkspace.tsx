@@ -31,6 +31,7 @@ import { InspectionList } from './InspectionList';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { RoomList } from './RoomList';
 import { OpeningGroupList } from './OpeningGroupList';
+import { ProjectDocuments } from './ProjectDocuments';
 import { ProjectSummaryCard } from './ProjectSummaryCard';
 import { SurfaceList } from './SurfaceList';
 
@@ -701,6 +702,9 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
             </div>
             <PhotoCardPanel context="PROJECT" />
           </article>
+
+          {/* Stage 15F: the photo report and the journal of documents sent to the owner's chat. */}
+          <ProjectDocuments projectId={selectedProject.id} />
 
           <RoomList
             projectId={selectedProject.id}
