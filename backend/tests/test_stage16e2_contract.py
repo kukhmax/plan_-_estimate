@@ -72,7 +72,7 @@ async def ready(db, telegram_id=9801):
     await plan(db, w.wall, [w.item_a, w.item_b], waits=(24, None))
     await estimate(db, w)
     w.person = await person(db, w)
-    w.contract = await draft(db, w, who_accepts=[str(w.person.id)], contract_date="2026-10-12", contract_place="Kraków",
+    w.contract = await draft(db, w, client_status="CONSUMER", conclusion_mode="PREMISES_OF_EXECUTOR", who_accepts=[str(w.person.id)], contract_date="2026-10-12", contract_place="Kraków",
                              advance_percent=30, payment_mode="BY_STAGES", payment_due_days=14, warranty_months=24,
                              downtime_rate_per_day="150.00", work_start_date="2026-10-20",
                              premises_requirement_values={"lighting_permanent": True, "lighting_level": 300, "temperature_range": {"min": 5, "max": 25}})
@@ -108,7 +108,7 @@ async def test_an_empty_world_lists_every_thing_to_fix_in_the_order_of_fixing(db
     assert codes(blockers) == [G.EXECUTOR_PROFILE_REQUIRED, G.CLIENT_ADDRESS_INCOMPLETE, G.ANSWERS_MISSING, G.NO_PLANNED_WORKS, G.ESTIMATE_REQUIRED]
     by_code = {b.code: b.details for b in blockers}
     assert by_code[G.CLIENT_ADDRESS_INCOMPLETE] == {"missing": ["street", "postal_code", "city"]}
-    assert by_code[G.ANSWERS_MISSING] == {"keys": ["who_accepts", "contract_date", "contract_place"]}
+    assert by_code[G.ANSWERS_MISSING] == {"keys": ["client_status", "conclusion_mode", "who_accepts", "contract_date", "contract_place"]}
 
 
 async def test_each_blocker_stands_alone_and_goes_away_when_fixed(db_session):
@@ -182,26 +182,38 @@ async def built(db, w, *, working=False, number="UMOWA/2026/10/10/1200"):
     return build_contract_document(w.contract, effective, data, working=working, issued_on=TODAY, number=None if working else number), data
 
 
+def said(document, section_key: str, n: int) -> str:
+    """The first (or only) text printed for clause `n` of the section, placeholders filled in; a blank prints as `___`."""
+    (section,) = [x for x in document.sections if x.key == section_key]
+    (clause,) = [c for c in section.clauses if c.number == n]
+    return " ".join("".join("___" if seg.kind == "blank" else seg.text for seg in alt) for alt in clause.alternatives)
+
+
 async def test_the_contract_prints_the_answers_the_price_the_persons_and_the_annexes(db_session):
     w = await ready(db_session)
     document, _ = await built(db_session, w)
-    assert [s.title for s in document.sections] == [
-        "Przedmiot umowy", "Zakres prac", "Cena", "Terminy", "Płatności", "Odbiór prac", "Przestój z winy Zamawiającego", "Gwarancja",
-        "Kara umowna", "Postanowienia końcowe"]
-    facts = {s.key: {f.label: f.value for f in s.facts} for s in document.sections}
-    assert facts["price"]["Cena netto (bez podatku VAT)"] == "147,00 zł" and facts["price"]["Kosztorys"] == "wersja 1"
-    assert facts["schedule"]["Rozpoczęcie prac"] == "20.10.2026" and facts["schedule"]["Zakończenie prac"] is None
-    assert facts["payment_terms"] == {"Zaliczka": "30%", "Sposób płatności": "etapami", "Termin płatności": "14 dni"}
-    assert facts["acceptance"]["Czas na stawienie się Zamawiającego na odbiór"] == "3 dni roboczych"
-    assert facts["acceptance"]["Odbiory częściowe"] == "tak" and facts["acceptance"]["Maksymalna liczba ponownych sprawdzeń"] is None
-    assert facts["downtime"]["Stawka za dobę przestoju"] == "150,00 zł" and facts["downtime"]["Limit odszkodowania za przestój (% ceny)"] is None
-    assert facts["warranty"]["Okres gwarancji"] == "24 mies." and facts["penalty"]["Kara umowna"] is None
-    assert [(p.name, p.side, p.role, p.phone) for p in document.persons] == [("Anna Nowak", "Zamawiający", "Właścicielka", "+48 600 100 200")]
+    assert len(document.sections) == 23 and document.sections[3].title == "Wynagrodzenie" and document.sections[13].title == "Odbiory"
+    price = said(document, "remuneration", 2)
+    assert price.startswith("Szacunkowe wynagrodzenie wynosi 147,00\xa0zł netto, powiększone o podatek VAT w stawce ___, tj. ___ brutto.")
+    assert "wersja 1)" in said(document, "remuneration", 1) and "do dnia" not in said(document, "remuneration", 4)
+    assert said(document, "deadlines", 1).startswith("Rozpoczęcie Prac: 20.10.2026,") and said(document, "deadlines", 2).startswith("Zakończenie Prac: ___.")
+    assert said(document, "advance_and_payments", 1).startswith("Zamawiający wpłaca zaliczkę w wysokości 30\xa0% wynagrodzenia szacunkowego, tj. ___,")
+    assert said(document, "advance_and_payments", 2) == "Sposób płatności: etapami — po każdym odbiorze częściowym, według obmiaru."
+    assert "w terminie 14\xa0dni od doręczenia" in said(document, "advance_and_payments", 3)
+    assert "w ciągu 3\xa0Dni roboczych od zgłoszenia" in said(document, "acceptance", 2) and said(document, "acceptance", 1).startswith("Strony przewidują odbiory częściowe")
+    assert "w wysokości 150,00\xa0zł za dobę, łącznie nie więcej niż ___ wynagrodzenia" in said(document, "downtime", 3)
+    assert "dłużej niż ___" in said(document, "downtime", 5)  # no default: a line to write in
+    assert "na okres 24\xa0miesięcy od dnia odbioru końcowego" in said(document, "warranty", 2)
+    assert "nie jest limitowana" in said(document, "evaluation_rules", 5)  # no limit given = no limit
+    assert said(document, "liability", 3) == "☐ Kara umowna: Wykonawca zapłaci karę umowną za zwłokę" or "Kara umowna" in said(document, "liability", 3)
+    assert [c.number for c in document.sections[11].clauses] == [1, 2, 3]  # the optional insurance clause is left out, the numbers stay
+    assert [(p.name, p.side, p.role, p.phone, p.paid_orders) for p in document.persons] == [
+        ("Anna Nowak", "Zamawiający", "Właścicielka", "+48 600 100 200", "nie")]
     values = {r.text: r.value for r in document.requirements}
     assert values["Stałe oświetlenie elektryczne w pomieszczeniach"] == "tak"
     assert values["Minimalne natężenie oświetlenia w miejscu pracy"] == "300 lx"
     assert [c.code for c in document.regulation.classes] == ["S2"] and document.regulation.tolerances == ()
-    assert document.intro[0].value == "12.10.2026" and document.intro[1].value == "Kraków"
+    assert [r.value for r in document.intro] == ["12.10.2026", "Kraków", "Mokotów"]
     assert document.layout.client.address_lines == ("ul. Zielona 5/7", "30-001 Kraków")
     assert document.estimate_version == 1 and document.estimate_total == "147,00 zł"
 
@@ -213,13 +225,20 @@ async def test_the_page_has_the_sections_the_annexes_and_the_strong_watermark_wh
     body = html[html.index("<body"):]
     assert not load_clause_catalog().approved and document.layout.draft and not document.layout.light_watermark
     assert 'class="watermark"' in body and "UMOWA/2026/10/10/1200" in body
-    assert body.count("— do uzupełnienia —") == 10  # no clause has its wording yet
+    assert body.count("— do uzupełnienia —") == 0 and "§&nbsp;14. Odbiory" in body and "§&nbsp;23. Postanowienia końcowe" in body
+    assert "☒&nbsp;konsument" in body and "☒&nbsp;w lokalu przedsiębiorstwa Wykonawcy" in body and "Wzór formularza odstąpienia" not in body  # annex 11: only off-premises
+    notes = [n.text for sec in load_clause_catalog().sections for c in sec.clauses for n in c.review_notes]
+    assert notes and all(note not in body for note in notes)  # the questions to the lawyer are never printed
+    assert "[L" not in body and "Do wyboru" in body  # the lawyer's notes are never printed; the unanswered penalty is a choice to tick
+    assert body.index("§&nbsp;23.") < body.index('class="signatures"') < body.index('<h2 class="annex-title">Załącznik 1 — Karta technologiczna')
     for heading in ("Załącznik 1 — Karta technologiczna", "Załącznik 2 — Plan produkcji prac", "Załącznik 3 — Kosztorys",
-                    "Załącznik 4 — Wymagania dla pomieszczeń", "Załącznik 5 — Zasady odbioru prac"):
+                    "Załącznik 4 — Wymagania dla pomieszczeń", "Załącznik 5 — Zasady odbioru prac",
+                    "Załącznik 6 — Wzór Protokołu odbioru robót zanikających", "Załącznik 10 — Wzór Zlecenia prac dodatkowych / zamiennych",
+                    "Załącznik 12 — Klauzula informacyjna RODO"):
         assert heading in body
     assert "Zakres prac w kolejności wykonania" in body and "Kolejność prac w pomieszczeniach" in body  # the card and the plan inside
     assert "wersji 1; wartość netto (bez podatku VAT): 147,00" in body
-    assert "Wartości dopuszczalne: do uzupełnienia" in body and "Osoby upoważnione do odbioru prac" in body
+    assert "Wartości dopuszczalne: do uzupełnienia" in body and "Zlecenia płatne (§ 5)" in body
     assert body.count("object_name") == 0 and body.count("Mokotów") >= 1
     assert "WERSJA ROBOCZA" in body  # (the watermark text)
 
@@ -232,16 +251,16 @@ async def test_the_whole_packet_is_one_real_pdf_with_the_number_on_every_page(db
     assert len(pages) >= 5
     assert all("UMOWA/2026/10/10/1200" in page.extract_text() for page in pages)
     flat = " ".join(text_of(pdf).split())
-    for part in ("§ 6. Odbiór prac", "Załącznik 5", "Anna Nowak", "ul. Zielona 5/7"):
+    for part in ("§ 14. Odbiory", "Załącznik 5", "Załącznik 12", "Anna Nowak", "ul. Zielona 5/7"):
         assert part in flat, part
 
 
 async def test_the_approved_wording_would_print_without_the_watermark(db_session):
     w = await ready(db_session)
-    approved = ClauseCatalog.model_validate({
-        "version": 2, "approved": True, "approved_by": "Jan Kowalski", "approved_on": "2026-10-11",
-        "sections": [{"key": s.key, "title_pl": s.title_pl, "paragraphs_pl": [f"Treść {s.key}."]} for s in load_clause_catalog().sections],
-    })
+    base = load_clause_catalog().model_dump(mode="json")
+    for note in [n for sec in base["sections"] for c in sec["clauses"] for n in c["review_notes"]] + [n for a in base["annexes"] for n in a["review_notes"]]:
+        note["status"] = "RESOLVED"
+    approved = ClauseCatalog.model_validate({**base, "approved": True, "approved_by": "Jan Kowalski", "approved_on": "2026-10-11"})
     from unittest import mock
 
     with mock.patch("app.domain.documents.contract_document.load_clause_catalog", return_value=approved):
@@ -249,7 +268,7 @@ async def test_the_approved_wording_would_print_without_the_watermark(db_session
         html = render_contract_html(document)
     body = html[html.index("<body"):]
     assert not document.layout.draft and 'class="watermark' not in body
-    assert "Treść subject." in body and body.count("— do uzupełnienia —") == 0
+    assert "§&nbsp;14. Odbiory" in body
 
 
 async def test_the_working_version_never_refuses_and_leaves_lines_to_write_in(db_session):
@@ -284,12 +303,12 @@ async def test_the_regulation_lists_all_classes_when_nothing_is_planned_and_only
 # --- the clause catalogue ---------------------------------------------------------------------------------------------------------
 
 
-def test_the_clause_catalogue_has_the_ten_sections_and_no_wording_yet():
+def test_the_clause_catalogue_is_the_prototype_contract_waiting_for_the_lawyer():
     catalog = load_clause_catalog()
-    assert catalog.version == 1 and not catalog.approved and catalog.approved_by is None
-    assert [s.key for s in catalog.sections] == ["subject", "scope_of_work", "price", "schedule", "payment_terms", "acceptance",
-                                                 "downtime", "warranty", "penalty", "other_provisions"]
-    assert all(s.paragraphs_pl == [] for s in catalog.sections)
+    assert catalog.version == 2 and not catalog.approved and catalog.approved_by is None
+    assert len(catalog.sections) == 23 and [a.number for a in catalog.annexes] == [6, 7, 8, 9, 10, 11, 12]
+    assert catalog.open_notes == ["L7", "L8", "L4", "L2", "L3", "L13", "L5", "L14", "L15"]
+    assert [s.key for s in catalog.sections][:3] == ["definitions", "subject", "state_of_premises"]
 
 
 @pytest.mark.parametrize(
@@ -297,8 +316,9 @@ def test_the_clause_catalogue_has_the_ten_sections_and_no_wording_yet():
     [
         {"approved": True},  # without who and when
         {"approved_by": "Jan"},  # approval without the flag
-        {"approved": True, "approved_by": "Jan", "approved_on": "2026-10-11"},  # approved but no wording
+        {"approved": True, "approved_by": "Jan", "approved_on": "2026-10-11"},  # approved while a question to the lawyer is open
         {"sections": []},
+        {"annexes": []},
         {"unknown": 1},
     ],
 )
@@ -338,7 +358,7 @@ async def test_issuing_freezes_the_contract_numbers_it_sends_the_pdf_and_records
     snap = row.snapshot
     assert snap["answers"]["advance_percent"] == 30 and snap["answers"]["customer_appearance_days"] == 3
     assert snap["persons"][0]["name"] == "Anna Nowak" and snap["estimate"]["total"] == "147.00" and snap["estimate"]["version"] == 1
-    assert snap["clauses"] == {"version": 1, "approved": False, "approved_by": None}
+    assert snap["clauses"] == {"version": 2, "approved": False, "approved_by": None}
     assert snap["scope"] == {"rooms": 1, "surfaces": 1, "works": 2, "adjacent_works": 0}
     assert snap["client"]["address"] == ["ul. Zielona 5/7", "30-001 Kraków"]
 

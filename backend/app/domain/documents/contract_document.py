@@ -3,9 +3,9 @@
 What the contract says is data, never prose written by the code: the **answers** of the owner's questionnaire (16E.1), the persons
 who may accept the work, the price of the current estimate (without VAT), and -- as annexes of the same issue -- the technological
 card, the production plan, the requirements for the premises and the regulation of acceptance. The **wording** of the clauses
-comes from the clause catalogue (`contracts/catalog/clauses.json`, approved by the owner and a lawyer, 16E.3); a section without
-paragraphs prints "— do uzupełnienia —", and while the catalogue is not approved every contract carries the "WERSJA ROBOCZA"
-watermark.
+(§ 1 ... § 23 and the annexes 6-12) comes from the clause catalogue (`contracts/catalog/clauses.json`, 16E.3): the values of the
+contract are put into its placeholders, a clause whose deciding answer is not given is printed as choices to tick, and while the
+catalogue is not approved by the owner and a lawyer every contract carries the "WERSJA ROBOCZA" watermark.
 
 Two forms of one builder, like the card and the plan: **issued** (numbered, journalled, built from data that the gate has just
 checked) and the **working version** (pale watermark, no number, never refuses: whatever is not answered yet is an empty line to
@@ -18,7 +18,10 @@ from decimal import Decimal
 from typing import Any
 
 from app.domain.contracts.catalog import ContractCatalog, load_contract_catalog
-from app.domain.contracts.clauses import ClauseCatalog, load_clause_catalog
+from app.domain.contracts.clause_render import (
+    RenderedAnnex, RenderedSection, build_flags, build_values, render_annexes, render_sections,
+)
+from app.domain.contracts.clauses import load_clause_catalog
 from app.domain.contracts.gate import GateData
 from app.domain.documents import formatting
 from app.domain.documents.estimate_document import object_lines
@@ -42,12 +45,9 @@ class FactRow:
 
 
 @dataclass(frozen=True, slots=True)
-class ContractSection:
-    key: str
-    number: int
-    title: str
-    facts: tuple[FactRow, ...]
-    paragraphs: tuple[str, ...]  # the wording from the clause catalogue; empty = "do uzupełnienia"
+class CheckOption:
+    label: str
+    checked: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +56,7 @@ class PersonRow:
     side: str
     role: str | None
     phone: str | None
+    paid_orders: str  # "tak" / "nie": may accept orders that raise the price (§ 21 ust. 3)
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +94,10 @@ class ContractDocument:
     object_name: str
     object_lines: tuple[str, ...]
     intro: tuple[FactRow, ...]  # date and place of the contract
-    sections: tuple[ContractSection, ...]
+    client_status: tuple[CheckOption, ...]  # the boxes under the parties: who the customer is ...
+    conclusion_mode: tuple[CheckOption, ...]  # ... and where the contract is concluded
+    sections: tuple[RenderedSection, ...]
+    annexes: tuple[RenderedAnnex, ...]  # the annexes 6-12 of the catalogue (forms and fixed texts)
     persons: tuple[PersonRow, ...]
     requirements: tuple[RequirementRow, ...]
     regulation: Regulation
@@ -128,10 +132,6 @@ def client_party(client: Client | None) -> Party | None:
 
 def _date(value: Any) -> str | None:
     return formatting.format_date(date.fromisoformat(value)) if isinstance(value, str) and value else None
-
-
-def _count(value: Any, unit_label: str) -> str | None:
-    return f"{value}{formatting.NBSP}{unit_label}" if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def _number(value: Any) -> str:
@@ -177,9 +177,12 @@ def _persons(data: GateData, answers: dict[str, Any]) -> tuple[PersonRow, ...]:
         "CONTRACTOR": labels("contract.side.contractor"),
     }
     chosen = answers.get("who_accepts") or []
+    paid = set(answers.get("paid_orders_persons") or [])
     by_id = {str(p.id): p for p in data.people}
     return tuple(
-        PersonRow(by_id[pid].name, sides[by_id[pid].side], by_id[pid].role_title, by_id[pid].phone) for pid in chosen if pid in by_id
+        PersonRow(by_id[pid].name, sides[by_id[pid].side], by_id[pid].role_title, by_id[pid].phone,
+                  labels("contract.yes") if pid in paid else labels("contract.no"))
+        for pid in chosen if pid in by_id
     )
 
 
@@ -219,60 +222,26 @@ def _price(data: GateData) -> str | None:
     return formatting.format_money(estimate.total, estimate.currency)
 
 
-def _sections(
-    answers: dict[str, Any], data: GateData, clauses: ClauseCatalog, persons: tuple[PersonRow, ...]
-) -> tuple[ContractSection, ...]:
+def _options(answer: Any, options: tuple[tuple[str, str], ...]) -> tuple[CheckOption, ...]:
+    return tuple(CheckOption(label, answer == key) for key, label in options)
+
+
+def _status_options(answers: dict[str, Any]) -> tuple[CheckOption, ...]:
     labels = Labels()
-    working_days = labels("contract.unit.working_days")
-    estimate = data.estimate
-    price = _price(data)
-    mode = {"BY_STAGES": labels("contract.payment.by_stages"), "ON_ACCEPTANCE": labels("contract.payment.on_acceptance")}
-    partial = answers.get("partial_acceptance")
-    downtime = answers.get("downtime_rate_per_day")
-    facts: dict[str, tuple[FactRow, ...]] = {
-        "subject": (
-            FactRow(labels("contract.f.object"), data.project.name),
-            FactRow(labels("contract.f.object_address"), ", ".join(object_lines(data.project)) or None),
-        ),
-        "scope_of_work": (
-            FactRow(labels("contract.f.annex_card"), labels("contract.annex.1")),
-            FactRow(labels("contract.f.annex_plan"), labels("contract.annex.2")),
-        ),
-        "price": (
-            FactRow(labels("contract.f.net_price"), price),
-            FactRow(labels("contract.f.estimate"), labels("contract.f.estimate_value", n=estimate.version) if estimate is not None else None),
-            FactRow(labels("contract.f.annex_estimate"), labels("contract.annex.3")),
-        ),
-        "schedule": (
-            FactRow(labels("contract.f.start"), _date(answers.get("work_start_date"))),
-            FactRow(labels("contract.f.end"), _date(answers.get("work_end_date"))),
-            FactRow(labels("contract.f.breaks"), labels("contract.f.breaks_value")),
-        ),
-        "payment_terms": (
-            FactRow(labels("contract.f.advance"), f"{answers['advance_percent']}%" if "advance_percent" in answers else None),
-            FactRow(labels("contract.f.payment_mode"), mode.get(answers.get("payment_mode", ""))),
-            FactRow(labels("contract.f.due_days"), _count(answers.get("payment_due_days"), labels("contract.unit.days"))),
-        ),
-        "acceptance": (
-            FactRow(labels("contract.f.appearance"), _count(answers.get("customer_appearance_days"), working_days)),
-            FactRow(labels("contract.f.partial"), None if partial is None else labels("contract.yes") if partial else labels("contract.no")),
-            FactRow(labels("contract.f.reinspections"), str(answers["reinspection_limit"]) if "reinspection_limit" in answers else None),
-            FactRow(labels("contract.f.notice"), _count(answers.get("premises_acceptance_notice_days"), labels("contract.unit.days"))),
-            FactRow(labels("contract.f.annex_requirements"), labels("contract.annex.4")),
-            FactRow(labels("contract.f.annex_regulation"), labels("contract.annex.5")),
-        ),
-        "downtime": (
-            FactRow(labels("contract.f.downtime_rate"), formatting.format_money(Decimal(downtime)) if downtime else None),
-            FactRow(labels("contract.f.downtime_cap"), f"{answers['downtime_cap_percent']}%" if "downtime_cap_percent" in answers else None),
-        ),
-        "warranty": (FactRow(labels("contract.f.warranty"), _count(answers.get("warranty_months"), labels("contract.unit.months"))),),
-        "penalty": (FactRow(labels("contract.f.penalty"), answers.get("contractual_penalty")),),
-        "other_provisions": (),
-    }
-    return tuple(
-        ContractSection(section.key, n, section.title_pl, facts[section.key], tuple(section.paragraphs_pl))
-        for n, section in enumerate(clauses.sections, start=1)
-    )
+    return _options(answers.get("client_status"), (
+        ("CONSUMER", labels("contract.status.consumer")),
+        ("CONSUMER_RIGHTS_ENTREPRENEUR", labels("contract.status.consumer_rights_entrepreneur")),
+        ("ENTREPRENEUR", labels("contract.status.entrepreneur")),
+    ))
+
+
+def _mode_options(answers: dict[str, Any]) -> tuple[CheckOption, ...]:
+    labels = Labels()
+    return _options(answers.get("conclusion_mode"), (
+        ("PREMISES_OF_EXECUTOR", labels("contract.mode.premises_of_executor")),
+        ("OFF_PREMISES", labels("contract.mode.off_premises")),
+        ("DISTANCE", labels("contract.mode.distance")),
+    ))
 
 
 def build_contract_document(
@@ -298,6 +267,24 @@ def build_contract_document(
         data.project, data.client, data.executor, data.rooms, data.adjacent, working=working, issued_on=issued_on
     )
     place = effective.get("contract_place")
+    executor_party = party_from_executor_profile(data.executor) if data.executor is not None else None
+    client = client_party(data.client)
+    estimate = data.estimate
+    flags = build_flags(effective)
+    values = build_values(
+        effective,
+        object_address=", ".join(object_lines(data.project)) or None,
+        estimate_version=estimate.version if estimate is not None else None,
+        net=estimate.total if estimate is not None else None,
+        currency=estimate.currency if estimate is not None else "PLN",
+        executor=(
+            executor_party.name if executor_party else None,
+            ", ".join(executor_party.address_lines) if executor_party and executor_party.address_lines else None,
+            executor_party.email if executor_party else None,
+            executor_party.phone if executor_party else None,
+        ),
+        client=(client.email if client else None, client.phone if client else None),
+    )
     layout = DocumentLayout(
         meta=DocumentMeta(
             title=labels("contract.title"),
@@ -306,9 +293,9 @@ def build_contract_document(
             place=place or (data.executor.city if data.executor is not None else None) or None,
             sequence=sequence,
         ),
-        executor=party_from_executor_profile(data.executor) if data.executor is not None else None,
-        client=client_party(data.client),
-        signatures=True,
+        executor=executor_party,
+        client=client,
+        signatures=False,  # the template prints them right after § 23, before the annexes
         draft=working or not clauses.approved,  # unapproved wording is always a draft
         light_watermark=working,
     )
@@ -319,8 +306,12 @@ def build_contract_document(
         intro=(
             FactRow(labels("contract.f.contract_date"), _date(effective.get("contract_date"))),
             FactRow(labels("contract.f.contract_place"), place),
+            FactRow(labels("contract.f.object"), data.project.name),
         ),
-        sections=_sections(effective, data, clauses, persons),
+        client_status=_status_options(effective),
+        conclusion_mode=_mode_options(effective),
+        sections=render_sections(clauses, flags, values),
+        annexes=render_annexes(clauses, flags, values),
         persons=persons,
         requirements=_requirements(effective, catalog),
         regulation=_regulation(data, catalog),

@@ -1,18 +1,1374 @@
 {
-  "version": 1,
-  "approved": false,
-  "approved_by": null,
-  "approved_on": null,
-  "sections": [
-    {"key": "subject", "title_pl": "Przedmiot umowy", "paragraphs_pl": []},
-    {"key": "scope_of_work", "title_pl": "Zakres prac", "paragraphs_pl": []},
-    {"key": "price", "title_pl": "Cena", "paragraphs_pl": []},
-    {"key": "schedule", "title_pl": "Terminy", "paragraphs_pl": []},
-    {"key": "payment_terms", "title_pl": "Płatności", "paragraphs_pl": []},
-    {"key": "acceptance", "title_pl": "Odbiór prac", "paragraphs_pl": []},
-    {"key": "downtime", "title_pl": "Przestój z winy Zamawiającego", "paragraphs_pl": []},
-    {"key": "warranty", "title_pl": "Gwarancja", "paragraphs_pl": []},
-    {"key": "penalty", "title_pl": "Kara umowna", "paragraphs_pl": []},
-    {"key": "other_provisions", "title_pl": "Postanowienia końcowe", "paragraphs_pl": []}
-  ]
+ "version": 2,
+ "approved": false,
+ "approved_by": null,
+ "approved_on": null,
+ "sections": [
+  {
+   "key": "definitions",
+   "title_pl": "Definicje",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Obiekt — lokal/budynek przy {object_address}, w którym wykonywane są Prace."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Prace — prace wykończeniowe określone w Załącznikach 1–3, wykonywane na powierzchniach w nich wskazanych."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Standard wykończenia — uzgodniony dla każdej powierzchni poziom jakości wykończenia: S1–S4 (tynki, beton — wewnętrzna klasyfikacja Wykonawcy opisana w Załączniku 5) albo Q1–Q4 (płyty g-k). Standard wykończenia opisuje jakość powierzchni, a nie jej geometrię (pion, poziom, płaszczyznę, kąty)."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przerwa technologiczna — wymagany technologią czas między kolejnymi pracami (schnięcie, wiązanie, sezonowanie), wskazany w Załączniku 2. Przerwa technologiczna jest częścią terminu wykonania i nie jest przestojem."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przestój — okres, w którym Wykonawca gotowy do pracy nie może jej prowadzić z przyczyn dotyczących Zamawiającego (§ 10)."
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Prace dodatkowe — prace nieobjęte Załącznikami 1–3; Prace zamienne — zmiana technologii, materiału lub zakresu prac objętych Załącznikami."
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Roboty zanikające — prace, które zostaną zakryte kolejnymi warstwami (np. gruntowanie, zbrojenie siatką/włókniną, naprawa rys, spoinowanie płyt)."
+      }
+     ]
+    },
+    {
+     "n": 8,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Forma dokumentowa — oświadczenie w postaci umożliwiającej ustalenie osoby składającej (e-mail, SMS, komunikator z adresu/numeru wskazanego w § 21), art. 77² KC."
+      }
+     ]
+    },
+    {
+     "n": 9,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Osoba upoważniona — osoba wskazana w § 21 ust. 2 jako uprawniona do odbioru prac i podpisywania protokołów."
+      }
+     ]
+    },
+    {
+     "n": 10,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Dni robocze — dni od poniedziałku do piątku z wyłączeniem dni ustawowo wolnych od pracy."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "subject",
+   "title_pl": "Przedmiot Umowy",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Zamawiający zleca, a Wykonawca zobowiązuje się wykonać Prace w Obiekcie w zakresie, technologii i kolejności określonych w: Karcie technologicznej (Załącznik 1), Planie produkcji prac (Załącznik 2) i Kosztorysie (Załącznik 3)."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Prace obejmują wyłącznie powierzchnie i pozycje wymienione w Załącznikach 1–3. Prace niewymienione nie są objęte wynagrodzeniem i mogą być wykonane wyłącznie jako Prace dodatkowe (§ 5)."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykończenie powierzchni do Standardu wykończenia nie obejmuje korekty geometrii (pionu, poziomu, płaszczyzny, kątów, równoległości ścian), chyba że korekta została wprost wskazana i wyceniona w Kosztorysie."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca wykonuje Prace z należytą starannością zawodową (art. 355 § 2 KC), zgodnie z zasadami wiedzy technicznej, kartami technicznymi producentów zastosowanych materiałów i Umową."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Strony ustalają, że Umowa jest umową o dzieło (art. 627 i n. KC)."
+      }
+     ],
+     "review_notes": [
+      {
+       "ref": "L7",
+       "text": "do potwierdzenia przez prawnika — przy kompleksowym remoncie sąd może zakwalifikować umowę jako umowę o roboty budowlane, art. 647 i n. KC.",
+       "status": "OPEN"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "state_of_premises",
+   "title_pl": "Stan Obiektu, ocena podłoża i dokumenty Umowy",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przed zawarciem Umowy Wykonawca przeprowadził ocenę dostępnych powierzchni bez odkrywek niszczących; jej wynik, stwierdzone ryzyka i przyjęte rozwiązania zawiera Karta technologiczna (Załącznik 1). Ocena nie jest ekspertyzą konstrukcyjną ani badaniem laboratoryjnym."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli w toku Prac ujawni się stan podłoża, którego nie można było racjonalnie stwierdzić przy ocenie (np. odspojony tynk pod powłoką, zawilgocenie, ukryte uszkodzenia), Wykonawca niezwłocznie zawiadamia Zamawiającego w Formie dokumentowej, dokumentuje stan zdjęciami i proponuje rozwiązanie (§ 5); do czasu decyzji może wstrzymać prace na tej powierzchni."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli Zamawiający nie przyjmuje rozwiązania zalecanego przez Wykonawcę (w Karcie technologicznej albo w toku Prac), Strony sporządzają Protokół informacji i decyzji Zamawiającego (Załącznik 9), a skutki określa § 17."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Dokumenty Umowy w kolejności pierwszeństwa: (1) Umowa, (2) Załącznik 1 — Karta technologiczna, (3) Załącznik 2 — Plan produkcji prac, (4) Załącznik 3 — Kosztorys, (5) Załączniki 4–12. Zlecenia Prac dodatkowych i zamiennych (Załącznik 10) zmieniają Załączniki 1–3 w zakresie, którego dotyczą."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "remuneration",
+   "title_pl": "Wynagrodzenie",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wynagrodzenie jest kosztorysowe: stanowi iloczyn ilości faktycznie wykonanych Prac (obmiar powykonawczy według zasad przedmiaru opisanych w Kosztorysie, w tym liczenia otworów, ościeży, narożników i małych powierzchni) i cen jednostkowych z Kosztorysu (Załącznik 3, wersja {estimate_version})."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Szacunkowe wynagrodzenie wynosi {net_price} netto, powiększone o podatek VAT w stawce {vat_rate}, tj. {gross_price} brutto."
+      }
+     ],
+     "review_notes": [
+      {
+       "ref": "L8",
+       "text": "wobec konsumenta cena musi być podana jako kwota brutto; przy zwolnieniu z VAT — adnotacja o podstawie zwolnienia.",
+       "status": "OPEN"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli z obmiaru wynika, że wynagrodzenie przekroczy kwotę szacunkową o więcej niż 10%, Wykonawca zawiadamia Zamawiającego w Formie dokumentowej przed wykonaniem nadwyżki, podając przyczynę i przewidywaną kwotę. Zamawiający decyduje o kontynuacji albo ograniczeniu zakresu; do czasu decyzji Wykonawca wykonuje Prace w granicach kwoty szacunkowej."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Ceny jednostkowe obowiązują przez {price_validity_days} od zawarcia Umowy. Jeżeli rozpoczęcie Prac opóźni się z przyczyn dotyczących Zamawiającego o więcej niż 60 dni, Wykonawca może zaproponować aktualizację cen materiałów według udokumentowanych cen zakupu; Zamawiający-konsument, który nie akceptuje aktualizacji, może od Umowy odstąpić bez kosztów poza rozliczeniem zakupionych na jego rzecz materiałów."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wynagrodzenie obejmuje: robociznę, materiały i sprzęt wskazane w Kosztorysie jako dostarczane przez Wykonawcę, zabezpieczenie powierzchni wskazane w Kosztorysie, bieżące sprzątanie po pracach Wykonawcy oraz wywóz odpadów z Prac Wykonawcy, jeżeli Kosztorys tak stanowi."
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wynagrodzenie nie obejmuje w szczególności: Prac dodatkowych i zamiennych, mediów (prąd, woda, ogrzewanie), napraw uszkodzeń spowodowanych przez osoby trzecie, dodatkowych warstw lub przemalowań wynikających ze zmiany decyzji Zamawiającego (np. zmiany koloru po akceptacji próbki), sprzątania końcowego, jeżeli nie zostało wycenione."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "additional_works",
+   "title_pl": "Prace dodatkowe i zamienne",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Prace dodatkowe i zamienne wykonuje się wyłącznie na podstawie Zlecenia (Załącznik 10) zaakceptowanego przez Zamawiającego w Formie dokumentowej. Zlecenie wskazuje przyczynę, zakres, cenę (według cen jednostkowych Kosztorysu, a w ich braku — cenę uzgodnioną) oraz wpływ na termin."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli wykonanie Prac dodatkowych jest konieczne do prawidłowego wykonania Prac (np. ujawniony stan podłoża, § 3 ust. 2), a Zamawiający nie zaakceptuje Zlecenia, Wykonawca może wstrzymać Prace na powierzchni, której to dotyczy, albo wykonać je w zakresie i ze skutkami określonymi w Protokole informacji i decyzji Zamawiającego (Załącznik 9). Termin wykonania ulega przedłużeniu o czas wstrzymania."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Czynności niezbędne do zapobieżenia szkodzie (np. zabezpieczenie przed zalaniem) Wykonawca może wykonać niezwłocznie bez Zlecenia; zawiadamia o nich Zamawiającego w ciągu 24 godzin, a koszt rozlicza według udokumentowanych nakładów."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Każda zmiana kolorystyki, materiału wykończeniowego lub Standardu wykończenia na żądanie Zamawiającego po zaakceptowaniu próbki albo po rozpoczęciu danej pracy jest Pracą zamienną."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "advance_and_payments",
+   "title_pl": "Zaliczka i płatności",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Zamawiający wpłaca zaliczkę w wysokości {advance_percent} wynagrodzenia szacunkowego, tj. {advance_amount}, w terminie 3 dni od zawarcia Umowy. Zaliczka nie jest zadatkiem; zalicza się ją na poczet wynagrodzenia w ostatnim rozliczeniu. Do czasu jej wpłaty Wykonawca nie rozpoczyna Prac, a termin rozpoczęcia przesuwa się o czas opóźnienia."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": "payment_by_stages",
+       "text_pl": "Sposób płatności: etapami — po każdym odbiorze częściowym, według obmiaru."
+      },
+      {
+       "when": null,
+       "text_pl": "Sposób płatności: jednorazowo po odbiorze końcowym."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Płatność następuje w terminie {payment_due_days} od doręczenia faktury lub rachunku wraz z protokołem odbioru, przelewem na rachunek {payment_account}. Odbiór z uwagami (§ 14 ust. 4) nie wstrzymuje płatności; Zamawiający może jednak zatrzymać do czasu usunięcia usterek kwotę odpowiadającą rozsądnemu kosztowi ich usunięcia, wskazaną w protokole."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Za opóźnienie w zapłacie Wykonawcy przysługują odsetki ustawowe za opóźnienie (art. 481 KC); jeżeli Zamawiający jest przedsiębiorcą — odsetki ustawowe za opóźnienie w transakcjach handlowych i rekompensata za koszty odzyskiwania należności."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli Zamawiający opóźnia się z płatnością o więcej niż 7 dni, Wykonawca, po wezwaniu w Formie dokumentowej z wyznaczeniem dodatkowego terminu nie krótszego niż 7 dni, może wstrzymać Prace do czasu zapłaty. Termin wykonania ulega przedłużeniu o czas wstrzymania i czas niezbędny do wznowienia Prac."
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Materiały nietypowe, zamawiane na indywidualne zlecenie Zamawiającego (np. farby barwione na kod, materiały dekoracyjne), Zamawiający opłaca przed ich zakupem; po zapłacie stają się jego własnością i pozostają jego własnością także w razie odstąpienia od Umowy."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "deadlines",
+   "title_pl": "Terminy",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Rozpoczęcie Prac: {work_start_date}, nie wcześniej jednak niż po przekazaniu pomieszczeń (§ 8) i wpłacie zaliczki (§ 6 ust. 1)."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Zakończenie Prac: {work_end_date}. Termin uwzględnia Przerwy technologiczne wskazane w Planie produkcji prac (Załącznik 2)."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Termin zakończenia ulega przedłużeniu o czas trwania: (a) Przestoju (§ 10); (b) Prac dodatkowych i zamiennych — zgodnie ze Zleceniem; (c) wstrzymania Prac na podstawie § 3 ust. 2, § 5 ust. 2 lub § 6 ust. 5; (d) okresów, w których warunki w pomieszczeniach (temperatura, wilgotność, wentylacja) uniemożliwiają Prace zgodnie z kartami technicznymi materiałów; (e) opóźnień prac innych wykonawców (§ 9); (f) siły wyższej. Wykonawca zawiadamia o każdej takiej okoliczności niezwłocznie w Formie dokumentowej, wskazując przyczynę i przewidywane przesunięcie terminu."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przerwy technologiczne nie są skracane na żądanie Zamawiającego. Jeżeli Zamawiający mimo to żąda ich skrócenia, stosuje się Załącznik 9 i § 17 ust. 3."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Prace prowadzone są w Dni robocze w godzinach {work_hours}, w innych terminach — po uzgodnieniu i z poszanowaniem regulaminu budynku, który Zamawiający przekazuje Wykonawcy przed rozpoczęciem Prac."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "cooperation",
+   "title_pl": "Współdziałanie Zamawiającego i przekazanie pomieszczeń",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Zamawiający zapewnia w czasie Prac: dostęp do Obiektu w godzinach pracy (klucze lub obecność), energię elektryczną i wodę, ogrzewanie i wentylację umożliwiające utrzymanie warunków z Załącznika 4, miejsce na materiały i sprzęt, zgody zarządcy lub wspólnoty, jeżeli są wymagane, oraz decyzje i akceptacje w terminie 2 Dni roboczych od prośby Wykonawcy."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Pomieszczenia mają spełniać wymagania określone w Załączniku 4 (oświetlenie, okna i otwory, temperatura i wilgotność, media, dostęp, opróżnienie i zabezpieczenie, gotowość podłoża). Wartości liczbowe wymagań wpisują Strony w Załączniku 4."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Zamawiający zawiadamia o gotowości pomieszczeń co najmniej {premises_notice_days} przed terminem rozpoczęcia. Przed rozpoczęciem Prac Strony sporządzają Protokół przekazania pomieszczeń (wzór w Załączniku 4) z opisem stanu pomieszczeń, spełnienia wymagań i istniejących uszkodzeń (z dokumentacją zdjęciową). Wykonawca nie odpowiada za uszkodzenia opisane w protokole."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli wymagania Załącznika 4 nie są spełnione, Wykonawca może odmówić rozpoczęcia Prac w danym pomieszczeniu (§ 10). Strony mogą uzgodnić rozpoczęcie warunkowe; protokół wskazuje wtedy niespełnione wymaganie, jego możliwe skutki i stosuje się § 17 ust. 3."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przed rozpoczęciem Prac Zamawiający informuje Wykonawcę o planowanym oświetleniu bocznym lub smugowym powierzchni (np. taśmy LED, kinkiety, duże przeszklenia o świetle wzdłuż ściany). Wymóg oceny w takim świetle musi być uwzględniony w Standardzie wykończenia i cenie przed rozpoczęciem Prac."
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Zamawiający przekazuje znane mu informacje o przebiegu instalacji ukrytych w ścianach i sufitach."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "other_contractors",
+   "title_pl": "Prace innych wykonawców",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Prace innych wykonawców w Obiekcie, ich zakres, termin i kolejność względem Prac (np. „instalacja elektryczna przed tynkiem”, „podłogi po malowaniu”) określa rejestr w Załączniku 2. Koordynację tych prac zapewnia Zamawiający, chyba że w rejestrze wskazano inaczej."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Zamawiający zapewnia, aby inni wykonawcy nie uszkadzali powierzchni przygotowanych lub wykończonych przez Wykonawcę. Uszkodzenia spowodowane przez osoby trzecie po odbiorze częściowym danej powierzchni naprawia się jako Prace dodatkowe."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca nie odpowiada za jakość prac innych wykonawców, które stanowią podłoże jego Prac; jeżeli zauważy, że takie podłoże nie nadaje się do prawidłowego wykonania Prac, niezwłocznie zawiadamia Zamawiającego (§ 3 ust. 2)."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "downtime",
+   "title_pl": "Przestój z przyczyn dotyczących Zamawiającego",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przyczynami przestoju są w szczególności: brak dostępu do Obiektu; niespełnienie wymagań Załącznika 4; brak mediów; nieukończenie prac innych wykonawców, od których zależy kontynuacja Prac; brak decyzji lub akceptacji Zamawiającego w terminie z § 8 ust. 1; niedostarczenie materiałów, które zgodnie z Umową dostarcza Zamawiający; polecenie wstrzymania Prac wydane przez Zamawiającego."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca zawiadamia Zamawiającego o przeszkodzie niezwłocznie, w Formie dokumentowej, z opisem i zdjęciami (Zawiadomienie o przestoju, Załącznik 8). Jeżeli przeszkoda nie zostanie usunięta do końca następnego Dnia roboczego, każdy kolejny Dzień roboczy, w którym Wykonawca gotowy do pracy nie może prowadzić żadnych Prac w Obiekcie, jest dniem przestoju potwierdzanym Protokołem przestoju (Załącznik 8)."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Za każdy dzień przestoju Zamawiający płaci Wykonawcy wynagrodzenie za gotowość w wysokości {downtime_rate} za dobę, łącznie nie więcej niż {downtime_cap_percent} wynagrodzenia szacunkowego. Kwota ta uwzględnia oszczędności Wykonawcy (art. 639 KC). Wykonawca prowadzi w miarę możliwości inne Prace w Obiekcie; dzień, w którym je prowadził, nie jest dniem przestoju."
+      }
+     ],
+     "review_notes": [
+      {
+       "ref": "L4",
+       "text": "stawka i limit do weryfikacji pod kątem art. 385³ pkt 17 KC.",
+       "status": "OPEN"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przestojem nie są: Przerwy technologiczne, okresy z § 7 ust. 3 lit. (d) i (f) oraz przeszkody z przyczyn dotyczących Wykonawcy."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli przestój trwa dłużej niż {downtime_days_limit}, Wykonawca może wyznaczyć Zamawiającemu w Formie dokumentowej odpowiedni termin do usunięcia przeszkody, z zagrożeniem odstąpienia od Umowy (art. 640 KC, § 19 ust. 3)."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "materials",
+   "title_pl": "Materiały",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": "materials_executor",
+       "text_pl": "Materiały dostarcza Wykonawca. Materiały Wykonawcy są nowe, dopuszczone do obrotu i stosowane zgodnie z kartami technicznymi producenta."
+      },
+      {
+       "when": "materials_customer",
+       "text_pl": "Materiały dostarcza Zamawiający. Materiały Wykonawcy, jeżeli jakiekolwiek są wskazane w Kosztorysie, są nowe, dopuszczone do obrotu i stosowane zgodnie z kartami technicznymi producenta."
+      },
+      {
+       "when": null,
+       "text_pl": "Materiały dostarcza Wykonawca albo Zamawiający zgodnie z podziałem wskazanym w Kosztorysie. Materiały Wykonawcy są nowe, dopuszczone do obrotu i stosowane zgodnie z kartami technicznymi producenta."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli materiał dostarcza Zamawiający, odpowiada on za jego terminowe dostarczenie, ilość, jakość i zgodność z ustaleniami (produkt, kolor, partia). Wykonawca odpowiada za prawidłowe użycie materiału i niezwłocznie zawiadamia Zamawiającego, jeżeli materiał nie nadaje się do prawidłowego wykonania Prac (art. 634 KC)."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Kolor na wzorniku lub ekranie może wyglądać inaczej na dużej powierzchni i w danym świetle. Na żądanie Zamawiającego Wykonawca wykonuje próbny wymalunek; jego akceptacja w Formie dokumentowej wiąże Strony co do koloru i połysku."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Farba na jedną ciągłą płaszczyznę pochodzi w miarę możliwości z jednej partii albo jest zmieszana; numery partii zapisuje się w protokole odbioru."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Pozostałości materiałów opłaconych przez Zamawiającego pozostają w Obiekcie i są jego własnością; zaleca się zachowanie części farby do przyszłych poprawek."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "organisation",
+   "title_pl": "Organizacja Prac i dokumentacja",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca zabezpiecza podłogi, stolarkę i elementy wyposażenia w zakresie wskazanym w Kosztorysie, utrzymuje porządek na stanowisku pracy i przestrzega przepisów BHP i przeciwpożarowych."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca może powierzyć część Prac podwykonawcom lub pracownikom; odpowiada za ich działania jak za własne (art. 474 KC)."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca prowadzi dokumentację fotograficzną stanu początkowego, Robót zanikających, przeszkód i stanu po wykonaniu Prac. Zdjęcia służą wyłącznie dokumentowaniu wykonania Umowy; ich użycie w celach marketingowych wymaga odrębnej zgody Zamawiającego, a zdjęcia nie mogą pokazywać osób ani danych pozwalających zidentyfikować Obiekt."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": "has_insurance",
+       "text_pl": "Wykonawca ma ubezpieczenie odpowiedzialności cywilnej w związku z prowadzoną działalnością na sumę {insurance_sum} (polisa nr {insurance_policy})."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "concealed_works",
+   "title_pl": "Roboty zanikające",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przed zakryciem Robót zanikających Wykonawca zawiadamia Zamawiającego w Formie dokumentowej o gotowości do ich odbioru z wyprzedzeniem co najmniej 1 Dnia roboczego."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Odbiór Robót zanikających dokumentuje Protokół odbioru robót zanikających (Załącznik 6) wraz ze zdjęciami."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli Zamawiający lub Osoba upoważniona nie stawi się w terminie wskazanym w zawiadomieniu, Wykonawca dokumentuje Roboty zanikające zdjęciami (z datą i oznaczeniem miejsca), sporządza protokół jednostronny i kontynuuje Prace, aby nie przedłużać terminu. Nie pozbawia to Zamawiającego uprawnień z tytułu rękojmi; ewentualne odkrycie Robót zanikających na żądanie Zamawiającego i ich ponowne wykonanie obciąża Zamawiającego, chyba że ujawni wady Prac Wykonawcy."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "acceptance",
+   "title_pl": "Odbiory",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": "partial_acceptance",
+       "text_pl": "Strony przewidują odbiory częściowe po zakończeniu pomieszczeń lub etapów wskazanych w Planie produkcji prac oraz odbiór końcowy po zakończeniu wszystkich Prac."
+      },
+      {
+       "when": null,
+       "text_pl": "Strony przewidują wyłącznie odbiór końcowy po zakończeniu wszystkich Prac."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca zgłasza gotowość do odbioru w Formie dokumentowej, wskazując zakres i proponowany termin. Zamawiający lub Osoba upoważniona przystępuje do odbioru w ciągu {appearance_days} od zgłoszenia."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Odbiór dokumentuje Protokół odbioru częściowego / końcowego (Załącznik 7): obecni, warunki oceny, wynik dla każdej powierzchni, lista uwag z klasyfikacją i terminami, numery partii materiałów, zdjęcia."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wynik odbioru ustala się według zasad Załącznika 5: brak uwag — odebrano; wyłącznie usterki usuwalne — odebrano z uwagami (z terminem usunięcia każdej usterki, nie krótszym niż wymagany technologią); wada istotna lub niewykonanie części zakresu — nie odebrano (Wykonawca usuwa przyczynę i zgłasza ponownie gotowość). Zamawiający nie może odmówić odbioru z powodu usterek usuwalnych."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli Zamawiający nie przystąpi do odbioru w terminie z ust. 2, Wykonawca wzywa go ponownie w Formie dokumentowej, wyznaczając dodatkowy termin nie krótszy niż 3 Dni robocze. Po bezskutecznym upływie tego terminu Wykonawca może sporządzić protokół jednostronny wraz z dokumentacją zdjęciową, który doręcza Zamawiającemu; od dnia doręczenia biegnie termin płatności. Zamawiający może w ciągu 14 dni od doręczenia zgłosić uwagi, które rozpatruje się jak w ust. 4; jego uprawnienia z tytułu rękojmi pozostają nienaruszone."
+      }
+     ],
+     "review_notes": [
+      {
+       "ref": "L2",
+       "text": "do weryfikacji.",
+       "status": "OPEN"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przystąpienie do użytkowania pomieszczenia przed odbiorem (np. wniesienie mebli, zamieszkanie, prace innych wykonawców) Strony odnotowują w Formie dokumentowej. Nie pozbawia to Zamawiającego jego praw, lecz uszkodzenia mechaniczne i zabrudzenia powstałe od tego dnia nie obciążają Wykonawcy, chyba że wynikają z wad Prac."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "evaluation_rules",
+   "title_pl": "Zasady oceny i usuwanie usterek",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Ocenę wizualną prowadzi się dla każdej powierzchni według jej Standardu wykończenia i w warunkach określonych w Załączniku 5 (rodzaj światła, odległość i kierunek obserwacji, czysta i sucha powierzchnia, powłoka wyschnięta zgodnie z kartą techniczną). Lampy inspekcyjne i światło smugowe są kryterium oceny wyłącznie dla powierzchni, dla których Strony uzgodniły taki standard (np. S4, Q4) przed rozpoczęciem Prac."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Geometrię (płaszczyznę, pion, poziom, kąty) ocenia się wyłącznie wtedy, gdy jej korekta była objęta zakresem Prac, narzędziami i według wartości dopuszczalnych z Załącznika 5."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Każda uwaga zawiera miejsce, opis, zdjęcie z oznaczeniem miejsca, klasyfikację (usterka usuwalna / wada istotna według kryteriów Załącznika 5) i termin usunięcia."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Nie stanowią wady: cechy powierzchni dopuszczone w uzgodnionym Standardzie wykończenia; nierówności widoczne wyłącznie w świetle, które nie było warunkiem oceny; geometria nieobjęta zakresem; różnice optyczne poprawki punktowej, jeżeli Zamawiający nie zlecił przemalowania całej płaszczyzny — jeżeli dla jednolitego efektu konieczne jest przemalowanie całej płaszczyzny, koszt obciąża Stronę, z której przyczyny poprawka jest potrzebna."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": "reinspection_limit",
+       "text_pl": "Ponowne sprawdzenie obejmuje wyłącznie uwagi z protokołu. Liczba ponownych sprawdzeń tego samego zakresu wynosi {reinspection_limit}. Uwagi zgłoszone po odbiorze, które nie były w protokole, rozpatruje się w trybie reklamacji (§ 16) i nie wstrzymują one odbioru ani płatności."
+      },
+      {
+       "when": null,
+       "text_pl": "Ponowne sprawdzenie obejmuje wyłącznie uwagi z protokołu. Liczba ponownych sprawdzeń tego samego zakresu nie jest limitowana. Uwagi zgłoszone po odbiorze, które nie były w protokole, rozpatruje się w trybie reklamacji (§ 16) i nie wstrzymują one odbioru ani płatności."
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Usterki usuwalne Wykonawca usuwa na własny koszt w terminie z protokołu; termin przedłuża się o czas, w którym Zamawiający nie zapewnił dostępu."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "warranty",
+   "title_pl": "Rękojmia, gwarancja i reklamacje",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca odpowiada z tytułu rękojmi za wady Prac na zasadach Kodeksu cywilnego (art. 638 w zw. z art. 556 i n. KC). Wobec Zamawiającego-konsumenta Umowa nie wyłącza ani nie ogranicza rękojmi (art. 558 § 1 KC)."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Niezależnie od rękojmi Wykonawca udziela gwarancji na Prace na okres {warranty_months} od dnia odbioru końcowego (dla powierzchni odebranych częściowo — od odbioru częściowego). Gwarancja obejmuje wady wynikające z wykonania Prac niezgodnie z Umową lub zasadami wiedzy technicznej; Wykonawca usuwa je na swój koszt."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Gwarancja nie obejmuje: (a) rys i pęknięć wynikających z ruchów konstrukcji, osiadania, odkształceń termicznych, dylatacji i połączeń różnych materiałów, których Wykonawca nie wykonywał, chyba że ich naprawa należała do zakresu Prac i została wykonana wadliwie; (b) skutków zawilgocenia, zalania, kondensacji i rozwoju grzybów z przyczyn niezależnych od Wykonawcy, w tym niewłaściwej wentylacji lub ogrzewania; (c) uszkodzeń mechanicznych, normalnego zużycia i skutków użytkowania niezgodnego z instrukcją przekazaną przy odbiorze; (d) skutków prac osób trzecich; (e) wad materiałów dostarczonych przez Zamawiającego; (f) skutków ryzyka opisanego w Protokole informacji i decyzji Zamawiającego (Załącznik 9), w zakresie tam wskazanym."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wyłączenia z ust. 3 dotyczą gwarancji i nie ograniczają rękojmi. W zakresie rękojmi zastosowanie mają przepisy, w tym art. 557 § 1 KC."
+      }
+     ],
+     "review_notes": [
+      {
+       "ref": "L3",
+       "text": "zakres, w jakim udokumentowana decyzja Zamawiającego (Załącznik 9) wpływa na rękojmię — do oceny prawnika.",
+       "status": "OPEN"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Reklamację składa się w Formie dokumentowej, wskazując miejsce i objaw wady (zalecane zdjęcia). Wykonawca odpowiada na reklamację w ciągu 14 dni, proponuje termin oględzin i usuwa uznaną wadę w terminie technologicznie uzasadnionym, uzgodnionym z Zamawiającym."
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przy odbiorze końcowym Wykonawca przekazuje instrukcję użytkowania i pielęgnacji wykończonych powierzchni (m.in. czas do pierwszego mycia, warunki wietrzenia i ogrzewania wynikające z kart technicznych materiałów)."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "executor_recommendations",
+   "title_pl": "Zalecenia Wykonawcy i decyzje Zamawiającego",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli Wykonawca zaleca rozwiązanie technologiczne (np. gruntowanie, zbrojenie włókniną lub siatką, osuszenie, usunięcie niestabilnej powłoki, wydłużenie Przerwy technologicznej), a Zamawiający z niego rezygnuje, Strony sporządzają Protokół informacji i decyzji Zamawiającego (Załącznik 9): opis zalecenia i jego przyczyny, ryzyko i możliwe skutki zrozumiałym językiem, decyzję Zamawiającego, podpisy."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca wykonuje wtedy Prace w sposób najlepszy możliwy przy dokonanym wyborze. Skutki opisanego ryzyka nie są objęte gwarancją (§ 16 ust. 3 lit. f)."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli Zamawiający żąda wykonania pracy wbrew technologii lub w warunkach niespełniających Załącznika 4 (np. malowania na zawilgoconym podłożu, skrócenia Przerwy technologicznej), Wykonawca może odmówić jej wykonania albo wykonać ją po sporządzeniu protokołu z ust. 1. Odmowa nie stanowi zwłoki Wykonawcy."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca odmawia wykonania pracy, która zagrażałaby bezpieczeństwu osób lub byłaby sprzeczna z przepisami, niezależnie od decyzji Zamawiającego."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Protokół z ust. 1 nie zwalnia Wykonawcy z odpowiedzialności za nienależyte wykonanie czynności, które wykonał."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "liability",
+   "title_pl": "Odpowiedzialność i kary umowne",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Strony odpowiadają za niewykonanie lub nienależyte wykonanie Umowy na zasadach ogólnych Kodeksu cywilnego."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca odpowiada za szkody w mieniu Zamawiającego wyrządzone przy wykonywaniu Prac z jego winy; Zamawiający zgłasza szkodę niezwłocznie po jej stwierdzeniu, z dokumentacją."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": "penalty_per_day",
+       "text_pl": "Kara umowna: Wykonawca zapłaci karę umowną za zwłokę w zakończeniu Prac z przyczyn leżących po jego stronie w wysokości {penalty_rate} za każdy dzień zwłoki, łącznie nie więcej niż {penalty_cap_percent} wynagrodzenia szacunkowego. Kara nie należy się za okresy przedłużenia terminu z § 7 ust. 3."
+      },
+      {
+       "when": null,
+       "text_pl": "Kara umowna: nie przewiduje się."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Żadna ze Stron nie odpowiada za niewykonanie lub opóźnienie spowodowane siłą wyższą; Strona dotknięta siłą wyższą niezwłocznie zawiadamia drugą Stronę."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "withdrawal",
+   "title_pl": "Odstąpienie od Umowy",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Zamawiający może w każdej chwili przed ukończeniem Prac od Umowy odstąpić, płacąc umówione wynagrodzenie pomniejszone o to, co Wykonawca oszczędził z powodu niewykonania Prac (art. 644 KC)."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Zamawiający może odstąpić od Umowy na zasadach art. 635 KC (opóźnienie tak znaczne, że nie jest prawdopodobne ukończenie Prac w terminie) i art. 636 KC (wykonywanie Prac w sposób wadliwy mimo wezwania do zmiany sposobu wykonania i upływu wyznaczonego terminu)."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca może odstąpić od Umowy, jeżeli: (a) brak współdziałania Zamawiającego uniemożliwia wykonanie Prac, a Zamawiający nie usunął przeszkody w wyznaczonym terminie (art. 640 KC, § 10 ust. 5); (b) Zamawiający opóźnia się z zapłatą zaliczki lub wynagrodzenia mimo wyznaczenia dodatkowego terminu nie krótszego niż 14 dni (art. 491 KC). Wykonawcy przysługuje wtedy wynagrodzenie za wykonane Prace oraz zwrot kosztów zakupionych materiałów, a także roszczenia z art. 639 KC."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Odstąpienie wymaga formy pisemnej lub dokumentowej z podaniem przyczyny. W ciągu 7 dni od odstąpienia Strony sporządzają protokół inwentaryzacji Prac wykonanych i materiałów (z dokumentacją zdjęciową); jeżeli Strona nie stawi się w wyznaczonym terminie, druga Strona sporządza go jednostronnie."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "consumer_withdrawal",
+   "title_pl": "Prawo konsumenta do odstąpienia (umowa zawarta poza lokalem przedsiębiorstwa lub na odległość)",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli Umowa została zawarta poza lokalem przedsiębiorstwa Wykonawcy lub na odległość, Zamawiający-konsument może od niej odstąpić bez podania przyczyny w terminie 14 dni od jej zawarcia. Pouczenie o prawie odstąpienia i wzór formularza stanowią Załącznik 11, przekazany przed zawarciem Umowy na trwałym nośniku."
+      }
+     ],
+     "review_notes": [
+      {
+       "ref": "L13",
+       "text": "Czy prawo odstąpienia przysługuje także przedsiębiorcy na prawach konsumenta (art. 7aa ustawy o prawach konsumenta) — do potwierdzenia przez prawnika.",
+       "status": "OPEN"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Prace rozpoczynają się po upływie terminu do odstąpienia, chyba że konsument złożył wyraźne żądanie ich wcześniejszego rozpoczęcia (oświadczenie w Załączniku 11). W takim przypadku konsument, który odstąpi od Umowy, płaci za Prace wykonane do chwili odstąpienia, proporcjonalnie do całości (art. 35 ustawy o prawach konsumenta)."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Konsument traci prawo odstąpienia, jeżeli Wykonawca w pełni wykonał Prace za jego wyraźną zgodą, a konsument został przed rozpoczęciem świadczenia poinformowany, że po jego spełnieniu utraci to prawo, i przyjął to do wiadomości (art. 38 ustawy o prawach konsumenta)."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Wykonawca przekazuje konsumentowi potwierdzenie zawarcia Umowy oraz złożonych oświadczeń na trwałym nośniku."
+      }
+     ],
+     "review_notes": [
+      {
+       "ref": "L5",
+       "text": "bez prawidłowego pouczenia konsument może odstąpić nawet po wykonaniu Prac i nie płaci za nie — TSUE C-97/22; termin wydłuża się o 12 miesięcy.",
+       "status": "OPEN"
+      }
+     ]
+    }
+   ],
+   "when": "offsite_consumer",
+   "else_pl": "Nie dotyczy: Umowa została zawarta w lokalu przedsiębiorstwa Wykonawcy albo Zamawiający nie jest konsumentem ani przedsiębiorcą na prawach konsumenta."
+  },
+  {
+   "key": "communication",
+   "title_pl": "Komunikacja i Osoby upoważnione",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Oświadczenia, zawiadomienia i akceptacje w Formie dokumentowej Strony składają na adresy: Wykonawca — e-mail {executor_email}, tel./komunikator {executor_phone}; Zamawiający — e-mail {client_email}, tel./komunikator {client_phone}. Zmiana adresu wymaga zawiadomienia; do tego czasu doręczenie na dotychczasowy adres jest skuteczne."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Osobami upoważnionymi do odbioru Prac i podpisywania protokołów są:"
+      }
+     ],
+     "block": "persons_table"
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Protokół podpisany przez Osobę upoważnioną wiąże Zamawiającego. Zlecenia Prac dodatkowych i zamiennych, które zwiększają wynagrodzenie, akceptuje Zamawiający osobiście albo osoba oznaczona w tabeli jako uprawniona do Zleceń płatnych."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Przedstawicielem Wykonawcy na Obiekcie jest {contractor_representative}."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "personal_data",
+   "title_pl": "Dane osobowe",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Administratorem danych osobowych Zamawiającego i Osób upoważnionych jest Wykonawca. Dane są przetwarzane w celu zawarcia i wykonania Umowy, rozliczeń i obrony przed roszczeniami (art. 6 ust. 1 lit. b, c i f RODO). Pełna informacja: Załącznik 12."
+      }
+     ]
+    }
+   ],
+   "numbered": false
+  },
+  {
+   "key": "final_provisions",
+   "title_pl": "Postanowienia końcowe",
+   "clauses": [
+    {
+     "n": 1,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Zmiany Umowy wymagają formy pisemnej lub dokumentowej; Zlecenia (Załącznik 10) i protokoły nie wymagają aneksu."
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Strony dążą do polubownego rozwiązania sporów. Zamawiający-konsument może skorzystać z pozasądowych sposobów rozpatrywania reklamacji i dochodzenia roszczeń (m.in. mediacja lub stały polubowny sąd konsumencki przy wojewódzkim inspektoracie Inspekcji Handlowej, pomoc miejskiego lub powiatowego rzecznika konsumentów); nie ogranicza to jego prawa do sądu."
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Sądem właściwym jest sąd właściwy według przepisów ogólnych; jeżeli Zamawiający jest przedsiębiorcą — sąd właściwy dla siedziby Wykonawcy."
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "W sprawach nieuregulowanych stosuje się prawo polskie, w szczególności Kodeks cywilny i ustawę o prawach konsumenta."
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Jeżeli któreś postanowienie Umowy okaże się nieważne lub niewiążące, pozostałe postanowienia wiążą nadal."
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "variants": [
+      {
+       "when": null,
+       "text_pl": "Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron."
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "annexes": [
+  {
+   "number": 6,
+   "title_pl": "Wzór Protokołu odbioru robót zanikających",
+   "when": null,
+   "paragraphs_pl": [],
+   "fields_pl": [
+    "Numer protokołu",
+    "Data i godzina",
+    "Obecni (albo adnotacja o niestawiennictwie po zawiadomieniu z dnia)",
+    "Pomieszczenie i powierzchnia",
+    "Rodzaj roboty (np. gruntowanie, włóknina, siatka, naprawa rys, spoinowanie płyt g-k)",
+    "Materiał i numer partii",
+    "Zdjęcia z oznaczeniem miejsca (numery)",
+    "Wynik: odebrano / uwagi",
+    "Zgoda na zakrycie",
+    "Podpisy"
+   ],
+   "review_notes": []
+  },
+  {
+   "number": 7,
+   "title_pl": "Wzór Protokołu odbioru częściowego / końcowego",
+   "when": null,
+   "paragraphs_pl": [],
+   "fields_pl": [
+    "Numer protokołu i data",
+    "Zakres (pomieszczenia / etap / całość)",
+    "Obecni i ich upoważnienie",
+    "Warunki oceny (światło, odległość) i użyte narzędzia",
+    "Powierzchnie: Standard wykończenia i wynik dla każdej",
+    "Uwagi: miejsce, opis, zdjęcie, klasa (usterka usuwalna / wada istotna), termin usunięcia",
+    "Wynik ogólny: odebrano / odebrano z uwagami / nie odebrano",
+    "Numery partii materiałów",
+    "Przekazanie instrukcji użytkowania i pielęgnacji",
+    "Kwota do zapłaty i termin; kwota zatrzymana do usunięcia usterek",
+    "Przy protokole jednostronnym: daty zawiadomień",
+    "Podpisy"
+   ],
+   "review_notes": []
+  },
+  {
+   "number": 8,
+   "title_pl": "Wzór Zawiadomienia o przestoju i Protokołu przestoju",
+   "when": null,
+   "paragraphs_pl": [],
+   "fields_pl": [
+    "Zawiadomienie — data i godzina",
+    "Przyczyna przestoju (z listy w § 10 ust. 1)",
+    "Pomieszczenia",
+    "Zdjęcia (numery)",
+    "Czego potrzebuje Wykonawca i do kiedy",
+    "Protokół — dni przestoju",
+    "Czy w tym czasie były możliwe inne Prace",
+    "Stawka i kwota za gotowość",
+    "Wpływ na termin",
+    "Podpisy albo adnotacja o odmowie podpisu"
+   ],
+   "review_notes": []
+  },
+  {
+   "number": 9,
+   "title_pl": "Wzór Protokołu informacji i decyzji Zamawiającego",
+   "when": null,
+   "paragraphs_pl": [],
+   "fields_pl": [
+    "Powierzchnia",
+    "Stan (z badania i zdjęć)",
+    "Zalecenie Wykonawcy i jego cena",
+    "Ryzyko i możliwe skutki (zrozumiałym językiem)",
+    "Decyzja Zamawiającego: ☐ rezygnuję z zalecenia ☐ żądam wykonania wbrew zaleceniu ☐ akceptuję zalecenie — Zlecenie nr",
+    "Skutek dla gwarancji (§ 16 ust. 3 lit. f)",
+    "Oświadczenie Zamawiającego, że informację zrozumiał i mógł zadać pytania",
+    "Podpisy"
+   ],
+   "review_notes": []
+  },
+  {
+   "number": 10,
+   "title_pl": "Wzór Zlecenia prac dodatkowych / zamiennych",
+   "when": null,
+   "paragraphs_pl": [],
+   "fields_pl": [
+    "Numer i data",
+    "Przyczyna (ujawniony stan, decyzja Zamawiającego, rekomendacja z badania)",
+    "Zakres i ilość",
+    "Cena (według Kosztorysu / uzgodniona)",
+    "Wpływ na termin",
+    "Akceptacja w Formie dokumentowej (podpis, e-mail, SMS, komunikator) przez osobę uprawnioną do Zleceń płatnych"
+   ],
+   "review_notes": []
+  },
+  {
+   "number": 11,
+   "title_pl": "Informacje dla konsumenta i odstąpienie od Umowy",
+   "when": "offsite_consumer",
+   "paragraphs_pl": [
+    "Informacje przekazywane przed zawarciem Umowy. Wykonawca: {executor_name}, {executor_address}, e-mail {executor_email}, tel. {executor_phone}. Przedmiot świadczenia: Prace opisane w Załącznikach 1–3. Łączna cena z podatkiem (brutto): {gross_price}. Sposób i termin płatności: § 6 Umowy. Termin wykonania: od {work_start_date} do {work_end_date}. Rękojmia i gwarancja: § 16 Umowy. Tryb reklamacji: § 16 ust. 5 Umowy. Pozasądowe sposoby rozpatrywania sporów: § 23 ust. 2 Umowy.",
+    "Pouczenie o prawie odstąpienia. Masz prawo odstąpić od Umowy w terminie 14 dni bez podania przyczyny. Termin biegnie od dnia zawarcia Umowy. Aby skorzystać z tego prawa, poinformuj Wykonawcę o swojej decyzji w drodze jednoznacznego oświadczenia (np. pismem wysłanym pocztą albo e-mailem na adres {executor_email}); możesz skorzystać z wzoru formularza poniżej, ale nie jest to obowiązkowe. Do zachowania terminu wystarczy wysłanie oświadczenia przed jego upływem.",
+    "Skutki odstąpienia. Wykonawca zwróci Ci wszystkie dokonane płatności niezwłocznie, nie później niż w terminie 14 dni od dnia otrzymania oświadczenia o odstąpieniu, tym samym sposobem płatności, chyba że wyraźnie zgodzisz się na inny. Jeżeli zażądałeś rozpoczęcia Prac przed upływem terminu do odstąpienia, zapłacisz za Prace wykonane do chwili odstąpienia — kwotę proporcjonalną do zakresu wykonanego świadczenia w stosunku do pełnego zakresu.",
+    "Utrata prawa odstąpienia. Tracisz prawo odstąpienia po pełnym wykonaniu Prac, jeżeli Wykonawca wykonał je za Twoją wyraźną zgodą, a Ty przyjąłeś do wiadomości, że po wykonaniu Prac utracisz to prawo.",
+    "Żądanie wcześniejszego rozpoczęcia Prac. Żądam rozpoczęcia Prac przed upływem terminu do odstąpienia od Umowy. Przyjmuję do wiadomości, że po pełnym wykonaniu Prac utracę prawo odstąpienia oraz że w razie odstąpienia zapłacę za Prace wykonane do chwili odstąpienia."
+   ],
+   "fields_pl": [
+    "Podpis konsumenta pod żądaniem rozpoczęcia Prac przed upływem terminu do odstąpienia",
+    "Wzór formularza odstąpienia (wypełnij i odeślij tylko w razie odstąpienia od Umowy): Adresat — Wykonawca (nazwa, adres, e-mail)",
+    "Informuję o moim odstąpieniu od umowy o wykonanie następujących prac",
+    "Data zawarcia Umowy",
+    "Imię i nazwisko konsumenta",
+    "Adres konsumenta",
+    "Podpis konsumenta (tylko, jeżeli formularz jest przekazywany w wersji papierowej)",
+    "Data"
+   ],
+   "review_notes": [
+    {
+     "ref": "L14",
+     "text": "Treść Załącznika 11 (informacje, pouczenie, formularz) — do weryfikacji przez prawnika pod kątem art. 12, 27–38 ustawy o prawach konsumenta i wzorów z jej załączników.",
+     "status": "OPEN"
+    }
+   ]
+  },
+  {
+   "number": 12,
+   "title_pl": "Klauzula informacyjna RODO",
+   "when": null,
+   "paragraphs_pl": [
+    "Administratorem Twoich danych osobowych jest {executor_name}, {executor_address}, e-mail {executor_email}, tel. {executor_phone}.",
+    "Dane (imię i nazwisko, adres, telefon, e-mail, dane z Umowy i protokołów oraz dokumentacja zdjęciowa Obiektu) przetwarzamy w celu zawarcia i wykonania Umowy (art. 6 ust. 1 lit. b RODO), wypełnienia obowiązków prawnych, w tym podatkowych i księgowych (lit. c), oraz ustalenia, dochodzenia lub obrony roszczeń (lit. f).",
+    "Odbiorcami danych mogą być podmioty obsługujące Wykonawcę: księgowość, dostawcy usług informatycznych i hostingu, usługi pocztowe i kurierskie.",
+    "Dane przechowujemy przez czas wykonania Umowy, a następnie przez okres przedawnienia roszczeń oraz okres wymagany przepisami podatkowymi.",
+    "Masz prawo dostępu do danych, ich sprostowania, usunięcia, ograniczenia przetwarzania, przenoszenia oraz sprzeciwu wobec przetwarzania opartego na prawnie uzasadnionym interesie, a także prawo wniesienia skargi do Prezesa Urzędu Ochrony Danych Osobowych.",
+    "Podanie danych jest dobrowolne, ale niezbędne do zawarcia i wykonania Umowy. Dokumentacja zdjęciowa służy wyłącznie dokumentowaniu wykonania Umowy (§ 12 ust. 3)."
+   ],
+   "fields_pl": [],
+   "review_notes": [
+    {
+     "ref": "L15",
+     "text": "Klauzula RODO — do weryfikacji przez prawnika (podstawy, okresy przechowywania, odbiorcy).",
+     "status": "OPEN"
+    }
+   ]
+  }
+ ]
 }

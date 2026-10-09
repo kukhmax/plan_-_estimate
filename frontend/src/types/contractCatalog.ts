@@ -64,7 +64,7 @@ export interface Tolerance {
   text_pl: string;
 }
 
-export type QuestionGroup = 'PARTIES' | 'DATES' | 'PAYMENT' | 'WARRANTY' | 'PENALTY' | 'DOWNTIME' | 'ACCEPTANCE' | 'PREMISES';
+export type QuestionGroup = 'PARTIES' | 'DATES' | 'PRICE' | 'PAYMENT' | 'WORK' | 'WARRANTY' | 'PENALTY' | 'DOWNTIME' | 'ACCEPTANCE' | 'PREMISES';
 export type QuestionKind =
   | 'TEXT'
   | 'DATE'

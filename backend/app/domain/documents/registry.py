@@ -43,8 +43,13 @@ TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
     DocumentKind.TECH_CARD: DocumentTemplate(DocumentKind.TECH_CARD, "1", "tech_card.html.j2", "KART"),
     DocumentKind.PRODUCTION_PLAN: DocumentTemplate(DocumentKind.PRODUCTION_PLAN, "1", "production_plan.html.j2", "PLAN"),
     DocumentKind.CONTRACT: DocumentTemplate(
-        DocumentKind.CONTRACT, "1", "contract.html.j2", "UMOWA",
-        ("subject", "scope_of_work", "price", "schedule", "payment_terms", "acceptance", "downtime", "warranty", "penalty", "other_provisions"),
+        DocumentKind.CONTRACT, "2", "contract.html.j2", "UMOWA",
+        (
+            "definitions", "subject", "state_of_premises", "remuneration", "additional_works", "advance_and_payments", "deadlines",
+            "cooperation", "other_contractors", "downtime", "materials", "organisation", "concealed_works", "acceptance",
+            "evaluation_rules", "warranty", "executor_recommendations", "liability", "withdrawal", "consumer_withdrawal",
+            "communication", "personal_data", "final_provisions",
+        ),
     ),
     DocumentKind.HANDOVER_PROTOCOL: DocumentTemplate(
         DocumentKind.HANDOVER_PROTOCOL, SKELETON_VERSION, SKELETON_FILE, "PRZEK",

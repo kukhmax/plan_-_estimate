@@ -1,4 +1,5 @@
 {% extends "_layout.html.j2" %}
+{% import "_macros.html.j2" as ui with context %}
 {% macro field(value) %}{% if value %}{{ value }}{% else %}<span class="write-line"></span>{% endif %}{% endmacro %}
 {% block body %}
 <div class="contract">
@@ -6,29 +7,36 @@
 <table class="facts">
   {% for row in doc.intro %}<tr><td class="label">{{ row.label }}</td><td>{{ field(row.value) }}</td></tr>{% endfor %}
 </table>
+{% macro text(segments) %}{% for s in segments %}{% if s.kind == 'blank' %}<span class="write-line"></span>{% elif s.kind == 'value' %}<strong>{{ s.text }}</strong>{% else %}{{ s.text }}{% endif %}{% endfor %}{% endmacro %}
+{% macro boxes(options) %}{% for o in options %}<span class="box">{% if o.checked %}☒{% else %}☐{% endif %}&nbsp;{{ o.label }}</span> {% endfor %}{% endmacro %}
+<p class="status"><strong>{{ t('contract.status.title') }}</strong> {{ boxes(doc.client_status) }}</p>
+<p class="status"><strong>{{ t('contract.mode.title') }}</strong> {{ boxes(doc.conclusion_mode) }}</p>
 {% for section in doc.sections %}
 <section class="contract-section">
   <h2>§&nbsp;{{ section.number }}. {{ section.title }}</h2>
-  {% if section.facts %}
-  <table class="facts">
-    {% for row in section.facts %}<tr><td class="label">{{ row.label }}</td><td>{{ field(row.value) }}</td></tr>{% endfor %}
-  </table>
+  {% if section.instead %}<p>{{ text(section.instead) }}</p>{% endif %}
+  {% for clause in section.clauses %}
+  {% if clause.is_choice %}
+  <p class="clause">{% if section.numbered %}{{ clause.number }}.&nbsp;{% endif %}{{ t('contract.choose_one') }}</p>
+  {% for alternative in clause.alternatives %}<p class="alternative"><span class="box">☐</span>&nbsp;{{ text(alternative) }}</p>{% endfor %}
+  {% else %}
+  <p class="clause">{% if section.numbered %}{{ clause.number }}.&nbsp;{% endif %}{{ text(clause.alternatives[0]) }}</p>
   {% endif %}
-  {% for paragraph in section.paragraphs %}<p>{{ paragraph }}</p>{% else %}<p class="muted">{{ t('skeleton.section_empty') }}</p>{% endfor %}
-  {% if section.key == 'acceptance' %}
-  <h3>{{ t('contract.persons_title') }}</h3>
+  {% if clause.block == 'persons_table' %}
   {% if doc.persons %}
   <table class="works persons">
-    <thead><tr><th>{{ t('contract.persons.name') }}</th><th>{{ t('contract.persons.side') }}</th><th>{{ t('contract.persons.role') }}</th><th>{{ t('contract.persons.phone') }}</th></tr></thead>
-    <tbody>{% for p in doc.persons %}<tr><td>{{ p.name }}</td><td>{{ p.side }}</td><td>{{ p.role or '' }}</td><td>{{ p.phone or '' }}</td></tr>{% endfor %}</tbody>
+    <thead><tr><th>{{ t('contract.persons.name') }}</th><th>{{ t('contract.persons.side') }}</th><th>{{ t('contract.persons.role') }}</th><th>{{ t('contract.persons.phone') }}</th><th>{{ t('contract.persons.paid') }}</th></tr></thead>
+    <tbody>{% for p in doc.persons %}<tr><td>{{ p.name }}</td><td>{{ p.side }}</td><td>{{ p.role or '' }}</td><td>{{ p.phone or '' }}</td><td>{{ p.paid_orders }}</td></tr>{% endfor %}</tbody>
   </table>
   {% else %}
   <p class="muted">{{ t('contract.persons_none') }}</p>
   {% for _ in range(3) %}<table class="facts"><tr><td class="label">{{ t('contract.persons.name') }}</td><td><span class="write-line"></span></td></tr></table>{% endfor %}
   {% endif %}
   {% endif %}
+  {% endfor %}
 </section>
 {% endfor %}
+{{ ui.signatures() }}
 </div>
 
 <section class="annex">
@@ -66,4 +74,15 @@
   {% if doc.regulation.tolerances %}<ul>{% for item in doc.regulation.tolerances %}<li>{{ item }}</li>{% endfor %}</ul>
   {% else %}<p class="muted">{{ t('contract.reg.tolerances_none') }}</p>{% endif %}
 </section>
+{% for annex in doc.annexes %}
+<section class="annex contract">
+  <h2 class="annex-title">{{ t('contract.annex_n', n=annex.number, title=annex.title) }}</h2>
+  {% for paragraph in annex.paragraphs %}<p>{{ text(paragraph) }}</p>{% endfor %}
+  {% if annex.fields %}
+  <table class="facts form">
+    {% for f in annex.fields %}<tr><td class="label">{{ text(f) }}</td><td><span class="write-line"></span></td></tr>{% endfor %}
+  </table>
+  {% endif %}
+</section>
+{% endfor %}
 {% endblock %}

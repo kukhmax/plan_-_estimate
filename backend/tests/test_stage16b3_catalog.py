@@ -42,8 +42,8 @@ def locale(lang: str) -> dict:
 def test_every_catalogue_loads_and_has_the_expected_size():
     c = load_contract_catalog()
     assert {n: len(getattr(c, n).items) for n in SECTIONS} == {
-        "requirements": 14, "instruments": 8, "evaluation": 8, "defects": 2, "tolerances": 0, "questionnaire": 17}
-    assert all(getattr(c, n).version == 1 for n in SECTIONS)
+        "requirements": 14, "instruments": 8, "evaluation": 8, "defects": 2, "tolerances": 0, "questionnaire": 31}
+    assert {n: getattr(c, n).version for n in SECTIONS} == {**{n: 1 for n in SECTIONS}, "questionnaire": 2}  # 16E.3 extended the questionnaire
 
 
 def test_the_requirements_name_things_and_carry_no_value():
@@ -80,7 +80,8 @@ def test_the_tolerance_file_is_empty_until_the_owner_approves_values_with_a_sour
 def test_the_questionnaire_has_the_questions_the_owner_asked_for():
     questions = {q.key: q for q in load_contract_catalog().questionnaire.items}
     assert {"who_accepts", "downtime_rate_per_day", "customer_appearance_days", "partial_acceptance", "reinspection_limit",
-            "premises_requirement_values", "advance_percent", "warranty_months", "contractual_penalty"} <= set(questions)
+            "premises_requirement_values", "advance_percent", "warranty_months", "penalty_mode", "client_status", "conclusion_mode", "vat_rate_percent",
+            "paid_orders_persons", "downtime_days_limit"} <= set(questions)
     assert questions["who_accepts"].kind == "PERSON_LIST" and questions["who_accepts"].requirement == "REQUIRED"
     assert questions["downtime_rate_per_day"].requirement == "OPEN" and questions["downtime_rate_per_day"].default is None  # open: "......"
     assert (questions["customer_appearance_days"].default, questions["partial_acceptance"].default) == (3, True)
@@ -229,5 +230,5 @@ async def test_the_catalogue_is_served_to_a_signed_in_owner_only(async_client: A
     body = resp.json()
     assert set(body) == set(SECTIONS)
     assert [i["key"] for i in body["evaluation"]["items"]] == list(QUALITY_CLASSES)
-    assert body["tolerances"]["items"] == [] and len(body["questionnaire"]["items"]) == 17
-    assert body["questionnaire"]["items"][0]["key"] == "who_accepts"
+    assert body["tolerances"]["items"] == [] and len(body["questionnaire"]["items"]) == 31
+    assert body["questionnaire"]["items"][0]["key"] == "client_status"

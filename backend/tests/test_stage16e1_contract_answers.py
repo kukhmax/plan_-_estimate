@@ -143,9 +143,9 @@ def test_the_only_defaults_are_the_two_the_owner_accepted():
 
 def test_the_required_questions_are_reported_in_the_questionnaires_order_and_a_default_is_an_answer():
     required = [q.key for q in CATALOG.questionnaire.items if q.requirement == "REQUIRED"]
-    assert required == ["who_accepts", "contract_date", "contract_place", "partial_acceptance"]
-    assert missing_required({}, CATALOG) == ["who_accepts", "contract_date", "contract_place"]  # partial_acceptance has its default
-    done = {"who_accepts": [PERSON_A], "contract_date": "2026-10-12", "contract_place": "Kraków"}
+    assert required == ["client_status", "conclusion_mode", "who_accepts", "contract_date", "contract_place", "partial_acceptance"]
+    assert missing_required({}, CATALOG) == ["client_status", "conclusion_mode", "who_accepts", "contract_date", "contract_place"]  # partial_acceptance has its default
+    done = {"client_status": "CONSUMER", "conclusion_mode": "OFF_PREMISES", "who_accepts": [PERSON_A], "contract_date": "2026-10-12", "contract_place": "Kraków"}
     assert missing_required(done, CATALOG) == []
     assert missing_required({**done, "who_accepts": []}, CATALOG) == ["who_accepts"]
 
@@ -258,7 +258,7 @@ async def test_opening_the_draft_creates_it_once_and_returns_the_same_one_again(
     body = first.json()
     assert (body["version"], body["status"], body["answers"], body["questionnaire_version"]) == (1, "DRAFT", {}, CATALOG.questionnaire.version)
     assert body["effective_answers"] == {"customer_appearance_days": 3, "partial_acceptance": True}
-    assert body["missing_required"] == ["who_accepts", "contract_date", "contract_place"]
+    assert body["missing_required"] == ["client_status", "conclusion_mode", "who_accepts", "contract_date", "contract_place"]
     again = await async_client.post(url(project), headers=headers)
     assert again.status_code == 200 and again.json()["id"] == body["id"]
     assert (await async_client.get(url(project), headers=headers)).json()["total"] == 1
@@ -270,9 +270,9 @@ async def test_answers_are_saved_partially_and_completeness_follows(async_client
     person = await person_of(async_client, headers, project)
     contract = (await async_client.post(url(project), headers=headers)).json()["id"]
     target = url(project, f"/{contract}/answers")
-    saved = await async_client.patch(target, json={"answers": {"contract_place": " Kraków ", "who_accepts": [person]}}, headers=headers)
+    saved = await async_client.patch(target, json={"answers": {"contract_place": " Kraków ", "who_accepts": [person], "client_status": "CONSUMER", "conclusion_mode": "OFF_PREMISES"}}, headers=headers)
     assert saved.status_code == 200, saved.text
-    assert saved.json()["answers"] == {"contract_place": "Kraków", "who_accepts": [person]}
+    assert saved.json()["answers"] == {"contract_place": "Kraków", "who_accepts": [person], "client_status": "CONSUMER", "conclusion_mode": "OFF_PREMISES"}
     assert saved.json()["missing_required"] == ["contract_date"]
     done = (await async_client.patch(target, json={"answers": {"contract_date": "2026-10-12", "downtime_rate_per_day": "150"}}, headers=headers)).json()
     assert done["missing_required"] == [] and done["answers"]["contract_place"] == "Kraków" and done["answers"]["downtime_rate_per_day"] == "150.00"

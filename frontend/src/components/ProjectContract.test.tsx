@@ -40,7 +40,7 @@ const CATALOG = {
   tolerances: read('tolerances.json'),
   questionnaire: read('questionnaire.json'),
 } as ContractCatalog;
-const REQUIRED = ['who_accepts', 'contract_date', 'contract_place', 'partial_acceptance'];
+const REQUIRED = ['client_status', 'conclusion_mode', 'who_accepts', 'contract_date', 'contract_place', 'partial_acceptance'];
 
 function person(over: Partial<ProjectRepresentative> = {}): ProjectRepresentative {
   return {
@@ -52,7 +52,7 @@ function person(over: Partial<ProjectRepresentative> = {}): ProjectRepresentativ
 function contract(over: Partial<Contract> = {}): Contract {
   return {
     id: 'c1', project_id: 'p1', version: 1, status: 'DRAFT', answers: {}, effective_answers: { customer_appearance_days: 3, partial_acceptance: true },
-    missing_required: ['who_accepts', 'contract_date', 'contract_place'], questionnaire_version: 1, created_at: 'x', updated_at: 'x', ...over,
+    missing_required: ['client_status', 'conclusion_mode', 'who_accepts', 'contract_date', 'contract_place'], questionnaire_version: 2, created_at: 'x', updated_at: 'x', ...over,
   };
 }
 
@@ -100,10 +100,10 @@ describe('ProjectContract (Stage 16E.1)', () => {
     }
     expect(within(form).getByText('Strony i osoby')).toBeInTheDocument();
     expect(within(form).getByText('Odbiór prac')).toBeInTheDocument();
-    expect(screen.getByLabelText('contract-progress')).toHaveTextContent('Wymagane odpowiedzi: 1 z 4');
+    expect(screen.getByLabelText('contract-progress')).toHaveTextContent('Wymagane odpowiedzi: 1 z 6');
     const missing = screen.getByLabelText('contract-missing');
     expect(missing).toHaveTextContent('Data zawarcia umowy');
-    expect(missing.querySelectorAll('li')).toHaveLength(3);
+    expect(missing.querySelectorAll('li')).toHaveLength(5);
     expect(form.textContent?.match(/wymagane/g)?.length).toBeGreaterThanOrEqual(REQUIRED.length);
     expect(form).toHaveTextContent('Puste pole opcjonalne nie blokuje umowy');
   });
@@ -127,12 +127,12 @@ describe('ProjectContract (Stage 16E.1)', () => {
     vi.mocked(peopleApi.fetchRepresentatives).mockResolvedValue({ items: [person({ may_accept_and_sign: false })], total: 1 });
     renderCard();
     await compose();
-    expect(screen.getByText(/Brak osób z uprawnieniem do odbioru prac/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Brak osób z uprawnieniem do odbioru prac/).length).toBeGreaterThan(0);  // under both person questions
   });
 
   it('sends only what changed, with typed values, and shows the completeness the server returns', async () => {
     vi.mocked(api.saveContractAnswers).mockResolvedValue(contract({
-      answers: { contract_place: 'Kraków' }, missing_required: ['who_accepts', 'contract_date'],
+      answers: { contract_place: 'Kraków' }, missing_required: ['client_status', 'conclusion_mode', 'who_accepts', 'contract_date'],
     }));
     renderCard();
     await compose();
@@ -149,7 +149,7 @@ describe('ProjectContract (Stage 16E.1)', () => {
       who_accepts: ['rep1'], partial_acceptance: false,
     });
     expect(await screen.findByLabelText('contract-note')).toHaveTextContent('Zapisano.');
-    expect(screen.getByLabelText('contract-progress')).toHaveTextContent('Wymagane odpowiedzi: 2 z 4');
+    expect(screen.getByLabelText('contract-progress')).toHaveTextContent('Wymagane odpowiedzi: 2 z 6');
   });
 
   it('sends nothing and says so when nothing changed', async () => {
@@ -244,7 +244,7 @@ describe('ProjectContract (Stage 16E.1)', () => {
     for (const question of CATALOG.questionnaire.items) {
       expect(form.textContent).toContain(ru.contractCatalog.questions[question.key as keyof typeof ru.contractCatalog.questions]);
     }
-    expect(screen.getByLabelText('contract-progress')).toHaveTextContent('Обязательные ответы: 1 из 4');
+    expect(screen.getByLabelText('contract-progress')).toHaveTextContent('Обязательные ответы: 1 из 6');
     for (const control of form.querySelectorAll('input:not([type=checkbox]), select, button')) {
       expect((control as HTMLElement).className).toMatch(/min-h-11/);
     }

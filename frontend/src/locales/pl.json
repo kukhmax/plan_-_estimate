@@ -270,7 +270,9 @@
         "PENALTY": "Kary",
         "DOWNTIME": "Przestój z winy Zamawiającego",
         "ACCEPTANCE": "Odbiór prac",
-        "PREMISES": "Pomieszczenia"
+        "PREMISES": "Pomieszczenia",
+        "PRICE": "Cena",
+        "WORK": "Wykonanie prac"
       }
     },
     "requirements": {
@@ -343,14 +345,28 @@
       "payment_mode": "Sposób płatności",
       "payment_due_days": "Termin płatności (dni)",
       "warranty_months": "Okres gwarancji (miesiące)",
-      "contractual_penalty": "Kara umowna (stawka lub „brak”)",
       "downtime_rate_per_day": "Stawka za dobę przestoju z winy Zamawiającego (zł)",
       "downtime_cap_percent": "Limit odszkodowania za przestój (% ceny)",
       "customer_appearance_days": "Czas na stawienie się Zamawiającego na odbiór (dni robocze)",
       "partial_acceptance": "Odbiory częściowe (pomieszczenia, etapy)",
       "reinspection_limit": "Maksymalna liczba ponownych sprawdzeń",
       "premises_acceptance_notice_days": "Zawiadomienie o gotowości pomieszczeń (dni przed pracami)",
-      "premises_requirement_values": "Wartości wymagań dla pomieszczeń"
+      "premises_requirement_values": "Wartości wymagań dla pomieszczeń",
+      "client_status": "Status Zamawiającego",
+      "conclusion_mode": "Sposób zawarcia umowy",
+      "paid_orders_persons": "Kto może akceptować zlecenia płatne (prace dodatkowe zwiększające cenę)",
+      "work_hours": "Godziny pracy (np. 8:00–17:00)",
+      "vat_rate_percent": "Stawka VAT (%)",
+      "price_validity_days": "Ważność cen jednostkowych (dni od zawarcia)",
+      "payment_account": "Numer rachunku bankowego do płatności",
+      "materials_supplier": "Kto dostarcza materiały",
+      "contractor_representative": "Przedstawiciel Wykonawcy na obiekcie (imię, nazwisko, telefon)",
+      "insurance_sum": "Suma ubezpieczenia OC (zł)",
+      "insurance_policy": "Numer polisy OC",
+      "penalty_mode": "Kara umowna za zwłokę Wykonawcy",
+      "penalty_rate_per_day": "Kara umowna za dzień zwłoki (zł)",
+      "penalty_cap_percent": "Limit kar umownych (% wynagrodzenia)",
+      "downtime_days_limit": "Po ilu dniach roboczych przestoju Wykonawca może wyznaczyć termin i odstąpić"
     },
     "hints": {
       "who_accepts": "Wybierz osoby z listy osób objektu, które mają uprawnienie do odbioru prac i podpisywania protokołów.",
@@ -358,11 +374,28 @@
       "downtime_rate_per_day": "Może pozostać pusta — pole do uzupełnienia później.",
       "customer_appearance_days": "Proponowane 3 dni robocze; można zmienić.",
       "reinspection_limit": "Puste oznacza brak limitu.",
-      "premises_requirement_values": "Liczby wpisuje Wykonawca; puste oznacza pole do uzupełnienia."
+      "premises_requirement_values": "Liczby wpisuje Wykonawca; puste oznacza pole do uzupełnienia.",
+      "client_status": "Od tego zależą klauzule konsumenckie i załącznik z pouczeniem o odstąpieniu.",
+      "conclusion_mode": "Umowa zawarta poza lokalem przedsiębiorstwa (np. u klienta) daje konsumentowi prawo odstąpienia.",
+      "paid_orders_persons": "Spośród osób upoważnionych do odbioru; puste — tylko Zamawiający osobiście.",
+      "vat_rate_percent": "Np. 8 lub 23. Puste — pole do uzupełnienia; cena brutto liczona ze stawki.",
+      "contractor_representative": "Puste — pole do uzupełnienia odręcznie.",
+      "insurance_sum": "Opcjonalne: bez sumy punkt o ubezpieczeniu nie jest drukowany."
     },
     "choices": {
       "BY_STAGES": "Etapami",
-      "ON_ACCEPTANCE": "Po odbiorze"
+      "ON_ACCEPTANCE": "Po odbiorze",
+      "CONSUMER": "Konsument",
+      "CONSUMER_RIGHTS_ENTREPRENEUR": "Przedsiębiorca na prawach konsumenta",
+      "ENTREPRENEUR": "Przedsiębiorca",
+      "PREMISES_OF_EXECUTOR": "W lokalu przedsiębiorstwa Wykonawcy",
+      "OFF_PREMISES": "Poza lokalem przedsiębiorstwa (np. u Zamawiającego)",
+      "DISTANCE": "Na odległość",
+      "EXECUTOR": "Wykonawca",
+      "CUSTOMER": "Zamawiający",
+      "PER_ESTIMATE": "Według podziału w kosztorysie",
+      "NONE": "Nie przewiduje się",
+      "PER_DAY_DELAY": "Kara za dzień zwłoki"
     },
     "units": {
       "lx": "lx",
