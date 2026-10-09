@@ -6,7 +6,7 @@
   <style>{{ css }}</style>
 </head>
 <body>
-  {% if layout.draft %}<div class="watermark">{{ t('doc.watermark_draft') }}</div>{% endif %}
+  {% if layout.draft %}<div class="watermark{% if layout.light_watermark %} light{% endif %}">{{ t('doc.watermark_draft') }}</div>{% endif %}
   <div class="running-footer">{% if layout.meta.number %}{{ layout.meta.number }} · {% endif %}{{ layout.meta.title }}</div>
   <header>
     <h1>{{ layout.meta.title }}</h1>

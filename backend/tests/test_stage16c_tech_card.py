@@ -109,6 +109,7 @@ async def test_the_numbered_card_lists_the_works_in_order_with_their_breaks_and_
     ))
     await db_session.commit()
     document = await build(db_session, w, working=False, number="KART/2026/10/09/1200")
+    assert not document.layout.light_watermark
     assert not document.working and not document.layout.draft and document.layout.meta.number == "KART/2026/10/09/1200"
     (room,) = document.rooms  # Kuchnia has nothing planned: it is not in the card
     assert room.name == "Salon"
@@ -184,6 +185,7 @@ async def test_the_working_version_prints_what_exists_and_empty_lines_for_the_re
     assert document.rooms[1].surfaces == ()
     html = TechCardDocumentService.html(document)
     assert "WERSJA ROBOCZA" in html and "write-line" in html and "write-box" in html
+    assert 'class="watermark light"' in html  # a sheet to write on: the mark is pale
     assert html.count('class="spare"') == SPARE_ROWS
 
 

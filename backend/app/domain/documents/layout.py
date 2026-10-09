@@ -31,3 +31,4 @@ class DocumentLayout:
     client: Party | None = None
     signatures: bool = False
     draft: bool = False  # a working version: printed with a diagonal "WERSJA ROBOCZA" on every page
+    light_watermark: bool = False  # a working version meant to be written on by hand: the same mark, much paler

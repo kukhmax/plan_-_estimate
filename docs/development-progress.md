@@ -1149,6 +1149,9 @@ Owner approved ("делаем 15E, лимит 60 фото ок"). Details: `docs
 - **Production:** none — no migration, no route; the code travels with 15F / 15H (the 60-photo render on the 1 OCPU server is measured at 15H).
 - **Next (only on owner approval):** 15F — issuing: journal of issued documents (numbering by date-time plus a running number per client and object), Telegram `sendDocument`, "Wyślij PDF" buttons, HTTP errors for the document exceptions.
 
+### Stage 16C.1 — a paler watermark on the working version of the card (2026-10-09, owner: "да, можно бледнее")
+The working version of the technological card (a sheet to write on by hand) prints "WERSJA ROBOCZA" at 7 % opacity and 40 pt instead of 16 % and 46 pt; the estimate preview is unchanged. `DocumentLayout.light_watermark`, class `watermark light`; test added. No migration.
+
 ### Stage 16C — the technological card, with a printable working version with empty fields (2026-10-09, IMPLEMENTED LOCALLY — not deployed; migration `0041_issued_documents_tech_card`)
 First document of the chain "technological card → production plan → estimate → contract" (owner: "принимаю рекомендации, делаем 16C" + "необходимо, чтобы была возможность скачать версию рабочую с пустыми полями … чтобы можно было распечатать и проговорить с заказчиком").
 - **The document (`Karta technologiczna`)** — per room and surface: the substrate, the agreed finishing standard (S1–S4 / Q1–Q4 with its short name from the documented definitions, no millimetre), the inspection (date, answered checklist, risks with the "work is to be stopped" note, notes), and the planned works **in order** with unit, quantity (from the current estimate by the work's stable occurrence key; empty when it is not in an estimate) and the **technological break after each work**. No prices, no clause. The canonical names "Wall 1 / Floor / Ceiling" are printed in Polish.

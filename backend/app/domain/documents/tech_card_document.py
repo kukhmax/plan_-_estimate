@@ -263,6 +263,7 @@ def build_tech_card_document(
         client=party_from_client(client) if client is not None else None,
         signatures=True,
         draft=working,
+        light_watermark=working,
     )
     return TechCardDocument(layout, project.name, object_lines(project), views, working)
 
