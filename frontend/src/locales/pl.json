@@ -1779,11 +1779,19 @@
       "DOCUMENT_TEMPLATE_INVALID": "Błąd szablonu dokumentu. Zgłoś to do obsługi aplikacji.",
       "DOCUMENT_DELIVERY_FAILED": "Nie udało się wysłać dokumentu do czatu. Spróbuj ponownie.",
       "DRAFT_NUMBERED": "Wersja robocza nie dostaje numeru.",
-      "RECOMMENDED_WORK_UNPRICED": "Rekomendowane prace dodatkowe nie mają ceny w kosztorysie: {works}. Zaakceptuj zalecenie w badaniu (trafi do planu prac i kosztorysu) albo je odrzuć, a potem spróbuj ponownie.",
+      "RECOMMENDED_WORK_UNPRICED": "Rekomendowane prace dodatkowe nie mają ceny w kosztorysie: {works}. W badaniu dodaj zalecenie do prac albo je odrzuć, a dodaną pracę wprowadź do kosztorysu (zaktualizuj kosztorys albo utwórz jego nową wersję). Potem spróbuj ponownie.",
       "SKELETON_SECTION_UNKNOWN": "Dokument ma sekcję, której nie przewiduje jego wzór. Zgłoś to do obsługi aplikacji."
     },
     "recommended_works": "Rekomendowane prace dodatkowe: {count}",
-    "unpriced_title": "Brak ceny w kosztorysie — dokument nie zostanie wysłany:",
-    "unpriced_hint": "Zaakceptuj zalecenie w badaniu (trafi do kosztorysu) albo je odrzuć."
+    "unpriced_title": "Raport nie zostanie wysłany: te rekomendowane prace nie mają ceny w kosztorysie.",
+    "unpriced_tap": "Dotknij pozycji, aby przejść tam, gdzie to naprawisz.",
+    "reason_pending": "Zalecenie czeka na decyzję — w badaniu dodaj je do prac albo odrzuć.",
+    "reason_not_in_estimate_draft": "Zalecenie dodane do prac, ale tej pracy nie ma jeszcze w kosztorysie — zaktualizuj kosztorys.",
+    "reason_not_in_estimate_final": "Zalecenie dodane do prac, ale kosztorys jest już zatwierdzony — utwórz jego nową wersję.",
+    "reason_no_estimate": "Obiekt nie ma kosztorysu — utwórz kosztorys.",
+    "reason_no_price": "W kosztorysie ta praca nie ma ceny (Do ustalenia) — ustal cenę.",
+    "action_open_inspection": "Otwórz badanie",
+    "action_open_estimate": "Otwórz kosztorys",
+    "action_open_estimates": "Otwórz kosztorysy"
   }
 }

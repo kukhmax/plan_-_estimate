@@ -76,6 +76,25 @@ class RoomSummaryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UnpricedWorkRead(BaseModel):
+    """A recommended extra work without a price in the current estimate (it blocks the photo report), and where to fix it."""
+
+    room_id: uuid.UUID
+    room_name: str
+    surface_id: uuid.UUID
+    surface_name: str
+    surface_type: str  # WALL | CEILING | FLOOR (the screen localizes generated names)
+    work_code: str
+    work_display_name: str | None
+    work_name_key: str | None
+    reason: str  # PENDING | NO_ESTIMATE | NOT_IN_ESTIMATE | NO_PRICE
+    inspection_id: uuid.UUID | None
+    inspection_surface_id: uuid.UUID | None
+    inspection_plane: str | None  # FLOOR | CEILING | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PhotoReportSummaryRead(BaseModel):
     photo_count: int
     project_photos: int
@@ -85,3 +104,6 @@ class PhotoReportSummaryRead(BaseModel):
     rooms: list[RoomSummaryRead]
     recommended_count: int  # recommended extra works the report would list
     unpriced_works: list[str]  # those without a price in the current estimate: they block issuing
+    unpriced_items: list[UnpricedWorkRead]  # the same, structured (Stage 15H.1)
+    estimate_id: uuid.UUID | None  # the current estimate (whose prices are used), None = the object has none
+    estimate_status: str | None  # DRAFT | FINAL | ACCEPTED

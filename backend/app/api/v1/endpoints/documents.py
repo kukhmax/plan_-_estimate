@@ -35,6 +35,7 @@ from app.schemas.issued_document import (
     PhotoReportSummaryRead,
     PreviewResponse,
     RoomSummaryRead,
+    UnpricedWorkRead,
 )
 
 router = APIRouter()
@@ -162,6 +163,9 @@ async def photo_report_summary(
         rooms=[RoomSummaryRead.model_validate(room) for room in summary.rooms],
         recommended_count=summary.recommended_count,
         unpriced_works=list(summary.unpriced_works),
+        unpriced_items=[UnpricedWorkRead.model_validate(item) for item in summary.unpriced_items],
+        estimate_id=summary.estimate_id,
+        estimate_status=summary.estimate_status,
     )
 
 

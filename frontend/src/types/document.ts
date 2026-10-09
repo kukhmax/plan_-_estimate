@@ -34,6 +34,25 @@ export interface PhotoReportRoomSummary {
   has_inspection_content: boolean;
 }
 
+/** Why a recommended extra work has no price: the owner decides it, makes an estimate, brings the accepted work into it, or prices its line. */
+export type UnpricedReason = 'PENDING' | 'NO_ESTIMATE' | 'NOT_IN_ESTIMATE' | 'NO_PRICE';
+
+/** A recommended extra work that blocks the photo report, with where to fix it (Stage 15H.1). */
+export interface UnpricedWork {
+  room_id: string;
+  room_name: string;
+  surface_id: string;
+  surface_name: string;
+  surface_type: string;
+  work_code: string;
+  work_display_name: string | null;
+  work_name_key: string | null;
+  reason: UnpricedReason;
+  inspection_id: string | null;
+  inspection_surface_id: string | null;
+  inspection_plane: 'FLOOR' | 'CEILING' | null;
+}
+
 export interface PhotoReportSummary {
   photo_count: number;
   project_photos: number;
@@ -44,6 +63,11 @@ export interface PhotoReportSummary {
   /** Recommended extra works the report would list, and those without a price in the current estimate (they block it). */
   recommended_count: number;
   unpriced_works: string[];
+  /** The same works, structured: the screen names them in the interface language and leads to the fix. */
+  unpriced_items: UnpricedWork[];
+  /** The current estimate (whose prices are used) and its status; null when the object has none. */
+  estimate_id: string | null;
+  estimate_status: string | null;
 }
 
 export interface DocumentPreviewResult {

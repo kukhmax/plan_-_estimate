@@ -1,9 +1,9 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as documentsApi from '../api/documents';
 import { ApiError } from '../api/http';
 import { I18nProvider } from '../hooks/useI18n';
-import type { IssuedDocument, PhotoReportSummary } from '../types/document';
+import type { IssuedDocument, PhotoReportSummary, UnpricedWork } from '../types/document';
 import { ProjectDocuments } from './ProjectDocuments';
 
 vi.mock('../api/documents', () => ({
@@ -17,7 +17,7 @@ const KUCHNIA = 'r-kuchnia';
 
 function summary(over: Partial<PhotoReportSummary> = {}): PhotoReportSummary {
   return {
-    photo_count: 5, project_photos: 1, limit: 60, over_limit: false, has_content: true, recommended_count: 0, unpriced_works: [],
+    photo_count: 5, project_photos: 1, limit: 60, over_limit: false, has_content: true, recommended_count: 0, unpriced_works: [], unpriced_items: [], estimate_id: null, estimate_status: null,
     rooms: [
       { room_id: SALON, name: 'Salon', photos: 3, has_inspection_content: true },
       { room_id: KUCHNIA, name: 'Kuchnia', photos: 1, has_inspection_content: false },
@@ -34,8 +34,19 @@ function doc(over: Partial<IssuedDocument> = {}): IssuedDocument {
   };
 }
 
+const onOpenInspection = vi.fn();
+const onOpenEstimate = vi.fn();
+
 function renderCard() {
-  return render(<I18nProvider><ProjectDocuments projectId="p1" /></I18nProvider>);
+  return render(<I18nProvider><ProjectDocuments projectId="p1" onOpenInspection={onOpenInspection} onOpenEstimate={onOpenEstimate} /></I18nProvider>);
+}
+
+function blocked(over: Partial<UnpricedWork> = {}): UnpricedWork {
+  return {
+    room_id: SALON, room_name: 'Salon', surface_id: 's-wall', surface_name: 'Wall 1', surface_type: 'WALL', work_code: 'CENNIK_SKIM_CRACK-01',
+    work_display_name: null, work_name_key: 'pricebook.seed.skim_crack', reason: 'PENDING', inspection_id: 'i1', inspection_surface_id: 's-wall',
+    inspection_plane: null, ...over,
+  };
 }
 
 async function open() {
@@ -46,6 +57,7 @@ describe('ProjectDocuments (Stage 15F.3)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
     vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary());
     vi.mocked(documentsApi.listDocuments).mockResolvedValue({ items: [], total: 0 });
   });
@@ -176,20 +188,95 @@ describe('ProjectDocuments (Stage 15F.3)', () => {
     expect(screen.getByLabelText('send-photo-report')).toBeEnabled();
   });
 
-  it('names the recommended works without a price and does not offer to send until they are settled', async () => {
+  it('names the recommended works without a price in the interface language and does not offer to send until they are settled', async () => {
     vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary({
-      recommended_count: 2, unpriced_works: ['Salon › Ściana A: Gruntowanie gruntem penetrującym (pod szpachlowanie)'] }));
+      recommended_count: 2, unpriced_works: ['Salon › Ściana 1: X'], unpriced_items: [blocked()], estimate_id: 'e1', estimate_status: 'FINAL' }));
     renderCard();
     await open();
     const alert = await screen.findByLabelText('unpriced-works');
-    expect(alert).toHaveTextContent('Brak ceny w kosztorysie — dokument nie zostanie wysłany:');
-    expect(alert).toHaveTextContent('Salon › Ściana A: Gruntowanie gruntem penetrującym');
-    expect(alert).toHaveTextContent('Zaakceptuj zalecenie w badaniu');
+    expect(alert).toHaveTextContent('Raport nie zostanie wysłany');
+    expect(alert).toHaveTextContent('Salon › Ściana 1'); // the generated name "Wall 1" is shown in the language of the interface
+    expect(alert).not.toHaveTextContent('Wall 1');
+    expect(alert).not.toHaveTextContent('pricebook.seed');
+    expect(alert).toHaveTextContent('Zalecenie czeka na decyzję');
     expect(screen.getByLabelText('send-photo-report')).toBeDisabled();
   });
 
+  it('is the same in Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary({
+      recommended_count: 1, unpriced_items: [blocked({ reason: 'NOT_IN_ESTIMATE', surface_name: 'Ceiling', surface_type: 'CEILING', inspection_surface_id: null, inspection_plane: 'CEILING' })],
+      estimate_id: 'e1', estimate_status: 'DRAFT' }));
+    renderCard();
+    await open();
+    const alert = await screen.findByLabelText('unpriced-works');
+    expect(alert).toHaveTextContent('Отчёт не будет отправлен');
+    expect(alert).toHaveTextContent('Salon › Потолок');
+    expect(alert).toHaveTextContent('этой работы ещё нет в смете — обновите смету');
+    expect(alert).toHaveTextContent('Открыть смету');
+  });
+
+  it('says what to do for each reason, and a settled estimate needs a new version', async () => {
+    const cases: Array<[UnpricedWork['reason'], string, string, string]> = [
+      ['PENDING', 'FINAL', 'Zalecenie czeka na decyzję', 'Otwórz badanie'],
+      ['NOT_IN_ESTIMATE', 'DRAFT', 'zaktualizuj kosztorys', 'Otwórz kosztorys'],
+      ['NOT_IN_ESTIMATE', 'FINAL', 'utwórz jego nową wersję', 'Otwórz kosztorys'],
+      ['NO_ESTIMATE', 'FINAL', 'Obiekt nie ma kosztorysu', 'Otwórz kosztorysy'],
+      ['NO_PRICE', 'DRAFT', 'ustal cenę', 'Otwórz kosztorys'],
+    ];
+    for (const [reason, status, sentence, action] of cases) {
+      vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary({
+        unpriced_items: [blocked({ reason })], estimate_id: reason === 'NO_ESTIMATE' ? null : 'e1', estimate_status: reason === 'NO_ESTIMATE' ? null : status }));
+      const view = renderCard();
+      await open();
+      const alert = await screen.findByLabelText('unpriced-works');
+      expect(alert).toHaveTextContent(sentence);
+      expect(alert).toHaveTextContent(action);
+      view.unmount();
+      sessionStorage.clear();
+    }
+  });
+
+  it('a recommendation waiting for a decision leads to its inspection; the others lead to the estimate', async () => {
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary({
+      unpriced_items: [blocked(), blocked({ surface_id: 's2', work_code: 'CENNIK_PRIM_STD-01', work_name_key: 'pricebook.seed.prim_std', reason: 'NOT_IN_ESTIMATE' })],
+      estimate_id: 'e1', estimate_status: 'FINAL' }));
+    renderCard();
+    await open();
+    const first = await screen.findByLabelText('unpriced-work-CENNIK_SKIM_CRACK-01');
+    expect(first.className).toContain('min-h-11');
+    fireEvent.click(first);
+    expect(onOpenInspection).toHaveBeenCalledWith(expect.objectContaining({ inspection_id: 'i1', room_id: SALON }));
+    expect(onOpenEstimate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('unpriced-work-CENNIK_PRIM_STD-01'));
+    expect(onOpenEstimate).toHaveBeenCalledWith('e1');
+    expect(onOpenInspection).toHaveBeenCalledTimes(1);
+  });
+
+  it('an object without an estimate leads to the list of estimates', async () => {
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary({ unpriced_items: [blocked({ reason: 'NO_ESTIMATE' })] }));
+    renderCard();
+    await open();
+    fireEvent.click(await screen.findByLabelText('unpriced-work-CENNIK_SKIM_CRACK-01'));
+    expect(onOpenEstimate).toHaveBeenCalledWith(null);
+  });
+
+  it('stays open when the owner comes back from the place it led to', async () => {
+    renderCard();
+    await open();
+    await screen.findByText('Zdjęć w raporcie: 5 (limit 60)');
+    cleanup();
+    renderCard();
+    expect(screen.getByRole('button', { name: 'toggle-project-documents' })).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByText('Zdjęć w raporcie: 5 (limit 60)')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'toggle-project-documents' }));
+    cleanup();
+    renderCard();
+    expect(screen.getByRole('button', { name: 'toggle-project-documents' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('blocks the part of a report too, and shows the server\'s list when it refuses', async () => {
-    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary({ photo_count: 90, over_limit: true, unpriced_works: ['Salon › Ściana A: X'] }));
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary({ photo_count: 90, over_limit: true, unpriced_works: ['Salon › Ściana A: X'], unpriced_items: [blocked()] }));
     renderCard();
     await open();
     fireEvent.click(await screen.findByLabelText('Kuchnia — 1'));

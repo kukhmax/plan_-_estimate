@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as checklistsApi from './api/checklists';
 import * as clientsApi from './api/clients';
+import * as documentsApi from './api/documents';
 import * as estimatesApi from './api/estimates';
 import * as inspectionsApi from './api/inspections';
 import * as openingsApi from './api/openings';
@@ -19,6 +20,7 @@ import { ProjectSummary, RoomType } from './types/room';
 import { SurfaceType } from './types/surface';
 
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
+vi.mock('./api/documents', () => ({ fetchPhotoReportSummary: vi.fn(), listDocuments: vi.fn(), issuePhotoReport: vi.fn() }));
 vi.mock('./api/estimates', () => ({
   listEstimates: vi.fn(),
   generateEstimate: vi.fn(),
@@ -250,6 +252,8 @@ describe('ProjectWorkspace', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
+    vi.mocked(documentsApi.listDocuments).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [project], total: 1 });
     vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client], total: 1 });
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
@@ -362,6 +366,49 @@ describe('ProjectWorkspace', () => {
     expect(within(card).getByRole('button', { name: 'toggle-project-documents' })).toHaveAttribute('aria-expanded', 'false');
     expect(within(card).queryByLabelText('photo-report-card')).toBeNull();
     expect(screen.getByLabelText('project-photos').compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  const blockedSummary = (reason: 'PENDING' | 'NOT_IN_ESTIMATE') => ({
+    photo_count: 1, project_photos: 1, limit: 60, over_limit: false, has_content: true, rooms: [], recommended_count: 1,
+    unpriced_works: ['Salon › Ściana 1: X'], estimate_id: 'est-1', estimate_status: 'FINAL',
+    unpriced_items: [{
+      room_id: room.id, room_name: 'Salon', surface_id: 'wall-1', surface_name: 'Wall 1', surface_type: 'WALL', work_code: 'CENNIK_SKIM_CRACK-01',
+      work_display_name: null, work_name_key: 'pricebook.seed.skim_crack', reason, inspection_id: inspection.id, inspection_surface_id: null,
+      inspection_plane: null,
+    }],
+  });
+
+  it('leads from a work without a price to its inspection, and Back returns to the list of inspections, then the room (Stage 15H.1)', async () => {
+    sessionStorage.setItem(`pe.documents.open.${project.id}`, '1');
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(blockedSummary('PENDING'));
+    vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue({ ...inspection, status: 'COMPLETED', answers: [] } as never);
+    renderWorkspace();
+    fireEvent.click(await screen.findByLabelText(`open-project-${project.id}`));
+    const blockedWork = await screen.findByLabelText('unpriced-work-CENNIK_SKIM_CRACK-01');
+    await act(async () => { fireEvent.click(blockedWork); });
+    await waitFor(() => expect(roomsApi.fetchRoom).toHaveBeenCalledWith(project.id, room.id));
+    await waitFor(() => expect(inspectionsApi.fetchInspection).toHaveBeenCalledWith(project.id, room.id, inspection.id));
+    expect(screen.queryByLabelText('project-documents')).toBeNull(); // the object screen was left
+    expect(inspectionsApi.fetchInspections).not.toHaveBeenCalled(); // the list is only the step below
+  });
+
+  it('leads from an accepted work that is not in the estimate to the current estimate (Stage 15H.1)', async () => {
+    sessionStorage.setItem(`pe.documents.open.${project.id}`, '1');
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(blockedSummary('NOT_IN_ESTIMATE'));
+    const summary = {
+      id: 'est-1', project_id: project.id, version: 1, status: 'FINAL', name: null, total: '0.00', currency: 'PLN',
+      created_at: '2026-09-09T10:00:00Z', updated_at: '2026-09-09T10:00:00Z',
+    } as const;
+    vi.mocked(estimatesApi.listEstimates).mockResolvedValue({ items: [summary], total: 1 });
+    vi.mocked(estimatesApi.getEstimate).mockResolvedValue({ ...summary, lines: [] } as never);
+    renderWorkspace();
+    fireEvent.click(await screen.findByLabelText(`open-project-${project.id}`));
+    const blockedWork = await screen.findByLabelText('unpriced-work-CENNIK_SKIM_CRACK-01');
+    await act(async () => { fireEvent.click(blockedWork); });
+    await waitFor(() => expect(estimatesApi.listEstimates).toHaveBeenCalledWith(project.id));
+    await waitFor(() => expect(estimatesApi.getEstimate).toHaveBeenCalledWith(project.id, 'est-1'));
+    expect(await screen.findByLabelText('estimate-shell')).toBeInTheDocument(); // the estimate itself, not the list
+    expect(screen.queryByLabelText('project-documents')).toBeNull();
   });
 
   it('navigates from a project through a room to surfaces and back', async () => {

@@ -616,6 +616,37 @@ class RoomSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class UnpricedWork:
+    """A recommended extra work that blocks the photo report, with what the screen needs to take the owner to the fix.
+    The names stay raw (room as typed, work as display name / key / code): the screen localizes them."""
+
+    room_id: uuid.UUID
+    room_name: str
+    surface_id: uuid.UUID
+    surface_name: str
+    surface_type: str
+    work_code: str
+    work_display_name: str | None
+    work_name_key: str | None
+    reason: str  # RecommendedWork.block_reason
+    inspection_id: uuid.UUID | None
+    inspection_surface_id: uuid.UUID | None
+    inspection_plane: str | None
+
+
+def unpriced_items(works: RecommendedWorks) -> tuple[UnpricedWork, ...]:
+    return tuple(
+        UnpricedWork(
+            room_id=w.room_id, room_name=w.room_name, surface_id=w.surface_id, surface_name=w.surface_name,
+            surface_type=w.surface_type, work_code=w.work_code, work_display_name=w.work_display_name,
+            work_name_key=w.work_name_key, reason=w.block_reason or "NO_PRICE", inspection_id=w.inspection_id,
+            inspection_surface_id=w.inspection_surface_id, inspection_plane=w.inspection_plane,
+        )
+        for w in works.unpriced
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class PhotoReportSummary:
     """What a report of this object would hold, for the screen that offers it (and parts of it when it is too big)."""
 
@@ -625,6 +656,9 @@ class PhotoReportSummary:
     rooms: tuple[RoomSummary, ...]
     recommended_count: int = 0  # recommended extra works that the report would list
     unpriced_works: tuple[str, ...] = ()  # the ones without a price in the current estimate: they block issuing
+    unpriced_items: tuple[UnpricedWork, ...] = ()  # the same, structured, for the screen that leads to the fix
+    estimate_id: uuid.UUID | None = None  # the current estimate (the one whose prices are used)
+    estimate_status: str | None = None
 
     @property
     def has_content(self) -> bool:
@@ -722,6 +756,9 @@ class PhotoReportDocumentService:
             rooms=tuple(rooms),
             recommended_count=len(recommended.items),
             unpriced_works=tuple(f"{w.room_name} › {w.surface_name}: {_work_name(w)}" for w in recommended.unpriced),
+            unpriced_items=unpriced_items(recommended),
+            estimate_id=recommended.estimate_id,
+            estimate_status=recommended.estimate_status,
         )
 
     @staticmethod

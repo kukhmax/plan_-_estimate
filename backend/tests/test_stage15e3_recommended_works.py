@@ -430,6 +430,71 @@ async def test_the_summary_counts_the_works_and_names_the_unpriced_ones(db_sessi
     assert summary.recommended_count == 2 and len(summary.unpriced_works) == 1 and summary.unpriced_works[0].startswith("Salon › Ściana A: ")
 
 
+# --- why a work has no price, and where to fix it (Stage 15H.1) -------------------------------------------------------------
+
+
+async def reasons(db, w) -> dict[str, str | None]:
+    works = await RecommendedWorkReadModel(db).build(w.owner.id, w.project.id)
+    return {i.work_code: i.block_reason for i in works.items}
+
+
+async def test_the_reason_a_work_has_no_price_follows_what_the_owner_has_to_do(db_session):
+    w = await full_world(db_session, 9950)
+    assert await reasons(db_session, w) == {PRIM: None, CRACK: None}  # both priced in the FINAL estimate
+    await db_session.execute(EstimateLine.__table__.delete().where(EstimateLine.item_code == CRACK))
+    await db_session.commit()
+    assert (await reasons(db_session, w))[CRACK] == "PENDING"  # not decided yet: decide it in the inspection
+    w.rec_crack.status = WorkRecommendationStatus.ACCEPTED
+    await db_session.commit()
+    # accepted, but accepting never touches an estimate: the estimate has to be updated or made again
+    assert (await reasons(db_session, w))[CRACK] == "NOT_IN_ESTIMATE"
+    await line(db_session, w.estimate.id, w.crack, w.wall.id, "3", None, unit=PriceUnit.LM, position=3)
+    assert (await reasons(db_session, w))[CRACK] == "NO_PRICE"  # the line is there, its price is "Do ustalenia"
+    await db_session.execute(EstimateLine.__table__.delete())
+    await db_session.execute(Estimate.__table__.delete())
+    await db_session.commit()
+    assert (await reasons(db_session, w))[CRACK] == "NO_ESTIMATE"
+    assert (await reasons(db_session, w))[PRIM] == "PENDING"  # a pending one is decided first, whatever the estimate
+
+
+async def test_a_dismissed_recommendation_leaves_the_block_but_an_accepted_one_does_not(db_session):
+    w = await full_world(db_session, 9951)
+    await db_session.execute(EstimateLine.__table__.delete().where(EstimateLine.item_code == CRACK))
+    w.rec_crack.status = WorkRecommendationStatus.ACCEPTED
+    await db_session.commit()
+    assert [i.work_code for i in (await RecommendedWorkReadModel(db_session).build(w.owner.id, w.project.id)).unpriced] == [CRACK]
+    w.rec_crack.status = WorkRecommendationStatus.DISMISSED
+    await db_session.commit()
+    assert (await RecommendedWorkReadModel(db_session).build(w.owner.id, w.project.id)).unpriced == ()
+
+
+async def test_the_summary_leads_to_the_inspection_and_to_the_estimate(db_session):
+    w = await full_world(db_session, 9952)
+    await db_session.execute(EstimateLine.__table__.delete().where(EstimateLine.item_code == CRACK))
+    await db_session.commit()
+    summary = await PhotoReportDocumentService(db_session, w.storage, storage_name="r2-primary", max_photos=60).summary(w.owner.id, w.project.id)
+    assert (summary.estimate_id, summary.estimate_status) == (w.estimate.id, "FINAL")
+    [blocked] = summary.unpriced_items
+    assert (blocked.reason, blocked.work_code, blocked.work_name_key, blocked.room_name, blocked.surface_name, blocked.surface_type) == (
+        "PENDING", CRACK, "pricebook.seed.skim_crack", "Salon", "Ściana A", "WALL")
+    assert (blocked.room_id, blocked.surface_id, blocked.inspection_id) == (w.salon.id, w.wall.id, w.inspection.id)
+    assert (blocked.inspection_surface_id, blocked.inspection_plane) == (w.inspection.surface_id, None)
+    assert len(summary.unpriced_works) == 1 and summary.unpriced_works[0].startswith("Salon › Ściana A: ")  # the text list stays
+    from app.schemas.issued_document import UnpricedWorkRead
+
+    wire = UnpricedWorkRead.model_validate(blocked).model_dump(mode="json")  # what the screen receives
+    assert wire["reason"] == "PENDING" and wire["surface_type"] == "WALL" and wire["inspection_id"] == str(w.inspection.id)
+
+
+async def test_an_object_without_an_estimate_has_no_estimate_to_open(db_session):
+    w = await full_world(db_session, 9953)
+    await db_session.execute(EstimateLine.__table__.delete())
+    await db_session.execute(Estimate.__table__.delete())
+    await db_session.commit()
+    summary = await PhotoReportDocumentService(db_session, w.storage, storage_name="r2-primary", max_photos=60).summary(w.owner.id, w.project.id)
+    assert (summary.estimate_id, summary.estimate_status) == (None, None) and len(summary.unpriced_items) == 2
+
+
 async def test_the_pdf_carries_the_block_with_the_total(db_session):
     w = await full_world(db_session, 9914)
     service = PhotoReportDocumentService(db_session, w.storage, storage_name="r2-primary", max_photos=60)

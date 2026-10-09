@@ -58,10 +58,29 @@ class RecommendedWork:
     finding_label_keys: tuple[str, ...]  # why: the labels of the findings that ask for it
     accepted: bool
     prices: tuple[EstimatePrice, ...]  # empty = the work has no line in the current estimate
+    # Where to go to fix a missing price (Stage 15H.1): the surface kind and the inspection that holds the recommendation
+    surface_type: str = "WALL"
+    inspection_id: uuid.UUID | None = None
+    inspection_surface_id: uuid.UUID | None = None  # the inspection's own carrier: a wall ...
+    inspection_plane: str | None = None  # ... or a FLOOR / CEILING plane (both None = a room inspection)
+    estimate_exists: bool = True
 
     @property
     def priced(self) -> bool:
         return bool(self.prices) and all(p.unit_price is not None and p.amount is not None for p in self.prices)
+
+    @property
+    def block_reason(self) -> str | None:
+        """Why the work has no price, in the order the owner has to act: decide the recommendation (PENDING), have an
+        estimate (NO_ESTIMATE), bring the accepted work into it (NOT_IN_ESTIMATE: accepting never touches an estimate),
+        or fix a line that has no price (NO_PRICE). None = priced."""
+        if self.priced:
+            return None
+        if not self.accepted:
+            return "PENDING"
+        if not self.estimate_exists:
+            return "NO_ESTIMATE"
+        return "NOT_IN_ESTIMATE" if not self.prices else "NO_PRICE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,12 +88,16 @@ class RecommendedWorks:
     estimate_version: int | None  # the current estimate whose prices are used; None = the object has no estimate
     estimate_status: str | None
     items: tuple[RecommendedWork, ...]
+    estimate_id: uuid.UUID | None = None
 
     def in_rooms(self, room_ids: frozenset[uuid.UUID] | None) -> "RecommendedWorks":
         if room_ids is None:
             return self
         return RecommendedWorks(
-            self.estimate_version, self.estimate_status, tuple(i for i in self.items if i.room_id in room_ids)
+            self.estimate_version,
+            self.estimate_status,
+            tuple(i for i in self.items if i.room_id in room_ids),
+            self.estimate_id,
         )
 
     @property
@@ -189,6 +212,11 @@ class RecommendedWorkReadModel:
                     finding_label_keys=tuple(entry["finding_keys"]),
                     accepted=entry["accepted"],
                     prices=matched,
+                    surface_type=surface.surface_type.value,
+                    inspection_id=rec.inspection_id,
+                    inspection_surface_id=inspections[rec.inspection_id].surface_id,
+                    inspection_plane=inspections[rec.inspection_id].plane.value if inspections[rec.inspection_id].plane else None,
+                    estimate_exists=estimate is not None,
                 )
             )
         room_order = {rid: n for n, rid in enumerate(sorted(rooms, key=lambda i: (rooms[i].created_at, i)))}
@@ -197,6 +225,7 @@ class RecommendedWorkReadModel:
             estimate_version=estimate.version if estimate else None,
             estimate_status=estimate.status.value if estimate else None,
             items=tuple(items),
+            estimate_id=estimate.id if estimate else None,
         )
 
     async def _rows(self, model, column, ids: list) -> list:

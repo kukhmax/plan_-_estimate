@@ -1,14 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchPhotoReportSummary, issuePhotoReport, listDocuments } from '../api/documents';
 import { useI18n } from '../hooks/useI18n';
-import type { IssuedDocument, PhotoReportSummary } from '../types/document';
+import type { IssuedDocument, PhotoReportSummary, UnpricedWork } from '../types/document';
 import { documentErrorText } from '../utils/documentErrors';
+import { priceItemLabel } from '../utils/executionFormat';
+import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 
 const POLL_MS = 2500;
 const MAX_POLLS = 72; // three minutes
 
 interface ProjectDocumentsProps {
   projectId: string;
+  /** Leads to the inspection that holds a recommendation the owner has to decide (Stage 15H.1). */
+  onOpenInspection: (work: UnpricedWork) => void;
+  /** Leads to the current estimate, or to the list of estimates when the object has none yet. */
+  onOpenEstimate: (estimateId: string | null) => void;
+}
+
+const OPEN_KEY = 'pe.documents.open.';
+
+/** A per-viewer convenience only: the card stays open when the owner comes back from the place it led to. */
+function wasOpen(projectId: string): boolean {
+  try {
+    return window.sessionStorage.getItem(OPEN_KEY + projectId) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function rememberOpen(projectId: string, open: boolean): void {
+  try {
+    if (open) window.sessionStorage.setItem(OPEN_KEY + projectId, '1');
+    else window.sessionStorage.removeItem(OPEN_KEY + projectId);
+  } catch {
+    // storage may be blocked; the card then simply starts closed
+  }
 }
 
 function formatIssued(iso: string, locale: string): string {
@@ -31,10 +57,10 @@ function formatSize(bytes: number): string {
  * and the journal of what was sent. Closed by default and loads nothing until opened; a running document is followed until
  * it ends.
  */
-export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
+export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }: ProjectDocumentsProps) {
   const { t, locale } = useI18n();
   const text = t.documents;
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => wasOpen(projectId));
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [summary, setSummary] = useState<PhotoReportSummary | null>(null);
@@ -93,7 +119,7 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
     .reduce((sum, room) => sum + room.photos, 0) + (withProject ? summary?.project_photos ?? 0 : 0);
   const tooBig = summary !== null && selectedCount > summary.limit;
   // a recommended extra work without a price blocks the report (the server refuses it too): say so instead of failing
-  const blocked = (summary?.unpriced_works.length ?? 0) > 0;
+  const blocked = (summary?.unpriced_items.length ?? 0) > 0;
 
   const send = async (part?: { room_ids: string[]; include_project_photos: boolean }) => {
     if (busy) return;
@@ -120,6 +146,27 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
       return next;
     });
 
+  const surfaceLabels = { wall: t.surfaces.wall, floor: t.surfaces.floor, ceiling: t.surfaces.ceiling };
+  const reasonText = (work: UnpricedWork): string => {
+    switch (work.reason) {
+      case 'PENDING':
+        return text.reason_pending;
+      case 'NO_ESTIMATE':
+        return text.reason_no_estimate;
+      case 'NO_PRICE':
+        return text.reason_no_price;
+      default:
+        // accepted, but accepting never touches an estimate: a draft is updated, a settled one gets a new version
+        return summary?.estimate_status === 'DRAFT' ? text.reason_not_in_estimate_draft : text.reason_not_in_estimate_final;
+    }
+  };
+  const actionText = (work: UnpricedWork): string =>
+    work.reason === 'PENDING' ? text.action_open_inspection : work.reason === 'NO_ESTIMATE' ? text.action_open_estimates : text.action_open_estimate;
+  const openUnpriced = (work: UnpricedWork) => {
+    if (work.reason === 'PENDING') onOpenInspection(work);
+    else onOpenEstimate(work.reason === 'NO_ESTIMATE' ? null : summary?.estimate_id ?? null);
+  };
+
   const kindLabel = (document: IssuedDocument) => (document.kind === 'ESTIMATE' ? text.kind_estimate : text.kind_photo_report);
 
   return (
@@ -130,7 +177,10 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
           type="button"
           aria-label="toggle-project-documents"
           aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => {
+            rememberOpen(projectId, !open);
+            setOpen((value) => !value);
+          }}
           className="min-h-11 px-4 shrink-0 text-sm font-semibold text-slate-800 bg-slate-100 border border-slate-200 rounded-xl hover:bg-slate-200 transition"
         >
           {open ? text.hide : text.show}
@@ -167,15 +217,34 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                   {text.recommended_works.replace('{count}', String(summary.recommended_count))}
                 </p>
               )}
-              {summary.unpriced_works.length > 0 && (
-                <div role="alert" aria-label="unpriced-works" className="text-sm text-red-700 space-y-1">
-                  <p className="font-medium break-words">{text.unpriced_title}</p>
-                  <ul className="list-disc pl-5 space-y-0.5">
-                    {summary.unpriced_works.map((work) => (
-                      <li key={work} className="break-words">{work}</li>
+              {summary.unpriced_items.length > 0 && (
+                <div role="alert" aria-label="unpriced-works" className="space-y-2">
+                  <p className="text-sm font-semibold text-red-700 break-words">{text.unpriced_title}</p>
+                  <p className="text-xs text-slate-600 break-words">{text.unpriced_tap}</p>
+                  <ul className="space-y-2">
+                    {summary.unpriced_items.map((work) => (
+                      <li key={`${work.surface_id}-${work.work_code}`}>
+                        <button
+                          type="button"
+                          aria-label={`unpriced-work-${work.work_code}`}
+                          onClick={() => openUnpriced(work)}
+                          className="w-full min-h-11 text-left bg-red-50 border border-red-200 rounded-xl px-3 py-2 space-y-1 hover:bg-red-100 active:bg-red-100 transition"
+                        >
+                          <span className="block text-sm font-semibold text-slate-900 break-words">
+                            {priceItemLabel(t, { display_name: work.work_display_name, name_key: work.work_name_key, code: work.work_code }, work.work_code)}
+                          </span>
+                          <span className="block text-xs text-slate-700 break-words">
+                            {work.room_name} › {getSurfaceDisplayName({ name: work.surface_name, surface_type: work.surface_type }, surfaceLabels)}
+                          </span>
+                          <span className="block text-xs text-red-800 break-words">{reasonText(work)}</span>
+                          <span className="flex items-center justify-between gap-2 text-xs font-semibold text-blue-700">
+                            <span className="min-w-0 break-words">{actionText(work)}</span>
+                            <span aria-hidden="true" className="shrink-0 text-base leading-none">›</span>
+                          </span>
+                        </button>
+                      </li>
                     ))}
                   </ul>
-                  <p className="break-words">{text.unpriced_hint}</p>
                 </div>
               )}
               {!summary.over_limit ? (

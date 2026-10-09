@@ -7,6 +7,7 @@ import {
   restoreProject,
   updateProject,
 } from '../api/projects';
+import { listEstimates } from '../api/estimates';
 import { fetchRoom, updateRoom } from '../api/rooms';
 import { useI18n } from '../hooks/useI18n';
 import { resolveRoomMeasurementMode } from '../hooks/roomMeasurementMode';
@@ -32,6 +33,8 @@ import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { RoomList } from './RoomList';
 import { OpeningGroupList } from './OpeningGroupList';
 import { ProjectDocuments } from './ProjectDocuments';
+import type { UnpricedWork } from '../types/document';
+import { inspectionTargetOf } from '../utils/unpricedTarget';
 import { ProjectSummaryCard } from './ProjectSummaryCard';
 import { SurfaceList } from './SurfaceList';
 
@@ -356,6 +359,50 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
         // use room from list
       }
     }
+  };
+
+  // Stage 15H.1: from a blocked photo report straight to the inspection that holds the recommendation ...
+  const openRecommendationInspection = async (work: UnpricedWork) => {
+    if (!selectedProject || !work.inspection_id) return;
+    let room: RoomType;
+    try {
+      room = await fetchRoom(selectedProject.id, work.room_id);
+    } catch {
+      setError(t.projects.error);
+      return;
+    }
+    const target = inspectionTargetOf(work);
+    closeForm();
+    setShowRoomForm(false);
+    setShowEstimates(false);
+    setSelectedEstimate(null);
+    setSelectedEstimateGroupKey(null);
+    setSelectedRoom(room);
+    setSuccess(null);
+    // the list is the step below the inspection, so the back button returns there, then to the room
+    setInspectionTarget(target);
+    setActiveInspection({ target, inspectionId: work.inspection_id });
+  };
+
+  // ... or to the estimate whose prices the report uses (the list of estimates when there is none yet).
+  const openCurrentEstimate = async (estimateId: string | null) => {
+    if (!selectedProject) return;
+    let estimate: EstimateSummaryRead | null = null;
+    if (estimateId) {
+      try {
+        estimate = (await listEstimates(selectedProject.id)).items.find((item) => item.id === estimateId) ?? null;
+      } catch {
+        estimate = null; // the list of estimates opens instead and shows its own error
+      }
+    }
+    closeForm();
+    setShowRoomForm(false);
+    closeInspections();
+    setSelectedRoom(null);
+    setSelectedEstimateGroupKey(null);
+    setSelectedEstimate(estimate);
+    setShowEstimates(true);
+    setSuccess(null);
   };
 
   const backToProjects = () => {
@@ -704,7 +751,11 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
           </article>
 
           {/* Stage 15F: the photo report and the journal of documents sent to the owner's chat. */}
-          <ProjectDocuments projectId={selectedProject.id} />
+          <ProjectDocuments
+            projectId={selectedProject.id}
+            onOpenInspection={(work) => void openRecommendationInspection(work)}
+            onOpenEstimate={(estimateId) => void openCurrentEstimate(estimateId)}
+          />
 
           <RoomList
             projectId={selectedProject.id}
