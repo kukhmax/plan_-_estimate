@@ -55,6 +55,17 @@ class ContractAnswerInvalidError(Exception):
         self.reason = reason
 
 
+class ContractGateError(Exception):
+    """Raised when a contract cannot be issued yet (Stage 16E.2). `blockers` is the list of what to fix: each has a stable code
+    and, where it helps, details (the missing answers, the surfaces that lack something)."""
+
+    code = "CONTRACT_GATE_BLOCKED"
+
+    def __init__(self, blockers: list) -> None:
+        super().__init__("the contract cannot be issued yet: " + ", ".join(b.code for b in blockers))
+        self.blockers = blockers
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 

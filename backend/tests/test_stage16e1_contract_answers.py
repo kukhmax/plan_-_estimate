@@ -190,10 +190,11 @@ def test_upgrade_matches_the_model_and_downgrade_drops_only_the_table():
     insp = inspect(engine)
     assert set(insp.get_table_names()) == before | {"contracts"}
     columns = {c["name"]: c for c in insp.get_columns("contracts")}
-    assert set(columns) == {c.name for c in Contract.__table__.columns}
+    later = {"issued_at", "snapshot", "document_html", "estimate_id", "estimate_version"}  # added by 0045 (16E.2)
+    assert set(columns) == {c.name for c in Contract.__table__.columns} - later
     assert all(not c["nullable"] for c in columns.values())
     assert {fk["referred_table"] for fk in insp.get_foreign_keys("contracts")} == {"users", "projects"}
-    assert {c["name"] for c in insp.get_check_constraints("contracts")} == {"ck_contracts_status", "ck_contracts_version_positive"}
+    assert {c["name"] for c in insp.get_check_constraints("contracts")} == {"ck_contracts_status", "ck_contracts_version_positive"}  # + the freeze rule in 0045
     assert {i["name"] for i in insp.get_indexes("contracts")} == {"uq_contracts_one_draft", "ix_contracts_project"}
     run_migration(engine, "downgrade")
     assert set(inspect(engine).get_table_names()) == before

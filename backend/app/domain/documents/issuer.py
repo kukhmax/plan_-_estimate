@@ -22,7 +22,11 @@ from datetime import UTC, date, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.domain.contracts.answers import effective_answers
+from app.domain.contracts.catalog import load_contract_catalog
+from app.domain.contracts.gate import load_gate_data
 from app.domain.documents import formatting
+from app.domain.documents.contract_document import build_contract_document, render_contract_html, snapshot_of
 from app.domain.documents.delivery import DocumentDelivery
 from app.domain.documents.estimate_document import EstimateDocumentService
 from app.domain.documents.photo_report_document import PhotoReportDocumentService
@@ -31,18 +35,22 @@ from app.domain.documents.registry import DocumentKind, get_template
 from app.domain.documents.renderer import DocumentRenderer, RenderedPdf
 from app.domain.documents.tech_card_document import TechCardDocumentService
 from app.domain.exceptions import (
+    ContractGateError,
+    ContractNotEditableError,
     DocumentDataError,
     DocumentDeliveryError,
     DocumentQueueFullError,
     DocumentRenderError,
     IssuedDocumentNotFoundError,
 )
+from app.domain.services.contract_service import ContractService
 from app.domain.services.executor_profile_service import ExecutorProfileService
 from app.domain.services.issued_document_service import (
     IssuedDocumentService,
     Reservation,
 )
 from app.domain.services.media_storage import MediaStorage
+from app.models.contract import Contract
 from app.models.issued_document import IssuedDocument, IssuedDocumentKind
 from app.models.project import Project
 from app.models.user import User
@@ -220,6 +228,74 @@ class DocumentIssuer:
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
+    async def start_contract(self, db: AsyncSession, user: User, project_id: uuid.UUID, contract_id: uuid.UUID) -> Reservation:
+        """Issue a draft of the contract: the gate first (a refusal lists what to fix and takes no number), then the number, then
+        the freeze -- the conditions, the exact page and the estimate that priced it -- and the slow part (the PDF and its delivery)
+        in the background."""
+        self._ensure_capacity()
+        owner_id = user.id
+        service = ContractService(db)
+        contract, data, blockers = await service.gate(project_id, contract_id, owner_id)
+        if contract.status != "DRAFT":
+            raise ContractNotEditableError(f"contract {contract_id} is {contract.status}: only a draft is issued")
+        if blockers:
+            raise ContractGateError(blockers)
+        effective = effective_answers(contract.answers or {}, load_contract_catalog())
+        build_contract_document(contract, effective, data, working=False, issued_on=self._today())  # a refusal here takes no number
+        project = await self._project(db, owner_id, project_id)
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.CONTRACT,
+            title=f"Umowa — wersja {contract.version}",
+            template_version=get_template(DocumentKind.CONTRACT).version,
+            source_id=contract.id,
+            source_version=contract.version,
+            client_id=project.client_id,
+        )
+        if reservation.reused:
+            return reservation
+        try:
+            document = build_contract_document(
+                contract, effective, data, working=False, issued_on=self._today(),
+                number=reservation.document.number, sequence=reservation.document.project_seq,
+            )
+            await service.mark_issued(
+                project_id, contract.id, owner_id,
+                issued_at=self.clock(),
+                snapshot=snapshot_of(contract, effective, data, document),
+                document_html=render_contract_html(document),
+                estimate_id=data.estimate.id if data.estimate else None,
+                estimate_version=data.estimate.version if data.estimate else None,
+            )
+        except Exception:
+            logger.exception("freezing contract %s failed", contract_id)
+            await db.rollback()
+            await IssuedDocumentService(db, clock=self.clock).mark_failed(owner_id, reservation.document.id, "INTERNAL_ERROR")
+            raise
+        await db.refresh(reservation.document)  # the freeze committed: the journal row is read again, not left expired
+        return self._launch(reservation)
+
+    async def preview_contract(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version of the contract with its annexes (pale watermark, no number, no journal row) to the owner's chat.
+        It never refuses for missing data: whatever is not answered yet is an empty line to write in. It follows the open draft's
+        answers, or is a blank form when there is none."""
+        owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
+        service = ContractService(db)
+        data = await load_gate_data(db, owner_id, project_id)
+        drafts = [c for c in await service.list(project_id, owner_id) if c.status == "DRAFT"]
+        effective = effective_answers(drafts[0].answers or {}, load_contract_catalog()) if drafts else {}
+        document = build_contract_document(drafts[0] if drafts else None, effective, data, working=True, issued_on=self._today())
+        project = await self._project(db, owner_id, project_id)
+        rendered = await self.renderer.render(render_contract_html(document))
+        await self.delivery.send_document(
+            chat_id,
+            "Umowa-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — Umowa — {project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
     async def preview_estimate(self, db: AsyncSession, user: User, project_id: uuid.UUID, estimate_id: uuid.UUID) -> PreviewResult:
         """A working version of an unfinished estimate to the owner's chat: watermark, no number, no journal row. The slow
         part runs in the request (a one-page document), so the owner sees at once whether it arrived."""
@@ -296,6 +372,11 @@ class DocumentIssuer:
                 document.project_id, document.source_id, document.owner_id, self.renderer,
                 issued_on=issued_on, number=document.number, sequence=document.project_seq,
             )
+        if document.kind == IssuedDocumentKind.CONTRACT.value:
+            contract = (await db.execute(select(Contract).where(Contract.id == document.source_id, Contract.owner_id == document.owner_id))).scalar_one_or_none()
+            if contract is None or not contract.document_html:
+                raise DocumentDataError("CONTRACT_NOT_ISSUED", "the contract of this document is not frozen")
+            return await self.renderer.render(contract.document_html)
         if document.kind == IssuedDocumentKind.PRODUCTION_PLAN.value:
             return await ProductionPlanDocumentService(db).render(
                 document.owner_id, document.project_id, self.renderer,

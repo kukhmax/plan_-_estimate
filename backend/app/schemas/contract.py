@@ -33,3 +33,15 @@ class ContractRead(BaseModel):
 class ContractListResponse(BaseModel):
     items: list[ContractRead]
     total: int
+
+
+class GateBlockerRead(BaseModel):
+    """One thing to fix before the contract can be issued: a stable code the screen has a sentence for, and its details."""
+
+    code: str
+    details: dict[str, Any] | None = None
+
+
+class ContractGateRead(BaseModel):
+    ready: bool
+    blockers: list[GateBlockerRead]

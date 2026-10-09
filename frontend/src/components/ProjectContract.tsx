@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchContractCatalog } from '../api/contractCatalog';
-import { abandonContractDraft, fetchContracts, openContractDraft, saveContractAnswers } from '../api/contracts';
+import { abandonContractDraft, fetchContractGate, fetchContracts, issueContract, openContractDraft, saveContractAnswers } from '../api/contracts';
+import { previewContractPdf } from '../api/documents';
 import { ApiError } from '../api/http';
+import { documentErrorText } from '../utils/documentErrors';
 import { fetchRepresentatives } from '../api/representatives';
 import { useI18n } from '../hooks/useI18n';
-import type { Contract, ContractAnswersChange } from '../types/contract';
+import type { Contract, ContractAnswersChange, ContractGate, GateBlocker } from '../types/contract';
 import type { ContractCatalog, ContractQuestion, PremisesRequirement, QuestionGroup } from '../types/contractCatalog';
 import type { ProjectRepresentative } from '../types/representative';
+import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { FieldValue, RequirementField, sameAnswer, toAnswer, toField } from '../utils/contractAnswers';
 
 interface ProjectContractProps {
@@ -38,6 +41,8 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [confirmAbandon, setConfirmAbandon] = useState(false);
+  const [gate, setGate] = useState<ContractGate | null>(null);
+  const [gateFailed, setGateFailed] = useState(false);
   const alive = useRef(true);
 
   useEffect(() => {
@@ -79,6 +84,19 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
     void load();
   }, [load]);
 
+  const loadGate = useCallback(
+    async (contractId: string) => {
+      setGateFailed(false);
+      try {
+        const result = await fetchContractGate(projectId, contractId);
+        if (alive.current) setGate(result);
+      } catch {
+        if (alive.current) setGateFailed(true);
+      }
+    },
+    [projectId],
+  );
+
   const start = async () => {
     if (busy) return;
     setBusy(true);
@@ -96,6 +114,7 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
       setDraft(contract);
       fill(contract, loadedCatalog);
       setOpen(true);
+      void loadGate(contract.id);
     } catch {
       if (alive.current) setError(text.load_failed);
     } finally {
@@ -131,6 +150,7 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
       setDraft(saved);
       fill(saved, catalog);
       setNote(text.saved);
+      void loadGate(saved.id);
     } catch (err) {
       if (!alive.current) return;
       if (err instanceof ApiError && err.code === 'CONTRACT_ANSWER_INVALID') {
@@ -143,6 +163,46 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
       } else {
         setError(text.errors.UNKNOWN);
       }
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  };
+
+  const preview = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      await previewContractPdf(projectId);
+      if (alive.current) setNote(text.preview_ok);
+    } catch (err) {
+      if (alive.current) setError(documentErrorText(t.documents.errors, err));
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  };
+
+  const issue = async () => {
+    if (!draft || busy || !gate?.ready) return;
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      await issueContract(projectId, draft.id);
+      if (!alive.current) return;
+      setOpen(false);
+      setDraft(null);
+      setGate(null);
+      setNote(text.issue_note);
+      await load();
+    } catch (err) {
+      if (!alive.current) return;
+      const blockers = err instanceof ApiError && err.code === 'CONTRACT_GATE_BLOCKED'
+        ? (err.detail as { details?: { blockers?: GateBlocker[] } } | null)?.details?.blockers
+        : undefined;
+      if (blockers) setGate({ ready: false, blockers });
+      else setError(err instanceof ApiError && err.code === 'CONTRACT_NOT_EDITABLE' ? text.errors.NOT_EDITABLE : documentErrorText(t.documents.errors, err));
     } finally {
       if (alive.current) setBusy(false);
     }
@@ -185,6 +245,24 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
   const requiredDone = draft ? requiredTotal - draft.missing_required.length : 0;
   const questionLabel = (key: string) => catalogText.questions[key as keyof typeof catalogText.questions] ?? key;
   const authorised = people.filter((p) => p.may_accept_and_sign);
+
+  const surfaceLabels = { wall: t.surfaces.wall, floor: t.surfaces.floor, ceiling: t.surfaces.ceiling };
+  const blockerText = (blocker: GateBlocker): string => {
+    const sentence = text.gate[blocker.code];
+    const details = blocker.details;
+    if (blocker.code === 'CLIENT_ADDRESS_INCOMPLETE') {
+      return sentence.replace('{fields}', (details?.missing ?? []).map((f) => text.client_fields[f as keyof typeof text.client_fields] ?? f).join(', '));
+    }
+    if (blocker.code === 'ANSWERS_MISSING') {
+      return sentence.replace('{fields}', (details?.keys ?? []).map(questionLabel).join(', '));
+    }
+    if (blocker.code === 'ESTIMATE_NOT_FINAL') {
+      return sentence
+        .replace('{version}', String(details?.version ?? ''))
+        .replace('{status}', text.estimate_status[(details?.status ?? 'DRAFT') as keyof typeof text.estimate_status] ?? '');
+    }
+    return sentence;
+  };
 
   const renderInput = (question: ContractQuestion) => {
     const value = fields[question.key];
@@ -316,7 +394,7 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
             disabled={busy}
             className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition break-words"
           >
-            {busy ? text.loading : draft ? text.continue : text.compose}
+            {busy ? text.loading : draft ? text.continue : latest ? text.new_version : text.compose}
           </button>
         </>
       )}
@@ -357,10 +435,47 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
             </fieldset>
           ))}
           <p className="text-xs text-slate-500 break-words">{text.optional_note}</p>
+          <section aria-label="contract-gate" className="space-y-2 border-t border-slate-200 pt-3">
+            <h4 className="text-sm font-semibold text-slate-900 break-words">{text.gate_title}</h4>
+            {gateFailed && <p role="alert" className="text-sm text-red-700 break-words">{text.gate_failed}</p>}
+            {!gate && !gateFailed && <p role="status" className="text-sm text-slate-600">{text.gate_loading}</p>}
+            {gate?.ready && <p className="text-sm text-emerald-800 break-words">{text.gate_ready}</p>}
+            {gate && !gate.ready && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-red-700 break-words">{text.gate_blocked}</p>
+                <ul className="space-y-2">
+                  {gate.blockers.map((blocker) => (
+                    <li key={blocker.code} aria-label={`gate-${blocker.code}`} className="text-xs text-slate-800 break-words bg-red-50 border border-red-200 rounded-xl px-3 py-2 space-y-1">
+                      <span className="block">{blockerText(blocker)}</span>
+                      {blocker.code === 'SURFACE_INCOMPLETE' && (
+                        <ul className="space-y-1">
+                          {(blocker.details?.items ?? []).map((item) => (
+                            <li key={`${item.room}-${item.surface}`} className="break-words">
+                              <span className="font-semibold">
+                                {item.room} › {getSurfaceDisplayName({ name: item.surface, surface_type: item.surface_type }, surfaceLabels)}
+                              </span>
+                              {': '}
+                              {item.missing.map((m) => t.documents.tech_card_missing[m as keyof typeof t.documents.tech_card_missing] ?? m).join('; ')}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
           {error && <p role="alert" aria-label="contract-error" className="text-sm text-red-700 break-words">{error}</p>}
           {note && <p role="status" aria-label="contract-note" className="text-sm text-emerald-800 break-words">{note}</p>}
           <button type="submit" aria-label="save-contract-answers" disabled={busy} className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition">
             {text.save}
+          </button>
+          <button type="button" aria-label="preview-contract" disabled={busy} onClick={() => void preview()} className="w-full min-h-11 px-3 text-sm font-semibold text-slate-900 bg-slate-100 border border-slate-300 rounded-xl hover:bg-slate-200 disabled:opacity-60 transition break-words">
+            {text.preview}
+          </button>
+          <button type="button" aria-label="issue-contract" disabled={busy || !gate?.ready} onClick={() => void issue()} className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-sky-700 rounded-xl hover:bg-sky-800 disabled:opacity-60 transition break-words">
+            {text.issue}
           </button>
           <button type="button" aria-label="close-contract-form" disabled={busy} onClick={() => setOpen(false)} className="w-full min-h-11 px-3 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition">
             {text.close}

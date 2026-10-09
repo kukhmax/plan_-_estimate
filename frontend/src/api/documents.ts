@@ -59,3 +59,8 @@ export function issueProductionPlan(projectId: string): Promise<IssuedDocument> 
 export function previewProductionPlanPdf(projectId: string): Promise<DocumentPreviewResult> {
   return apiRequest(`${base(projectId)}/documents/production-plan/preview`, { method: 'POST' });
 }
+
+/** The working version of the contract with its annexes (pale watermark, empty lines for what is missing) to the owner's chat. */
+export function previewContractPdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/contract/preview`, { method: 'POST' });
+}

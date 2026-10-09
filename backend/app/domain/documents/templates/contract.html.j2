@@ -1,0 +1,69 @@
+{% extends "_layout.html.j2" %}
+{% macro field(value) %}{% if value %}{{ value }}{% else %}<span class="write-line"></span>{% endif %}{% endmacro %}
+{% block body %}
+<div class="contract">
+{% if doc.working %}<p class="notice">{{ t('contract.working_note') }}</p>{% endif %}
+<table class="facts">
+  {% for row in doc.intro %}<tr><td class="label">{{ row.label }}</td><td>{{ field(row.value) }}</td></tr>{% endfor %}
+</table>
+{% for section in doc.sections %}
+<section class="contract-section">
+  <h2>§&nbsp;{{ section.number }}. {{ section.title }}</h2>
+  {% if section.facts %}
+  <table class="facts">
+    {% for row in section.facts %}<tr><td class="label">{{ row.label }}</td><td>{{ field(row.value) }}</td></tr>{% endfor %}
+  </table>
+  {% endif %}
+  {% for paragraph in section.paragraphs %}<p>{{ paragraph }}</p>{% else %}<p class="muted">{{ t('skeleton.section_empty') }}</p>{% endfor %}
+  {% if section.key == 'acceptance' %}
+  <h3>{{ t('contract.persons_title') }}</h3>
+  {% if doc.persons %}
+  <table class="works persons">
+    <thead><tr><th>{{ t('contract.persons.name') }}</th><th>{{ t('contract.persons.side') }}</th><th>{{ t('contract.persons.role') }}</th><th>{{ t('contract.persons.phone') }}</th></tr></thead>
+    <tbody>{% for p in doc.persons %}<tr><td>{{ p.name }}</td><td>{{ p.side }}</td><td>{{ p.role or '' }}</td><td>{{ p.phone or '' }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}
+  <p class="muted">{{ t('contract.persons_none') }}</p>
+  {% for _ in range(3) %}<table class="facts"><tr><td class="label">{{ t('contract.persons.name') }}</td><td><span class="write-line"></span></td></tr></table>{% endfor %}
+  {% endif %}
+  {% endif %}
+</section>
+{% endfor %}
+</div>
+
+<section class="annex">
+  <h2 class="annex-title">{{ t('contract.annex.1') }}</h2>
+  {% with embedded=true, doc=doc.tech_card %}{% include "_tech_card_body.html.j2" %}{% endwith %}
+</section>
+<section class="annex">
+  <h2 class="annex-title">{{ t('contract.annex.2') }}</h2>
+  {% with embedded=true, doc=doc.plan %}{% include "_plan_body.html.j2" %}{% endwith %}
+</section>
+<section class="annex contract">
+  <h2 class="annex-title">{{ t('contract.annex.3') }}</h2>
+  <p>{% if doc.estimate_version and doc.estimate_total %}{{ t('contract.estimate_text', n=doc.estimate_version, total=doc.estimate_total) }}{% else %}{{ t('contract.estimate_missing') }}{% endif %}</p>
+</section>
+<section class="annex contract">
+  <h2 class="annex-title">{{ t('contract.annex.4') }}</h2>
+  <table class="facts requirements">
+    {% for r in doc.requirements %}<tr><td class="label">{{ r.text }}</td><td>{{ field(r.value) }}</td></tr>{% endfor %}
+  </table>
+</section>
+<section class="annex contract">
+  <h2 class="annex-title">{{ t('contract.annex.5') }}</h2>
+  <p class="muted">{{ t('contract.reg.geometry_note') }}</p>
+  <h3>{{ t('contract.reg.classes') }}</h3>
+  {% for c in doc.regulation.classes %}
+  <p><strong>{{ c.code }}</strong> — {{ c.text }} {{ c.lighting | capitalize }}{% if c.needs_agreement %}; {{ t('contract.reg.needs_agreement') }}{% endif %}.</p>
+  {% endfor %}
+  <h3>{{ t('contract.reg.defects') }}</h3>
+  {% for d in doc.regulation.defects %}
+  <p>{{ d.text }} <strong>{{ t('contract.reg.outcome') }}: {{ d.outcome }}.</strong> {% if d.criteria %}{{ d.criteria }}{% else %}<span class="muted">{{ t('contract.reg.criteria_missing') }}</span>{% endif %}</p>
+  {% endfor %}
+  <h3>{{ t('contract.reg.instruments') }}</h3>
+  <ul>{% for i in doc.regulation.instruments %}<li>{{ i }}</li>{% endfor %}</ul>
+  <h3>{{ t('contract.reg.tolerances') }}</h3>
+  {% if doc.regulation.tolerances %}<ul>{% for item in doc.regulation.tolerances %}<li>{{ item }}</li>{% endfor %}</ul>
+  {% else %}<p class="muted">{{ t('contract.reg.tolerances_none') }}</p>{% endif %}
+</section>
+{% endblock %}

@@ -16,7 +16,7 @@ class DocumentKind(str, enum.Enum):
     DIAGNOSTIC = "DIAGNOSTIC"  # the control page: layout, Polish / Cyrillic glyphs, page numbering
     ESTIMATE = "ESTIMATE"  # Kosztorys (15D)
     PHOTO_REPORT = "PHOTO_REPORT"  # Raport fotograficzny (15E)
-    CONTRACT = "CONTRACT"  # Umowa: a skeleton, the text is Stage 16 (15G)
+    CONTRACT = "CONTRACT"  # Umowa: data of the questionnaire, the annexes and the clause catalogue (16E)
     HANDOVER_PROTOCOL = "HANDOVER_PROTOCOL"  # Protokół przekazania terenu / obiektu: a skeleton (15G)
     CONCEALED_WORKS_PROTOCOL = "CONCEALED_WORKS_PROTOCOL"  # Protokół odbioru robót zanikających: a skeleton (15G)
     FINAL_PROTOCOL = "FINAL_PROTOCOL"  # Protokół odbioru końcowego: a skeleton (15G)
@@ -43,8 +43,8 @@ TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
     DocumentKind.TECH_CARD: DocumentTemplate(DocumentKind.TECH_CARD, "1", "tech_card.html.j2", "KART"),
     DocumentKind.PRODUCTION_PLAN: DocumentTemplate(DocumentKind.PRODUCTION_PLAN, "1", "production_plan.html.j2", "PLAN"),
     DocumentKind.CONTRACT: DocumentTemplate(
-        DocumentKind.CONTRACT, SKELETON_VERSION, SKELETON_FILE, "UMOWA",
-        ("subject", "scope_of_work", "price", "schedule", "payment_terms", "acceptance", "warranty", "other_provisions"),
+        DocumentKind.CONTRACT, "1", "contract.html.j2", "UMOWA",
+        ("subject", "scope_of_work", "price", "schedule", "payment_terms", "acceptance", "downtime", "warranty", "penalty", "other_provisions"),
     ),
     DocumentKind.HANDOVER_PROTOCOL: DocumentTemplate(
         DocumentKind.HANDOVER_PROTOCOL, SKELETON_VERSION, SKELETON_FILE, "PRZEK",

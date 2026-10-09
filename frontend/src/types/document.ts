@@ -1,5 +1,5 @@
 /** Stage 15F — the journal of issued documents and the photo report summary (mirrors backend `schemas/issued_document.py`). */
-export type DocumentKind = 'ESTIMATE' | 'PHOTO_REPORT' | 'TECH_CARD' | 'PRODUCTION_PLAN';
+export type DocumentKind = 'ESTIMATE' | 'PHOTO_REPORT' | 'TECH_CARD' | 'PRODUCTION_PLAN' | 'CONTRACT';
 export type DocumentStatus = 'PENDING' | 'SENT' | 'FAILED';
 
 export interface IssuedDocument {

@@ -27,6 +27,8 @@ vi.mock('./api/contracts', () => ({
   openContractDraft: vi.fn(),
   saveContractAnswers: vi.fn(),
   abandonContractDraft: vi.fn(),
+  fetchContractGate: vi.fn(),
+  issueContract: vi.fn(),
 }));
 vi.mock('./api/adjacentWorks', () => ({
   fetchAdjacentWorks: vi.fn(async () => ({ items: [], total: 0 })),

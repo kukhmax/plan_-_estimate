@@ -217,7 +217,39 @@
       "UNKNOWN_REQUIREMENT": "nieznane wymaganie",
       "DATE_ORDER": "data zakończenia nie może być wcześniejsza niż rozpoczęcia"
     },
-    "draft_summary": "Szkic, wersja {n}. Do uzupełnienia wymaganych odpowiedzi: {missing}."
+    "draft_summary": "Szkic, wersja {n}. Do uzupełnienia wymaganych odpowiedzi: {missing}.",
+    "new_version": "Nowa wersja umowy",
+    "preview": "Wersja robocza do wydruku (puste pola)",
+    "preview_ok": "Wersja robocza umowy z załącznikami wysłana do czatu z botem — wydrukuj ją i uzupełnij odręcznie.",
+    "issue": "Wystaw umowę",
+    "issue_note": "Umowa została wystawiona i jest wysyłana do czatu z botem. Sprawdź „Wysłane dokumenty” w karcie „Dokumenty PDF”.",
+    "gate_title": "Gotowość umowy",
+    "gate_ready": "Wszystko gotowe — można wystawić umowę. Po wystawieniu warunki zostają zamrożone; zmiana oznacza nową wersję.",
+    "gate_blocked": "Umowy nie można jeszcze wystawić:",
+    "gate_loading": "Sprawdzam gotowość…",
+    "gate_failed": "Nie udało się sprawdzić gotowości.",
+    "gate": {
+      "EXECUTOR_PROFILE_REQUIRED": "Uzupełnij profil wykonawcy (Konto → Profil wykonawcy).",
+      "CLIENT_REQUIRED": "Obiekt nie ma przypisanego klienta.",
+      "CLIENT_ADDRESS_INCOMPLETE": "Uzupełnij adres klienta: {fields}.",
+      "ANSWERS_MISSING": "Brakuje wymaganych odpowiedzi: {fields}.",
+      "PERSON_NOT_AUTHORISED": "Wskazana osoba nie jest już aktywna lub straciła uprawnienie do odbioru prac — popraw wybór osób.",
+      "NO_PLANNED_WORKS": "Żadna powierzchnia nie ma zaplanowanych prac.",
+      "SURFACE_INCOMPLETE": "Na powierzchniach z pracami czegoś brakuje:",
+      "ESTIMATE_REQUIRED": "Obiekt nie ma kosztorysu — utwórz kosztorys.",
+      "ESTIMATE_NOT_FINAL": "Kosztorys (wersja {version}) jest w stanie „{status}” — zatwierdź go przed wystawieniem umowy."
+    },
+    "client_fields": {
+      "street": "ulica i numer",
+      "postal_code": "kod pocztowy",
+      "city": "miejscowość"
+    },
+    "estimate_status": {
+      "DRAFT": "szkic",
+      "FINAL": "zatwierdzony",
+      "ACCEPTED": "zaakceptowany",
+      "ARCHIVED": "zarchiwizowany"
+    }
   },
   "contractCatalog": {
     "groups": {
@@ -2039,7 +2071,8 @@
       "SKELETON_SECTION_UNKNOWN": "Dokument ma sekcję, której nie przewiduje jego wzór. Zgłoś to do obsługi aplikacji.",
       "TECH_CARD_EMPTY": "Żadna powierzchnia nie ma jeszcze zaplanowanych prac. Dodaj prace do planu albo wydrukuj wersję roboczą.",
       "TECH_CARD_INCOMPLETE": "Na części powierzchni z pracami brakuje danych do karty (lista poniżej). Wersję roboczą z pustymi polami możesz wydrukować już teraz.",
-      "PRODUCTION_PLAN_EMPTY": "Żadna powierzchnia nie ma jeszcze zaplanowanych prac. Dodaj prace do planu albo wydrukuj wersję roboczą."
+      "PRODUCTION_PLAN_EMPTY": "Żadna powierzchnia nie ma jeszcze zaplanowanych prac. Dodaj prace do planu albo wydrukuj wersję roboczą.",
+      "CONTRACT_NOT_ISSUED": "Umowa tego dokumentu nie jest zamrożona. Zgłoś to do obsługi aplikacji."
     },
     "recommended_works": "Rekomendowane prace dodatkowe: {count}",
     "unpriced_title": "Raport nie zostanie wysłany: te rekomendowane prace nie mają ceny w kosztorysie.",
@@ -2068,6 +2101,7 @@
     "production_plan_hint": "Kolejność prac w pomieszczeniach, przerwy technologiczne i prace innych wykonawców — bez cen i bez wymyślonych terminów (daty wpisujesz odręcznie lub w umowie). Wersję roboczą z pustymi polami możesz wydrukować od razu.",
     "production_plan_preview": "Wersja robocza do wydruku (puste pola)",
     "production_plan_send": "Wyślij plan (PDF)",
-    "production_plan_preview_ok": "Wersja robocza wysłana do czatu z botem — wydrukuj ją i uzupełnij odręcznie."
+    "production_plan_preview_ok": "Wersja robocza wysłana do czatu z botem — wydrukuj ją i uzupełnij odręcznie.",
+    "kind_contract": "Umowa"
   }
 }

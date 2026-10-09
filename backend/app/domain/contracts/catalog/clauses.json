@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "approved": false,
+  "approved_by": null,
+  "approved_on": null,
+  "sections": [
+    {"key": "subject", "title_pl": "Przedmiot umowy", "paragraphs_pl": []},
+    {"key": "scope_of_work", "title_pl": "Zakres prac", "paragraphs_pl": []},
+    {"key": "price", "title_pl": "Cena", "paragraphs_pl": []},
+    {"key": "schedule", "title_pl": "Terminy", "paragraphs_pl": []},
+    {"key": "payment_terms", "title_pl": "Płatności", "paragraphs_pl": []},
+    {"key": "acceptance", "title_pl": "Odbiór prac", "paragraphs_pl": []},
+    {"key": "downtime", "title_pl": "Przestój z winy Zamawiającego", "paragraphs_pl": []},
+    {"key": "warranty", "title_pl": "Gwarancja", "paragraphs_pl": []},
+    {"key": "penalty", "title_pl": "Kara umowna", "paragraphs_pl": []},
+    {"key": "other_provisions", "title_pl": "Postanowienia końcowe", "paragraphs_pl": []}
+  ]
+}

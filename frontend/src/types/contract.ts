@@ -27,3 +27,30 @@ export interface ContractListResponse {
 
 /** Only the answers that change; null clears an answer. */
 export type ContractAnswersChange = Record<string, AnswerValue | null>;
+
+/** One thing to fix before the contract can be issued (Stage 16E.2): a stable code and where it helps its details. */
+export interface GateBlocker {
+  code:
+    | 'EXECUTOR_PROFILE_REQUIRED'
+    | 'CLIENT_REQUIRED'
+    | 'CLIENT_ADDRESS_INCOMPLETE'
+    | 'ANSWERS_MISSING'
+    | 'PERSON_NOT_AUTHORISED'
+    | 'NO_PLANNED_WORKS'
+    | 'SURFACE_INCOMPLETE'
+    | 'ESTIMATE_REQUIRED'
+    | 'ESTIMATE_NOT_FINAL';
+  details: {
+    missing?: string[];
+    keys?: string[];
+    ids?: string[];
+    status?: string;
+    version?: number;
+    items?: Array<{ room: string; surface: string; surface_type: string; missing: string[] }>;
+  } | null;
+}
+
+export interface ContractGate {
+  ready: boolean;
+  blockers: GateBlocker[];
+}

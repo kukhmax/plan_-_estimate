@@ -7,6 +7,7 @@ import {
   issueProductionPlan,
   issueTechCard,
   listDocuments,
+  previewContractPdf,
   previewEstimatePdf,
   previewProductionPlanPdf,
   previewTechCardPdf,
@@ -95,5 +96,13 @@ describe('documents API', () => {
     call = lastCall();
     expect(call.url).toBe('/api/projects/p1/documents/production-plan/preview');
     expect(call.init.method).toBe('POST');
+  });
+
+  it('previews the working version of the contract', async () => {
+    respond(200, { sent: true, pages: 9, byte_size: 10 });
+    await previewContractPdf('p1');
+    const { url, init } = lastCall();
+    expect(url).toBe('/api/projects/p1/documents/contract/preview');
+    expect(init.method).toBe('POST');
   });
 });

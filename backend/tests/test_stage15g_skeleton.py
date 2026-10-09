@@ -41,11 +41,11 @@ TODAY = date(2026, 10, 8)
 PROJECT = Project(name="Mieszkanie Mokotów", address="ul. Dobra 10/12", city="Warszawa", postal_code="00-001")
 CLIENT = Client(client_type=ClientType.PRIVATE_PERSON, first_name="Anna", last_name="Nowak")
 EXECUTOR = ExecutorProfile(name="Jan Kowalski Wykończenia", nip="7740001454", city="Kraków")
-TITLES = {K.CONTRACT: "Umowa", K.HANDOVER_PROTOCOL: "Protokół przekazania", K.CONCEALED_WORKS_PROTOCOL: "Protokół odbioru robót zanikających",
+TITLES = {K.HANDOVER_PROTOCOL: "Protokół przekazania", K.CONCEALED_WORKS_PROTOCOL: "Protokół odbioru robót zanikających",
           K.FINAL_PROTOCOL: "Protokół odbioru końcowego"}
 
 
-def build(kind=K.CONTRACT, **kw):
+def build(kind=K.HANDOVER_PROTOCOL, **kw):
     return build_skeleton_document(kind, PROJECT, kw.pop("client", CLIENT), kw.pop("executor", EXECUTOR), issued_on=TODAY, **kw)
 
 
@@ -56,7 +56,7 @@ def html_of(document) -> str:
 # --- the registry ------------------------------------------------------------------------------------------------------------
 
 
-def test_the_contract_and_the_three_protocols_are_registered_as_skeletons():
+def test_the_three_protocols_are_registered_as_skeletons():
     assert set(SKELETON_KINDS) == set(TITLES)
     for kind in SKELETON_KINDS:
         template = get_template(kind)
@@ -73,8 +73,8 @@ def test_number_prefixes_are_unique_and_the_journal_uses_the_registry_ones():
     prefixes = [t.number_prefix for t in TEMPLATES.values() if t.number_prefix]
     assert len(prefixes) == len(set(prefixes)) == 8 and all(re.fullmatch(r"[A-Z]{3,6}", p) for p in prefixes)
     assert TEMPLATES[K.DIAGNOSTIC].number_prefix is None  # the control page is never numbered
-    assert NUMBER_PREFIX == {IssuedDocumentKind.ESTIMATE: "KOSZ", IssuedDocumentKind.PHOTO_REPORT: "FOTO", IssuedDocumentKind.TECH_CARD: "KART", IssuedDocumentKind.PRODUCTION_PLAN: "PLAN"}
-    assert {TEMPLATES[k].number_prefix for k in SKELETON_KINDS} == {"UMOWA", "PRZEK", "ZANIK", "ODBIOR"}
+    assert NUMBER_PREFIX == {IssuedDocumentKind.ESTIMATE: "KOSZ", IssuedDocumentKind.PHOTO_REPORT: "FOTO", IssuedDocumentKind.TECH_CARD: "KART", IssuedDocumentKind.PRODUCTION_PLAN: "PLAN", IssuedDocumentKind.CONTRACT: "UMOWA"}
+    assert {TEMPLATES[k].number_prefix for k in SKELETON_KINDS} == {"PRZEK", "ZANIK", "ODBIOR"}
 
 
 # --- no legal text -----------------------------------------------------------------------------------------------------------------
@@ -91,7 +91,7 @@ def skeleton_labels() -> dict[str, str]:
 
 def test_the_skeleton_labels_are_names_and_placeholders_never_clauses():
     labels = skeleton_labels()
-    assert len(labels) == 8
+    assert len(labels) == 7
     for key, text in labels.items():
         assert len(text) <= 40, f"{key} is long enough to be a sentence"
         assert not text.rstrip().endswith("."), f"{key} reads as a sentence"
@@ -136,7 +136,7 @@ def test_an_empty_skeleton_has_numbered_placeholder_sections_and_nothing_else(ki
 
 
 def test_the_header_the_parties_the_object_and_the_signatures_are_there():
-    document = build(K.CONTRACT, number="UMOWA/2026/10/08/1953", sequence=4)
+    document = build(K.HANDOVER_PROTOCOL, number="UMOWA/2026/10/08/1953", sequence=4)
     html = html_of(document)
     for expected in ("UMOWA/2026/10/08/1953", "Nr kolejny dokumentu dla obiektu", "08.10.2026", "Kraków", "Wykonawca", "Jan Kowalski Wykończenia",
                      "774-000-14-54", "Zamawiający", "Anna Nowak", "Mieszkanie Mokotów", "ul. Dobra 10/12", "00-001 Warszawa",
@@ -165,7 +165,7 @@ def test_the_caller_supplies_titles_and_paragraphs_as_data():
 
 
 def test_data_is_escaped():
-    document = build(K.CONTRACT, content={"subject": SectionContent("<script>x</script>", ("<b>a</b> & \"b\"",))},
+    document = build(K.HANDOVER_PROTOCOL, content={"site_description": SectionContent("<script>x</script>", ("<b>a</b> & \"b\"",))},
                      attachments=("<i>Plan</i>",))
     html = html_of(document)
     assert "<script>x" not in html and "<b>a</b>" not in html and "<i>Plan</i>" not in html
@@ -186,13 +186,13 @@ def test_only_a_skeleton_kind_can_be_built_as_a_skeleton(kind):
 
 
 def test_attachments_are_listed_and_numbered_only_when_there_are_some():
-    html = html_of(build(K.CONTRACT, attachments=("Kosztorys nr 1", "")))
+    html = html_of(build(K.HANDOVER_PROTOCOL, attachments=("Kosztorys nr 1", "")))
     assert "<h2>Załączniki</h2>" in html and "Załącznik 1</strong>: Kosztorys nr 1" in html and "Załącznik 2</strong></li>" in html
-    assert "Załączniki" not in html_of(build(K.CONTRACT))
+    assert "Załączniki" not in html_of(build(K.HANDOVER_PROTOCOL))
 
 
 def test_a_skeleton_has_no_vat_and_no_prices():
-    html = html_of(build(K.CONTRACT)).lower()
+    html = html_of(build(K.HANDOVER_PROTOCOL)).lower()
     assert "vat" not in html and "zł" not in html
 
 
@@ -203,11 +203,11 @@ async def test_the_service_builds_from_the_database_for_the_owner_only(db_sessio
     owner, project, _ = await seed(db_session, telegram_id=9951)
     stranger, _, _ = await seed(db_session, telegram_id=9952)
     owner_id, project_id, stranger_id = owner.id, project.id, stranger.id
-    document = await SkeletonDocumentService(db_session).build(K.CONTRACT, owner_id, project_id, issued_on=TODAY)
+    document = await SkeletonDocumentService(db_session).build(K.HANDOVER_PROTOCOL, owner_id, project_id, issued_on=TODAY)
     assert document.layout.client.name == "Anna Nowak" and document.layout.executor.tax_id == "774-000-14-54"
     assert document.object_name == "Mokotów" and document.layout.meta.place == "Kraków"
     with pytest.raises(ProjectNotFoundError):
-        await SkeletonDocumentService(db_session).build(K.CONTRACT, stranger_id, project_id, issued_on=TODAY)
+        await SkeletonDocumentService(db_session).build(K.HANDOVER_PROTOCOL, stranger_id, project_id, issued_on=TODAY)
 
 
 @pytest.mark.parametrize("kind", sorted(SKELETON_KINDS, key=lambda k: k.value))
@@ -221,7 +221,7 @@ async def test_every_skeleton_is_a_valid_pdf_with_signatures_and_page_numbers(db
 
 
 async def test_a_long_skeleton_keeps_the_footer_and_numbering_on_every_page():
-    document = build(K.CONTRACT, content={"subject": SectionContent("Dane", tuple(f"Akapit numer {n}. " * 12 for n in range(60)))})
+    document = build(K.HANDOVER_PROTOCOL, content={"site_description": SectionContent("Dane", tuple(f"Akapit numer {n}. " * 12 for n in range(60)))})
     rendered = await DocumentRenderer().render(html_of(document))
     pages = [p.extract_text() for p in PdfReader(io.BytesIO(rendered.pdf)).pages]
     assert rendered.pages >= 3 and all(f"Strona {n} z {rendered.pages}" in page for n, page in enumerate(pages, 1))

@@ -5,13 +5,15 @@ unique index): opening the draft twice returns the same one. Only a draft may ch
 persons of the same object who are marked "may accept the work and sign the protocols".
 """
 import uuid
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.contracts.answers import effective_answers, merge_answers, missing_required
+from app.domain.contracts.gate import Blocker, GateData, evaluate_gate, load_gate_data
 from app.domain.contracts.catalog import load_contract_catalog
 from app.domain.exceptions import ContractNotEditableError, ContractNotFoundError, ProjectNotFoundError
 from app.models.contract import Contract, ContractStatus
@@ -81,13 +83,17 @@ class ContractService:
         existing = await self._draft(project_id, owner_id)
         if existing is not None:
             return existing, False
-        last = (await self.db.execute(select(func.max(Contract.version)).where(Contract.project_id == project_id))).scalar_one_or_none()
+        previous = (
+            await self.db.execute(
+                select(Contract).where(Contract.project_id == project_id, Contract.owner_id == owner_id).order_by(Contract.version.desc()).limit(1)
+            )
+        ).scalar_one_or_none()
         row = Contract(
             owner_id=owner_id,
             project_id=project_id,
-            version=1 if last is None else last + 1,
+            version=1 if previous is None else previous.version + 1,
             status=ContractStatus.DRAFT.value,
-            answers={},
+            answers=dict(previous.answers or {}) if previous is not None else {},  # a new version starts from the last one's answers
             questionnaire_version=load_contract_catalog().questionnaire.version,
         )
         self.db.add(row)
@@ -133,6 +139,47 @@ class ContractService:
         if row.status != ContractStatus.DRAFT.value:
             raise ContractNotEditableError(f"contract {contract_id} is {row.status}: only a draft can be abandoned")
         row.status = ContractStatus.ARCHIVED.value
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
+
+    async def gate(self, project_id: uuid.UUID, contract_id: uuid.UUID, owner_id: uuid.UUID) -> "tuple[Contract, GateData, list[Blocker]]":
+        """What stands between this contract and its issue, with the data the document would be built from."""
+        row = await self.get(project_id, contract_id, owner_id)
+        data = await load_gate_data(self.db, owner_id, project_id)
+        return row, data, evaluate_gate(effective_answers(row.answers or {}, load_contract_catalog()), data)
+
+    async def mark_issued(
+        self,
+        project_id: uuid.UUID,
+        contract_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        *,
+        issued_at: datetime,
+        snapshot: dict[str, Any],
+        document_html: str,
+        estimate_id: uuid.UUID | None,
+        estimate_version: int | None,
+    ) -> Contract:
+        """Freeze a draft: its conditions, its page and the estimate it priced. An earlier issued (not signed) version of the
+        same object is superseded and archived; a draft is the only state that can be issued."""
+        row = await self.get(project_id, contract_id, owner_id)
+        if row.status != ContractStatus.DRAFT.value:
+            raise ContractNotEditableError(f"contract {contract_id} is {row.status}: only a draft is issued")
+        for older in (
+            await self.db.execute(
+                select(Contract).where(
+                    Contract.project_id == project_id, Contract.owner_id == owner_id, Contract.status == ContractStatus.ISSUED.value
+                )
+            )
+        ).scalars():
+            older.status = ContractStatus.ARCHIVED.value
+        row.status = ContractStatus.ISSUED.value
+        row.issued_at = issued_at
+        row.snapshot = snapshot
+        row.document_html = document_html
+        row.estimate_id = estimate_id
+        row.estimate_version = estimate_version
         await self.db.commit()
         await self.db.refresh(row)
         return row

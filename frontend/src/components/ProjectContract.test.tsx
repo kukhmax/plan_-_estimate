@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as catalogApi from '../api/contractCatalog';
 import * as api from '../api/contracts';
+import * as documentsApi from '../api/documents';
 import { ApiError } from '../api/http';
 import * as peopleApi from '../api/representatives';
 import pl from '../locales/pl.json';
@@ -17,7 +18,10 @@ vi.mock('../api/contracts', () => ({
   openContractDraft: vi.fn(),
   saveContractAnswers: vi.fn(),
   abandonContractDraft: vi.fn(),
+  fetchContractGate: vi.fn(),
+  issueContract: vi.fn(),
 }));
+vi.mock('../api/documents', () => ({ previewContractPdf: vi.fn() }));
 vi.mock('../api/contractCatalog', () => ({ fetchContractCatalog: vi.fn() }));
 vi.mock('../api/representatives', () => ({ fetchRepresentatives: vi.fn() }));
 
@@ -68,6 +72,7 @@ describe('ProjectContract (Stage 16E.1)', () => {
     localStorage.clear();
     vi.mocked(api.fetchContracts).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(api.openContractDraft).mockResolvedValue(contract());
+    vi.mocked(api.fetchContractGate).mockResolvedValue({ ready: false, blockers: [{ code: 'ANSWERS_MISSING', details: { keys: ['who_accepts', 'contract_date'] } }] });
     vi.mocked(catalogApi.fetchContractCatalog).mockResolvedValue(CATALOG);
     vi.mocked(peopleApi.fetchRepresentatives).mockResolvedValue({ items: [person(), person({ id: 'rep2', name: 'Bez uprawnień', may_accept_and_sign: false })], total: 2 });
   });
@@ -243,5 +248,116 @@ describe('ProjectContract (Stage 16E.1)', () => {
     for (const control of form.querySelectorAll('input:not([type=checkbox]), select, button')) {
       expect((control as HTMLElement).className).toMatch(/min-h-11/);
     }
+  });
+
+  describe('the gate and the issue (Stage 16E.2)', () => {
+    it('lists what blocks the contract in words, with the missing questions, the client address, the surfaces and the estimate', async () => {
+      vi.mocked(api.fetchContractGate).mockResolvedValue({
+        ready: false,
+        blockers: [
+          { code: 'EXECUTOR_PROFILE_REQUIRED', details: null },
+          { code: 'CLIENT_ADDRESS_INCOMPLETE', details: { missing: ['street', 'city'] } },
+          { code: 'ANSWERS_MISSING', details: { keys: ['who_accepts', 'contract_date'] } },
+          { code: 'SURFACE_INCOMPLETE', details: { items: [{ room: 'Salon', surface: 'Wall 1', surface_type: 'WALL', missing: ['QUALITY_TARGET', 'INSPECTION'] }] } },
+          { code: 'ESTIMATE_NOT_FINAL', details: { status: 'DRAFT', version: 2 } },
+        ],
+      });
+      renderCard();
+      await compose();
+      expect(api.fetchContractGate).toHaveBeenCalledWith('p1', 'c1');
+      const gate = await screen.findByLabelText('contract-gate');
+      expect(gate).toHaveTextContent('Umowy nie można jeszcze wystawić:');
+      expect(within(gate).getByLabelText('gate-EXECUTOR_PROFILE_REQUIRED')).toHaveTextContent('Uzupełnij profil wykonawcy');
+      expect(within(gate).getByLabelText('gate-CLIENT_ADDRESS_INCOMPLETE')).toHaveTextContent('Uzupełnij adres klienta: ulica i numer, miejscowość.');
+      expect(within(gate).getByLabelText('gate-ANSWERS_MISSING')).toHaveTextContent('Kto może odbierać prace i podpisywać protokoły, Data zawarcia umowy');
+      expect(within(gate).getByLabelText('gate-SURFACE_INCOMPLETE')).toHaveTextContent('Salon › Ściana 1: ustal docelowy standard wykończenia (plan prac); zakończ badanie podłoża');
+      expect(within(gate).getByLabelText('gate-ESTIMATE_NOT_FINAL')).toHaveTextContent('Kosztorys (wersja 2) jest w stanie „szkic”');
+      expect(screen.getByLabelText('issue-contract')).toBeDisabled();
+    });
+
+    it('says the same in Russian', async () => {
+      localStorage.setItem('locale', 'ru');
+      vi.mocked(api.fetchContractGate).mockResolvedValue({ ready: false, blockers: [{ code: 'ESTIMATE_NOT_FINAL', details: { status: 'FINAL', version: 1 } }, { code: 'CLIENT_ADDRESS_INCOMPLETE', details: { missing: ['postal_code'] } }] });
+      renderCard();
+      await compose();
+      const gate = await screen.findByLabelText('contract-gate');
+      expect(gate).toHaveTextContent('Договор пока нельзя выдать:');
+      expect(within(gate).getByLabelText('gate-ESTIMATE_NOT_FINAL')).toHaveTextContent('Смета (версия 1) в состоянии «утверждена»');
+      expect(within(gate).getByLabelText('gate-CLIENT_ADDRESS_INCOMPLETE')).toHaveTextContent('Заполните адрес заказчика: индекс.');
+    });
+
+    it('opens the issue only when the gate is open and then freezes the draft and closes the form', async () => {
+      vi.mocked(api.fetchContractGate).mockResolvedValue({ ready: true, blockers: [] });
+      vi.mocked(api.issueContract).mockResolvedValue({} as never);
+      vi.mocked(api.fetchContracts).mockResolvedValueOnce({ items: [], total: 0 }).mockResolvedValue({ items: [contract({ status: 'ISSUED' })], total: 1 });
+      renderCard();
+      await compose();
+      expect(await screen.findByText(/Wszystko gotowe/)).toBeInTheDocument();
+      const button = screen.getByLabelText('issue-contract');
+      expect(button).toBeEnabled();
+      expect(button.className).toContain('min-h-11');
+      await act(async () => { fireEvent.click(button); });
+      expect(api.issueContract).toHaveBeenCalledWith('p1', 'c1');
+      await waitFor(() => expect(screen.queryByLabelText('contract-form')).toBeNull());
+      expect(screen.getByLabelText('contract-note')).toHaveTextContent('Umowa została wystawiona i jest wysyłana do czatu z botem.');
+      expect(await screen.findByText('Ostatnia umowa: wersja 1 — wystawiona')).toBeInTheDocument();
+      expect(screen.getByLabelText('compose-contract')).toHaveTextContent('Nowa wersja umowy');
+    });
+
+    it('never calls the issue route while the gate is shut', async () => {
+      renderCard();
+      await compose();
+      await screen.findByLabelText('gate-ANSWERS_MISSING');
+      await act(async () => { fireEvent.click(screen.getByLabelText('issue-contract')); });
+      expect(api.issueContract).not.toHaveBeenCalled();
+    });
+
+    it('shows the list the server sends when it still refuses, and keeps the form open', async () => {
+      vi.mocked(api.fetchContractGate).mockResolvedValue({ ready: true, blockers: [] });
+      vi.mocked(api.issueContract).mockRejectedValue(new ApiError('English', 422, 'CONTRACT_GATE_BLOCKED', {
+        code: 'CONTRACT_GATE_BLOCKED', details: { blockers: [{ code: 'ESTIMATE_REQUIRED', details: null }] },
+      }));
+      renderCard();
+      await compose();
+      await screen.findByText(/Wszystko gotowe/);
+      await act(async () => { fireEvent.click(screen.getByLabelText('issue-contract')); });
+      expect(await screen.findByLabelText('gate-ESTIMATE_REQUIRED')).toHaveTextContent('Obiekt nie ma kosztorysu');
+      expect(screen.getByLabelText('contract-form')).toBeInTheDocument();
+      expect(screen.getByLabelText('issue-contract')).toBeDisabled();
+    });
+
+    it('says when the contract is no longer a draft', async () => {
+      vi.mocked(api.fetchContractGate).mockResolvedValue({ ready: true, blockers: [] });
+      vi.mocked(api.issueContract).mockRejectedValue(new ApiError('English', 409, 'CONTRACT_NOT_EDITABLE', { code: 'CONTRACT_NOT_EDITABLE' }));
+      renderCard();
+      await compose();
+      await screen.findByText(/Wszystko gotowe/);
+      await act(async () => { fireEvent.click(screen.getByLabelText('issue-contract')); });
+      expect(await screen.findByLabelText('contract-error')).toHaveTextContent('nie jest już szkicem');
+    });
+
+    it('sends the working version with empty lines to the chat at any time, the gate open or not', async () => {
+      vi.mocked(documentsApi.previewContractPdf).mockResolvedValue({ sent: true, pages: 9, byte_size: 1 });
+      renderCard();
+      await compose();
+      const button = screen.getByLabelText('preview-contract');
+      expect(button.className).toContain('min-h-11');
+      expect(button).toHaveTextContent('Wersja robocza do wydruku (puste pola)');
+      await act(async () => { fireEvent.click(button); });
+      expect(documentsApi.previewContractPdf).toHaveBeenCalledWith('p1');
+      expect(await screen.findByLabelText('contract-note')).toHaveTextContent('Wersja robocza umowy z załącznikami wysłana do czatu z botem');
+    });
+
+    it('refreshes the gate after the answers are saved', async () => {
+      vi.mocked(api.saveContractAnswers).mockResolvedValue(contract({ answers: { contract_place: 'Kraków' } }));
+      renderCard();
+      await compose();
+      await screen.findByLabelText('gate-ANSWERS_MISSING');
+      vi.mocked(api.fetchContractGate).mockResolvedValue({ ready: true, blockers: [] });
+      fireEvent.change(screen.getByLabelText('contract-q-contract_place'), { target: { value: 'Kraków' } });
+      await act(async () => { fireEvent.click(screen.getByLabelText('save-contract-answers')); });
+      expect(await screen.findByText(/Wszystko gotowe/)).toBeInTheDocument();
+      expect(api.fetchContractGate).toHaveBeenCalledTimes(2);
+    });
   });
 });

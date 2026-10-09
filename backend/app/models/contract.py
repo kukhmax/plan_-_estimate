@@ -9,7 +9,7 @@ import enum
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, Uuid, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON as GenericJSON
@@ -36,6 +36,12 @@ class Contract(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default=ContractStatus.DRAFT.value)
     answers: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
     questionnaire_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    # what an issued contract freezes (16E.2): the time, the conditions, the exact page, the estimate that priced it
+    issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    snapshot: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
+    document_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    estimate_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    estimate_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
@@ -44,6 +50,10 @@ class Contract(Base):
     __table_args__ = (
         CheckConstraint("status IN ('DRAFT', 'ISSUED', 'SIGNED', 'ARCHIVED')", name="ck_contracts_status"),
         CheckConstraint("version >= 1", name="ck_contracts_version_positive"),
+        CheckConstraint(
+            "status NOT IN ('ISSUED', 'SIGNED') OR (issued_at IS NOT NULL AND snapshot IS NOT NULL AND document_html IS NOT NULL)",
+            name="ck_contracts_frozen_when_issued",
+        ),
         UniqueConstraint("project_id", "version", name="uq_contracts_project_version"),
         Index(
             "uq_contracts_one_draft", "project_id", unique=True,

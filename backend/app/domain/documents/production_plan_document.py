@@ -218,6 +218,23 @@ def build_production_plan_document(
     return ProductionPlanDocument(layout, project.name, object_lines(project), views, entries, working)
 
 
+async def load_adjacent_works(db: AsyncSession, owner_id: uuid.UUID, project_id: uuid.UUID) -> tuple[AdjacentWork, ...]:
+    """The live entries of the register of adjacent works of an object, in the owner's order."""
+    return tuple(
+        (
+            await db.execute(
+                select(AdjacentWork)
+                .where(
+                    AdjacentWork.project_id == project_id,
+                    AdjacentWork.owner_id == owner_id,
+                    AdjacentWork.is_archived.is_(False),
+                )
+                .order_by(AdjacentWork.position, AdjacentWork.created_at, AdjacentWork.id)
+            )
+        ).scalars()
+    )
+
+
 class ProductionPlanDocumentService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -234,19 +251,7 @@ class ProductionPlanDocumentService:
     ) -> ProductionPlanDocument:
         """Raises ProjectNotFoundError for a project that is not this owner's (nothing else is read then)."""
         project, client, rooms = await TechCardDocumentService(self.db).sources(owner_id, project_id)
-        adjacent = tuple(
-            (
-                await self.db.execute(
-                    select(AdjacentWork)
-                    .where(
-                        AdjacentWork.project_id == project_id,
-                        AdjacentWork.owner_id == owner_id,
-                        AdjacentWork.is_archived.is_(False),
-                    )
-                    .order_by(AdjacentWork.position, AdjacentWork.created_at, AdjacentWork.id)
-                )
-            ).scalars()
-        )
+        adjacent = await load_adjacent_works(self.db, owner_id, project_id)
         executor = await ExecutorProfileService(self.db).get(owner_id)
         return build_production_plan_document(
             project, client, executor, rooms, adjacent, working=working, issued_on=issued_on, number=number, sequence=sequence

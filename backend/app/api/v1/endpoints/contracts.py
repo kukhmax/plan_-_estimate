@@ -3,20 +3,36 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.api.deps import get_contract_service, get_current_user
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_contract_service, get_current_user, get_document_issuer
+from app.api.v1.endpoints.documents import _error, _http_error as _document_error
+from app.core.database import get_db
+from app.domain.documents.issuer import DocumentIssuer
 from app.domain.exceptions import (
     ContractAnswerInvalidError,
+    ContractGateError,
     ContractNotEditableError,
     ContractNotFoundError,
+    DocumentDataError,
+    DocumentQueueFullError,
     ProjectNotFoundError,
 )
 from app.domain.services.contract_service import ContractService, contract_read
 from app.models.user import User
-from app.schemas.contract import ContractAnswersUpdate, ContractListResponse, ContractRead
+from app.schemas.contract import (
+    ContractAnswersUpdate,
+    ContractGateRead,
+    ContractListResponse,
+    ContractRead,
+    GateBlockerRead,
+)
+from app.schemas.issued_document import IssuedDocumentRead
 
 router = APIRouter()
 BASE = "/projects/{project_id}/contracts"
 FAILURES = (ProjectNotFoundError, ContractNotFoundError, ContractNotEditableError, ContractAnswerInvalidError)
+ISSUE_FAILURES = (*FAILURES, ContractGateError, DocumentDataError, DocumentQueueFullError)
 
 
 def _http_error(exc: Exception) -> HTTPException:
@@ -24,6 +40,13 @@ def _http_error(exc: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
     if isinstance(exc, ContractNotEditableError):
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": exc.code, "message": str(exc)})
+    if isinstance(exc, ContractGateError):
+        return _error(
+            exc.code, str(exc), status.HTTP_422_UNPROCESSABLE_ENTITY,
+            details={"blockers": [{"code": b.code, "details": b.details} for b in exc.blockers]},
+        )
+    if isinstance(exc, (DocumentDataError, DocumentQueueFullError)):
+        return _document_error(exc)
     if isinstance(exc, ContractAnswerInvalidError):
         return HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -102,3 +125,37 @@ async def archive_contract_draft(
     except FAILURES as exc:
         raise _http_error(exc) from exc
     return contract_read(row)
+
+
+@router.get(BASE + "/{contract_id}/gate", response_model=ContractGateRead, summary="What stands between a draft and its issue")
+async def contract_gate(
+    project_id: uuid.UUID,
+    contract_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    service: ContractService = Depends(get_contract_service),
+) -> ContractGateRead:
+    try:
+        _, _, blockers = await service.gate(project_id, contract_id, current_user.id)
+    except FAILURES as exc:
+        raise _http_error(exc) from exc
+    return ContractGateRead(ready=not blockers, blockers=[GateBlockerRead(code=b.code, details=b.details) for b in blockers])
+
+
+@router.post(
+    BASE + "/{contract_id}/issue",
+    response_model=IssuedDocumentRead,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Issue a draft: freeze its conditions and send the PDF to the owner's chat",
+)
+async def issue_contract(
+    project_id: uuid.UUID,
+    contract_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    issuer: DocumentIssuer = Depends(get_document_issuer),
+) -> IssuedDocumentRead:
+    try:
+        reservation = await issuer.start_contract(db, current_user, project_id, contract_id)
+    except ISSUE_FAILURES as exc:
+        raise _http_error(exc) from exc
+    return IssuedDocumentRead.model_validate(reservation.document)
