@@ -28,6 +28,9 @@ const mockClient = (overrides = {}) => ({
   phone: '500600700',
   email: null,
   nip: null,
+  street: null,
+  postal_code: null,
+  city: null,
   telegram_username: null,
   notes: null,
   is_archived: false,
@@ -393,5 +396,117 @@ describe('ClientList — actionable contact interactions', () => {
 
     fireEvent.click(screen.getByLabelText('copy-email-11111111-0000-0000-0000-000000000001'));
     expect(await screen.findByText('Nie udało się skopiować e-maila')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 16B.1 — the address of the customer (for contracts and protocols)
+// ---------------------------------------------------------------------------
+
+describe('ClientList — address (Stage 16B.1)', () => {
+  const ID = '11111111-0000-0000-0000-000000000001';
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  async function openCreateForm() {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({ items: [], total: 0 });
+    renderWithI18n(<ClientList />);
+    await waitFor(() => screen.getByLabelText('no-clients'));
+    fireEvent.click(screen.getByLabelText('add-client'));
+  }
+
+  it('the form has the three address fields with mobile keyboards and autofill hints', async () => {
+    await openCreateForm();
+    expect(screen.getByLabelText('street')).toHaveAttribute('autocomplete', 'street-address');
+    expect(screen.getByLabelText('postal-code')).toHaveAttribute('inputmode', 'numeric');
+    expect(screen.getByLabelText('postal-code')).toHaveAttribute('autocomplete', 'postal-code');
+    expect(screen.getByLabelText('city')).toHaveAttribute('autocomplete', 'address-level2');
+  });
+
+  it('sends the address on create, and nothing for an empty address', async () => {
+    vi.mocked(clientsApi.createClient).mockResolvedValue(mockClient());
+    await openCreateForm();
+    fireEvent.change(screen.getByLabelText('first-name'), { target: { value: 'Jan' } });
+    fireEvent.change(screen.getByLabelText('street'), { target: { value: 'ul. Długa 1/2' } });
+    fireEvent.change(screen.getByLabelText('postal-code'), { target: { value: '30001' } });
+    fireEvent.change(screen.getByLabelText('city'), { target: { value: 'Kraków' } });
+    fireEvent.submit(screen.getByLabelText('client-form'));
+    await waitFor(() =>
+      expect(clientsApi.createClient).toHaveBeenCalledWith(
+        expect.objectContaining({ street: 'ul. Długa 1/2', postal_code: '30001', city: 'Kraków' }),
+      ),
+    );
+    vi.mocked(clientsApi.createClient).mockClear();
+    fireEvent.click(screen.getByLabelText('add-client'));
+    fireEvent.change(screen.getByLabelText('first-name'), { target: { value: 'Anna' } });
+    fireEvent.submit(screen.getByLabelText('client-form'));
+    await waitFor(() => expect(clientsApi.createClient).toHaveBeenCalled());
+    const payload = vi.mocked(clientsApi.createClient).mock.calls[0][0];
+    expect(payload.street).toBeUndefined();
+    expect(payload.postal_code).toBeUndefined();
+    expect(payload.city).toBeUndefined();
+  });
+
+  it('refuses a wrong postal code on the phone before asking the server', async () => {
+    await openCreateForm();
+    fireEvent.change(screen.getByLabelText('first-name'), { target: { value: 'Jan' } });
+    fireEvent.change(screen.getByLabelText('postal-code'), { target: { value: '30-0' } });
+    fireEvent.submit(screen.getByLabelText('client-form'));
+    expect(await screen.findByText('Kod pocztowy: 5 cyfr (np. 30-001)')).toBeInTheDocument();
+    expect(clientsApi.createClient).not.toHaveBeenCalled();
+  });
+
+  it('shows the address on the card, in one wrapping line', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({
+      items: [mockClient({ street: 'ul. Bardzo Długa Nazwa Ulicy 12/34', postal_code: '30-001', city: 'Kraków' })],
+      total: 1,
+    });
+    renderWithI18n(<ClientList />);
+    const line = await screen.findByLabelText(`client-address-${ID}`);
+    expect(line).toHaveTextContent('adres: ul. Bardzo Długa Nazwa Ulicy 12/34, 30-001 Kraków');
+    expect(line.className).toContain('break-words');
+  });
+
+  it('shows a client with only a city, and none for a client without an address', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({ items: [mockClient({ city: 'Gdańsk' })], total: 1 });
+    renderWithI18n(<ClientList />);
+    expect(await screen.findByLabelText(`client-address-${ID}`)).toHaveTextContent('adres: Gdańsk');
+  });
+
+  it('editing sends the address and clears an emptied part with null', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({
+      items: [mockClient({ street: 'Długa 1', postal_code: '30-001', city: 'Kraków' })],
+      total: 1,
+    });
+    vi.mocked(clientsApi.updateClient).mockResolvedValue(mockClient());
+    renderWithI18n(<ClientList />);
+    await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText(`edit-${ID}`));
+    expect(screen.getByLabelText('street')).toHaveValue('Długa 1');
+    fireEvent.change(screen.getByLabelText('street'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('city'), { target: { value: 'Warszawa' } });
+    fireEvent.submit(screen.getByLabelText('client-form'));
+    await waitFor(() =>
+      expect(clientsApi.updateClient).toHaveBeenCalledWith(
+        ID,
+        expect.objectContaining({ street: null, postal_code: '30-001', city: 'Warszawa' }),
+      ),
+    );
+  });
+
+  it('is in Russian too', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({
+      items: [mockClient({ street: 'ul. Długa 1', postal_code: '30-001', city: 'Kraków' })],
+      total: 1,
+    });
+    renderWithI18n(<ClientList />);
+    expect(await screen.findByLabelText(`client-address-${ID}`)).toHaveTextContent('адрес: ul. Długa 1, 30-001 Kraków');
+    fireEvent.click(screen.getByLabelText(`edit-${ID}`));
+    expect(screen.getByLabelText('street')).toHaveAttribute('placeholder', 'Улица и номер дома');
+    expect(screen.getByLabelText('postal-code')).toHaveAttribute('placeholder', 'Почтовый индекс');
+    expect(screen.getByLabelText('city')).toHaveAttribute('placeholder', 'Город');
   });
 });

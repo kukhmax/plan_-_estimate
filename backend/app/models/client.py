@@ -37,6 +37,10 @@ class Client(Base):
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     nip: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Address of the customer for contracts and protocols (Stage 16B.1); the postal code is stored as `00-000`.
+    street: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # Contact field only — never used for Telegram Mini App authentication
     # (that identity lives on User.telegram_user_id). Stored normalized as
     # "@username" (Stage 10G.4 client contact correction).

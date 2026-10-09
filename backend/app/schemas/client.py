@@ -4,6 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.domain.rules.polish_identifiers import normalize_postal_code
 from app.models.client import ClientType
 
 
@@ -22,6 +23,22 @@ def normalize_telegram_username(value: Optional[str]) -> Optional[str]:
     return f"@{trimmed.lstrip('@')}"
 
 
+def normalize_address_text(value: Optional[str]) -> Optional[str]:
+    """Stage 16B.1: trims; an empty or whitespace-only value is NULL."""
+    if value is None:
+        return None
+    trimmed = " ".join(value.split())
+    return trimmed or None
+
+
+def normalize_client_postal_code(value: Optional[str]) -> Optional[str]:
+    """`30001` and `30-001` are the same code, stored as `30-001`; anything else is refused (422)."""
+    try:
+        return normalize_postal_code(value)
+    except ValueError:
+        raise ValueError("postal_code must be a Polish postal code (00-000)") from None
+
+
 class ClientCreate(BaseModel):
     client_type: ClientType
     first_name: Optional[str] = Field(default=None, max_length=255)
@@ -30,6 +47,9 @@ class ClientCreate(BaseModel):
     phone: Optional[str] = Field(default=None, max_length=50)
     email: Optional[str] = Field(default=None, max_length=255)
     nip: Optional[str] = Field(default=None, max_length=20)
+    street: Optional[str] = Field(default=None, max_length=255)
+    postal_code: Optional[str] = Field(default=None, max_length=16)
+    city: Optional[str] = Field(default=None, max_length=128)
     telegram_username: Optional[str] = Field(default=None, max_length=64)
     notes: Optional[str] = Field(default=None, max_length=4096)
 
@@ -50,6 +70,13 @@ class ClientCreate(BaseModel):
         self.telegram_username = normalize_telegram_username(self.telegram_username)
         return self
 
+    @model_validator(mode="after")
+    def normalize_address_fields(self) -> "ClientCreate":
+        self.street = normalize_address_text(self.street)
+        self.city = normalize_address_text(self.city)
+        self.postal_code = normalize_client_postal_code(self.postal_code)
+        return self
+
 
 class ClientUpdate(BaseModel):
     client_type: Optional[ClientType] = None
@@ -59,6 +86,9 @@ class ClientUpdate(BaseModel):
     phone: Optional[str] = Field(default=None, max_length=50)
     email: Optional[str] = Field(default=None, max_length=255)
     nip: Optional[str] = Field(default=None, max_length=20)
+    street: Optional[str] = Field(default=None, max_length=255)
+    postal_code: Optional[str] = Field(default=None, max_length=16)
+    city: Optional[str] = Field(default=None, max_length=128)
     telegram_username: Optional[str] = Field(default=None, max_length=64)
     notes: Optional[str] = Field(default=None, max_length=4096)
 
@@ -84,6 +114,17 @@ class ClientUpdate(BaseModel):
             self.telegram_username = normalize_telegram_username(self.telegram_username)
         return self
 
+    @model_validator(mode="after")
+    def normalize_address_fields(self) -> "ClientUpdate":
+        # Only fields that were sent: an omitted one stays as it is, an explicit null clears it (Stage 16B.1).
+        if "street" in self.model_fields_set:
+            self.street = normalize_address_text(self.street)
+        if "city" in self.model_fields_set:
+            self.city = normalize_address_text(self.city)
+        if "postal_code" in self.model_fields_set:
+            self.postal_code = normalize_client_postal_code(self.postal_code)
+        return self
+
 
 class ClientRead(BaseModel):
     id: uuid.UUID
@@ -95,6 +136,9 @@ class ClientRead(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     nip: Optional[str] = None
+    street: Optional[str] = None
+    postal_code: Optional[str] = None
+    city: Optional[str] = None
     telegram_username: Optional[str] = None
     notes: Optional[str] = None
     is_archived: bool

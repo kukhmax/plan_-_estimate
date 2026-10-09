@@ -71,6 +71,9 @@ class ClientService:
             phone=payload.phone,
             email=payload.email,
             nip=payload.nip,
+            street=payload.street,
+            postal_code=payload.postal_code,
+            city=payload.city,
             telegram_username=payload.telegram_username,
             notes=payload.notes,
         )

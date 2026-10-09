@@ -32,6 +32,9 @@ interface ClientFormState {
   phone: string;
   email: string;
   nip: string;
+  street: string;
+  postal_code: string;
+  city: string;
   telegram_username: string;
   notes: string;
 }
@@ -44,6 +47,9 @@ const DEFAULT_FORM: ClientFormState = {
   phone: '',
   email: '',
   nip: '',
+  street: '',
+  postal_code: '',
+  city: '',
   telegram_username: '',
   notes: '',
 };
@@ -57,6 +63,9 @@ function formFromClient(c: ClientType): ClientFormState {
     phone: c.phone ?? '',
     email: c.email ?? '',
     nip: c.nip ?? '',
+    street: c.street ?? '',
+    postal_code: c.postal_code ?? '',
+    city: c.city ?? '',
     telegram_username: c.telegram_username ?? '',
     notes: c.notes ?? '',
   };
@@ -162,6 +171,11 @@ export const ClientList: React.FC = () => {
       return;
     }
 
+    if (form.postal_code.trim() !== '' && !/^\d{2}[\s-]?\d{3}$/.test(form.postal_code.trim())) {
+      setFormError(t.clients.validation_postal_code);
+      return;
+    }
+
     setSaving(true);
     try {
       if (editingClient) {
@@ -173,6 +187,10 @@ export const ClientList: React.FC = () => {
           phone: form.phone || undefined,
           email: form.email || undefined,
           nip: form.nip || undefined,
+          // The address is cleared the same way (Stage 16B.1): an empty field means "remove it".
+          street: form.street.trim() === '' ? null : form.street,
+          postal_code: form.postal_code.trim() === '' ? null : form.postal_code,
+          city: form.city.trim() === '' ? null : form.city,
           // Explicit clear-to-null: an empty field here means the owner
           // deliberately removed it, unlike the other fields above where
           // empty simply means "leave unchanged" (existing convention).
@@ -189,6 +207,9 @@ export const ClientList: React.FC = () => {
           phone: form.phone || undefined,
           email: form.email || undefined,
           nip: form.nip || undefined,
+          street: form.street || undefined,
+          postal_code: form.postal_code || undefined,
+          city: form.city || undefined,
           telegram_username: form.telegram_username || undefined,
           notes: form.notes || undefined,
         };
@@ -318,6 +339,33 @@ export const ClientList: React.FC = () => {
             onChange={(e) => handleFormChange('email', e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
+          <input
+            aria-label="street"
+            placeholder={t.clients.street}
+            autoComplete="street-address"
+            value={form.street}
+            onChange={(e) => handleFormChange('street', e.target.value)}
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+          />
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-[8rem_1fr] gap-2">
+            <input
+              aria-label="postal-code"
+              placeholder={t.clients.postal_code}
+              inputMode="numeric"
+              autoComplete="postal-code"
+              value={form.postal_code}
+              onChange={(e) => handleFormChange('postal_code', e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            />
+            <input
+              aria-label="city"
+              placeholder={t.clients.city}
+              autoComplete="address-level2"
+              value={form.city}
+              onChange={(e) => handleFormChange('city', e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">{t.clients.telegram}</label>
             <input
@@ -382,11 +430,17 @@ export const ClientList: React.FC = () => {
                     </span>
                   )}
                 </div>
-                {(c.nip || c.phone || c.email || c.telegram_username) && (
+                {(c.nip || c.phone || c.email || c.telegram_username || c.street || c.postal_code || c.city) && (
                   <div aria-label={`client-contact-${c.id}`} className="mt-1 space-y-0.5 min-w-0">
                     {c.nip && (
                       <p className="text-xs text-slate-500 break-words min-w-0">
                         <span className="text-slate-400">{t.clients.card_nip_label}</span> {c.nip}
+                      </p>
+                    )}
+                    {(c.street || c.postal_code || c.city) && (
+                      <p aria-label={`client-address-${c.id}`} className="text-xs text-slate-500 break-words min-w-0">
+                        <span className="text-slate-400">{t.clients.card_address_label}</span>{' '}
+                        {[c.street, [c.postal_code, c.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
                       </p>
                     )}
                     {c.phone && (
