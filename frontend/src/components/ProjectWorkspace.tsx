@@ -33,6 +33,7 @@ import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { RoomList } from './RoomList';
 import { OpeningGroupList } from './OpeningGroupList';
 import { ProjectDocuments } from './ProjectDocuments';
+import { ProjectAdjacentWorks } from './ProjectAdjacentWorks';
 import { ProjectRepresentatives } from './ProjectRepresentatives';
 import type { UnpricedWork } from '../types/document';
 import { inspectionTargetOf } from '../utils/unpricedTarget';
@@ -760,6 +761,9 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
 
           {/* Stage 16B.2: the persons of the object (who may accept the work and sign the protocols). */}
           <ProjectRepresentatives projectId={selectedProject.id} />
+
+          {/* Stage 16D.1: works of other contractors on the object (the register the production plan refers to). */}
+          <ProjectAdjacentWorks projectId={selectedProject.id} />
 
           <RoomList
             projectId={selectedProject.id}

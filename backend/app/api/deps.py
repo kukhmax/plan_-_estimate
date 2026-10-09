@@ -25,6 +25,7 @@ from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.price_coefficient_service import PriceCoefficientService
 from app.domain.services.project_service import ProjectService
 from app.domain.services.risk_service import RiskService
+from app.domain.services.adjacent_work_service import AdjacentWorkService
 from app.domain.services.project_representative_service import ProjectRepresentativeService
 from app.domain.services.room_service import RoomService
 from app.domain.services.surface_service import SurfaceService
@@ -99,6 +100,12 @@ async def get_project_representative_service(
     db: AsyncSession = Depends(get_db),
 ) -> ProjectRepresentativeService:
     return ProjectRepresentativeService(db)
+
+
+async def get_adjacent_work_service(
+    db: AsyncSession = Depends(get_db),
+) -> AdjacentWorkService:
+    return AdjacentWorkService(db)
 
 
 async def get_surface_service(

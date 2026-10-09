@@ -17,6 +17,22 @@ class ProjectRepresentativeNotFoundError(Exception):
     """Raised when a person of an object is not found within an owned project (Stage 16B.2)."""
 
 
+class AdjacentWorkNotFoundError(Exception):
+    """Raised when an adjacent work is not found within an owned project (Stage 16D.1)."""
+
+
+class AdjacentWorkRoomInvalidError(Exception):
+    """Raised when an adjacent work names a room that is not a live room of the same object (Stage 16D.1)."""
+
+    code = "ADJACENT_WORK_ROOM_INVALID"
+
+
+class AdjacentWorkPeriodInvalidError(Exception):
+    """Raised when a change would leave an adjacent work ending before it starts (Stage 16D.1)."""
+
+    code = "ADJACENT_WORK_PERIOD_INVALID"
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 

@@ -29,6 +29,7 @@ from app.models.opening_reveal_planned_work import (
     OpeningRevealPlannedWorkCoefficientAssignment,
 )
 from app.models.executor_profile import ExecutorProfile
+from app.models.adjacent_work import AdjacentWork, AdjacentWorkOrder
 from app.models.project_representative import ProjectRepresentative, RepresentativeSide
 from app.models.issued_document import IssuedDocument
 from app.models.photo_annotation import PhotoAnnotation, PhotoAnnotationKind
@@ -73,6 +74,8 @@ from app.models.work_recommendation import (
 )
 
 __all__ = [
+    "AdjacentWork",
+    "AdjacentWorkOrder",
     "AnswerType",
     "AreaOperation",
     "AreaPlane",

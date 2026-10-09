@@ -22,6 +22,7 @@ from app.api.v1.endpoints.projects import router as projects_router
 from app.api.v1.endpoints.reveal_works import router as reveal_works_router
 from app.api.v1.endpoints.risks import router as risks_router
 from app.api.v1.endpoints.contract_catalog import router as contract_catalog_router
+from app.api.v1.endpoints.adjacent_works import router as adjacent_works_router
 from app.api.v1.endpoints.project_representatives import router as project_representatives_router
 from app.api.v1.endpoints.rooms import router as rooms_router
 from app.api.v1.endpoints.surfaces import router as surfaces_router
@@ -63,6 +64,7 @@ app.include_router(clients_router, prefix="/api", tags=["clients"])
 app.include_router(projects_router, prefix="/api", tags=["projects"])
 app.include_router(rooms_router, prefix="/api", tags=["rooms"])
 app.include_router(project_representatives_router, prefix="/api", tags=["project-representatives"])
+app.include_router(adjacent_works_router, prefix="/api", tags=["adjacent-works"])
 app.include_router(contract_catalog_router, prefix="/api", tags=["contract-catalog"])
 app.include_router(surfaces_router, prefix="/api", tags=["surfaces"])
 app.include_router(openings_router, prefix="/api", tags=["openings"])
