@@ -66,6 +66,18 @@ class ContractGateError(Exception):
         self.blockers = blockers
 
 
+class ContractSignError(Exception):
+    """Raised when an issued contract cannot be marked signed (Stage 16E.4). `reason` is a stable code the screen has a sentence
+    for: SIGNED_ON_BEFORE_ISSUE, SIGNED_ON_IN_FUTURE, ESTIMATE_CHANGED (the estimate that priced the contract is gone, archived
+    or back to a draft), ALREADY_SIGNED (another contract of the object is signed)."""
+
+    code = "CONTRACT_SIGN_REFUSED"
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(f"the contract cannot be signed: {reason}")
+        self.reason = reason
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 

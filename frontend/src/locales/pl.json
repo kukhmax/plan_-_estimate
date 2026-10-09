@@ -249,6 +249,23 @@
       "FINAL": "zatwierdzony",
       "ACCEPTED": "zaakceptowany",
       "ARCHIVED": "zarchiwizowany"
+    },
+    "sign_help": "Umowa wystawiona. Gdy zostanie podpisana na papierze, zaznacz to tutaj: umowa przejdzie w stan „podpisana”, a kosztorys, według którego ją sporządzono, w „zaakceptowany”. Tego nie można cofnąć.",
+    "signed_on": "Data podpisania (wpisana pod podpisami)",
+    "sign": "Umowa podpisana",
+    "sign_confirm": "Naciśnij ponownie, aby potwierdzić podpisanie",
+    "signed_note": "Umowa oznaczona jako podpisana, kosztorys zaakceptowany.",
+    "signed_info": "Podpisana dnia {date}; kosztorys wersja {version} zaakceptowany.",
+    "close_issued": "Zamknij umowę (nie została podpisana)",
+    "close_signed": "Zakończ umowę (do archiwum)",
+    "close_confirm": "Naciśnij ponownie, aby przenieść umowę do archiwum",
+    "closed_note": "Umowa przeniesiona do archiwum.",
+    "sign_errors": {
+      "UNKNOWN": "Nie udało się zapisać podpisania. Spróbuj ponownie.",
+      "SIGNED_ON_IN_FUTURE": "Data podpisania nie może być w przyszłości.",
+      "SIGNED_ON_BEFORE_ISSUE": "Data podpisania nie może być wcześniejsza niż data wystawienia umowy.",
+      "ESTIMATE_CHANGED": "Kosztorys, według którego sporządzono umowę, został zmieniony lub zarchiwizowany — podpisanie jest niemożliwe.",
+      "ALREADY_SIGNED": "Inna umowa tego objektu jest już podpisana — najpierw ją zakończ."
     }
   },
   "contractCatalog": {

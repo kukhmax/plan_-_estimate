@@ -32,3 +32,13 @@ export function fetchContractGate(projectId: string, contractId: string): Promis
 export function issueContract(projectId: string, contractId: string): Promise<IssuedDocument> {
   return apiRequest(`${basePath(projectId)}/${contractId}/issue`, { method: 'POST' });
 }
+
+/** The issued contract was signed on paper on `signedOn` (YYYY-MM-DD): it becomes SIGNED and its estimate ACCEPTED. */
+export function signContract(projectId: string, contractId: string, signedOn: string): Promise<Contract> {
+  return apiRequest(`${basePath(projectId)}/${contractId}/sign`, { method: 'POST', body: JSON.stringify({ signed_on: signedOn }) });
+}
+
+/** An issued contract that was not signed, or a signed one that ended, goes to the archive. */
+export function closeContract(projectId: string, contractId: string): Promise<Contract> {
+  return apiRequest(`${basePath(projectId)}/${contractId}/close`, { method: 'POST' });
+}

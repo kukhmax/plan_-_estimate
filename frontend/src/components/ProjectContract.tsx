@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchContractCatalog } from '../api/contractCatalog';
-import { abandonContractDraft, fetchContractGate, fetchContracts, issueContract, openContractDraft, saveContractAnswers } from '../api/contracts';
+import { abandonContractDraft, closeContract, fetchContractGate, fetchContracts, issueContract, openContractDraft, saveContractAnswers, signContract } from '../api/contracts';
 import { previewContractPdf } from '../api/documents';
 import { ApiError } from '../api/http';
 import { documentErrorText } from '../utils/documentErrors';
@@ -18,6 +18,12 @@ interface ProjectContractProps {
 
 const FIELD = 'w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base bg-white text-slate-900';
 const NUMERIC_KINDS = new Set(['NUMBER', 'PERCENT', 'DAYS', 'MONTHS']);
+
+function todayIso(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
 
 /**
  * Stage 16E.1 — "Compose the contract": the questionnaire the owner answers before the contract (16E.2) is made. The questions,
@@ -41,6 +47,9 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [confirmAbandon, setConfirmAbandon] = useState(false);
+  const [signedOn, setSignedOn] = useState(todayIso);
+  const [confirmSign, setConfirmSign] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [gate, setGate] = useState<ContractGate | null>(null);
   const [gateFailed, setGateFailed] = useState(false);
   const alive = useRef(true);
@@ -230,6 +239,58 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
     }
   };
 
+  const sign = async () => {
+    if (!latest || latest.status !== 'ISSUED' || busy || !signedOn) return;
+    if (!confirmSign) {
+      setConfirmSign(true);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      await signContract(projectId, latest.id, signedOn);
+      if (!alive.current) return;
+      setConfirmSign(false);
+      setNote(text.signed_note);
+      await load();
+    } catch (err) {
+      if (!alive.current) return;
+      setConfirmSign(false);
+      const reason = err instanceof ApiError && err.code === 'CONTRACT_SIGN_REFUSED'
+        ? (err.detail as { details?: { reason?: string } } | null)?.details?.reason
+        : undefined;
+      setError(text.sign_errors[(reason ?? 'UNKNOWN') as keyof typeof text.sign_errors] ?? text.sign_errors.UNKNOWN);
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  };
+
+  const closeLatest = async () => {
+    if (!latest || busy) return;
+    if (!confirmClose) {
+      setConfirmClose(true);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      await closeContract(projectId, latest.id);
+      if (!alive.current) return;
+      setConfirmClose(false);
+      setNote(text.closed_note);
+      await load();
+    } catch {
+      if (alive.current) {
+        setConfirmClose(false);
+        setError(text.sign_errors.UNKNOWN);
+      }
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  };
+
   const setField = (key: string, value: FieldValue) => setFields((current) => ({ ...current, [key]: value }));
   const setRequirement = (key: string, requirement: string, patch: Partial<RequirementField>) =>
     setFields((current) => {
@@ -382,6 +443,35 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
       {!loading && !loadFailed && !open && (
         <>
           {latest && <p className="text-sm text-slate-700 break-words">{text.latest.replace('{n}', String(latest.version)).replace('{status}', text.status[latest.status])}</p>}
+          {latest?.status === 'ISSUED' && (
+            <section aria-label="contract-sign" className="space-y-2 border border-slate-200 rounded-xl p-3">
+              <p className="text-xs text-slate-600 break-words">{text.sign_help}</p>
+              <label className="block space-y-1">
+                <span className="block text-sm font-medium text-slate-900 break-words">{text.signed_on}</span>
+                <input
+                  type="date"
+                  aria-label="contract-signed-on"
+                  value={signedOn}
+                  max={todayIso()}
+                  onChange={(e) => { setSignedOn(e.target.value); setConfirmSign(false); }}
+                  className={FIELD}
+                />
+              </label>
+              <button type="button" aria-label="sign-contract" disabled={busy || !signedOn} onClick={() => void sign()} className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-emerald-700 rounded-xl hover:bg-emerald-800 disabled:opacity-60 transition break-words">
+                {confirmSign ? text.sign_confirm : text.sign}
+              </button>
+            </section>
+          )}
+          {latest && (latest.status === 'ISSUED' || latest.status === 'SIGNED') && (
+            <>
+              {latest.status === 'SIGNED' && latest.signed_on && (
+                <p className="text-sm text-emerald-800 break-words">{text.signed_info.replace('{date}', latest.signed_on).replace('{version}', String(latest.estimate_version ?? ''))}</p>
+              )}
+              <button type="button" aria-label="close-contract" disabled={busy} onClick={() => void closeLatest()} className="w-full min-h-11 px-3 text-sm font-semibold text-red-800 bg-white border border-red-300 rounded-xl hover:bg-red-50 disabled:opacity-60 transition break-words">
+                {confirmClose ? text.close_confirm : latest.status === 'SIGNED' ? text.close_signed : text.close_issued}
+              </button>
+            </>
+          )}
           {draft && (
             <p className="text-sm text-slate-700 break-words">
               {text.draft_summary.replace('{n}', String(draft.version)).replace('{missing}', String(draft.missing_required.length))}

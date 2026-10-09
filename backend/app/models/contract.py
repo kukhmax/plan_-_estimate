@@ -7,9 +7,9 @@ a changed contract is a new version, never an edit of an issued one. Nothing is 
 """
 import enum
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON as GenericJSON
@@ -42,6 +42,7 @@ class Contract(Base):
     document_html: Mapped[str | None] = mapped_column(Text, nullable=True)
     estimate_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     estimate_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    signed_on: Mapped[date | None] = mapped_column(Date, nullable=True)  # the day written under the signatures (16E.4)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
@@ -54,7 +55,12 @@ class Contract(Base):
             "status NOT IN ('ISSUED', 'SIGNED') OR (issued_at IS NOT NULL AND snapshot IS NOT NULL AND document_html IS NOT NULL)",
             name="ck_contracts_frozen_when_issued",
         ),
+        CheckConstraint("status <> 'SIGNED' OR signed_on IS NOT NULL", name="ck_contracts_signed_has_date"),
         UniqueConstraint("project_id", "version", name="uq_contracts_project_version"),
+        Index(
+            "uq_contracts_one_signed", "project_id", unique=True,
+            postgresql_where=text("status = 'SIGNED'"), sqlite_where=text("status = 'SIGNED'"),
+        ),
         Index(
             "uq_contracts_one_draft", "project_id", unique=True,
             postgresql_where=text("status = 'DRAFT'"), sqlite_where=text("status = 'DRAFT'"),

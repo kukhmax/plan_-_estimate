@@ -20,6 +20,8 @@ vi.mock('../api/contracts', () => ({
   abandonContractDraft: vi.fn(),
   fetchContractGate: vi.fn(),
   issueContract: vi.fn(),
+  signContract: vi.fn(),
+  closeContract: vi.fn(),
 }));
 vi.mock('../api/documents', () => ({ previewContractPdf: vi.fn() }));
 vi.mock('../api/contractCatalog', () => ({ fetchContractCatalog: vi.fn() }));
@@ -358,6 +360,99 @@ describe('ProjectContract (Stage 16E.1)', () => {
       await act(async () => { fireEvent.click(screen.getByLabelText('save-contract-answers')); });
       expect(await screen.findByText(/Wszystko gotowe/)).toBeInTheDocument();
       expect(api.fetchContractGate).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('signing and closing (Stage 16E.4)', () => {
+    const issuedContract = (over: Partial<Contract> = {}) => contract({ id: 'c9', version: 2, status: 'ISSUED', issued_at: '2026-10-10T08:00:00Z', estimate_version: 3, ...over });
+    const listWith = (item: Contract) => vi.mocked(api.fetchContracts).mockResolvedValue({ items: [item], total: 1 });
+
+    it('offers the signing of an issued contract with a date, full-width touch-sized controls and a second tap', async () => {
+      listWith(issuedContract());
+      vi.mocked(api.signContract).mockResolvedValue(issuedContract({ status: 'SIGNED', signed_on: '2026-10-12' }));
+      renderCard();
+      const section = await screen.findByLabelText('contract-sign');
+      const date = within(section).getByLabelText('contract-signed-on');
+      expect(date).toHaveAttribute('type', 'date');
+      expect(date.className).toContain('min-h-11');
+      fireEvent.change(date, { target: { value: '2026-10-12' } });
+      const button = within(section).getByLabelText('sign-contract');
+      expect(button.className).toMatch(/w-full.*min-h-11|min-h-11.*w-full/);
+      expect(button).toHaveTextContent('Umowa podpisana');
+      await act(async () => { fireEvent.click(button); });
+      expect(api.signContract).not.toHaveBeenCalled();
+      expect(button).toHaveTextContent('Naciśnij ponownie');
+      listWith(issuedContract({ status: 'SIGNED', signed_on: '2026-10-12' }));
+      await act(async () => { fireEvent.click(button); });
+      expect(api.signContract).toHaveBeenCalledWith('p1', 'c9', '2026-10-12');
+      expect(await screen.findByLabelText('contract-note')).toHaveTextContent('Umowa oznaczona jako podpisana, kosztorys zaakceptowany.');
+      expect(await screen.findByText('Podpisana dnia 2026-10-12; kosztorys wersja 3 zaakceptowany.')).toBeInTheDocument();
+      expect(screen.queryByLabelText('contract-sign')).toBeNull();
+    });
+
+    it('changing the date withdraws the confirmation', async () => {
+      listWith(issuedContract());
+      renderCard();
+      const button = await screen.findByLabelText('sign-contract');
+      await act(async () => { fireEvent.click(button); });
+      expect(button).toHaveTextContent('Naciśnij ponownie');
+      fireEvent.change(screen.getByLabelText('contract-signed-on'), { target: { value: '2026-10-11' } });
+      expect(button).toHaveTextContent('Umowa podpisana');
+      expect(api.signContract).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['SIGNED_ON_IN_FUTURE', 'Data podpisania nie może być w przyszłości.'],
+      ['SIGNED_ON_BEFORE_ISSUE', 'wcześniejsza niż data wystawienia'],
+      ['ESTIMATE_CHANGED', 'został zmieniony lub zarchiwizowany'],
+      ['ALREADY_SIGNED', 'jest już podpisana'],
+    ])('says in words why the server refused the signing: %s', async (reason, sentence) => {
+      listWith(issuedContract());
+      vi.mocked(api.signContract).mockRejectedValue(new ApiError('English', 422, 'CONTRACT_SIGN_REFUSED', { code: 'CONTRACT_SIGN_REFUSED', details: { reason } }));
+      renderCard();
+      const button = await screen.findByLabelText('sign-contract');
+      await act(async () => { fireEvent.click(button); });
+      await act(async () => { fireEvent.click(button); });
+      expect(await screen.findByLabelText('contract-error')).toHaveTextContent(sentence);
+      expect(button).toHaveTextContent('Umowa podpisana'); // the confirmation is reset
+    });
+
+    it('closes an issued or a signed contract only after a second tap', async () => {
+      listWith(issuedContract());
+      vi.mocked(api.closeContract).mockResolvedValue(issuedContract({ status: 'ARCHIVED' }));
+      renderCard();
+      const button = await screen.findByLabelText('close-contract');
+      expect(button).toHaveTextContent('Zamknij umowę (nie została podpisana)');
+      await act(async () => { fireEvent.click(button); });
+      expect(api.closeContract).not.toHaveBeenCalled();
+      listWith(contract({ status: 'ARCHIVED' }));
+      await act(async () => { fireEvent.click(button); });
+      expect(api.closeContract).toHaveBeenCalledWith('p1', 'c9');
+      expect(await screen.findByLabelText('contract-note')).toHaveTextContent('Umowa przeniesiona do archiwum.');
+    });
+
+    it('a signed contract shows when it was signed and offers only the closing; a draft or an archived one offers neither', async () => {
+      listWith(issuedContract({ status: 'SIGNED', signed_on: '2026-10-12' }));
+      renderCard();
+      expect(await screen.findByLabelText('close-contract')).toHaveTextContent('Zakończ umowę (do archiwum)');
+      expect(screen.queryByLabelText('sign-contract')).toBeNull();
+      cleanup();
+      vi.mocked(api.fetchContracts).mockResolvedValue({ items: [contract({ status: 'DRAFT' })], total: 1 });
+      renderCard();
+      await screen.findByLabelText('compose-contract');
+      expect(screen.queryByLabelText('close-contract')).toBeNull();
+      expect(screen.queryByLabelText('contract-sign')).toBeNull();
+    });
+
+    it('is localised in Russian with touch-sized controls', async () => {
+      localStorage.setItem('locale', 'ru');
+      listWith(issuedContract());
+      renderCard();
+      const section = await screen.findByLabelText('contract-sign');
+      expect(section).toHaveTextContent('Дата подписания');
+      expect(within(section).getByLabelText('sign-contract')).toHaveTextContent('Договор подписан');
+      expect(screen.getByLabelText('close-contract')).toHaveTextContent('Закрыть договор (не подписан)');
+      for (const control of section.querySelectorAll('input, button')) expect((control as HTMLElement).className).toMatch(/min-h-11/);
     });
   });
 });

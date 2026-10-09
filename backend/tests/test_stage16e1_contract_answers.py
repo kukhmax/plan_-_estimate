@@ -190,7 +190,7 @@ def test_upgrade_matches_the_model_and_downgrade_drops_only_the_table():
     insp = inspect(engine)
     assert set(insp.get_table_names()) == before | {"contracts"}
     columns = {c["name"]: c for c in insp.get_columns("contracts")}
-    later = {"issued_at", "snapshot", "document_html", "estimate_id", "estimate_version"}  # added by 0045 (16E.2)
+    later = {"issued_at", "snapshot", "document_html", "estimate_id", "estimate_version", "signed_on"}  # added by 0045 (16E.2) and 0046 (16E.4)
     assert set(columns) == {c.name for c in Contract.__table__.columns} - later
     assert all(not c["nullable"] for c in columns.values())
     assert {fk["referred_table"] for fk in insp.get_foreign_keys("contracts")} == {"users", "projects"}

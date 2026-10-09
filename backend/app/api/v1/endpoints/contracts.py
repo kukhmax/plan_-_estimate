@@ -14,6 +14,7 @@ from app.domain.exceptions import (
     ContractGateError,
     ContractNotEditableError,
     ContractNotFoundError,
+    ContractSignError,
     DocumentDataError,
     DocumentQueueFullError,
     ProjectNotFoundError,
@@ -25,13 +26,14 @@ from app.schemas.contract import (
     ContractGateRead,
     ContractListResponse,
     ContractRead,
+    ContractSignRequest,
     GateBlockerRead,
 )
 from app.schemas.issued_document import IssuedDocumentRead
 
 router = APIRouter()
 BASE = "/projects/{project_id}/contracts"
-FAILURES = (ProjectNotFoundError, ContractNotFoundError, ContractNotEditableError, ContractAnswerInvalidError)
+FAILURES = (ProjectNotFoundError, ContractNotFoundError, ContractNotEditableError, ContractAnswerInvalidError, ContractSignError)
 ISSUE_FAILURES = (*FAILURES, ContractGateError, DocumentDataError, DocumentQueueFullError)
 
 
@@ -40,6 +42,11 @@ def _http_error(exc: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
     if isinstance(exc, ContractNotEditableError):
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": exc.code, "message": str(exc)})
+    if isinstance(exc, ContractSignError):
+        return HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": exc.code, "message": str(exc), "details": {"reason": exc.reason}},
+        )
     if isinstance(exc, ContractGateError):
         return _error(
             exc.code, str(exc), status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -122,6 +129,35 @@ async def archive_contract_draft(
 ) -> ContractRead:
     try:
         row = await service.archive_draft(project_id, contract_id, current_user.id)
+    except FAILURES as exc:
+        raise _http_error(exc) from exc
+    return contract_read(row)
+
+
+@router.post(BASE + "/{contract_id}/sign", response_model=ContractRead, summary="The issued contract was signed: it becomes SIGNED, its estimate ACCEPTED")
+async def sign_contract(
+    project_id: uuid.UUID,
+    contract_id: uuid.UUID,
+    payload: ContractSignRequest,
+    current_user: User = Depends(get_current_user),
+    service: ContractService = Depends(get_contract_service),
+) -> ContractRead:
+    try:
+        row = await service.sign(project_id, contract_id, current_user.id, payload.signed_on)
+    except FAILURES as exc:
+        raise _http_error(exc) from exc
+    return contract_read(row)
+
+
+@router.post(BASE + "/{contract_id}/close", response_model=ContractRead, summary="Close an issued or signed contract (archive)")
+async def close_contract(
+    project_id: uuid.UUID,
+    contract_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    service: ContractService = Depends(get_contract_service),
+) -> ContractRead:
+    try:
+        row = await service.close(project_id, contract_id, current_user.id)
     except FAILURES as exc:
         raise _http_error(exc) from exc
     return contract_read(row)

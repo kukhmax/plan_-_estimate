@@ -5,7 +5,7 @@ unique index): opening the draft twice returns the same one. Only a draft may ch
 persons of the same object who are marked "may accept the work and sign the protocols".
 """
 import uuid
-from datetime import datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -15,7 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.contracts.answers import effective_answers, merge_answers, missing_required
 from app.domain.contracts.gate import Blocker, GateData, evaluate_gate, load_gate_data
 from app.domain.contracts.catalog import load_contract_catalog
-from app.domain.exceptions import ContractNotEditableError, ContractNotFoundError, ProjectNotFoundError
+from app.domain.documents.formatting import local_datetime
+from app.domain.exceptions import ContractNotEditableError, ContractNotFoundError, ContractSignError, ProjectNotFoundError
+from app.models.estimate import Estimate, EstimateStatus
 from app.models.contract import Contract, ContractStatus
 from app.models.project import Project
 from app.models.project_representative import ProjectRepresentative
@@ -33,6 +35,9 @@ def contract_read(row: Contract) -> ContractRead:
         effective_answers=effective_answers(row.answers or {}, catalog),
         missing_required=missing_required(row.answers or {}, catalog),
         questionnaire_version=row.questionnaire_version,
+        issued_at=row.issued_at,
+        estimate_version=row.estimate_version,
+        signed_on=row.signed_on,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -180,6 +185,56 @@ class ContractService:
         row.document_html = document_html
         row.estimate_id = estimate_id
         row.estimate_version = estimate_version
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
+
+    async def sign(
+        self, project_id: uuid.UUID, contract_id: uuid.UUID, owner_id: uuid.UUID, signed_on: date, *, today: date | None = None
+    ) -> Contract:
+        """An issued contract was signed on paper: it becomes SIGNED and the estimate that priced it becomes ACCEPTED, in one
+        transaction. The conditions stay exactly as issued; nothing is regenerated."""
+        row = await self.get(project_id, contract_id, owner_id)
+        if row.status != ContractStatus.ISSUED.value:
+            raise ContractNotEditableError(f"contract {contract_id} is {row.status}: only an issued contract is signed")
+        today = today or local_datetime(datetime.now(UTC)).date()
+        if signed_on > today:
+            raise ContractSignError("SIGNED_ON_IN_FUTURE")
+        if row.issued_at is not None and signed_on < local_datetime(row.issued_at).date():
+            raise ContractSignError("SIGNED_ON_BEFORE_ISSUE")
+        estimate = (
+            await self.db.execute(
+                select(Estimate).where(Estimate.id == row.estimate_id, Estimate.project_id == project_id, Estimate.owner_id == owner_id)
+            )
+        ).scalar_one_or_none() if row.estimate_id is not None else None
+        if estimate is None or estimate.status not in (EstimateStatus.FINAL, EstimateStatus.ACCEPTED):
+            raise ContractSignError("ESTIMATE_CHANGED")
+        signed = (
+            await self.db.execute(
+                select(Contract.id).where(
+                    Contract.project_id == project_id, Contract.owner_id == owner_id, Contract.status == ContractStatus.SIGNED.value
+                )
+            )
+        ).scalar_one_or_none()
+        if signed is not None:
+            raise ContractSignError("ALREADY_SIGNED")
+        estimate.status = EstimateStatus.ACCEPTED
+        row.status = ContractStatus.SIGNED.value
+        row.signed_on = signed_on
+        try:
+            await self.db.commit()
+        except IntegrityError:  # two requests signed at once: the unique index let one through
+            await self.db.rollback()
+            raise ContractSignError("ALREADY_SIGNED") from None
+        await self.db.refresh(row)
+        return row
+
+    async def close(self, project_id: uuid.UUID, contract_id: uuid.UUID, owner_id: uuid.UUID) -> Contract:
+        """An issued contract that was not signed, or a signed one that ended, goes to the archive. The estimate stays as it is."""
+        row = await self.get(project_id, contract_id, owner_id)
+        if row.status not in (ContractStatus.ISSUED.value, ContractStatus.SIGNED.value):
+            raise ContractNotEditableError(f"contract {contract_id} is {row.status}: only an issued or signed contract is closed")
+        row.status = ContractStatus.ARCHIVED.value
         await self.db.commit()
         await self.db.refresh(row)
         return row

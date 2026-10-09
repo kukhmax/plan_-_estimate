@@ -16,6 +16,10 @@ export interface Contract {
   /** The REQUIRED questions that have no answer yet, in the questionnaire's order. */
   missing_required: string[];
   questionnaire_version: number;
+  /** Set when the contract was issued (16E.2) / signed on paper (16E.4). */
+  issued_at?: string | null;
+  estimate_version?: number | null;
+  signed_on?: string | null;
   created_at: string;
   updated_at: string;
 }
