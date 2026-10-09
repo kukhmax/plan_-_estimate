@@ -14,6 +14,7 @@ from app.domain.exceptions import (
     WorkRecommendationTargetError,
 )
 from app.domain.services.work_recommendation_service import WorkRecommendationService
+from app.models.price_item import PriceItem
 from app.models.user import User
 from app.models.work_recommendation import WorkRecommendation
 from app.schemas.work_recommendation import (
@@ -26,17 +27,35 @@ from app.schemas.work_recommendation import (
 router = APIRouter()
 
 
+async def _attach_card_context(
+    service: WorkRecommendationService,
+    owner_id: uuid.UUID,
+    items: list[WorkRecommendation],
+    price_items_by_code: dict[str, PriceItem],
+) -> None:
+    """Stage 15H.2: the wall, the defect and the "already in the plan" facts of each card (transient, read-only)."""
+    context = await service.describe_context(owner_id, items, price_items_by_code)
+    for item in items:
+        card = context[item.id]
+        item.surface_name = card.surface_name
+        item.surface_type = card.surface_type
+        item.reason_key = card.reason_key
+        item.in_plan_count = card.in_plan_count
+        item.same_work_other_cards = card.same_work_other_cards
+
+
 async def _attach_current_price_items(
     service: WorkRecommendationService,
     owner_id: uuid.UUID,
     items: list[WorkRecommendation],
 ) -> None:
-    """Read-time-only PriceBook resolution preview attached as a transient
-    attribute for serialization -- never persisted, never resolved_price_item_id.
+    """Read-time-only PriceBook resolution preview (and, since 15H.2, the card's context) attached as transient
+    attributes for serialization -- never persisted, never resolved_price_item_id.
     """
     price_items_by_code = await service.resolve_current_price_items(owner_id, items)
     for item in items:
         item.current_price_item = price_items_by_code.get(item.recommended_work_code)
+    await _attach_card_context(service, owner_id, items, price_items_by_code)
 
 
 @router.get(
@@ -189,6 +208,7 @@ async def accept_work_recommendation(
         recommendation.current_price_item = await service.get_price_item_by_id(
             current_user.id, recommendation.resolved_price_item_id
         )
+        await _attach_card_context(service, current_user.id, [recommendation], {})
     else:
         await _attach_current_price_items(service, current_user.id, [recommendation])
     return WorkRecommendationRead.model_validate(recommendation)

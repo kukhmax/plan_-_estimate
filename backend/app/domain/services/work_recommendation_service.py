@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.data.work_recommendation_rules import (
@@ -40,7 +40,8 @@ from app.models.price_item import PriceCategory, PriceItem
 from app.models.project import Project
 from app.models.risk import Risk
 from app.models.room import Room
-from app.models.surface import SurfaceType
+from app.models.surface import Surface, SurfaceType
+from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
 from app.models.work_recommendation import (
     WorkRecommendation,
     WorkRecommendationRule,
@@ -90,6 +91,17 @@ class RecommendationEvaluation:
     unchanged: int = 0
     resolved: int = 0
     recommendations: list[WorkRecommendation] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class RecommendationContext:
+    """What a card shows besides the work itself (Stage 15H.2); transient, never stored."""
+
+    surface_name: str | None
+    surface_type: str | None
+    reason_key: str | None  # the title key of the risk (or the label key of the finding) that asks for the work
+    in_plan_count: int  # how many times this work is already in the plan of that wall
+    same_work_other_cards: int  # other live cards asking for the same work on the same wall
 
 
 class WorkRecommendationService:
@@ -568,6 +580,84 @@ class WorkRecommendationService:
                 )
             )
         ).scalar_one_or_none()
+
+    async def describe_context(
+        self,
+        owner_id: uuid.UUID,
+        recommendations: list[WorkRecommendation],
+        price_items_by_code: dict[str, PriceItem],
+    ) -> dict[uuid.UUID, "RecommendationContext"]:
+        """Read-time-only context of each card (Stage 15H.2): which wall, which defect asked for the work, how many times
+        the work is already in that wall's plan, and how many other live cards ask for the same work on the same wall.
+        Never writes anything; a fixed number of queries whatever the number of cards.
+        """
+        surface_ids = {r.surface_id for r in recommendations if r.surface_id is not None}
+        surfaces: dict[uuid.UUID, Surface] = {}
+        if surface_ids:
+            surfaces = {
+                row.id: row
+                for row in (await self.db.execute(select(Surface).where(Surface.id.in_(surface_ids)))).scalars()
+            }
+        risk_ids = {r.risk_id for r in recommendations if r.risk_id is not None}
+        risks: dict[uuid.UUID, Risk] = {}
+        if risk_ids:
+            risks = {row.id: row for row in (await self.db.execute(select(Risk).where(Risk.id.in_(risk_ids)))).scalars()}
+        finding_ids = {r.finding_id for r in recommendations if r.finding_id is not None}
+        findings: dict[uuid.UUID, InspectionFinding] = {}
+        if finding_ids:
+            findings = {
+                row.id: row
+                for row in (
+                    await self.db.execute(select(InspectionFinding).where(InspectionFinding.id.in_(finding_ids)))
+                ).scalars()
+            }
+
+        def price_item_id_of(rec: WorkRecommendation) -> uuid.UUID | None:
+            if rec.status == WorkRecommendationStatus.ACCEPTED and rec.resolved_price_item_id is not None:
+                return rec.resolved_price_item_id
+            item = price_items_by_code.get(rec.recommended_work_code)
+            return item.id if item is not None else None
+
+        in_plan: dict[tuple[uuid.UUID, uuid.UUID], int] = {}
+        if surface_ids:
+            rows = await self.db.execute(
+                select(SurfaceWorkPlan.surface_id, SurfacePlannedWork.price_item_id, func.count(SurfacePlannedWork.id))
+                .join(SurfacePlannedWork, SurfacePlannedWork.work_plan_id == SurfaceWorkPlan.id)
+                .where(SurfaceWorkPlan.surface_id.in_(surface_ids))
+                .group_by(SurfaceWorkPlan.surface_id, SurfacePlannedWork.price_item_id)
+            )
+            in_plan = {(surface_id, item_id): count for surface_id, item_id, count in rows}
+
+        # every live card of these walls (not only the ones in this response: a single accepted / dismissed card is answered alone)
+        asking: dict[tuple[uuid.UUID, str], int] = {}
+        if surface_ids:
+            rows = await self.db.execute(
+                select(WorkRecommendation.surface_id, WorkRecommendation.recommended_work_code, func.count(WorkRecommendation.id))
+                .where(
+                    WorkRecommendation.surface_id.in_(surface_ids),
+                    WorkRecommendation.is_active.is_(True),
+                    WorkRecommendation.status != WorkRecommendationStatus.DISMISSED,
+                )
+                .group_by(WorkRecommendation.surface_id, WorkRecommendation.recommended_work_code)
+            )
+            asking = {(surface_id, code): count for surface_id, code, count in rows}
+
+        result: dict[uuid.UUID, RecommendationContext] = {}
+        for rec in recommendations:
+            surface = surfaces.get(rec.surface_id) if rec.surface_id is not None else None
+            risk = risks.get(rec.risk_id) if rec.risk_id is not None else None
+            finding = findings.get(rec.finding_id) if rec.finding_id is not None else None
+            item_id = price_item_id_of(rec)
+            is_live = rec.is_active and rec.status != WorkRecommendationStatus.DISMISSED
+            others = asking.get((rec.surface_id, rec.recommended_work_code), 0) - 1 if (is_live and rec.surface_id is not None) else 0
+            result[rec.id] = RecommendationContext(
+                surface_name=surface.name if surface else None,
+                surface_type=surface.surface_type.value if surface else None,
+                reason_key=risk.title_key if risk else (finding.label_key if finding else None),
+                in_plan_count=in_plan.get((rec.surface_id, item_id), 0) if (rec.surface_id is not None and item_id is not None) else 0,
+                same_work_other_cards=max(others, 0),
+            )
+        return result
 
     async def resolve_current_price_items(
         self, owner_id: uuid.UUID, recommendations: list[WorkRecommendation]

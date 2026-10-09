@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import { resolveKey } from '../utils/i18nKeys';
+import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { formatPrice } from '../utils/priceFormat';
 import { ApiError } from '../api/http';
 import {
@@ -105,6 +106,7 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
   const [fallbackOpen, setFallbackOpen] = useState<string[]>([]);
   const [accepting, setAccepting] = useState<string[]>([]);
   const [justAccepted, setJustAccepted] = useState<string[]>([]);
+  const [confirmAgain, setConfirmAgain] = useState<string[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -222,12 +224,28 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
       setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
       setJustAccepted((prev) => [...prev, id]);
       setFallbackOpen((prev) => prev.filter((entry) => entry !== id));
+      setConfirmAgain((prev) => prev.filter((entry) => entry !== id));
+      // the other cards of the same wall now know that the work is in its plan (Stage 15H.2)
+      try {
+        const refreshed = await fetchWorkRecommendations(projectId, roomId, { activity });
+        setItems(forThisInspection(refreshed.items));
+      } catch {
+        // the accepted card is already updated; the next list load refreshes the rest
+      }
     } catch (err) {
       setError(localizedAcceptError(t, err, t.recommendations.error_accept));
     } finally {
       setPending((prev) => prev.filter((entry) => entry !== id));
       setAccepting((prev) => prev.filter((entry) => entry !== id));
     }
+  }
+
+  function askConfirmAgain(id: string): void {
+    setConfirmAgain((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }
+
+  function cancelConfirmAgain(id: string): void {
+    setConfirmAgain((prev) => prev.filter((entry) => entry !== id));
   }
 
   function openFallback(id: string): void {
@@ -307,6 +325,9 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
               accepting={accepting.includes(item.id)}
               fallbackOpen={fallbackOpen.includes(item.id)}
               justAccepted={justAccepted.includes(item.id)}
+              confirmAgain={confirmAgain.includes(item.id)}
+              onAskConfirmAgain={askConfirmAgain}
+              onCancelConfirmAgain={cancelConfirmAgain}
               onToggleOptions={toggleOptions}
               onDismiss={handleDismiss}
               onReconsider={handleReconsider}
@@ -329,6 +350,9 @@ function RecommendationCard({
   accepting,
   fallbackOpen,
   justAccepted,
+  confirmAgain,
+  onAskConfirmAgain,
+  onCancelConfirmAgain,
   onToggleOptions,
   onDismiss,
   onReconsider,
@@ -343,6 +367,9 @@ function RecommendationCard({
   accepting: boolean;
   fallbackOpen: boolean;
   justAccepted: boolean;
+  confirmAgain: boolean;
+  onAskConfirmAgain: (id: string) => void;
+  onCancelConfirmAgain: (id: string) => void;
   onToggleOptions: (id: string) => void;
   onDismiss: (id: string) => void;
   onReconsider: (id: string) => void;
@@ -361,6 +388,14 @@ function RecommendationCard({
   const hasLifecycleAction =
     recommendation.status === 'PENDING' || recommendation.status === 'DISMISSED';
 
+  const surfaceLabel = recommendation.surface_name
+    ? getSurfaceDisplayName(
+        { name: recommendation.surface_name, surface_type: recommendation.surface_type },
+        { wall: t.surfaces.wall, floor: t.surfaces.floor, ceiling: t.surfaces.ceiling },
+      )
+    : null;
+  const reasonResolved = recommendation.reason_key ? resolveKey(t, recommendation.reason_key) : null;
+  const reasonLabel = reasonResolved && reasonResolved !== recommendation.reason_key ? reasonResolved : null;
   const isPending = recommendation.status === 'PENDING';
   const isActionableTarget = !isRoomAdvisory;
   const canAcceptNormally =
@@ -396,6 +431,17 @@ function RecommendationCard({
 
       <p className="font-semibold text-neutral-900 break-words">{title}</p>
 
+      {surfaceLabel ? (
+        <p className="text-xs text-neutral-700 break-words">
+          {t.recommendations.context_surface.replace('{name}', surfaceLabel)}
+        </p>
+      ) : null}
+      {reasonLabel ? (
+        <p className="text-xs text-neutral-700 break-words">
+          {t.recommendations.context_reason.replace('{reason}', reasonLabel)}
+        </p>
+      ) : null}
+
       {isRoomAdvisory ? (
         <p className="text-xs text-neutral-600">{t.recommendations.room_advisory_hint}</p>
       ) : null}
@@ -426,13 +472,53 @@ function RecommendationCard({
         <p className="text-xs text-green-700">{t.recommendations.accept_success}</p>
       ) : null}
 
-      {canAcceptNormally ? (
+      {isPending && recommendation.in_plan_count > 0 ? (
+        <p role="note" className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900 break-words">
+          {t.recommendations.note_already_in_plan.replace('{count}', String(recommendation.in_plan_count))}
+        </p>
+      ) : null}
+      {isPending && recommendation.in_plan_count === 0 && recommendation.same_work_other_cards > 0 ? (
+        <p role="note" className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900 break-words">
+          {t.recommendations.note_same_work_elsewhere}
+        </p>
+      ) : null}
+      {recommendation.status === 'ACCEPTED' && recommendation.in_plan_count > 1 ? (
+        <p role="note" className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900 break-words">
+          {t.recommendations.note_already_in_plan.replace('{count}', String(recommendation.in_plan_count))}
+        </p>
+      ) : null}
+
+      {canAcceptNormally && confirmAgain ? (
+        <div role="alertdialog" aria-label={`${title} — ${t.recommendations.confirm_again_question}`} className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <p className="text-sm text-amber-900 break-words">{t.recommendations.confirm_again_question}</p>
+          <button
+            type="button"
+            aria-label={`${title} — ${t.recommendations.confirm_again_yes}`}
+            className="min-h-11 rounded-lg bg-blue-600 px-3 font-medium text-white disabled:opacity-50"
+            disabled={pending}
+            onClick={() => onAccept(recommendation.id)}
+          >
+            {accepting ? t.recommendations.accepting : t.recommendations.confirm_again_yes}
+          </button>
+          <button
+            type="button"
+            aria-label={`${title} — ${t.recommendations.confirm_again_no}`}
+            className="min-h-11 rounded-lg border border-neutral-300 bg-white px-3 font-medium text-neutral-700 disabled:opacity-50"
+            disabled={pending}
+            onClick={() => onCancelConfirmAgain(recommendation.id)}
+          >
+            {t.recommendations.confirm_again_no}
+          </button>
+        </div>
+      ) : null}
+
+      {canAcceptNormally && !confirmAgain ? (
         <button
           type="button"
           aria-label={`${title} — ${t.recommendations.accept}`}
           className="min-h-11 rounded-lg bg-blue-600 px-3 font-medium text-white disabled:opacity-50"
           disabled={pending}
-          onClick={() => onAccept(recommendation.id)}
+          onClick={() => (recommendation.in_plan_count > 0 ? onAskConfirmAgain(recommendation.id) : onAccept(recommendation.id))}
         >
           {accepting ? t.recommendations.accepting : t.recommendations.accept}
         </button>

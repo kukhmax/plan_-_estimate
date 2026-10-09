@@ -44,6 +44,12 @@ class WorkRecommendationRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     current_price_item: SurfacePriceItemSummaryRead | None = None
+    # Stage 15H.2, read-time only (transient, never stored): what the card shows besides the work.
+    surface_name: str | None = None
+    surface_type: str | None = None  # WALL | CEILING | FLOOR | OTHER (the screen localizes generated names)
+    reason_key: str | None = None  # title key of the risk / label key of the finding that asks for the work
+    in_plan_count: int = 0  # how many times this work is already in the plan of that wall
+    same_work_other_cards: int = 0  # other live cards asking for the same work on the same wall
 
 
 class WorkRecommendationAcceptRequest(BaseModel):

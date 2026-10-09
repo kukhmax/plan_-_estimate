@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as workRecommendationsApi from '../api/workRecommendations';
 import * as workPlansApi from '../api/workPlans';
@@ -79,6 +79,11 @@ function recommendation(overrides: Partial<WorkRecommendationRead> = {}): WorkRe
     created_at: '2026-09-20T08:00:00Z',
     updated_at: '2026-09-20T08:00:00Z',
     current_price_item: priceItem(),
+    surface_name: null,
+    surface_type: null,
+    reason_key: null,
+    in_plan_count: 0,
+    same_work_other_cards: 0,
     ...overrides,
   };
 }
@@ -605,10 +610,13 @@ describe('RecommendationPanel acceptance (Stage 11D.2)', () => {
   });
 
   it('accepts semantically, shows ACCEPTED, removes the accept action, and shows success feedback (B)', async () => {
-    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({
-      items: [recommendation()],
-      total: 1,
-    });
+    // the list is read again after an accept (Stage 15H.2), and the server then answers with the accepted card
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations)
+      .mockResolvedValueOnce({ items: [recommendation()], total: 1 })
+      .mockResolvedValue({
+        items: [recommendation({ status: 'ACCEPTED', accepted_at: '2026-09-20T09:00:00Z', resolved_price_item_id: 'price-1' })],
+        total: 1,
+      });
     renderPanel();
     fireEvent.click(await screen.findByLabelText(/Dodaj do prac/));
     await waitFor(() =>
@@ -914,5 +922,88 @@ describe('RecommendationPanel acceptance (Stage 11D.2)', () => {
       expect(workRecommendationsApi.fetchWorkRecommendations).toHaveBeenCalledTimes(2),
     );
     expect(workRecommendationsApi.evaluateWorkRecommendations).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('RecommendationPanel duplicates of one work (Stage 15H.2, variant A)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(workRecommendationsApi.acceptWorkRecommendation).mockResolvedValue(
+      recommendation({ status: 'ACCEPTED', accepted_at: '2026-09-20T09:00:00Z', resolved_price_item_id: 'price-1', in_plan_count: 1 }),
+    );
+  });
+
+  const twin = (over: Partial<WorkRecommendationRead> = {}) =>
+    recommendation({ surface_name: 'Wall 1', surface_type: 'WALL', reason_key: 'risk.dusty_substrate_prime.title', ...over });
+
+  it('names the wall (in the interface language) and the defect on the card', async () => {
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: [twin()], total: 1 });
+    renderPanel();
+    expect(await screen.findByText('Powierzchnia: Ściana 1')).toBeInTheDocument();
+    expect(screen.getByText(/Powód: /)).toBeInTheDocument();
+    expect(screen.queryByText(/risk\.dusty/)).toBeNull();
+    expect(screen.queryByText(/Wall 1/)).toBeNull();
+  });
+
+  it('says in Russian too', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: [twin({ surface_name: 'Ceiling', surface_type: 'CEILING' })], total: 1 });
+    renderPanel();
+    expect(await screen.findByText('Поверхность: Потолок')).toBeInTheDocument();
+    expect(screen.getByText(/Причина: /)).toBeInTheDocument();
+  });
+
+  it('warns that another card asks for the same work, without blocking the first add', async () => {
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: [twin({ same_work_other_cards: 1 })], total: 1 });
+    renderPanel();
+    expect(await screen.findByText(/Tę samą pracę proponuje też inna karta/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/Dodaj do prac/));
+    await waitFor(() => expect(workRecommendationsApi.acceptWorkRecommendation).toHaveBeenCalledTimes(1));
+  });
+
+  it('asks before adding a work that is already in the plan of the wall, and adds only after the owner confirms', async () => {
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: [twin({ in_plan_count: 1, same_work_other_cards: 1 })], total: 1 });
+    renderPanel();
+    expect(await screen.findByText('Ta praca jest już w planie tej powierzchni (1×).')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/Dodaj do prac/));
+    expect(workRecommendationsApi.acceptWorkRecommendation).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText(/Dodać tę pracę jeszcze raz/)).toBeInTheDocument();
+    for (const button of within(dialog).getAllByRole('button')) expect(button.className).toContain('min-h-11');
+    fireEvent.click(within(dialog).getByLabelText(/Anuluj/));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(workRecommendationsApi.acceptWorkRecommendation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText(/Dodaj do prac/));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByLabelText(/Dodaj jeszcze raz/));
+    await waitFor(() => expect(workRecommendationsApi.acceptWorkRecommendation).toHaveBeenCalledWith('proj-1', 'rec-1', {}));
+  });
+
+  it('after an add the other cards of the wall learn that the work is in the plan', async () => {
+    const first = twin({ id: 'rec-1' });
+    const second = twin({ id: 'rec-2', same_work_other_cards: 1, trigger_code: 'other' });
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations)
+      .mockResolvedValueOnce({ items: [first, second], total: 2 })
+      .mockResolvedValue({
+        items: [twin({ id: 'rec-1', status: 'ACCEPTED', in_plan_count: 1 }), twin({ id: 'rec-2', in_plan_count: 1, same_work_other_cards: 1 })],
+        total: 2,
+      });
+    vi.mocked(workRecommendationsApi.acceptWorkRecommendation).mockResolvedValue(twin({ id: 'rec-1', status: 'ACCEPTED', in_plan_count: 1 }));
+    renderPanel();
+    const buttons = await screen.findAllByLabelText(/Dodaj do prac/);
+    fireEvent.click(buttons[0]);
+    expect(await screen.findByText('Ta praca jest już w planie tej powierzchni (1×).')).toBeInTheDocument();
+    expect(workRecommendationsApi.fetchWorkRecommendations).toHaveBeenCalledTimes(2);
+  });
+
+  it('a card without duplicate facts looks and acts as before', async () => {
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: [twin()], total: 1 });
+    renderPanel();
+    fireEvent.click(await screen.findByLabelText(/Dodaj do prac/));
+    await waitFor(() => expect(workRecommendationsApi.acceptWorkRecommendation).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('note')).toBeNull();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 });

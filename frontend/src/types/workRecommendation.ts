@@ -35,6 +35,14 @@ export interface WorkRecommendationRead {
   created_at: string;
   updated_at: string;
   current_price_item: SurfacePriceItemSummaryRead | null;
+  /** Stage 15H.2, read-time only: the wall of the card, the defect that asks for the work, and the duplicate facts. */
+  surface_name: string | null;
+  surface_type: string | null;
+  reason_key: string | null;
+  /** How many times this work is already in the plan of that wall. */
+  in_plan_count: number;
+  /** Other live cards that ask for the same work on the same wall. */
+  same_work_other_cards: number;
 }
 
 export interface WorkRecommendationListResponse {
