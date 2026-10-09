@@ -22,6 +22,13 @@ import { detailFor, listPage, makeItem, storageStatus } from './test/photoFixtur
 
 // Stage 14E.5 — photo entry points wired into the object, room, surface and opening cards.
 
+vi.mock('./api/representatives', () => ({
+  fetchRepresentatives: vi.fn(async () => ({ items: [], total: 0 })),
+  createRepresentative: vi.fn(),
+  updateRepresentative: vi.fn(),
+  archiveRepresentative: vi.fn(),
+  restoreRepresentative: vi.fn(),
+}));
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
 vi.mock('./api/estimates', () => ({ listEstimates: vi.fn(), generateEstimate: vi.fn(), getEstimate: vi.fn() }));
 vi.mock('./api/projects', () => ({

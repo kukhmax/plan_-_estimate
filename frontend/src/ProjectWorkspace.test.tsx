@@ -20,6 +20,13 @@ import { ProjectSummary, RoomType } from './types/room';
 import { SurfaceType } from './types/surface';
 
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
+vi.mock('./api/representatives', () => ({
+  fetchRepresentatives: vi.fn(async () => ({ items: [], total: 0 })),
+  createRepresentative: vi.fn(),
+  updateRepresentative: vi.fn(),
+  archiveRepresentative: vi.fn(),
+  restoreRepresentative: vi.fn(),
+}));
 vi.mock('./api/documents', () => ({ fetchPhotoReportSummary: vi.fn(), listDocuments: vi.fn(), issuePhotoReport: vi.fn() }));
 vi.mock('./api/estimates', () => ({
   listEstimates: vi.fn(),

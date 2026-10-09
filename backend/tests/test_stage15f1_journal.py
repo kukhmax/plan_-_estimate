@@ -70,7 +70,7 @@ def test_revision_chain_and_single_head():
     assert module.revision == "0038_issued_documents" and module.down_revision == "0037_executor_profiles"
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0039_client_address"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0040_project_representatives"]
 
 
 def test_upgrade_matches_the_model_and_downgrade_removes_only_the_table():

@@ -13,6 +13,10 @@ class RoomNotFoundError(Exception):
     """Raised when a room is not found within an owned project."""
 
 
+class ProjectRepresentativeNotFoundError(Exception):
+    """Raised when a person of an object is not found within an owned project (Stage 16B.2)."""
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 

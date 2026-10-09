@@ -33,6 +33,7 @@ import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { RoomList } from './RoomList';
 import { OpeningGroupList } from './OpeningGroupList';
 import { ProjectDocuments } from './ProjectDocuments';
+import { ProjectRepresentatives } from './ProjectRepresentatives';
 import type { UnpricedWork } from '../types/document';
 import { inspectionTargetOf } from '../utils/unpricedTarget';
 import { ProjectSummaryCard } from './ProjectSummaryCard';
@@ -756,6 +757,9 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
             onOpenInspection={(work) => void openRecommendationInspection(work)}
             onOpenEstimate={(estimateId) => void openCurrentEstimate(estimateId)}
           />
+
+          {/* Stage 16B.2: the persons of the object (who may accept the work and sign the protocols). */}
+          <ProjectRepresentatives projectId={selectedProject.id} />
 
           <RoomList
             projectId={selectedProject.id}
