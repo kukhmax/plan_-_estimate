@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchPhotoReportSummary, issuePhotoReport, listDocuments } from '../api/documents';
 import { useI18n } from '../hooks/useI18n';
-import { TechCardSection } from './TechCardSection';
+import { ProductionPlanSection, TechCardSection } from './TechCardSection';
 import type { IssuedDocument, PhotoReportSummary, UnpricedWork } from '../types/document';
 import { documentErrorText } from '../utils/documentErrors';
 import { priceItemLabel } from '../utils/executionFormat';
@@ -168,8 +168,13 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
     else onOpenEstimate(work.reason === 'NO_ESTIMATE' ? null : summary?.estimate_id ?? null);
   };
 
-  const kindLabel = (document: IssuedDocument) =>
-    document.kind === 'ESTIMATE' ? text.kind_estimate : document.kind === 'TECH_CARD' ? text.kind_tech_card : text.kind_photo_report;
+  const kindLabels: Record<IssuedDocument['kind'], string> = {
+    ESTIMATE: text.kind_estimate,
+    PHOTO_REPORT: text.kind_photo_report,
+    TECH_CARD: text.kind_tech_card,
+    PRODUCTION_PLAN: text.kind_production_plan,
+  };
+  const kindLabel = (document: IssuedDocument) => kindLabels[document.kind];
   const reloadJournal = async () => {
     try {
       const next = await listDocuments(projectId);
@@ -213,6 +218,7 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
       )}
 
       {open && !loadFailed && <TechCardSection projectId={projectId} onIssued={() => void reloadJournal()} />}
+      {open && !loadFailed && <ProductionPlanSection projectId={projectId} onIssued={() => void reloadJournal()} />}
 
       {open && summary && (
         <section aria-label="photo-report-card" className="space-y-2">

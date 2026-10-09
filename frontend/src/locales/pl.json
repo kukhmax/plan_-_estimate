@@ -1989,7 +1989,8 @@
       "RECOMMENDED_WORK_UNPRICED": "Rekomendowane prace dodatkowe nie mają ceny w kosztorysie: {works}. W badaniu dodaj zalecenie do prac albo je odrzuć, a dodaną pracę wprowadź do kosztorysu (zaktualizuj kosztorys albo utwórz jego nową wersję). Potem spróbuj ponownie.",
       "SKELETON_SECTION_UNKNOWN": "Dokument ma sekcję, której nie przewiduje jego wzór. Zgłoś to do obsługi aplikacji.",
       "TECH_CARD_EMPTY": "Żadna powierzchnia nie ma jeszcze zaplanowanych prac. Dodaj prace do planu albo wydrukuj wersję roboczą.",
-      "TECH_CARD_INCOMPLETE": "Na części powierzchni z pracami brakuje danych do karty (lista poniżej). Wersję roboczą z pustymi polami możesz wydrukować już teraz."
+      "TECH_CARD_INCOMPLETE": "Na części powierzchni z pracami brakuje danych do karty (lista poniżej). Wersję roboczą z pustymi polami możesz wydrukować już teraz.",
+      "PRODUCTION_PLAN_EMPTY": "Żadna powierzchnia nie ma jeszcze zaplanowanych prac. Dodaj prace do planu albo wydrukuj wersję roboczą."
     },
     "recommended_works": "Rekomendowane prace dodatkowe: {count}",
     "unpriced_title": "Raport nie zostanie wysłany: te rekomendowane prace nie mają ceny w kosztorysie.",
@@ -2012,6 +2013,12 @@
     "tech_card_missing": {
       "QUALITY_TARGET": "ustal docelowy standard wykończenia (plan prac)",
       "INSPECTION": "zakończ badanie podłoża"
-    }
+    },
+    "kind_production_plan": "Plan produkcji prac",
+    "production_plan": "Plan produkcji prac",
+    "production_plan_hint": "Kolejność prac w pomieszczeniach, przerwy technologiczne i prace innych wykonawców — bez cen i bez wymyślonych terminów (daty wpisujesz odręcznie lub w umowie). Wersję roboczą z pustymi polami możesz wydrukować od razu.",
+    "production_plan_preview": "Wersja robocza do wydruku (puste pola)",
+    "production_plan_send": "Wyślij plan (PDF)",
+    "production_plan_preview_ok": "Wersja robocza wysłana do czatu z botem — wydrukuj ją i uzupełnij odręcznie."
   }
 }

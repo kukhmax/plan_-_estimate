@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { issueTechCard, previewTechCardPdf } from '../api/documents';
+import { issueProductionPlan, issueTechCard, previewProductionPlanPdf, previewTechCardPdf } from '../api/documents';
 import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import type { TechCardMissingItem } from '../types/document';
 import { documentErrorText } from '../utils/documentErrors';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 
-interface TechCardSectionProps {
+interface DocumentSectionProps {
   projectId: string;
-  /** The journal changed (a numbered card was started): the card reloads its list and follows it. */
+  /** The journal changed (a numbered document was started): the card reloads its list and follows it. */
   onIssued: () => void;
 }
+
+type SectionKind = 'tech-card' | 'production-plan';
 
 /** The surfaces the server named in `TECH_CARD_INCOMPLETE`, if that is what the error was. */
 function missingItems(error: unknown): TechCardMissingItem[] {
@@ -20,14 +22,18 @@ function missingItems(error: unknown): TechCardMissingItem[] {
 }
 
 /**
- * Stage 16C — the technological card of an object. Two actions, both ending in the owner's chat with the bot:
+ * Stages 16C / 16D.2 — a working document of an object (the technological card, the production plan). Two actions, both ending in the owner's chat with the bot:
  * the **working version** (watermark, no number, empty lines to write in for whatever is not filled in yet — to print and talk
  * through with the customer) and the **numbered card** (refused with the list of what is missing until every surface with
  * works has its agreed standard and a finished inspection).
  */
-export function TechCardSection({ projectId, onIssued }: TechCardSectionProps) {
+function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSectionProps & { kind: SectionKind }) {
   const { t } = useI18n();
   const text = t.documents;
+  const isCard = sectionKind === 'tech-card';
+  const words = isCard
+    ? { title: text.tech_card, hint: text.tech_card_hint, preview: text.tech_card_preview, send: text.tech_card_send, previewOk: text.tech_card_preview_ok }
+    : { title: text.production_plan, hint: text.production_plan_hint, preview: text.production_plan_preview, send: text.production_plan_send, previewOk: text.production_plan_preview_ok };
   const [busy, setBusy] = useState<'preview' | 'issue' | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,10 +55,10 @@ export function TechCardSection({ projectId, onIssued }: TechCardSectionProps) {
     setMissing([]);
     try {
       if (kind === 'preview') {
-        await previewTechCardPdf(projectId);
-        if (alive.current) setNote(text.tech_card_preview_ok);
+        await (isCard ? previewTechCardPdf(projectId) : previewProductionPlanPdf(projectId));
+        if (alive.current) setNote(words.previewOk);
       } else {
-        await issueTechCard(projectId);
+        await (isCard ? issueTechCard(projectId) : issueProductionPlan(projectId));
         if (alive.current) onIssued();
       }
     } catch (err) {
@@ -68,32 +74,32 @@ export function TechCardSection({ projectId, onIssued }: TechCardSectionProps) {
   const missingText = (code: string): string => text.tech_card_missing[code as keyof typeof text.tech_card_missing] ?? code;
 
   return (
-    <section aria-label="tech-card-card" className="space-y-2">
-      <h4 className="text-sm font-semibold text-slate-900 break-words">{text.tech_card}</h4>
-      <p className="text-sm text-slate-700 break-words">{text.tech_card_hint}</p>
+    <section aria-label={`${sectionKind}-card`} className="space-y-2">
+      <h4 className="text-sm font-semibold text-slate-900 break-words">{words.title}</h4>
+      <p className="text-sm text-slate-700 break-words">{words.hint}</p>
       <button
         type="button"
-        aria-label="preview-tech-card"
+        aria-label={`preview-${sectionKind}`}
         onClick={() => void run('preview')}
         disabled={busy !== null}
         className="w-full min-h-11 px-3 text-sm font-semibold text-slate-900 bg-slate-100 border border-slate-300 rounded-xl hover:bg-slate-200 disabled:opacity-60 transition break-words"
       >
-        {busy === 'preview' ? text.sending : text.tech_card_preview}
+        {busy === 'preview' ? text.sending : words.preview}
       </button>
       <button
         type="button"
-        aria-label="send-tech-card"
+        aria-label={`send-${sectionKind}`}
         onClick={() => void run('issue')}
         disabled={busy !== null}
         className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-sky-700 rounded-xl hover:bg-sky-800 disabled:opacity-60 transition break-words"
       >
-        {busy === 'issue' ? text.sending : text.tech_card_send}
+        {busy === 'issue' ? text.sending : words.send}
       </button>
       <p className="text-xs text-slate-500 break-words">{text.chat_hint}</p>
-      {note && <p role="status" aria-label="tech-card-note" className="text-sm text-emerald-800 break-words">{note}</p>}
-      {error && <p role="alert" aria-label="tech-card-error" className="text-sm text-red-700 break-words">{error}</p>}
+      {note && <p role="status" aria-label={`${sectionKind}-note`} className="text-sm text-emerald-800 break-words">{note}</p>}
+      {error && <p role="alert" aria-label={`${sectionKind}-error`} className="text-sm text-red-700 break-words">{error}</p>}
       {missing.length > 0 && (
-        <div aria-label="tech-card-missing" className="space-y-1">
+        <div aria-label={`${sectionKind}-missing`} className="space-y-1">
           <p className="text-xs font-semibold text-slate-700 break-words">{text.tech_card_missing_title}</p>
           <ul className="space-y-1">
             {missing.map((item) => (
@@ -110,4 +116,14 @@ export function TechCardSection({ projectId, onIssued }: TechCardSectionProps) {
       )}
     </section>
   );
+}
+
+/** Stage 16C — the technological card: numbered form refused with the list of what each surface lacks, working form with empty lines. */
+export function TechCardSection(props: DocumentSectionProps) {
+  return <DocumentSection {...props} kind="tech-card" />;
+}
+
+/** Stage 16D.2 — the production plan: the order of the works, the technological breaks, the works of other contractors. */
+export function ProductionPlanSection(props: DocumentSectionProps) {
+  return <DocumentSection {...props} kind="production-plan" />;
 }

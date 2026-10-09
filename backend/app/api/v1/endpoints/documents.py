@@ -92,6 +92,8 @@ async def issue_document(
     try:
         if body.kind == "ESTIMATE":
             reservation = await issuer.start_estimate(db, current_user, project_id, body.estimate_id)
+        elif body.kind == "PRODUCTION_PLAN":
+            reservation = await issuer.start_production_plan(db, current_user, project_id)
         elif body.kind == "TECH_CARD":
             reservation = await issuer.start_tech_card(db, current_user, project_id)
         else:
@@ -209,6 +211,24 @@ async def preview_tech_card_pdf(
 ) -> PreviewResponse:
     try:
         result = await issuer.preview_tech_card(db, current_user, project_id)
+    except (ProjectNotFoundError, DocumentDataError, DocumentRenderError, DocumentDeliveryError) as exc:
+        raise _http_error(exc) from exc
+    return PreviewResponse(sent=True, pages=result.pages, byte_size=result.byte_size)
+
+
+@router.post(
+    "/projects/{project_id}/documents/production-plan/preview",
+    response_model=PreviewResponse,
+    summary="Send the working version (pale watermark, no number, empty lines for what is missing) of the production plan to the owner's chat",
+)
+async def preview_production_plan_pdf(
+    project_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    issuer: DocumentIssuer = Depends(get_document_issuer),
+) -> PreviewResponse:
+    try:
+        result = await issuer.preview_production_plan(db, current_user, project_id)
     except (ProjectNotFoundError, DocumentDataError, DocumentRenderError, DocumentDeliveryError) as exc:
         raise _http_error(exc) from exc
     return PreviewResponse(sent=True, pages=result.pages, byte_size=result.byte_size)

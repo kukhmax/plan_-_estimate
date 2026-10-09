@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as documentsApi from '../api/documents';
 import { ApiError } from '../api/http';
 import { I18nProvider } from '../hooks/useI18n';
-import { TechCardSection } from './TechCardSection';
+import { ProductionPlanSection, TechCardSection } from './TechCardSection';
 
 vi.mock('../api/documents', () => ({
   issueTechCard: vi.fn(),
   previewTechCardPdf: vi.fn(),
+  issueProductionPlan: vi.fn(),
+  previewProductionPlanPdf: vi.fn(),
 }));
 
 const onIssued = vi.fn();
@@ -112,5 +114,71 @@ describe('TechCardSection (Stage 16C)', () => {
     const alert = await screen.findByLabelText('tech-card-error');
     expect(alert).toHaveTextContent('Bot nie może napisać na Twój czat');
     expect(alert).not.toHaveTextContent('English text');
+  });
+});
+
+describe('ProductionPlanSection (Stage 16D.2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+  afterEach(cleanup);
+
+  const renderPlan = () => render(<I18nProvider><ProductionPlanSection projectId="p1" onIssued={onIssued} /></I18nProvider>);
+
+  it('offers the working version and the numbered plan as two full-width, touch-sized actions', () => {
+    renderPlan();
+    expect(screen.getByText('Plan produkcji prac')).toBeInTheDocument();
+    for (const name of ['preview-production-plan', 'send-production-plan']) {
+      const button = screen.getByRole('button', { name });
+      expect(button.className).toContain('min-h-11');
+      expect(button.className).toContain('w-full');
+    }
+    expect(screen.getByRole('button', { name: 'preview-production-plan' })).toHaveTextContent('Wersja robocza do wydruku (puste pola)');
+    expect(screen.getByRole('button', { name: 'send-production-plan' })).toHaveTextContent('Wyślij plan (PDF)');
+  });
+
+  it('sends the working version to the chat and calls only the plan routes', async () => {
+    vi.mocked(documentsApi.previewProductionPlanPdf).mockResolvedValue({ sent: true, pages: 2, byte_size: 9000 });
+    renderPlan();
+    await press('preview-production-plan');
+    expect(documentsApi.previewProductionPlanPdf).toHaveBeenCalledWith('p1');
+    expect(await screen.findByLabelText('production-plan-note')).toHaveTextContent('Wersja robocza wysłana do czatu z botem');
+    expect(documentsApi.previewTechCardPdf).not.toHaveBeenCalled();
+    expect(documentsApi.issueProductionPlan).not.toHaveBeenCalled();
+  });
+
+  it('starts the numbered plan and tells the card of documents to follow the journal', async () => {
+    vi.mocked(documentsApi.issueProductionPlan).mockResolvedValue({} as never);
+    renderPlan();
+    await press('send-production-plan');
+    expect(documentsApi.issueProductionPlan).toHaveBeenCalledWith('p1');
+    expect(documentsApi.issueTechCard).not.toHaveBeenCalled();
+    expect(onIssued).toHaveBeenCalledTimes(1);
+  });
+
+  it('says in words that nothing is planned yet, in Polish and in Russian', async () => {
+    vi.mocked(documentsApi.issueProductionPlan).mockRejectedValue(new ApiError('English', 422, 'PRODUCTION_PLAN_EMPTY', { code: 'PRODUCTION_PLAN_EMPTY', details: null }));
+    renderPlan();
+    await press('send-production-plan');
+    expect(await screen.findByLabelText('production-plan-error')).toHaveTextContent('Żadna powierzchnia nie ma jeszcze zaplanowanych prac');
+    expect(onIssued).not.toHaveBeenCalled();
+    cleanup();
+    localStorage.setItem('locale', 'ru');
+    renderPlan();
+    expect(screen.getByText('План производства работ')).toBeInTheDocument();
+    await press('send-production-plan');
+    expect(await screen.findByLabelText('production-plan-error')).toHaveTextContent('Ни у одной поверхности пока нет запланированных работ');
+  });
+
+  it('ignores a second tap while the first is running', async () => {
+    let finish: () => void = () => {};
+    vi.mocked(documentsApi.previewProductionPlanPdf).mockReturnValue(new Promise((resolve) => { finish = () => resolve({ sent: true, pages: 1, byte_size: 1 }); }));
+    renderPlan();
+    await press('preview-production-plan');
+    expect(screen.getByRole('button', { name: 'send-production-plan' })).toBeDisabled();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'preview-production-plan' })); });
+    expect(documentsApi.previewProductionPlanPdf).toHaveBeenCalledTimes(1);
+    await act(async () => { finish(); });
   });
 });

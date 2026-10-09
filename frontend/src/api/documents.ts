@@ -49,3 +49,13 @@ export function issueTechCard(projectId: string): Promise<IssuedDocument> {
 export function previewTechCardPdf(projectId: string): Promise<DocumentPreviewResult> {
   return apiRequest(`${base(projectId)}/documents/tech-card/preview`, { method: 'POST' });
 }
+
+/** The numbered production plan of the whole object (the server refuses it while no surface has a planned work). */
+export function issueProductionPlan(projectId: string): Promise<IssuedDocument> {
+  return apiRequest(`${base(projectId)}/documents`, { method: 'POST', body: JSON.stringify({ kind: 'PRODUCTION_PLAN' }) });
+}
+
+/** The working version of the plan (pale watermark, empty lines for what is missing) to the owner's chat. */
+export function previewProductionPlanPdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/production-plan/preview`, { method: 'POST' });
+}

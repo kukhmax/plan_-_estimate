@@ -26,6 +26,7 @@ from app.domain.documents import formatting
 from app.domain.documents.delivery import DocumentDelivery
 from app.domain.documents.estimate_document import EstimateDocumentService
 from app.domain.documents.photo_report_document import PhotoReportDocumentService
+from app.domain.documents.production_plan_document import ProductionPlanDocumentService
 from app.domain.documents.registry import DocumentKind, get_template
 from app.domain.documents.renderer import DocumentRenderer, RenderedPdf
 from app.domain.documents.tech_card_document import TechCardDocumentService
@@ -187,6 +188,38 @@ class DocumentIssuer:
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
+    async def start_production_plan(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> Reservation:
+        """A numbered production plan: checked now (refused with a stable code while no surface has a planned work), so a number
+        is never given to a plan that cannot be made; the slow part runs in the background like the other documents."""
+        self._ensure_capacity()
+        owner_id = user.id
+        document = await ProductionPlanDocumentService(db).build(owner_id, project_id, working=False, issued_on=self._today())
+        project = await self._project(db, owner_id, project_id)
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.PRODUCTION_PLAN,
+            title=document.layout.meta.title,
+            template_version=get_template(DocumentKind.PRODUCTION_PLAN).version,
+            client_id=project.client_id,
+        )
+        return self._launch(reservation)
+
+    async def preview_production_plan(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version of the plan (pale watermark, no number, no journal row) to the owner's chat; it never refuses for
+        missing data -- what is not there prints as an empty line to write in."""
+        owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
+        document = await ProductionPlanDocumentService(db).build(owner_id, project_id, working=True, issued_on=self._today())
+        project = await self._project(db, owner_id, project_id)
+        rendered = await self.renderer.render(ProductionPlanDocumentService.html(document))
+        await self.delivery.send_document(
+            chat_id,
+            "Plan-produkcji-prac-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — Plan produkcji prac — {project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
     async def preview_estimate(self, db: AsyncSession, user: User, project_id: uuid.UUID, estimate_id: uuid.UUID) -> PreviewResult:
         """A working version of an unfinished estimate to the owner's chat: watermark, no number, no journal row. The slow
         part runs in the request (a one-page document), so the owner sees at once whether it arrived."""
@@ -262,6 +295,11 @@ class DocumentIssuer:
             return await EstimateDocumentService(db).render(
                 document.project_id, document.source_id, document.owner_id, self.renderer,
                 issued_on=issued_on, number=document.number, sequence=document.project_seq,
+            )
+        if document.kind == IssuedDocumentKind.PRODUCTION_PLAN.value:
+            return await ProductionPlanDocumentService(db).render(
+                document.owner_id, document.project_id, self.renderer,
+                working=False, issued_on=issued_on, number=document.number, sequence=document.project_seq,
             )
         if document.kind == IssuedDocumentKind.TECH_CARD.value:
             return await TechCardDocumentService(db).render(

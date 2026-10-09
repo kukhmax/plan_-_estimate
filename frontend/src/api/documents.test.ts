@@ -4,9 +4,11 @@ import {
   getDocument,
   issueEstimateDocument,
   issuePhotoReport,
+  issueProductionPlan,
   issueTechCard,
   listDocuments,
   previewEstimatePdf,
+  previewProductionPlanPdf,
   previewTechCardPdf,
 } from './documents';
 
@@ -78,6 +80,20 @@ describe('documents API', () => {
     await previewTechCardPdf('p1');
     call = lastCall();
     expect(call.url).toBe('/api/projects/p1/documents/tech-card/preview');
+    expect(call.init.method).toBe('POST');
+  });
+
+  it('issues the production plan of the whole object and previews its working version', async () => {
+    respond(202, {});
+    await issueProductionPlan('p1');
+    let call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents');
+    expect(JSON.parse(String(call.init.body))).toEqual({ kind: 'PRODUCTION_PLAN' });
+    vi.mocked(fetch).mockClear();
+    respond(200, { sent: true, pages: 1, byte_size: 10 });
+    await previewProductionPlanPdf('p1');
+    call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents/production-plan/preview');
     expect(call.init.method).toBe('POST');
   });
 });

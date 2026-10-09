@@ -12,6 +12,8 @@ vi.mock('../api/documents', () => ({
   issuePhotoReport: vi.fn(),
   issueTechCard: vi.fn(),
   previewTechCardPdf: vi.fn(),
+  issueProductionPlan: vi.fn(),
+  previewProductionPlanPdf: vi.fn(),
 }));
 
 const SALON = 'r-salon';
@@ -339,5 +341,16 @@ describe('ProjectDocuments (Stage 15F.3)', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'send-tech-card' })); });
     const row = await screen.findByLabelText('document-KART/2026/10/09/1015');
     expect(within(row).getByText('Karta technologiczna')).toBeInTheDocument();
+  });
+
+  it('shows the production plan after the technological card and names its journal row', async () => {
+    vi.mocked(documentsApi.listDocuments).mockResolvedValue({ items: [doc({ kind: 'PRODUCTION_PLAN', number: 'PLAN/2026/10/09/1015', title: 'Plan produkcji prac' })], total: 1 });
+    renderCard();
+    await open();
+    const card = await screen.findByLabelText('tech-card-card');
+    const plan = screen.getByLabelText('production-plan-card');
+    expect(card.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const row = await screen.findByLabelText('document-PLAN/2026/10/09/1015');
+    expect(within(row).getByText('Plan produkcji prac')).toBeInTheDocument();
   });
 });

@@ -71,9 +71,9 @@ def test_the_version_fits_the_journal_column():
 
 def test_number_prefixes_are_unique_and_the_journal_uses_the_registry_ones():
     prefixes = [t.number_prefix for t in TEMPLATES.values() if t.number_prefix]
-    assert len(prefixes) == len(set(prefixes)) == 7 and all(re.fullmatch(r"[A-Z]{3,6}", p) for p in prefixes)
+    assert len(prefixes) == len(set(prefixes)) == 8 and all(re.fullmatch(r"[A-Z]{3,6}", p) for p in prefixes)
     assert TEMPLATES[K.DIAGNOSTIC].number_prefix is None  # the control page is never numbered
-    assert NUMBER_PREFIX == {IssuedDocumentKind.ESTIMATE: "KOSZ", IssuedDocumentKind.PHOTO_REPORT: "FOTO", IssuedDocumentKind.TECH_CARD: "KART"}
+    assert NUMBER_PREFIX == {IssuedDocumentKind.ESTIMATE: "KOSZ", IssuedDocumentKind.PHOTO_REPORT: "FOTO", IssuedDocumentKind.TECH_CARD: "KART", IssuedDocumentKind.PRODUCTION_PLAN: "PLAN"}
     assert {TEMPLATES[k].number_prefix for k in SKELETON_KINDS} == {"UMOWA", "PRZEK", "ZANIK", "ODBIOR"}
 
 
