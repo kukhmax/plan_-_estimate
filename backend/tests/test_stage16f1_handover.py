@@ -155,7 +155,7 @@ async def test_the_draft_is_one_per_object_numbered_and_records_the_findings(db_
     row = await svc(db_session).update(w.project.id, first.id, w.owner.id, {
         "held_on": date(2026, 10, 20), "attendees": [{"person_id": str(w.person.id)}], "rooms": {room: {**all_states("YES"), "decision": "HANDED_OVER"}}})
     read = await svc(db_session).read(row)
-    assert read.blockers == [] and read.suggested == {room: "HANDED_OVER"}
+    assert [b.code for b in read.blockers] == ["CONTRACT_REQUIRED"] and read.suggested == {room: "HANDED_OVER"}  # only a draft contract exists
     assert read.attendees == [{"person_id": str(w.person.id), "name": "Anna Nowak", "role": "Właścicielka"}]
     archived = await svc(db_session).archive_draft(w.project.id, first.id, w.owner.id)
     assert archived.status == "ARCHIVED"
@@ -236,7 +236,7 @@ async def test_open_save_read_and_abandon_over_http(async_client: AsyncClient, d
     assert created.status_code == 201, created.text
     body = created.json()
     assert (body["sequence"], body["status"], body["rooms"], body["attendees"]) == (1, "DRAFT", {}, [])
-    assert [b["code"] for b in body["blockers"]] == ["HELD_ON_REQUIRED", "NO_ATTENDEES", "NO_ROOMS"]
+    assert [b["code"] for b in body["blockers"]] == ["CONTRACT_REQUIRED", "HELD_ON_REQUIRED", "NO_ATTENDEES", "NO_ROOMS"]
     assert (await async_client.post(url(pid), headers=headers)).status_code == 200  # the same draft
     hid = body["id"]
     assert (await async_client.patch(url(pid, f"/{hid}"), json={}, headers=headers)).status_code == 422
@@ -250,7 +250,7 @@ async def test_open_save_read_and_abandon_over_http(async_client: AsyncClient, d
     assert saved.status_code == 200, saved.text
     assert saved.json()["held_on"] == "2026-10-20" and saved.json()["rooms"][room]["requirements"]["lighting_permanent"] == {"state": "NO"}
     assert saved.json()["suggested"] == {room: None}  # a requirement is unanswered
-    assert saved.json()["blockers"][0]["code"] == "REQUIREMENTS_MISSING"
+    assert [b["code"] for b in saved.json()["blockers"]] == ["CONTRACT_REQUIRED", "REQUIREMENTS_MISSING"]
     assert (await async_client.get(url(pid), headers=headers)).json()["total"] == 1
     assert (await async_client.get(url(pid, f"/{hid}"), headers=headers)).json()["sequence"] == 1
     gone = await async_client.post(url(pid, f"/{hid}/archive"), headers=headers)
@@ -289,7 +289,8 @@ def test_the_database_allows_one_draft_per_object_a_sequence_once_and_only_known
                 {"id": "f", "sequence": 5, "status": "SIGNED"}, {"id": "g", "sequence": 0, "status": "ARCHIVED"}):
         with pytest.raises(IntegrityError), engine.begin() as conn:
             conn.execute(text(ROW), bad)
-    assert {c["name"] for c in inspect(engine).get_columns("handover_protocols")} == {c.name for c in HandoverProtocol.__table__.columns}
+    later = {"issued_at", "snapshot", "document_html", "contract_id", "contract_version"}  # added by 0048 (16F.2)
+    assert {c["name"] for c in inspect(engine).get_columns("handover_protocols")} == {c.name for c in HandoverProtocol.__table__.columns} - later
 
 
 def test_downgrade_refuses_while_a_protocol_exists_and_then_drops_only_the_table():

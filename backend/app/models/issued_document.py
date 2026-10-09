@@ -34,6 +34,7 @@ class IssuedDocumentKind(str, enum.Enum):
     TECH_CARD = "TECH_CARD"
     PRODUCTION_PLAN = "PRODUCTION_PLAN"
     CONTRACT = "CONTRACT"
+    HANDOVER_PROTOCOL = "HANDOVER_PROTOCOL"
 
 
 class IssuedDocumentStatus(str, enum.Enum):
@@ -72,7 +73,7 @@ class IssuedDocument(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("kind IN ('ESTIMATE', 'PHOTO_REPORT', 'TECH_CARD', 'PRODUCTION_PLAN', 'CONTRACT')", name="ck_issued_documents_kind"),
+        CheckConstraint("kind IN ('ESTIMATE', 'PHOTO_REPORT', 'TECH_CARD', 'PRODUCTION_PLAN', 'CONTRACT', 'HANDOVER_PROTOCOL')", name="ck_issued_documents_kind"),
         CheckConstraint("status IN ('PENDING', 'SENT', 'FAILED')", name="ck_issued_documents_status"),
         CheckConstraint("project_seq >= 1", name="ck_issued_documents_seq_positive"),
         CheckConstraint("length(number) > 0", name="ck_issued_documents_number_not_empty"),

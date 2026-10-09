@@ -28,6 +28,8 @@ from app.domain.contracts.gate import load_gate_data
 from app.domain.documents import formatting
 from app.domain.documents.contract_document import build_contract_document, render_contract_html, snapshot_of
 from app.domain.documents.delivery import DocumentDelivery
+from app.domain.documents.handover_document import build_handover_document, render_handover_html
+from app.domain.documents.handover_document import snapshot_of as handover_snapshot_of
 from app.domain.documents.estimate_document import EstimateDocumentService
 from app.domain.documents.photo_report_document import PhotoReportDocumentService
 from app.domain.documents.production_plan_document import ProductionPlanDocumentService
@@ -41,16 +43,21 @@ from app.domain.exceptions import (
     DocumentDeliveryError,
     DocumentQueueFullError,
     DocumentRenderError,
+    HandoverGateError,
+    HandoverNotEditableError,
     IssuedDocumentNotFoundError,
 )
+from app.domain.protocols.sources import load_handover_sources
 from app.domain.services.contract_service import ContractService
 from app.domain.services.executor_profile_service import ExecutorProfileService
+from app.domain.services.handover_service import HandoverService, _data as handover_data
 from app.domain.services.issued_document_service import (
     IssuedDocumentService,
     Reservation,
 )
 from app.domain.services.media_storage import MediaStorage
 from app.models.contract import Contract
+from app.models.handover_protocol import HandoverProtocol
 from app.models.issued_document import IssuedDocument, IssuedDocumentKind
 from app.models.project import Project
 from app.models.user import User
@@ -296,6 +303,70 @@ class DocumentIssuer:
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
+    async def start_handover(self, db: AsyncSession, user: User, project_id: uuid.UUID, handover_id: uuid.UUID) -> Reservation:
+        """Issue a draft of the handover protocol: the gate first (a refusal lists what to fix and takes no number), then the number,
+        then the freeze -- what was found, the exact page and the contract it was made under -- and the slow part (the PDF and its
+        delivery) in the background."""
+        self._ensure_capacity()
+        owner_id = user.id
+        service = HandoverService(db)
+        row, sources, blockers = await service.gate(project_id, handover_id, owner_id)
+        if row.status != "DRAFT":
+            raise HandoverNotEditableError(f"handover protocol {handover_id} is {row.status}: only a draft is issued")
+        if blockers:
+            raise HandoverGateError(blockers)
+        data = handover_data(row)
+        build_handover_document(data, sources, working=False, issued_on=self._today())  # a refusal here takes no number
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.HANDOVER_PROTOCOL,
+            title=f"Protokół przekazania pomieszczeń — nr {row.sequence}",
+            template_version=get_template(DocumentKind.HANDOVER_PROTOCOL).version,
+            source_id=row.id,
+            source_version=row.sequence,
+            client_id=sources.project.client_id,
+        )
+        if reservation.reused:
+            return reservation
+        try:
+            document = build_handover_document(
+                data, sources, working=False, issued_on=self._today(),
+                number=reservation.document.number, sequence=reservation.document.project_seq,
+            )
+            await service.mark_issued(
+                project_id, row.id, owner_id,
+                issued_at=self.clock(),
+                snapshot=handover_snapshot_of(data, sources, document),
+                document_html=render_handover_html(document),
+                contract_id=sources.contract.id if sources.contract else None,
+                contract_version=sources.contract.version if sources.contract else None,
+            )
+        except Exception:
+            logger.exception("freezing handover protocol %s failed", handover_id)
+            await db.rollback()
+            await IssuedDocumentService(db, clock=self.clock).mark_failed(owner_id, reservation.document.id, "INTERNAL_ERROR")
+            raise
+        await db.refresh(reservation.document)  # the freeze committed: the journal row is read again, not left expired
+        return self._launch(reservation)
+
+    async def preview_handover(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version of the protocol (pale watermark, no number, no journal row) to the owner's chat, to print and fill in
+        on the premises. It never refuses for missing data; it follows the open draft, or is a blank form when there is none."""
+        owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
+        sources = await load_handover_sources(db, owner_id, project_id)
+        drafts = [r for r in await HandoverService(db).list(project_id, owner_id) if r.status == "DRAFT"]
+        data = handover_data(drafts[0]) if drafts else {}
+        document = build_handover_document(data, sources, working=True, issued_on=self._today())
+        rendered = await self.renderer.render(render_handover_html(document))
+        await self.delivery.send_document(
+            chat_id,
+            "Protokol-przekazania-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — Protokół przekazania pomieszczeń — {sources.project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
     async def preview_estimate(self, db: AsyncSession, user: User, project_id: uuid.UUID, estimate_id: uuid.UUID) -> PreviewResult:
         """A working version of an unfinished estimate to the owner's chat: watermark, no number, no journal row. The slow
         part runs in the request (a one-page document), so the owner sees at once whether it arrived."""
@@ -377,6 +448,13 @@ class DocumentIssuer:
             if contract is None or not contract.document_html:
                 raise DocumentDataError("CONTRACT_NOT_ISSUED", "the contract of this document is not frozen")
             return await self.renderer.render(contract.document_html)
+        if document.kind == IssuedDocumentKind.HANDOVER_PROTOCOL.value:
+            protocol = (
+                await db.execute(select(HandoverProtocol).where(HandoverProtocol.id == document.source_id, HandoverProtocol.owner_id == document.owner_id))
+            ).scalar_one_or_none()
+            if protocol is None or not protocol.document_html:
+                raise DocumentDataError("HANDOVER_NOT_ISSUED", "the protocol of this document is not frozen")
+            return await self.renderer.render(protocol.document_html)
         if document.kind == IssuedDocumentKind.PRODUCTION_PLAN.value:
             return await ProductionPlanDocumentService(db).render(
                 document.owner_id, document.project_id, self.renderer,

@@ -2122,7 +2122,8 @@
       "TECH_CARD_EMPTY": "Żadna powierzchnia nie ma jeszcze zaplanowanych prac. Dodaj prace do planu albo wydrukuj wersję roboczą.",
       "TECH_CARD_INCOMPLETE": "Na części powierzchni z pracami brakuje danych do karty (lista poniżej). Wersję roboczą z pustymi polami możesz wydrukować już teraz.",
       "PRODUCTION_PLAN_EMPTY": "Żadna powierzchnia nie ma jeszcze zaplanowanych prac. Dodaj prace do planu albo wydrukuj wersję roboczą.",
-      "CONTRACT_NOT_ISSUED": "Umowa tego dokumentu nie jest zamrożona. Zgłoś to do obsługi aplikacji."
+      "CONTRACT_NOT_ISSUED": "Umowa tego dokumentu nie jest zamrożona. Zgłoś to do obsługi aplikacji.",
+      "HANDOVER_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji."
     },
     "recommended_works": "Rekomendowane prace dodatkowe: {count}",
     "unpriced_title": "Raport nie zostanie wysłany: te rekomendowane prace nie mają ceny w kosztorysie.",
@@ -2152,6 +2153,7 @@
     "production_plan_preview": "Wersja robocza do wydruku (puste pola)",
     "production_plan_send": "Wyślij plan (PDF)",
     "production_plan_preview_ok": "Wersja robocza wysłana do czatu z botem — wydrukuj ją i uzupełnij odręcznie.",
-    "kind_contract": "Umowa"
+    "kind_contract": "Umowa",
+    "kind_handover": "Protokół przekazania pomieszczeń"
   }
 }

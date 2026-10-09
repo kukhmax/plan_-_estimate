@@ -40,6 +40,12 @@ class HandoverProtocol(Base):
     rooms: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
     meters: Mapped[str | None] = mapped_column(Text, nullable=True)  # readings of the meters, free text
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # what an issued protocol freezes (16F.2): the time, the snapshot, the exact page and the contract it was made under
+    issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    snapshot: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
+    document_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    contract_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    contract_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
@@ -48,6 +54,10 @@ class HandoverProtocol(Base):
     __table_args__ = (
         CheckConstraint("status IN ('DRAFT', 'ISSUED', 'ARCHIVED')", name="ck_handover_protocols_status"),
         CheckConstraint("sequence >= 1", name="ck_handover_protocols_sequence_positive"),
+        CheckConstraint(
+            "status <> 'ISSUED' OR (issued_at IS NOT NULL AND snapshot IS NOT NULL AND document_html IS NOT NULL)",
+            name="ck_handover_protocols_frozen_when_issued",
+        ),
         UniqueConstraint("project_id", "sequence", name="uq_handover_protocols_project_sequence"),
         Index(
             "uq_handover_protocols_one_draft", "project_id", unique=True,

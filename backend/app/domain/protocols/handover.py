@@ -34,6 +34,9 @@ UNKNOWN_PERSON = "UNKNOWN_PERSON"
 OUT_OF_RANGE = "OUT_OF_RANGE"
 
 # what is missing before the protocol can be issued
+EXECUTOR_PROFILE_REQUIRED = "EXECUTOR_PROFILE_REQUIRED"
+CLIENT_REQUIRED = "CLIENT_REQUIRED"
+CONTRACT_REQUIRED = "CONTRACT_REQUIRED"  # the requirements are the contract's: there is nothing to hand over against without one
 HELD_ON_REQUIRED = "HELD_ON_REQUIRED"
 NO_ATTENDEES = "NO_ATTENDEES"
 NO_ROOMS = "NO_ROOMS"

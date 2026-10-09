@@ -1,0 +1,47 @@
+{% extends "_layout.html.j2" %}
+{% macro field(value) %}{% if value %}{{ value }}{% else %}<span class="write-line"></span>{% endif %}{% endmacro %}
+{% macro boxes(options) %}{% for o in options %}<span class="box">{% if o.checked %}☒{% else %}☐{% endif %}&nbsp;{{ o.label }}</span>{% endfor %}{% endmacro %}
+{% block body %}
+<div class="handover{% if doc.working %} working{% endif %}">
+{% if doc.working %}<p class="notice">{{ t('handover.working_note') }}</p>{% endif %}
+<table class="facts">
+  <tr><td class="label">{{ t('handover.object') }}</td><td>{{ doc.object_name }}{% if doc.object_lines %}, {{ doc.object_lines | join(', ') }}{% endif %}</td></tr>
+  <tr><td class="label">{{ t('handover.when') }}</td><td>{{ field(doc.held) }}</td></tr>
+  <tr><td class="label">{{ t('handover.contract') }}</td><td>{{ field(doc.contract_text) }}</td></tr>
+</table>
+<h2>{{ t('handover.attendees') }}</h2>
+{% if doc.attendees %}
+<table class="works">
+  <thead><tr><th>{{ t('handover.attendees.name') }}</th><th>{{ t('handover.attendees.role') }}</th></tr></thead>
+  <tbody>{% for a in doc.attendees %}<tr><td>{{ a.name }}</td><td>{{ a.role or '' }}</td></tr>{% endfor %}</tbody>
+</table>
+{% else %}
+<p class="muted">{{ t('handover.attendees.none') }}</p>
+{% for _ in range(3) %}<table class="facts"><tr><td class="label">{{ t('handover.attendees.name') }}</td><td><span class="write-line"></span></td></tr></table>{% endfor %}
+{% endif %}
+{% for room in doc.rooms %}
+<section class="handover-room">
+  <h2>{{ t('handover.room') }}: {{ field(room.name) }}</h2>
+  <table class="works requirements">
+    <thead><tr><th class="c-req">{{ t('handover.col.requirement') }}</th><th class="c-required">{{ t('handover.col.required') }}</th><th class="c-state">{{ t('handover.col.state') }}</th><th class="c-found">{{ t('handover.col.found') }}</th><th class="c-note">{{ t('handover.col.note') }}</th></tr></thead>
+    <tbody>
+    {% for line in room.lines %}
+      <tr><td>{{ line.text }}</td><td>{{ line.required or '—' }}</td><td class="states">{{ boxes(line.states) }}</td><td>{{ line.found or '' }}</td><td>{{ line.note or '' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="clause"><strong>{{ t('handover.damages') }}:</strong> {{ field(room.damages) }}</p>
+  <p class="clause"><strong>{{ t('handover.decision') }}:</strong></p>
+  {% for o in room.decisions %}<p class="alternative"><span class="box">{% if o.checked %}☒{% else %}☐{% endif %}&nbsp;{{ o.label }}</span></p>{% endfor %}
+</section>
+{% endfor %}
+{% if doc.summary %}
+<h2>{{ t('handover.summary') }}</h2>
+<table class="works">
+  <tbody>{% for name, decision in doc.summary %}<tr><td>{{ name }}</td><td>{{ decision }}</td></tr>{% endfor %}</tbody>
+</table>
+{% endif %}
+<p class="clause"><strong>{{ t('handover.meters') }}:</strong> {{ field(doc.meters) }}</p>
+<p class="clause"><strong>{{ t('handover.notes') }}:</strong> {{ field(doc.notes) }}</p>
+</div>
+{% endblock %}

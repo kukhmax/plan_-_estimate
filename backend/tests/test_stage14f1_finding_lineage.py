@@ -93,7 +93,7 @@ def test_revision_chain_and_single_head():
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0047_handover_protocols"]
+    assert script.get_heads() == ["0048_handover_issue"]
     assert script.get_revision("0034_finding_lineage").down_revision == "0033_photo_capture_source"
 
 

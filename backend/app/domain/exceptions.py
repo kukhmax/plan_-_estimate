@@ -100,6 +100,17 @@ class HandoverInvalidError(Exception):
         self.reason = reason
 
 
+class HandoverGateError(Exception):
+    """Raised when a handover protocol cannot be issued yet (Stage 16F.2). `blockers` is the list of what to fix, each with a stable
+    code and, where it helps, details."""
+
+    code = "HANDOVER_GATE_BLOCKED"
+
+    def __init__(self, blockers: list) -> None:
+        super().__init__("the protocol cannot be issued yet: " + ", ".join(b.code for b in blockers))
+        self.blockers = blockers
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 

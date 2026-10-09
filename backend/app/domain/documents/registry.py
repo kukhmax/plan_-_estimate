@@ -17,7 +17,7 @@ class DocumentKind(str, enum.Enum):
     ESTIMATE = "ESTIMATE"  # Kosztorys (15D)
     PHOTO_REPORT = "PHOTO_REPORT"  # Raport fotograficzny (15E)
     CONTRACT = "CONTRACT"  # Umowa: data of the questionnaire, the annexes and the clause catalogue (16E)
-    HANDOVER_PROTOCOL = "HANDOVER_PROTOCOL"  # Protokół przekazania terenu / obiektu: a skeleton (15G)
+    HANDOVER_PROTOCOL = "HANDOVER_PROTOCOL"  # Protokół przekazania pomieszczeń: the state of each room against the requirements (16F)
     CONCEALED_WORKS_PROTOCOL = "CONCEALED_WORKS_PROTOCOL"  # Protokół odbioru robót zanikających: a skeleton (15G)
     FINAL_PROTOCOL = "FINAL_PROTOCOL"  # Protokół odbioru końcowego: a skeleton (15G)
     PRODUCTION_PLAN = "PRODUCTION_PLAN"  # Plan produkcji prac: the sequence, the technological breaks, the works of others (16D)
@@ -51,10 +51,7 @@ TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
             "communication", "personal_data", "final_provisions",
         ),
     ),
-    DocumentKind.HANDOVER_PROTOCOL: DocumentTemplate(
-        DocumentKind.HANDOVER_PROTOCOL, SKELETON_VERSION, SKELETON_FILE, "PRZEK",
-        ("site_description", "condition_at_handover", "utilities_and_access", "remarks"),
-    ),
+    DocumentKind.HANDOVER_PROTOCOL: DocumentTemplate(DocumentKind.HANDOVER_PROTOCOL, "1", "handover_protocol.html.j2", "PRZEK"),
     DocumentKind.CONCEALED_WORKS_PROTOCOL: DocumentTemplate(
         DocumentKind.CONCEALED_WORKS_PROTOCOL, SKELETON_VERSION, SKELETON_FILE, "ZANIK",
         ("works_covered", "inspection_result", "photo_evidence", "remarks"),

@@ -6,6 +6,7 @@ the object. The requirements to meet are those of the latest issued or signed co
 findings; the protocol never invents a number.
 """
 import uuid
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -14,8 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.contracts.catalog import load_contract_catalog
 from app.domain.exceptions import HandoverNotEditableError, HandoverNotFoundError, ProjectNotFoundError
-from app.domain.protocols.handover import apply_changes, evaluate, suggested_decision
-from app.models.contract import Contract, ContractStatus
+from app.domain.protocols.handover import (
+    CLIENT_REQUIRED, CONTRACT_REQUIRED, EXECUTOR_PROFILE_REQUIRED, Blocker, apply_changes, evaluate, suggested_decision,
+)
+from app.domain.protocols.sources import HandoverSources, load_handover_sources
 from app.models.handover_protocol import HandoverProtocol, HandoverStatus
 from app.models.project import Project
 from app.models.project_representative import ProjectRepresentative
@@ -106,7 +109,7 @@ class HandoverService:
         row = await self.get(project_id, handover_id, owner_id)
         if row.status != HandoverStatus.DRAFT.value:
             raise HandoverNotEditableError(f"handover protocol {handover_id} is {row.status}: a changed protocol is a new one")
-        room_ids = {str(r) for r in (await self.db.execute(select(Room.id).where(Room.project_id == project_id))).scalars()}
+        room_ids = {str(r) for r in (await self.db.execute(select(Room.id).where(Room.project_id == project_id, Room.is_archived.is_(False)))).scalars()}
         people = {
             str(p.id): (p.name, p.role_title)
             for p in (
@@ -135,29 +138,50 @@ class HandoverService:
         await self.db.refresh(row)
         return row
 
-    async def reference_contract(self, project_id: uuid.UUID, owner_id: uuid.UUID) -> Contract | None:
-        """The contract whose requirements apply: the latest issued or signed one."""
-        return (
-            await self.db.execute(
-                select(Contract)
-                .where(
-                    Contract.project_id == project_id, Contract.owner_id == owner_id,
-                    Contract.status.in_([ContractStatus.ISSUED.value, ContractStatus.SIGNED.value]),
-                )
-                .order_by(Contract.version.desc()).limit(1)
-            )
-        ).scalar_one_or_none()
+    @staticmethod
+    def blockers(data: dict[str, Any], sources: HandoverSources) -> "list[Blocker]":
+        """What stands between this protocol and its issue: the executor profile, the customer, a contract to hand over under,
+        then the protocol's own entries (the day, the people, the rooms, the findings, the decisions)."""
+        blockers = []
+        if sources.executor is None:
+            blockers.append(Blocker(EXECUTOR_PROFILE_REQUIRED))
+        if sources.client is None:
+            blockers.append(Blocker(CLIENT_REQUIRED))
+        if sources.contract is None:
+            blockers.append(Blocker(CONTRACT_REQUIRED))
+        return blockers + evaluate(data, load_contract_catalog())
+
+    async def gate(self, project_id: uuid.UUID, handover_id: uuid.UUID, owner_id: uuid.UUID) -> "tuple[HandoverProtocol, HandoverSources, list[Blocker]]":
+        row = await self.get(project_id, handover_id, owner_id)
+        sources = await load_handover_sources(self.db, owner_id, project_id)
+        return row, sources, self.blockers(_data(row), sources)
+
+    async def mark_issued(
+        self, project_id: uuid.UUID, handover_id: uuid.UUID, owner_id: uuid.UUID, *,
+        issued_at: datetime, snapshot: dict[str, Any], document_html: str, contract_id: uuid.UUID | None, contract_version: int | None,
+    ) -> HandoverProtocol:
+        """Freeze a draft: what was found, the exact page and the contract it was made under."""
+        row = await self.get(project_id, handover_id, owner_id)
+        if row.status != HandoverStatus.DRAFT.value:
+            raise HandoverNotEditableError(f"handover protocol {handover_id} is {row.status}: only a draft is issued")
+        row.status = HandoverStatus.ISSUED.value
+        row.issued_at, row.snapshot, row.document_html = issued_at, snapshot, document_html
+        row.contract_id, row.contract_version = contract_id, contract_version
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
 
     async def read(self, row: HandoverProtocol) -> HandoverRead:
         catalog = load_contract_catalog()
         data = _data(row)
-        contract = await self.reference_contract(row.project_id, row.owner_id)
-        required = ((contract.snapshot or {}).get("answers") or {}).get("premises_requirement_values") or {} if contract else {}
+        sources = await load_handover_sources(self.db, row.owner_id, row.project_id)
+        contract = sources.contract
+        required = sources.required_values
         return HandoverRead(
             id=row.id, project_id=row.project_id, sequence=row.sequence, status=row.status, held_on=row.held_on, held_time=row.held_time,
             attendees=data["attendees"], rooms=data["rooms"], meters=row.meters, notes=row.notes,
             suggested={rid: suggested_decision(room.get("requirements") or {}, catalog) for rid, room in data["rooms"].items()},
-            blockers=[HandoverBlockerRead(code=b.code, details=b.details) for b in evaluate(data, catalog)],
+            blockers=[HandoverBlockerRead(code=b.code, details=b.details) for b in self.blockers(data, sources)],
             contract=HandoverContractRead(id=contract.id, version=contract.version, status=contract.status) if contract else None,
             required_values=required, created_at=row.created_at, updated_at=row.updated_at,
         )

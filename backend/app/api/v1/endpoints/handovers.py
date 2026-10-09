@@ -2,16 +2,30 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_handover_service
-from app.domain.exceptions import HandoverInvalidError, HandoverNotEditableError, HandoverNotFoundError, ProjectNotFoundError
+from app.api.deps import get_current_user, get_document_issuer, get_handover_service
+from app.api.v1.endpoints.documents import _error, _http_error as _document_error
+from app.core.database import get_db
+from app.domain.documents.issuer import DocumentIssuer
+from app.domain.exceptions import (
+    DocumentDataError,
+    DocumentQueueFullError,
+    HandoverGateError,
+    HandoverInvalidError,
+    HandoverNotEditableError,
+    HandoverNotFoundError,
+    ProjectNotFoundError,
+)
 from app.domain.services.handover_service import HandoverService
 from app.models.user import User
 from app.schemas.handover import HandoverListResponse, HandoverRead, HandoverUpdate
+from app.schemas.issued_document import IssuedDocumentRead
 
 router = APIRouter()
 BASE = "/projects/{project_id}/handovers"
 FAILURES = (ProjectNotFoundError, HandoverNotFoundError, HandoverNotEditableError, HandoverInvalidError)
+ISSUE_FAILURES = (*FAILURES, HandoverGateError, DocumentDataError, DocumentQueueFullError)
 
 
 def _http_error(exc: Exception) -> HTTPException:
@@ -19,6 +33,13 @@ def _http_error(exc: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Handover protocol not found")
     if isinstance(exc, HandoverNotEditableError):
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": exc.code, "message": str(exc)})
+    if isinstance(exc, HandoverGateError):
+        return _error(
+            exc.code, str(exc), status.HTTP_422_UNPROCESSABLE_ENTITY,
+            details={"blockers": [{"code": b.code, "details": b.details} for b in exc.blockers]},
+        )
+    if isinstance(exc, (DocumentDataError, DocumentQueueFullError)):
+        return _document_error(exc)
     if isinstance(exc, HandoverInvalidError):
         return HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -99,3 +120,23 @@ async def archive_handover_draft(
         return await service.read(await service.archive_draft(project_id, handover_id, current_user.id))
     except FAILURES as exc:
         raise _http_error(exc) from exc
+
+
+@router.post(
+    BASE + "/{handover_id}/issue",
+    response_model=IssuedDocumentRead,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Issue a draft: freeze what was found and send the PDF to the owner's chat",
+)
+async def issue_handover(
+    project_id: uuid.UUID,
+    handover_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    issuer: DocumentIssuer = Depends(get_document_issuer),
+) -> IssuedDocumentRead:
+    try:
+        reservation = await issuer.start_handover(db, current_user, project_id, handover_id)
+    except ISSUE_FAILURES as exc:
+        raise _http_error(exc) from exc
+    return IssuedDocumentRead.model_validate(reservation.document)
