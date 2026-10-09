@@ -39,3 +39,13 @@ export function fetchPhotoReportSummary(projectId: string): Promise<PhotoReportS
 export function previewEstimatePdf(projectId: string, estimateId: string): Promise<DocumentPreviewResult> {
   return apiRequest(`${base(projectId)}/estimates/${estimateId}/preview-pdf`, { method: 'POST' });
 }
+
+/** The numbered technological card of the whole object (the server refuses it with a list while data are missing). */
+export function issueTechCard(projectId: string): Promise<IssuedDocument> {
+  return apiRequest(`${base(projectId)}/documents`, { method: 'POST', body: JSON.stringify({ kind: 'TECH_CARD' }) });
+}
+
+/** The working version of the card (watermark, empty lines for what is missing) to the owner's chat. */
+export function previewTechCardPdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/tech-card/preview`, { method: 'POST' });
+}

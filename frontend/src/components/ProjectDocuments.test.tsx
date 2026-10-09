@@ -10,6 +10,8 @@ vi.mock('../api/documents', () => ({
   fetchPhotoReportSummary: vi.fn(),
   listDocuments: vi.fn(),
   issuePhotoReport: vi.fn(),
+  issueTechCard: vi.fn(),
+  previewTechCardPdf: vi.fn(),
 }));
 
 const SALON = 'r-salon';
@@ -322,5 +324,20 @@ describe('ProjectDocuments (Stage 15F.3)', () => {
     expect(await screen.findByText('Фото в отчёте: 5 (лимит 60)')).toBeInTheDocument();
     expect(screen.getByText('Не отправлено')).toBeInTheDocument();
     expect(screen.getByText('Отправка документов на этом сервере отключена.')).toBeInTheDocument();
+  });
+
+  it('shows the technological card first, names its row in the journal and reloads the journal after it is started', async () => {
+    vi.mocked(documentsApi.issueTechCard).mockResolvedValue(doc({ kind: 'TECH_CARD' }));
+    vi.mocked(documentsApi.listDocuments)
+      .mockResolvedValueOnce({ items: [], total: 0 })
+      .mockResolvedValue({ items: [doc({ kind: 'TECH_CARD', number: 'KART/2026/10/09/1015', status: 'PENDING' })], total: 1 });
+    renderCard();
+    await open();
+    const card = await screen.findByLabelText('tech-card-card');
+    expect(card).toBeInTheDocument();
+    expect(screen.queryByLabelText('tech-card-missing')).toBeNull();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'send-tech-card' })); });
+    const row = await screen.findByLabelText('document-KART/2026/10/09/1015');
+    expect(within(row).getByText('Karta technologiczna')).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 /** Stage 15F — the journal of issued documents and the photo report summary (mirrors backend `schemas/issued_document.py`). */
-export type DocumentKind = 'ESTIMATE' | 'PHOTO_REPORT';
+export type DocumentKind = 'ESTIMATE' | 'PHOTO_REPORT' | 'TECH_CARD';
 export type DocumentStatus = 'PENDING' | 'SENT' | 'FAILED';
 
 export interface IssuedDocument {
@@ -80,4 +80,12 @@ export interface DocumentPreviewResult {
 export interface PhotoReportPartPayload {
   room_ids: string[];
   include_project_photos: boolean;
+}
+
+/** A surface with planned works that cannot be in a numbered technological card yet, and what it lacks (Stage 16C). */
+export interface TechCardMissingItem {
+  room: string;
+  surface: string;
+  surface_type: string;
+  missing: Array<'QUALITY_TARGET' | 'INSPECTION'>;
 }

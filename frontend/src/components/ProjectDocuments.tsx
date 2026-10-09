@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchPhotoReportSummary, issuePhotoReport, listDocuments } from '../api/documents';
 import { useI18n } from '../hooks/useI18n';
+import { TechCardSection } from './TechCardSection';
 import type { IssuedDocument, PhotoReportSummary, UnpricedWork } from '../types/document';
 import { documentErrorText } from '../utils/documentErrors';
 import { priceItemLabel } from '../utils/executionFormat';
@@ -167,7 +168,16 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
     else onOpenEstimate(work.reason === 'NO_ESTIMATE' ? null : summary?.estimate_id ?? null);
   };
 
-  const kindLabel = (document: IssuedDocument) => (document.kind === 'ESTIMATE' ? text.kind_estimate : text.kind_photo_report);
+  const kindLabel = (document: IssuedDocument) =>
+    document.kind === 'ESTIMATE' ? text.kind_estimate : document.kind === 'TECH_CARD' ? text.kind_tech_card : text.kind_photo_report;
+  const reloadJournal = async () => {
+    try {
+      const next = await listDocuments(projectId);
+      if (alive.current) setDocuments(next.items);
+    } catch {
+      // the journal is read again with the next poll or the next opening
+    }
+  };
 
   return (
     <article aria-label="project-documents" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
@@ -201,6 +211,8 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
           </button>
         </div>
       )}
+
+      {open && !loadFailed && <TechCardSection projectId={projectId} onIssued={() => void reloadJournal()} />}
 
       {open && summary && (
         <section aria-label="photo-report-card" className="space-y-2">

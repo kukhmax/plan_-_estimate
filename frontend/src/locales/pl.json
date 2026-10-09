@@ -1948,7 +1948,9 @@
       "DOCUMENT_DELIVERY_FAILED": "Nie udało się wysłać dokumentu do czatu. Spróbuj ponownie.",
       "DRAFT_NUMBERED": "Wersja robocza nie dostaje numeru.",
       "RECOMMENDED_WORK_UNPRICED": "Rekomendowane prace dodatkowe nie mają ceny w kosztorysie: {works}. W badaniu dodaj zalecenie do prac albo je odrzuć, a dodaną pracę wprowadź do kosztorysu (zaktualizuj kosztorys albo utwórz jego nową wersję). Potem spróbuj ponownie.",
-      "SKELETON_SECTION_UNKNOWN": "Dokument ma sekcję, której nie przewiduje jego wzór. Zgłoś to do obsługi aplikacji."
+      "SKELETON_SECTION_UNKNOWN": "Dokument ma sekcję, której nie przewiduje jego wzór. Zgłoś to do obsługi aplikacji.",
+      "TECH_CARD_EMPTY": "Żadna powierzchnia nie ma jeszcze zaplanowanych prac. Dodaj prace do planu albo wydrukuj wersję roboczą.",
+      "TECH_CARD_INCOMPLETE": "Na części powierzchni z pracami brakuje danych do karty (lista poniżej). Wersję roboczą z pustymi polami możesz wydrukować już teraz."
     },
     "recommended_works": "Rekomendowane prace dodatkowe: {count}",
     "unpriced_title": "Raport nie zostanie wysłany: te rekomendowane prace nie mają ceny w kosztorysie.",
@@ -1960,6 +1962,17 @@
     "reason_no_price": "W kosztorysie ta praca nie ma ceny (Do ustalenia) — ustal cenę.",
     "action_open_inspection": "Otwórz badanie",
     "action_open_estimate": "Otwórz kosztorys",
-    "action_open_estimates": "Otwórz kosztorysy"
+    "action_open_estimates": "Otwórz kosztorysy",
+    "kind_tech_card": "Karta technologiczna",
+    "tech_card": "Karta technologiczna",
+    "tech_card_hint": "Podłoże, standard wykończenia, wynik badania i prace każdej powierzchni — bez cen. Wersję roboczą z pustymi polami możesz wydrukować jeszcze przed badaniem i omówić z zamawiającym.",
+    "tech_card_preview": "Wersja robocza do wydruku (puste pola)",
+    "tech_card_send": "Wyślij kartę (PDF)",
+    "tech_card_preview_ok": "Wersja robocza wysłana do czatu z botem — wydrukuj ją i uzupełnij odręcznie.",
+    "tech_card_missing_title": "Karta nie zostanie wysłana — na tych powierzchniach z pracami czegoś brakuje:",
+    "tech_card_missing": {
+      "QUALITY_TARGET": "ustal docelowy standard wykończenia (plan prac)",
+      "INSPECTION": "zakończ badanie podłoża"
+    }
   }
 }

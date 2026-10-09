@@ -4,8 +4,10 @@ import {
   getDocument,
   issueEstimateDocument,
   issuePhotoReport,
+  issueTechCard,
   listDocuments,
   previewEstimatePdf,
+  previewTechCardPdf,
 } from './documents';
 
 function respond(status: number, body: unknown) {
@@ -63,5 +65,19 @@ describe('documents API', () => {
     await previewEstimatePdf('p1', 'e1');
     expect(lastCall().url).toBe('/api/projects/p1/estimates/e1/preview-pdf');
     expect(lastCall().init.method).toBe('POST');
+  });
+
+  it('issues the technological card of the whole object and previews its working version', async () => {
+    respond(202, {});
+    await issueTechCard('p1');
+    let call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents');
+    expect(JSON.parse(String(call.init.body))).toEqual({ kind: 'TECH_CARD' });
+    vi.mocked(fetch).mockClear();
+    respond(200, { sent: true, pages: 1, byte_size: 10 });
+    await previewTechCardPdf('p1');
+    call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents/tech-card/preview');
+    expect(call.init.method).toBe('POST');
   });
 });

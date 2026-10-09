@@ -20,6 +20,7 @@ class DocumentKind(str, enum.Enum):
     HANDOVER_PROTOCOL = "HANDOVER_PROTOCOL"  # Protokół przekazania terenu / obiektu: a skeleton (15G)
     CONCEALED_WORKS_PROTOCOL = "CONCEALED_WORKS_PROTOCOL"  # Protokół odbioru robót zanikających: a skeleton (15G)
     FINAL_PROTOCOL = "FINAL_PROTOCOL"  # Protokół odbioru końcowego: a skeleton (15G)
+    TECH_CARD = "TECH_CARD"  # Karta technologiczna: the substrate, the standard and the works of every surface (16C)
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +39,7 @@ TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
     DocumentKind.DIAGNOSTIC: DocumentTemplate(DocumentKind.DIAGNOSTIC, "1", "diagnostic.html.j2"),
     DocumentKind.ESTIMATE: DocumentTemplate(DocumentKind.ESTIMATE, "1", "estimate.html.j2", "KOSZ"),
     DocumentKind.PHOTO_REPORT: DocumentTemplate(DocumentKind.PHOTO_REPORT, "1", "photo_report.html.j2", "FOTO"),
+    DocumentKind.TECH_CARD: DocumentTemplate(DocumentKind.TECH_CARD, "1", "tech_card.html.j2", "KART"),
     DocumentKind.CONTRACT: DocumentTemplate(
         DocumentKind.CONTRACT, SKELETON_VERSION, SKELETON_FILE, "UMOWA",
         ("subject", "scope_of_work", "price", "schedule", "payment_terms", "acceptance", "warranty", "other_provisions"),

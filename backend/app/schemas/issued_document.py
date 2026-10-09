@@ -8,10 +8,10 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class IssueDocumentRequest(BaseModel):
-    """What to issue. An estimate is named by its id; a photo report is the whole object or, when it is too big, a part: the
+    """What to issue. A technological card is the whole object (no other fields). An estimate is named by its id; a photo report is the whole object or, when it is too big, a part: the
     chosen rooms (the general photos of the object come along only when asked for)."""
 
-    kind: Literal["ESTIMATE", "PHOTO_REPORT"]
+    kind: Literal["ESTIMATE", "PHOTO_REPORT", "TECH_CARD"]
     estimate_id: uuid.UUID | None = None
     room_ids: list[uuid.UUID] | None = None
     include_project_photos: bool | None = None
@@ -20,7 +20,10 @@ class IssueDocumentRequest(BaseModel):
 
     @model_validator(mode="after")
     def _kind_fits_fields(self) -> "IssueDocumentRequest":
-        if self.kind == "ESTIMATE":
+        if self.kind == "TECH_CARD":
+            if self.estimate_id is not None or self.room_ids is not None or self.include_project_photos is not None:
+                raise ValueError("a technological card takes no other fields")
+        elif self.kind == "ESTIMATE":
             if self.estimate_id is None:
                 raise ValueError("estimate_id is required for an estimate")
             if self.room_ids is not None or self.include_project_photos is not None:
@@ -38,7 +41,7 @@ class IssueDocumentRequest(BaseModel):
 class IssuedDocumentRead(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
-    kind: Literal["ESTIMATE", "PHOTO_REPORT"]
+    kind: Literal["ESTIMATE", "PHOTO_REPORT", "TECH_CARD"]
     source_id: uuid.UUID | None
     source_version: int | None
     title: str

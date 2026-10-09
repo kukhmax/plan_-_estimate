@@ -28,6 +28,7 @@ from app.domain.documents.estimate_document import EstimateDocumentService
 from app.domain.documents.photo_report_document import PhotoReportDocumentService
 from app.domain.documents.registry import DocumentKind, get_template
 from app.domain.documents.renderer import DocumentRenderer, RenderedPdf
+from app.domain.documents.tech_card_document import TechCardDocumentService
 from app.domain.exceptions import (
     DocumentDataError,
     DocumentDeliveryError,
@@ -152,6 +153,40 @@ class DocumentIssuer:
         )
         return self._launch(reservation)
 
+    async def start_tech_card(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> Reservation:
+        """A numbered technological card. The data are checked now (the card is refused with a stable code while a surface
+        with works lacks its agreed standard or a finished inspection), so a number is never given to a card that cannot
+        be made; the slow part runs in the background like the other documents."""
+        self._ensure_capacity()
+        owner_id = user.id
+        document = await TechCardDocumentService(db).build(owner_id, project_id, working=False, issued_on=self._today())
+        project = await self._project(db, owner_id, project_id)
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.TECH_CARD,
+            title=document.layout.meta.title,
+            template_version=get_template(DocumentKind.TECH_CARD).version,
+            client_id=project.client_id,
+        )
+        return self._launch(reservation)
+
+    async def preview_tech_card(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version of the card (watermark, no number, no journal row) to the owner's chat. It never refuses for
+        missing data: what is not there yet prints as an empty line to write in, so the owner can print it and talk it
+        through with the customer before the inspection is done."""
+        owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
+        document = await TechCardDocumentService(db).build(owner_id, project_id, working=True, issued_on=self._today())
+        project = await self._project(db, owner_id, project_id)
+        rendered = await self.renderer.render(TechCardDocumentService.html(document))
+        await self.delivery.send_document(
+            chat_id,
+            "Karta-technologiczna-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — Karta technologiczna — {project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
     async def preview_estimate(self, db: AsyncSession, user: User, project_id: uuid.UUID, estimate_id: uuid.UUID) -> PreviewResult:
         """A working version of an unfinished estimate to the owner's chat: watermark, no number, no journal row. The slow
         part runs in the request (a one-page document), so the owner sees at once whether it arrived."""
@@ -227,6 +262,11 @@ class DocumentIssuer:
             return await EstimateDocumentService(db).render(
                 document.project_id, document.source_id, document.owner_id, self.renderer,
                 issued_on=issued_on, number=document.number, sequence=document.project_seq,
+            )
+        if document.kind == IssuedDocumentKind.TECH_CARD.value:
+            return await TechCardDocumentService(db).render(
+                document.owner_id, document.project_id, self.renderer,
+                working=False, issued_on=issued_on, number=document.number, sequence=document.project_seq,
             )
         scope = document.scope or {}
         room_ids = frozenset(uuid.UUID(value) for value in scope["room_ids"]) if scope.get("room_ids") is not None else None
