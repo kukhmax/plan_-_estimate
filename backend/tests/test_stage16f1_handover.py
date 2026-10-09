@@ -79,6 +79,10 @@ def test_requirements_are_recorded_per_room_with_a_state_a_measured_value_and_a_
     again = change(change(changes=changes), {"rooms": {ROOM: {"requirements": {"lighting_level": {"state": "YES", "value": 300}}}}})["rooms"][ROOM]
     assert again["requirements"]["lighting_level"] == {"state": "YES", "value": 300, "note": "za ciemno"}
     assert again["requirements"]["lighting_permanent"] == {"state": "YES"} and again["decision"] == "CONDITIONAL"
+    only = change(change(changes=changes), {"rooms": {ROOM: {"requirements": {"lighting_level": {"value": None, "note": None}}}}})["rooms"][ROOM]
+    assert only["requirements"]["lighting_level"] == {"state": "NO"}  # an explicit null clears the measured value and the note, the state stays
+    blank = change(change(changes=changes), {"rooms": {ROOM: {"requirements": {"lighting_level": {"note": "   "}}}}})["rooms"][ROOM]
+    assert "note" not in blank["requirements"]["lighting_level"]  # a blank note is no note
     cleared = change(change(changes=changes), {"rooms": {ROOM: {"requirements": {"lighting_level": None}, "damages": None, "decision": None}}})["rooms"][ROOM]
     assert "lighting_level" not in cleared["requirements"] and "damages" not in cleared and "decision" not in cleared
     assert ROOM not in change(change(changes=changes), {"rooms": {ROOM: None}})["rooms"]

@@ -64,3 +64,8 @@ export function previewProductionPlanPdf(projectId: string): Promise<DocumentPre
 export function previewContractPdf(projectId: string): Promise<DocumentPreviewResult> {
   return apiRequest(`${base(projectId)}/documents/contract/preview`, { method: 'POST' });
 }
+
+/** The working version of the handover protocol (pale watermark, empty boxes and lines) to the owner's chat, to fill in on the premises. */
+export function previewHandoverPdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/handover/preview`, { method: 'POST' });
+}

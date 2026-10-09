@@ -35,6 +35,7 @@ import { OpeningGroupList } from './OpeningGroupList';
 import { ProjectDocuments } from './ProjectDocuments';
 import { ProjectAdjacentWorks } from './ProjectAdjacentWorks';
 import { ProjectContract } from './ProjectContract';
+import { ProjectHandover } from './ProjectHandover';
 import { ProjectRepresentatives } from './ProjectRepresentatives';
 import type { UnpricedWork } from '../types/document';
 import { inspectionTargetOf } from '../utils/unpricedTarget';
@@ -768,6 +769,9 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
 
           {/* Stage 16E.1: the questionnaire "compose the contract". */}
           <ProjectContract projectId={selectedProject.id} />
+
+          {/* Stage 16F.3: the protocol of handing over the premises (the state of each room before the work). */}
+          <ProjectHandover projectId={selectedProject.id} />
 
           <RoomList
             projectId={selectedProject.id}

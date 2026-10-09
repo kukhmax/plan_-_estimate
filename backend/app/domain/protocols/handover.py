@@ -89,17 +89,18 @@ def _requirement_entry(key: str, entry: Any, requirement: Any) -> dict[str, Any]
         if entry["state"] not in STATES:
             raise HandoverInvalidError(key, NOT_AN_OPTION)
         result["state"] = entry["state"]
-    if entry.get("value") is not None:
-        if requirement.value_kind == "YES_NO":
+    if "value" in entry:
+        if entry["value"] is None:
+            result["value"] = None  # cleared: the merge drops it
+        elif requirement.value_kind == "YES_NO":
             raise HandoverInvalidError(key, WRONG_TYPE)  # a yes / no requirement is its state, there is no number to measure
-        try:
-            result["value"] = _requirement_value(key, requirement, entry["value"])
-        except ContractAnswerInvalidError as exc:
-            raise HandoverInvalidError(key, exc.reason) from exc
-    if entry.get("note") is not None:
-        note = _text(key, entry["note"], TEXT_LIMIT)
-        if note:
-            result["note"] = note
+        else:
+            try:
+                result["value"] = _requirement_value(key, requirement, entry["value"])
+            except ContractAnswerInvalidError as exc:
+                raise HandoverInvalidError(key, exc.reason) from exc
+    if "note" in entry:
+        result["note"] = None if entry["note"] is None else _text(key, entry["note"], TEXT_LIMIT)  # None / blank: cleared
     return result
 
 
@@ -201,7 +202,7 @@ def _room(room_id: str, room: dict[str, Any], change: Any, requirements: dict[st
                     result["requirements"].pop(requirement_key, None)
                     continue
                 merged = {**result["requirements"].get(requirement_key, {}), **_requirement_entry(requirement_key, entry, requirements[requirement_key])}
-                result["requirements"][requirement_key] = merged
+                result["requirements"][requirement_key] = {k: v for k, v in merged.items() if v is not None}  # None clears a field
     return result
 
 
