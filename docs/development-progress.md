@@ -43,7 +43,7 @@ explicitly supports.
 | 13 | Technological workflows | COMPLETE / OWNER ACCEPTED (2026-09-27; 13J) | PRODUCTION VERIFIED (runtime `7b5aaf0`, DB `0030_surface_work_executions`) | `docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md` |
 | 14 | Photo Fixation & Defect Annotations | **COMPLETE / OWNER ACCEPTED 2026-10-08** (14A–14K: media infrastructure, API, backup / restore, photo UI, inspection / finding evidence, point markers with contours, execution photos, report read model, adversarial verification, owner walkthrough; the offline photo queue 14E.8 is deferred to the backlog) | PRODUCTION VERIFIED (owner walkthrough W1–W9 PASS 2026-10-08): backend `175f97c`, frontend `333fa8d`, database `0036_photo_annotation_outline`; `MEDIA_STORAGE_BACKEND=s3` (R2 `r2-primary`, bucket `plan-estimate-media-prod`), `PHOTO_UPLOADS_ENABLED=true`; backup run `20261008T164731Z-bab30f9b` (10 photos, 30 objects) published and verified `--mode full` | `docs/STAGE_14_PHOTO_FIXATION_ARCHITECTURE.md`, `docs/STAGE_14B_MEDIA_INFRASTRUCTURE_PLAN.md`, `docs/STAGE_14C_MEDIA_API_CONTRACT.md`, `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`, `docs/STAGE_14E_PHOTO_UI_CONTRACT.md`, `docs/STAGE_14G_POINT_ANNOTATIONS_PLAN_RU.md`, `docs/STAGE_14H_WORK_PHOTOS_PLAN_RU.md`, `docs/STAGE_14I_REPORT_READ_MODEL_PLAN_RU.md`, `docs/STAGE_14J_VERIFICATION_PLAN_RU.md`, `docs/STAGE_14K_PRODUCTION_RUNBOOK_RU.md` |
 | 15 | Documents / PDF (Documents / PDF Reports) | **COMPLETED** (2026-10-08 … 2026-10-09; owner acceptance 2026-10-09). 15A plan and owner decisions Q1–Q4, 15B document engine, 15C executor profile, 15D estimate PDF, 15E photo / inspection report PDF (15E.2, 15E.3 recommended works), 15F issuing (journal, delivery to the owner's chat, screens), 15G skeletons of the contract and the protocols (no legal text), **15H deployed to production** (migrations `0037`, `0038`; backend / frontend `2b9543a`), 15H.1 (blocked-report reasons and links) and 15H.2 (duplicate recommended works) deployed and accepted | — | `docs/STAGE_15_DOCUMENTS_PDF_PLAN_RU.md` |
-| 16 | Contracts and protective protocols | NOT STARTED / PLANNED | — | — |
+| 16 | Contracts and protective protocols | **IN PROGRESS** (started 2026-10-09 on the branch `stage-16`; 16A plan and owner questions Q1–Q8 written, awaiting the owner's decisions; nothing implemented) | — | `docs/STAGE_16_CONTRACTS_PROTOCOLS_PLAN_RU.md` |
 | 17 | Legal knowledge base + situation search (Legal Knowledge Base) | NOT STARTED / PLANNED | — | — |
 | 18 | Calendar and Telegram reminders (Calendar & Reminders) | NOT STARTED / PLANNED | — | — |
 | 19 | Offline drafts | NOT STARTED / PLANNED | — | — |
@@ -54,11 +54,7 @@ not claim the stage is absent from production (later stages were deployed on top
 
 ### Current position
 
-- **Now**: Stage 14 — IN PROGRESS. Stage 14B (Media Infrastructure Readiness) — **COMPLETE**. Stage 14C (Media API &
-  Security) — **COMPLETE** (14C.7 production deployment & runtime verification OWNER VERIFIED, 2026-10-02; uploads
-  OFF). Stage 14D (Backup/Restore Drill & Production Media-Readiness Gate) — **IN PROGRESS**: 14D.1 architecture
-  **OWNER APPROVED** (documentation only; `docs/STAGE_14D_BACKUP_RESTORE_PLAN.md`). Next: **14D.2** backup / restore
-  tooling + tests (NOT STARTED; explicit owner approval required).
+- **Now (2026-10-09)**: Stage 15 — **COMPLETED / OWNER ACCEPTED** (15A–15H.2 deployed to production: backend / frontend `2b9543a`, DB `0038_issued_documents`); `stage-15` merged into `main` (`848d360`). Stage 16 — **IN PROGRESS, 16A**: the branch `stage-16` is cut from `main`; the plan and the owner's questions Q1–Q8 are in `docs/STAGE_16_CONTRACTS_PROTOCOLS_PLAN_RU.md`; no code yet, the next step (16B) starts only after the owner's decisions. The older text below is the historical position log of Stage 14.
 - **Previously completed**: 14C.2 — **CLOSED** (`c184c85`, pushed) — PhotoAttachment schema/domain foundation —
   **IMPLEMENTED / AUTOMATED VERIFICATION PASS / POSTGRESQL 16 SCRATCH VERIFICATION PASS / OWNER ACCEPTED** (2026-10-01; not deployed —
   production stays runtime `e57e037`, DB `0031_photo_assets`; `0032` is applied in production only by 14C.7).
@@ -1152,6 +1148,13 @@ Owner approved ("делаем 15E, лимит 60 фото ок"). Details: `docs
 - **Found by the full backend run:** the static scan of 15B ("templates load no network resource") caught `xmlns="http://www.w3.org/2000/svg"` in the inline SVG — removed (not needed in HTML). Full backend run before that fix: 4645 passed, 64 skipped, 2 failed (the xmlns scan and the known root-sandbox `test_stage14d2c_preflight`); after the fix the 15B and 15E modules pass (63). `ruff` on the new files clean.
 - **Production:** none — no migration, no route; the code travels with 15F / 15H (the 60-photo render on the 1 OCPU server is measured at 15H).
 - **Next (only on owner approval):** 15F — issuing: journal of issued documents (numbering by date-time plus a running number per client and object), Telegram `sendDocument`, "Wyślij PDF" buttons, HTTP errors for the document exceptions.
+
+### Stage 16A — contracts and protective protocols: audit and plan (2026-10-09, DOCUMENT ONLY — branch `stage-16`)
+Owner: "слияние и очистка, и начинаем новый этап на новой ветке" (2026-10-09). `stage-15` was merged into `main` by a fast-forward (`a4ff608` → `848d360`, 18 commits, no history rewritten) and `stage-16` was cut from it.
+- **Added:** `docs/STAGE_16_CONTRACTS_PROTOCOLS_PLAN_RU.md` — scope (contract, three protocols, protective documents), what exists from Stage 15 and earlier stages (engine, journal, skeletons 15G, executor profile, estimate versions, Stage 13 executions, Stage 14 photos, risks with `warranty_exclusion_candidate`) and what does not (clause texts, client address, persisted contract / protocol records, client decisions), eight owner questions Q1–Q8 with recommendations, sub-stages 16B–16H, risks, completion criteria.
+- **Rules kept:** no legal text in the UI (a server clause catalogue, versioned, approved by the owner before use, a draft watermark until then), no AI, deterministic assembly, `owner_id` / UUID / UTC / reversible migrations, Polish client documents, mobile first.
+- **Production:** unchanged (backend / frontend `2b9543a`, DB `0038`).
+- **Next (only after the owner's decisions Q1–Q8):** 16B.
 
 ### Stage 15H.2 — one work asked for by several defects: wall and reason on the card, a warning and a confirmation (2026-10-09, DEPLOYED to production and ACCEPTED by the owner; no migration)
 Found by the owner on the production check of 15H.1: the same work is suggested for different defects, the cards look like duplicates (the card shows neither the wall nor the defect), and "Dodaj do prac" appends the work to the wall's plan every time, so the estimate holds it several times. Owner decision (2026-10-09): variant A of A / B / C — show the context and warn, keep the Stage 10 rule "duplicates are allowed" (two coats are legitimate).
