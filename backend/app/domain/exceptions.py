@@ -78,6 +78,28 @@ class ContractSignError(Exception):
         self.reason = reason
 
 
+class HandoverNotFoundError(Exception):
+    """Raised when a handover protocol is not found within an owned project (Stage 16F.1)."""
+
+
+class HandoverNotEditableError(Exception):
+    """Raised when a protocol that is no longer a draft is changed (Stage 16F.1)."""
+
+    code = "HANDOVER_NOT_EDITABLE"
+
+
+class HandoverInvalidError(Exception):
+    """Raised when an entry of the handover protocol does not fit (Stage 16F.1). `key` is the field, `reason` a stable code the
+    screen has a sentence for."""
+
+    code = "HANDOVER_INVALID"
+
+    def __init__(self, key: str, reason: str) -> None:
+        super().__init__(f"handover {key!r}: {reason}")
+        self.key = key
+        self.reason = reason
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 

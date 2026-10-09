@@ -31,6 +31,7 @@ from app.models.opening_reveal_planned_work import (
 from app.models.executor_profile import ExecutorProfile
 from app.models.adjacent_work import AdjacentWork, AdjacentWorkOrder
 from app.models.contract import Contract, ContractStatus
+from app.models.handover_protocol import HandoverProtocol, HandoverStatus
 from app.models.project_representative import ProjectRepresentative, RepresentativeSide
 from app.models.issued_document import IssuedDocument
 from app.models.photo_annotation import PhotoAnnotation, PhotoAnnotationKind
@@ -91,6 +92,8 @@ __all__ = [
     "Client",
     "Contract",
     "ContractStatus",
+    "HandoverProtocol",
+    "HandoverStatus",
     "Estimate",
     "EstimateLine",
     "EstimateStatus",

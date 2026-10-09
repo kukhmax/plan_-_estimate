@@ -27,6 +27,7 @@ from app.domain.services.project_service import ProjectService
 from app.domain.services.risk_service import RiskService
 from app.domain.services.adjacent_work_service import AdjacentWorkService
 from app.domain.services.contract_service import ContractService
+from app.domain.services.handover_service import HandoverService
 from app.domain.services.project_representative_service import ProjectRepresentativeService
 from app.domain.services.room_service import RoomService
 from app.domain.services.surface_service import SurfaceService
@@ -113,6 +114,12 @@ async def get_contract_service(
     db: AsyncSession = Depends(get_db),
 ) -> ContractService:
     return ContractService(db)
+
+
+async def get_handover_service(
+    db: AsyncSession = Depends(get_db),
+) -> HandoverService:
+    return HandoverService(db)
 
 
 async def get_surface_service(
