@@ -131,6 +131,129 @@
     "save": "Zapisz",
     "cancel": "Anuluj"
   },
+  "contractCatalog": {
+    "groups": {
+      "premises": {
+        "LIGHTING": "Oświetlenie",
+        "GLAZING": "Okna i otwory",
+        "CLIMATE": "Temperatura i wilgotność",
+        "UTILITIES": "Media",
+        "ACCESS": "Dostęp",
+        "CLEANLINESS": "Czystość i zabezpieczenie",
+        "SUBSTRATE": "Podłoże"
+      },
+      "questions": {
+        "PARTIES": "Strony i osoby",
+        "DATES": "Daty i miejsce",
+        "PAYMENT": "Płatności",
+        "WARRANTY": "Gwarancja",
+        "PENALTY": "Kary",
+        "DOWNTIME": "Przestój z winy Zamawiającego",
+        "ACCEPTANCE": "Odbiór prac",
+        "PREMISES": "Pomieszczenia"
+      }
+    },
+    "requirements": {
+      "lighting_permanent": "Stałe oświetlenie elektryczne w pomieszczeniach",
+      "lighting_level": "Minimalne natężenie oświetlenia w miejscu pracy",
+      "windows_glazed": "Okna zamontowane i oszklone",
+      "openings_closed": "Otwory okienne i drzwiowe zabezpieczone przed warunkami atmosferycznymi",
+      "temperature_range": "Zakres temperatury powietrza w pomieszczeniach",
+      "humidity_max": "Maksymalna wilgotność względna powietrza",
+      "heating_available": "Ogrzewanie dostępne i sprawne",
+      "electricity_available": "Dostęp do energii elektrycznej",
+      "water_available": "Dostęp do wody",
+      "access_unrestricted": "Swobodny dostęp do pomieszczeń oraz miejsce na materiały i sprzęt",
+      "rooms_cleared": "Pomieszczenia opróżnione z mebli i wyposażenia",
+      "floors_protected": "Posadzki i stolarka zabezpieczone",
+      "substrate_ready": "Podłoże przygotowane i gotowe do prac",
+      "substrate_cure_days": "Minimalny czas wiązania i schnięcia podłoża przed pracami"
+    },
+    "instruments": {
+      "straightedge_2m": "Łata kontrolna 2 m",
+      "feeler_gauge": "Szczelinomierz lub klin pomiarowy",
+      "spirit_level": "Poziomica",
+      "laser_level": "Poziomica laserowa lub niwelator",
+      "tape_measure": "Miara zwijana lub dalmierz laserowy",
+      "moisture_meter": "Wilgotnościomierz",
+      "raking_light": "Lampa światła smugowego (oświetlenie boczne)",
+      "adhesion_test": "Próba przyczepności (siatka nacięć lub test odrywowy)"
+    },
+    "measures": {
+      "FLATNESS": "Równość płaszczyzny",
+      "VERTICALITY": "Pion",
+      "HORIZONTALITY": "Poziom",
+      "DIMENSIONS": "Wymiary",
+      "MOISTURE": "Wilgotność",
+      "SURFACE_APPEARANCE": "Wygląd powierzchni",
+      "ADHESION": "Przyczepność"
+    },
+    "evaluation": {
+      "S1": "S1 — Przygotowanie podstawowe",
+      "S2": "S2 — Standard malarski",
+      "S3": "S3 — Podwyższony standard wizualny",
+      "S4": "S4 — Standard premium uzgadniany indywidualnie",
+      "Q1": "Q1 / PSG1 — Podstawowe spoinowanie",
+      "Q2": "Q2 / PSG2 — Standardowe szpachlowanie spoin",
+      "Q3": "Q3 / PSG3 — Podwyższone szpachlowanie",
+      "Q4": "Q4 / PSG4 — Szpachlowanie całopowierzchniowe"
+    },
+    "lighting": {
+      "NONE_SPECIFIED": "Oświetlenie nie jest określone",
+      "DIFFUSE": "Oświetlenie rozproszone",
+      "DEMANDING": "Bardziej wymagające warunki oświetleniowe",
+      "AGREED_BEFORE_WORK": "Uzgadniane przed pracami",
+      "RAKING_LIGHT": "Oświetlenie smugowe"
+    },
+    "defects": {
+      "REMOVABLE": "Wada usuwalna",
+      "SIGNIFICANT": "Wada istotna"
+    },
+    "outcomes": {
+      "ACCEPTED_WITH_REMARKS": "Odbiór z uwagami",
+      "NOT_ACCEPTED": "Odbiór nie dochodzi do skutku"
+    },
+    "questions": {
+      "who_accepts": "Kto może odbierać prace i podpisywać protokoły",
+      "contract_date": "Data zawarcia umowy",
+      "contract_place": "Miejsce zawarcia umowy",
+      "work_start_date": "Data rozpoczęcia prac",
+      "work_end_date": "Data zakończenia prac",
+      "advance_percent": "Zaliczka (% ceny)",
+      "payment_mode": "Sposób płatności",
+      "payment_due_days": "Termin płatności (dni)",
+      "warranty_months": "Okres gwarancji (miesiące)",
+      "contractual_penalty": "Kara umowna (stawka lub „brak”)",
+      "downtime_rate_per_day": "Stawka za dobę przestoju z winy Zamawiającego (zł)",
+      "downtime_cap_percent": "Limit odszkodowania za przestój (% ceny)",
+      "customer_appearance_days": "Czas na stawienie się Zamawiającego na odbiór (dni robocze)",
+      "partial_acceptance": "Odbiory częściowe (pomieszczenia, etapy)",
+      "reinspection_limit": "Maksymalna liczba ponownych sprawdzeń",
+      "premises_acceptance_notice_days": "Zawiadomienie o gotowości pomieszczeń (dni przed pracami)",
+      "premises_requirement_values": "Wartości wymagań dla pomieszczeń"
+    },
+    "hints": {
+      "who_accepts": "Wybierz osoby z listy osób objektu (co najmniej jedna z uprawnieniem).",
+      "work_end_date": "Uwzględnij przerwy technologiczne.",
+      "downtime_rate_per_day": "Może pozostać pusta — pole do uzupełnienia później.",
+      "customer_appearance_days": "Proponowane 3 dni robocze; można zmienić.",
+      "reinspection_limit": "Puste oznacza brak limitu.",
+      "premises_requirement_values": "Liczby wpisuje Wykonawca; puste oznacza pole do uzupełnienia."
+    },
+    "choices": {
+      "BY_STAGES": "Etapami",
+      "ON_ACCEPTANCE": "Po odbiorze"
+    },
+    "units": {
+      "lx": "lx",
+      "°C": "°C",
+      "%": "%",
+      "days": "dni",
+      "months": "mies.",
+      "working_days": "dni roboczych",
+      "PLN": "zł"
+    }
+  },
   "projects": {
     "title": "Obiekty",
     "add": "Dodaj obiekt",

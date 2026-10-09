@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "key": "REMOVABLE",
+      "outcome": "ACCEPTED_WITH_REMARKS",
+      "label_key": "contractCatalog.defects.REMOVABLE",
+      "text_pl": "Zastrzeżenie możliwe do usunięcia bez zmiany zakresu prac; odbiór z uwagami, usunięcie w ustalonym czasie.",
+      "criteria_pl": null
+    },
+    {
+      "key": "SIGNIFICANT",
+      "outcome": "NOT_ACCEPTED",
+      "label_key": "contractCatalog.defects.SIGNIFICANT",
+      "text_pl": "Zastrzeżenie uniemożliwiające przyjęcie zakresu prac; po usunięciu wymagany jest ponowny odbiór.",
+      "criteria_pl": null
+    }
+  ]
+}

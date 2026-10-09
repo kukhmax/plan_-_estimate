@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "key": "S1",
+      "lighting": "NONE_SPECIFIED",
+      "requires_agreement": false,
+      "label_key": "contractCatalog.evaluation.S1",
+      "text_pl": "Ocena gotowości technicznej powierzchni do kolejnej operacji; nie jest to ocena wizualna pod malowanie."
+    },
+    {
+      "key": "S2",
+      "lighting": "DIFFUSE",
+      "requires_agreement": false,
+      "label_key": "contractCatalog.evaluation.S2",
+      "text_pl": "Ocena wizualna przy oświetleniu rozproszonym, w normalnych warunkach użytkowania wnętrza."
+    },
+    {
+      "key": "S3",
+      "lighting": "DEMANDING",
+      "requires_agreement": false,
+      "label_key": "contractCatalog.evaluation.S3",
+      "text_pl": "Ocena wizualna w bardziej wymagających warunkach oświetleniowych; szczegóły warunków oceny do uzupełnienia przez Wykonawcę."
+    },
+    {
+      "key": "S4",
+      "lighting": "AGREED_BEFORE_WORK",
+      "requires_agreement": true,
+      "label_key": "contractCatalog.evaluation.S4",
+      "text_pl": "Warunki oceny wizualnej i oświetleniowej są uzgadniane przed rozpoczęciem prac i zapisywane w umowie."
+    },
+    {
+      "key": "Q1",
+      "lighting": "NONE_SPECIFIED",
+      "requires_agreement": false,
+      "label_key": "contractCatalog.evaluation.Q1",
+      "text_pl": "Ocena wykonania spoin z wtopieniem taśmy zbrojącej; nie jest to ocena wizualna całej powierzchni."
+    },
+    {
+      "key": "Q2",
+      "lighting": "NONE_SPECIFIED",
+      "requires_agreement": false,
+      "label_key": "contractCatalog.evaluation.Q2",
+      "text_pl": "Ocena wykonania spoin z łagodnym przejściem do powierzchni płyty (pod tapety o grubej strukturze lub tynki strukturalne)."
+    },
+    {
+      "key": "Q3",
+      "lighting": "NONE_SPECIFIED",
+      "requires_agreement": false,
+      "label_key": "contractCatalog.evaluation.Q3",
+      "text_pl": "Ocena jednolitości chłonności i faktury powierzchni po cienkowarstwowym przeciągnięciu gładzią."
+    },
+    {
+      "key": "Q4",
+      "lighting": "RAKING_LIGHT",
+      "requires_agreement": false,
+      "label_key": "contractCatalog.evaluation.Q4",
+      "text_pl": "Ocena wizualna przy oświetleniu smugowym (boczny kierunek światła), odpowiednio do przeznaczenia powierzchni (farby półmatowe i błyszczące, mikrocement)."
+    }
+  ]
+}

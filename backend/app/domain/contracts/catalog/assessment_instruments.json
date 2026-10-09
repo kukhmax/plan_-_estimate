@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "key": "straightedge_2m",
+      "measures": [
+        "FLATNESS"
+      ],
+      "label_key": "contractCatalog.instruments.straightedge_2m",
+      "text_pl": "Łata kontrolna 2 m"
+    },
+    {
+      "key": "feeler_gauge",
+      "measures": [
+        "FLATNESS"
+      ],
+      "label_key": "contractCatalog.instruments.feeler_gauge",
+      "text_pl": "Szczelinomierz lub klin pomiarowy"
+    },
+    {
+      "key": "spirit_level",
+      "measures": [
+        "VERTICALITY",
+        "HORIZONTALITY"
+      ],
+      "label_key": "contractCatalog.instruments.spirit_level",
+      "text_pl": "Poziomica"
+    },
+    {
+      "key": "laser_level",
+      "measures": [
+        "VERTICALITY",
+        "HORIZONTALITY"
+      ],
+      "label_key": "contractCatalog.instruments.laser_level",
+      "text_pl": "Poziomica laserowa lub niwelator"
+    },
+    {
+      "key": "tape_measure",
+      "measures": [
+        "DIMENSIONS"
+      ],
+      "label_key": "contractCatalog.instruments.tape_measure",
+      "text_pl": "Miara zwijana lub dalmierz laserowy"
+    },
+    {
+      "key": "moisture_meter",
+      "measures": [
+        "MOISTURE"
+      ],
+      "label_key": "contractCatalog.instruments.moisture_meter",
+      "text_pl": "Wilgotnościomierz"
+    },
+    {
+      "key": "raking_light",
+      "measures": [
+        "SURFACE_APPEARANCE"
+      ],
+      "label_key": "contractCatalog.instruments.raking_light",
+      "text_pl": "Lampa światła smugowego (oświetlenie boczne)"
+    },
+    {
+      "key": "adhesion_test",
+      "measures": [
+        "ADHESION"
+      ],
+      "label_key": "contractCatalog.instruments.adhesion_test",
+      "text_pl": "Próba przyczepności (siatka nacięć lub test odrywowy)"
+    }
+  ]
+}

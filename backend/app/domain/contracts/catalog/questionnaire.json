@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "key": "who_accepts",
+      "group": "PARTIES",
+      "kind": "PERSON_LIST",
+      "requirement": "REQUIRED",
+      "default": null,
+      "options": null,
+      "unit": null,
+      "label_key": "contractCatalog.questions.who_accepts",
+      "hint_key": "contractCatalog.hints.who_accepts"
+    },
+    {
+      "key": "contract_date",
+      "group": "DATES",
+      "kind": "DATE",
+      "requirement": "REQUIRED",
+      "default": null,
+      "options": null,
+      "unit": null,
+      "label_key": "contractCatalog.questions.contract_date",
+      "hint_key": null
+    },
+    {
+      "key": "contract_place",
+      "group": "DATES",
+      "kind": "TEXT",
+      "requirement": "REQUIRED",
+      "default": null,
+      "options": null,
+      "unit": null,
+      "label_key": "contractCatalog.questions.contract_place",
+      "hint_key": null
+    },
+    {
+      "key": "work_start_date",
+      "group": "DATES",
+      "kind": "DATE",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": null,
+      "label_key": "contractCatalog.questions.work_start_date",
+      "hint_key": null
+    },
+    {
+      "key": "work_end_date",
+      "group": "DATES",
+      "kind": "DATE",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": null,
+      "label_key": "contractCatalog.questions.work_end_date",
+      "hint_key": "contractCatalog.hints.work_end_date"
+    },
+    {
+      "key": "advance_percent",
+      "group": "PAYMENT",
+      "kind": "PERCENT",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": "%",
+      "label_key": "contractCatalog.questions.advance_percent",
+      "hint_key": null
+    },
+    {
+      "key": "payment_mode",
+      "group": "PAYMENT",
+      "kind": "CHOICE",
+      "requirement": "OPEN",
+      "default": null,
+      "options": [
+        "BY_STAGES",
+        "ON_ACCEPTANCE"
+      ],
+      "unit": null,
+      "label_key": "contractCatalog.questions.payment_mode",
+      "hint_key": null
+    },
+    {
+      "key": "payment_due_days",
+      "group": "PAYMENT",
+      "kind": "DAYS",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": "days",
+      "label_key": "contractCatalog.questions.payment_due_days",
+      "hint_key": null
+    },
+    {
+      "key": "warranty_months",
+      "group": "WARRANTY",
+      "kind": "MONTHS",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": "months",
+      "label_key": "contractCatalog.questions.warranty_months",
+      "hint_key": null
+    },
+    {
+      "key": "contractual_penalty",
+      "group": "PENALTY",
+      "kind": "TEXT",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": null,
+      "label_key": "contractCatalog.questions.contractual_penalty",
+      "hint_key": null
+    },
+    {
+      "key": "downtime_rate_per_day",
+      "group": "DOWNTIME",
+      "kind": "MONEY_PLN",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": "PLN",
+      "label_key": "contractCatalog.questions.downtime_rate_per_day",
+      "hint_key": "contractCatalog.hints.downtime_rate_per_day"
+    },
+    {
+      "key": "downtime_cap_percent",
+      "group": "DOWNTIME",
+      "kind": "PERCENT",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": "%",
+      "label_key": "contractCatalog.questions.downtime_cap_percent",
+      "hint_key": null
+    },
+    {
+      "key": "customer_appearance_days",
+      "group": "ACCEPTANCE",
+      "kind": "DAYS",
+      "requirement": "OPEN",
+      "default": 3,
+      "options": null,
+      "unit": "working_days",
+      "label_key": "contractCatalog.questions.customer_appearance_days",
+      "hint_key": "contractCatalog.hints.customer_appearance_days"
+    },
+    {
+      "key": "partial_acceptance",
+      "group": "ACCEPTANCE",
+      "kind": "YES_NO",
+      "requirement": "REQUIRED",
+      "default": true,
+      "options": null,
+      "unit": null,
+      "label_key": "contractCatalog.questions.partial_acceptance",
+      "hint_key": null
+    },
+    {
+      "key": "reinspection_limit",
+      "group": "ACCEPTANCE",
+      "kind": "NUMBER",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": null,
+      "label_key": "contractCatalog.questions.reinspection_limit",
+      "hint_key": "contractCatalog.hints.reinspection_limit"
+    },
+    {
+      "key": "premises_acceptance_notice_days",
+      "group": "PREMISES",
+      "kind": "DAYS",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": "days",
+      "label_key": "contractCatalog.questions.premises_acceptance_notice_days",
+      "hint_key": null
+    },
+    {
+      "key": "premises_requirement_values",
+      "group": "PREMISES",
+      "kind": "REQUIREMENT_VALUES",
+      "requirement": "OPEN",
+      "default": null,
+      "options": null,
+      "unit": null,
+      "label_key": "contractCatalog.questions.premises_requirement_values",
+      "hint_key": "contractCatalog.hints.premises_requirement_values"
+    }
+  ]
+}

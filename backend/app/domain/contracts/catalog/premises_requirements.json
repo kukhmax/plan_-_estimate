@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "key": "lighting_permanent",
+      "group": "LIGHTING",
+      "value_kind": "YES_NO",
+      "unit": null,
+      "label_key": "contractCatalog.requirements.lighting_permanent",
+      "text_pl": "Stałe oświetlenie elektryczne w pomieszczeniach"
+    },
+    {
+      "key": "lighting_level",
+      "group": "LIGHTING",
+      "value_kind": "NUMBER",
+      "unit": "lx",
+      "label_key": "contractCatalog.requirements.lighting_level",
+      "text_pl": "Minimalne natężenie oświetlenia w miejscu pracy"
+    },
+    {
+      "key": "windows_glazed",
+      "group": "GLAZING",
+      "value_kind": "YES_NO",
+      "unit": null,
+      "label_key": "contractCatalog.requirements.windows_glazed",
+      "text_pl": "Okna zamontowane i oszklone"
+    },
+    {
+      "key": "openings_closed",
+      "group": "GLAZING",
+      "value_kind": "YES_NO",
+      "unit": null,
+      "label_key": "contractCatalog.requirements.openings_closed",
+      "text_pl": "Otwory okienne i drzwiowe zabezpieczone przed warunkami atmosferycznymi"
+    },
+    {
+      "key": "temperature_range",
+      "group": "CLIMATE",
+      "value_kind": "NUMBER_RANGE",
+      "unit": "°C",
+      "label_key": "contractCatalog.requirements.temperature_range",
+      "text_pl": "Zakres temperatury powietrza w pomieszczeniach"
+    },
+    {
+      "key": "humidity_max",
+      "group": "CLIMATE",
+      "value_kind": "NUMBER",
+      "unit": "%",
+      "label_key": "contractCatalog.requirements.humidity_max",
+      "text_pl": "Maksymalna wilgotność względna powietrza"
+    },
+    {
+      "key": "heating_available",
+      "group": "CLIMATE",
+      "value_kind": "YES_NO",
+      "unit": null,
+      "label_key": "contractCatalog.requirements.heating_available",
+      "text_pl": "Ogrzewanie dostępne i sprawne"
+    },
+    {
+      "key": "electricity_available",
+      "group": "UTILITIES",
+      "value_kind": "YES_NO",
+      "unit": null,
+      "label_key": "contractCatalog.requirements.electricity_available",
+      "text_pl": "Dostęp do energii elektrycznej"
+    },
+    {
+      "key": "water_available",
+      "group": "UTILITIES",
+      "value_kind": "YES_NO",
+      "unit": null,
+      "label_key": "contractCatalog.requirements.water_available",
+      "text_pl": "Dostęp do wody"
+    },
+    {
+      "key": "access_unrestricted",
+      "group": "ACCESS",
+      "value_kind": "YES_NO",
+      "unit": null,
+      "label_key": "contractCatalog.requirements.access_unrestricted",
+      "text_pl": "Swobodny dostęp do pomieszczeń oraz miejsce na materiały i sprzęt"
+    },
+    {
+      "key": "rooms_cleared",
+      "group": "CLEANLINESS",
+      "value_kind": "YES_NO",
+      "unit": null,
+      "label_key": "contractCatalog.requirements.rooms_cleared",
+      "text_pl": "Pomieszczenia opróżnione z mebli i wyposażenia"
+    },
+    {
+      "key": "floors_protected",
+      "group": "CLEANLINESS",
+      "value_kind": "YES_NO",
+      "unit": null,
+      "label_key": "contractCatalog.requirements.floors_protected",
+      "text_pl": "Posadzki i stolarka zabezpieczone"
+    },
+    {
+      "key": "substrate_ready",
+      "group": "SUBSTRATE",
+      "value_kind": "YES_NO",
+      "unit": null,
+      "label_key": "contractCatalog.requirements.substrate_ready",
+      "text_pl": "Podłoże przygotowane i gotowe do prac"
+    },
+    {
+      "key": "substrate_cure_days",
+      "group": "SUBSTRATE",
+      "value_kind": "NUMBER",
+      "unit": "days",
+      "label_key": "contractCatalog.requirements.substrate_cure_days",
+      "text_pl": "Minimalny czas wiązania i schnięcia podłoża przed pracami"
+    }
+  ]
+}
