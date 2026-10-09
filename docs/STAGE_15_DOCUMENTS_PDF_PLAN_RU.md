@@ -1,6 +1,6 @@
 # Stage 15 — Документы / PDF: аудит и план
 
-Статус: **план 2026-10-08, старт одобрен владельцем («давай делать Stage 15»); решения владельца Q1–Q4 приняты 2026-10-08**; реализация идёт подэтапами 15B–15H, каждый — одним логическим коммитом, выкладка только по явному «да» владельца. Дорожная карта: `docs/development-progress.md` (строка Stage 15: «Printable estimate, contract and technical-protocol documents (Jinja2 + WeasyPrint planned), built from structured data including explicitly selected Stage 14 media. Client-facing documents default to PL»; зависимости: снимки смет Stage 10, медиа Stage 14 через сервис 14I). Договоры и протоколы по содержанию — **Stage 16**; юридические тексты — **Stage 17** (в интерфейсе их хранить нельзя).
+Статус: **ЗАВЕРШЁН 2026-10-09 (все подэтапы 15A–15H.2 выложены на production и приняты владельцем)**. Исходно: **план 2026-10-08, старт одобрен владельцем («давай делать Stage 15»); решения владельца Q1–Q4 приняты 2026-10-08**; реализация идёт подэтапами 15B–15H, каждый — одним логическим коммитом, выкладка только по явному «да» владельца. Дорожная карта: `docs/development-progress.md` (строка Stage 15: «Printable estimate, contract and technical-protocol documents (Jinja2 + WeasyPrint planned), built from structured data including explicitly selected Stage 14 media. Client-facing documents default to PL»; зависимости: снимки смет Stage 10, медиа Stage 14 через сервис 14I). Договоры и протоколы по содержанию — **Stage 16**; юридические тексты — **Stage 17** (в интерфейсе их хранить нельзя).
 
 ## 1. Что уже есть и чего нет
 
