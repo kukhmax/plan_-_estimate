@@ -170,6 +170,55 @@
     "save": "Zapisz",
     "cancel": "Anuluj"
   },
+  "contract": {
+    "title": "Umowa",
+    "intro": "Zanim powstanie umowa, odpowiedz na pytania: kto odbiera prace, daty, płatności, gwarancja, przestój, odbiór. Pytania opcjonalne możesz zostawić puste — w wydruku będzie linia do wpisania odręcznie.",
+    "compose": "Skomponuj umowę",
+    "continue": "Kontynuuj szkic umowy",
+    "loading": "Ładowanie…",
+    "load_failed": "Nie udało się wczytać umowy.",
+    "retry": "Spróbuj ponownie",
+    "latest": "Ostatnia umowa: wersja {n} — {status}",
+    "draft_progress": "Szkic, wersja {n}. Wymagane odpowiedzi: {done} z {total}.",
+    "status": {
+      "DRAFT": "szkic",
+      "ISSUED": "wystawiona",
+      "SIGNED": "podpisana",
+      "ARCHIVED": "zarchiwizowana"
+    },
+    "missing_title": "Do uzupełnienia (wymagane):",
+    "required": "wymagane",
+    "optional": "opcjonalne",
+    "optional_note": "Puste pole opcjonalne nie blokuje umowy: w dokumencie pojawi się linia „……” do wpisania odręcznie.",
+    "yes": "Tak",
+    "no": "Nie",
+    "not_set": "— nie wybrano —",
+    "range_min": "od",
+    "range_max": "do",
+    "persons_none": "Brak osób z uprawnieniem do odbioru prac. Zaznacz uprawnienie przy osobie w karcie „Osoby objektu”.",
+    "save": "Zapisz odpowiedzi",
+    "saved": "Zapisano.",
+    "nothing_to_save": "Brak zmian do zapisania.",
+    "close": "Zwiń",
+    "abandon": "Odrzuć szkic",
+    "abandon_confirm": "Naciśnij ponownie, aby odrzucić szkic",
+    "abandoned": "Szkic odrzucony.",
+    "errors": {
+      "UNKNOWN": "Nie udało się zapisać odpowiedzi. Spróbuj ponownie.",
+      "NOT_EDITABLE": "Ta umowa nie jest już szkicem — zmiana oznacza nową wersję.",
+      "WRONG_TYPE": "nieprawidłowa wartość",
+      "OUT_OF_RANGE": "wartość poza dozwolonym zakresem",
+      "TOO_LONG": "zbyt długi tekst",
+      "BAD_DATE": "nieprawidłowa data (RRRR-MM-DD)",
+      "NOT_AN_OPTION": "wybierz jedną z opcji",
+      "UNKNOWN_QUESTION": "nieznane pytanie",
+      "UNKNOWN_PERSON": "osoba nie należy do tego objektu lub jest zarchiwizowana",
+      "NOT_AUTHORISED": "osoba nie ma uprawnienia do odbioru prac i podpisywania protokołów",
+      "UNKNOWN_REQUIREMENT": "nieznane wymaganie",
+      "DATE_ORDER": "data zakończenia nie może być wcześniejsza niż rozpoczęcia"
+    },
+    "draft_summary": "Szkic, wersja {n}. Do uzupełnienia wymaganych odpowiedzi: {missing}."
+  },
   "contractCatalog": {
     "groups": {
       "premises": {
@@ -272,7 +321,7 @@
       "premises_requirement_values": "Wartości wymagań dla pomieszczeń"
     },
     "hints": {
-      "who_accepts": "Wybierz osoby z listy osób objektu (co najmniej jedna z uprawnieniem).",
+      "who_accepts": "Wybierz osoby z listy osób objektu, które mają uprawnienie do odbioru prac i podpisywania protokołów.",
       "work_end_date": "Uwzględnij przerwy technologiczne.",
       "downtime_rate_per_day": "Może pozostać pusta — pole do uzupełnienia później.",
       "customer_appearance_days": "Proponowane 3 dni robocze; można zmienić.",

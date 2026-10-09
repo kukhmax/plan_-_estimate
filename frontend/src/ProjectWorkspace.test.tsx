@@ -20,6 +20,12 @@ import { ProjectSummary, RoomType } from './types/room';
 import { SurfaceType } from './types/surface';
 
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
+vi.mock('./api/contracts', () => ({
+  fetchContracts: vi.fn(async () => ({ items: [], total: 0 })),
+  openContractDraft: vi.fn(),
+  saveContractAnswers: vi.fn(),
+  abandonContractDraft: vi.fn(),
+}));
 vi.mock('./api/adjacentWorks', () => ({
   fetchAdjacentWorks: vi.fn(async () => ({ items: [], total: 0 })),
   createAdjacentWork: vi.fn(),

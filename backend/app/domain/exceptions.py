@@ -33,6 +33,28 @@ class AdjacentWorkPeriodInvalidError(Exception):
     code = "ADJACENT_WORK_PERIOD_INVALID"
 
 
+class ContractNotFoundError(Exception):
+    """Raised when a contract is not found within an owned project (Stage 16E.1)."""
+
+
+class ContractNotEditableError(Exception):
+    """Raised when the answers of a contract that is no longer a draft are changed (Stage 16E.1)."""
+
+    code = "CONTRACT_NOT_EDITABLE"
+
+
+class ContractAnswerInvalidError(Exception):
+    """Raised when an answer of the questionnaire does not fit its question (Stage 16E.1). `key` is the question, `reason` a
+    stable code the screen has a sentence for."""
+
+    code = "CONTRACT_ANSWER_INVALID"
+
+    def __init__(self, key: str, reason: str) -> None:
+        super().__init__(f"answer {key!r}: {reason}")
+        self.key = key
+        self.reason = reason
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 

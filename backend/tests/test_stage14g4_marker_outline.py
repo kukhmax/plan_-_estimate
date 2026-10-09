@@ -76,7 +76,7 @@ def test_revision_chain_and_single_head():
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0043_issued_docs_plan"]
+    assert scripts.get_heads() == ["0044_contracts"]
     assert scripts.get_revision("0035_photo_annotations").down_revision == "0034_finding_lineage"
 
 

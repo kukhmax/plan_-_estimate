@@ -34,6 +34,7 @@ import { RoomList } from './RoomList';
 import { OpeningGroupList } from './OpeningGroupList';
 import { ProjectDocuments } from './ProjectDocuments';
 import { ProjectAdjacentWorks } from './ProjectAdjacentWorks';
+import { ProjectContract } from './ProjectContract';
 import { ProjectRepresentatives } from './ProjectRepresentatives';
 import type { UnpricedWork } from '../types/document';
 import { inspectionTargetOf } from '../utils/unpricedTarget';
@@ -764,6 +765,9 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
 
           {/* Stage 16D.1: works of other contractors on the object (the register the production plan refers to). */}
           <ProjectAdjacentWorks projectId={selectedProject.id} />
+
+          {/* Stage 16E.1: the questionnaire "compose the contract". */}
+          <ProjectContract projectId={selectedProject.id} />
 
           <RoomList
             projectId={selectedProject.id}
