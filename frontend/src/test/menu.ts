@@ -5,7 +5,7 @@ export async function openMenu(): Promise<void> {
   fireEvent.click(await screen.findByRole('button', { name: 'open-menu' }));
 }
 
-export async function chooseSection(name: 'show-clients' | 'show-projects' | 'show-pricebook' | 'show-archive' | 'show-documents'): Promise<void> {
+export async function chooseSection(name: 'show-clients' | 'show-projects' | 'show-pricebook' | 'show-archive' | 'show-documents' | 'show-knowledge'): Promise<void> {
   await openMenu();
   fireEvent.click(screen.getByRole('button', { name }));
 }

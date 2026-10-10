@@ -3,7 +3,7 @@
     "code": "KC",
     "kind": "STATUTE",
     "title_pl": "Ustawa z dnia 23 kwietnia 1964 r. — Kodeks cywilny",
-    "designation": "t.j. Dz.U. 2026 poz. 795 (według wyszukiwania — potwierdzić w ISAP)",
+    "designation": "KC, t.j. Dz.U. 2026 poz. 795",
     "url": "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU19640160093",
     "status": "DRAFT"
   },
@@ -11,7 +11,7 @@
     "code": "UPK",
     "kind": "STATUTE",
     "title_pl": "Ustawa z dnia 30 maja 2014 r. o prawach konsumenta",
-    "designation": "t.j. Dz.U. 2026 poz. 1244 (według wyszukiwania — potwierdzić w ISAP)",
+    "designation": "UPK, t.j. Dz.U. 2026 poz. 1244",
     "url": "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20140000827",
     "status": "DRAFT"
   },
@@ -19,7 +19,7 @@
     "code": "RODO",
     "kind": "STATUTE",
     "title_pl": "Rozporządzenie Parlamentu Europejskiego i Rady (UE) 2016/679 (RODO) o ochronie danych osobowych",
-    "designation": "Dz.Urz. UE L 119 z 4.5.2016",
+    "designation": "RODO, UE 2016/679",
     "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
     "status": "DRAFT"
   }

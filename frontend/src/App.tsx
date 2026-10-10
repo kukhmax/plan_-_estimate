@@ -5,11 +5,12 @@ import { ArchiveScreen } from './components/ArchiveScreen';
 import { ClientList } from './components/ClientList';
 import { PriceBook } from './components/PriceBook';
 import { SentDocuments } from './components/SentDocuments';
+import { KnowledgeBase } from './components/KnowledgeBase';
 import { ProjectOpenRequest, ProjectWorkspace } from './components/ProjectWorkspace';
 import { AccountModal } from './components/AccountModal';
 import { AppMenu, AppMenuItem } from './components/AppMenu';
 
-type Section = 'clients' | 'projects' | 'pricebook' | 'archive' | 'documents';
+type Section = 'clients' | 'projects' | 'pricebook' | 'archive' | 'documents' | 'knowledge';
 
 const AppContent: React.FC = () => {
   const { user, isDevAuth, isLoading, error, retry } = useAuth();
@@ -41,6 +42,7 @@ const AppContent: React.FC = () => {
     { id: 'show-pricebook', label: t.navigation.pricebook, active: activeSection === 'pricebook', onSelect: () => choose('pricebook') },
     { id: 'show-archive', label: t.navigation.archive, active: activeSection === 'archive', onSelect: () => choose('archive') },
     { id: 'show-documents', label: t.navigation.documents, active: activeSection === 'documents', onSelect: () => choose('documents') },
+    { id: 'show-knowledge', label: t.navigation.knowledge, active: activeSection === 'knowledge', onSelect: () => choose('knowledge') },
   ];
 
   return (
@@ -163,6 +165,8 @@ const AppContent: React.FC = () => {
               <ArchiveScreen />
             ) : activeSection === 'documents' ? (
               <SentDocuments />
+            ) : activeSection === 'knowledge' ? (
+              <KnowledgeBase backSuspended={showAccount || menuOpen} />
             ) : (
               <PriceBook resetSignal={priceNavToken} backSuspended={showAccount || menuOpen} />
             )}
