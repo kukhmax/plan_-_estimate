@@ -21,6 +21,8 @@ class DocumentKind(str, enum.Enum):
     CONCEALED_WORKS_PROTOCOL = "CONCEALED_WORKS_PROTOCOL"  # Protokół odbioru robót zanikających: work accepted before it is covered (16G)
     FINAL_PROTOCOL = "FINAL_PROTOCOL"  # Protokół odbioru końcowego / częściowego: the assessment of the work against the contract (16H)
     DECISION_PROTOCOL = "DECISION_PROTOCOL"  # Protokół informacji i decyzji Zamawiającego: a recommendation declined or overruled (16I)
+    DOWNTIME_NOTICE = "DOWNTIME_NOTICE"  # Zawiadomienie o przestoju: what stops the work on the customer's side, with photos (16I)
+    DOWNTIME_PROTOCOL = "DOWNTIME_PROTOCOL"  # Protokół przestoju: the days and the sum for readiness (16I)
     PRODUCTION_PLAN = "PRODUCTION_PLAN"  # Plan produkcji prac: the sequence, the technological breaks, the works of others (16D)
     TECH_CARD = "TECH_CARD"  # Karta technologiczna: the substrate, the standard and the works of every surface (16C)
 
@@ -55,6 +57,8 @@ TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
     ),
     DocumentKind.FINAL_PROTOCOL: DocumentTemplate(DocumentKind.FINAL_PROTOCOL, "1", "acceptance_protocol.html.j2", "ODBIOR"),
     DocumentKind.DECISION_PROTOCOL: DocumentTemplate(DocumentKind.DECISION_PROTOCOL, "1", "decision_protocol.html.j2", "DECYZ"),
+    DocumentKind.DOWNTIME_NOTICE: DocumentTemplate(DocumentKind.DOWNTIME_NOTICE, "1", "downtime_notice.html.j2", "ZAWPRZ"),
+    DocumentKind.DOWNTIME_PROTOCOL: DocumentTemplate(DocumentKind.DOWNTIME_PROTOCOL, "1", "downtime_protocol.html.j2", "PROPRZ"),
 }
 
 

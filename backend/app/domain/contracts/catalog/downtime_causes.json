@@ -1,0 +1,45 @@
+{
+ "version": 1,
+ "items": [
+  {
+   "key": "no_access",
+   "label_key": "contractCatalog.downtime_causes.no_access",
+   "text_pl": "Brak dostępu do Obiektu"
+  },
+  {
+   "key": "premises_not_ready",
+   "label_key": "contractCatalog.downtime_causes.premises_not_ready",
+   "text_pl": "Niespełnienie wymagań gotowości pomieszczeń (Załącznik 4)"
+  },
+  {
+   "key": "no_utilities",
+   "label_key": "contractCatalog.downtime_causes.no_utilities",
+   "text_pl": "Brak mediów"
+  },
+  {
+   "key": "other_contractors",
+   "label_key": "contractCatalog.downtime_causes.other_contractors",
+   "text_pl": "Nieukończenie prac innych wykonawców, od których zależy kontynuacja Prac"
+  },
+  {
+   "key": "no_decision",
+   "label_key": "contractCatalog.downtime_causes.no_decision",
+   "text_pl": "Brak decyzji lub akceptacji Zamawiającego w wymaganym terminie"
+  },
+  {
+   "key": "materials_missing",
+   "label_key": "contractCatalog.downtime_causes.materials_missing",
+   "text_pl": "Niedostarczenie materiałów, które zgodnie z Umową dostarcza Zamawiający"
+  },
+  {
+   "key": "stop_order",
+   "label_key": "contractCatalog.downtime_causes.stop_order",
+   "text_pl": "Polecenie wstrzymania Prac wydane przez Zamawiającego"
+  },
+  {
+   "key": "other",
+   "label_key": "contractCatalog.downtime_causes.other",
+   "text_pl": "Inna przyczyna po stronie Zamawiającego (opis w uwagach)"
+  }
+ ]
+}

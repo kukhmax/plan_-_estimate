@@ -1,0 +1,24 @@
+{% extends "_layout.html.j2" %}
+{% macro field(value) %}{% if value %}{{ value }}{% else %}<span class="write-line"></span>{% endif %}{% endmacro %}
+{% macro boxes(options) %}{% for o in options %}<p class="alternative"><span class="box">{% if o.checked %}☒{% else %}☐{% endif %}&nbsp;{{ o.label }}</span></p>{% endfor %}{% endmacro %}
+{% block body %}
+<div class="handover downtime{% if doc.working %} working{% endif %}">
+{% if doc.working %}<p class="notice">{{ t('downtime.working_note') }}</p>{% endif %}
+<table class="facts">
+  {% for row in doc.facts %}<tr><td class="label">{{ row.label }}</td><td>{{ field(row.value) }}</td></tr>{% endfor %}
+</table>
+<h2>{{ t('downtime.cause') }}</h2>
+{{ boxes(doc.causes) }}
+<p class="clause"><strong>{{ t('downtime.cause_note') }}:</strong> {{ field(doc.cause_note) }}</p>
+<h2>{{ t('downtime.photos') }}</h2>
+<table class="works photos">
+  <thead><tr><th>{{ t('downtime.photos.no') }}</th><th>{{ t('downtime.photos.taken') }}</th><th>{{ t('downtime.photos.caption') }}</th><th>{{ t('downtime.photos.place') }}</th><th>{{ t('downtime.photos.ref') }}</th></tr></thead>
+  <tbody>{% for p in doc.photos %}<tr><td>{{ p.number }}</td><td>{{ p.taken or '' }}</td><td>{{ p.caption or '' }}</td><td>{{ p.place or '' }}</td><td>{{ p.ref or '' }}</td></tr>{% endfor %}</tbody>
+</table>
+<h2>{{ t('downtime.need_title') }}</h2>
+<table class="facts">
+  {% for row in doc.need %}<tr><td class="label">{{ row.label }}</td><td>{{ field(row.value) }}</td></tr>{% endfor %}
+</table>
+<p class="clause">{{ t('downtime.notice_basis') }}</p>
+</div>
+{% endblock %}

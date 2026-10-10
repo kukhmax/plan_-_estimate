@@ -25,6 +25,7 @@ from app.api.v1.endpoints.contract_catalog import router as contract_catalog_rou
 from app.api.v1.endpoints.adjacent_works import router as adjacent_works_router
 from app.api.v1.endpoints.acceptances import router as acceptances_router
 from app.api.v1.endpoints.decisions import router as decisions_router
+from app.api.v1.endpoints.downtimes import router as downtimes_router
 from app.api.v1.endpoints.concealed_works import router as concealed_works_router
 from app.api.v1.endpoints.contracts import router as contracts_router
 from app.api.v1.endpoints.handovers import router as handovers_router
@@ -75,6 +76,7 @@ app.include_router(handovers_router, prefix="/api", tags=["handovers"])
 app.include_router(concealed_works_router, prefix="/api", tags=["concealed-works"])
 app.include_router(acceptances_router, prefix="/api", tags=["acceptances"])
 app.include_router(decisions_router, prefix="/api", tags=["decisions"])
+app.include_router(downtimes_router, prefix="/api", tags=["downtimes"])
 app.include_router(contract_catalog_router, prefix="/api", tags=["contract-catalog"])
 app.include_router(surfaces_router, prefix="/api", tags=["surfaces"])
 app.include_router(openings_router, prefix="/api", tags=["openings"])

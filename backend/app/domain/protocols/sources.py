@@ -239,3 +239,64 @@ async def load_decision_sources(db: AsyncSession, owner_id: uuid.UUID, project_i
                 communication_key=risk.communication_key, blocks_finishing=risk.blocks_finishing,
             )
     return DecisionSources(base, risks, rooms)
+
+
+@dataclass(frozen=True, slots=True)
+class DowntimePhoto:
+    id: str
+    room_id: str | None  # None: a photo of the object as a whole
+    room_name: str | None
+    caption: str | None
+    captured_at: datetime | None
+    created_at: datetime
+
+
+@dataclass(slots=True)
+class DowntimeSources:
+    base: HandoverSources
+    rooms: tuple[tuple[str, str], ...]  # (id, name) of the active rooms
+    photos: dict[str, DowntimePhoto]  # the active photos of the object (of the object, its rooms and their surfaces), oldest first
+
+    def allowed(self, room_ids: list[str]) -> list[DowntimePhoto]:
+        """The photos that may be chosen for a notice about these rooms: those of the object as a whole and of the rooms (or of every room
+        when none is named)."""
+        return [p for p in self.photos.values() if not room_ids or p.room_id is None or p.room_id in room_ids]
+
+
+async def load_downtime_sources(db: AsyncSession, owner_id: uuid.UUID, project_id: uuid.UUID) -> DowntimeSources:
+    """The rooms and the photos a notice of downtime may use, next to the usual sources. Raises ProjectNotFoundError for a project that
+    is not this owner's."""
+    base = await load_handover_sources(db, owner_id, project_id)
+    rooms = tuple((room_id, name) for room_id, name, archived in base.rooms if not archived)
+    names = dict(rooms)
+    surface_room = {
+        str(surface.id): str(surface.room_id)
+        for surface in (
+            (await db.execute(select(Surface).where(Surface.room_id.in_([uuid.UUID(r) for r in names]), Surface.is_archived.is_(False)))).scalars()
+            if names else []
+        )
+    }
+    photos: dict[str, DowntimePhoto] = {}
+    rows = await db.execute(
+        select(PhotoAttachment, PhotoAsset.captured_at)
+        .join(PhotoAsset, PhotoAsset.id == PhotoAttachment.asset_id)
+        .where(
+            PhotoAttachment.project_id == project_id,
+            PhotoAttachment.context.in_([PhotoAttachmentContext.PROJECT, PhotoAttachmentContext.ROOM, PhotoAttachmentContext.SURFACE]),
+            PhotoAttachment.archived_at.is_(None),
+        )
+        .order_by(PhotoAttachment.created_at, PhotoAttachment.id)
+    )
+    for attachment, captured_at in rows.all():
+        if attachment.context == PhotoAttachmentContext.PROJECT:
+            room_id = None
+        elif attachment.context == PhotoAttachmentContext.ROOM:
+            room_id = str(attachment.room_id)
+        else:
+            room_id = surface_room.get(str(attachment.surface_id))
+        if attachment.context != PhotoAttachmentContext.PROJECT and room_id not in names:
+            continue  # a photo of an archived room or surface
+        photos[str(attachment.id)] = DowntimePhoto(
+            str(attachment.id), room_id, names.get(room_id) if room_id else None, attachment.caption, captured_at, attachment.created_at,
+        )
+    return DowntimeSources(base, rooms, photos)

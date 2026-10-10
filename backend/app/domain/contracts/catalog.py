@@ -110,6 +110,14 @@ class WorkKind(_Model):
     text_pl: str = Field(min_length=3)
 
 
+class DowntimeCause(_Model):
+    """A cause of a downtime on the customer's side (contract `downtime`, § 10 ust. 1): the notice and the protocol of downtime name one."""
+
+    key: str = Field(pattern=KEY)
+    label_key: str
+    text_pl: str = Field(min_length=3)
+
+
 class Question(_Model):
     key: str = Field(pattern=KEY)
     group: QuestionGroup
@@ -164,6 +172,10 @@ class WorkKindCatalog(_Catalog):
     items: list[WorkKind]
 
 
+class DowntimeCauseCatalog(_Catalog):
+    items: list[DowntimeCause]
+
+
 class QuestionnaireCatalog(_Catalog):
     items: list[Question]
 
@@ -176,6 +188,7 @@ class ContractCatalog(_Model):
     tolerances: ToleranceCatalog
     questionnaire: QuestionnaireCatalog
     work_kinds: WorkKindCatalog
+    downtime_causes: DowntimeCauseCatalog
 
 
 SECTIONS: dict[str, tuple[str, type[_Catalog]]] = {
@@ -186,11 +199,12 @@ SECTIONS: dict[str, tuple[str, type[_Catalog]]] = {
     "tolerances": ("tolerances.json", ToleranceCatalog),
     "questionnaire": ("questionnaire.json", QuestionnaireCatalog),
     "work_kinds": ("concealed_work_kinds.json", WorkKindCatalog),
+    "downtime_causes": ("downtime_causes.json", DowntimeCauseCatalog),
 }
 # the section of the interface dictionary where the label of each catalogue lives
 LABEL_SECTION = {
     "requirements": "requirements", "instruments": "instruments", "evaluation": "evaluation", "defects": "defects",
-    "tolerances": "tolerances", "questionnaire": "questions", "work_kinds": "work_kinds",
+    "tolerances": "tolerances", "questionnaire": "questions", "work_kinds": "work_kinds", "downtime_causes": "downtime_causes",
 }
 
 

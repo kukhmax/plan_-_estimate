@@ -28,6 +28,7 @@ from app.domain.services.risk_service import RiskService
 from app.domain.services.adjacent_work_service import AdjacentWorkService
 from app.domain.services.acceptance_service import AcceptanceService
 from app.domain.services.decision_service import DecisionService
+from app.domain.services.downtime_service import DowntimeService
 from app.domain.services.concealed_service import ConcealedService
 from app.domain.services.contract_service import ContractService
 from app.domain.services.handover_service import HandoverService
@@ -141,6 +142,12 @@ async def get_decision_service(
     db: AsyncSession = Depends(get_db),
 ) -> DecisionService:
     return DecisionService(db)
+
+
+async def get_downtime_service(
+    db: AsyncSession = Depends(get_db),
+) -> DowntimeService:
+    return DowntimeService(db)
 
 
 async def get_surface_service(

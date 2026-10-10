@@ -431,6 +431,16 @@
       "board_joints": "Spoinowanie płyt g-k",
       "waterproofing": "Hydroizolacja (strefy mokre)",
       "other": "Inna robota zanikająca (opis w uwagach)"
+    },
+    "downtime_causes": {
+      "no_access": "Brak dostępu do Obiektu",
+      "premises_not_ready": "Pomieszczenia niegotowe (wymagania Załącznika 4)",
+      "no_utilities": "Brak mediów",
+      "other_contractors": "Prace innych wykonawców nieukończone",
+      "no_decision": "Brak decyzji lub akceptacji Zamawiającego",
+      "materials_missing": "Brak materiałów, które dostarcza Zamawiający",
+      "stop_order": "Polecenie wstrzymania Prac przez Zamawiającego",
+      "other": "Inna przyczyna po stronie Zamawiającego (opis w uwagach)"
     }
   },
   "projects": {
@@ -2134,7 +2144,8 @@
       "HANDOVER_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji.",
       "CONCEALED_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji.",
       "ACCEPTANCE_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji.",
-      "DECISION_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji."
+      "DECISION_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji.",
+      "DOWNTIME_NOT_ISSUED": "Dokument tego przestoju nie jest zamrożony. Zgłoś to do obsługi aplikacji."
     },
     "recommended_works": "Rekomendowane prace dodatkowe: {count}",
     "unpriced_title": "Raport nie zostanie wysłany: te rekomendowane prace nie mają ceny w kosztorysie.",
@@ -2168,7 +2179,9 @@
     "kind_handover": "Protokół przekazania pomieszczeń",
     "kind_concealed": "Protokół odbioru robót zanikających",
     "kind_final": "Protokół odbioru prac (końcowy lub częściowy)",
-    "kind_decision": "Protokół informacji i decyzji Zamawiającego"
+    "kind_decision": "Protokół informacji i decyzji Zamawiającego",
+    "kind_downtime_notice": "Zawiadomienie o przestoju",
+    "kind_downtime_protocol": "Protokół przestoju"
   },
   "handover": {
     "title": "Protokół przekazania pomieszczeń",

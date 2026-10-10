@@ -102,6 +102,13 @@ export interface WorkKind {
   text_pl: string;
 }
 
+/** A cause of a downtime on the customer's side (the notice and the protocol of downtime, Stage 16I). */
+export interface DowntimeCause {
+  key: string;
+  label_key: string;
+  text_pl: string;
+}
+
 export interface ContractCatalog {
   requirements: Catalog<PremisesRequirement>;
   instruments: Catalog<AssessmentInstrument>;
@@ -111,4 +118,6 @@ export interface ContractCatalog {
   questionnaire: Catalog<ContractQuestion>;
   /** The kinds of work that are covered by the next layers (the protocol of concealed works, Stage 16G). */
   work_kinds: Catalog<WorkKind>;
+  /** The causes of a downtime (contract § 10 ust. 1). */
+  downtime_causes: Catalog<DowntimeCause>;
 }

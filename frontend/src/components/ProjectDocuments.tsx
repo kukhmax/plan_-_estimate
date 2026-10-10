@@ -178,6 +178,8 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
     CONCEALED_WORKS_PROTOCOL: text.kind_concealed,
     FINAL_PROTOCOL: text.kind_final,
     DECISION_PROTOCOL: text.kind_decision,
+    DOWNTIME_NOTICE: text.kind_downtime_notice,
+    DOWNTIME_PROTOCOL: text.kind_downtime_protocol,
   };
   const kindLabel = (document: IssuedDocument) => kindLabels[document.kind];
   const reloadJournal = async () => {

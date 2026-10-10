@@ -207,6 +207,38 @@ class DecisionGateError(Exception):
         self.blockers = blockers
 
 
+class DowntimeNotFoundError(Exception):
+    """Raised when a downtime episode is not found within an owned project (Stage 16I.3)."""
+
+
+class DowntimeNotEditableError(Exception):
+    """Raised when an episode is changed, issued or abandoned in a state that does not allow it (Stage 16I.3)."""
+
+    code = "DOWNTIME_NOT_EDITABLE"
+
+
+class DowntimeInvalidError(Exception):
+    """Raised when an entry of a downtime episode does not fit (Stage 16I.3): `key` is the field, `reason` a stable code the screen has a
+    sentence for."""
+
+    code = "DOWNTIME_INVALID"
+
+    def __init__(self, key: str, reason: str) -> None:
+        super().__init__(f"downtime {key!r}: {reason}")
+        self.key = key
+        self.reason = reason
+
+
+class DowntimeGateError(Exception):
+    """Raised when the notice or the protocol of downtime cannot be issued yet (Stage 16I.3): `blockers` is what to fix."""
+
+    code = "DOWNTIME_GATE_BLOCKED"
+
+    def __init__(self, blockers: list) -> None:
+        super().__init__("the document cannot be issued yet: " + ", ".join(b.code for b in blockers))
+        self.blockers = blockers
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 

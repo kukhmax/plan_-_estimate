@@ -31,6 +31,7 @@ from app.models.opening_reveal_planned_work import (
 from app.models.executor_profile import ExecutorProfile
 from app.models.acceptance_protocol import AcceptanceProtocol, AcceptanceStatus
 from app.models.decision_protocol import DecisionProtocol, DecisionStatus
+from app.models.downtime_episode import DowntimeEpisode, DowntimeStatus
 from app.models.adjacent_work import AdjacentWork, AdjacentWorkOrder
 from app.models.concealed_works_protocol import ConcealedStatus, ConcealedWorksProtocol
 from app.models.contract import Contract, ContractStatus
@@ -83,6 +84,8 @@ __all__ = [
     "AcceptanceStatus",
     "DecisionProtocol",
     "DecisionStatus",
+    "DowntimeEpisode",
+    "DowntimeStatus",
     "AdjacentWork",
     "AdjacentWorkOrder",
     "AnswerType",

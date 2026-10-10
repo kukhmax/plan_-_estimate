@@ -34,6 +34,9 @@ from app.domain.documents.contract_document import build_contract_document, rend
 from app.domain.documents.decision_document import build_decision_document, render_decision_html
 from app.domain.documents.decision_document import snapshot_of as decision_snapshot_of
 from app.domain.documents.delivery import DocumentDelivery
+from app.domain.documents.downtime_document import (
+    build_notice_document, build_protocol_document, notice_snapshot_of, protocol_snapshot_of, render_notice_html, render_protocol_html,
+)
 from app.domain.documents.handover_document import build_handover_document, render_handover_html
 from app.domain.documents.handover_document import snapshot_of as handover_snapshot_of
 from app.domain.documents.estimate_document import EstimateDocumentService
@@ -52,6 +55,8 @@ from app.domain.exceptions import (
     DecisionGateError,
     DecisionNotEditableError,
     DocumentDataError,
+    DowntimeGateError,
+    DowntimeNotEditableError,
     DocumentDeliveryError,
     DocumentQueueFullError,
     DocumentRenderError,
@@ -59,9 +64,10 @@ from app.domain.exceptions import (
     HandoverNotEditableError,
     IssuedDocumentNotFoundError,
 )
-from app.domain.protocols.sources import load_acceptance_sources, load_concealed_sources, load_decision_sources, load_handover_sources
+from app.domain.protocols.sources import load_acceptance_sources, load_concealed_sources, load_decision_sources, load_downtime_sources, load_handover_sources
 from app.domain.services.acceptance_service import AcceptanceService, data_of as acceptance_data
 from app.domain.services.decision_service import DecisionService, data_of as decision_data
+from app.domain.services.downtime_service import DowntimeService, data_of as downtime_data
 from app.domain.services.concealed_service import ConcealedService, data_of as concealed_data
 from app.domain.services.contract_service import ContractService
 from app.domain.services.executor_profile_service import ExecutorProfileService
@@ -75,6 +81,7 @@ from app.models.acceptance_protocol import AcceptanceProtocol
 from app.models.concealed_works_protocol import ConcealedWorksProtocol
 from app.models.contract import Contract
 from app.models.decision_protocol import DecisionProtocol
+from app.models.downtime_episode import DowntimeEpisode
 from app.models.handover_protocol import HandoverProtocol
 from app.models.issued_document import IssuedDocument, IssuedDocumentKind
 from app.models.project import Project
@@ -577,6 +584,140 @@ class DocumentIssuer:
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
+    async def start_downtime_notice(self, db: AsyncSession, user: User, project_id: uuid.UUID, episode_id: uuid.UUID) -> Reservation:
+        """Issue the notice of downtime of a draft episode: the gate first (a refusal lists what to fix and takes no number), then the
+        number, then the freeze -- the cause, the rooms, the photos, what the contractor needs, the exact page and the contract -- and
+        the slow part (the PDF and its delivery) in the background. The episode becomes NOTICED."""
+        self._ensure_capacity()
+        owner_id = user.id
+        service = DowntimeService(db)
+        row, sources, blockers = await service.gate(project_id, episode_id, owner_id)
+        if row.status != "DRAFT":
+            raise DowntimeNotEditableError(f"episode {episode_id} is {row.status}: only a draft notice is issued")
+        if blockers:
+            raise DowntimeGateError(blockers)
+        data = downtime_data(row)
+        build_notice_document(data, sources, working=False, issued_on=self._today())  # a refusal here takes no number
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.DOWNTIME_NOTICE,
+            title=f"Zawiadomienie o przestoju — nr {row.sequence}",
+            template_version=get_template(DocumentKind.DOWNTIME_NOTICE).version,
+            source_id=row.id,
+            source_version=row.sequence,
+            client_id=sources.base.project.client_id,
+        )
+        if reservation.reused:
+            return reservation
+        try:
+            document = build_notice_document(
+                data, sources, working=False, issued_on=self._today(),
+                number=reservation.document.number, sequence=reservation.document.project_seq,
+            )
+            await service.mark_noticed(
+                project_id, row.id, owner_id,
+                issued_at=self.clock(), number=reservation.document.number,
+                snapshot=notice_snapshot_of(data, sources, document),
+                document_html=render_notice_html(document),
+                contract_id=sources.base.contract.id if sources.base.contract else None,
+                contract_version=sources.base.contract.version if sources.base.contract else None,
+            )
+        except Exception:
+            logger.exception("freezing downtime notice %s failed", episode_id)
+            await db.rollback()
+            await IssuedDocumentService(db, clock=self.clock).mark_failed(owner_id, reservation.document.id, "INTERNAL_ERROR")
+            raise
+        await db.refresh(reservation.document)  # the freeze committed: the journal row is read again, not left expired
+        return self._launch(reservation)
+
+    async def start_downtime_protocol(self, db: AsyncSession, user: User, project_id: uuid.UUID, episode_id: uuid.UUID) -> Reservation:
+        """Issue the protocol of downtime of a noticed episode: the gate, the number, the freeze -- the days, the sum for readiness from
+        the contract the notice was written under, the people present, the exact page -- and the PDF in the background. The episode
+        becomes CLOSED."""
+        self._ensure_capacity()
+        owner_id = user.id
+        service = DowntimeService(db)
+        row, sources, blockers = await service.gate(project_id, episode_id, owner_id)
+        if row.status != "NOTICED":
+            raise DowntimeNotEditableError(f"episode {episode_id} is {row.status}: only a noticed episode gets its protocol")
+        if blockers:
+            raise DowntimeGateError(blockers)
+        data = downtime_data(row)
+        contract = await service.contract_snapshot(row, sources)
+        notice_on = row.notice_issued_at.date() if row.notice_issued_at else None
+        build_protocol_document(data, sources, contract, working=False, issued_on=self._today(), notice_number=row.notice_number, notice_on=notice_on)
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.DOWNTIME_PROTOCOL,
+            title=f"Protokół przestoju — nr {row.sequence}",
+            template_version=get_template(DocumentKind.DOWNTIME_PROTOCOL).version,
+            source_id=row.id,
+            source_version=row.sequence,
+            client_id=sources.base.project.client_id,
+        )
+        if reservation.reused:
+            return reservation
+        try:
+            document = build_protocol_document(
+                data, sources, contract, working=False, issued_on=self._today(), notice_number=row.notice_number, notice_on=notice_on,
+                number=reservation.document.number, sequence=reservation.document.project_seq,
+            )
+            await service.mark_closed(
+                project_id, row.id, owner_id,
+                issued_at=self.clock(),
+                snapshot=protocol_snapshot_of(data, sources, contract, document, row.notice_number, notice_on),
+                document_html=render_protocol_html(document),
+            )
+        except Exception:
+            logger.exception("freezing downtime protocol %s failed", episode_id)
+            await db.rollback()
+            await IssuedDocumentService(db, clock=self.clock).mark_failed(owner_id, reservation.document.id, "INTERNAL_ERROR")
+            raise
+        await db.refresh(reservation.document)  # the freeze committed: the journal row is read again, not left expired
+        return self._launch(reservation)
+
+    async def preview_downtime_notice(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version of the notice of downtime (pale watermark, no number, no journal row) to the owner's chat. It never
+        refuses; it follows the open episode while it is a draft, or is a blank form with the causes to tick."""
+        owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
+        sources = await load_downtime_sources(db, owner_id, project_id)
+        drafts = [r for r in await DowntimeService(db).list(project_id, owner_id) if r.status == "DRAFT"]
+        data = downtime_data(drafts[0]) if drafts else {}
+        document = build_notice_document(data, sources, working=True, issued_on=self._today())
+        rendered = await self.renderer.render(render_notice_html(document))
+        await self.delivery.send_document(
+            chat_id,
+            "Zawiadomienie-o-przestoju-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — {document.layout.meta.title} — {sources.base.project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
+    async def preview_downtime_protocol(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version of the protocol of downtime to the owner's chat: it follows the noticed episode (its notice, its days),
+        or is a blank form with empty rows for the days. It never refuses."""
+        owner_id, chat_id = user.id, user.telegram_user_id
+        service = DowntimeService(db)
+        sources = await load_downtime_sources(db, owner_id, project_id)
+        noticed = [r for r in await service.list(project_id, owner_id) if r.status == "NOTICED"]
+        row = noticed[0] if noticed else None
+        data = downtime_data(row) if row else {}
+        contract = await service.contract_snapshot(row, sources) if row else (sources.base.contract.snapshot if sources.base.contract else None)
+        document = build_protocol_document(
+            data, sources, contract, working=True, issued_on=self._today(),
+            notice_number=row.notice_number if row else None, notice_on=row.notice_issued_at.date() if row and row.notice_issued_at else None,
+        )
+        rendered = await self.renderer.render(render_protocol_html(document))
+        await self.delivery.send_document(
+            chat_id,
+            "Protokol-przestoju-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — {document.layout.meta.title} — {sources.base.project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
     async def preview_estimate(self, db: AsyncSession, user: User, project_id: uuid.UUID, estimate_id: uuid.UUID) -> PreviewResult:
         """A working version of an unfinished estimate to the owner's chat: watermark, no number, no journal row. The slow
         part runs in the request (a one-page document), so the owner sees at once whether it arrived."""
@@ -658,6 +799,16 @@ class DocumentIssuer:
             if contract is None or not contract.document_html:
                 raise DocumentDataError("CONTRACT_NOT_ISSUED", "the contract of this document is not frozen")
             return await self.renderer.render(contract.document_html)
+        if document.kind in (IssuedDocumentKind.DOWNTIME_NOTICE.value, IssuedDocumentKind.DOWNTIME_PROTOCOL.value):
+            episode = (
+                await db.execute(select(DowntimeEpisode).where(DowntimeEpisode.id == document.source_id, DowntimeEpisode.owner_id == document.owner_id))
+            ).scalar_one_or_none()
+            page = None
+            if episode is not None:
+                page = episode.notice_html if document.kind == IssuedDocumentKind.DOWNTIME_NOTICE.value else episode.protocol_html
+            if not page:
+                raise DocumentDataError("DOWNTIME_NOT_ISSUED", "the document of this episode is not frozen")
+            return await self.renderer.render(page)
         if document.kind == IssuedDocumentKind.DECISION_PROTOCOL.value:
             protocol = (
                 await db.execute(select(DecisionProtocol).where(DecisionProtocol.id == document.source_id, DecisionProtocol.owner_id == document.owner_id))
