@@ -49,6 +49,7 @@ vi.mock('./api/estimates', () => ({
   getEstimate: vi.fn(),
 }));
 vi.mock('./api/projects', () => ({
+  fetchProject: vi.fn(),
   fetchProjects: vi.fn(),
   createProject: vi.fn(),
   updateProject: vi.fn(),
@@ -1598,6 +1599,44 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     // Owner walkthrough: a clearly accented primary entry, >=44px.
     expect(screen.getByLabelText('open-estimates').className).toContain('bg-amber-500');
     expect(screen.getByLabelText('open-estimates').className).toContain('min-h-11');
+  });
+
+  // K.2: the card of a client sends the owner straight to the estimates of one of his objects.
+  it('opens the estimates of the requested object, once per request (16K.2)', async () => {
+    vi.mocked(projectsApi.fetchProject).mockResolvedValue(project);
+    const view = render(
+      <I18nProvider>
+        <ProjectWorkspace openRequest={{ token: 1, projectId: project.id, view: 'estimates' }} />
+      </I18nProvider>,
+    );
+    await screen.findByLabelText('estimates-empty-state');
+    expect(projectsApi.fetchProject).toHaveBeenCalledWith(project.id);
+    expect(screen.getByLabelText('hierarchy-navigation').textContent).toContain('Mieszkanie Mokotów');
+
+    // The same request is not handled twice, a new one is.
+    view.rerender(
+      <I18nProvider>
+        <ProjectWorkspace openRequest={{ token: 1, projectId: project.id, view: 'estimates' }} />
+      </I18nProvider>,
+    );
+    expect(projectsApi.fetchProject).toHaveBeenCalledTimes(1);
+    view.rerender(
+      <I18nProvider>
+        <ProjectWorkspace openRequest={{ token: 2, projectId: project.id, view: 'estimates' }} />
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(projectsApi.fetchProject).toHaveBeenCalledTimes(2));
+  });
+
+  it('shows the error when the requested object cannot be loaded (16K.2)', async () => {
+    vi.mocked(projectsApi.fetchProject).mockRejectedValue(new Error('Nie znaleziono'));
+    render(
+      <I18nProvider>
+        <ProjectWorkspace openRequest={{ token: 1, projectId: 'missing', view: 'estimates' }} />
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(screen.queryByLabelText('estimates-empty-state')).toBeNull());
+    expect(await screen.findByText('Nie znaleziono')).toBeInTheDocument();
   });
 
   it('opens EstimateList when Kosztorys entry is tapped', async () => {

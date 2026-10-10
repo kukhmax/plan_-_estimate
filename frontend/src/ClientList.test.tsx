@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ClientList } from './components/ClientList';
+import { ProjectType } from './types/project';
 import { I18nProvider } from './hooks/useI18n';
 import * as clientsApi from './api/clients';
 import * as clipboardUtil from './utils/clipboard';
+import * as projectsApi from './api/projects';
 
 vi.mock('./api/clients', () => ({
   fetchClients: vi.fn(),
@@ -12,6 +14,10 @@ vi.mock('./api/clients', () => ({
   restoreClient: vi.fn(),
   fetchClient: vi.fn(),
   updateClient: vi.fn(),
+}));
+
+vi.mock('./api/projects', () => ({
+  fetchProjects: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 }));
 
 vi.mock('./utils/clipboard', () => ({
@@ -38,6 +44,13 @@ const mockClient = (overrides = {}) => ({
   updated_at: '2026-09-01T10:00:00Z',
   ...overrides,
 });
+
+const CARD_ID = '11111111-0000-0000-0000-000000000001';
+
+// The list shows only names; everything else is on the card of the client.
+async function openCard(id = CARD_ID) {
+  fireEvent.click(await screen.findByLabelText(`client-open-${id}`));
+}
 
 function renderWithI18n(ui: React.ReactElement) {
   return render(<I18nProvider>{ui}</I18nProvider>);
@@ -66,6 +79,12 @@ describe('ClientList component', () => {
     await waitFor(() => {
       expect(screen.getByText('Jan Kowalski')).toBeInTheDocument();
     });
+    // Only the name is in the list; the phone and the buttons are on the card.
+    expect(screen.queryByText('500600700')).toBeNull();
+    expect(screen.queryByLabelText(`edit-${CARD_ID}`)).toBeNull();
+    expect(screen.queryByLabelText(`archive-${CARD_ID}`)).toBeNull();
+    await openCard();
+    expect(screen.getByLabelText('client-card-name')).toHaveTextContent('Jan Kowalski');
     expect(screen.getByText('500600700')).toBeInTheDocument();
   });
 
@@ -78,6 +97,8 @@ describe('ClientList component', () => {
     await waitFor(() => {
       expect(screen.getByText('Zarchiwizowany')).toBeInTheDocument();
     });
+    await openCard();
+    expect(screen.getByText('Zarchiwizowany')).toBeInTheDocument();
     expect(screen.getByLabelText(`restore-11111111-0000-0000-0000-000000000001`)).toBeInTheDocument();
   });
 
@@ -155,6 +176,7 @@ describe('ClientList — Telegram contact field', () => {
     });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     fireEvent.click(screen.getByLabelText('edit-11111111-0000-0000-0000-000000000001'));
 
     expect(screen.getByLabelText('telegram-username')).toHaveValue('@vasiya');
@@ -168,6 +190,7 @@ describe('ClientList — Telegram contact field', () => {
     vi.mocked(clientsApi.updateClient).mockResolvedValueOnce(mockClient({ telegram_username: '@vasiya_new' }));
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     fireEvent.click(screen.getByLabelText('edit-11111111-0000-0000-0000-000000000001'));
 
     fireEvent.change(screen.getByLabelText('telegram-username'), { target: { value: '@vasiya_new' } });
@@ -189,6 +212,7 @@ describe('ClientList — Telegram contact field', () => {
     vi.mocked(clientsApi.updateClient).mockResolvedValueOnce(mockClient({ telegram_username: null }));
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     fireEvent.click(screen.getByLabelText('edit-11111111-0000-0000-0000-000000000001'));
 
     fireEvent.change(screen.getByLabelText('telegram-username'), { target: { value: '' } });
@@ -210,6 +234,7 @@ describe('ClientList — Telegram contact field', () => {
     vi.mocked(clientsApi.updateClient).mockResolvedValueOnce(mockClient());
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     fireEvent.click(screen.getByLabelText('edit-11111111-0000-0000-0000-000000000001'));
 
     fireEvent.change(screen.getByLabelText('telegram-username'), { target: { value: '@jan_new' } });
@@ -241,6 +266,7 @@ describe('ClientList — client card contact details', () => {
     });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     const contact = screen.getByLabelText('client-contact-11111111-0000-0000-0000-000000000001');
     expect(contact.textContent).toContain('1234567890');
   });
@@ -249,6 +275,7 @@ describe('ClientList — client card contact details', () => {
     vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({ items: [mockClient()], total: 1 });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     const contact = screen.getByLabelText('client-contact-11111111-0000-0000-0000-000000000001');
     expect(contact.textContent).toContain('500600700');
   });
@@ -260,6 +287,7 @@ describe('ClientList — client card contact details', () => {
     });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     const contact = screen.getByLabelText('client-contact-11111111-0000-0000-0000-000000000001');
     expect(contact.textContent).toContain('jan@example.pl');
   });
@@ -271,6 +299,7 @@ describe('ClientList — client card contact details', () => {
     });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     const contact = screen.getByLabelText('client-contact-11111111-0000-0000-0000-000000000001');
     expect(contact.textContent).toContain('@vasiya');
     expect(contact.textContent).toContain('Telegram:');
@@ -283,6 +312,7 @@ describe('ClientList — client card contact details', () => {
     });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     const contact = screen.getByLabelText('client-contact-11111111-0000-0000-0000-000000000001');
     expect(contact.textContent).not.toContain('NIP:');
     expect(contact.textContent).not.toContain('e-mail:');
@@ -297,6 +327,7 @@ describe('ClientList — client card contact details', () => {
     });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     expect(screen.queryByLabelText('client-contact-11111111-0000-0000-0000-000000000001')).toBeNull();
   });
 
@@ -310,16 +341,21 @@ describe('ClientList — client card contact details', () => {
     });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     const contact = screen.getByLabelText('client-contact-11111111-0000-0000-0000-000000000001');
     for (const p of Array.from(contact.querySelectorAll('p'))) {
       expect(p.className).toContain('break-words');
     }
+    // a long unbroken address must wrap inside the card (overflow-wrap: anywhere reaches the shrink-to-fit link)
+    expect(screen.getByLabelText(`copy-email-${CARD_ID}`).className).toContain('[overflow-wrap:anywhere]');
+    expect(screen.getByLabelText(`open-telegram-${CARD_ID}`).className).toContain('[overflow-wrap:anywhere]');
   });
 
   it('existing archive/edit action behavior remains intact', async () => {
     vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient()], total: 1 });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
 
     expect(screen.getByLabelText('archive-11111111-0000-0000-0000-000000000001')).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('archive-11111111-0000-0000-0000-000000000001'));
@@ -344,6 +380,7 @@ describe('ClientList — actionable contact interactions', () => {
     });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
 
     const link = screen.getByLabelText('call-11111111-0000-0000-0000-000000000001');
     expect(link.tagName).toBe('A');
@@ -359,6 +396,7 @@ describe('ClientList — actionable contact interactions', () => {
     });
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
 
     const link = screen.getByLabelText('open-telegram-11111111-0000-0000-0000-000000000001');
     expect(link.tagName).toBe('A');
@@ -374,6 +412,7 @@ describe('ClientList — actionable contact interactions', () => {
     vi.mocked(clipboardUtil.copyTextToClipboard).mockResolvedValue(true);
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
 
     const button = screen.getByLabelText('copy-email-11111111-0000-0000-0000-000000000001');
     expect(button.tagName).toBe('BUTTON');
@@ -393,6 +432,7 @@ describe('ClientList — actionable contact interactions', () => {
     vi.mocked(clipboardUtil.copyTextToClipboard).mockResolvedValue(false);
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
 
     fireEvent.click(screen.getByLabelText('copy-email-11111111-0000-0000-0000-000000000001'));
     expect(await screen.findByText('Nie udało się skopiować e-maila')).toBeInTheDocument();
@@ -464,6 +504,7 @@ describe('ClientList — address (Stage 16B.1)', () => {
       total: 1,
     });
     renderWithI18n(<ClientList />);
+    await openCard();
     const line = await screen.findByLabelText(`client-address-${ID}`);
     expect(line).toHaveTextContent('adres: ul. Bardzo Długa Nazwa Ulicy 12/34, 30-001 Kraków');
     expect(line.className).toContain('break-words');
@@ -472,6 +513,7 @@ describe('ClientList — address (Stage 16B.1)', () => {
   it('shows a client with only a city, and none for a client without an address', async () => {
     vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({ items: [mockClient({ city: 'Gdańsk' })], total: 1 });
     renderWithI18n(<ClientList />);
+    await openCard();
     expect(await screen.findByLabelText(`client-address-${ID}`)).toHaveTextContent('adres: Gdańsk');
   });
 
@@ -483,6 +525,7 @@ describe('ClientList — address (Stage 16B.1)', () => {
     vi.mocked(clientsApi.updateClient).mockResolvedValue(mockClient());
     renderWithI18n(<ClientList />);
     await waitFor(() => screen.getByText('Jan Kowalski'));
+    fireEvent.click(screen.getByLabelText('client-open-11111111-0000-0000-0000-000000000001'));
     fireEvent.click(screen.getByLabelText(`edit-${ID}`));
     expect(screen.getByLabelText('street')).toHaveValue('Długa 1');
     fireEvent.change(screen.getByLabelText('street'), { target: { value: '' } });
@@ -503,10 +546,158 @@ describe('ClientList — address (Stage 16B.1)', () => {
       total: 1,
     });
     renderWithI18n(<ClientList />);
+    await openCard();
     expect(await screen.findByLabelText(`client-address-${ID}`)).toHaveTextContent('адрес: ul. Długa 1, 30-001 Kraków');
     fireEvent.click(screen.getByLabelText(`edit-${ID}`));
     expect(screen.getByLabelText('street')).toHaveAttribute('placeholder', 'Улица и номер дома');
     expect(screen.getByLabelText('postal-code')).toHaveAttribute('placeholder', 'Почтовый индекс');
     expect(screen.getByLabelText('city')).toHaveAttribute('placeholder', 'Город');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 16K.2 — the list shows names, the card shows the client and his objects
+// ---------------------------------------------------------------------------
+
+const project = (overrides: Partial<ProjectType> = {}): ProjectType => ({
+  id: 'p0000000-0000-0000-0000-000000000001',
+  owner_id: 'aaaaaaaa-0000-0000-0000-000000000001',
+  client_id: CARD_ID,
+  name: 'Mieszkanie Mokotów',
+  address: 'ul. Długa 1',
+  city: 'Warszawa',
+  postal_code: '00-001',
+  description: null,
+  status: 'PLANNING',
+  is_archived: false,
+  created_at: '2026-09-01T10:00:00Z',
+  updated_at: '2026-09-01T10:00:00Z',
+  ...overrides,
+} as ProjectType);
+
+describe('ClientList — the list and the card (Stage 16K.2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    delete (window as unknown as { Telegram?: unknown }).Telegram;
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  it('a row of the list is one wide button with the name only: a private person by first and last name, a firm by its name', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({
+      items: [
+        mockClient(),
+        mockClient({ id: '22222222-0000-0000-0000-000000000002', client_type: 'COMPANY', company_name: 'Budex sp. z o.o.', first_name: null, last_name: null, nip: '1234567890', email: 'biuro@budex.pl' }),
+      ],
+      total: 2,
+    });
+    renderWithI18n(<ClientList />);
+    const first = await screen.findByLabelText(`client-open-${CARD_ID}`);
+    const second = screen.getByLabelText('client-open-22222222-0000-0000-0000-000000000002');
+    expect(first).toHaveTextContent('Jan Kowalski');
+    expect(second).toHaveTextContent('Budex sp. z o.o.');
+    for (const row of [first, second]) {
+      expect(row.className).toContain('w-full');
+      expect(row.className).toContain('min-h-12');
+    }
+    // nothing else of the client is in the list
+    expect(screen.queryByText('1234567890')).toBeNull();
+    expect(screen.queryByText('biuro@budex.pl')).toBeNull();
+    expect(screen.queryByText('Firma')).toBeNull();
+  });
+
+  it('the card opens on a tap, has the back button and the name; the list comes back', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient({ notes: 'Dzwonić po 16:00' })], total: 1 });
+    renderWithI18n(<ClientList />);
+    await openCard();
+    expect(screen.getByLabelText('client-card')).toBeInTheDocument();
+    expect(screen.getByLabelText('client-card-name')).toHaveTextContent('Jan Kowalski');
+    expect(screen.getByLabelText(`client-notes-${CARD_ID}`)).toHaveTextContent('Dzwonić po 16:00');
+    expect(screen.queryByLabelText('clients-list')).toBeNull();
+    for (const name of ['back-to-clients', `edit-${CARD_ID}`, `archive-${CARD_ID}`]) {
+      expect(screen.getByLabelText(name).className).toContain('min-h-11');
+    }
+    fireEvent.click(screen.getByLabelText('back-to-clients'));
+    expect(screen.queryByLabelText('client-card')).toBeNull();
+    expect(screen.getByLabelText('clients-list')).toBeInTheDocument();
+  });
+
+  it('lists the objects of this client only, with the status and a full-width estimate button that opens the object', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient()], total: 1 });
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({
+      items: [
+        project(),
+        project({ id: 'p0000000-0000-0000-0000-000000000002', name: 'Dom pod Krakowem', status: 'IN_PROGRESS' }),
+        project({ id: 'p0000000-0000-0000-0000-000000000003', name: 'Cudzy obiekt', client_id: '99999999-0000-0000-0000-000000000009' }),
+        project({ id: 'p0000000-0000-0000-0000-000000000004', name: 'Bez klienta', client_id: null }),
+      ],
+      total: 4,
+    });
+    const onOpenEstimate = vi.fn();
+    renderWithI18n(<ClientList onOpenEstimate={onOpenEstimate} />);
+    await openCard();
+    expect(await screen.findByText('Mieszkanie Mokotów')).toBeInTheDocument();
+    expect(screen.getByText('Dom pod Krakowem')).toBeInTheDocument();
+    expect(screen.queryByText('Cudzy obiekt')).toBeNull();
+    expect(screen.queryByText('Bez klienta')).toBeNull();
+    expect(projectsApi.fetchProjects).toHaveBeenCalledWith(false);
+
+    const button = screen.getByLabelText('open-estimate-p0000000-0000-0000-0000-000000000002');
+    expect(button).toHaveTextContent('Kosztorys');
+    expect(button.className).toContain('w-full');
+    expect(button.className).toContain('min-h-11');
+    fireEvent.click(button);
+    expect(onOpenEstimate).toHaveBeenCalledWith('p0000000-0000-0000-0000-000000000002');
+  });
+
+  it('says so when the client has no objects, and when they cannot be loaded', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient()], total: 1 });
+    renderWithI18n(<ClientList />);
+    await openCard();
+    expect(await screen.findByLabelText('no-client-objects')).toHaveTextContent('Ten klient nie ma jeszcze obiektów.');
+    fireEvent.click(screen.getByLabelText('back-to-clients'));
+
+    vi.mocked(projectsApi.fetchProjects).mockRejectedValue(new Error('boom'));
+    await openCard();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się wczytać obiektów klienta.');
+  });
+
+  it('the Telegram BackButton closes the edit form first, then the card', async () => {
+    let handler: (() => void) | undefined;
+    (window as unknown as { Telegram: unknown }).Telegram = {
+      WebApp: { BackButton: { show: vi.fn(), hide: vi.fn(), onClick: vi.fn((cb: () => void) => { handler = cb; }), offClick: vi.fn() } },
+    };
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient()], total: 1 });
+    renderWithI18n(<ClientList />);
+    await openCard();
+    fireEvent.click(screen.getByLabelText(`edit-${CARD_ID}`));
+    expect(screen.getByLabelText('client-form')).toBeInTheDocument();
+    act(() => handler?.());
+    expect(screen.queryByLabelText('client-form')).toBeNull();
+    expect(screen.getByLabelText('client-card')).toBeInTheDocument();
+    act(() => handler?.());
+    expect(screen.queryByLabelText('client-card')).toBeNull();
+  });
+
+  it('archiving on the card keeps the card and shows the badge and the restore button', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({ items: [mockClient()], total: 1 });
+    vi.mocked(clientsApi.archiveClient).mockResolvedValue(mockClient({ is_archived: true }));
+    renderWithI18n(<ClientList />);
+    await openCard();
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient({ is_archived: true })], total: 1 });
+    fireEvent.click(screen.getByLabelText(`archive-${CARD_ID}`));
+    expect(await screen.findByLabelText(`restore-${CARD_ID}`)).toBeInTheDocument();
+    expect(screen.getByText('Zarchiwizowany')).toBeInTheDocument();
+    expect(screen.getByLabelText('client-card')).toBeInTheDocument();
+  });
+
+  it('is in Russian too', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient()], total: 1 });
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [project()], total: 1 });
+    renderWithI18n(<ClientList />);
+    await openCard();
+    expect(screen.getByRole('heading', { name: 'Объекты клиента' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('open-estimate-p0000000-0000-0000-0000-000000000001')).toHaveTextContent('Смета');
   });
 });

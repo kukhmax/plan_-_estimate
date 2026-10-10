@@ -26,11 +26,17 @@ vi.mock('./api/clients', () => ({
   restoreClient: vi.fn(),
 }));
 vi.mock('./api/projects', () => ({
+  fetchProject: vi.fn(),
   fetchProjects: vi.fn(),
   createProject: vi.fn(),
   updateProject: vi.fn(),
   archiveProject: vi.fn(),
   restoreProject: vi.fn(),
+}));
+vi.mock('./api/estimates', () => ({
+  listEstimates: vi.fn(async () => ({ items: [], total: 0 })),
+  generateEstimate: vi.fn(),
+  getEstimate: vi.fn(),
 }));
 vi.mock('./api/rooms', () => ({
   // Stage 13F-PRE object summary: empty by default (card hidden).
@@ -431,5 +437,51 @@ describe('App authentication component', () => {
       expect(priceItemsApi.fetchPriceItems).toHaveBeenCalled();
     });
     expect(screen.queryByLabelText('clients-section')).not.toBeInTheDocument();
+  });
+
+  it('the card of a client opens the estimates of his object in the section of objects (Stage 16K.2)', async () => {
+    vi.mocked(api.loginWithTelegram).mockResolvedValueOnce({
+      access_token: 'mock-jwt-token',
+      token_type: 'bearer',
+      is_dev_auth: true,
+      user: {
+        id: '11111111-1111-1111-1111-111111111111', telegram_user_id: 999999999, username: 'dev_contractor', first_name: 'Jan',
+        last_name: 'Kowalski', language_code: 'pl', created_at: '2026-09-08T12:00:00Z', updated_at: '2026-09-08T12:00:00Z',
+      },
+    });
+    const client = {
+      id: 'c0000000-0000-0000-0000-000000000001', owner_user_id: 'x', client_type: 'PRIVATE_PERSON' as const, first_name: 'Anna',
+      last_name: 'Nowak', company_name: null, phone: null, email: null, nip: null, street: null, postal_code: null, city: null,
+      telegram_username: null, notes: null, is_archived: false, created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z',
+    };
+    const project = {
+      id: 'p0000000-0000-0000-0000-000000000001', owner_id: 'x', client_id: client.id, name: 'Mieszkanie Mokotów', address: 'ul. Długa 1',
+      city: 'Warszawa', postal_code: '00-001', description: null, status: 'PLANNING' as const, is_archived: false,
+      created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z',
+    };
+    const clientsApi = await import('./api/clients');
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client], total: 1 });
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [project], total: 1 });
+    vi.mocked(projectsApi.fetchProject).mockResolvedValue(project);
+
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText(`client-open-${client.id}`));
+    fireEvent.click(await screen.findByLabelText(`open-estimate-${project.id}`));
+
+    // the section of objects, straight on the estimates of that object
+    expect(await screen.findByLabelText('estimates-empty-state')).toBeInTheDocument();
+    expect(screen.queryByLabelText('clients-section')).not.toBeInTheDocument();
+    expect(projectsApi.fetchProject).toHaveBeenCalledWith(project.id);
+
+    // choosing Obiekty in the menu afterwards leads to the list of objects, not to the estimates again
+    await chooseSection('show-projects');
+    expect(await screen.findByLabelText(`open-project-${project.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText('estimates-empty-state')).not.toBeInTheDocument();
+
+    // ... and the same after a round trip through another section: the old request is not played again
+    await chooseSection('show-clients');
+    await chooseSection('show-projects');
+    expect(await screen.findByLabelText(`open-project-${project.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText('estimates-empty-state')).not.toBeInTheDocument();
   });
 });

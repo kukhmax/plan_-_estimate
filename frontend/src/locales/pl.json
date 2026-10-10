@@ -95,7 +95,11 @@
     "card_email_label": "e-mail:",
     "card_telegram_label": "Telegram:",
     "email_copied": "Skopiowano e-mail",
-    "email_copy_failed": "Nie udało się skopiować e-maila"
+    "email_copy_failed": "Nie udało się skopiować e-maila",
+    "objects_title": "Obiekty klienta",
+    "no_objects": "Ten klient nie ma jeszcze obiektów.",
+    "objects_error": "Nie udało się wczytać obiektów klienta.",
+    "card_no_details": "Brak danych kontaktowych."
   },
   "representatives": {
     "title": "Osoby objektu",

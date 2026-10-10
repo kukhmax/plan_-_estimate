@@ -7,7 +7,10 @@ import {
   archiveClient,
   restoreClient,
 } from '../api/clients';
+import { fetchProjects } from '../api/projects';
+import { ProjectType } from '../types/project';
 import { useI18n } from '../hooks/useI18n';
+import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { copyTextToClipboard } from '../utils/clipboard';
 
 /** Digits and a single leading '+' only — a safe `tel:` href from a
@@ -71,7 +74,14 @@ function formFromClient(c: ClientType): ClientFormState {
   };
 }
 
-export const ClientList: React.FC = () => {
+interface ClientListProps {
+  /** "Смета" on the card of a client opens the estimate of that object. */
+  onOpenEstimate?: (projectId: string) => void;
+  /** An overlay above the screen (the main menu, the account dialog) owns the Telegram BackButton while it is open. */
+  backSuspended?: boolean;
+}
+
+export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSuspended = false }) => {
   const { t } = useI18n();
   const [clients, setClients] = useState<ClientType[]>([]);
   const [total, setTotal] = useState(0);
@@ -84,6 +94,10 @@ export const ClientList: React.FC = () => {
   const [form, setForm] = useState<ClientFormState>(DEFAULT_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // The card of one client (name, details, his objects); the list shows only names.
+  const [selected, setSelected] = useState<ClientType | null>(null);
+  const [objects, setObjects] = useState<ProjectType[] | null>(null);
+  const [objectsError, setObjectsError] = useState(false);
   // Tapping a client's e-mail copies it (never opens a mail composer as the
   // primary action) — small self-clearing inline confirmation, same pattern
   // as the existing Stage 8C CommunicationPanel copy-to-clipboard action.
@@ -97,6 +111,7 @@ export const ClientList: React.FC = () => {
       const data = await fetchClients({ search: search || undefined, include_archived: includeArchived });
       setClients(data.items);
       setTotal(data.total);
+      setSelected((current) => (current ? data.items.find((c) => c.id === current.id) ?? current : current));
     } catch (err) {
       setError(err instanceof Error ? err.message : t.clients.error);
     } finally {
@@ -107,6 +122,35 @@ export const ClientList: React.FC = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!selected) return;
+    let cancelled = false;
+    setObjects(null);
+    setObjectsError(false);
+    fetchProjects(false)
+      .then((data) => {
+        if (!cancelled) setObjects(data.items.filter((project) => project.client_id === selected.id));
+      })
+      .catch(() => {
+        if (!cancelled) setObjectsError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id]);
+
+  const closeCard = () => {
+    setSelected(null);
+    setShowForm(false);
+    setEditingClient(null);
+    setFormError(null);
+  };
+
+  useTelegramBackButton(selected !== null && !backSuspended, () => {
+    if (showForm) closeForm();
+    else closeCard();
+  });
 
   const handleArchive = async (id: string) => {
     await archiveClient(id);
@@ -229,41 +273,7 @@ export const ClientList: React.FC = () => {
     return [c.first_name, c.last_name].filter(Boolean).join(' ') || '—';
   };
 
-  return (
-    <section aria-label="clients-section" className="w-full mt-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{t.clients.title}</h2>
-        <button
-          aria-label="add-client"
-          onClick={openCreate}
-          className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
-        >
-          {t.clients.add_client}
-        </button>
-      </div>
-
-      {/* Search + filters */}
-      <div className="flex gap-2 mb-3 flex-wrap">
-        <input
-          aria-label="search-clients"
-          type="text"
-          placeholder={t.clients.search_placeholder}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-0 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
-          />
-          {t.clients.show_archived}
-        </label>
-      </div>
-
-      {/* Add client form */}
-      {showForm && (
+  const formBlock = showForm && (
         <form
           aria-label="client-form"
           onSubmit={handleSubmit}
@@ -280,7 +290,7 @@ export const ClientList: React.FC = () => {
               aria-label="client-type-select"
               value={form.client_type}
               onChange={(e) => handleFormChange('client_type', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
             >
               <option value="PRIVATE_PERSON">{t.clients.private_person}</option>
               <option value="COMPANY">{t.clients.company}</option>
@@ -294,14 +304,14 @@ export const ClientList: React.FC = () => {
                 placeholder={t.clients.first_name}
                 value={form.first_name}
                 onChange={(e) => handleFormChange('first_name', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
               />
               <input
                 aria-label="last-name"
                 placeholder={t.clients.last_name}
                 value={form.last_name}
                 onChange={(e) => handleFormChange('last_name', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
               />
             </>
           )}
@@ -313,14 +323,14 @@ export const ClientList: React.FC = () => {
                 placeholder={t.clients.company_name}
                 value={form.company_name}
                 onChange={(e) => handleFormChange('company_name', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
               />
               <input
                 aria-label="nip"
                 placeholder={t.clients.nip}
                 value={form.nip}
                 onChange={(e) => handleFormChange('nip', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
               />
             </>
           )}
@@ -330,14 +340,14 @@ export const ClientList: React.FC = () => {
             placeholder={t.clients.phone}
             value={form.phone}
             onChange={(e) => handleFormChange('phone', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
           />
           <input
             aria-label="email"
             placeholder={t.clients.email}
             value={form.email}
             onChange={(e) => handleFormChange('email', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
           />
           <input
             aria-label="street"
@@ -345,7 +355,7 @@ export const ClientList: React.FC = () => {
             autoComplete="street-address"
             value={form.street}
             onChange={(e) => handleFormChange('street', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
           />
           <div className="grid grid-cols-1 min-[400px]:grid-cols-[8rem_1fr] gap-2">
             <input
@@ -355,7 +365,7 @@ export const ClientList: React.FC = () => {
               autoComplete="postal-code"
               value={form.postal_code}
               onChange={(e) => handleFormChange('postal_code', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
             />
             <input
               aria-label="city"
@@ -363,7 +373,7 @@ export const ClientList: React.FC = () => {
               autoComplete="address-level2"
               value={form.city}
               onChange={(e) => handleFormChange('city', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
             />
           </div>
           <div>
@@ -373,7 +383,7 @@ export const ClientList: React.FC = () => {
               placeholder={t.clients.telegram_placeholder}
               value={form.telegram_username}
               onChange={(e) => handleFormChange('telegram_username', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 min-h-11 text-sm"
             />
           </div>
 
@@ -385,22 +395,246 @@ export const ClientList: React.FC = () => {
             <button
               type="button"
               onClick={closeForm}
-              className="px-3 py-1.5 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
+              className="px-4 min-h-11 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
             >
               {t.clients.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+              className="px-4 min-h-11 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
             >
               {t.clients.save}
             </button>
           </div>
         </form>
+      );
+
+  const hasContact = (c: ClientType) =>
+    Boolean(c.nip || c.phone || c.email || c.telegram_username || c.street || c.postal_code || c.city);
+
+  const renderContact = (c: ClientType) => (
+    <>
+        {(c.nip || c.phone || c.email || c.telegram_username || c.street || c.postal_code || c.city) && (
+          <div aria-label={`client-contact-${c.id}`} className="space-y-1 min-w-0">
+            {c.nip && (
+              <p className="text-sm text-slate-600 break-words min-w-0">
+                <span className="text-slate-400">{t.clients.card_nip_label}</span> {c.nip}
+              </p>
+            )}
+            {(c.street || c.postal_code || c.city) && (
+              <p aria-label={`client-address-${c.id}`} className="text-sm text-slate-600 break-words min-w-0">
+                <span className="text-slate-400">{t.clients.card_address_label}</span>{' '}
+                {[c.street, [c.postal_code, c.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
+              </p>
+            )}
+            {c.phone && (
+              <p className="text-sm text-slate-600 break-words min-w-0">
+                <span className="text-slate-400">{t.clients.card_phone_label}</span>{' '}
+                <a
+                  href={toTelHref(c.phone)}
+                  aria-label={`call-${c.id}`}
+                  className="inline-block max-w-full py-1.5 -my-1.5 text-blue-700 underline underline-offset-2 [overflow-wrap:anywhere]"
+                >
+                  {c.phone}
+                </a>
+              </p>
+            )}
+            {c.email && (
+              <p className="text-sm text-slate-600 break-words min-w-0">
+                <span className="text-slate-400">{t.clients.card_email_label}</span>{' '}
+                <button
+                  type="button"
+                  aria-label={`copy-email-${c.id}`}
+                  onClick={() => handleCopyEmail(c)}
+                  className="inline-block max-w-full py-1.5 -my-1.5 text-blue-700 underline underline-offset-2 [overflow-wrap:anywhere] text-left"
+                >
+                  {c.email}
+                </button>
+                {copiedEmail && copiedEmail.id === c.id && (
+                  <span
+                    role="status"
+                    className={`ml-1.5 ${copiedEmail.ok ? 'text-emerald-700' : 'text-red-600'}`}
+                  >
+                    {copiedEmail.ok ? t.clients.email_copied : t.clients.email_copy_failed}
+                  </span>
+                )}
+              </p>
+            )}
+            {c.telegram_username && (
+              <p className="text-sm text-slate-600 break-words min-w-0">
+                <span className="text-slate-400">{t.clients.card_telegram_label}</span>{' '}
+                <a
+                  href={toTelegramHref(c.telegram_username)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`open-telegram-${c.id}`}
+                  className="inline-block max-w-full py-1.5 -my-1.5 text-blue-700 underline underline-offset-2 [overflow-wrap:anywhere]"
+                >
+                  {c.telegram_username}
+                </a>
+              </p>
+            )}
+          </div>
+        )}
+    </>
+  );
+
+  const statusLabel = (status: ProjectType['status']) =>
+    ({ PLANNING: t.projects.planning, IN_PROGRESS: t.projects.in_progress, COMPLETED: t.projects.completed })[status];
+
+  const cardView = selected && (
+    <div aria-label="client-card" className="space-y-3">
+      <button
+        type="button"
+        aria-label="back-to-clients"
+        onClick={closeCard}
+        className="min-h-11 px-1 -ml-1 text-sm font-semibold text-blue-700 hover:underline"
+      >
+        ‹ {t.clients.title}
+      </button>
+
+      <div className="flex items-start justify-between gap-3">
+        <h2 aria-label="client-card-name" className="text-lg font-bold text-[var(--tg-theme-text-color)] break-words min-w-0">
+          {displayName(selected)}
+        </h2>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
+            {selected.client_type === 'COMPANY' ? t.clients.company : t.clients.private_person}
+          </span>
+          {selected.is_archived && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+              {t.clients.archived_badge}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {formBlock}
+
+      {!showForm && (
+        <>
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+            {renderContact(selected)}
+            {selected.notes && (
+              <p aria-label={`client-notes-${selected.id}`} className="text-sm text-slate-600 whitespace-pre-wrap break-words">
+                {selected.notes}
+              </p>
+            )}
+            {!hasContact(selected) && !selected.notes && (
+              <p className="text-sm text-slate-400">{t.clients.card_no_details}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              aria-label={`edit-${selected.id}`}
+              onClick={() => openEdit(selected)}
+              className="min-h-11 px-3 text-sm rounded-xl bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
+            >
+              {t.clients.edit}
+            </button>
+            {selected.is_archived ? (
+              <button
+                type="button"
+                aria-label={`restore-${selected.id}`}
+                onClick={() => handleRestore(selected.id)}
+                className="min-h-11 px-3 text-sm rounded-xl bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 transition"
+              >
+                {t.clients.restore}
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-label={`archive-${selected.id}`}
+                onClick={() => handleArchive(selected.id)}
+                className="min-h-11 px-3 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-600 font-semibold hover:bg-slate-100 transition"
+              >
+                {t.clients.archive}
+              </button>
+            )}
+          </div>
+        </>
       )}
 
-      {/* List */}
+      <section aria-label="client-objects" className="pt-1">
+        <h3 className="text-base font-bold text-[var(--tg-theme-text-color)] mb-2">{t.clients.objects_title}</h3>
+        {objectsError && <p role="alert" className="text-sm text-red-600">{t.clients.objects_error}</p>}
+        {!objectsError && objects === null && <p className="text-sm text-slate-500">{t.clients.loading}</p>}
+        {!objectsError && objects !== null && objects.length === 0 && (
+          <p aria-label="no-client-objects" className="text-sm text-slate-400">{t.clients.no_objects}</p>
+        )}
+        {objects !== null && objects.length > 0 && (
+          <ul className="space-y-2" aria-label="client-objects-list">
+            {objects.map((project) => (
+              <li
+                key={project.id}
+                aria-label={`client-object-${project.id}`}
+                className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm"
+              >
+                <p className="font-semibold text-slate-900 text-sm break-words">{project.name}</p>
+                <p className="text-xs text-slate-500 break-words">{statusLabel(project.status)}</p>
+                <button
+                  type="button"
+                  aria-label={`open-estimate-${project.id}`}
+                  onClick={() => onOpenEstimate?.(project.id)}
+                  className="mt-2 w-full min-h-11 px-3 text-sm font-semibold rounded-xl bg-amber-500 text-slate-950 hover:bg-amber-400 transition"
+                >
+                  {t.estimates.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+
+  if (selected) {
+    return (
+      <section aria-label="clients-section" className="w-full mt-4">
+        {cardView}
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="clients-section" className="w-full mt-4">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{t.clients.title}</h2>
+        <button
+          aria-label="add-client"
+          onClick={openCreate}
+          className="min-h-11 px-4 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
+        >
+          {t.clients.add_client}
+        </button>
+      </div>
+
+      {/* Search + filters */}
+      <div className="flex gap-2 mb-3 flex-wrap items-center">
+        <input
+          aria-label="search-clients"
+          type="text"
+          placeholder={t.clients.search_placeholder}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 min-w-0 min-h-11 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <label className="flex items-center gap-1.5 min-h-11 text-sm text-slate-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={includeArchived}
+            onChange={(e) => setIncludeArchived(e.target.checked)}
+          />
+          {t.clients.show_archived}
+        </label>
+      </div>
+
+      {formBlock}
+
+      {/* List: only the name; the details are on the card */}
       {loading && (
         <p className="text-sm text-slate-500 text-center py-4">{t.clients.loading}</p>
       )}
@@ -413,112 +647,26 @@ export const ClientList: React.FC = () => {
       {!loading && clients.length > 0 && (
         <ul className="space-y-2" aria-label="clients-list">
           {clients.map((c) => (
-            <li
-              key={c.id}
-              aria-label={`client-item-${c.id}`}
-              className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-3"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-slate-900 text-sm break-words">{displayName(c)}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
-                    {c.client_type === 'COMPANY' ? t.clients.company : t.clients.private_person}
-                  </span>
+            <li key={c.id} aria-label={`client-item-${c.id}`}>
+              <button
+                type="button"
+                aria-label={`client-open-${c.id}`}
+                onClick={() => {
+                  closeForm();
+                  setSelected(c);
+                }}
+                className="w-full min-h-12 bg-white border border-slate-200 rounded-2xl px-4 py-2 shadow-sm flex items-center justify-between gap-3 text-left"
+              >
+                <span className="font-semibold text-slate-900 text-sm break-words min-w-0">{displayName(c)}</span>
+                <span className="flex items-center gap-2 shrink-0">
                   {c.is_archived && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
                       {t.clients.archived_badge}
                     </span>
                   )}
-                </div>
-                {(c.nip || c.phone || c.email || c.telegram_username || c.street || c.postal_code || c.city) && (
-                  <div aria-label={`client-contact-${c.id}`} className="mt-1 space-y-0.5 min-w-0">
-                    {c.nip && (
-                      <p className="text-xs text-slate-500 break-words min-w-0">
-                        <span className="text-slate-400">{t.clients.card_nip_label}</span> {c.nip}
-                      </p>
-                    )}
-                    {(c.street || c.postal_code || c.city) && (
-                      <p aria-label={`client-address-${c.id}`} className="text-xs text-slate-500 break-words min-w-0">
-                        <span className="text-slate-400">{t.clients.card_address_label}</span>{' '}
-                        {[c.street, [c.postal_code, c.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
-                      </p>
-                    )}
-                    {c.phone && (
-                      <p className="text-xs text-slate-500 break-words min-w-0">
-                        <span className="text-slate-400">{t.clients.card_phone_label}</span>{' '}
-                        <a
-                          href={toTelHref(c.phone)}
-                          aria-label={`call-${c.id}`}
-                          className="inline-block py-1.5 -my-1.5 text-blue-700 underline underline-offset-2"
-                        >
-                          {c.phone}
-                        </a>
-                      </p>
-                    )}
-                    {c.email && (
-                      <p className="text-xs text-slate-500 break-words min-w-0">
-                        <span className="text-slate-400">{t.clients.card_email_label}</span>{' '}
-                        <button
-                          type="button"
-                          aria-label={`copy-email-${c.id}`}
-                          onClick={() => handleCopyEmail(c)}
-                          className="inline-block py-1.5 -my-1.5 text-blue-700 underline underline-offset-2 text-left"
-                        >
-                          {c.email}
-                        </button>
-                        {copiedEmail && copiedEmail.id === c.id && (
-                          <span
-                            role="status"
-                            className={`ml-1.5 ${copiedEmail.ok ? 'text-emerald-700' : 'text-red-600'}`}
-                          >
-                            {copiedEmail.ok ? t.clients.email_copied : t.clients.email_copy_failed}
-                          </span>
-                        )}
-                      </p>
-                    )}
-                    {c.telegram_username && (
-                      <p className="text-xs text-slate-500 break-words min-w-0">
-                        <span className="text-slate-400">{t.clients.card_telegram_label}</span>{' '}
-                        <a
-                          href={toTelegramHref(c.telegram_username)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`open-telegram-${c.id}`}
-                          className="inline-block py-1.5 -my-1.5 text-blue-700 underline underline-offset-2"
-                        >
-                          {c.telegram_username}
-                        </a>
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
-                <button
-                  aria-label={`edit-${c.id}`}
-                  onClick={() => openEdit(c)}
-                  className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
-                >
-                  {t.clients.edit}
-                </button>
-                {c.is_archived ? (
-                  <button
-                    aria-label={`restore-${c.id}`}
-                    onClick={() => handleRestore(c.id)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition"
-                  >
-                    {t.clients.restore}
-                  </button>
-                ) : (
-                  <button
-                    aria-label={`archive-${c.id}`}
-                    onClick={() => handleArchive(c.id)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
-                  >
-                    {t.clients.archive}
-                  </button>
-                )}
-              </div>
+                  <span aria-hidden="true" className="text-slate-400 text-lg leading-none">›</span>
+                </span>
+              </button>
             </li>
           ))}
         </ul>

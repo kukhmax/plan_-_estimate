@@ -95,7 +95,11 @@
     "card_email_label": "e-mail:",
     "card_telegram_label": "Telegram:",
     "email_copied": "E-mail скопирован",
-    "email_copy_failed": "Не удалось скопировать e-mail"
+    "email_copy_failed": "Не удалось скопировать e-mail",
+    "objects_title": "Объекты клиента",
+    "no_objects": "У этого клиента пока нет объектов.",
+    "objects_error": "Не удалось загрузить объекты клиента.",
+    "card_no_details": "Контактных данных нет."
   },
   "representatives": {
     "title": "Лица объекта",

@@ -3,6 +3,7 @@ import { fetchClients } from '../api/clients';
 import {
   archiveProject,
   createProject,
+  fetchProject,
   fetchProjects,
   restoreProject,
   updateProject,
@@ -103,9 +104,17 @@ interface ProjectWorkspaceProps {
   resetSignal?: number;
   /** An overlay above the workspace (the account dialog) owns the Telegram BackButton while it is open. */
   backSuspended?: boolean;
+  /** A request from another screen (the card of a client): open the estimates of this object. Handled once per token. */
+  openRequest?: ProjectOpenRequest | null;
 }
 
-export function ProjectWorkspace({ resetSignal, backSuspended = false }: ProjectWorkspaceProps) {
+export interface ProjectOpenRequest {
+  token: number;
+  projectId: string;
+  view: 'estimates';
+}
+
+export function ProjectWorkspace({ resetSignal, backSuspended = false, openRequest = null }: ProjectWorkspaceProps) {
   const { t } = useI18n();
   const photoBack = usePhotoBackStack();
   const [projects, setProjects] = useState<ProjectType[]>([]);
@@ -449,6 +458,25 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
     setSuccess(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetSignal]);
+
+  // One request is handled once: the effect depends on its token only.
+  useEffect(() => {
+    if (!openRequest) return;
+    let cancelled = false;
+    fetchProject(openRequest.projectId)
+      .then((project) => {
+        if (cancelled) return;
+        openProject(project);
+        setShowEstimates(true);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : t.projects.error);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openRequest?.token]);
 
   useTelegramBackButton(isBackButtonVisible && !backSuspended, () => {
     // An open photo viewer takes the press first (contract §8); nothing else navigates then.

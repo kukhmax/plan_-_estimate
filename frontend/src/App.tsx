@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth';
 import { I18nProvider, useI18n } from './hooks/useI18n';
 import { ClientList } from './components/ClientList';
 import { PriceBook } from './components/PriceBook';
-import { ProjectWorkspace } from './components/ProjectWorkspace';
+import { ProjectOpenRequest, ProjectWorkspace } from './components/ProjectWorkspace';
 import { AccountModal } from './components/AccountModal';
 import { AppMenu, AppMenuItem } from './components/AppMenu';
 
@@ -14,13 +14,20 @@ const AppContent: React.FC = () => {
   const [projectsNavToken, setProjectsNavToken] = useState(0);
   const [showAccount, setShowAccount] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openRequest, setOpenRequest] = useState<ProjectOpenRequest | null>(null);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   const choose = (section: 'clients' | 'projects' | 'pricebook') => {
     setActiveSection(section);
+    setOpenRequest(null);
     // Choosing "Obiekty" always leads back to the list of objects, even when it is already the open section.
     if (section === 'projects') setProjectsNavToken((n) => n + 1);
     setMenuOpen(false);
+  };
+  // "Смета" on the card of a client: the section of objects opens straight on the estimates of that object.
+  const openEstimatesOf = (projectId: string) => {
+    setOpenRequest((previous) => ({ token: (previous?.token ?? 0) + 1, projectId, view: 'estimates' }));
+    setActiveSection('projects');
   };
   const menuItems: AppMenuItem[] = [
     { id: 'show-clients', label: t.navigation.clients, active: activeSection === 'clients', onSelect: () => choose('clients') },
@@ -141,9 +148,9 @@ const AppContent: React.FC = () => {
         {!isLoading && user && (
           <>
             {activeSection === 'clients' ? (
-              <ClientList />
+              <ClientList onOpenEstimate={openEstimatesOf} backSuspended={showAccount || menuOpen} />
             ) : activeSection === 'projects' ? (
-              <ProjectWorkspace resetSignal={projectsNavToken} backSuspended={showAccount || menuOpen} />
+              <ProjectWorkspace resetSignal={projectsNavToken} backSuspended={showAccount || menuOpen} openRequest={openRequest} />
             ) : (
               <PriceBook />
             )}
