@@ -1,1 +1,485 @@
-[]
+[
+  {
+    "code": "KC.77-2",
+    "source": "KC",
+    "locator": "art. 77²",
+    "title_pl": "Forma dokumentowa",
+    "title_ru": "Документальная форма (e-mail, SMS, мессенджер)",
+    "tags": [
+      "forma",
+      "dokumentowa",
+      "e-mail"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.355",
+    "source": "KC",
+    "locator": "art. 355 § 2",
+    "title_pl": "Należyta staranność zawodowa",
+    "title_ru": "Должная профессиональная осмотрительность",
+    "tags": [
+      "starannosc",
+      "obowiazki"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.385-3",
+    "source": "KC",
+    "locator": "art. 385³ pkt 17",
+    "title_pl": "Niedozwolone postanowienia — rażąco wygórowane kwoty od konsumenta",
+    "title_ru": "Недопустимые условия — чрезмерные суммы с потребителя",
+    "tags": [
+      "konsument",
+      "klauzule",
+      "przestoj"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      },
+      {
+        "ref": "L-PRZESTOJ",
+        "text": "Z uwag do § 10 ust. 3: ocenić, czy stawka i limit za przestój nie są rażąco wygórowane wobec konsumenta.",
+        "status": "OPEN"
+      }
+    ]
+  },
+  {
+    "code": "KC.474",
+    "source": "KC",
+    "locator": "art. 474",
+    "title_pl": "Odpowiedzialność za podwykonawców i pracowników",
+    "title_ru": "Ответственность за субподрядчиков и работников",
+    "tags": [
+      "podwykonawca",
+      "odpowiedzialnosc"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.481",
+    "source": "KC",
+    "locator": "art. 481",
+    "title_pl": "Odsetki za opóźnienie w zapłacie",
+    "title_ru": "Проценты за просрочку оплаты",
+    "tags": [
+      "zaplata",
+      "odsetki",
+      "oplata"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.491",
+    "source": "KC",
+    "locator": "art. 491",
+    "title_pl": "Odstąpienie od umowy wzajemnej po wyznaczeniu dodatkowego terminu",
+    "title_ru": "Отказ от взаимного договора после дополнительного срока",
+    "tags": [
+      "odstapienie",
+      "zaplata"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      },
+      {
+        "ref": "L-ZWLOKA",
+        "text": "Art. 491 dotyczy zwłoki, a § 19 ust. 3 mówi o opóźnieniu — potwierdzić sformułowanie z prawnikiem.",
+        "status": "OPEN"
+      }
+    ]
+  },
+  {
+    "code": "KC.556",
+    "source": "KC",
+    "locator": "art. 556 i n.",
+    "title_pl": "Rękojmia za wady fizyczne",
+    "title_ru": "Гарантийная ответственность (rękojmia) за физические недостатки",
+    "tags": [
+      "rekojmia",
+      "wady"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.557",
+    "source": "KC",
+    "locator": "art. 557 § 1",
+    "title_pl": "Wada znana w chwili odbioru",
+    "title_ru": "Недостаток, известный при приёмке",
+    "tags": [
+      "rekojmia",
+      "wady",
+      "odbior"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.558",
+    "source": "KC",
+    "locator": "art. 558 § 1",
+    "title_pl": "Rozszerzenie, ograniczenie lub wyłączenie rękojmi",
+    "title_ru": "Расширение, ограничение или исключение rękojmi",
+    "tags": [
+      "rekojmia",
+      "konsument"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      },
+      {
+        "ref": "L-2023",
+        "text": "Po zmianach z 1.1.2023 część przepisów konsumenckich przeniesiono do ustawy o prawach konsumenta — sprawdzić, czy powołanie art. 558 § 1 wobec konsumenta jest nadal trafne.",
+        "status": "OPEN"
+      }
+    ]
+  },
+  {
+    "code": "KC.627",
+    "source": "KC",
+    "locator": "art. 627 i n.",
+    "title_pl": "Umowa o dzieło",
+    "title_ru": "Договор подряда на результат (umowa o dzieło)",
+    "tags": [
+      "umowa",
+      "dzielo"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.634",
+    "source": "KC",
+    "locator": "art. 634",
+    "title_pl": "Materiał zamawiającego — obowiązek zawiadomienia",
+    "title_ru": "Материал заказчика — обязанность уведомить",
+    "tags": [
+      "material",
+      "zawiadomienie"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.635",
+    "source": "KC",
+    "locator": "art. 635",
+    "title_pl": "Opóźnienie wykonawcy — odstąpienie przed terminem",
+    "title_ru": "Просрочка исполнителя — отказ до срока",
+    "tags": [
+      "odstapienie",
+      "termin"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.636",
+    "source": "KC",
+    "locator": "art. 636",
+    "title_pl": "Wadliwe wykonywanie dzieła — wezwanie i odstąpienie",
+    "title_ru": "Ненадлежащее выполнение — требование и отказ",
+    "tags": [
+      "odstapienie",
+      "wady"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.638",
+    "source": "KC",
+    "locator": "art. 638",
+    "title_pl": "Rękojmia przy umowie o dzieło",
+    "title_ru": "Rękojmia по договору подряда (dzieło)",
+    "tags": [
+      "rekojmia",
+      "dzielo"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.639",
+    "source": "KC",
+    "locator": "art. 639",
+    "title_pl": "Wynagrodzenie mimo niewykonania z przyczyn zamawiającego",
+    "title_ru": "Вознаграждение, если работа не выполнена по вине заказчика",
+    "tags": [
+      "przestoj",
+      "wynagrodzenie"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.640",
+    "source": "KC",
+    "locator": "art. 640",
+    "title_pl": "Brak współdziałania zamawiającego",
+    "title_ru": "Отсутствие содействия заказчика",
+    "tags": [
+      "przestoj",
+      "wspoldzialanie",
+      "odstapienie"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.644",
+    "source": "KC",
+    "locator": "art. 644",
+    "title_pl": "Odstąpienie zamawiającego przed ukończeniem dzieła",
+    "title_ru": "Отказ заказчика до завершения работ",
+    "tags": [
+      "odstapienie",
+      "wynagrodzenie"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "KC.647",
+    "source": "KC",
+    "locator": "art. 647 i n.",
+    "title_pl": "Umowa o roboty budowlane",
+    "title_ru": "Договор строительного подряда",
+    "tags": [
+      "umowa",
+      "roboty-budowlane"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      },
+      {
+        "ref": "L-KWALIFIKACJA",
+        "text": "Z uwag do § 2 ust. 5: potwierdzić z prawnikiem kwalifikację umowy (dzieło czy roboty budowlane).",
+        "status": "OPEN"
+      }
+    ]
+  },
+  {
+    "code": "UPK.12",
+    "source": "UPK",
+    "locator": "art. 12",
+    "title_pl": "Informacje dla konsumenta przed zawarciem umowy",
+    "title_ru": "Информация для потребителя до заключения договора",
+    "tags": [
+      "konsument",
+      "informacje"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "UPK.27",
+    "source": "UPK",
+    "locator": "art. 27",
+    "title_pl": "Prawo odstąpienia od umowy zawartej poza lokalem lub na odległość",
+    "title_ru": "Право отказа от договора, заключённого вне офиса или дистанционно",
+    "tags": [
+      "konsument",
+      "odstapienie"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "UPK.35",
+    "source": "UPK",
+    "locator": "art. 35",
+    "title_pl": "Zapłata za usługi wykonane przed odstąpieniem",
+    "title_ru": "Оплата услуг, выполненных до отказа",
+    "tags": [
+      "konsument",
+      "odstapienie",
+      "zaplata"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "UPK.38",
+    "source": "UPK",
+    "locator": "art. 38",
+    "title_pl": "Kiedy konsument nie ma prawa odstąpienia",
+    "title_ru": "Когда у потребителя нет права отказа",
+    "tags": [
+      "konsument",
+      "odstapienie"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "RODO.6",
+    "source": "RODO",
+    "locator": "art. 6 ust. 1 lit. b, c, f",
+    "title_pl": "Podstawy przetwarzania danych osobowych",
+    "title_ru": "Основания обработки персональных данных",
+    "tags": [
+      "dane-osobowe",
+      "rodo"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "RODO.13",
+    "source": "RODO",
+    "locator": "art. 13",
+    "title_pl": "Obowiązek informacyjny wobec osoby, której dane dotyczą",
+    "title_ru": "Обязанность информировать субъекта данных",
+    "tags": [
+      "dane-osobowe",
+      "rodo",
+      "informacje"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+      }
+    ]
+  }
+]

@@ -85,11 +85,11 @@ def load(tmp_path: Path, data: dict | None = None):
 # --- the files of the repository ---------------------------------------------------------------------------------------------
 
 
-def test_the_repository_catalogue_is_valid_and_holds_no_legal_text_yet():
+def test_the_repository_catalogue_is_valid():
     catalog = read_catalog(CATALOG_DIR, REFS)
     assert catalog.meta.version >= 1
     assert catalog.meta.disclaimer_status == "DRAFT"  # the lawyer has not approved a disclaimer yet (Q9)
-    assert (catalog.sources, catalog.entries, catalog.situations, catalog.links) == ([], [], [], [])
+    # the content itself (Stage 17C onwards) is checked in tests/test_stage17c_knowledge_content.py
 
 
 def test_a_norm_tells_its_key_points_in_own_words_and_links_its_source(tmp_path):

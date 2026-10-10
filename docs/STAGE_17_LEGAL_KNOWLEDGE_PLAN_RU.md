@@ -105,6 +105,45 @@
 
 **Уточнение по Q10.** «Редактировать список ситуаций» можно двумя способами: (а) вы присылаете правки, я меняю файл каталога, выкладка с релизом — так же, как для записей (Q8), без новых таблиц; (б) редактор ситуаций в самом приложении — тогда ситуации хранятся в базе (новая таблица и миграция, отдельный экран редактирования, проверки дерева при сохранении). Рекомендация: **(а)** до конца MVP (ситуации ведут к правовым основаниям и документам и должны проходить те же проверки, что и записи), редактор в приложении — отдельным подэтапом позже, если окажется нужен часто.
 
+## 6б. 17C — первая партия: заготовки по договору Stage 16 (2026-10-11)
+
+По Q1–Q2 первая партия — положения, на которые **уже ссылается договор**. Это заготовки программы, а не утверждённое содержимое: всё в статусе **DRAFT**, у каждой записи открытая пометка `UNVERIFIED` (сверить номер и объём положения с текстом jednolity, написать ключевые моменты своими словами, утвердить). Изложения (`summary_pl`, `explanation_ru`) пусты: их пишут владелец / юрист (Q4).
+
+**Источники** (DRAFT, со ссылками): KC — Kodeks cywilny (ISAP `WDU19640160093`); UPK — ustawa o prawach konsumenta (ISAP `WDU20140000827`); RODO — rozporządzenie 2016/679 (EUR-Lex).
+
+**Записи (24):**
+
+| Код | Место в акте | Тема | Место в договоре (`раздел.пункт`) |
+|---|---|---|---|
+| KC.77-2 | art. 77² | Forma dokumentowa | `definitions.8` |
+| KC.355 | art. 355 § 2 | Należyta staranność zawodowa | `subject.4` |
+| KC.385-3 | art. 385³ pkt 17 | Rażąco wygórowane kwoty od konsumenta | `downtime.3` (вопрос юристу) |
+| KC.474 | art. 474 | Odpowiedzialność za podwykonawców | `organisation.2` |
+| KC.481 | art. 481 | Odsetki za opóźnienie | `advance_and_payments.4` |
+| KC.491 | art. 491 | Odstąpienie po dodatkowym terminie | `withdrawal.3` (вопрос: zwłoka / opóźnienie) |
+| KC.556 | art. 556 i n. | Rękojmia za wady fizyczne | `warranty.1` |
+| KC.557 | art. 557 § 1 | Wada znana przy odbiorze | `warranty.4` |
+| KC.558 | art. 558 § 1 | Ograniczenie / wyłączenie rękojmi | `warranty.1` (вопрос: изменения с 1.1.2023) |
+| KC.627 | art. 627 i n. | Umowa o dzieło | `subject.5` |
+| KC.634 | art. 634 | Materiał zamawiającego — zawiadomienie | `materials.2` |
+| KC.635 | art. 635 | Opóźnienie wykonawcy — odstąpienie | `withdrawal.2` |
+| KC.636 | art. 636 | Wadliwe wykonywanie — wezwanie | `withdrawal.2` |
+| KC.638 | art. 638 | Rękojmia przy dziele | `warranty.1` |
+| KC.639 | art. 639 | Wynagrodzenie mimo niewykonania | `downtime.3`, `withdrawal.3` |
+| KC.640 | art. 640 | Brak współdziałania zamawiającego | `downtime.5`, `withdrawal.3` |
+| KC.644 | art. 644 | Odstąpienie zamawiającego przed ukończeniem | `withdrawal.1` |
+| KC.647 | art. 647 i n. | Umowa o roboty budowlane | `subject.5` (вопрос: квалификация договора) |
+| UPK.12 | art. 12 | Informacje przed zawarciem umowy | приложение 11 (без связи: приложения не являются целью связей) |
+| UPK.27 | art. 27 | Odstąpienie 14 dni poza lokalem / na odległość | `consumer_withdrawal.1` |
+| UPK.35 | art. 35 | Zapłata za usługi przed odstąpieniem | `consumer_withdrawal.2` |
+| UPK.38 | art. 38 | Brak prawa odstąpienia | `consumer_withdrawal.3` |
+| RODO.6 | art. 6 ust. 1 lit. b, c, f | Podstawy przetwarzania | `personal_data.1` |
+| RODO.13 | art. 13 | Obowiązek informacyjny | приложение 12 (без связи) |
+
+**Связи:** 17 мест договора → записи (`links.json`, тип `CLAUSE`). Тест проверяет, что **каждое** положение договора, в тексте которого есть «art. N», связано с базой знаний.
+
+**Что нужно от владельца / юриста:** по каждой записи — 3–6 ключевых моментов по-польски (и пояснение по-русски), дата сверки с текстом jednolity, затем «утверждаю» (кто, когда). Можно присылать частями; я переношу в файлы, проверки каталога не пропустят утверждённую запись без изложения и ссылки. **Ситуации** — следующим шагом, после того как вы просмотрите эти заготовки.
+
 ## 7. Риски и критерий готовности
 
 | Риск | Что делаем |

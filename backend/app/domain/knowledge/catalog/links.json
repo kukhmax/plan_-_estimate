@@ -1,1 +1,128 @@
-[]
+[
+  {
+    "target_kind": "CLAUSE",
+    "target": "definitions.8",
+    "entries": [
+      "KC.77-2"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "subject.4",
+    "entries": [
+      "KC.355"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "subject.5",
+    "entries": [
+      "KC.627",
+      "KC.647"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "advance_and_payments.4",
+    "entries": [
+      "KC.481"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "downtime.3",
+    "entries": [
+      "KC.639",
+      "KC.385-3"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "downtime.5",
+    "entries": [
+      "KC.640"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "materials.2",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "organisation.2",
+    "entries": [
+      "KC.474"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "warranty.1",
+    "entries": [
+      "KC.638",
+      "KC.556",
+      "KC.558"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "warranty.4",
+    "entries": [
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "withdrawal.1",
+    "entries": [
+      "KC.644"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "withdrawal.2",
+    "entries": [
+      "KC.635",
+      "KC.636"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "withdrawal.3",
+    "entries": [
+      "KC.640",
+      "KC.491",
+      "KC.639"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "consumer_withdrawal.1",
+    "entries": [
+      "UPK.27"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "consumer_withdrawal.2",
+    "entries": [
+      "UPK.35"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "consumer_withdrawal.3",
+    "entries": [
+      "UPK.38"
+    ]
+  },
+  {
+    "target_kind": "CLAUSE",
+    "target": "personal_data.1",
+    "entries": [
+      "RODO.6"
+    ]
+  }
+]

@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "code": "KC",
+    "kind": "STATUTE",
+    "title_pl": "Ustawa z dnia 23 kwietnia 1964 r. — Kodeks cywilny",
+    "designation": "Dz.U. 1964 nr 16 poz. 93 (tekst jednolity — sprawdzić aktualny)",
+    "url": "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU19640160093",
+    "status": "DRAFT"
+  },
+  {
+    "code": "UPK",
+    "kind": "STATUTE",
+    "title_pl": "Ustawa z dnia 30 maja 2014 r. o prawach konsumenta",
+    "designation": "Dz.U. 2014 poz. 827 (tekst jednolity — sprawdzić aktualny)",
+    "url": "https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20140000827",
+    "status": "DRAFT"
+  },
+  {
+    "code": "RODO",
+    "kind": "STATUTE",
+    "title_pl": "Rozporządzenie Parlamentu Europejskiego i Rady (UE) 2016/679 (RODO) o ochronie danych osobowych",
+    "designation": "Dz.Urz. UE L 119 z 4.5.2016",
+    "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+    "status": "DRAFT"
+  }
+]

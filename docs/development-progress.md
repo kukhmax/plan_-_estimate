@@ -54,7 +54,7 @@ not claim the stage is absent from production (later stages were deployed on top
 
 ### Current position
 
-- **Now (2026-10-11)**: Stage 16 is deployed to production and merged into `main` (`2a09212`); its full pass with filled data and the measurement of the biggest document are deferred by the owner to the end of the development. **Stage 17 started** on the branch `stage-17`: the plan 17A is written (`docs/STAGE_17_LEGAL_KNOWLEDGE_PLAN_RU.md`), waiting for the owner's answers. The older text below is the position log of Stage 15–16.
+- **Now (2026-10-11)**: Stage 16 is deployed to production and merged into `main` (`2a09212`); its full pass with filled data and the measurement of the biggest document are deferred by the owner to the end of the development. **Stage 17 started** on the branch `stage-17`: the plan 17A is answered (Q1–Q11), 17B / 17B.1 (files, checks, search, read-only API) and 17C (24 DRAFT skeletons of the provisions the contract cites, 17 links) are done locally; waiting for the owner's review of the skeletons and the "пуш". The older text below is the position log of Stage 15–16.
 - **Now (2026-10-09)**: Stage 15 — **COMPLETED / OWNER ACCEPTED** (15A–15H.2 deployed to production: backend / frontend `2b9543a`, DB `0038_issued_documents`); `stage-15` merged into `main` (`848d360`). Stage 16 — **IN PROGRESS**: the branch `stage-16` is cut from `main`; the plan v3 with the owner's decisions Q1–Q14 is in `docs/STAGE_16_CONTRACTS_PROTOCOLS_PLAN_RU.md`; 16B (client address, persons of an object, catalogues) 16C (the technological card) and 16D (the register of adjacent works and the production plan, both with a printable working version) 16E.1 (the contract and its questionnaire) 16E.2 (the gate, the frozen contract and its document with annexes) and 16E.3 (the clause catalogue = the owner's prototype contract) and 16E.4 (signing: SIGNED, the estimate becomes ACCEPTED) are done locally — 16E is complete; 16F (the protocol of handing over the premises: data and API, the document with a printable working version, the phone screen) is done locally too; 16G (the protocol of acceptance of concealed works: data, rules, document, issuing, phone screen) is done locally; 16H.1 (the acceptance protocol: data, derived result, rules, API) 16H.2 (its document, issuing and working version) and 16H.3 (the phone screen) are done locally — 16H is complete; 16I.1 (the protocol of information and decisions of the customer: data, rules, API, document) and 16I.2 (its phone screen) and 16I.3 (the notice and the protocol of downtime: data, rules, API, documents) and 16I.4 (their phone screen) are done locally — 16I is complete; 16J (the adversarial check of the whole stage, the ordering fix of acceptance remarks, the runbook `docs/STAGE_16_PRODUCTION_RUNBOOK_RU.md`) is done locally; next the owner's "пуш" and the deployment step by step on the owner's "да". The older text below is the historical position log of Stage 14.
 - **Previously completed**: 14C.2 — **CLOSED** (`c184c85`, pushed) — PhotoAttachment schema/domain foundation —
   **IMPLEMENTED / AUTOMATED VERIFICATION PASS / POSTGRESQL 16 SCRATCH VERIFICATION PASS / OWNER ACCEPTED** (2026-10-01; not deployed —
@@ -1149,6 +1149,29 @@ Owner approved ("делаем 15E, лимит 60 фото ок"). Details: `docs
 - **Found by the full backend run:** the static scan of 15B ("templates load no network resource") caught `xmlns="http://www.w3.org/2000/svg"` in the inline SVG — removed (not needed in HTML). Full backend run before that fix: 4645 passed, 64 skipped, 2 failed (the xmlns scan and the known root-sandbox `test_stage14d2c_preflight`); after the fix the 15B and 15E modules pass (63). `ruff` on the new files clean.
 - **Production:** none — no migration, no route; the code travels with 15F / 15H (the 60-photo render on the 1 OCPU server is measured at 15H).
 - **Next (only on owner approval):** 15F — issuing: journal of issued documents (numbering by date-time plus a running number per client and object), Telegram `sendDocument`, "Wyślij PDF" buttons, HTTP errors for the document exceptions.
+
+### Stage 17C — the first content: skeletons of the provisions the contract cites (2026-10-11, IMPLEMENTED LOCALLY — not deployed; no migration)
+Per Q1–Q2 the first batch is the provisions the Stage 16 contract template already cites. They are the program's skeletons, not approved content.
+- **Catalogue** (`backend/app/domain/knowledge/catalog/`, version 2):
+  - 3 sources: KC, consumer-rights act (UPK), GDPR (RODO) — all DRAFT, with ISAP / EUR-Lex links;
+  - 24 entries: KC art. 77², 355 § 2, 385³ pkt 17, 474, 481, 491, 556 i n., 557 § 1, 558 § 1, 627 i n., 634, 635, 636, 638, 639, 640, 644, 647 i n.; UPK art. 12, 27, 35, 38; RODO art. 6, 13.
+    - Every entry is DRAFT with the PL / RU title, the place in the act and tags.
+    - There is no summary yet: the owner and the lawyer write the key points (Q4).
+    - Every entry has an open `UNVERIFIED` note; 4 entries carry the lawyer's questions from the clause catalogue (art. 385³ and the downtime amount, art. 491 delay vs default, art. 558 after the 2023 changes, art. 647 qualification of the contract).
+  - 17 `CLAUSE` links: contract place → entries.
+  - Situations and the disclaimer: still empty / DRAFT.
+- **Code:** unchanged. The catalogue checks of 17B accept the files; a Polish letter in a tag was refused by them during writing, as intended.
+- **Tests:** new `test_stage17c_knowledge_content` (6):
+  - every clause whose text cites "art. N" is linked;
+  - the three sources each have a link;
+  - nothing is approved;
+  - a DRAFT without key points carries its open note;
+  - places and titles are present;
+  - sample links.
+  
+  The 17B repository test now only checks validity, because the content is covered here. The mutant "one link removed" fails the new test. ruff is clean. **Full run:** backend 5298 passed, 67 skipped, 1 known sandbox-root failure (`test_stage14d2c_preflight`); the frontend is unchanged.
+- **Plan:** section 6б of `docs/STAGE_17_LEGAL_KNOWLEDGE_PLAN_RU.md` holds the table of the skeletons and what the owner / lawyer has to do.
+- **Production:** not deployed. **Next:** the owner reviews the skeletons and sends the key points; situations after that; 17D (the screen) on the owner's word.
 
 ### Stage 17B.1 — the owner's corrections: an entry tells its key points and links its source; situations are edited through the files (2026-10-11, IMPLEMENTED LOCALLY — not deployed)
 - **Q4 corrected by the owner:** not "references only" — every entry gives **a short summary of the key points in own words and, at the end, the link to its source**; the text of a paid norm (PN-EN) or of an ITB instruction is still never copied. The check "a NORM / ITB entry has no summary" is removed; a new one: **an APPROVED entry needs `summary_pl` and its source needs `url`** (a DRAFT may still be incomplete).
