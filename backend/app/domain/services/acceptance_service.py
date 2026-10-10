@@ -194,9 +194,9 @@ class AcceptanceService:
                 quality_target=facts.quality_target, works=[AcceptanceWorkRead(name=w.name, status=w.status) for w in facts.works],
                 incomplete=len(facts.incomplete), assessed=bool(entry.get("assessed")),
                 remarks=[
-                    AcceptanceRemarkRead(id=rid, place=r["place"], description=r["description"], classification=r["classification"],
+                    AcceptanceRemarkRead(id=r["id"], place=r["place"], description=r["description"], classification=r["classification"],
                                          deadline=r.get("deadline"), photo_ids=list(r.get("photo_ids") or []))
-                    for rid, r in (entry.get("remarks") or {}).items()
+                    for r in A.ordered_remarks(entry)
                 ],
                 result=A.surface_result(facts, entry),
                 photo_options=[AcceptancePhotoRead(id=p.id, caption=p.caption, captured_at=p.captured_at) for p in sources.defect_photos.get(facts.id, [])],

@@ -103,6 +103,12 @@ def surface_result(facts: SurfaceFacts, entry: dict[str, Any] | None) -> str:
     return WITH_REMARKS if classes else ACCEPTED
 
 
+def ordered_remarks(entry: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The remarks of a surface in the order they were written. They are kept as a JSON object, whose keys PostgreSQL stores in its own
+    order, so every remark carries its `position`."""
+    return sorted(((entry or {}).get("remarks") or {}).values(), key=lambda r: (r.get("position", 0), r["id"]))
+
+
 def overall_result(results: list[str]) -> str | None:
     if not results:
         return None
@@ -298,7 +304,11 @@ def apply_changes(
                     if remark is None:
                         target["remarks"].pop(remark_id, None)
                     else:
-                        target["remarks"][remark_id] = _remark(remark_id, target["remarks"].get(remark_id), remark, defect_photos_of(surface))
+                        known = target["remarks"].get(remark_id)
+                        changed = _remark(remark_id, known, remark, defect_photos_of(surface))
+                        if known is None:  # a new remark goes to the end; PostgreSQL does not keep the order of the keys of a JSON object
+                            changed["position"] = 1 + max((r.get("position", 0) for r in target["remarks"].values()), default=0)
+                        target["remarks"][remark_id] = changed
     return state
 
 

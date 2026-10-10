@@ -94,7 +94,7 @@ def test_a_remark_needs_a_place_a_description_and_a_class_and_a_removable_one_it
     state = change(changes={"surfaces": {S1: {"assessed": True, "remarks": {RID: {**remark(), "photo_ids": [PHOTO, PHOTO]}}}}})
     saved = state["surfaces"][S1]["remarks"][RID]
     assert saved == {"place": "Narożnik przy oknie", "description": "Smuga po gładzi", "classification": "REMOVABLE", "deadline": "2026-10-25",
-                     "photo_ids": [PHOTO], "id": RID} and state["surfaces"][S1]["assessed"] is True
+                     "photo_ids": [PHOTO], "id": RID, "position": 1} and state["surfaces"][S1]["assessed"] is True
     significant = change(changes={"surfaces": {S1: {"remarks": {RID: remark(classification="SIGNIFICANT", deadline=None)}}}})
     assert "deadline" not in significant["surfaces"][S1]["remarks"][RID]  # a significant one is not repaired in a term: a new acceptance follows
     assert refused(changes={"surfaces": {S1: {"remarks": {RID: remark(deadline=None)}}}}) == ("deadline", A.BAD_REMARK)
@@ -110,6 +110,23 @@ def test_a_remark_needs_a_place_a_description_and_a_class_and_a_removable_one_it
     assert refused(changes={"surfaces": {S1: {"assessed": "yes"}}}) == ("assessed", "WRONG_TYPE")
     assert refused(changes={"surfaces": {S1: {"verdict": "ok"}}}) == ("surfaces", "WRONG_TYPE")
     assert refused(changes={"surfaces": [S1]}) == ("surfaces", "WRONG_TYPE")
+
+
+def test_the_remarks_keep_the_order_they_were_written_in_even_when_the_database_reorders_the_keys():
+    first, second, third = (str(uuid.uuid4()) for _ in range(3))
+    state = change(changes={"surfaces": {S1: {"remarks": {first: remark(place="A")}}}})
+    state = change(state, {"surfaces": {S1: {"remarks": {second: remark(place="B")}}}})
+    state = change(state, {"surfaces": {S1: {"remarks": {third: remark(place="C")}}}})
+    assert [r["place"] for r in A.ordered_remarks(state["surfaces"][S1])] == ["A", "B", "C"]
+    # PostgreSQL stores a JSON object with its own order of the keys (shorter first, then alphabetical): here the reverse of the writing
+    reordered = {rid: state["surfaces"][S1]["remarks"][rid] for rid in sorted((first, second, third), reverse=True)}
+    assert [r["place"] for r in A.ordered_remarks({"remarks": reordered})] == ["A", "B", "C"]
+    removed = change(state, {"surfaces": {S1: {"remarks": {second: None}}}})
+    later = change(removed, {"surfaces": {S1: {"remarks": {str(uuid.uuid4()): remark(place="D")}}}})
+    assert [r["place"] for r in A.ordered_remarks(later["surfaces"][S1])] == ["A", "C", "D"]  # a new one goes after the last, a removed one leaves no gap to fill
+    changed = change(state, {"surfaces": {S1: {"remarks": {second: {"description": "Inny opis"}}}}})
+    assert [r["place"] for r in A.ordered_remarks(changed["surfaces"][S1])] == ["A", "B", "C"]  # changing a remark keeps its place
+    assert A.ordered_remarks(None) == [] and A.ordered_remarks({}) == []
 
 
 def test_a_remark_is_changed_by_its_fields_and_removed_with_null_and_a_failed_change_changes_nothing():

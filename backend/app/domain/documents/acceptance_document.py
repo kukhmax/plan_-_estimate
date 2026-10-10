@@ -189,7 +189,7 @@ def build_acceptance_document(
     remarks: list[RemarkRow] = []
     for f in scope:
         photos = {p.id: p for p in sources.defect_photos.get(f.id, [])}
-        for remark in ((state["surfaces"].get(f.id) or {}).get("remarks") or {}).values():
+        for remark in A.ordered_remarks(state["surfaces"].get(f.id)):
             remarks.append(RemarkRow(
                 len(remarks) + 1, f"{f.room_name} — {f.name}", remark["place"], remark["description"], class_names[remark["classification"]],
                 _iso_day(remark.get("deadline")), ", ".join(pid[:8] for pid in remark.get("photo_ids") or [] if pid in photos) or None,
@@ -264,14 +264,14 @@ def snapshot_of(data: dict[str, Any], sources: AcceptanceSources, document: Acce
             "result": A.surface_result(f, entry),
             "remarks": [
                 {
-                    "id": rid, "place": r["place"], "description": r["description"], "classification": r["classification"],
+                    "id": r["id"], "place": r["place"], "description": r["description"], "classification": r["classification"],
                     "deadline": r.get("deadline"),
                     "photos": [
                         {"id": pid, "caption": photos[pid].caption, "added_at": photos[pid].created_at.isoformat()}
                         for pid in r.get("photo_ids") or [] if pid in photos
                     ],
                 }
-                for rid, r in (entry.get("remarks") or {}).items()
+                for r in A.ordered_remarks(entry)
             ],
         })
     return {
