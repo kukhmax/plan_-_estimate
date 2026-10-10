@@ -57,6 +57,8 @@ export interface TelegramWebApp {
   ready: () => void;
   expand: () => void;
   close: () => void;
+  /** Opens a link outside the Mini App (the browser of the phone). */
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
   onEvent?: (eventType: string, eventHandler: (payload?: unknown) => void) => void;
   offEvent?: (eventType: string, eventHandler: (payload?: unknown) => void) => void;
 }

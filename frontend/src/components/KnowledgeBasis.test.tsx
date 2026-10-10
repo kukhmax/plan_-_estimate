@@ -124,6 +124,25 @@ describe('KnowledgeBasis (Stage 17E)', () => {
     expect(within(list).queryByLabelText('knowledge-summary')).toBeNull();
   });
 
+  it('inside Telegram the source link leaves the Mini App through openLink; outside it stays an ordinary link', async () => {
+    const openLink = vi.fn();
+    window.Telegram = { WebApp: { openLink } } as never;
+    try {
+      renderBasis();
+      fireEvent.click(await screen.findByLabelText('basis-toggle'));
+      fireEvent.click(screen.getByLabelText('basis-entry-KC.634'));
+      const link = await screen.findByLabelText('knowledge-source-link');
+      const notPrevented = fireEvent.click(link);
+      expect(openLink).toHaveBeenCalledWith('https://example.org/kc');
+      expect(notPrevented).toBe(false); // the default action of the anchor was cancelled
+      delete (window as { Telegram?: unknown }).Telegram;
+      expect(fireEvent.click(link)).toBe(true);
+      expect(openLink).toHaveBeenCalledTimes(1);
+    } finally {
+      delete (window as { Telegram?: unknown }).Telegram;
+    }
+  });
+
   it('speaks Russian in the Russian interface and adds the explanation', async () => {
     localStorage.setItem('locale', 'ru');
     renderBasis();

@@ -48,6 +48,14 @@ export function SourceLink({ source }: { source: KnowledgeSource }) {
       href={source.url}
       target="_blank"
       rel="noopener noreferrer"
+      // inside Telegram the link leaves the Mini App through the Telegram call; elsewhere the anchor works as it is
+      onClick={(event) => {
+        const openLink = window.Telegram?.WebApp?.openLink;
+        if (openLink) {
+          event.preventDefault();
+          openLink(source.url as string);
+        }
+      }}
       aria-label="knowledge-source-link"
       className="flex items-center justify-center w-full min-h-11 px-4 text-sm font-semibold rounded-xl bg-blue-600 text-white"
     >

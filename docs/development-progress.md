@@ -1150,6 +1150,15 @@ Owner approved ("делаем 15E, лимит 60 фото ок"). Details: `docs
 - **Production:** none — no migration, no route; the code travels with 15F / 15H (the 60-photo render on the 1 OCPU server is measured at 15H).
 - **Next (only on owner approval):** 15F — issuing: journal of issued documents (numbering by date-time plus a running number per client and object), Telegram `sendDocument`, "Wyślij PDF" buttons, HTTP errors for the document exceptions.
 
+### Stage 17F — the check and the runbook (2026-10-11, IMPLEMENTED LOCALLY — deployment by the owner step by step)
+The owner decided: MVP without a lawyer, the main thing is that everything works ("делаем mvp без юриста"); the drafts go to production as they are, marked, for the owner's eyes only.
+- **Adversarial check:**
+  - `tests/test_stage17f_knowledge_guards.py` (3): only `main.py`, the read-only API and its envelopes import the knowledge base — no document, contract, protocol or service module reads it, so **a draft cannot reach a document for a client** (the mutant "a document module imports the catalogue" is killed); the 7 routes of the API are `GET` only and behind the owner's login (checked on the OpenAPI schema); the real files served over HTTP without monkeypatching (24 entries, 3 sources, all DRAFT, search without marks `rekoj` finds the rękojmia entries, a card with its key points and an `https` source, 51 links each with entries).
+  - Telegram: the source link goes out of the Mini App through `Telegram.WebApp.openLink` when it exists (inside Telegram a plain `target="_blank"` link is not reliable); outside Telegram it stays an ordinary link (test, mutant killed).
+  - The image copies the catalogue (`COPY . .`, `.dockerignore` does not exclude `*.json`); the application refuses to start on a wrong catalogue (by design, tested), so A3 prints the counters of the catalogue and the runbook has the rollback.
+- **Runbook:** `docs/STAGE_17_PRODUCTION_RUNBOOK_RU.md` (A0 read-only, A1 the local branch `stage-17` on the VM, A2 build with tags `pre-17`, A3 backend, A4 frontend, A5 menu button, A6 the phone check list; no migration).
+- **Production:** not yet deployed — each step waits for the owner's "да".
+
 ### Stage 17E — contextual "Podstawa / Основание" links (2026-10-11, IMPLEMENTED LOCALLY — not deployed; no migration)
 - **Backend:** `GET /api/knowledge/links/index` — every link of the application to the knowledge base with the rows of its entries, in one answer (the existing `links?target_kind&target` stays). Test added (token needed, order, titles).
 - **Links in the catalogue** (`links.json`, 17 -> 51; DRAFT like the entries, all checked at startup against the real risks, phrases and document kinds):
