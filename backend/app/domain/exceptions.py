@@ -143,6 +143,38 @@ class ConcealedGateError(Exception):
         self.blockers = blockers
 
 
+class AcceptanceNotFoundError(Exception):
+    """Raised when an acceptance protocol is not found within an owned project (Stage 16H)."""
+
+
+class AcceptanceNotEditableError(Exception):
+    """Raised when an acceptance protocol that is no longer a draft is changed (Stage 16H)."""
+
+    code = "ACCEPTANCE_NOT_EDITABLE"
+
+
+class AcceptanceInvalidError(Exception):
+    """Raised when an entry of the acceptance protocol does not fit (Stage 16H): `key` is the field, `reason` a stable code the screen
+    has a sentence for."""
+
+    code = "ACCEPTANCE_INVALID"
+
+    def __init__(self, key: str, reason: str) -> None:
+        super().__init__(f"acceptance {key!r}: {reason}")
+        self.key = key
+        self.reason = reason
+
+
+class AcceptanceGateError(Exception):
+    """Raised when an acceptance protocol cannot be issued yet (Stage 16H): `blockers` is what to fix."""
+
+    code = "ACCEPTANCE_GATE_BLOCKED"
+
+    def __init__(self, blockers: list) -> None:
+        super().__init__("the protocol cannot be issued yet: " + ", ".join(b.code for b in blockers))
+        self.blockers = blockers
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 

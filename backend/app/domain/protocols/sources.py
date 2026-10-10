@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import ProjectNotFoundError
+from app.domain.protocols.acceptance import SurfaceFacts, WorkLine
 from app.domain.services.executor_profile_service import ExecutorProfileService
 from app.models.client import Client
 from app.models.contract import Contract, ContractStatus
@@ -124,3 +125,84 @@ async def load_concealed_sources(db: AsyncSession, owner_id: uuid.UUID, project_
             PhotoInfo(str(attachment.id), attachment.caption, captured_at, attachment.created_at)
         )
     return ConcealedSources(base, surfaces, photos)
+
+
+@dataclass(slots=True)
+class AcceptanceSources:
+    base: HandoverSources
+    facts: dict[str, SurfaceFacts]  # the surfaces with a plan, by id, in the order of the object
+    rooms: tuple[tuple[str, str, int], ...]  # (id, name, number of surfaces with planned works) of the rooms that have any
+    defect_photos: dict[str, list[PhotoInfo]]  # the photos of the category DEFECT of each surface, oldest first
+
+
+async def load_acceptance_sources(db: AsyncSession, owner_id: uuid.UUID, project_id: uuid.UUID) -> AcceptanceSources:
+    """The surfaces of the object with their standard, their planned works and the execution state of each work (Stage 13), plus the
+    photos of defects. Raises ProjectNotFoundError for a project that is not this owner's."""
+    from app.domain.documents.tech_card_document import _surface_order
+    from app.models.price_item import PriceItem
+    from app.models.work_execution import SurfaceWorkExecution
+    from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
+    from app.domain.documents.catalog import localize_description
+
+    base = await load_handover_sources(db, owner_id, project_id)
+    room_rows = list(
+        (await db.execute(select(Room).where(Room.project_id == project_id, Room.is_archived.is_(False)).order_by(Room.created_at, Room.id))).scalars()
+    )
+    surfaces = (
+        list((await db.execute(select(Surface).where(Surface.room_id.in_([r.id for r in room_rows]), Surface.is_archived.is_(False)))).scalars())
+        if room_rows else []
+    )
+    surfaces.sort(key=_surface_order)
+    plans = (
+        {p.surface_id: p for p in (await db.execute(select(SurfaceWorkPlan).where(SurfaceWorkPlan.surface_id.in_([s.id for s in surfaces])))).scalars()}
+        if surfaces else {}
+    )
+    works = (
+        list((await db.execute(
+            select(SurfacePlannedWork).where(SurfacePlannedWork.work_plan_id.in_([p.id for p in plans.values()]))
+            .order_by(SurfacePlannedWork.work_plan_id, SurfacePlannedWork.position)
+        )).scalars())
+        if plans else []
+    )
+    items = (
+        {i.id: i for i in (await db.execute(select(PriceItem).where(PriceItem.id.in_({w.price_item_id for w in works})))).scalars()}
+        if works else {}
+    )
+    executions = (
+        {e.occurrence_key: e for e in (await db.execute(select(SurfaceWorkExecution).where(SurfaceWorkExecution.occurrence_key.in_([w.occurrence_key for w in works])))).scalars()}
+        if works else {}
+    )
+    by_plan: dict[uuid.UUID, list[WorkLine]] = {}
+    for work in works:
+        item = items[work.price_item_id]
+        execution = executions.get(work.occurrence_key)
+        by_plan.setdefault(work.work_plan_id, []).append(
+            WorkLine(localize_description(item.display_name or item.name_key or item.code), execution.status.value if execution else "NOT_STARTED")
+        )
+    room_names = {r.id: r.name for r in room_rows}
+    facts: dict[str, SurfaceFacts] = {}
+    for surface in surfaces:
+        plan = plans.get(surface.id)
+        facts[str(surface.id)] = SurfaceFacts(
+            id=str(surface.id), name=surface.name, room_id=str(surface.room_id), room_name=room_names[surface.room_id],
+            surface_type=surface.surface_type.value, quality_target=plan.quality_target.value if plan is not None and plan.quality_target else None,
+            works=tuple(by_plan.get(plan.id, ())) if plan is not None else (),
+        )
+    counts: dict[str, int] = {}
+    for f in facts.values():
+        if f.works:
+            counts[f.room_id] = counts.get(f.room_id, 0) + 1
+    rooms = tuple((str(r.id), r.name, counts[str(r.id)]) for r in room_rows if str(r.id) in counts)
+    photos: dict[str, list[PhotoInfo]] = {}
+    rows = await db.execute(
+        select(PhotoAttachment, PhotoAsset.captured_at)
+        .join(PhotoAsset, PhotoAsset.id == PhotoAttachment.asset_id)
+        .where(
+            PhotoAttachment.project_id == project_id, PhotoAttachment.context == PhotoAttachmentContext.SURFACE,
+            PhotoAttachment.category == PhotoCategory.DEFECT, PhotoAttachment.archived_at.is_(None),
+        )
+        .order_by(PhotoAttachment.created_at, PhotoAttachment.id)
+    )
+    for attachment, captured_at in rows.all():
+        photos.setdefault(str(attachment.surface_id), []).append(PhotoInfo(str(attachment.id), attachment.caption, captured_at, attachment.created_at))
+    return AcceptanceSources(base, facts, rooms, photos)

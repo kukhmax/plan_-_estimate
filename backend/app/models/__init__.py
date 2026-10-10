@@ -29,6 +29,7 @@ from app.models.opening_reveal_planned_work import (
     OpeningRevealPlannedWorkCoefficientAssignment,
 )
 from app.models.executor_profile import ExecutorProfile
+from app.models.acceptance_protocol import AcceptanceProtocol, AcceptanceStatus
 from app.models.adjacent_work import AdjacentWork, AdjacentWorkOrder
 from app.models.concealed_works_protocol import ConcealedStatus, ConcealedWorksProtocol
 from app.models.contract import Contract, ContractStatus
@@ -77,6 +78,8 @@ from app.models.work_recommendation import (
 )
 
 __all__ = [
+    "AcceptanceProtocol",
+    "AcceptanceStatus",
     "AdjacentWork",
     "AdjacentWorkOrder",
     "AnswerType",
