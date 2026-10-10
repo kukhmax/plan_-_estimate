@@ -1,0 +1,40 @@
+{
+ "version": 1,
+ "items": [
+  {
+   "key": "priming",
+   "label_key": "contractCatalog.work_kinds.priming",
+   "text_pl": "Gruntowanie podłoża"
+  },
+  {
+   "key": "glass_fleece",
+   "label_key": "contractCatalog.work_kinds.glass_fleece",
+   "text_pl": "Włóknina szklana (welon przeciwspękaniowy)"
+  },
+  {
+   "key": "reinforcing_mesh",
+   "label_key": "contractCatalog.work_kinds.reinforcing_mesh",
+   "text_pl": "Siatka zbrojąca"
+  },
+  {
+   "key": "crack_repair",
+   "label_key": "contractCatalog.work_kinds.crack_repair",
+   "text_pl": "Naprawa rys i pęknięć"
+  },
+  {
+   "key": "board_joints",
+   "label_key": "contractCatalog.work_kinds.board_joints",
+   "text_pl": "Spoinowanie płyt g-k"
+  },
+  {
+   "key": "waterproofing",
+   "label_key": "contractCatalog.work_kinds.waterproofing",
+   "text_pl": "Hydroizolacja (strefy mokre)"
+  },
+  {
+   "key": "other",
+   "label_key": "contractCatalog.work_kinds.other",
+   "text_pl": "Inna robota zanikająca (opis w uwagach)"
+  }
+ ]
+}

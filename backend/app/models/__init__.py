@@ -30,6 +30,7 @@ from app.models.opening_reveal_planned_work import (
 )
 from app.models.executor_profile import ExecutorProfile
 from app.models.adjacent_work import AdjacentWork, AdjacentWorkOrder
+from app.models.concealed_works_protocol import ConcealedStatus, ConcealedWorksProtocol
 from app.models.contract import Contract, ContractStatus
 from app.models.handover_protocol import HandoverProtocol, HandoverStatus
 from app.models.project_representative import ProjectRepresentative, RepresentativeSide
@@ -91,6 +92,8 @@ __all__ = [
     "ChecklistTemplate",
     "Client",
     "Contract",
+    "ConcealedStatus",
+    "ConcealedWorksProtocol",
     "ContractStatus",
     "HandoverProtocol",
     "HandoverStatus",

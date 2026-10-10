@@ -2,6 +2,7 @@
 and the contract whose requirements apply. Loaded once so the gate and the document see the same data."""
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,8 +13,11 @@ from app.models.client import Client
 from app.models.contract import Contract, ContractStatus
 from app.models.executor_profile import ExecutorProfile
 from app.models.issued_document import IssuedDocument, IssuedDocumentKind
+from app.models.photo_asset import PhotoAsset
+from app.models.photo_attachment import PhotoAttachment, PhotoAttachmentContext, PhotoCategory
 from app.models.project import Project
 from app.models.room import Room
+from app.models.surface import Surface
 
 
 @dataclass(slots=True)
@@ -68,3 +72,55 @@ async def load_handover_sources(db: AsyncSession, owner_id: uuid.UUID, project_i
             )
         ).scalar_one_or_none()
     return HandoverSources(project, client, executor, rooms, contract, number)
+
+
+@dataclass(frozen=True, slots=True)
+class SurfaceInfo:
+    id: str
+    name: str
+    room_id: str
+    room_name: str
+    archived: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PhotoInfo:
+    id: str
+    caption: str | None
+    captured_at: datetime | None
+    created_at: datetime
+
+
+@dataclass(slots=True)
+class ConcealedSources:
+    base: HandoverSources
+    surfaces: dict[str, SurfaceInfo]  # every surface of the object, by id
+    photos: dict[str, list[PhotoInfo]]  # the evidence photos (category HIDDEN_WORK, active) of each surface, oldest first
+
+
+async def load_concealed_sources(db: AsyncSession, owner_id: uuid.UUID, project_id: uuid.UUID) -> ConcealedSources:
+    """Raises ProjectNotFoundError for a project that is not this owner's."""
+    base = await load_handover_sources(db, owner_id, project_id)
+    surfaces = {
+        str(surface.id): SurfaceInfo(str(surface.id), surface.name, str(room.id), room.name, bool(surface.is_archived or room.is_archived))
+        for surface, room in (
+            await db.execute(select(Surface, Room).join(Room, Room.id == Surface.room_id).where(Room.project_id == project_id).order_by(Room.created_at, Surface.position, Surface.id))
+        ).all()
+    }
+    photos: dict[str, list[PhotoInfo]] = {}
+    rows = await db.execute(
+        select(PhotoAttachment, PhotoAsset.captured_at)
+        .join(PhotoAsset, PhotoAsset.id == PhotoAttachment.asset_id)
+        .where(
+            PhotoAttachment.project_id == project_id,
+            PhotoAttachment.context == PhotoAttachmentContext.SURFACE,
+            PhotoAttachment.category == PhotoCategory.HIDDEN_WORK,
+            PhotoAttachment.archived_at.is_(None),
+        )
+        .order_by(PhotoAttachment.created_at, PhotoAttachment.id)
+    )
+    for attachment, captured_at in rows.all():
+        photos.setdefault(str(attachment.surface_id), []).append(
+            PhotoInfo(str(attachment.id), attachment.caption, captured_at, attachment.created_at)
+        )
+    return ConcealedSources(base, surfaces, photos)

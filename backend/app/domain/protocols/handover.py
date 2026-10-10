@@ -175,6 +175,9 @@ def _attendees(value: Any, people: dict[str, tuple[str, str | None]]) -> list[di
     return result
 
 
+normalize_attendees = _attendees  # the list of people present is the same in every protocol
+
+
 def _room(room_id: str, room: dict[str, Any], change: Any, requirements: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(change, dict) or not set(change) <= {"requirements", "damages", "decision"}:
         raise HandoverInvalidError("rooms", WRONG_TYPE)

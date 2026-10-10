@@ -422,6 +422,15 @@
       "months": "mies.",
       "working_days": "dni roboczych",
       "PLN": "zł"
+    },
+    "work_kinds": {
+      "priming": "Gruntowanie podłoża",
+      "glass_fleece": "Włóknina szklana (welon przeciwspękaniowy)",
+      "reinforcing_mesh": "Siatka zbrojąca",
+      "crack_repair": "Naprawa rys i pęknięć",
+      "board_joints": "Spoinowanie płyt g-k",
+      "waterproofing": "Hydroizolacja (strefy mokre)",
+      "other": "Inna robota zanikająca (opis w uwagach)"
     }
   },
   "projects": {
@@ -2123,7 +2132,8 @@
       "TECH_CARD_INCOMPLETE": "Na części powierzchni z pracami brakuje danych do karty (lista poniżej). Wersję roboczą z pustymi polami możesz wydrukować już teraz.",
       "PRODUCTION_PLAN_EMPTY": "Żadna powierzchnia nie ma jeszcze zaplanowanych prac. Dodaj prace do planu albo wydrukuj wersję roboczą.",
       "CONTRACT_NOT_ISSUED": "Umowa tego dokumentu nie jest zamrożona. Zgłoś to do obsługi aplikacji.",
-      "HANDOVER_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji."
+      "HANDOVER_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji.",
+      "CONCEALED_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji."
     },
     "recommended_works": "Rekomendowane prace dodatkowe: {count}",
     "unpriced_title": "Raport nie zostanie wysłany: te rekomendowane prace nie mają ceny w kosztorysie.",
@@ -2154,7 +2164,8 @@
     "production_plan_send": "Wyślij plan (PDF)",
     "production_plan_preview_ok": "Wersja robocza wysłana do czatu z botem — wydrukuj ją i uzupełnij odręcznie.",
     "kind_contract": "Umowa",
-    "kind_handover": "Protokół przekazania pomieszczeń"
+    "kind_handover": "Protokół przekazania pomieszczeń",
+    "kind_concealed": "Protokół odbioru robót zanikających"
   },
   "handover": {
     "title": "Protokół przekazania pomieszczeń",

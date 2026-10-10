@@ -26,6 +26,7 @@ from app.domain.services.price_coefficient_service import PriceCoefficientServic
 from app.domain.services.project_service import ProjectService
 from app.domain.services.risk_service import RiskService
 from app.domain.services.adjacent_work_service import AdjacentWorkService
+from app.domain.services.concealed_service import ConcealedService
 from app.domain.services.contract_service import ContractService
 from app.domain.services.handover_service import HandoverService
 from app.domain.services.project_representative_service import ProjectRepresentativeService
@@ -120,6 +121,12 @@ async def get_handover_service(
     db: AsyncSession = Depends(get_db),
 ) -> HandoverService:
     return HandoverService(db)
+
+
+async def get_concealed_service(
+    db: AsyncSession = Depends(get_db),
+) -> ConcealedService:
+    return ConcealedService(db)
 
 
 async def get_surface_service(

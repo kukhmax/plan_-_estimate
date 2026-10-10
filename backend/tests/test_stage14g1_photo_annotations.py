@@ -82,7 +82,7 @@ def test_revision_chain_and_single_head():
     assert module.down_revision == "0034_finding_lineage"
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0048_handover_issue"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0049_concealed_works"]
 
 
 def test_upgrade_creates_the_model_table_and_downgrade_removes_only_it():

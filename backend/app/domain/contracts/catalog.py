@@ -102,6 +102,14 @@ class Tolerance(_Model):
         return self
 
 
+class WorkKind(_Model):
+    """A kind of work that is covered by the next layers (roboty zanikające): the protocol of concealed works names one of these."""
+
+    key: str = Field(pattern=KEY)
+    label_key: str
+    text_pl: str = Field(min_length=3)
+
+
 class Question(_Model):
     key: str = Field(pattern=KEY)
     group: QuestionGroup
@@ -152,6 +160,10 @@ class ToleranceCatalog(_Catalog):
     items: list[Tolerance]
 
 
+class WorkKindCatalog(_Catalog):
+    items: list[WorkKind]
+
+
 class QuestionnaireCatalog(_Catalog):
     items: list[Question]
 
@@ -163,6 +175,7 @@ class ContractCatalog(_Model):
     defects: DefectCatalog
     tolerances: ToleranceCatalog
     questionnaire: QuestionnaireCatalog
+    work_kinds: WorkKindCatalog
 
 
 SECTIONS: dict[str, tuple[str, type[_Catalog]]] = {
@@ -172,11 +185,12 @@ SECTIONS: dict[str, tuple[str, type[_Catalog]]] = {
     "defects": ("defect_classes.json", DefectCatalog),
     "tolerances": ("tolerances.json", ToleranceCatalog),
     "questionnaire": ("questionnaire.json", QuestionnaireCatalog),
+    "work_kinds": ("concealed_work_kinds.json", WorkKindCatalog),
 }
 # the section of the interface dictionary where the label of each catalogue lives
 LABEL_SECTION = {
     "requirements": "requirements", "instruments": "instruments", "evaluation": "evaluation", "defects": "defects",
-    "tolerances": "tolerances", "questionnaire": "questions",
+    "tolerances": "tolerances", "questionnaire": "questions", "work_kinds": "work_kinds",
 }
 
 

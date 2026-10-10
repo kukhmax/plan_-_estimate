@@ -42,7 +42,7 @@ def locale(lang: str) -> dict:
 def test_every_catalogue_loads_and_has_the_expected_size():
     c = load_contract_catalog()
     assert {n: len(getattr(c, n).items) for n in SECTIONS} == {
-        "requirements": 14, "instruments": 8, "evaluation": 8, "defects": 2, "tolerances": 0, "questionnaire": 31}
+        "requirements": 14, "instruments": 8, "evaluation": 8, "defects": 2, "tolerances": 0, "questionnaire": 31, "work_kinds": 7}
     assert {n: getattr(c, n).version for n in SECTIONS} == {**{n: 1 for n in SECTIONS}, "questionnaire": 2}  # 16E.3 extended the questionnaire
 
 
@@ -196,6 +196,7 @@ def test_every_label_and_hint_has_an_interface_text_in_both_languages(lang):
         assert tree["lighting"][item.lighting].strip()
     for item in c.defects.items:
         assert tree["outcomes"][item.outcome].strip()
+    assert {i.key for i in c.work_kinds.items} == set(tree["work_kinds"])  # the kinds of concealed work have their names, and no more
     for item in c.questionnaire.items:
         assert tree["groups"]["questions"][item.group].strip()
         for option in item.options or []:

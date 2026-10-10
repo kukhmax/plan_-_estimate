@@ -64,7 +64,6 @@ class SkeletonDocument:
 def document_title(kind: DocumentKind) -> str:
     labels = Labels()
     titles = {
-        DocumentKind.CONCEALED_WORKS_PROTOCOL: labels("skeleton.title.concealed"),
         DocumentKind.FINAL_PROTOCOL: labels("skeleton.title.final"),
     }
     try:

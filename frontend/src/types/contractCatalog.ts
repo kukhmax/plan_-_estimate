@@ -96,6 +96,12 @@ interface Catalog<T> {
   items: T[];
 }
 
+export interface WorkKind {
+  key: string;
+  label_key: string;
+  text_pl: string;
+}
+
 export interface ContractCatalog {
   requirements: Catalog<PremisesRequirement>;
   instruments: Catalog<AssessmentInstrument>;
@@ -103,4 +109,6 @@ export interface ContractCatalog {
   defects: Catalog<DefectClass>;
   tolerances: Catalog<Tolerance>;
   questionnaire: Catalog<ContractQuestion>;
+  /** The kinds of work that are covered by the next layers (the protocol of concealed works, Stage 16G). */
+  work_kinds: Catalog<WorkKind>;
 }

@@ -1,0 +1,40 @@
+{% extends "_layout.html.j2" %}
+{% macro field(value) %}{% if value %}{{ value }}{% else %}<span class="write-line"></span>{% endif %}{% endmacro %}
+{% macro boxes(options) %}{% for o in options %}<p class="alternative"><span class="box">{% if o.checked %}☒{% else %}☐{% endif %}&nbsp;{{ o.label }}</span></p>{% endfor %}{% endmacro %}
+{% block body %}
+<div class="handover concealed{% if doc.working %} working{% endif %}">
+{% if doc.working %}<p class="notice">{{ t('concealed.working_note') }}</p>{% endif %}
+<table class="facts">
+  {% for row in doc.facts %}<tr><td class="label">{{ row.label }}</td><td>{{ field(row.value) }}</td></tr>{% endfor %}
+</table>
+<h2>{{ t('concealed.attendees') }}</h2>
+{% if doc.absent_text %}
+<p class="clause">{{ doc.absent_text }}</p>
+{% if doc.attendees %}
+<table class="works">
+  <thead><tr><th>{{ t('concealed.attendees.name') }}</th><th>{{ t('concealed.attendees.role') }}</th></tr></thead>
+  <tbody>{% for a in doc.attendees %}<tr><td>{{ a.name }}</td><td>{{ a.role or '' }}</td></tr>{% endfor %}</tbody>
+</table>
+{% endif %}
+{% elif doc.attendees %}
+<table class="works">
+  <thead><tr><th>{{ t('concealed.attendees.name') }}</th><th>{{ t('concealed.attendees.role') }}</th></tr></thead>
+  <tbody>{% for a in doc.attendees %}<tr><td>{{ a.name }}</td><td>{{ a.role or '' }}</td></tr>{% endfor %}</tbody>
+</table>
+{% else %}
+<p class="muted">{{ t('concealed.attendees.none') }}</p>
+{% for _ in range(3) %}<table class="facts"><tr><td class="label">{{ t('concealed.attendees.name') }}</td><td><span class="write-line"></span></td></tr></table>{% endfor %}
+<p class="clause">{{ t('concealed.absent_hint') }}</p>
+{% endif %}
+<h2>{{ t('concealed.photos') }}</h2>
+<table class="works photos">
+  <thead><tr><th>{{ t('concealed.photos.no') }}</th><th>{{ t('concealed.photos.taken') }}</th><th>{{ t('concealed.photos.caption') }}</th><th>{{ t('concealed.photos.ref') }}</th></tr></thead>
+  <tbody>{% for p in doc.photos %}<tr><td>{{ p.number }}</td><td>{{ p.taken or '' }}</td><td>{{ p.caption or '' }}</td><td>{{ p.ref or '' }}</td></tr>{% endfor %}</tbody>
+</table>
+<h2>{{ t('concealed.result') }}</h2>
+{{ boxes(doc.results) }}
+<p class="clause"><strong>{{ t('concealed.remarks') }}:</strong> {{ field(doc.remarks) }}</p>
+<h2>{{ t('concealed.consent') }}</h2>
+{% if doc.consent_note %}<p class="clause">{{ doc.consent_note }}</p>{% else %}{{ boxes(doc.consents) }}{% endif %}
+</div>
+{% endblock %}

@@ -111,6 +111,38 @@ class HandoverGateError(Exception):
         self.blockers = blockers
 
 
+class ConcealedNotFoundError(Exception):
+    """Raised when a protocol of concealed works is not found within an owned project (Stage 16G)."""
+
+
+class ConcealedNotEditableError(Exception):
+    """Raised when a protocol of concealed works that is no longer a draft is changed (Stage 16G)."""
+
+    code = "CONCEALED_NOT_EDITABLE"
+
+
+class ConcealedInvalidError(Exception):
+    """Raised when an entry of the protocol of concealed works does not fit (Stage 16G): `key` is the field, `reason` a stable code
+    the screen has a sentence for."""
+
+    code = "CONCEALED_INVALID"
+
+    def __init__(self, key: str, reason: str) -> None:
+        super().__init__(f"concealed works {key!r}: {reason}")
+        self.key = key
+        self.reason = reason
+
+
+class ConcealedGateError(Exception):
+    """Raised when a protocol of concealed works cannot be issued yet (Stage 16G): `blockers` is what to fix."""
+
+    code = "CONCEALED_GATE_BLOCKED"
+
+    def __init__(self, blockers: list) -> None:
+        super().__init__("the protocol cannot be issued yet: " + ", ".join(b.code for b in blockers))
+        self.blockers = blockers
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 
