@@ -14,6 +14,8 @@ from app.api.v1.endpoints.inspections import router as inspections_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.openings import router as openings_router
 from app.api.v1.endpoints.documents import router as documents_router
+from app.api.v1.endpoints.knowledge import router as knowledge_router
+from app.domain.knowledge.catalog import load_knowledge_catalog
 from app.api.v1.endpoints.executor_profile import router as executor_profile_router
 from app.api.v1.endpoints.photos import router as photos_router
 from app.api.v1.endpoints.price_coefficients import router as price_coefficients_router
@@ -45,6 +47,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Stage 14C.4: remove photo temp workspaces abandoned by a crash. Never
     # blocks startup (failures are logged inside the sweep).
     sweep_stale_photo_temp(settings.PHOTO_TEMP_DIR, settings.PHOTO_TEMP_STALE_AFTER_SECONDS)
+    # Stage 17B: a wrong file of the knowledge base stops the start instead of serving guessed content.
+    load_knowledge_catalog()
     yield
 
 
@@ -95,3 +99,4 @@ app.include_router(workflow_templates_router, prefix="/api", tags=["workflow-tem
 app.include_router(photos_router, prefix="/api", tags=["photos"])
 app.include_router(executor_profile_router, prefix="/api", tags=["executor-profile"])
 app.include_router(documents_router, prefix="/api", tags=["documents"])
+app.include_router(knowledge_router, prefix="/api", tags=["knowledge"])
