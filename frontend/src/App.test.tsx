@@ -435,6 +435,9 @@ describe('App authentication component', () => {
 
     await chooseSection('show-pricebook');
     expect(await screen.findByRole('region', { name: 'price-book-section' })).toBeInTheDocument();
+    // the price opens as a hub of three tiles; the positions are loaded when their tile is opened
+    expect(priceItemsApi.fetchPriceItems).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('pricebook-maintab-items'));
 
     // The section loads via the mocked price items API and stays local.
     await waitFor(() => {

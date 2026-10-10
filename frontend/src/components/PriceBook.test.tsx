@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as coefficientsApi from '../api/coefficients';
 import * as priceItemsApi from '../api/priceItems';
@@ -98,12 +98,19 @@ const archived: PriceItem = {
   updated_at: '2026-09-13T10:00:00Z',
 };
 
-function renderBook() {
+function renderHub() {
   return render(
     <I18nProvider>
       <PriceBook />
     </I18nProvider>,
   );
+}
+
+// The price opens as a hub of three tiles (16K.6): most tests are about the positions, so they go through that tile.
+function renderBook() {
+  const view = renderHub();
+  fireEvent.click(screen.getByLabelText('pricebook-maintab-items'));
+  return view;
 }
 
 describe('PriceBook — list and cards', () => {
@@ -113,17 +120,57 @@ describe('PriceBook — list and cards', () => {
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
   });
 
-  it('keeps the price screen readable on a phone and in the dark theme (Stage 16K.4): theme title, 44 px tabs, search and filter', async () => {
-    renderBook();
+  it('keeps the price screen readable on a phone and in the dark theme (Stage 16K.4, 16K.6): theme title, 44 px tiles and controls', async () => {
+    renderHub();
     const title = await screen.findByRole('heading', { name: 'Cennik' });
     expect(title.className).toContain('text-[var(--tg-theme-text-color)]');
     expect(title.className).not.toContain('text-slate-900');
-    for (const name of [
-      'pricebook-maintab-items', 'pricebook-maintab-coefficients', 'pricebook-maintab-processes',
-      'pricebook-tab-active', 'pricebook-tab-archived', 'pricebook-search', 'pricebook-category-filter', 'add-price-item',
-    ]) {
+    for (const name of ['pricebook-maintab-items', 'pricebook-maintab-coefficients', 'pricebook-maintab-processes']) {
+      expect(screen.getByLabelText(name).className).toContain('min-h-14');
+    }
+    fireEvent.click(screen.getByLabelText('pricebook-maintab-items'));
+    for (const name of ['back-to-pricebook', 'pricebook-tab-active', 'pricebook-tab-archived', 'pricebook-search', 'pricebook-category-filter', 'add-price-item']) {
       expect(screen.getByLabelText(name).className).toContain('min-h-11');
     }
+  });
+
+  it('opens as a hub of three tiles: positions, coefficients, processes — and loads nothing until one is opened (16K.6)', async () => {
+    renderHub();
+    const hub = await screen.findByLabelText('pricebook-hub');
+    expect(Array.from(hub.children).map((tile) => tile.textContent?.replace('›', '').trim())).toEqual(['Pozycje cennika', 'Współczynniki', 'Procesy']);
+    expect(screen.queryByLabelText('pricebook-tabs')).toBeNull();
+    expect(screen.queryByLabelText('add-price-item')).toBeNull();
+    expect(priceItemsApi.fetchPriceItems).not.toHaveBeenCalled();
+    expect(coefficientsApi.fetchCoefficientGroups).not.toHaveBeenCalled();
+  });
+
+  it('a tile opens its screen with the way back: "Cennik / Pozycje cennika", the count, and the hub again (16K.6)', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [seedPrep], total: 7 });
+    renderHub();
+    fireEvent.click(await screen.findByLabelText('pricebook-maintab-items'));
+    const nav = await screen.findByLabelText('pricebook-navigation');
+    expect(nav.textContent).toContain('Cennik');
+    expect(nav.textContent).toContain('Pozycje cennika');
+    await waitFor(() => expect(nav.textContent).toContain('7'));
+    expect(screen.queryByLabelText('pricebook-hub')).toBeNull();
+    fireEvent.click(screen.getByLabelText('back-to-pricebook'));
+    expect(screen.getByLabelText('pricebook-hub')).toBeInTheDocument();
+  });
+
+  it('the Telegram BackButton leads from a screen of the price back to the hub, and the menu returns to the hub too (16K.6)', async () => {
+    let handler: (() => void) | undefined;
+    (window as unknown as { Telegram: unknown }).Telegram = {
+      WebApp: { BackButton: { show: vi.fn(), hide: vi.fn(), onClick: vi.fn((cb: () => void) => { handler = cb; }), offClick: vi.fn() } },
+    };
+    const view = renderHub();
+    fireEvent.click(await screen.findByLabelText('pricebook-maintab-processes'));
+    expect(handler).toBeDefined();
+    act(() => handler?.());
+    expect(screen.getByLabelText('pricebook-hub')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('pricebook-maintab-items'));
+    view.rerender(<I18nProvider><PriceBook resetSignal={1} /></I18nProvider>);
+    expect(screen.getByLabelText('pricebook-hub')).toBeInTheDocument();
+    delete (window as unknown as { Telegram?: unknown }).Telegram;
   });
 
   it('renders the initial active catalog with localized seed names', async () => {
@@ -1098,9 +1145,9 @@ describe('PriceBook — coefficient tab (Stage 12F)', () => {
   });
 
   it('switches between price items and the coefficient catalog', async () => {
-    renderBook();
+    renderHub();
     const coefficientsTab = screen.getByLabelText('pricebook-maintab-coefficients');
-    expect(coefficientsTab.className).toContain('min-h-11');
+    expect(coefficientsTab.className).toContain('min-h-14');
     expect(coefficientsApi.fetchCoefficientGroups).not.toHaveBeenCalled();
 
     fireEvent.click(coefficientsTab);
@@ -1111,6 +1158,7 @@ describe('PriceBook — coefficient tab (Stage 12F)', () => {
     );
     expect(screen.queryByLabelText('pricebook-tabs')).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByLabelText('back-to-pricebook'));
     fireEvent.click(screen.getByLabelText('pricebook-maintab-items'));
     expect(screen.getByLabelText('pricebook-tabs')).toBeInTheDocument();
   });

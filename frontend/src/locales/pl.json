@@ -131,7 +131,10 @@
     "objects_title": "Obiekty klienta",
     "no_objects": "Ten klient nie ma jeszcze obiektów.",
     "objects_error": "Nie udało się wczytać obiektów klienta.",
-    "card_no_details": "Brak danych kontaktowych."
+    "card_no_details": "Brak danych kontaktowych.",
+    "archived_notice": "Klient trafił do archiwum. Przywrócisz go w menu → Archiwum.",
+    "error_archive": "Nie udało się zarchiwizować klienta.",
+    "error_restore": "Nie udało się przywrócić klienta."
   },
   "representatives": {
     "title": "Osoby objektu",

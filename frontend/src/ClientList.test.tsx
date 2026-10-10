@@ -679,16 +679,34 @@ describe('ClientList — the list and the card (Stage 16K.2)', () => {
     expect(screen.queryByLabelText('client-card')).toBeNull();
   });
 
-  it('archiving on the card keeps the card and shows the badge and the restore button', async () => {
-    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({ items: [mockClient()], total: 1 });
+  it('archiving on the card takes the owner back to the list, tells where the client went, and the list no longer has him (16K.6)', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({ items: [mockClient(), mockClient({ id: '22222222-0000-0000-0000-000000000002', first_name: 'Ewa', last_name: 'Lis' })], total: 2 });
     vi.mocked(clientsApi.archiveClient).mockResolvedValue(mockClient({ is_archived: true }));
     renderWithI18n(<ClientList />);
     await openCard();
-    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient({ is_archived: true })], total: 1 });
+    // the server no longer lists an archived client
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient({ id: '22222222-0000-0000-0000-000000000002', first_name: 'Ewa', last_name: 'Lis' })], total: 1 });
     fireEvent.click(screen.getByLabelText(`archive-${CARD_ID}`));
-    expect(await screen.findByLabelText(`restore-${CARD_ID}`)).toBeInTheDocument();
-    expect(screen.getByText('Zarchiwizowany')).toBeInTheDocument();
+    expect(await screen.findByLabelText('client-notice')).toHaveTextContent('Klient trafił do archiwum. Przywrócisz go w menu → Archiwum.');
+    expect(screen.queryByLabelText('client-card')).toBeNull();
+    expect(clientsApi.archiveClient).toHaveBeenCalledWith(CARD_ID);
+    await waitFor(() => expect(screen.queryByLabelText(`client-open-${CARD_ID}`)).toBeNull());
+    expect(screen.getByLabelText('client-open-22222222-0000-0000-0000-000000000002')).toBeInTheDocument();
+    // the notice goes away when another client is opened
+    await openCard('22222222-0000-0000-0000-000000000002');
+    fireEvent.click(screen.getByLabelText('back-to-clients'));
+    expect(screen.queryByLabelText('client-notice')).toBeNull();
+  });
+
+  it('a refused archive keeps the card open and says so', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient()], total: 1 });
+    vi.mocked(clientsApi.archiveClient).mockRejectedValue(new Error('boom'));
+    renderWithI18n(<ClientList />);
+    await openCard();
+    fireEvent.click(screen.getByLabelText(`archive-${CARD_ID}`));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się zarchiwizować klienta.');
     expect(screen.getByLabelText('client-card')).toBeInTheDocument();
+    expect(screen.queryByLabelText('client-notice')).toBeNull();
   });
 
   it('is in Russian too', async () => {

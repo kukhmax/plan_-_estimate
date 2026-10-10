@@ -15,6 +15,7 @@ import {
 } from '../api/priceItems';
 import { useI18n } from '../hooks/useI18n';
 import { useMarketEvidence } from '../hooks/useMarketEvidence';
+import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { QualityLevelValue } from '../types/checklist';
 import {
   PRICE_CATEGORIES,
@@ -25,6 +26,7 @@ import {
 } from '../types/priceItem';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice, normalizePriceInput } from '../utils/priceFormat';
+import { HubTile } from './HubTile';
 import { PriceBookMarket } from './PriceBookMarket';
 import { PriceItemForm } from './PriceItemForm';
 
@@ -58,11 +60,14 @@ function isCatalogItem(item: PriceItem): boolean {
 
 interface PriceBookProps {
   resetSignal?: number;
+  /** An overlay above the screen (the main menu, the account dialog) owns the Telegram BackButton while it is open. */
+  backSuspended?: boolean;
 }
 
-export function PriceBook({ resetSignal }: PriceBookProps) {
+export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps) {
   const { t } = useI18n();
-  const [mainTab, setMainTab] = useState<MainTab>('items');
+  // The price opens as a hub of three tiles (Stage 16K.6), like an object; null = the hub.
+  const [mainTab, setMainTab] = useState<MainTab | null>(null);
   const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<PriceCategoryValue | ''>('');
@@ -118,11 +123,14 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
   }, [tab, search, category, t.pricebook.error_load]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (mainTab === 'items') void load();
+  }, [load, mainTab]);
+
+  useTelegramBackButton(mainTab !== null && !backSuspended, () => setMainTab(null));
 
   useEffect(() => {
     if (resetSignal) {
+      setMainTab(null);
       setShowForm(false);
       setInlineId(null);
       setInlineError(null);
@@ -236,53 +244,34 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
 
   return (
     <section aria-label="price-book-section" className="w-full mt-4">
-      <div className="flex items-center justify-between mb-1">
-        <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{t.pricebook.title}</h2>
-        {mainTab === 'items' && total > 0 && (
-          <span className="text-xs text-slate-400">{total}</span>
-        )}
-      </div>
+      {mainTab === null ? (
+        <>
+          <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)] mb-3">{t.pricebook.title}</h2>
+          <nav aria-label="pricebook-hub" className="grid grid-cols-1 gap-3">
+            <HubTile ariaLabel="pricebook-maintab-items" label={t.coefficients.tab_items} onOpen={() => setMainTab('items')} />
+            <HubTile ariaLabel="pricebook-maintab-coefficients" label={t.coefficients.tab_coefficients} onOpen={() => setMainTab('coefficients')} />
+            <HubTile ariaLabel="pricebook-maintab-processes" label={t.processes.tab} onOpen={() => setMainTab('processes')} />
+          </nav>
+        </>
+      ) : (
+        <nav aria-label="pricebook-navigation" className="flex items-center gap-1.5 flex-wrap text-xs text-[var(--tg-theme-hint-color)] mb-2">
+          <button
+            type="button"
+            aria-label="back-to-pricebook"
+            onClick={() => setMainTab(null)}
+            className="inline-flex items-center min-h-11 pr-1 font-semibold text-blue-700 hover:underline"
+          >
+            {t.pricebook.title}
+          </button>
+          <span>/</span>
+          <span className="font-medium text-[var(--tg-theme-text-color)]">
+            {mainTab === 'items' ? t.coefficients.tab_items : mainTab === 'coefficients' ? t.coefficients.tab_coefficients : t.processes.tab}
+          </span>
+          {mainTab === 'items' && total > 0 && <span className="ml-auto text-xs text-slate-400">{total}</span>}
+        </nav>
+      )}
 
-      <div className="flex flex-wrap gap-2 mb-3">
-        <button
-          type="button"
-          aria-label="pricebook-maintab-items"
-          onClick={() => setMainTab('items')}
-          className={`min-h-11 px-4 text-sm font-semibold rounded-xl transition ${
-            mainTab === 'items'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          {t.coefficients.tab_items}
-        </button>
-        <button
-          type="button"
-          aria-label="pricebook-maintab-coefficients"
-          onClick={() => setMainTab('coefficients')}
-          className={`min-h-11 px-4 text-sm font-semibold rounded-xl transition ${
-            mainTab === 'coefficients'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          {t.coefficients.tab_coefficients}
-        </button>
-        <button
-          type="button"
-          aria-label="pricebook-maintab-processes"
-          onClick={() => setMainTab('processes')}
-          className={`min-h-11 px-4 text-sm font-semibold rounded-xl transition ${
-            mainTab === 'processes'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          {t.processes.tab}
-        </button>
-      </div>
-
-      {mainTab === 'processes' ? (
+      {mainTab === null ? null : mainTab === 'processes' ? (
         <Suspense
           fallback={<div className="py-8 text-center text-sm text-slate-500">{t.work_plan.tpl_loading}</div>}
         >

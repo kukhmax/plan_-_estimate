@@ -82,8 +82,10 @@ describe('Workflow template management — list + read-only detail (13F.3)', () 
     fireEvent.click(tab);
     expect(await screen.findByLabelText('processes-list')).toBeInTheDocument();
     expect(templatesApi.fetchWorkflowTemplates).toHaveBeenCalledWith({ archived: 'active', surface_type: undefined });
+    fireEvent.click(screen.getByLabelText('back-to-pricebook'));
     fireEvent.click(screen.getByLabelText('pricebook-maintab-items'));
     await waitFor(() => expect(screen.queryByLabelText('processes-section')).not.toBeInTheDocument());
+    expect(screen.getByLabelText('pricebook-tabs')).toBeInTheDocument();
   });
 
   it('lists templates with name, default badge, surfaces and step counts', async () => {
@@ -192,7 +194,7 @@ describe('Workflow template management — list + read-only detail (13F.3)', () 
     localStorage.setItem('locale', 'ru');
     render(<I18nProvider><PriceBook /></I18nProvider>);
     fireEvent.click(await screen.findByLabelText('pricebook-maintab-processes'));
-    expect(screen.getByLabelText('pricebook-maintab-processes')).toHaveTextContent('Процессы');
+    expect(screen.getByLabelText('pricebook-navigation')).toHaveTextContent('Процессы');
     const card = await screen.findByLabelText('process-card-tpl-builtin');
     expect(card).toHaveTextContent('По умолчанию');
     expect(screen.getByLabelText('processes-tab-archived')).toHaveTextContent('Архив');

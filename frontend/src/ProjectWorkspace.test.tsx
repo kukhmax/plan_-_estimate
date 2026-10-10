@@ -275,7 +275,7 @@ function renderWorkspace() {
 }
 
 // The object is a hub of tiles (Stage 16K.3): open it, then the tile of the screen the test is about.
-async function openObject(id: string, section: 'rooms' | 'photos' | 'documents' | 'legal' | null = 'rooms'): Promise<void> {
+async function openObject(id: string, section: 'rooms' | 'photos' | 'documents' | 'legal' | 'summary' | null = 'rooms'): Promise<void> {
   fireEvent.click(await screen.findByLabelText(`open-project-${id}`));
   await screen.findByLabelText('project-detail');
   if (section) fireEvent.click(await screen.findByLabelText(`object-tile-${section}`));
@@ -398,8 +398,12 @@ describe('ProjectWorkspace', () => {
     await openObject(project.id, null);
     expect(screen.queryByLabelText('project-documents')).toBeNull();
     fireEvent.click(await screen.findByLabelText('object-tile-documents'));
+    // the documents are a list of four rows; each opens one piece alone (16K.6)
+    expect(await screen.findByLabelText('documents-menu')).toBeInTheDocument();
+    expect(screen.queryByLabelText('project-documents')).toBeNull();
+    fireEvent.click(screen.getByLabelText('docs-tile-journal'));
     const card = await screen.findByLabelText('project-documents');
-    expect(within(card).getByRole('button', { name: 'toggle-project-documents' })).toHaveAttribute('aria-expanded', 'false');
+    expect(within(card).queryByRole('button', { name: 'toggle-project-documents' })).toBeNull();
     expect(within(card).queryByLabelText('photo-report-card')).toBeNull();
     expect(screen.queryByLabelText('project-photos')).toBeNull();
     expect(screen.queryByLabelText('rooms-list')).toBeNull();
@@ -421,6 +425,7 @@ describe('ProjectWorkspace', () => {
     vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue({ ...inspection, status: 'COMPLETED', answers: [] } as never);
     renderWorkspace();
     await openObject(project.id, 'documents');
+    fireEvent.click(await screen.findByLabelText('docs-tile-photo_report'));
     const blockedWork = await screen.findByLabelText('unpriced-work-CENNIK_SKIM_CRACK-01');
     await act(async () => { fireEvent.click(blockedWork); });
     await waitFor(() => expect(roomsApi.fetchRoom).toHaveBeenCalledWith(project.id, room.id));
@@ -440,6 +445,7 @@ describe('ProjectWorkspace', () => {
     vi.mocked(estimatesApi.getEstimate).mockResolvedValue({ ...summary, lines: [] } as never);
     renderWorkspace();
     await openObject(project.id, 'documents');
+    fireEvent.click(await screen.findByLabelText('docs-tile-photo_report'));
     const blockedWork = await screen.findByLabelText('unpriced-work-CENNIK_SKIM_CRACK-01');
     await act(async () => { fireEvent.click(blockedWork); });
     await waitFor(() => expect(estimatesApi.listEstimates).toHaveBeenCalledWith(project.id));
@@ -1787,12 +1793,24 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
     expect(within(block).getByLabelText('room-openings-summary-OTHER')).toHaveTextContent('Inne');
   });
 
-  it('object summary appears after all room cards with canonical totals and grouped openings', async () => {
+  // The summary of the object is the last tile of the hub, a screen of its own (16K.6): it is not under the rooms any more.
+  const openSummary = async () => {
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
+    await openObject(project.id, null);
+    fireEvent.click(await screen.findByLabelText('object-tile-summary'));
+  };
+
+  it('object summary is a screen of its own, after "Umowa i protokoły", with canonical totals and grouped openings', async () => {
     await openProject();
+    expect(screen.queryByLabelText('object-summary')).not.toBeInTheDocument(); // not under the rooms
+    fireEvent.click(screen.getByLabelText('back-to-project'));
+    const tiles = Array.from(screen.getByLabelText('object-hub').children).map((tile) => tile.getAttribute('aria-label'));
+    expect(tiles[tiles.length - 1]).toBe('object-tile-summary');
+    expect(tiles[tiles.length - 2]).toBe('object-tile-legal');
+    fireEvent.click(screen.getByLabelText('object-tile-summary'));
     const card = await screen.findByLabelText('object-summary');
-    const roomsList = screen.getByLabelText('rooms-list');
-    // DOM order: room cards first, then the object summary.
-    expect(roomsList.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'hierarchy-navigation' }).textContent).toContain('Podsumowanie obiektu');
     expect(roomsApi.fetchProjectSummary).toHaveBeenCalledWith(project.id);
     await within(card).findByText('Podsumowanie obiektu');
     const value = (key: string) => within(card).getByLabelText(`object-summary-${key}`).textContent;
@@ -1816,7 +1834,7 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
     });
     renderWorkspace();
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    await openObject(project.id);
+    await openObject(project.id, 'summary');
     await waitFor(() => expect(roomsApi.fetchProjectSummary).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByLabelText('object-summary')).not.toBeInTheDocument());
   });
@@ -1825,7 +1843,7 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
     vi.mocked(roomsApi.fetchProjectSummary).mockResolvedValue({
       ...summary, reveal_total_length: null, reveal_total_area: null, opening_groups: [],
     });
-    await openProject();
+    await openSummary();
     const card = await screen.findByLabelText('object-summary');
     await within(card).findByLabelText('object-summary-reveals');
     expect(within(card).getByLabelText('object-summary-reveals').textContent).toBe('Ościeża—');
@@ -1834,9 +1852,9 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
 
   it('object summary in Russian', async () => {
     localStorage.setItem('locale', 'ru');
-    await openProject();
+    await openSummary();
     const card = await screen.findByLabelText('object-summary');
-    await within(card).findByText('Итоги объекта');
+    await within(card).findByText('Резюме объекта');
     expect(card).toHaveTextContent('Площади');
     expect(within(card).getByLabelText('object-summary-deductions').textContent).toBe('Вычеты проёмов18.42 м²');
     expect(within(card).getByLabelText('object-summary-reveals').textContent).toBe('Откосы27.60 пог. м / 5.52 м²');

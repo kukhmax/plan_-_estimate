@@ -97,6 +97,8 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
   const [selected, setSelected] = useState<ClientType | null>(null);
   const [objects, setObjects] = useState<ProjectType[] | null>(null);
   const [objectsError, setObjectsError] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   // Tapping a client's e-mail copies it (never opens a mail composer as the
   // primary action) — small self-clearing inline confirmation, same pattern
   // as the existing Stage 8C CommunicationPanel copy-to-clipboard action.
@@ -151,14 +153,30 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
     else closeCard();
   });
 
+  // An archived client leaves the list (the archive restores him), so the card must not stay open on stale data: after
+  // archiving the owner is taken back to the list and told where the client went.
   const handleArchive = async (id: string) => {
-    await archiveClient(id);
-    load();
+    setActionError(null);
+    try {
+      await archiveClient(id);
+    } catch {
+      setActionError(t.clients.error_archive);
+      return;
+    }
+    closeCard();
+    setNotice(t.clients.archived_notice);
+    void load();
   };
 
   const handleRestore = async (id: string) => {
-    await restoreClient(id);
-    load();
+    setActionError(null);
+    try {
+      setSelected(await restoreClient(id));
+    } catch {
+      setActionError(t.clients.error_restore);
+      return;
+    }
+    void load();
   };
 
   const handleCopyEmail = (client: ClientType) => {
@@ -511,6 +529,8 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
 
       {formBlock}
 
+      {actionError && <p role="alert" className="text-sm text-red-600 break-words">{actionError}</p>}
+
       {!showForm && (
         <>
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
@@ -623,6 +643,9 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
         />
       </div>
 
+      {notice && <p role="status" aria-label="client-notice" className="text-sm text-emerald-700 break-words mb-3">{notice}</p>}
+      {actionError && <p role="alert" className="text-sm text-red-600 break-words mb-3">{actionError}</p>}
+
       {formBlock}
 
       {/* List: only the name; the details are on the card */}
@@ -644,6 +667,8 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
                 aria-label={`client-open-${c.id}`}
                 onClick={() => {
                   closeForm();
+                  setNotice(null);
+                  setActionError(null);
                   setSelected(c);
                 }}
                 className="w-full min-h-12 bg-white border border-slate-200 rounded-2xl px-4 py-2 shadow-sm flex items-center justify-between gap-3 text-left"

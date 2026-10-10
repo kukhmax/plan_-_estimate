@@ -39,7 +39,9 @@ vi.mock('./api/estimates', () => ({ listEstimates: vi.fn(async () => ({ items: [
 const { stub } = vi.hoisted(() => ({
   stub: (name: string) => () => <div aria-label={`stub-${name}`}>{name}</div>,
 }));
-vi.mock('./components/ProjectDocuments', () => ({ ProjectDocuments: stub('documents') }));
+vi.mock('./components/ProjectDocuments', () => ({
+  ProjectDocuments: ({ part }: { part?: string }) => <div aria-label={`stub-documents-${part}`}>{part}</div>,
+}));
 vi.mock('./components/ProjectRepresentatives', () => ({ ProjectRepresentatives: stub('representatives') }));
 vi.mock('./components/ProjectAdjacentWorks', () => ({ ProjectAdjacentWorks: stub('adjacent') }));
 vi.mock('./components/ProjectContract', () => ({ ProjectContract: stub('contract') }));
@@ -109,17 +111,17 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     vi.mocked(photosApi.fetchPhotos).mockResolvedValue({ items: [], total: 0, limit: 30, offset: 0 } as never);
   });
 
-  it('is five large tiles after the card of the object: the estimate first, then rooms, photos, documents, agreement and protocols', async () => {
+  it('is six large tiles after the card of the object: the estimate first, then rooms, photos, documents, agreement and protocols, the summary last', async () => {
     renderWorkspace();
     await openHub();
     expect(screen.getByLabelText('project-detail')).toBeInTheDocument();
     const hub = screen.getByLabelText('object-hub');
     const tiles = Array.from(hub.children) as HTMLElement[];
     expect(tiles.map((tile) => tile.getAttribute('aria-label'))).toEqual([
-      'open-estimates', 'object-tile-rooms', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal',
+      'open-estimates', 'object-tile-rooms', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal', 'object-tile-summary',
     ]);
     expect(tiles.map((tile) => tile.textContent?.replace(/[›\d]/g, '').trim())).toEqual([
-      'Kosztorys', 'Pomieszczenia', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły',
+      'Kosztorys', 'Pomieszczenia', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Podsumowanie obiektu',
     ]);
     for (const tile of tiles) expect(tile.className).toContain('min-h-14');
     expect(tiles[0].className).toContain('bg-amber-500');
@@ -130,19 +132,19 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
   it('keeps every card of the earlier stages off the hub', async () => {
     renderWorkspace();
     await openHub();
-    for (const name of ['rooms', 'summary', 'documents', 'representatives', 'adjacent', 'contract', 'handover', 'concealed', 'acceptance', 'decisions', 'downtime']) {
+    for (const name of ['rooms', 'summary', 'representatives', 'adjacent', 'contract', 'handover', 'concealed', 'acceptance', 'decisions', 'downtime']) {
       expect(screen.queryByLabelText(`stub-${name}`)).toBeNull();
     }
     expect(screen.queryByLabelText('project-photos')).toBeNull();
     expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów');
   });
 
-  it('the rooms tile opens the rooms and the summary of the object; the name in the breadcrumb leads back to the hub', async () => {
+  it('the rooms tile opens the rooms only; the name in the breadcrumb leads back to the hub', async () => {
     renderWorkspace();
     await openHub();
     fireEvent.click(screen.getByLabelText('object-tile-rooms'));
     expect(screen.getByLabelText('stub-rooms')).toBeInTheDocument();
-    expect(screen.getByLabelText('stub-summary')).toBeInTheDocument();
+    expect(screen.queryByLabelText('stub-summary')).toBeNull(); // the summary is a screen of its own
     expect(screen.queryByLabelText('object-hub')).toBeNull();
     expect(screen.queryByLabelText('project-detail')).toBeNull();
     expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Pomieszczenia');
@@ -185,12 +187,50 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Zdjęcia obiektu');
   });
 
-  it('the documents tile opens the documents', async () => {
+  it('the summary tile opens the summary of the object on a screen of its own', async () => {
+    renderWorkspace();
+    await openHub();
+    fireEvent.click(screen.getByLabelText('object-tile-summary'));
+    expect(screen.getByLabelText('stub-summary')).toBeInTheDocument();
+    expect(screen.queryByLabelText('stub-rooms')).toBeNull();
+    expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Podsumowanie obiektu');
+  });
+
+  it('the documents tile opens a list of four rows, none of the pieces is open yet (16K.6)', async () => {
     renderWorkspace();
     await openHub();
     fireEvent.click(screen.getByLabelText('object-tile-documents'));
-    expect(screen.getByLabelText('stub-documents')).toBeInTheDocument();
+    const menu = screen.getByLabelText('documents-menu');
+    expect(Array.from(menu.children).map((row) => row.getAttribute('aria-label'))).toEqual([
+      'docs-tile-tech_card', 'docs-tile-plan', 'docs-tile-photo_report', 'docs-tile-journal',
+    ]);
+    expect(Array.from(menu.children).map((row) => row.textContent?.replace('›', '').trim())).toEqual([
+      'Karta technologiczna', 'Plan produkcji prac', 'Raport fotograficzny', 'Wysłane dokumenty',
+    ]);
+    for (const row of Array.from(menu.children)) expect(row.className).toContain('min-h-14');
+    expect(document.querySelectorAll('[aria-label^="stub-documents"]')).toHaveLength(0);
     expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Dokumenty PDF');
+  });
+
+  it.each([
+    ['tech_card', 'Karta technologiczna'],
+    ['plan', 'Plan produkcji prac'],
+    ['photo_report', 'Raport fotograficzny'],
+    ['journal', 'Wysłane dokumenty'],
+  ])('the row "%s" opens that piece of the documents alone, the breadcrumb and Back lead to the list', async (part, title) => {
+    renderWorkspace();
+    await openHub();
+    fireEvent.click(screen.getByLabelText('object-tile-documents'));
+    fireEvent.click(screen.getByLabelText(`docs-tile-${part}`));
+    expect(document.querySelectorAll('[aria-label^="stub-documents"]')).toHaveLength(1);
+    expect(screen.getByLabelText(`stub-documents-${part}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText('documents-menu')).toBeNull();
+    expect(crumbs()).toBe(`Obiekty/Mieszkanie Mokotów/Dokumenty PDF/${title}`);
+    act(() => backClick?.());
+    expect(screen.getByLabelText('documents-menu')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(`docs-tile-${part}`));
+    fireEvent.click(screen.getByLabelText('back-to-documents'));
+    expect(screen.getByLabelText('documents-menu')).toBeInTheDocument();
   });
 
   it('"Umowa i protokoły" is a short list in three groups, not a pile of cards', async () => {

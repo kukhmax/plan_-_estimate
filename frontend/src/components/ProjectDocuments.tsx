@@ -11,8 +11,16 @@ import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 const POLL_MS = 2500;
 const MAX_POLLS = 72; // three minutes
 
+/** The piece of the documents of an object shown on a screen of its own (Stage 16K.6). */
+export type DocumentsPart = 'tech_card' | 'plan' | 'photo_report' | 'journal';
+
 interface ProjectDocumentsProps {
   projectId: string;
+  /**
+   * One piece of the documents, always open, without the card around it: the screen of documents is a list and each row
+   * opens one piece. Without it the component is the old one-card form with all pieces and an open / close button.
+   */
+  part?: DocumentsPart;
   /** Leads to the inspection that holds a recommendation the owner has to decide (Stage 15H.1). */
   onOpenInspection: (work: UnpricedWork) => void;
   /** Leads to the current estimate, or to the list of estimates when the object has none yet. */
@@ -44,10 +52,13 @@ function rememberOpen(projectId: string, open: boolean): void {
  * and the journal of what was sent. Closed by default and loads nothing until opened; a running document is followed until
  * it ends.
  */
-export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }: ProjectDocumentsProps) {
+export function ProjectDocuments({ projectId, part, onOpenInspection, onOpenEstimate }: ProjectDocumentsProps) {
   const { t, locale } = useI18n();
   const text = t.documents;
-  const [open, setOpen] = useState(() => wasOpen(projectId));
+  const [open, setOpen] = useState(() => part !== undefined || wasOpen(projectId));
+  // the card and the plan need nothing from the server here; the photo report and the journal do
+  const needsData = part === undefined || part === 'photo_report' || part === 'journal';
+  const shows = (piece: DocumentsPart) => part === undefined || part === piece;
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [summary, setSummary] = useState<PhotoReportSummary | null>(null);
@@ -81,8 +92,8 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
   }, [projectId]);
 
   useEffect(() => {
-    if (open) void load();
-  }, [open, load]);
+    if (open && needsData) void load();
+  }, [open, needsData, load]);
 
   const pending = documents.some((d) => d.status === 'PENDING');
   useEffect(() => {
@@ -166,6 +177,7 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
 
   return (
     <article aria-label="project-documents" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+      {part === undefined && (
       <div className="flex items-center justify-between gap-3">
         <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{text.title}</h3>
         <button
@@ -181,10 +193,11 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
           {open ? text.hide : text.show}
         </button>
       </div>
+      )}
 
-      {open && loading && summary === null && <p role="status" className="text-sm text-slate-600">{text.loading}</p>}
+      {open && needsData && loading && summary === null && <p role="status" className="text-sm text-slate-600">{text.loading}</p>}
 
-      {open && loadFailed && (
+      {open && needsData && loadFailed && (
         <div className="space-y-2">
           <p role="alert" className="text-sm text-red-700 break-words">{text.load_failed}</p>
           <button
@@ -197,10 +210,10 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
         </div>
       )}
 
-      {open && !loadFailed && <TechCardSection projectId={projectId} onIssued={() => void reloadJournal()} />}
-      {open && !loadFailed && <ProductionPlanSection projectId={projectId} onIssued={() => void reloadJournal()} />}
+      {open && !loadFailed && shows('tech_card') && <TechCardSection projectId={projectId} onIssued={() => void reloadJournal()} />}
+      {open && !loadFailed && shows('plan') && <ProductionPlanSection projectId={projectId} onIssued={() => void reloadJournal()} />}
 
-      {open && summary && (
+      {open && summary && shows('photo_report') && (
         <section aria-label="photo-report-card" className="space-y-2">
           <h4 className="text-sm font-semibold text-slate-900 break-words">{text.photo_report}</h4>
           {!summary.has_content ? (
@@ -312,7 +325,7 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
         </section>
       )}
 
-      {open && !loadFailed && (summary !== null || documents.length > 0) && (
+      {open && !loadFailed && shows('journal') && (summary !== null || documents.length > 0) && (
         <section aria-label="document-journal" className="space-y-2">
           <h4 className="text-sm font-semibold text-slate-900 break-words">{text.journal_title}</h4>
           {documents.length === 0 ? (

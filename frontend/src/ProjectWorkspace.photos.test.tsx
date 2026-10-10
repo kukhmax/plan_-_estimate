@@ -270,7 +270,7 @@ afterEach(() => {
 });
 
 // The object is a hub of tiles (Stage 16K.3): open it, then the tile of the screen the test is about.
-async function openObject(id: string, section: 'rooms' | 'photos' | 'documents' | 'legal' | null = 'rooms'): Promise<void> {
+async function openObject(id: string, section: 'rooms' | 'photos' | 'documents' | 'legal' | 'summary' | null = 'rooms'): Promise<void> {
   fireEvent.click(await screen.findByLabelText(`open-project-${id}`));
   await screen.findByLabelText('project-detail');
   if (section) fireEvent.click(await screen.findByLabelText(`object-tile-${section}`));

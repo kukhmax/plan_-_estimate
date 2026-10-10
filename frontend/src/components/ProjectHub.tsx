@@ -2,12 +2,16 @@ import { ReactNode, useEffect } from 'react';
 import { photoKey, useProjectPhotos } from '../hooks/ProjectPhotosContext';
 import { totalPhotoCount } from '../hooks/usePhotoCounts';
 import { useI18n } from '../hooks/useI18n';
+import { HubTile } from './HubTile';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 
 // The screen of an object is a hub of large tiles; each tile opens one screen of its own (Stage 16K.3).
 // The cards of the earlier stages live on those screens unchanged.
 
-export type ObjectSection = 'rooms' | 'photos' | 'documents' | 'legal';
+export type ObjectSection = 'rooms' | 'photos' | 'documents' | 'legal' | 'summary';
+
+/** What the screen of documents lists: each piece of it is opened alone. */
+export type DocumentsSection = 'tech_card' | 'plan' | 'photo_report' | 'journal';
 
 export type LegalSection =
   | 'representatives'
@@ -18,40 +22,6 @@ export type LegalSection =
   | 'acceptance'
   | 'decisions'
   | 'downtime';
-
-interface TileProps {
-  label: string;
-  ariaLabel: string;
-  onOpen: () => void;
-  /** A small number on the right (photos). */
-  count?: number;
-  accent?: boolean;
-}
-
-function Tile({ label, ariaLabel, onOpen, count, accent = false }: TileProps) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      onClick={onOpen}
-      className={
-        accent
-          ? 'w-full min-h-14 bg-amber-500 border border-amber-600 rounded-2xl px-4 py-3 shadow-md flex items-center justify-between gap-3 text-left hover:bg-amber-400 active:bg-amber-600 transition'
-          : 'w-full min-h-14 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between gap-3 text-left hover:bg-slate-50 transition'
-      }
-    >
-      <span className={`font-bold text-sm break-words min-w-0 ${accent ? 'text-slate-950' : 'text-slate-900'}`}>{label}</span>
-      <span className="flex items-center gap-2 shrink-0">
-        {count !== undefined && (
-          <span aria-label={`${ariaLabel}-count`} className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold">
-            {count}
-          </span>
-        )}
-        <span aria-hidden="true" className={`text-lg leading-none ${accent ? 'text-slate-950' : 'text-slate-400'}`}>›</span>
-      </span>
-    </button>
-  );
-}
 
 interface ProjectHubProps {
   onOpenEstimates: () => void;
@@ -64,16 +34,39 @@ export function ProjectHub({ onOpenEstimates, onOpenSection }: ProjectHubProps) 
   const photos = useProjectPhotos();
   return (
     <nav aria-label="object-hub" className="grid grid-cols-1 gap-3">
-      <Tile accent ariaLabel="open-estimates" label={t.estimates.title} onOpen={onOpenEstimates} />
-      <Tile ariaLabel="object-tile-rooms" label={t.rooms.title} onOpen={() => onOpenSection('rooms')} />
-      <Tile
+      <HubTile accent ariaLabel="open-estimates" label={t.estimates.title} onOpen={onOpenEstimates} />
+      <HubTile ariaLabel="object-tile-rooms" label={t.rooms.title} onOpen={() => onOpenSection('rooms')} />
+      <HubTile
         ariaLabel="object-tile-photos"
         label={t.photos.section.project_title}
         count={photos ? totalPhotoCount(photos.counts) : undefined}
         onOpen={() => onOpenSection('photos')}
       />
-      <Tile ariaLabel="object-tile-documents" label={t.documents.title} onOpen={() => onOpenSection('documents')} />
-      <Tile ariaLabel="object-tile-legal" label={t.objectHub.legal} onOpen={() => onOpenSection('legal')} />
+      <HubTile ariaLabel="object-tile-documents" label={t.documents.title} onOpen={() => onOpenSection('documents')} />
+      <HubTile ariaLabel="object-tile-legal" label={t.objectHub.legal} onOpen={() => onOpenSection('legal')} />
+      <HubTile ariaLabel="object-tile-summary" label={t.object_summary.title} onOpen={() => onOpenSection('summary')} />
+    </nav>
+  );
+}
+
+interface DocumentsMenuProps {
+  onOpen: (section: DocumentsSection) => void;
+}
+
+/** "PDF-dokumenty": the technological card, the production plan, the photo report and what was sent for this object. */
+export function DocumentsMenu({ onOpen }: DocumentsMenuProps) {
+  const { t } = useI18n();
+  const rows: { id: DocumentsSection; label: string }[] = [
+    { id: 'tech_card', label: t.documents.kind_tech_card },
+    { id: 'plan', label: t.documents.kind_production_plan },
+    { id: 'photo_report', label: t.documents.photo_report },
+    { id: 'journal', label: t.documents.journal_title },
+  ];
+  return (
+    <nav aria-label="documents-menu" className="grid grid-cols-1 gap-3">
+      {rows.map((row) => (
+        <HubTile key={row.id} ariaLabel={`docs-tile-${row.id}`} label={row.label} onOpen={() => onOpen(row.id)} />
+      ))}
     </nav>
   );
 }
@@ -111,7 +104,7 @@ export function LegalMenu({ onOpen }: LegalMenuProps) {
         <section key={group.title} aria-label={`legal-group-${group.items[0].id}`} className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--tg-theme-hint-color)]">{group.title}</h3>
           {group.items.map((item) => (
-            <Tile key={item.id} ariaLabel={`legal-tile-${item.id}`} label={item.label} onOpen={() => onOpen(item.id)} />
+            <HubTile key={item.id} ariaLabel={`legal-tile-${item.id}`} label={item.label} onOpen={() => onOpen(item.id)} />
           ))}
         </section>
       ))}

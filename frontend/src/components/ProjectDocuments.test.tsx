@@ -373,3 +373,68 @@ describe('ProjectDocuments (Stage 15F.3)', () => {
     expect(within(await screen.findByLabelText('document-PROPRZ/2026/10/19/0900')).getByText('Protokół przestoju')).toBeInTheDocument();
   });
 });
+
+// Stage 16K.6 — the screen of documents is a list; each row shows ONE piece, always open, without the card and its button.
+describe('ProjectDocuments — one piece on its own screen (Stage 16K.6)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(summary());
+    vi.mocked(documentsApi.listDocuments).mockResolvedValue({ items: [doc({ kind: 'CONTRACT', number: 'UMOWA/2026/10/08/1200', title: 'Umowa' })], total: 1 });
+  });
+
+  function renderPart(part: 'tech_card' | 'plan' | 'photo_report' | 'journal') {
+    return render(<I18nProvider><ProjectDocuments projectId="p1" part={part} onOpenInspection={onOpenInspection} onOpenEstimate={onOpenEstimate} /></I18nProvider>);
+  }
+
+  it.each(['tech_card', 'plan', 'photo_report', 'journal'] as const)('"%s" has no open / close button and is open at once', async (part) => {
+    renderPart(part);
+    expect(screen.queryByRole('button', { name: 'toggle-project-documents' })).toBeNull();
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByLabelText('project-documents')).toBeInTheDocument();
+  });
+
+  it('the technological card and the plan ask the server for nothing but their own data', async () => {
+    renderPart('tech_card');
+    await act(async () => { await Promise.resolve(); });
+    expect(documentsApi.fetchPhotoReportSummary).not.toHaveBeenCalled();
+    expect(documentsApi.listDocuments).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('photo-report-card')).toBeNull();
+    expect(screen.queryByLabelText('document-journal')).toBeNull();
+  });
+
+  it('each of the technological card and the plan shows its own section and not the other', async () => {
+    const card = renderPart('tech_card');
+    expect(await screen.findByLabelText('tech-card-card')).toBeInTheDocument();
+    expect(screen.queryByLabelText('production-plan-card')).toBeNull();
+    card.unmount();
+    renderPart('plan');
+    expect(await screen.findByLabelText('production-plan-card')).toBeInTheDocument();
+    expect(screen.queryByLabelText('tech-card-card')).toBeNull();
+  });
+
+  it('the photo report shows the report only: no journal, no card of the technological map', async () => {
+    renderPart('photo_report');
+    expect(await screen.findByLabelText('photo-report-card')).toBeInTheDocument();
+    expect(await screen.findByLabelText('send-photo-report')).toBeInTheDocument();
+    expect(screen.queryByLabelText('document-journal')).toBeNull();
+    expect(documentsApi.fetchPhotoReportSummary).toHaveBeenCalledWith('p1');
+  });
+
+  it('the journal shows what was sent for this object only, no report and no cards', async () => {
+    renderPart('journal');
+    const journal = await screen.findByLabelText('document-journal');
+    expect(within(journal).getByLabelText('document-UMOWA/2026/10/08/1200')).toBeInTheDocument();
+    expect(screen.queryByLabelText('photo-report-card')).toBeNull();
+    expect(screen.queryByLabelText('send-photo-report')).toBeNull();
+  });
+
+  it('the whole one-card form (no part) is unchanged: every piece behind one button', async () => {
+    renderCard();
+    expect(screen.getByRole('button', { name: 'toggle-project-documents' })).toHaveAttribute('aria-expanded', 'false');
+    await open();
+    expect(await screen.findByLabelText('photo-report-card')).toBeInTheDocument();
+    expect(await screen.findByLabelText('document-journal')).toBeInTheDocument();
+  });
+});

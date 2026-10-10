@@ -18,6 +18,7 @@ const AppContent: React.FC = () => {
   const [projectsNavToken, setProjectsNavToken] = useState(0);
   const [showAccount, setShowAccount] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [priceNavToken, setPriceNavToken] = useState(0);
   const [openRequest, setOpenRequest] = useState<ProjectOpenRequest | null>(null);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
@@ -26,6 +27,7 @@ const AppContent: React.FC = () => {
     setOpenRequest(null);
     // Choosing "Obiekty" always leads back to the list of objects, even when it is already the open section.
     if (section === 'projects') setProjectsNavToken((n) => n + 1);
+    if (section === 'pricebook') setPriceNavToken((n) => n + 1);
     setMenuOpen(false);
   };
   // "Смета" on the card of a client: the section of objects opens straight on the estimates of that object.
@@ -162,7 +164,7 @@ const AppContent: React.FC = () => {
             ) : activeSection === 'documents' ? (
               <SentDocuments />
             ) : (
-              <PriceBook />
+              <PriceBook resetSignal={priceNavToken} backSuspended={showAccount || menuOpen} />
             )}
           </>
         )}

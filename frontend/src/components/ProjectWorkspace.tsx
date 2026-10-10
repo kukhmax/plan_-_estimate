@@ -45,7 +45,7 @@ import { ProjectRepresentatives } from './ProjectRepresentatives';
 import type { UnpricedWork } from '../types/document';
 import { inspectionTargetOf } from '../utils/unpricedTarget';
 import { ProjectSummaryCard } from './ProjectSummaryCard';
-import { LegalMenu, LegalSection, ObjectPhotos, ObjectSection, ProjectHub } from './ProjectHub';
+import { DocumentsMenu, DocumentsSection, LegalMenu, LegalSection, ObjectPhotos, ObjectSection, ProjectHub } from './ProjectHub';
 import { SurfaceList } from './SurfaceList';
 
 interface ProjectFormState {
@@ -147,6 +147,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
   // The object is a hub of tiles (null); a tile opens one screen, and "Umowa i protokoły" opens one more level.
   const [objectSection, setObjectSection] = useState<ObjectSection | null>(null);
   const [legalSection, setLegalSection] = useState<LegalSection | null>(null);
+  const [documentsSection, setDocumentsSection] = useState<DocumentsSection | null>(null);
   // Bumped after a room change so the object summary reloads (13F-PRE).
   const [summaryToken, setSummaryToken] = useState(0);
   const [selectedEstimate, setSelectedEstimate] = useState<EstimateSummaryRead | null>(null);
@@ -328,6 +329,15 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       photos: t.photos.section.project_title,
       documents: t.documents.title,
       legal: t.objectHub.legal,
+      summary: t.object_summary.title,
+    })[section];
+
+  const documentsTitle = (section: DocumentsSection) =>
+    ({
+      tech_card: t.documents.kind_tech_card,
+      plan: t.documents.kind_production_plan,
+      photo_report: t.documents.photo_report,
+      journal: t.documents.journal_title,
     })[section];
 
   const legalTitle = (section: LegalSection) =>
@@ -384,6 +394,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     setSelectedRoom(null);
     setObjectSection(null);
     setLegalSection(null);
+    setDocumentsSection(null);
     setSuccess(null);
   };
 
@@ -459,6 +470,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     setSelectedRoom(null);
     setObjectSection(null);
     setLegalSection(null);
+    setDocumentsSection(null);
     setSuccess(null);
   };
 
@@ -485,6 +497,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     setSelectedRoom(null);
     setObjectSection(null);
     setLegalSection(null);
+    setDocumentsSection(null);
     setSuccess(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetSignal]);
@@ -528,6 +541,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       setShowEstimates(false);
     } else if (legalSection) {
       setLegalSection(null);
+    } else if (documentsSection) {
+      setDocumentsSection(null);
     } else if (objectSection) {
       setObjectSection(null);
     } else if (selectedProject) {
@@ -560,6 +575,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                 setShowRoomForm(false);
                 setObjectSection(null);
                 setLegalSection(null);
+    setDocumentsSection(null);
                 closeInspections();
               }}
               className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
@@ -618,6 +634,19 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               </button>
               <span>/</span>
               <span className="font-medium text-[var(--tg-theme-text-color)]">{legalTitle(legalSection)}</span>
+            </>
+          ) : objectSection === 'documents' && documentsSection ? (
+            <>
+              <button
+                type="button"
+                aria-label="back-to-documents"
+                onClick={() => setDocumentsSection(null)}
+                className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
+              >
+                {t.documents.title}
+              </button>
+              <span>/</span>
+              <span className="font-medium text-[var(--tg-theme-text-color)]">{documentsTitle(documentsSection)}</span>
             </>
           ) : objectSection ? (
             <span className="font-medium text-[var(--tg-theme-text-color)]">{sectionTitle(objectSection)}</span>
@@ -811,6 +840,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                 }}
                 onOpenSection={(section) => {
                   setLegalSection(null);
+    setDocumentsSection(null);
                   setObjectSection(section);
                 }}
               />
@@ -818,28 +848,28 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           )}
 
           {objectSection === 'rooms' && (
-            <>
-              <RoomList
-                projectId={selectedProject.id}
-                onOpenRoom={openRoom}
-                onRoomChanged={() => {
-                  load();
-                  setSummaryToken((n) => n + 1);
-                }}
-              />
-
-              {/* Stage 13F-PRE: object-level aggregate, after all room cards. */}
-              <ProjectSummaryCard projectId={selectedProject.id} refreshToken={summaryToken} />
-            </>
+            <RoomList
+              projectId={selectedProject.id}
+              onOpenRoom={openRoom}
+              onRoomChanged={() => {
+                load();
+                setSummaryToken((n) => n + 1);
+              }}
+            />
           )}
+
+          {/* Stage 13F-PRE: the totals of the object, a screen of its own (the last tile of the hub). */}
+          {objectSection === 'summary' && <ProjectSummaryCard projectId={selectedProject.id} refreshToken={summaryToken} />}
 
           {/* Stage 14E.5: photos of the whole object. */}
           {objectSection === 'photos' && <ObjectPhotos />}
 
-          {/* Stage 15F: the photo report and the journal of documents sent to the owner's chat. */}
-          {objectSection === 'documents' && (
+          {/* Stage 15F: the technological card, the production plan, the photo report and the journal of the object — a list, each opened alone. */}
+          {objectSection === 'documents' && documentsSection === null && <DocumentsMenu onOpen={setDocumentsSection} />}
+          {objectSection === 'documents' && documentsSection !== null && (
             <ProjectDocuments
               projectId={selectedProject.id}
+              part={documentsSection}
               onOpenInspection={(work) => void openRecommendationInspection(work)}
               onOpenEstimate={(estimateId) => void openCurrentEstimate(estimateId)}
             />

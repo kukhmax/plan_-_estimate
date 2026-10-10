@@ -45,12 +45,15 @@ const zeroSkim: PriceItem = {
   updated_at: '2026-09-13T10:00:00Z',
 };
 
+// The price opens as a hub of three tiles (16K.6); these tests are about the positions, so they go through that tile.
 function renderBook() {
-  return render(
+  const view = render(
     <I18nProvider>
       <PriceBook />
     </I18nProvider>,
   );
+  fireEvent.click(screen.getByLabelText('pricebook-maintab-items'));
+  return view;
 }
 
 describe('PriceBook — nullable owner price (Stage 9E.7)', () => {

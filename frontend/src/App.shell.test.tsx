@@ -198,6 +198,7 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
 
     await chooseSection('show-pricebook');
     await screen.findByRole('region', { name: 'price-book-section' });
+    fireEvent.click(screen.getByLabelText('pricebook-maintab-items'));
     expect(priceItemsApi.fetchPriceItems).toHaveBeenCalled();
 
     fireEvent.click(screen.getByLabelText('add-price-item'));
