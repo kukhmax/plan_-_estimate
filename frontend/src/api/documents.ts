@@ -74,3 +74,8 @@ export function previewHandoverPdf(projectId: string): Promise<DocumentPreviewRe
 export function previewConcealedPdf(projectId: string): Promise<DocumentPreviewResult> {
   return apiRequest(`${base(projectId)}/documents/concealed-works/preview`, { method: 'POST' });
 }
+
+/** The working version of the acceptance protocol (pale watermark, empty boxes and lines) to the owner's chat, to fill in at the wall. */
+export function previewAcceptancePdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/acceptance/preview`, { method: 'POST' });
+}

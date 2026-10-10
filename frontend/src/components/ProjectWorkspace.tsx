@@ -34,6 +34,7 @@ import { RoomList } from './RoomList';
 import { OpeningGroupList } from './OpeningGroupList';
 import { ProjectDocuments } from './ProjectDocuments';
 import { ProjectAdjacentWorks } from './ProjectAdjacentWorks';
+import { ProjectAcceptance } from './ProjectAcceptance';
 import { ProjectConcealedWorks } from './ProjectConcealedWorks';
 import { ProjectContract } from './ProjectContract';
 import { ProjectHandover } from './ProjectHandover';
@@ -776,6 +777,9 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
 
           {/* Stage 16G.2: the protocol of acceptance of concealed works (before the next layer covers them). */}
           <ProjectConcealedWorks projectId={selectedProject.id} />
+
+          {/* Stage 16H.3: the final or partial acceptance of the work (the result is derived from the works and the remarks). */}
+          <ProjectAcceptance projectId={selectedProject.id} />
 
           <RoomList
             projectId={selectedProject.id}
