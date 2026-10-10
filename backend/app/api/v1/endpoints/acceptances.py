@@ -1,10 +1,13 @@
-"""Protocols of acceptance of the work of an object (Stage 16H.1): open the draft, record the assessment, abandon the draft."""
+"""Protocols of acceptance of the work of an object (Stage 16H): open the draft, record the assessment, abandon the draft, issue."""
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_acceptance_service, get_current_user
+from app.api.deps import get_acceptance_service, get_current_user, get_document_issuer
 from app.api.v1.endpoints.documents import _error, _http_error as _document_error
+from app.core.database import get_db
+from app.domain.documents.issuer import DocumentIssuer
 from app.domain.exceptions import (
     AcceptanceGateError,
     AcceptanceInvalidError,
@@ -16,11 +19,13 @@ from app.domain.exceptions import (
 )
 from app.domain.services.acceptance_service import AcceptanceService
 from app.models.user import User
+from app.schemas.issued_document import IssuedDocumentRead
 from app.schemas.acceptance import AcceptanceListResponse, AcceptanceRead, AcceptanceUpdate
 
 router = APIRouter()
 BASE = "/projects/{project_id}/acceptances"
 FAILURES = (ProjectNotFoundError, AcceptanceNotFoundError, AcceptanceNotEditableError, AcceptanceInvalidError)
+ISSUE_FAILURES = (*FAILURES, AcceptanceGateError, DocumentDataError, DocumentQueueFullError)
 
 
 def _http_error(exc: Exception) -> HTTPException:
@@ -115,3 +120,23 @@ async def archive_acceptance_draft(
         return await service.read(await service.archive_draft(project_id, protocol_id, current_user.id))
     except FAILURES as exc:
         raise _http_error(exc) from exc
+
+
+@router.post(
+    BASE + "/{protocol_id}/issue",
+    response_model=IssuedDocumentRead,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Issue a draft: freeze the assessment and send the PDF to the owner's chat",
+)
+async def issue_acceptance(
+    project_id: uuid.UUID,
+    protocol_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    issuer: DocumentIssuer = Depends(get_document_issuer),
+) -> IssuedDocumentRead:
+    try:
+        reservation = await issuer.start_acceptance(db, current_user, project_id, protocol_id)
+    except ISSUE_FAILURES as exc:
+        raise _http_error(exc) from exc
+    return IssuedDocumentRead.model_validate(reservation.document)

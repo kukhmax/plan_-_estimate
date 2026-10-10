@@ -26,6 +26,8 @@ from app.domain.contracts.answers import effective_answers
 from app.domain.contracts.catalog import load_contract_catalog
 from app.domain.contracts.gate import load_gate_data
 from app.domain.documents import formatting
+from app.domain.documents.acceptance_document import build_acceptance_document, render_acceptance_html, title_of as acceptance_title
+from app.domain.documents.acceptance_document import snapshot_of as acceptance_snapshot_of
 from app.domain.documents.concealed_works_document import build_concealed_document, render_concealed_html
 from app.domain.documents.concealed_works_document import snapshot_of as concealed_snapshot_of
 from app.domain.documents.contract_document import build_contract_document, render_contract_html, snapshot_of
@@ -39,6 +41,8 @@ from app.domain.documents.registry import DocumentKind, get_template
 from app.domain.documents.renderer import DocumentRenderer, RenderedPdf
 from app.domain.documents.tech_card_document import TechCardDocumentService
 from app.domain.exceptions import (
+    AcceptanceGateError,
+    AcceptanceNotEditableError,
     ConcealedGateError,
     ConcealedNotEditableError,
     ContractGateError,
@@ -51,7 +55,8 @@ from app.domain.exceptions import (
     HandoverNotEditableError,
     IssuedDocumentNotFoundError,
 )
-from app.domain.protocols.sources import load_concealed_sources, load_handover_sources
+from app.domain.protocols.sources import load_acceptance_sources, load_concealed_sources, load_handover_sources
+from app.domain.services.acceptance_service import AcceptanceService, data_of as acceptance_data
 from app.domain.services.concealed_service import ConcealedService, data_of as concealed_data
 from app.domain.services.contract_service import ContractService
 from app.domain.services.executor_profile_service import ExecutorProfileService
@@ -61,6 +66,7 @@ from app.domain.services.issued_document_service import (
     Reservation,
 )
 from app.domain.services.media_storage import MediaStorage
+from app.models.acceptance_protocol import AcceptanceProtocol
 from app.models.concealed_works_protocol import ConcealedWorksProtocol
 from app.models.contract import Contract
 from app.models.handover_protocol import HandoverProtocol
@@ -437,6 +443,70 @@ class DocumentIssuer:
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
+    async def start_acceptance(self, db: AsyncSession, user: User, project_id: uuid.UUID, protocol_id: uuid.UUID) -> Reservation:
+        """Issue a draft of the acceptance protocol: the gate first (a refusal lists what to fix and takes no number), then the number,
+        then the freeze -- the assessment with its derived result, the exact page and the contract -- and the slow part (the PDF and
+        its delivery) in the background."""
+        self._ensure_capacity()
+        owner_id = user.id
+        service = AcceptanceService(db)
+        row, sources, blockers = await service.gate(project_id, protocol_id, owner_id)
+        if row.status != "DRAFT":
+            raise AcceptanceNotEditableError(f"protocol {protocol_id} is {row.status}: only a draft is issued")
+        if blockers:
+            raise AcceptanceGateError(blockers)
+        data = acceptance_data(row)
+        build_acceptance_document(data, sources, working=False, issued_on=self._today())  # a refusal here takes no number
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.FINAL_PROTOCOL,
+            title=f"{acceptance_title(data, sources)} — nr {row.sequence}",
+            template_version=get_template(DocumentKind.FINAL_PROTOCOL).version,
+            source_id=row.id,
+            source_version=row.sequence,
+            client_id=sources.base.project.client_id,
+        )
+        if reservation.reused:
+            return reservation
+        try:
+            document = build_acceptance_document(
+                data, sources, working=False, issued_on=self._today(),
+                number=reservation.document.number, sequence=reservation.document.project_seq,
+            )
+            await service.mark_issued(
+                project_id, row.id, owner_id,
+                issued_at=self.clock(),
+                snapshot=acceptance_snapshot_of(data, sources, document),
+                document_html=render_acceptance_html(document),
+                contract_id=sources.base.contract.id if sources.base.contract else None,
+                contract_version=sources.base.contract.version if sources.base.contract else None,
+            )
+        except Exception:
+            logger.exception("freezing acceptance protocol %s failed", protocol_id)
+            await db.rollback()
+            await IssuedDocumentService(db, clock=self.clock).mark_failed(owner_id, reservation.document.id, "INTERNAL_ERROR")
+            raise
+        await db.refresh(reservation.document)  # the freeze committed: the journal row is read again, not left expired
+        return self._launch(reservation)
+
+    async def preview_acceptance(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version of the acceptance protocol (pale watermark, no number, no journal row) to the owner's chat, to fill in at
+        the wall. It never refuses; it follows the open draft, or is a blank form."""
+        owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
+        sources = await load_acceptance_sources(db, owner_id, project_id)
+        drafts = [r for r in await AcceptanceService(db).list(project_id, owner_id) if r.status == "DRAFT"]
+        data = acceptance_data(drafts[0]) if drafts else {}
+        document = build_acceptance_document(data, sources, working=True, issued_on=self._today())
+        rendered = await self.renderer.render(render_acceptance_html(document))
+        await self.delivery.send_document(
+            chat_id,
+            "Protokol-odbioru-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — {document.layout.meta.title} — {sources.base.project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
     async def preview_estimate(self, db: AsyncSession, user: User, project_id: uuid.UUID, estimate_id: uuid.UUID) -> PreviewResult:
         """A working version of an unfinished estimate to the owner's chat: watermark, no number, no journal row. The slow
         part runs in the request (a one-page document), so the owner sees at once whether it arrived."""
@@ -518,6 +588,13 @@ class DocumentIssuer:
             if contract is None or not contract.document_html:
                 raise DocumentDataError("CONTRACT_NOT_ISSUED", "the contract of this document is not frozen")
             return await self.renderer.render(contract.document_html)
+        if document.kind == IssuedDocumentKind.FINAL_PROTOCOL.value:
+            protocol = (
+                await db.execute(select(AcceptanceProtocol).where(AcceptanceProtocol.id == document.source_id, AcceptanceProtocol.owner_id == document.owner_id))
+            ).scalar_one_or_none()
+            if protocol is None or not protocol.document_html:
+                raise DocumentDataError("ACCEPTANCE_NOT_ISSUED", "the protocol of this document is not frozen")
+            return await self.renderer.render(protocol.document_html)
         if document.kind == IssuedDocumentKind.CONCEALED_WORKS_PROTOCOL.value:
             protocol = (
                 await db.execute(select(ConcealedWorksProtocol).where(ConcealedWorksProtocol.id == document.source_id, ConcealedWorksProtocol.owner_id == document.owner_id))

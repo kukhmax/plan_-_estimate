@@ -38,7 +38,7 @@ def test_revision_chain_and_single_head():
     assert module.revision == "0039_client_address" and module.down_revision == "0038_issued_documents"
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0050_acceptance_protocols"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0051_final_protocol_kind"]
 
 
 def test_upgrade_adds_three_nullable_columns_and_downgrade_removes_only_them():

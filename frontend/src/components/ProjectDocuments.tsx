@@ -176,6 +176,7 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
     CONTRACT: text.kind_contract,
     HANDOVER_PROTOCOL: text.kind_handover,
     CONCEALED_WORKS_PROTOCOL: text.kind_concealed,
+    FINAL_PROTOCOL: text.kind_final,
   };
   const kindLabel = (document: IssuedDocument) => kindLabels[document.kind];
   const reloadJournal = async () => {

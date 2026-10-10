@@ -1,0 +1,64 @@
+{% extends "_layout.html.j2" %}
+{% macro field(value) %}{% if value %}{{ value }}{% else %}<span class="write-line"></span>{% endif %}{% endmacro %}
+{% macro boxes(options) %}{% for o in options %}<p class="alternative"><span class="box">{% if o.checked %}☒{% else %}☐{% endif %}&nbsp;{{ o.label }}</span></p>{% endfor %}{% endmacro %}
+{% block body %}
+<div class="handover acceptance{% if doc.working %} working{% endif %}">
+{% if doc.working %}<p class="notice">{{ t('acceptance.working_note') }}</p>{% endif %}
+<table class="facts">
+  {% for row in doc.facts %}<tr><td class="label">{{ row.label }}</td><td>{{ field(row.value) }}</td></tr>{% endfor %}
+</table>
+<h2>{{ t('acceptance.attendees') }}</h2>
+{% if doc.absent_text %}
+<p class="clause">{{ doc.absent_text }}</p>
+{% endif %}
+{% if doc.attendees %}
+<table class="works">
+  <thead><tr><th>{{ t('acceptance.attendees.name') }}</th><th>{{ t('acceptance.attendees.role') }}</th></tr></thead>
+  <tbody>{% for a in doc.attendees %}<tr><td>{{ a.name }}</td><td>{{ a.role or '' }}</td></tr>{% endfor %}</tbody>
+</table>
+{% elif not doc.absent_text %}
+<p class="muted">{{ t('acceptance.attendees.none') }}</p>
+{% for _ in range(3) %}<table class="facts"><tr><td class="label">{{ t('acceptance.attendees.name') }}</td><td><span class="write-line"></span></td></tr></table>{% endfor %}
+<p class="clause">{{ t('acceptance.absent_hint') }}</p>
+{% endif %}
+<h2>{{ t('acceptance.conditions') }}</h2>
+{% if doc.conditions %}
+<table class="works">
+  <thead><tr><th>{{ t('acceptance.conditions.standard') }}</th><th>{{ t('acceptance.conditions.text') }}</th></tr></thead>
+  <tbody>{% for c in doc.conditions %}<tr><td>{{ c.key }}</td><td>{{ c.text }}</td></tr>{% endfor %}</tbody>
+</table>
+{% endif %}
+<p class="clause"><strong>{{ t('acceptance.conditions_note') }}:</strong> {{ field(doc.conditions_note) }}</p>
+<p class="clause"><strong>{{ t('acceptance.instruments') }}:</strong> {% if doc.instruments %}{{ doc.instruments | join('; ') }}{% else %}<span class="write-line"></span>{% endif %}</p>
+<h2>{{ t('acceptance.surfaces') }}</h2>
+{% for s in doc.surfaces %}
+<div class="surface-block">
+{% if s.heading %}
+<p class="clause"><strong>{{ s.heading }}</strong>{% if s.standard %} · {{ t('acceptance.standard') }} {{ s.standard }}{% endif %}</p>
+<table class="works">
+  <thead><tr><th>{{ t('acceptance.works.name') }}</th><th>{{ t('acceptance.works.status') }}</th></tr></thead>
+  <tbody>{% for w in s.works %}<tr><td>{{ w.name }}</td><td>{{ w.status }}</td></tr>{% endfor %}</tbody>
+</table>
+<p class="clause">{{ t('acceptance.surface.result') }}: <strong>{{ s.result }}</strong></p>
+{% else %}
+<table class="facts"><tr><td class="label">{{ t('acceptance.surface.blank') }}</td><td><span class="write-line"></span></td></tr></table>
+{% endif %}
+</div>
+{% endfor %}
+<h2>{{ t('acceptance.remarks') }}</h2>
+<table class="works remarks">
+  <thead><tr><th class="c-no">{{ t('acceptance.remarks.no') }}</th><th>{{ t('acceptance.remarks.surface') }}</th><th>{{ t('acceptance.remarks.place') }}</th><th>{{ t('acceptance.remarks.description') }}</th><th>{{ t('acceptance.remarks.class') }}</th><th>{{ t('acceptance.remarks.deadline') }}</th><th>{{ t('acceptance.remarks.photos') }}</th></tr></thead>
+  <tbody>{% for r in doc.remarks %}<tr><td>{{ r.number }}</td><td>{{ r.surface }}</td><td>{{ r.place or '' }}</td><td>{{ r.description or '' }}</td><td>{{ r.classification or '' }}</td><td>{{ r.deadline or '' }}</td><td>{{ r.photos or '' }}</td></tr>{% endfor %}</tbody>
+</table>
+{% if not doc.remarks %}<p class="muted">{{ t('acceptance.remarks.none') }}</p>{% endif %}
+{% for l in doc.legend %}<p class="clause"><strong>{{ l.name }}:</strong> {{ l.text }}</p>{% endfor %}
+<h2>{{ t('acceptance.result') }}</h2>
+{{ boxes(doc.results) }}
+<h2>{{ t('acceptance.settlement') }}</h2>
+<table class="facts">
+  {% for row in doc.settlement %}<tr><td class="label">{{ row.label }}</td><td>{{ field(row.value) }}</td></tr>{% endfor %}
+</table>
+{{ boxes([doc.instructions]) }}
+<p class="clause"><strong>{{ t('acceptance.notes') }}:</strong> {{ field(doc.notes) }}</p>
+</div>
+{% endblock %}

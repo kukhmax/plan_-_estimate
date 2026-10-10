@@ -41,7 +41,7 @@ class IssueDocumentRequest(BaseModel):
 class IssuedDocumentRead(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
-    kind: Literal["ESTIMATE", "PHOTO_REPORT", "TECH_CARD", "PRODUCTION_PLAN", "CONTRACT", "HANDOVER_PROTOCOL", "CONCEALED_WORKS_PROTOCOL"]
+    kind: Literal["ESTIMATE", "PHOTO_REPORT", "TECH_CARD", "PRODUCTION_PLAN", "CONTRACT", "HANDOVER_PROTOCOL", "CONCEALED_WORKS_PROTOCOL", "FINAL_PROTOCOL"]
     source_id: uuid.UUID | None
     source_version: int | None
     title: str

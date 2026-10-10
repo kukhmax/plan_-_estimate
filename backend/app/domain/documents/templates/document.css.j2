@@ -84,10 +84,6 @@ thead { display: table-header-group; }
 .recommended { break-inside: avoid; page-break-inside: avoid; }
 .recommended h2 { break-after: avoid; }
 .recommended .grand-total { break-before: avoid; page-break-before: avoid; }
-.skeleton-section { margin-bottom: 4mm; break-inside: avoid-page; }
-.skeleton-section .muted { color: #888; font-style: italic; }
-.skeleton-attachments ol { margin: 0 0 0 5mm; padding: 0; }
-.skeleton-attachments li { margin-bottom: 1mm; }
 
 .techcard h2 { border-bottom: 0.3mm solid #999; padding-bottom: 1mm; break-before: page; }
 .techcard .tc-room:first-of-type h2 { break-before: auto; }
@@ -127,6 +123,11 @@ thead { display: table-header-group; }
 .handover .c-req { width: 30%; } .handover .c-required { width: 13%; } .handover .c-state { width: 17%; } .handover .c-found { width: 15%; } .handover .c-note { width: 25%; }
 .handover.working .requirements td { height: 16mm; }
 .handover .states .box { display: block; white-space: nowrap; }
+.acceptance .surface-block { break-inside: avoid; margin-bottom: 2mm; }
+.acceptance .remarks { table-layout: fixed; width: 100%; }
+.acceptance .remarks td, .acceptance .remarks th { vertical-align: top; font-size: 8.5pt; }
+.acceptance .remarks .c-no { width: 6%; }
+.acceptance.working .remarks td { height: 12mm; }
 .handover .clause { margin: 1.5mm 0; }
 .handover .alternative { margin: 0 0 1mm 5mm; }
 .handover p .write-line { width: 60mm; min-width: 60mm; height: 1em; vertical-align: baseline; }

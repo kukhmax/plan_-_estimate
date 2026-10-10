@@ -93,7 +93,7 @@ def test_revision_chain_and_single_head():
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0050_acceptance_protocols"]
+    assert script.get_heads() == ["0051_final_protocol_kind"]
     assert script.get_revision("0034_finding_lineage").down_revision == "0033_photo_capture_source"
 
 

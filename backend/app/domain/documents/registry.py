@@ -1,9 +1,9 @@
-"""Registry of document templates (Stage 15B, 15G). Every template has a kind and a version; the version is written to the
+"""Registry of document templates (Stage 15B, 16). Every template has a kind and a version; the version is written to the
 journal of issued documents (15F), so an old document can always be traced to the layout that produced it.
 
-A kind also knows the prefix of its number (`KOSZ/2026/10/08/1953`) and, for the contract and protocol skeletons of 15G, the
-keys of the sections it is expected to have. The keys are internal identifiers: they carry no wording. The titles and the text
-of the sections are written in Stage 16 / 17 and arrive as data; until then the skeleton prints "Sekcja 1", "Sekcja 2", ...
+A kind also knows the prefix of its number (`KOSZ/2026/10/08/1953`) and, for the contract, the keys of its sections. The keys are
+internal identifiers: they carry no wording. (The skeletons of 15G, a common template with empty sections, are gone: every kind has
+its own template since the final acceptance protocol of 16H.)
 """
 
 import enum
@@ -19,7 +19,7 @@ class DocumentKind(str, enum.Enum):
     CONTRACT = "CONTRACT"  # Umowa: data of the questionnaire, the annexes and the clause catalogue (16E)
     HANDOVER_PROTOCOL = "HANDOVER_PROTOCOL"  # Protokół przekazania pomieszczeń: the state of each room against the requirements (16F)
     CONCEALED_WORKS_PROTOCOL = "CONCEALED_WORKS_PROTOCOL"  # Protokół odbioru robót zanikających: work accepted before it is covered (16G)
-    FINAL_PROTOCOL = "FINAL_PROTOCOL"  # Protokół odbioru końcowego: a skeleton (15G)
+    FINAL_PROTOCOL = "FINAL_PROTOCOL"  # Protokół odbioru końcowego / częściowego: the assessment of the work against the contract (16H)
     PRODUCTION_PLAN = "PRODUCTION_PLAN"  # Plan produkcji prac: the sequence, the technological breaks, the works of others (16D)
     TECH_CARD = "TECH_CARD"  # Karta technologiczna: the substrate, the standard and the works of every surface (16C)
 
@@ -30,11 +30,8 @@ class DocumentTemplate:
     version: str
     file: str
     number_prefix: str | None = None  # None: never numbered (the control page)
-    sections: tuple[str, ...] = ()  # keys of the sections of a skeleton, in order (no wording: titles are data)
+    sections: tuple[str, ...] = ()  # keys of the sections of a contract, in order (no wording: titles are data)
 
-
-SKELETON_FILE = "skeleton.html.j2"
-SKELETON_VERSION = "skeleton-1"
 
 TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
     DocumentKind.DIAGNOSTIC: DocumentTemplate(DocumentKind.DIAGNOSTIC, "1", "diagnostic.html.j2"),
@@ -55,13 +52,8 @@ TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
     DocumentKind.CONCEALED_WORKS_PROTOCOL: DocumentTemplate(
         DocumentKind.CONCEALED_WORKS_PROTOCOL, "1", "concealed_works_protocol.html.j2", "ZANIK"
     ),
-    DocumentKind.FINAL_PROTOCOL: DocumentTemplate(
-        DocumentKind.FINAL_PROTOCOL, SKELETON_VERSION, SKELETON_FILE, "ODBIOR",
-        ("scope_completed", "inspection_result", "defects_found", "deadlines_for_defects", "remarks"),
-    ),
+    DocumentKind.FINAL_PROTOCOL: DocumentTemplate(DocumentKind.FINAL_PROTOCOL, "1", "acceptance_protocol.html.j2", "ODBIOR"),
 }
-
-SKELETON_KINDS: tuple[DocumentKind, ...] = tuple(kind for kind, template in TEMPLATES.items() if template.file == SKELETON_FILE)
 
 
 def get_template(kind: DocumentKind) -> DocumentTemplate:

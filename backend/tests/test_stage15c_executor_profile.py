@@ -75,7 +75,7 @@ def test_revision_chain_and_single_head():
     assert module.revision == "0037_executor_profiles" and module.down_revision == "0036_photo_annotation_outline"
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0050_acceptance_protocols"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0051_final_protocol_kind"]
 
 
 def test_upgrade_matches_the_model_and_downgrade_removes_only_the_table():
