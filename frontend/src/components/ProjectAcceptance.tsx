@@ -11,6 +11,7 @@ import type {
 import type { ContractCatalog } from '../types/contractCatalog';
 import type { ProjectRepresentative } from '../types/representative';
 import { documentErrorText } from '../utils/documentErrors';
+import { newId } from '../utils/newId';
 import { CommitText, FIELD } from './CommitText';
 
 interface ProjectAcceptanceProps {
@@ -42,15 +43,6 @@ function nowParts(): { day: string; time: string } {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   return { day: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`, time: `${pad(now.getHours())}:${pad(now.getMinutes())}` };
-}
-
-/** The key of a new remark is a UUID the server accepts as it is (a remark may be written offline later). */
-function newId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.floor(Math.random() * 16);
-    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-  });
 }
 
 /**

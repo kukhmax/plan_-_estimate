@@ -36,6 +36,7 @@ import { ProjectDocuments } from './ProjectDocuments';
 import { ProjectAdjacentWorks } from './ProjectAdjacentWorks';
 import { ProjectAcceptance } from './ProjectAcceptance';
 import { ProjectConcealedWorks } from './ProjectConcealedWorks';
+import { ProjectDecisions } from './ProjectDecisions';
 import { ProjectContract } from './ProjectContract';
 import { ProjectHandover } from './ProjectHandover';
 import { ProjectRepresentatives } from './ProjectRepresentatives';
@@ -780,6 +781,9 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
 
           {/* Stage 16H.3: the final or partial acceptance of the work (the result is derived from the works and the remarks). */}
           <ProjectAcceptance projectId={selectedProject.id} />
+
+          {/* Stage 16I.2: the protocol of information and decisions of the customer (a recommendation given up or overruled). */}
+          <ProjectDecisions projectId={selectedProject.id} />
 
           <RoomList
             projectId={selectedProject.id}

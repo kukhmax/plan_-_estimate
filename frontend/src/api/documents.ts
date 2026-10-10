@@ -79,3 +79,8 @@ export function previewConcealedPdf(projectId: string): Promise<DocumentPreviewR
 export function previewAcceptancePdf(projectId: string): Promise<DocumentPreviewResult> {
   return apiRequest(`${base(projectId)}/documents/acceptance/preview`, { method: 'POST' });
 }
+
+/** The working version of the protocol of information and decisions (pale watermark, empty boxes and lines) to the owner's chat, to fill in on the spot. */
+export function previewDecisionPdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/decision/preview`, { method: 'POST' });
+}
