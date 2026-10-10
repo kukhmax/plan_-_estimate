@@ -36,6 +36,11 @@ vi.mock('./api/surfaces', () => ({ fetchSurfaces: vi.fn(async () => ({ items: []
 vi.mock('./api/openings', () => ({ fetchOpenings: vi.fn(async () => ({ items: [], total: 0 })) }));
 vi.mock('./api/estimates', () => ({ listEstimates: vi.fn(async () => ({ items: [], total: 0 })), generateEstimate: vi.fn(), getEstimate: vi.fn() }));
 
+vi.mock('./api/knowledge', () => ({
+  fetchKnowledgeLinkIndex: vi.fn(async () => ({ items: [] })),
+  fetchKnowledgeEntry: vi.fn(),
+}));
+
 const { stub } = vi.hoisted(() => ({
   stub: (name: string) => () => <div aria-label={`stub-${name}`}>{name}</div>,
 }));
@@ -271,6 +276,40 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(crumbs()).toBe(`Obiekty/Mieszkanie Mokotów/Umowa i protokoły/${title}`);
     fireEvent.click(screen.getByLabelText('back-to-legal'));
     expect(screen.getByLabelText('legal-menu')).toBeInTheDocument();
+  });
+
+  it('each screen of the contract and protocols carries the basis of its document, and the menu and the other screens do not (Stage 17E)', async () => {
+    const knowledge = await import('./api/knowledge');
+    const entry = (code: string) => ({ code, kind: 'STATUTE' as const, source: 'KC', source_designation: 'KC', locator: 'art. 1', title_pl: `T ${code}`, title_ru: `N ${code}`, status: 'DRAFT' as const, tags: [] });
+    vi.mocked(knowledge.fetchKnowledgeLinkIndex).mockResolvedValue({
+      items: [
+        { target_kind: 'DOCUMENT', target: 'CONTRACT', entries: [entry('KC.627')] },
+        { target_kind: 'DOCUMENT', target: 'DECISION_PROTOCOL', entries: [entry('KC.634'), entry('KC.557')] },
+        { target_kind: 'DOCUMENT', target: 'DOWNTIME_NOTICE', entries: [entry('KC.640')] },
+        { target_kind: 'DOCUMENT', target: 'DOWNTIME_PROTOCOL', entries: [entry('KC.639'), entry('KC.640')] },
+      ],
+    });
+    renderWorkspace();
+    await openHub();
+    fireEvent.click(screen.getByLabelText('object-tile-legal'));
+    expect(screen.queryByLabelText(/^knowledge-basis/)).toBeNull(); // the menu of the section has none
+    const expected: Array<[string, string]> = [['contract', '1'], ['decisions', '2'], ['downtime', '2']];
+    for (const [id, count] of expected) {
+      fireEvent.click(screen.getByLabelText(`legal-tile-${id}`));
+      const toggle = await screen.findByLabelText(`knowledge-basis-${id}-toggle`);
+      expect(toggle).toHaveTextContent(`Podstawa (${count})`);
+      fireEvent.click(screen.getByLabelText('back-to-legal'));
+      expect(screen.queryByLabelText(`knowledge-basis-${id}`)).toBeNull();
+    }
+    // a screen whose document has no link in the knowledge base shows nothing
+    fireEvent.click(screen.getByLabelText('legal-tile-handover'));
+    expect(await screen.findByLabelText('stub-handover')).toBeInTheDocument();
+    await waitFor(() => expect(knowledge.fetchKnowledgeLinkIndex).toHaveBeenCalled());
+    expect(screen.queryByLabelText('knowledge-basis-handover-toggle')).toBeNull();
+    fireEvent.click(screen.getByLabelText('back-to-legal'));
+    fireEvent.click(screen.getByLabelText('legal-tile-representatives'));
+    expect(screen.queryByLabelText(/^knowledge-basis/)).toBeNull();
+    vi.mocked(knowledge.fetchKnowledgeLinkIndex).mockResolvedValue({ items: [] }); // the next tests see a knowledge base without links
   });
 
   it('the Telegram BackButton goes one step up: card → list → hub → list of objects', async () => {

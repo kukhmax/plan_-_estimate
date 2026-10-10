@@ -1,6 +1,7 @@
 import type {
   KnowledgeEntryDetail,
   KnowledgeEntryList,
+  KnowledgeLinkIndex,
   KnowledgeMeta,
   KnowledgeSituation,
   KnowledgeSituationItem,
@@ -28,4 +29,25 @@ export function listKnowledgeSituations(): Promise<{ items: KnowledgeSituationIt
 
 export function fetchKnowledgeSituation(code: string): Promise<KnowledgeSituation> {
   return apiRequest(`/api/knowledge/situations/${encodeURIComponent(code)}`);
+}
+
+let linkIndex: Promise<KnowledgeLinkIndex> | null = null;
+
+/**
+ * Every place of the application that points at the knowledge base, asked once and kept while the application is open: a
+ * list of risks or phrases shows many cards, and each must not ask the server. A failed request is forgotten, so the
+ * next card asks again.
+ */
+export function fetchKnowledgeLinkIndex(): Promise<KnowledgeLinkIndex> {
+  if (!linkIndex) {
+    linkIndex = apiRequest<KnowledgeLinkIndex>('/api/knowledge/links/index').catch((error: unknown) => {
+      linkIndex = null;
+      throw error;
+    });
+  }
+  return linkIndex;
+}
+
+export function forgetKnowledgeLinkIndex(): void {
+  linkIndex = null;
 }

@@ -62,10 +62,17 @@ class KnowledgeLinkRead(BaseModel):
     entries: list[KnowledgeEntryListItem]
 
 
+class KnowledgeLinkIndex(BaseModel):
+    """Every place of the application that points at the knowledge base, in one answer (Stage 17E): the screens ask once."""
+
+    items: list[KnowledgeLinkRead]
+
+
 __all__ = [
     "KnowledgeEntryList",
     "KnowledgeEntryListItem",
     "KnowledgeEntryRead",
+    "KnowledgeLinkIndex",
     "KnowledgeLinkRead",
     "KnowledgeMetaRead",
     "KnowledgeSituationList",

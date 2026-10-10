@@ -1150,6 +1150,21 @@ Owner approved ("делаем 15E, лимит 60 фото ок"). Details: `docs
 - **Production:** none — no migration, no route; the code travels with 15F / 15H (the 60-photo render on the 1 OCPU server is measured at 15H).
 - **Next (only on owner approval):** 15F — issuing: journal of issued documents (numbering by date-time plus a running number per client and object), Telegram `sendDocument`, "Wyślij PDF" buttons, HTTP errors for the document exceptions.
 
+### Stage 17E — contextual "Podstawa / Основание" links (2026-10-11, IMPLEMENTED LOCALLY — not deployed; no migration)
+- **Backend:** `GET /api/knowledge/links/index` — every link of the application to the knowledge base with the rows of its entries, in one answer (the existing `links?target_kind&target` stays). Test added (token needed, order, titles).
+- **Links in the catalogue** (`links.json`, 17 -> 51; DRAFT like the entries, all checked at startup against the real risks, phrases and document kinds):
+  - the 15 risks and their 15 client phrases `COMM_RISK_*` -> KC.634 (the duty to tell the customer about what may hinder the work) and, for the risks that can exclude the warranty, KC.557 (the customer's knowledge);
+  - documents: CONTRACT -> the 12 main provisions (the catalogue allows 12 per place; the rest stay reachable from the clause links and the list), DECISION_PROTOCOL -> KC.634, KC.557; DOWNTIME_NOTICE and DOWNTIME_PROTOCOL -> KC.639, KC.640.
+  - The clause texts are untouched (Q11). The mapping is the owner's / lawyer's to review with the entries.
+- **Frontend:**
+  - `KnowledgeBasis` (`components/KnowledgeBasis.tsx`): a folded line "Podstawa (n) / Основание (n)" (44 px); opened — the entries by title, with the place in the act and the DRAFT mark and one line that drafts are for the lawyer to check; a tap opens an entry inside the list (key points, the Russian explanation only in the Russian interface, the source link last). **It renders nothing** while there is nothing to show: no link, not loaded, server unavailable — the host screen works as before.
+  - Placed in the card of a risk (by `risk_code`), the card of a client phrase (by `phrase_code`) and above every screen of the section "Umowa i protokoły" (by document kind; two kinds for downtime).
+  - The shared pieces of an entry (`StatusBadge`, `KeyPoints`, `SourceLink`) moved to `KnowledgeEntryParts.tsx`; the card of 17D uses them (21 tests of 17D unchanged and green).
+  - `fetchKnowledgeLinkIndex` asks once and shares the answer for the whole session (many cards, one request); a failed request is forgotten.
+- **Tests:** `KnowledgeBasis.test.tsx` 11 + `api/knowledge.test.ts` 3 + the placement test of the legal screens in `ProjectWorkspace.hub.test.tsx`; backend `test_stage17b` 60 + `test_stage17c` 9. 4 mutants (duplicate entries, shown while empty, links of every place shown, two entries open at once) are killed.
+- **Verification:** frontend 114 files / 2379 tests passed (the same one uncaught error as in 17D — a 16K.3 test mock without `summary`, not part of this stage); `tsc --noEmit` and `vite build` pass; backend full run 5302 passed, 67 skipped, 1 known sandbox-root failure (`test_stage14d2c_preflight`). Mobile check (Chromium, 320 / 390 / 412 px x PL / RU, the risk card, the phrase card and a document screen, folded and opened with an entry): 18 checks, no horizontal overflow, nothing beyond the right edge, every control of the block >= 44 px.
+- **Production:** not deployed. **Next:** 17F (the adversarial check, runbook, deployment by the owner on "да"); the situations and the approval of the entries wait for the lawyer.
+
 ### Stage 17D — the knowledge base screen (2026-10-11, IMPLEMENTED LOCALLY — not deployed; no migration, backend code unchanged)
 - **Menu:** a sixth item "Baza wiedzy / База знаний" after "Wysłane dokumenty" (Q6). The section is `knowledge` in `App.tsx`; `chooseSection('show-knowledge')` in `test/menu.ts`.
 - **Screen** `components/KnowledgeBase.tsx` (read only; the server searches and decides, the screen shows):

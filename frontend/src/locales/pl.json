@@ -2785,6 +2785,9 @@
     "outcome_phrases": "Co powiedzieć klientowi",
     "outcome_documents": "Jaki dokument wystawić",
     "outcome_lawyer": "Tu skonsultuj się z prawnikiem.",
-    "situation_broken": "Ta sytuacja jest niekompletna."
+    "situation_broken": "Ta sytuacja jest niekompletna.",
+    "basis_title": "Podstawa ({count})",
+    "basis_draft": "Wersje robocze — do sprawdzenia przez prawnika.",
+    "basis_loading": "Ładowanie…"
   }
 }

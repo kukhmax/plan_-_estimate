@@ -115,3 +115,14 @@ export interface KnowledgeSituation {
   questions: KnowledgeQuestion[];
   outcomes: KnowledgeOutcome[];
 }
+
+/** One place of the application with the entries it points at (Stage 17E); the rows are the rows of the list. */
+export interface KnowledgeLinkRow {
+  target_kind: KnowledgeLinkKind;
+  target: string;
+  entries: KnowledgeEntryItem[];
+}
+
+export interface KnowledgeLinkIndex {
+  items: KnowledgeLinkRow[];
+}

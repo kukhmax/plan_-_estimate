@@ -15,6 +15,7 @@ import {
   CommunicationStatusValue,
 } from '../types/communication';
 import { RiskSeverityValue, RiskSourceFindingRead } from '../types/risk';
+import { KnowledgeBasis } from './KnowledgeBasis';
 
 export interface CommunicationPanelProps {
   projectId: string;
@@ -474,6 +475,8 @@ function CommunicationCard({
           ) : null}
         </div>
       ) : null}
+
+      <KnowledgeBasis targets={[{ kind: 'PHRASE', target: app.phrase_code }]} name={`knowledge-basis-phrase-${app.phrase_code}`} />
     </li>
   );
 }

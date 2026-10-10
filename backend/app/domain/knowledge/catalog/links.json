@@ -124,5 +124,261 @@
     "entries": [
       "RODO.6"
     ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "CRACK_RECURRENCE",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_CRACK_RECURRENCE",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "BOARD_MOVEMENT_CRACK",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_BOARD_MOVEMENT_CRACK",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "MOISTURE_BLOCK_FINISHING",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_MOISTURE_BLOCK_FINISHING",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "WEAK_ADHESION_PREP",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_WEAK_ADHESION_PREP",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "LOOSE_SUBSTRATE_REMOVAL",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_LOOSE_SUBSTRATE_REMOVAL",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "DUSTY_SUBSTRATE_PRIME",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_DUSTY_SUBSTRATE_PRIME",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "OILY_SUBSTRATE_DEGREASE",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_OILY_SUBSTRATE_DEGREASE",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "MOLD_TREATMENT_BEFORE_FINISH",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_MOLD_TREATMENT_BEFORE_FINISH",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "DELAMINATION_REPAIR",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_DELAMINATION_REPAIR",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "UNEVENNESS_PREP_INCREASED",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_UNEVENNESS_PREP_INCREASED",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "JOINT_TAPE_MISSING_REWORK",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_JOINT_TAPE_MISSING_REWORK",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FASTENER_CORROSION_FIX",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FASTENER_CORROSION_FIX",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "JOINT_GAP_FILLING",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_JOINT_GAP_FILLING",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "EFFLORESCENCE_CAUSE_CHECK",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_EFFLORESCENCE_CAUSE_CHECK",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "BLOW_HOLES_FILLING",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_BLOW_HOLES_FILLING",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "DOCUMENT",
+    "target": "CONTRACT",
+    "entries": [
+      "KC.627",
+      "KC.647",
+      "KC.355",
+      "KC.638",
+      "KC.556",
+      "KC.558",
+      "KC.557",
+      "KC.644",
+      "KC.640",
+      "KC.639",
+      "UPK.27",
+      "UPK.35"
+    ]
+  },
+  {
+    "target_kind": "DOCUMENT",
+    "target": "DECISION_PROTOCOL",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "DOCUMENT",
+    "target": "DOWNTIME_NOTICE",
+    "entries": [
+      "KC.640",
+      "KC.639"
+    ]
+  },
+  {
+    "target_kind": "DOCUMENT",
+    "target": "DOWNTIME_PROTOCOL",
+    "entries": [
+      "KC.639",
+      "KC.640"
+    ]
   }
 ]

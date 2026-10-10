@@ -14,9 +14,9 @@ import type {
   KnowledgeMeta,
   KnowledgeSituation,
   KnowledgeSituationItem,
-  KnowledgeStatus,
 } from '../types/knowledge';
 import { documentKindLabel } from '../utils/documentFormat';
+import { KeyPoints, SourceLink, StatusBadge } from './KnowledgeEntryParts';
 
 type View = { kind: 'list' } | { kind: 'entry'; code: string } | { kind: 'situation'; code: string };
 
@@ -29,18 +29,6 @@ const CARD = 'bg-white border border-slate-200 rounded-2xl p-3 shadow-sm';
 
 function fill(template: string, values: Record<string, string | number>): string {
   return Object.entries(values).reduce((text, [key, value]) => text.replace(`{${key}}`, String(value)), template);
-}
-
-function StatusBadge({ status, label }: { status: KnowledgeStatus; label: string }) {
-  return (
-    <span
-      className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${
-        status === 'DRAFT' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-      }`}
-    >
-      {label}
-    </span>
-  );
 }
 
 /**
@@ -208,7 +196,7 @@ function KnowledgeList({ title, onOpenEntry, onOpenSituation }: TitleProps & { o
                     <span className="block text-xs text-slate-500 break-words">
                       {[entry.source_designation, entry.locator].filter(Boolean).join(' · ')}
                     </span>
-                    {entry.status === 'DRAFT' && <StatusBadge status="DRAFT" label={text.status_draft} />}
+                    {entry.status === 'DRAFT' && <StatusBadge status="DRAFT" />}
                   </button>
                 </li>
               ))}
@@ -221,7 +209,7 @@ function KnowledgeList({ title, onOpenEntry, onOpenSituation }: TitleProps & { o
 }
 
 function KnowledgeEntryCard({ code, title }: TitleProps & { code: string }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const text = t.knowledge;
   const [detail, setDetail] = useState<KnowledgeEntryDetail | null>(null);
   const [failed, setFailed] = useState(false);
@@ -260,25 +248,11 @@ function KnowledgeEntryCard({ code, title }: TitleProps & { code: string }) {
       <header className="space-y-1">
         <h2 className="text-lg font-bold text-slate-900 break-words">{title(entry)}</h2>
         <p className="text-xs text-slate-500 break-words">{[source.designation, entry.locator].filter(Boolean).join(' · ')}</p>
-        <StatusBadge status={entry.status} label={entry.status === 'DRAFT' ? text.status_draft : text.status_approved} />
+        <StatusBadge status={entry.status} />
         {entry.status === 'DRAFT' && <p className="text-xs text-amber-900 break-words">{text.draft_notice}</p>}
       </header>
 
-      <section aria-label="knowledge-summary" className="space-y-1">
-        <h3 className="text-sm font-bold text-slate-700">{text.summary_title}</h3>
-        {entry.summary_pl ? (
-          <p className="text-sm text-slate-800 whitespace-pre-line break-words">{entry.summary_pl}</p>
-        ) : (
-          <p className="text-sm text-slate-400">{text.no_summary}</p>
-        )}
-      </section>
-
-      {locale === 'ru' && entry.explanation_ru && (
-        <section aria-label="knowledge-explanation" className="space-y-1">
-          <h3 className="text-sm font-bold text-slate-700">{text.explanation_title}</h3>
-          <p className="text-sm text-slate-800 whitespace-pre-line break-words">{entry.explanation_ru}</p>
-        </section>
-      )}
+      <KeyPoints entry={entry} />
 
       {linked.length > 0 && (
         <section aria-label="knowledge-linked" className="space-y-1">
@@ -315,19 +289,7 @@ function KnowledgeEntryCard({ code, title }: TitleProps & { code: string }) {
         {entry.approved_by && entry.approved_on && (
           <p className="text-xs text-slate-500 break-words">{fill(text.approved_by, { name: entry.approved_by, date: entry.approved_on })}</p>
         )}
-        {source.url ? (
-          <a
-            href={source.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="knowledge-source-link"
-            className="flex items-center justify-center w-full min-h-11 px-4 text-sm font-semibold rounded-xl bg-blue-600 text-white"
-          >
-            {text.source_open}
-          </a>
-        ) : (
-          <p className="text-xs text-slate-400">{text.no_link}</p>
-        )}
+        <SourceLink source={source} />
       </footer>
     </article>
   );

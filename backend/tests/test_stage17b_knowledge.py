@@ -310,6 +310,16 @@ async def test_the_entries_of_a_place_in_the_application_and_none_for_an_unlinke
     assert (await async_client.get("/api/knowledge/links", params={"target_kind": "LAW", "target": "x"}, headers=headers)).status_code == 422
 
 
+async def test_the_link_index_gives_every_place_with_its_entries_in_one_answer(async_client: AsyncClient, knowledge):
+    headers = auth_header(await get_token(async_client, VALID_USER))
+    assert (await async_client.get("/api/knowledge/links/index")).status_code in (401, 403)
+    body = (await async_client.get("/api/knowledge/links/index", headers=headers)).json()
+    assert [(i["target_kind"], i["target"]) for i in body["items"]] == [("RISK", RISK), ("CLAUSE", CLAUSE), ("DOCUMENT", "DECISION_PROTOCOL")]
+    first = body["items"][0]
+    assert [e["code"] for e in first["entries"]] == ["ACT.1", "NORM.1"]
+    assert first["entries"][0]["title_pl"] == "Rękojmia za wady robót"  # the row of the list, enough to name the entry
+
+
 async def test_a_broken_catalogue_is_a_plain_500_not_a_guess(async_client: AsyncClient, monkeypatch):
     def refuse():
         raise KnowledgeCatalogError("entries.json: broken")

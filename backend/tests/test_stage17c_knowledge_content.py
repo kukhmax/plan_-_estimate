@@ -70,3 +70,24 @@ def test_the_contract_places_lead_to_the_provisions_they_cite():
     assert by_place["warranty.1"] == ["KC.638", "KC.556", "KC.558"]
     assert by_place["consumer_withdrawal.2"] == ["UPK.35"]
     assert by_place["personal_data.1"] == ["RODO.6"]
+
+
+# --- Stage 17E: the contextual links -------------------------------------------------------------------------------------------
+
+
+def test_every_risk_and_its_client_phrase_has_a_basis():
+    from app.domain.data.risk_rules import build_baseline_risk_rules
+
+    by_place = {(link.target_kind, link.target): link.entries for link in CATALOG.links}
+    for rule in build_baseline_risk_rules():
+        entries = by_place[("RISK", rule.code)]
+        assert entries[0] == "KC.634"  # the duty to tell the customer about what may hinder the work
+        assert ("KC.557" in entries) == rule.warranty_exclusion_candidate  # the customer's knowledge only where a warranty exclusion is possible
+        assert by_place[("PHRASE", f"COMM_RISK_{rule.code}")] == entries
+
+
+def test_the_documents_that_carry_a_decision_or_a_downtime_name_their_basis():
+    by_place = {(link.target_kind, link.target): link.entries for link in CATALOG.links}
+    assert by_place[("DOCUMENT", "DECISION_PROTOCOL")] == ["KC.634", "KC.557"]
+    assert set(by_place[("DOCUMENT", "DOWNTIME_NOTICE")]) == set(by_place[("DOCUMENT", "DOWNTIME_PROTOCOL")]) == {"KC.639", "KC.640"}
+    assert "KC.627" in by_place[("DOCUMENT", "CONTRACT")]

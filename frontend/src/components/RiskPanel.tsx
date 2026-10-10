@@ -9,6 +9,7 @@ import {
   RiskSourceFindingRead,
   RiskStatusValue,
 } from '../types/risk';
+import { KnowledgeBasis } from './KnowledgeBasis';
 
 export interface RiskPanelProps {
   projectId: string;
@@ -376,6 +377,8 @@ function RiskCard({
           ) : null}
         </div>
       ) : null}
+
+      <KnowledgeBasis targets={[{ kind: 'RISK', target: risk.risk_code }]} name={`knowledge-basis-risk-${risk.risk_code}`} />
     </li>
   );
 }

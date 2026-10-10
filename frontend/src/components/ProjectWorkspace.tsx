@@ -47,6 +47,17 @@ import { inspectionTargetOf } from '../utils/unpricedTarget';
 import { ProjectSummaryCard } from './ProjectSummaryCard';
 import { DocumentsMenu, DocumentsSection, LegalMenu, LegalSection, ObjectPhotos, ObjectSection, ProjectHub } from './ProjectHub';
 import { SurfaceList } from './SurfaceList';
+import { KnowledgeBasis, KnowledgeBasisTarget } from './KnowledgeBasis';
+
+/** Which document of the knowledge base's links stands behind each screen of the section "Umowa i protokoły" (Stage 17E). */
+const LEGAL_BASIS: Partial<Record<LegalSection, KnowledgeBasisTarget[]>> = {
+  contract: [{ kind: 'DOCUMENT', target: 'CONTRACT' }],
+  handover: [{ kind: 'DOCUMENT', target: 'HANDOVER_PROTOCOL' }],
+  concealed: [{ kind: 'DOCUMENT', target: 'CONCEALED_WORKS_PROTOCOL' }],
+  acceptance: [{ kind: 'DOCUMENT', target: 'FINAL_PROTOCOL' }],
+  decisions: [{ kind: 'DOCUMENT', target: 'DECISION_PROTOCOL' }],
+  downtime: [{ kind: 'DOCUMENT', target: 'DOWNTIME_NOTICE' }, { kind: 'DOCUMENT', target: 'DOWNTIME_PROTOCOL' }],
+};
 
 interface ProjectFormState {
   name: string;
@@ -876,6 +887,11 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           )}
 
           {objectSection === 'legal' && legalSection === null && <LegalMenu onOpen={setLegalSection} />}
+
+          {/* Stage 17E: the basis (law and norms) of the document of the open screen; nothing is shown when the knowledge base has none. */}
+          {objectSection === 'legal' && legalSection !== null && LEGAL_BASIS[legalSection] && (
+            <KnowledgeBasis targets={LEGAL_BASIS[legalSection]} name={`knowledge-basis-${legalSection}`} />
+          )}
 
           {/* Stage 16B.2: the persons of the object (who may accept the work and sign the protocols). */}
           {objectSection === 'legal' && legalSection === 'representatives' && <ProjectRepresentatives projectId={selectedProject.id} />}

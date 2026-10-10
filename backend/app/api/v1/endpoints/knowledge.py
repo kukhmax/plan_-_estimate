@@ -6,13 +6,20 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_current_user
-from app.domain.knowledge.catalog import Entry, KnowledgeCatalog, KnowledgeCatalogError, Situation, load_knowledge_catalog
+from app.domain.knowledge.catalog import (
+    Entry,
+    KnowledgeCatalog,
+    KnowledgeCatalogError,
+    Situation,
+    load_knowledge_catalog,
+)
 from app.domain.knowledge.search import Filters, search
 from app.models.user import User
 from app.schemas.knowledge import (
     KnowledgeEntryList,
     KnowledgeEntryListItem,
     KnowledgeEntryRead,
+    KnowledgeLinkIndex,
     KnowledgeLinkRead,
     KnowledgeMetaRead,
     KnowledgeSituationList,
@@ -113,3 +120,15 @@ async def read_links(
     link = next((l for l in catalog.links if l.target_kind == target_kind and l.target == target), None)
     entries = [catalog.entry(code) for code in link.entries] if link else []
     return KnowledgeLinkRead(target_kind=target_kind, target=target, entries=[_item(catalog, e) for e in entries if e is not None])
+
+
+@router.get("/links/index", response_model=KnowledgeLinkIndex, summary="Every link of the application to the knowledge base at once")
+async def read_link_index(current_user: User = Depends(get_current_user)) -> KnowledgeLinkIndex:
+    catalog = _catalog()
+    items = []
+    for link in catalog.links:
+        entries = [catalog.entry(code) for code in link.entries]
+        items.append(KnowledgeLinkRead(
+            target_kind=link.target_kind, target=link.target, entries=[_item(catalog, e) for e in entries if e is not None],
+        ))
+    return KnowledgeLinkIndex(items=items)

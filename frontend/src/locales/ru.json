@@ -2785,6 +2785,9 @@
     "outcome_phrases": "Что сказать клиенту",
     "outcome_documents": "Какой документ выдать",
     "outcome_lawyer": "Здесь проконсультируйтесь с юристом.",
-    "situation_broken": "Эта ситуация неполная."
+    "situation_broken": "Эта ситуация неполная.",
+    "basis_title": "Основание ({count})",
+    "basis_draft": "Черновики — на проверку юристу.",
+    "basis_loading": "Загрузка…"
   }
 }
