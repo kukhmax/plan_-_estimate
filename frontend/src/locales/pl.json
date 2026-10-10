@@ -30,10 +30,36 @@
     "group_contract": "Umowa",
     "group_protocols": "Protokoły"
   },
+  "archive": {
+    "title": "Archiwum",
+    "intro": "Zarchiwizowani klienci i obiekty. Tutaj można je przywrócić.",
+    "clients_tab": "Klienci",
+    "projects_tab": "Obiekty",
+    "empty_clients": "Brak zarchiwizowanych klientów.",
+    "empty_projects": "Brak zarchiwizowanych obiektów.",
+    "restore": "Przywróć",
+    "restoring": "Przywracanie…",
+    "restored_client": "Klient przywrócony.",
+    "restored_project": "Obiekt przywrócony.",
+    "error_load": "Nie udało się wczytać archiwum.",
+    "error_restore": "Nie udało się przywrócić.",
+    "retry": "Spróbuj ponownie"
+  },
+  "sentDocuments": {
+    "intro": "Wszystkie dokumenty wysłane do czatu z botem, ze wszystkich obiektów, od najnowszych.",
+    "empty": "Nic jeszcze nie wysłano.",
+    "error_load": "Nie udało się wczytać listy dokumentów.",
+    "more": "Pokaż więcej",
+    "refresh": "Odśwież",
+    "shown": "Pokazano {shown} z {total}",
+    "object": "Obiekt:"
+  },
   "navigation": {
     "clients": "Klienci",
     "projects": "Obiekty",
-    "pricebook": "Cennik"
+    "pricebook": "Cennik",
+    "archive": "Archiwum",
+    "documents": "Wysłane dokumenty"
   },
   "errors": {
     "reveal_work_requires_opening": "Prace na ościeżach dodaj w konkretnym otworze (Prace na ościeżach), a nie w planie ściany.",

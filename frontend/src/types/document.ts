@@ -27,6 +27,16 @@ export interface IssuedDocumentList {
   total: number;
 }
 
+/** A row of the journal of ALL objects (Stage 16K.5): the same row and the name of its object. */
+export interface OwnerDocument extends IssuedDocument {
+  project_name: string;
+}
+
+export interface OwnerDocumentList {
+  items: OwnerDocument[];
+  total: number;
+}
+
 export interface PhotoReportRoomSummary {
   room_id: string;
   name: string;

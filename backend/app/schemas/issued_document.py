@@ -64,6 +64,17 @@ class IssuedDocumentListResponse(BaseModel):
     total: int
 
 
+class OwnerDocumentRead(IssuedDocumentRead):
+    """A row of the journal of all objects: the same row and the name of the object it belongs to (Stage 16K.5)."""
+
+    project_name: str
+
+
+class OwnerDocumentListResponse(BaseModel):
+    items: list[OwnerDocumentRead]
+    total: int
+
+
 class PreviewResponse(BaseModel):
     sent: bool
     pages: int

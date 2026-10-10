@@ -88,7 +88,6 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [includeArchived, setIncludeArchived] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientType | null>(null);
   const [form, setForm] = useState<ClientFormState>(DEFAULT_FORM);
@@ -108,7 +107,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchClients({ search: search || undefined, include_archived: includeArchived });
+      const data = await fetchClients({ search: search || undefined });
       setClients(data.items);
       setTotal(data.total);
       setSelected((current) => (current ? data.items.find((c) => c.id === current.id) ?? current : current));
@@ -117,7 +116,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
     } finally {
       setLoading(false);
     }
-  }, [search, includeArchived, t.clients.error]);
+  }, [search, t.clients.error]);
 
   useEffect(() => {
     load();
@@ -613,7 +612,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
       </div>
 
       {/* Search + filters */}
-      <div className="flex gap-2 mb-3 flex-wrap items-center">
+      <div className="flex gap-2 mb-3">
         <input
           aria-label="search-clients"
           type="text"
@@ -622,14 +621,6 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 min-w-0 min-h-11 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <label className="flex items-center gap-1.5 min-h-11 text-sm text-slate-600 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
-          />
-          {t.clients.show_archived}
-        </label>
       </div>
 
       {formBlock}

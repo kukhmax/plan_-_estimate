@@ -2,6 +2,7 @@ import {
   DocumentPreviewResult,
   IssuedDocument,
   IssuedDocumentList,
+  OwnerDocumentList,
   PhotoReportPartPayload,
   PhotoReportSummary,
 } from '../types/document';
@@ -26,6 +27,11 @@ export function issuePhotoReport(projectId: string, part?: PhotoReportPartPayloa
 
 export function listDocuments(projectId: string): Promise<IssuedDocumentList> {
   return apiRequest(`${base(projectId)}/documents`);
+}
+
+/** The journal of every object of the owner, newest first, one page at a time (Stage 16K.5). */
+export function listAllDocuments(limit = 30, offset = 0): Promise<OwnerDocumentList> {
+  return apiRequest(`/api/documents?limit=${limit}&offset=${offset}`);
 }
 
 export function getDocument(projectId: string, documentId: string): Promise<IssuedDocument> {

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
-import { chooseSection, openAccountDialog } from './test/menu';
+import { chooseSection, openAccountDialog, openMenu } from './test/menu';
 import * as api from './api/auth';
 import * as openingsApi from './api/openings';
 import * as priceItemsApi from './api/priceItems';
@@ -32,6 +32,9 @@ vi.mock('./api/projects', () => ({
   updateProject: vi.fn(),
   archiveProject: vi.fn(),
   restoreProject: vi.fn(),
+}));
+vi.mock('./api/documents', () => ({
+  listAllDocuments: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 vi.mock('./api/estimates', () => ({
   listEstimates: vi.fn(async () => ({ items: [], total: 0 })),
@@ -484,5 +487,42 @@ describe('App authentication component', () => {
     await chooseSection('show-projects');
     expect(await screen.findByLabelText(`open-project-${project.id}`)).toBeInTheDocument();
     expect(screen.queryByLabelText('estimates-empty-state')).not.toBeInTheDocument();
+  });
+
+  it('the main menu has the five sections in the order of the owner: clients, objects, price, archive, sent documents (Stage 16K.5)', async () => {
+    vi.mocked(api.loginWithTelegram).mockResolvedValueOnce({
+      access_token: 'mock-jwt-token', token_type: 'bearer', is_dev_auth: true,
+      user: { id: '11111111-1111-1111-1111-111111111111', telegram_user_id: 999999999, username: 'dev_contractor', first_name: 'Jan', last_name: 'Kowalski', language_code: 'pl', created_at: '2026-09-08T12:00:00Z', updated_at: '2026-09-08T12:00:00Z' },
+    });
+    render(<App />);
+    await openMenu();
+    const nav = screen.getByRole('navigation', { name: 'main-navigation' });
+    expect(Array.from(nav.querySelectorAll('button')).map((b) => b.textContent)).toEqual([
+      'Klienci', 'Obiekty', 'Cennik', 'Archiwum', 'Wysłane dokumenty',
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'show-archive' }));
+    expect(await screen.findByLabelText('archive-section')).toBeInTheDocument();
+    await openMenu();
+    expect(screen.getByRole('button', { name: 'show-archive' })).toHaveAttribute('aria-current', 'page');
+    fireEvent.click(screen.getByRole('button', { name: 'show-documents' }));
+    expect(await screen.findByLabelText('sent-documents-section')).toBeInTheDocument();
+    expect(screen.queryByLabelText('archive-section')).not.toBeInTheDocument();
+  });
+
+  it('the lists of clients and objects show only what is in work: no "show archived" switch, the archive restores (Stage 16K.5)', async () => {
+    vi.mocked(api.loginWithTelegram).mockResolvedValueOnce({
+      access_token: 'mock-jwt-token', token_type: 'bearer', is_dev_auth: true,
+      user: { id: '11111111-1111-1111-1111-111111111111', telegram_user_id: 999999999, username: 'dev_contractor', first_name: 'Jan', last_name: 'Kowalski', language_code: 'pl', created_at: '2026-09-08T12:00:00Z', updated_at: '2026-09-08T12:00:00Z' },
+    });
+    const clientsApi = await import('./api/clients');
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });
+    render(<App />);
+    await screen.findByLabelText('clients-section');
+    expect(screen.queryByLabelText('Pokaż zarchiwizowane')).not.toBeInTheDocument();
+    expect(vi.mocked(clientsApi.fetchClients).mock.calls.every(([args]) => !(args as { include_archived?: boolean } | undefined)?.include_archived || false)).toBe(true);
+    await chooseSection('show-projects');
+    await screen.findByLabelText('no-projects');
+    expect(screen.queryByLabelText('show-archived-projects')).not.toBeInTheDocument();
+    expect(projectsApi.fetchProjects).toHaveBeenLastCalledWith(false);
   });
 });

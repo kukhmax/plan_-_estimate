@@ -204,6 +204,29 @@ class IssuedDocumentService:
         ).scalars()
         return list(rows)
 
+    async def list_for_owner(
+        self, owner_id: uuid.UUID, *, limit: int = 100, offset: int = 0
+    ) -> tuple[list[tuple[IssuedDocument, str]], int]:
+        """The journal of all objects of the owner (Stage 16K.5), newest first, each row with the name of its object, and the
+        number of all rows (not only of this page). Nothing is written but the stale attempts, which end as in the journal of
+        one object. Documents of an archived object stay in the journal."""
+        await self._expire_stale(owner_id, None, self.clock())
+        await self.db.commit()
+        total = (
+            await self.db.execute(select(func.count()).select_from(IssuedDocument).where(IssuedDocument.owner_id == owner_id))
+        ).scalar_one()
+        rows = (
+            await self.db.execute(
+                select(IssuedDocument, Project.name)
+                .join(Project, Project.id == IssuedDocument.project_id)
+                .where(IssuedDocument.owner_id == owner_id, Project.owner_id == owner_id)
+                .order_by(IssuedDocument.issued_at.desc(), IssuedDocument.number.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+        return [(document, name) for document, name in rows], int(total)
+
     async def _owned(self, owner_id: uuid.UUID, document_id: uuid.UUID) -> IssuedDocument:
         document = (
             await self.db.execute(
@@ -214,12 +237,14 @@ class IssuedDocumentService:
             raise IssuedDocumentNotFoundError(f"Document {document_id} not found")
         return document
 
-    async def _expire_stale(self, owner_id: uuid.UUID, project_id: uuid.UUID, now: datetime) -> None:
+    async def _expire_stale(self, owner_id: uuid.UUID, project_id: uuid.UUID | None, now: datetime) -> None:
+        """End the attempts that were left PENDING; of one object, or of every object of the owner when `project_id` is None."""
+        scope = [IssuedDocument.project_id == project_id] if project_id is not None else []
         await self.db.execute(
             update(IssuedDocument)
             .where(
                 IssuedDocument.owner_id == owner_id,
-                IssuedDocument.project_id == project_id,
+                *scope,
                 IssuedDocument.status == IssuedDocumentStatus.PENDING.value,
                 IssuedDocument.issued_at < _utc(now) - PENDING_TTL,
             )

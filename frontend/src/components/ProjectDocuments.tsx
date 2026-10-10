@@ -4,6 +4,7 @@ import { useI18n } from '../hooks/useI18n';
 import { ProductionPlanSection, TechCardSection } from './TechCardSection';
 import type { IssuedDocument, PhotoReportSummary, UnpricedWork } from '../types/document';
 import { documentErrorText } from '../utils/documentErrors';
+import { documentKindLabel, formatIssued, formatSize } from '../utils/documentFormat';
 import { priceItemLabel } from '../utils/executionFormat';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 
@@ -36,21 +37,6 @@ function rememberOpen(projectId: string, open: boolean): void {
   } catch {
     // storage may be blocked; the card then simply starts closed
   }
-}
-
-function formatIssued(iso: string, locale: string): string {
-  return new Date(iso).toLocaleString(locale === 'ru' ? 'ru-RU' : 'pl-PL', {
-    timeZone: 'Europe/Warsaw',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatSize(bytes: number): string {
-  return bytes >= 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} KB`;
 }
 
 /**
@@ -168,20 +154,7 @@ export function ProjectDocuments({ projectId, onOpenInspection, onOpenEstimate }
     else onOpenEstimate(work.reason === 'NO_ESTIMATE' ? null : summary?.estimate_id ?? null);
   };
 
-  const kindLabels: Record<IssuedDocument['kind'], string> = {
-    ESTIMATE: text.kind_estimate,
-    PHOTO_REPORT: text.kind_photo_report,
-    TECH_CARD: text.kind_tech_card,
-    PRODUCTION_PLAN: text.kind_production_plan,
-    CONTRACT: text.kind_contract,
-    HANDOVER_PROTOCOL: text.kind_handover,
-    CONCEALED_WORKS_PROTOCOL: text.kind_concealed,
-    FINAL_PROTOCOL: text.kind_final,
-    DECISION_PROTOCOL: text.kind_decision,
-    DOWNTIME_NOTICE: text.kind_downtime_notice,
-    DOWNTIME_PROTOCOL: text.kind_downtime_protocol,
-  };
-  const kindLabel = (document: IssuedDocument) => kindLabels[document.kind];
+  const kindLabel = (document: IssuedDocument) => documentKindLabel(text, document.kind);
   const reloadJournal = async () => {
     try {
       const next = await listDocuments(projectId);

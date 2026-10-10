@@ -1,23 +1,27 @@
 import React, { useCallback, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { I18nProvider, useI18n } from './hooks/useI18n';
+import { ArchiveScreen } from './components/ArchiveScreen';
 import { ClientList } from './components/ClientList';
 import { PriceBook } from './components/PriceBook';
+import { SentDocuments } from './components/SentDocuments';
 import { ProjectOpenRequest, ProjectWorkspace } from './components/ProjectWorkspace';
 import { AccountModal } from './components/AccountModal';
 import { AppMenu, AppMenuItem } from './components/AppMenu';
 
+type Section = 'clients' | 'projects' | 'pricebook' | 'archive' | 'documents';
+
 const AppContent: React.FC = () => {
   const { user, isDevAuth, isLoading, error, retry } = useAuth();
   const { t, locale, setLocale } = useI18n();
-  const [activeSection, setActiveSection] = useState<'clients' | 'projects' | 'pricebook'>('clients');
+  const [activeSection, setActiveSection] = useState<Section>('clients');
   const [projectsNavToken, setProjectsNavToken] = useState(0);
   const [showAccount, setShowAccount] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openRequest, setOpenRequest] = useState<ProjectOpenRequest | null>(null);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
-  const choose = (section: 'clients' | 'projects' | 'pricebook') => {
+  const choose = (section: Section) => {
     setActiveSection(section);
     setOpenRequest(null);
     // Choosing "Obiekty" always leads back to the list of objects, even when it is already the open section.
@@ -33,6 +37,8 @@ const AppContent: React.FC = () => {
     { id: 'show-clients', label: t.navigation.clients, active: activeSection === 'clients', onSelect: () => choose('clients') },
     { id: 'show-projects', label: t.navigation.projects, active: activeSection === 'projects', onSelect: () => choose('projects') },
     { id: 'show-pricebook', label: t.navigation.pricebook, active: activeSection === 'pricebook', onSelect: () => choose('pricebook') },
+    { id: 'show-archive', label: t.navigation.archive, active: activeSection === 'archive', onSelect: () => choose('archive') },
+    { id: 'show-documents', label: t.navigation.documents, active: activeSection === 'documents', onSelect: () => choose('documents') },
   ];
 
   return (
@@ -151,6 +157,10 @@ const AppContent: React.FC = () => {
               <ClientList onOpenEstimate={openEstimatesOf} backSuspended={showAccount || menuOpen} />
             ) : activeSection === 'projects' ? (
               <ProjectWorkspace resetSignal={projectsNavToken} backSuspended={showAccount || menuOpen} openRequest={openRequest} />
+            ) : activeSection === 'archive' ? (
+              <ArchiveScreen />
+            ) : activeSection === 'documents' ? (
+              <SentDocuments />
             ) : (
               <PriceBook />
             )}

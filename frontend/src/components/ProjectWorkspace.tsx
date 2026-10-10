@@ -123,7 +123,6 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [includeArchived, setIncludeArchived] = useState(false);
   const [selectedProject, setSelectedProject] = useState<ProjectType | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<RoomType | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -158,7 +157,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     setError(null);
     try {
       const [projectData, clientData] = await Promise.all([
-        fetchProjects(includeArchived),
+        fetchProjects(false),
         fetchClients({ include_archived: true }),
       ]);
       setProjects(projectData.items);
@@ -168,7 +167,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     } finally {
       setLoading(false);
     }
-  }, [includeArchived, t.projects.error]);
+  }, [t.projects.error]);
 
   useEffect(() => {
     void load();
@@ -664,18 +663,6 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             {selectedProject ? t.common.edit : t.projects.add}
           </button>
         </div>
-      )}
-
-      {!selectedProject && (
-        <label className="flex items-center gap-1.5 text-sm text-slate-600 mb-3 cursor-pointer">
-          <input
-            aria-label="show-archived-projects"
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(event) => setIncludeArchived(event.target.checked)}
-          />
-          {t.common.show_archived}
-        </label>
       )}
 
       {showForm && (

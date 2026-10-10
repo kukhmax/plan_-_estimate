@@ -6,7 +6,7 @@ screen follows with `GET`. Ownership always comes from the authenticated user.
 """
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_document_issuer
@@ -32,6 +32,8 @@ from app.schemas.issued_document import (
     IssuedDocumentListResponse,
     IssuedDocumentRead,
     IssueDocumentRequest,
+    OwnerDocumentListResponse,
+    OwnerDocumentRead,
     PhotoReportSummaryRead,
     PreviewResponse,
     RoomSummaryRead,
@@ -122,6 +124,24 @@ async def list_documents(
         raise _http_error(exc) from exc
     items = [IssuedDocumentRead.model_validate(row) for row in rows]
     return IssuedDocumentListResponse(items=items, total=len(items))
+
+
+@router.get(
+    "/documents",
+    response_model=OwnerDocumentListResponse,
+    summary="The journal of issued documents of all objects of the owner, newest first (read only)",
+)
+async def list_all_documents(
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> OwnerDocumentListResponse:
+    rows, total = await IssuedDocumentService(db).list_for_owner(current_user.id, limit=limit, offset=offset)
+    items = [
+        OwnerDocumentRead(**IssuedDocumentRead.model_validate(document).model_dump(), project_name=name) for document, name in rows
+    ]
+    return OwnerDocumentListResponse(items=items, total=total)
 
 
 @router.get(
