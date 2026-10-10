@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
+import { chooseSection, openAccountDialog, openMenu } from './test/menu';
 import * as api from './api/auth';
 import * as priceItemsApi from './api/priceItems';
 
@@ -94,38 +95,51 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     render(<App />);
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument(),
     );
 
     expect(screen.queryByLabelText('user-card')).not.toBeInTheDocument();
     expect(screen.queryByText('Telegram User ID')).not.toBeInTheDocument();
     expect(screen.queryByText('999999999')).not.toBeInTheDocument();
-    // Navigation still first — the card did not consume the top of the page.
-    expect(screen.getByRole('navigation', { name: 'main-navigation' })).toBeInTheDocument();
+    // The sections are behind the menu: nothing of the navigation takes room on the page.
+    expect(screen.queryByRole('navigation', { name: 'main-navigation' })).not.toBeInTheDocument();
   });
 
-  it('B: a compact account control exists in the app footer', async () => {
+  it('B: the header is one compact row (logo, menu, language) and the account lives in the menu', async () => {
     mockDevAuth();
     render(<App />);
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument(),
     );
 
-    const footer = screen.getByRole('contentinfo');
-    const accountButton = screen.getByRole('button', { name: 'open-account' });
-    expect(footer).toContainElement(accountButton);
-    expect(footer).toHaveTextContent('Plan & Estimate');
+    const header = screen.getByRole('banner', { name: 'app-header' });
+    expect(header).toHaveTextContent('Plan & Estimate');
+    expect(header).toContainElement(screen.getByRole('button', { name: 'open-menu' }));
+    expect(header).toContainElement(screen.getByRole('button', { name: 'lang-pl' }));
+    expect(header).toContainElement(screen.getByRole('button', { name: 'lang-ru' }));
+    // No second title line and no footer any more.
+    expect(screen.queryByText(/Telegram Mini App/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'open-account' })).not.toBeInTheDocument();
+
+    await openMenu();
+    const menu = screen.getByRole('dialog', { name: 'main-menu' });
+    expect(menu).toContainElement(screen.getByRole('button', { name: 'open-account' }));
+    const nav = screen.getByRole('navigation', { name: 'main-navigation' });
+    expect(nav).toContainElement(screen.getByRole('button', { name: 'show-clients' }));
+    expect(nav).toContainElement(screen.getByRole('button', { name: 'show-projects' }));
+    expect(nav).toContainElement(screen.getByRole('button', { name: 'show-pricebook' }));
   });
 
   it('C: opening the account control shows verification, Telegram ID, username, and UUID', async () => {
     mockDevAuth();
     render(<App />);
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'open-account' }),
-    );
+    await openAccountDialog();
 
+    // The menu closes when the account is chosen, so only the dialog stays.
+    expect(screen.queryByRole('dialog', { name: 'main-menu' })).not.toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Dane użytkownika' })).toBeInTheDocument();
     expect(screen.getByText('Mock Auth')).toBeInTheDocument();
     expect(screen.getByText('Jan Kowalski')).toBeInTheDocument();
@@ -138,16 +152,17 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     mockDevAuth();
     render(<App />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'open-account' }));
+    await openAccountDialog();
     expect(screen.getByRole('dialog', { name: 'Dane użytkownika' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'close-account-modal' }));
     expect(screen.queryByRole('dialog', { name: 'Dane użytkownika' })).not.toBeInTheDocument();
 
     // The underlying page controls remain usable after closing.
-    expect(screen.getByRole('button', { name: 'show-clients' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'add-client' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'open-account' }));
+    await openAccountDialog();
     expect(screen.getByRole('dialog', { name: 'Dane użytkownika' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -164,8 +179,10 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     });
     render(<App />);
 
-    const accountButton = await screen.findByRole('button', { name: 'open-account' });
+    await openMenu();
+    const accountButton = screen.getByRole('button', { name: 'open-account' });
     expect(accountButton).toHaveTextContent('Аккаунт');
+    expect(screen.getByRole('button', { name: 'show-projects' })).toHaveTextContent('Объекты');
 
     fireEvent.click(accountButton);
     expect(screen.getByRole('dialog', { name: 'Данные пользователя' })).toBeInTheDocument();
@@ -179,7 +196,7 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     mockDevAuth();
     render(<App />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'show-pricebook' }));
+    await chooseSection('show-pricebook');
     await screen.findByRole('region', { name: 'price-book-section' });
     expect(priceItemsApi.fetchPriceItems).toHaveBeenCalled();
 
@@ -195,7 +212,7 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     fireEvent.change(screen.getByLabelText('price-item-display-name'), {
       target: { value: 'Nazwa testowa' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'open-account' }));
+    await openAccountDialog();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByLabelText('price-item-display-name')).toBeInTheDocument();
   });
@@ -205,7 +222,7 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     render(<App />);
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument(),
     );
 
     expect(document.documentElement.getAttribute('data-color-scheme')).toBe('light');
@@ -245,7 +262,7 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
 
     render(<App />);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument(),
     );
 
     expect(document.documentElement.getAttribute('data-color-scheme')).toBe('dark');
@@ -268,7 +285,7 @@ describe('App shell — executor profile entry (Stage 15C)', () => {
   it('opens the profile from the account dialog without closing the dialog, and closes back to it', async () => {
     mockDevAuth();
     render(<App />);
-    fireEvent.click(await screen.findByRole('button', { name: 'open-account' }));
+    await openAccountDialog();
     fireEvent.click(screen.getByRole('button', { name: 'Profil wykonawcy' }));
     expect(await screen.findByRole('dialog', { name: 'Profil wykonawcy' })).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Dane użytkownika' })).toBeInTheDocument();
@@ -280,7 +297,7 @@ describe('App shell — executor profile entry (Stage 15C)', () => {
   it('Escape closes the profile first and the dialog second', async () => {
     mockDevAuth();
     render(<App />);
-    fireEvent.click(await screen.findByRole('button', { name: 'open-account' }));
+    await openAccountDialog();
     fireEvent.click(screen.getByRole('button', { name: 'Profil wykonawcy' }));
     await screen.findByRole('dialog', { name: 'Profil wykonawcy' });
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -288,5 +305,60 @@ describe('App shell — executor profile entry (Stage 15C)', () => {
     expect(screen.getByRole('dialog', { name: 'Dane użytkownika' })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Dane użytkownika' })).toBeNull();
+  });
+});
+
+describe('App shell — the main menu (Stage 16K.1)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    vi.mocked(api.fetchCurrentUser).mockResolvedValue(mockUser);
+  });
+
+  it('opens from the burger, marks the current section and closes after a choice', async () => {
+    mockDevAuth();
+    render(<App />);
+    await openMenu();
+    expect(screen.getByRole('button', { name: 'show-clients' })).toHaveAttribute('aria-current', 'page');
+
+    fireEvent.click(screen.getByRole('button', { name: 'show-pricebook' }));
+    expect(screen.queryByRole('dialog', { name: 'main-menu' })).toBeNull();
+    await screen.findByRole('region', { name: 'price-book-section' });
+
+    await openMenu();
+    expect(screen.getByRole('button', { name: 'show-pricebook' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'show-clients' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('closes on Escape and on a tap outside without changing the section', async () => {
+    mockDevAuth();
+    render(<App />);
+    await openMenu();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'main-menu' })).toBeNull();
+
+    await openMenu();
+    fireEvent.click(screen.getByRole('button', { name: 'close-menu-backdrop' }));
+    expect(screen.queryByRole('dialog', { name: 'main-menu' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'add-client' })).toBeInTheDocument();
+  });
+
+  it('the language switch stays in the header and changes the menu labels', async () => {
+    mockDevAuth();
+    render(<App />);
+    await openMenu();
+    expect(screen.getByRole('button', { name: 'show-projects' })).toHaveTextContent('Obiekty');
+    fireEvent.click(screen.getByRole('button', { name: 'lang-ru' }));
+    expect(screen.getByRole('button', { name: 'show-projects' })).toHaveTextContent('Объекты');
+    expect(screen.getByRole('button', { name: 'open-account' })).toHaveTextContent('Аккаунт');
+  });
+
+  it('the menu button is not offered while the user is not signed in', async () => {
+    vi.mocked(api.loginWithTelegram).mockRejectedValue(new Error('network'));
+    render(<App />);
+    await screen.findByText(/./, { selector: 'h2' });
+    expect(screen.queryByRole('button', { name: 'open-menu' })).toBeNull();
+    // the language switch still works on the error screen
+    expect(screen.getByRole('button', { name: 'lang-ru' })).toBeInTheDocument();
   });
 });

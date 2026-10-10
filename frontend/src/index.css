@@ -98,3 +98,23 @@ input:-webkit-autofill:focus {
   caret-color: var(--tg-control-text-color, #0f172a);
   transition: background-color 9999s ease-in-out 0s;
 }
+
+/* The main menu slides in from the left; people who asked the system for less motion get it at once. */
+@keyframes app-menu-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.app-menu-panel {
+  animation: app-menu-in 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-menu-panel {
+    animation: none;
+  }
+}

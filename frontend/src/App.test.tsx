@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
+import { chooseSection, openAccountDialog } from './test/menu';
 import * as api from './api/auth';
 import * as openingsApi from './api/openings';
 import * as priceItemsApi from './api/priceItems';
@@ -103,7 +104,7 @@ describe('App authentication component', () => {
 
     expect(screen.getByText(/DEV AUTH MODE/i)).toBeInTheDocument();
     // Account details now live behind the compact footer control, not inline.
-    fireEvent.click(screen.getByRole('button', { name: 'open-account' }));
+    await openAccountDialog();
     expect(screen.getByText('Jan Kowalski')).toBeInTheDocument();
     expect(screen.getByText('@dev_contractor')).toBeInTheDocument();
     expect(screen.getByText('999999999')).toBeInTheDocument();
@@ -142,11 +143,11 @@ describe('App authentication component', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument();
     });
 
     expect(screen.queryByRole('alert', { name: 'dev-auth-banner' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'open-account' }));
+    await openAccountDialog();
     expect(screen.getByText('Telegram zweryfikowany')).toBeInTheDocument();
     expect(screen.getByText('@real_contractor')).toBeInTheDocument();
     expect(api.loginWithTelegram).toHaveBeenCalledWith(initData);
@@ -311,7 +312,7 @@ describe('App authentication component', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument();
     });
 
     expect(document.documentElement.style.getPropertyValue('--tg-theme-bg-color')).toBe('#1a1a1a');
@@ -319,11 +320,11 @@ describe('App authentication component', () => {
     expect(document.documentElement.style.getPropertyValue('--tg-viewport-height')).toBe('700px');
 
     // Section switching to projects
-    fireEvent.click(screen.getByRole('button', { name: 'show-projects' }));
+    await chooseSection('show-projects');
     expect(await screen.findByRole('region', { name: 'projects-workspace' })).toBeInTheDocument();
 
     // Section switching back to clients
-    fireEvent.click(screen.getByRole('button', { name: 'show-clients' }));
+    await chooseSection('show-clients');
     expect(await screen.findByRole('region', { name: 'clients-section' })).toBeInTheDocument();
   });
 
@@ -379,10 +380,10 @@ describe('App authentication component', () => {
 
     render(<App />);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'show-projects' }));
+    await chooseSection('show-projects');
     await screen.findByLabelText(`open-project-${project.id}`);
 
     fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
@@ -394,7 +395,7 @@ describe('App authentication component', () => {
 
     // Pressing the top-level "Obiekty" nav while deep in Project -> Room -> Surface
     // must collapse back to the project list, not remain a no-op.
-    fireEvent.click(screen.getByRole('button', { name: 'show-projects' }));
+    await chooseSection('show-projects');
     await screen.findByLabelText(`open-project-${project.id}`);
     expect(screen.queryByLabelText('room-detail')).not.toBeInTheDocument();
   });
@@ -419,10 +420,10 @@ describe('App authentication component', () => {
 
     render(<App />);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'open-account' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'show-pricebook' }));
+    await chooseSection('show-pricebook');
     expect(await screen.findByRole('region', { name: 'price-book-section' })).toBeInTheDocument();
 
     // The section loads via the mocked price items API and stays local.

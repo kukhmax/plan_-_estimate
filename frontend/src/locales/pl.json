@@ -1,7 +1,6 @@
 {
   "app": {
-    "title": "Plan & Estimate",
-    "subtitle": "Telegram Mini App — Wykończenia i Remonty"
+    "title": "Plan & Estimate"
   },
   "auth": {
     "loading": "Trwa autoryzacja w Telegram Mini App...",

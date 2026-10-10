@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { I18nProvider, useI18n } from './hooks/useI18n';
 import { ClientList } from './components/ClientList';
 import { PriceBook } from './components/PriceBook';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
 import { AccountModal } from './components/AccountModal';
+import { AppMenu, AppMenuItem } from './components/AppMenu';
 
 const AppContent: React.FC = () => {
   const { user, isDevAuth, isLoading, error, retry } = useAuth();
@@ -12,6 +13,20 @@ const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<'clients' | 'projects' | 'pricebook'>('clients');
   const [projectsNavToken, setProjectsNavToken] = useState(0);
   const [showAccount, setShowAccount] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  const choose = (section: 'clients' | 'projects' | 'pricebook') => {
+    setActiveSection(section);
+    // Choosing "Obiekty" always leads back to the list of objects, even when it is already the open section.
+    if (section === 'projects') setProjectsNavToken((n) => n + 1);
+    setMenuOpen(false);
+  };
+  const menuItems: AppMenuItem[] = [
+    { id: 'show-clients', label: t.navigation.clients, active: activeSection === 'clients', onSelect: () => choose('clients') },
+    { id: 'show-projects', label: t.navigation.projects, active: activeSection === 'projects', onSelect: () => choose('projects') },
+    { id: 'show-pricebook', label: t.navigation.pricebook, active: activeSection === 'pricebook', onSelect: () => choose('pricebook') },
+  ];
 
   return (
     <div
@@ -35,45 +50,48 @@ const AppContent: React.FC = () => {
       )}
 
       <main className="w-full max-w-lg p-4 sm:p-6 flex-1 flex flex-col items-center">
-        <header className="text-center my-6 w-full">
-          <div className="flex items-center justify-between">
-            <h1
-              className="text-2xl font-bold tracking-tight"
-              style={{ color: 'var(--tg-theme-text-color)' }}
-            >
+        <header
+          aria-label="app-header"
+          className="sticky top-0 z-30 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 mb-4 px-4 sm:px-6 py-1 flex items-center justify-between gap-2 min-h-14"
+          style={{ backgroundColor: 'var(--tg-theme-bg-color)' }}
+        >
+          <div className="flex items-center gap-1 min-w-0">
+            {!isLoading && user && (
+              <button
+                type="button"
+                aria-label="open-menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(true)}
+                className="min-h-11 min-w-11 -ml-2.5 shrink-0 flex items-center justify-center rounded-xl"
+                style={{ color: 'var(--tg-theme-text-color)' }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                </svg>
+              </button>
+            )}
+            <h1 className="text-lg font-bold tracking-tight truncate" style={{ color: 'var(--tg-theme-text-color)' }}>
               {t.app.title}
             </h1>
-            {/* Language switcher */}
-            <div className="flex gap-1">
-              {(['pl', 'ru'] as const).map((lang) => (
-                <button
-                  key={lang}
-                  aria-label={`lang-${lang}`}
-                  onClick={() => setLocale(lang)}
-                  className="text-xs px-2 py-1 rounded-lg font-semibold uppercase transition"
-                  style={
-                    locale === lang
-                      ? {
-                          backgroundColor: 'var(--tg-theme-button-color)',
-                          color: 'var(--tg-theme-button-text-color)',
-                        }
-                      : {
-                          backgroundColor: 'var(--tg-theme-secondary-bg-color)',
-                          color: 'var(--tg-theme-hint-color)',
-                        }
-                  }
-                >
-                  {lang}
-                </button>
-              ))}
-            </div>
           </div>
-          <p
-            className="text-sm mt-1 text-left"
-            style={{ color: 'var(--tg-theme-hint-color)' }}
-          >
-            {t.app.subtitle}
-          </p>
+          {/* Language switcher: small by the owner's request, in the right corner */}
+          <div className="flex gap-0.5 shrink-0 rounded-lg p-0.5" style={{ backgroundColor: 'var(--tg-theme-secondary-bg-color)' }}>
+            {(['pl', 'ru'] as const).map((lang) => (
+              <button
+                key={lang}
+                aria-label={`lang-${lang}`}
+                onClick={() => setLocale(lang)}
+                className="min-h-9 min-w-9 text-xs px-2 rounded-md font-semibold uppercase transition"
+                style={
+                  locale === lang
+                    ? { backgroundColor: 'var(--tg-theme-button-color)', color: 'var(--tg-theme-button-text-color)' }
+                    : { color: 'var(--tg-theme-hint-color)' }
+                }
+              >
+                {lang}
+              </button>
+            ))}
+          </div>
         </header>
 
         {isLoading && (
@@ -122,85 +140,10 @@ const AppContent: React.FC = () => {
 
         {!isLoading && user && (
           <>
-            <nav aria-label="main-navigation" className="w-full mt-6 grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                aria-label="show-clients"
-                onClick={() => setActiveSection('clients')}
-                className={`px-3 py-2 text-sm font-semibold rounded-xl transition ${
-                  activeSection === 'clients'
-                    ? ''
-                    : 'border border-slate-200'
-                }`}
-                style={
-                  activeSection === 'clients'
-                    ? {
-                        backgroundColor: 'var(--tg-theme-button-color)',
-                        color: 'var(--tg-theme-button-text-color)',
-                      }
-                    : {
-                        backgroundColor: 'var(--tg-theme-secondary-bg-color)',
-                        color: 'var(--tg-theme-hint-color)',
-                      }
-                }
-              >
-                {t.navigation.clients}
-              </button>
-              <button
-                type="button"
-                aria-label="show-projects"
-                onClick={() => {
-                  setActiveSection('projects');
-                  setProjectsNavToken((n) => n + 1);
-                }}
-                className={`px-3 py-2 text-sm font-semibold rounded-xl transition ${
-                  activeSection === 'projects'
-                    ? ''
-                    : 'border border-slate-200'
-                }`}
-                style={
-                  activeSection === 'projects'
-                    ? {
-                        backgroundColor: 'var(--tg-theme-button-color)',
-                        color: 'var(--tg-theme-button-text-color)',
-                      }
-                    : {
-                        backgroundColor: 'var(--tg-theme-secondary-bg-color)',
-                        color: 'var(--tg-theme-hint-color)',
-                      }
-                }
-              >
-                {t.navigation.projects}
-              </button>
-              <button
-                type="button"
-                aria-label="show-pricebook"
-                onClick={() => setActiveSection('pricebook')}
-                className={`px-3 py-2 text-sm font-semibold rounded-xl transition ${
-                  activeSection === 'pricebook'
-                    ? ''
-                    : 'border border-slate-200'
-                }`}
-                style={
-                  activeSection === 'pricebook'
-                    ? {
-                        backgroundColor: 'var(--tg-theme-button-color)',
-                        color: 'var(--tg-theme-button-text-color)',
-                      }
-                    : {
-                        backgroundColor: 'var(--tg-theme-secondary-bg-color)',
-                        color: 'var(--tg-theme-hint-color)',
-                      }
-                }
-              >
-                {t.navigation.pricebook}
-              </button>
-            </nav>
-
             {activeSection === 'clients' ? (
               <ClientList />
             ) : activeSection === 'projects' ? (
-              <ProjectWorkspace resetSignal={projectsNavToken} backSuspended={showAccount} />
+              <ProjectWorkspace resetSignal={projectsNavToken} backSuspended={showAccount || menuOpen} />
             ) : (
               <PriceBook />
             )}
@@ -209,34 +152,17 @@ const AppContent: React.FC = () => {
       </main>
 
       {!isLoading && user && (
-        <footer
-          aria-label="app-footer"
-          className="w-full max-w-lg px-4 pb-6 pt-2"
-        >
-          <div
-            className="flex items-center justify-between gap-3 rounded-xl px-3 py-2"
-            style={{ backgroundColor: 'var(--tg-theme-secondary-bg-color)' }}
-          >
-            <span
-              className="text-xs font-medium truncate"
-              style={{ color: 'var(--tg-theme-hint-color)' }}
-            >
-              {t.app.title}
-            </span>
-            <button
-              type="button"
-              aria-label="open-account"
-              onClick={() => setShowAccount(true)}
-              className="min-h-11 px-4 shrink-0 text-sm font-semibold rounded-xl transition"
-              style={{
-                backgroundColor: 'var(--tg-theme-button-color)',
-                color: 'var(--tg-theme-button-text-color)',
-              }}
-            >
-              {t.auth.account}
-            </button>
-          </div>
-        </footer>
+        <AppMenu
+          open={menuOpen}
+          title={t.app.title}
+          accountLabel={t.auth.account}
+          items={menuItems}
+          onClose={closeMenu}
+          onOpenAccount={() => {
+            setMenuOpen(false);
+            setShowAccount(true);
+          }}
+        />
       )}
 
       {showAccount && user && (
