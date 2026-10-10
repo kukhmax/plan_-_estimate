@@ -69,3 +69,8 @@ export function previewContractPdf(projectId: string): Promise<DocumentPreviewRe
 export function previewHandoverPdf(projectId: string): Promise<DocumentPreviewResult> {
   return apiRequest(`${base(projectId)}/documents/handover/preview`, { method: 'POST' });
 }
+
+/** The working version of the protocol of concealed works (pale watermark, empty boxes and lines) to the owner's chat, to fill in on the spot. */
+export function previewConcealedPdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/concealed-works/preview`, { method: 'POST' });
+}
