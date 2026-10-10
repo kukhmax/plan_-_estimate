@@ -175,6 +175,38 @@ class AcceptanceGateError(Exception):
         self.blockers = blockers
 
 
+class DecisionNotFoundError(Exception):
+    """Raised when a protocol of information and decisions is not found within an owned project (Stage 16I)."""
+
+
+class DecisionNotEditableError(Exception):
+    """Raised when a protocol of decisions that is no longer a draft is changed (Stage 16I)."""
+
+    code = "DECISION_NOT_EDITABLE"
+
+
+class DecisionInvalidError(Exception):
+    """Raised when an entry of the protocol of decisions does not fit (Stage 16I): `key` is the field, `reason` a stable code the screen
+    has a sentence for."""
+
+    code = "DECISION_INVALID"
+
+    def __init__(self, key: str, reason: str) -> None:
+        super().__init__(f"decision protocol {key!r}: {reason}")
+        self.key = key
+        self.reason = reason
+
+
+class DecisionGateError(Exception):
+    """Raised when a protocol of decisions cannot be issued yet (Stage 16I): `blockers` is what to fix."""
+
+    code = "DECISION_GATE_BLOCKED"
+
+    def __init__(self, blockers: list) -> None:
+        super().__init__("the protocol cannot be issued yet: " + ", ".join(b.code for b in blockers))
+        self.blockers = blockers
+
+
 class SurfaceNotFoundError(Exception):
     """Raised when a surface is not found within an owned room."""
 

@@ -353,16 +353,19 @@ describe('ProjectDocuments (Stage 15F.3)', () => {
     const row = await screen.findByLabelText('document-PLAN/2026/10/09/1015');
     expect(within(row).getByText('Plan produkcji prac')).toBeInTheDocument();
   });
-  it('names the journal rows of the protocols of concealed works and of the acceptance of the work', async () => {
+  it('names the journal rows of the protocols of concealed works, of the acceptance of the work and of the decisions', async () => {
     vi.mocked(documentsApi.listDocuments).mockResolvedValue({ items: [
       doc({ id: 'd7', kind: 'CONCEALED_WORKS_PROTOCOL', number: 'ZANIK/2026/10/10/0900', title: 'Protokół odbioru robót zanikających — nr 1' }),
       doc({ id: 'd8', kind: 'FINAL_PROTOCOL', number: 'ODBIOR/2026/10/20/1000', title: 'Protokół odbioru częściowego — nr 1' }),
-    ], total: 2 });
+      doc({ id: 'd9', kind: 'DECISION_PROTOCOL', number: 'DECYZ/2026/10/20/1100', title: 'Protokół informacji i decyzji Zamawiającego — nr 1' }),
+    ], total: 3 });
     renderCard();
     await open();
     const concealed = await screen.findByLabelText('document-ZANIK/2026/10/10/0900');
     expect(within(concealed).getByText('Protokół odbioru robót zanikających')).toBeInTheDocument();
     const acceptance = await screen.findByLabelText('document-ODBIOR/2026/10/20/1000');
     expect(within(acceptance).getByText('Protokół odbioru prac (końcowy lub częściowy)')).toBeInTheDocument();
+    const decision = await screen.findByLabelText('document-DECYZ/2026/10/20/1100');
+    expect(within(decision).getByText('Protokół informacji i decyzji Zamawiającego')).toBeInTheDocument();
   });
 });

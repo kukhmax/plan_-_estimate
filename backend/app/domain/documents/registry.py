@@ -20,6 +20,7 @@ class DocumentKind(str, enum.Enum):
     HANDOVER_PROTOCOL = "HANDOVER_PROTOCOL"  # Protokół przekazania pomieszczeń: the state of each room against the requirements (16F)
     CONCEALED_WORKS_PROTOCOL = "CONCEALED_WORKS_PROTOCOL"  # Protokół odbioru robót zanikających: work accepted before it is covered (16G)
     FINAL_PROTOCOL = "FINAL_PROTOCOL"  # Protokół odbioru końcowego / częściowego: the assessment of the work against the contract (16H)
+    DECISION_PROTOCOL = "DECISION_PROTOCOL"  # Protokół informacji i decyzji Zamawiającego: a recommendation declined or overruled (16I)
     PRODUCTION_PLAN = "PRODUCTION_PLAN"  # Plan produkcji prac: the sequence, the technological breaks, the works of others (16D)
     TECH_CARD = "TECH_CARD"  # Karta technologiczna: the substrate, the standard and the works of every surface (16C)
 
@@ -53,6 +54,7 @@ TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
         DocumentKind.CONCEALED_WORKS_PROTOCOL, "1", "concealed_works_protocol.html.j2", "ZANIK"
     ),
     DocumentKind.FINAL_PROTOCOL: DocumentTemplate(DocumentKind.FINAL_PROTOCOL, "1", "acceptance_protocol.html.j2", "ODBIOR"),
+    DocumentKind.DECISION_PROTOCOL: DocumentTemplate(DocumentKind.DECISION_PROTOCOL, "1", "decision_protocol.html.j2", "DECYZ"),
 }
 
 

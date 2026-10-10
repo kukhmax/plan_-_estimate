@@ -1,0 +1,40 @@
+{% extends "_layout.html.j2" %}
+{% macro field(value) %}{% if value %}{{ value }}{% else %}<span class="write-line"></span>{% endif %}{% endmacro %}
+{% macro boxes(options) %}{% for o in options %}<p class="alternative"><span class="box">{% if o.checked %}☒{% else %}☐{% endif %}&nbsp;{{ o.label }}</span></p>{% endfor %}{% endmacro %}
+{% block body %}
+<div class="handover decision{% if doc.working %} working{% endif %}">
+{% if doc.working %}<p class="notice">{{ t('decision.working_note') }}</p>{% endif %}
+<table class="facts">
+  {% for row in doc.facts %}<tr><td class="label">{{ row.label }}</td><td>{{ field(row.value) }}</td></tr>{% endfor %}
+</table>
+<h2>{{ t('decision.attendees') }}</h2>
+{% if doc.attendees %}
+<table class="works">
+  <thead><tr><th>{{ t('decision.attendees.name') }}</th><th>{{ t('decision.attendees.role') }}</th></tr></thead>
+  <tbody>{% for a in doc.attendees %}<tr><td>{{ a.name }}</td><td>{{ a.role or '' }}</td></tr>{% endfor %}</tbody>
+</table>
+{% else %}
+<p class="muted">{{ t('decision.attendees.none') }}</p>
+{% for _ in range(3) %}<table class="facts"><tr><td class="label">{{ t('decision.attendees.name') }}</td><td><span class="write-line"></span></td></tr></table>{% endfor %}
+{% endif %}
+<h2>{{ t('decision.items') }}</h2>
+{% for item in doc.items %}
+<div class="decision-item">
+<p class="clause"><strong>{{ t('decision.item') }} {{ item.number }}{% if item.title %} — {{ item.title }}{% endif %}</strong>{% if item.room %} · {{ item.room }}{% endif %}</p>
+<table class="facts">
+  <tr><td class="label">{{ t('decision.state') }}</td><td>{{ field(item.state) }}</td></tr>
+  <tr><td class="label">{{ t('decision.recommendation') }}</td><td>{{ field(item.recommendation) }}{% if item.price %} <span class="muted">({{ t('decision.price') }}: {{ item.price }})</span>{% endif %}</td></tr>
+  <tr><td class="label">{{ t('decision.consequence') }}</td><td>{{ field(item.consequence) }}</td></tr>
+</table>
+<p class="clause"><strong>{{ t('decision.decision') }}</strong></p>
+{{ boxes(item.decisions) }}
+{% if item.actions %}<p class="clause"><strong>{{ t('decision.action') }}</strong></p>{{ boxes(item.actions) }}{% endif %}
+{% if item.effect %}<p class="clause">{{ item.effect }}</p>{% endif %}
+{% if item.note %}<p class="clause"><strong>{{ t('decision.note') }}:</strong> {{ item.note }}</p>{% endif %}
+</div>
+{% endfor %}
+<h2>{{ t('decision.declaration_title') }}</h2>
+{{ boxes([doc.declaration, doc.refusal]) }}
+<p class="clause"><strong>{{ t('decision.notes') }}:</strong> {{ field(doc.notes) }}</p>
+</div>
+{% endblock %}

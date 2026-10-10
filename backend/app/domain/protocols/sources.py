@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import ProjectNotFoundError
 from app.domain.protocols.acceptance import SurfaceFacts, WorkLine
+from app.domain.protocols.decision import RiskFacts
 from app.domain.services.executor_profile_service import ExecutorProfileService
 from app.models.client import Client
 from app.models.contract import Contract, ContractStatus
@@ -17,6 +18,7 @@ from app.models.issued_document import IssuedDocument, IssuedDocumentKind
 from app.models.photo_asset import PhotoAsset
 from app.models.photo_attachment import PhotoAttachment, PhotoAttachmentContext, PhotoCategory
 from app.models.project import Project
+from app.models.risk import Risk
 from app.models.room import Room
 from app.models.surface import Surface
 
@@ -206,3 +208,34 @@ async def load_acceptance_sources(db: AsyncSession, owner_id: uuid.UUID, project
     for attachment, captured_at in rows.all():
         photos.setdefault(str(attachment.surface_id), []).append(PhotoInfo(str(attachment.id), attachment.caption, captured_at, attachment.created_at))
     return AcceptanceSources(base, facts, rooms, photos)
+
+
+@dataclass(slots=True)
+class DecisionSources:
+    base: HandoverSources
+    risks: dict[str, RiskFacts]  # the active risks of the object that may feed a refusal of the guarantee, by id, oldest first
+    rooms: tuple[tuple[str, str], ...]  # (id, name) of the active rooms: where a recommendation of the contractor's own may point
+
+
+async def load_decision_sources(db: AsyncSession, owner_id: uuid.UUID, project_id: uuid.UUID) -> DecisionSources:
+    """The risks the application found in the rooms of the object (active ones that are candidates for a refusal of the guarantee, the
+    contract's `executor_recommendations`) next to the usual sources. Raises ProjectNotFoundError for a project that is not this owner's."""
+    base = await load_handover_sources(db, owner_id, project_id)
+    rooms = tuple((room_id, name) for room_id, name, archived in base.rooms if not archived)
+    names = dict(rooms)
+    risks: dict[str, RiskFacts] = {}
+    if names:
+        rows = (
+            await db.execute(
+                select(Risk)
+                .where(Risk.room_id.in_([uuid.UUID(r) for r in names]), Risk.is_active.is_(True), Risk.warranty_exclusion_candidate.is_(True))
+                .order_by(Risk.created_at, Risk.id)
+            )
+        ).scalars()
+        for risk in rows:
+            risks[str(risk.id)] = RiskFacts(
+                id=str(risk.id), room_id=str(risk.room_id), room_name=names[str(risk.room_id)], severity=risk.severity.value,
+                title_key=risk.title_key, explanation_key=risk.explanation_key, consequence_key=risk.consequence_key,
+                communication_key=risk.communication_key, blocks_finishing=risk.blocks_finishing,
+            )
+    return DecisionSources(base, risks, rooms)

@@ -271,6 +271,24 @@ async def preview_acceptance_pdf(
 
 
 @router.post(
+    "/projects/{project_id}/documents/decision/preview",
+    response_model=PreviewResponse,
+    summary="Send the working version (pale watermark, no number, empty boxes and lines) of the protocol of information and decisions to the owner's chat",
+)
+async def preview_decision_pdf(
+    project_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    issuer: DocumentIssuer = Depends(get_document_issuer),
+) -> PreviewResponse:
+    try:
+        result = await issuer.preview_decision(db, current_user, project_id)
+    except (ProjectNotFoundError, DocumentDataError, DocumentRenderError, DocumentDeliveryError) as exc:
+        raise _http_error(exc) from exc
+    return PreviewResponse(sent=True, pages=result.pages, byte_size=result.byte_size)
+
+
+@router.post(
     "/projects/{project_id}/documents/handover/preview",
     response_model=PreviewResponse,
     summary="Send the working version (pale watermark, no number, empty boxes and lines) of the protocol of handing over the premises to the owner's chat",

@@ -70,7 +70,7 @@ def test_revision_chain_and_single_head():
     assert module.revision == "0038_issued_documents" and module.down_revision == "0037_executor_profiles"
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0051_final_protocol_kind"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0052_decision_protocols"]
 
 
 def test_upgrade_matches_the_model_and_downgrade_removes_only_the_table():
@@ -349,4 +349,4 @@ async def test_a_document_goes_with_its_project(db_session):
 
 def test_the_status_and_kind_values_match_the_database_checks():
     assert {s.value for s in IssuedDocumentStatus} == {"PENDING", "SENT", "FAILED"}
-    assert {k.value for k in IssuedDocumentKind} == {"ESTIMATE", "PHOTO_REPORT", "TECH_CARD", "PRODUCTION_PLAN", "CONTRACT", "HANDOVER_PROTOCOL", "CONCEALED_WORKS_PROTOCOL", "FINAL_PROTOCOL"}
+    assert {k.value for k in IssuedDocumentKind} == {"ESTIMATE", "PHOTO_REPORT", "TECH_CARD", "PRODUCTION_PLAN", "CONTRACT", "HANDOVER_PROTOCOL", "CONCEALED_WORKS_PROTOCOL", "FINAL_PROTOCOL", "DECISION_PROTOCOL"}
