@@ -7,8 +7,8 @@ serves anything from it: a wrong file stops the startup instead of showing a gue
 
 - every entry and source is `DRAFT` until the owner approves it (who and when) and says when it was checked against the
   published text; a `DRAFT` is shown to the owner with its mark and never goes into a document for a client;
-- a norm (PN-EN) or a technical instruction (ITB) is a reference only: designation, title, place, link -- never its text
-  and never a paraphrase of its requirements (Q4);
+- an entry tells the key points in a few own words and ends with the link to its source (Q4, 2026-10-11): an approved
+  entry needs a summary and a source with a link; the text of a norm (PN-EN) or of an instruction (ITB) is never copied;
 - Polish is the language of the law; the Russian text is an explanation for the contractor (Q3);
 - a situation is a closed tree of questions with answers that end in an outcome: steps, entries, phrases for the client
   (Stage 8) and documents to issue (Stages 15-16).
@@ -31,8 +31,6 @@ NODE = r"^[a-z][a-z0-9_]{0,30}$"
 SourceKind = Literal["STATUTE", "NORM", "ITB", "OTHER"]
 Status = Literal["DRAFT", "APPROVED"]
 LinkTarget = Literal["RISK", "CLAUSE", "PHRASE", "DOCUMENT"]
-# A source of these kinds is referenced, never told (Q4).
-REFERENCE_ONLY: frozenset[str] = frozenset({"NORM", "ITB"})
 
 
 class KnowledgeCatalogError(ValueError):
@@ -256,8 +254,8 @@ def validate(catalog: KnowledgeCatalog, refs: References) -> KnowledgeCatalog:
             raise KnowledgeCatalogError(f"{where}: unknown source {entry.source!r}")
         if entry.status == "APPROVED" and source.status != "APPROVED":
             raise KnowledgeCatalogError(f"{where}: approved, but its source {source.code!r} is not")
-        if source.kind in REFERENCE_ONLY and (entry.summary_pl or entry.explanation_ru):
-            raise KnowledgeCatalogError(f"{where}: a {source.kind} is referenced only -- no summary and no explanation")
+        if entry.status == "APPROVED" and not (entry.summary_pl and source.url):
+            raise KnowledgeCatalogError(f"{where}: an approved entry tells its key points (summary_pl) and links its source (url)")
         for field, allowed in (("works", refs.works), ("substrates", refs.substrates), ("qualities", refs.qualities)):
             unknown = sorted(set(getattr(entry, field)) - allowed)
             if unknown:

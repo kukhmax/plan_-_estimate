@@ -92,6 +92,13 @@ def test_the_repository_catalogue_is_valid_and_holds_no_legal_text_yet():
     assert (catalog.sources, catalog.entries, catalog.situations, catalog.links) == ([], [], [], [])
 
 
+def test_a_norm_tells_its_key_points_in_own_words_and_links_its_source(tmp_path):
+    data = sample()
+    data["entries"][2].update(summary_pl="Kluczowe punkty normy, własnymi słowami.", explanation_ru="Ключевые моменты своими словами.")
+    catalog = load(tmp_path, data)
+    assert catalog.entry("NORM.1").summary_pl.startswith("Kluczowe punkty")
+
+
 def test_a_valid_catalogue_is_read_with_its_links(tmp_path):
     catalog = load(tmp_path)
     assert [e.code for e in catalog.entries] == ["ACT.1", "ACT.2", "NORM.1"]
@@ -113,8 +120,8 @@ CASES = {
     "duplicate entry": (lambda d: d["entries"].append(copy.deepcopy(d["entries"][0])), "duplicate 'ACT.1'"),
     "unknown source": (lambda d: d["entries"][1].update(source="NOPE"), "unknown source 'NOPE'"),
     "approved entry, draft source": (lambda d: d["entries"][2].update(**APPROVED), "its source 'TEST_NORM' is not"),
-    "a norm told, not referenced": (lambda d: d["entries"][2].update(summary_pl="Wymaganie normy."), "referenced only"),
-    "a norm explained in Russian": (lambda d: d["entries"][2].update(explanation_ru="Требование."), "referenced only"),
+    "approved without the key points": (lambda d: d["entries"][0].pop("summary_pl"), "tells its key points"),
+    "approved with a source without a link": (lambda d: d["sources"][0].pop("url"), "links its source"),
     "approved without a check date": (lambda d: d["entries"][0].pop("checked_on"), "checked_on"),
     "draft signed by someone": (lambda d: d["entries"][1].update(approved_by="X"), "not approved by anyone"),
     "unknown work": (lambda d: d["entries"][0].update(works=["DIGGING"]), "unknown works"),
