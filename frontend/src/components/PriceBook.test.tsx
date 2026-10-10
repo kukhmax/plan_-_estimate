@@ -113,6 +113,19 @@ describe('PriceBook — list and cards', () => {
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
   });
 
+  it('keeps the price screen readable on a phone and in the dark theme (Stage 16K.4): theme title, 44 px tabs, search and filter', async () => {
+    renderBook();
+    const title = await screen.findByRole('heading', { name: 'Cennik' });
+    expect(title.className).toContain('text-[var(--tg-theme-text-color)]');
+    expect(title.className).not.toContain('text-slate-900');
+    for (const name of [
+      'pricebook-maintab-items', 'pricebook-maintab-coefficients', 'pricebook-maintab-processes',
+      'pricebook-tab-active', 'pricebook-tab-archived', 'pricebook-search', 'pricebook-category-filter', 'add-price-item',
+    ]) {
+      expect(screen.getByLabelText(name).className).toContain('min-h-11');
+    }
+  });
+
   it('renders the initial active catalog with localized seed names', async () => {
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
       items: [seedPrep, seedPaint, custom],

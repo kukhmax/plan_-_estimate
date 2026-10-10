@@ -237,7 +237,7 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
   return (
     <section aria-label="price-book-section" className="w-full mt-4">
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-lg font-bold text-slate-900">{t.pricebook.title}</h2>
+        <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{t.pricebook.title}</h2>
         {mainTab === 'items' && total > 0 && (
           <span className="text-xs text-slate-400">{total}</span>
         )}
@@ -339,13 +339,13 @@ export function PriceBook({ resetSignal }: PriceBookProps) {
           placeholder={t.pricebook.search_placeholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-0 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 min-w-0 min-h-11 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <select
           aria-label="pricebook-category-filter"
           value={category}
           onChange={(e) => setCategory(e.target.value as PriceCategoryValue | '')}
-          className="border border-slate-200 rounded-xl px-2 py-2 text-sm bg-white"
+          className="min-h-11 border border-slate-200 rounded-xl px-2 py-2 text-sm bg-white"
         >
           <option value="">{t.pricebook.all_categories}</option>
           {PRICE_CATEGORIES.map((value) => (
