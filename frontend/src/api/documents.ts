@@ -84,3 +84,13 @@ export function previewAcceptancePdf(projectId: string): Promise<DocumentPreview
 export function previewDecisionPdf(projectId: string): Promise<DocumentPreviewResult> {
   return apiRequest(`${base(projectId)}/documents/decision/preview`, { method: 'POST' });
 }
+
+/** The working version of the notice of downtime (pale watermark, the causes to tick, empty lines) to the owner's chat, to fill in on the spot. */
+export function previewDowntimeNoticePdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/downtime-notice/preview`, { method: 'POST' });
+}
+
+/** The working version of the protocol of downtime (pale watermark, empty rows for the days) to the owner's chat, to fill in on the spot. */
+export function previewDowntimeProtocolPdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/downtime-protocol/preview`, { method: 'POST' });
+}

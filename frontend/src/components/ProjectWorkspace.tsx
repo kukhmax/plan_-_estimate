@@ -37,6 +37,7 @@ import { ProjectAdjacentWorks } from './ProjectAdjacentWorks';
 import { ProjectAcceptance } from './ProjectAcceptance';
 import { ProjectConcealedWorks } from './ProjectConcealedWorks';
 import { ProjectDecisions } from './ProjectDecisions';
+import { ProjectDowntime } from './ProjectDowntime';
 import { ProjectContract } from './ProjectContract';
 import { ProjectHandover } from './ProjectHandover';
 import { ProjectRepresentatives } from './ProjectRepresentatives';
@@ -784,6 +785,9 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false }: Project
 
           {/* Stage 16I.2: the protocol of information and decisions of the customer (a recommendation given up or overruled). */}
           <ProjectDecisions projectId={selectedProject.id} />
+
+          {/* Stage 16I.4: the notice and the protocol of downtime on the customer's side. */}
+          <ProjectDowntime projectId={selectedProject.id} />
 
           <RoomList
             projectId={selectedProject.id}
