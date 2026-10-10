@@ -1150,6 +1150,20 @@ Owner approved ("делаем 15E, лимит 60 фото ок"). Details: `docs
 - **Production:** none — no migration, no route; the code travels with 15F / 15H (the 60-photo render on the 1 OCPU server is measured at 15H).
 - **Next (only on owner approval):** 15F — issuing: journal of issued documents (numbering by date-time plus a running number per client and object), Telegram `sendDocument`, "Wyślij PDF" buttons, HTTP errors for the document exceptions.
 
+### Stage 17C.2 — AI legal research of the open lawyer questions (2026-10-11, DOCUMENT ONLY — not deployed)
+On the owner's request ("ты будешь в роли юриста ... пометка, что исследование проведено ИИ и требует проверки реальным юристом").
+- **Report:** `docs/STAGE_17C_AI_LEGAL_RESEARCH_RU.md`, with an explicit RU / PL banner at the top and the bottom: research by AI, to be verified by a real lawyer, not legal advice.
+- **Scope:** the 9 open notes of the clause catalogue (L2, L3, L4, L5, L7, L8, L13, L14, L15) and the 6 knowledge-base questions (zwłoka, art. 558 after 2023, 30 days, unsolicited visit, art. 634, rękojmia term).
+- **Per question:** short answer, legal basis, case law, risks, a proposed Polish wording, confidence. Signatures are marked [обзор] (secondary source), [ссылка суда] (court link found, not read) or [подтв.] (confirmed by a press release).
+- **Key results:**
+  - C-97/22 confirmed: no information means no payment even after completion;
+  - art. 7aa UPK identified (sole trader with consumer rights; declaration since 27.11.2025);
+  - wording proposals for § 14 ust. 5, § 16 ust. 4, § 19 ust. 3 lit. b, § 20 (30 days), § 4 ust. 2 (VAT exemption);
+  - gaps in annexes 11 and 12: the 30-day variant; Telegram as a recipient; retention periods; the hosting region;
+  - the 2-year limitation of the payment claim (art. 646).
+- **Code and data:** clause texts untouched (Q11). One knowledge-base note (L-WIZYTA) now points to the analysis; every note stays OPEN until a real lawyer decides.
+- **Next:** the owner passes the report to a lawyer; clause changes would be a separate sub-stage with a new clause catalogue version, only on the owner's word.
+
 ### Stage 17C.1 — draft key points, currency analysis, commentary and case law (2026-10-11, IMPLEMENTED LOCALLY — not deployed; no migration)
 On the owner's request ("содержание статей с анализом актуальности и юридических комментариев и прецедентов по спорным вопросам").
 - **Catalogue:**
