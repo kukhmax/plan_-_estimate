@@ -45,6 +45,7 @@ import { ProjectRepresentatives } from './ProjectRepresentatives';
 import type { UnpricedWork } from '../types/document';
 import { inspectionTargetOf } from '../utils/unpricedTarget';
 import { ProjectSummaryCard } from './ProjectSummaryCard';
+import { LegalMenu, LegalSection, ObjectPhotos, ObjectSection, ProjectHub } from './ProjectHub';
 import { SurfaceList } from './SurfaceList';
 
 interface ProjectFormState {
@@ -144,6 +145,9 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
   const [listVersion, setListVersion] = useState(0);
 
   const [showEstimates, setShowEstimates] = useState(false);
+  // The object is a hub of tiles (null); a tile opens one screen, and "Umowa i protokoły" opens one more level.
+  const [objectSection, setObjectSection] = useState<ObjectSection | null>(null);
+  const [legalSection, setLegalSection] = useState<LegalSection | null>(null);
   // Bumped after a room change so the object summary reloads (13F-PRE).
   const [summaryToken, setSummaryToken] = useState(0);
   const [selectedEstimate, setSelectedEstimate] = useState<EstimateSummaryRead | null>(null);
@@ -319,6 +323,26 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     return labels[status];
   };
 
+  const sectionTitle = (section: ObjectSection) =>
+    ({
+      rooms: t.rooms.title,
+      photos: t.photos.section.project_title,
+      documents: t.documents.title,
+      legal: t.objectHub.legal,
+    })[section];
+
+  const legalTitle = (section: LegalSection) =>
+    ({
+      representatives: t.representatives.title,
+      adjacent: t.adjacentWorks.title,
+      contract: t.contract.title,
+      handover: t.handover.title,
+      concealed: t.concealed.title,
+      acceptance: t.acceptance.title,
+      decisions: t.decisions.title,
+      downtime: t.downtime.title,
+    })[section];
+
   const assignedClientName = (project: ProjectType) => {
     if (!project.client_id) return t.projects.no_client;
     const client = clients.find((item) => item.id === project.client_id);
@@ -359,6 +383,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     setSelectedEstimateGroupKey(null);
     setSelectedProject(project);
     setSelectedRoom(null);
+    setObjectSection(null);
+    setLegalSection(null);
     setSuccess(null);
   };
 
@@ -366,6 +392,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     closeForm();
     setShowRoomForm(false);
     closeInspections();
+    setObjectSection('rooms');
     setSelectedRoom(room);
     setSuccess(null);
     if (selectedProject) {
@@ -431,6 +458,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     setSelectedEstimateGroupKey(null);
     setSelectedProject(null);
     setSelectedRoom(null);
+    setObjectSection(null);
+    setLegalSection(null);
     setSuccess(null);
   };
 
@@ -455,6 +484,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     setSelectedEstimateGroupKey(null);
     setSelectedProject(null);
     setSelectedRoom(null);
+    setObjectSection(null);
+    setLegalSection(null);
     setSuccess(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetSignal]);
@@ -496,6 +527,10 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       setSelectedEstimate(null);
     } else if (showEstimates) {
       setShowEstimates(false);
+    } else if (legalSection) {
+      setLegalSection(null);
+    } else if (objectSection) {
+      setObjectSection(null);
     } else if (selectedProject) {
       backToProjects();
     }
@@ -510,12 +545,12 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             type="button"
             aria-label="back-to-projects"
             onClick={backToProjects}
-            className="font-semibold text-blue-700 hover:underline"
+            className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
           >
             {t.projects.title}
           </button>
           <span>/</span>
-          {showEstimates || selectedRoom ? (
+          {showEstimates || selectedRoom || objectSection ? (
             <button
               type="button"
               aria-label="back-to-project"
@@ -524,23 +559,25 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                 setSelectedEstimate(null);
                 setSelectedRoom(null);
                 setShowRoomForm(false);
+                setObjectSection(null);
+                setLegalSection(null);
                 closeInspections();
               }}
-              className="font-semibold text-blue-700 hover:underline"
+              className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
             >
               {selectedProject.name}
             </button>
           ) : (
             <span className="font-medium text-[var(--tg-theme-text-color)]">{selectedProject.name}</span>
           )}
-          <span>/</span>
+          {(showEstimates || selectedRoom || objectSection) && <span>/</span>}
           {showEstimates && selectedEstimate ? (
             <>
               <button
                 type="button"
                 aria-label="back-to-estimates"
                 onClick={() => { setSelectedEstimate(null); setSelectedEstimateGroupKey(null); }}
-                className="font-semibold text-blue-700 hover:underline"
+                className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
               >
                 {t.estimates.back_to_list}
               </button>
@@ -561,7 +598,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                   closeInspections();
                   setSelectedRoom(null);
                 }}
-                className="font-semibold text-blue-700 hover:underline"
+                className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
               >
                 {t.rooms.title}
               </button>
@@ -570,9 +607,22 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               <span>/</span>
               <span>{t.surfaces.title}</span>
             </>
-          ) : (
-            <span>{t.rooms.title}</span>
-          )}
+          ) : objectSection === 'legal' && legalSection ? (
+            <>
+              <button
+                type="button"
+                aria-label="back-to-legal"
+                onClick={() => setLegalSection(null)}
+                className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
+              >
+                {t.objectHub.legal}
+              </button>
+              <span>/</span>
+              <span className="font-medium text-[var(--tg-theme-text-color)]">{legalTitle(legalSection)}</span>
+            </>
+          ) : objectSection ? (
+            <span className="font-medium text-[var(--tg-theme-text-color)]">{sectionTitle(objectSection)}</span>
+          ) : null}
         </nav>
       )}
 
@@ -599,7 +649,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
         </button>
       )}
 
-      {!selectedRoom && !showEstimates && (
+      {/* the title and "Edytuj" belong to the hub of the object; its other screens are named by the breadcrumb */}
+      {!selectedRoom && !showEstimates && (!selectedProject || objectSection === null) && (
         <div className="flex items-center justify-between gap-3 mb-3">
           <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">
             {selectedProject ? selectedProject.name : t.projects.title}
@@ -608,7 +659,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             type="button"
             aria-label={selectedProject ? 'edit-project-detail' : 'add-project'}
             onClick={() => selectedProject ? startEdit(selectedProject) : startCreate()}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
+            className="min-h-11 px-4 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
           >
             {selectedProject ? t.common.edit : t.projects.add}
           </button>
@@ -731,103 +782,107 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
 
       {selectedProject && !selectedRoom && !showEstimates && (
         <>
-          <article aria-label="project-detail" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              {/* This card is an intentionally always-white surface (never
-                  theme-aware) — its value text needs an explicit dark
-                  color. Without one it silently inherits `body`'s
-                  Telegram-theme-driven color, which is light in dark
-                  theme and becomes invisible on this white background
-                  (Stage 10H.2). The `dt` labels already had an explicit
-                  color and were never affected. */}
-              <dl className="space-y-1 text-sm min-w-0">
-                <div><dt className="inline text-slate-500">{t.projects.address}: </dt><dd className="inline font-medium text-slate-900">{selectedProject.address}, {selectedProject.postal_code} {selectedProject.city}</dd></div>
-                <div><dt className="inline text-slate-500">{t.projects.status}: </dt><dd className="inline font-medium text-slate-900">{statusLabel(selectedProject.status)}</dd></div>
-                <div><dt className="inline text-slate-500">{t.projects.client}: </dt><dd className="inline font-medium text-slate-900">{assignedClientName(selectedProject)}</dd></div>
-              </dl>
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                {selectedProject.is_archived && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                    {t.common.archived_badge}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  aria-label={`${selectedProject.is_archived ? 'restore' : 'archive'}-project-detail`}
-                  onClick={() => void changeArchiveState(selectedProject)}
-                  className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
-                >
-                  {selectedProject.is_archived ? t.common.restore : t.common.archive}
-                </button>
+          {objectSection === null && (
+            <div className="space-y-3">
+            <article aria-label="project-detail" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                {/* This card is an intentionally always-white surface (never
+                    theme-aware) — its value text needs an explicit dark
+                    color. Without one it silently inherits `body`'s
+                    Telegram-theme-driven color, which is light in dark
+                    theme and becomes invisible on this white background
+                    (Stage 10H.2). The `dt` labels already had an explicit
+                    color and were never affected. */}
+                <dl className="space-y-1 text-sm min-w-0">
+                  <div><dt className="inline text-slate-500">{t.projects.address}: </dt><dd className="inline font-medium text-slate-900">{selectedProject.address}, {selectedProject.postal_code} {selectedProject.city}</dd></div>
+                  <div><dt className="inline text-slate-500">{t.projects.status}: </dt><dd className="inline font-medium text-slate-900">{statusLabel(selectedProject.status)}</dd></div>
+                  <div><dt className="inline text-slate-500">{t.projects.client}: </dt><dd className="inline font-medium text-slate-900">{assignedClientName(selectedProject)}</dd></div>
+                </dl>
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {selectedProject.is_archived && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                      {t.common.archived_badge}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`${selectedProject.is_archived ? 'restore' : 'archive'}-project-detail`}
+                    onClick={() => void changeArchiveState(selectedProject)}
+                    className="min-h-11 px-3 text-xs rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-medium hover:bg-slate-100 transition"
+                  >
+                    {selectedProject.is_archived ? t.common.restore : t.common.archive}
+                  </button>
+                </div>
               </div>
-            </div>
-            {selectedProject.description && <p className="text-sm text-slate-600 mt-3">{selectedProject.description}</p>}
-          </article>
+              {selectedProject.description && <p className="text-sm text-slate-600 mt-3">{selectedProject.description}</p>}
+            </article>
 
-          <button
-            type="button"
-            aria-label="open-estimates"
-            onClick={() => {
-              setShowEstimates(true);
-              setSelectedEstimate(null);
-            }}
-            className="w-full min-h-11 bg-amber-500 border border-amber-600 rounded-2xl px-4 py-3 shadow-md flex items-center justify-between hover:bg-amber-400 active:bg-amber-600 transition"
-          >
-            <span className="font-bold text-slate-950 text-sm">{t.estimates.title}</span>
-            <span aria-hidden="true" className="text-slate-950 text-lg leading-none">›</span>
-          </button>
-
-          {/* Stage 14E.5: photos of the whole object (D9: below the summary, above the rooms). */}
-          <article aria-label="project-photos" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{t.photos.section.project_title}</h3>
-              <PhotoCardButton context="PROJECT" />
+              <ProjectHub
+                onOpenEstimates={() => {
+                  setShowEstimates(true);
+                  setSelectedEstimate(null);
+                }}
+                onOpenSection={(section) => {
+                  setLegalSection(null);
+                  setObjectSection(section);
+                }}
+              />
             </div>
-            <PhotoCardPanel context="PROJECT" />
-          </article>
+          )}
+
+          {objectSection === 'rooms' && (
+            <>
+              <RoomList
+                projectId={selectedProject.id}
+                onOpenRoom={openRoom}
+                onRoomChanged={() => {
+                  load();
+                  setSummaryToken((n) => n + 1);
+                }}
+              />
+
+              {/* Stage 13F-PRE: object-level aggregate, after all room cards. */}
+              <ProjectSummaryCard projectId={selectedProject.id} refreshToken={summaryToken} />
+            </>
+          )}
+
+          {/* Stage 14E.5: photos of the whole object. */}
+          {objectSection === 'photos' && <ObjectPhotos />}
 
           {/* Stage 15F: the photo report and the journal of documents sent to the owner's chat. */}
-          <ProjectDocuments
-            projectId={selectedProject.id}
-            onOpenInspection={(work) => void openRecommendationInspection(work)}
-            onOpenEstimate={(estimateId) => void openCurrentEstimate(estimateId)}
-          />
+          {objectSection === 'documents' && (
+            <ProjectDocuments
+              projectId={selectedProject.id}
+              onOpenInspection={(work) => void openRecommendationInspection(work)}
+              onOpenEstimate={(estimateId) => void openCurrentEstimate(estimateId)}
+            />
+          )}
+
+          {objectSection === 'legal' && legalSection === null && <LegalMenu onOpen={setLegalSection} />}
 
           {/* Stage 16B.2: the persons of the object (who may accept the work and sign the protocols). */}
-          <ProjectRepresentatives projectId={selectedProject.id} />
+          {objectSection === 'legal' && legalSection === 'representatives' && <ProjectRepresentatives projectId={selectedProject.id} />}
 
           {/* Stage 16D.1: works of other contractors on the object (the register the production plan refers to). */}
-          <ProjectAdjacentWorks projectId={selectedProject.id} />
+          {objectSection === 'legal' && legalSection === 'adjacent' && <ProjectAdjacentWorks projectId={selectedProject.id} />}
 
           {/* Stage 16E.1: the questionnaire "compose the contract". */}
-          <ProjectContract projectId={selectedProject.id} />
+          {objectSection === 'legal' && legalSection === 'contract' && <ProjectContract projectId={selectedProject.id} />}
 
           {/* Stage 16F.3: the protocol of handing over the premises (the state of each room before the work). */}
-          <ProjectHandover projectId={selectedProject.id} />
+          {objectSection === 'legal' && legalSection === 'handover' && <ProjectHandover projectId={selectedProject.id} />}
 
           {/* Stage 16G.2: the protocol of acceptance of concealed works (before the next layer covers them). */}
-          <ProjectConcealedWorks projectId={selectedProject.id} />
+          {objectSection === 'legal' && legalSection === 'concealed' && <ProjectConcealedWorks projectId={selectedProject.id} />}
 
           {/* Stage 16H.3: the final or partial acceptance of the work (the result is derived from the works and the remarks). */}
-          <ProjectAcceptance projectId={selectedProject.id} />
+          {objectSection === 'legal' && legalSection === 'acceptance' && <ProjectAcceptance projectId={selectedProject.id} />}
 
           {/* Stage 16I.2: the protocol of information and decisions of the customer (a recommendation given up or overruled). */}
-          <ProjectDecisions projectId={selectedProject.id} />
+          {objectSection === 'legal' && legalSection === 'decisions' && <ProjectDecisions projectId={selectedProject.id} />}
 
           {/* Stage 16I.4: the notice and the protocol of downtime on the customer's side. */}
-          <ProjectDowntime projectId={selectedProject.id} />
-
-          <RoomList
-            projectId={selectedProject.id}
-            onOpenRoom={openRoom}
-            onRoomChanged={() => {
-              load();
-              setSummaryToken((n) => n + 1);
-            }}
-          />
-
-          {/* Stage 13F-PRE: object-level aggregate, after all room cards. */}
-          <ProjectSummaryCard projectId={selectedProject.id} refreshToken={summaryToken} />
+          {objectSection === 'legal' && legalSection === 'downtime' && <ProjectDowntime projectId={selectedProject.id} />}
         </>
       )}
 

@@ -24,6 +24,12 @@
       "request_failed": "Не удалось выполнить вход. Повторите попытку."
     }
   },
+  "objectHub": {
+    "legal": "Договор и протоколы",
+    "group_parties": "Стороны и подрядчики",
+    "group_contract": "Договор",
+    "group_protocols": "Протоколы"
+  },
   "navigation": {
     "clients": "Клиенты",
     "projects": "Объекты",

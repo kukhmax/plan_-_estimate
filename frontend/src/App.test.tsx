@@ -393,6 +393,7 @@ describe('App authentication component', () => {
     await screen.findByLabelText(`open-project-${project.id}`);
 
     fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    fireEvent.click(await screen.findByLabelText('object-tile-rooms'));
     await screen.findByLabelText(`open-room-${room.id}`);
 
     fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));

@@ -193,14 +193,16 @@ function renderWorkspace() {
   );
 }
 
-async function openProject() {
+// The object is a hub of tiles (16K.3): its photos and its rooms are on screens of their own.
+async function openProject(section: 'photos' | 'rooms' = 'photos') {
   await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-  fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
-  await screen.findByLabelText('project-photos');
+  await openObject(project.id, section);
+  if (section === 'photos') await screen.findByLabelText('project-photos');
+  else await screen.findByLabelText('rooms-list');
 }
 
 async function openSalon() {
-  await openProject();
+  await openProject('rooms');
   fireEvent.click(await screen.findByLabelText(`open-room-${salon.id}`));
   await screen.findByLabelText(`surface-item-${wall.id}`);
 }
@@ -267,27 +269,36 @@ afterEach(() => {
   resetPhotoStorage();
 });
 
+// The object is a hub of tiles (Stage 16K.3): open it, then the tile of the screen the test is about.
+async function openObject(id: string, section: 'rooms' | 'photos' | 'documents' | 'legal' | null = 'rooms'): Promise<void> {
+  fireEvent.click(await screen.findByLabelText(`open-project-${id}`));
+  await screen.findByLabelText('project-detail');
+  if (section) fireEvent.click(await screen.findByLabelText(`object-tile-${section}`));
+}
+
 describe('ProjectWorkspace photos — the object card (view and edit everything)', () => {
   it('loads the counts once when the object opens, and not on the project list', async () => {
     renderWorkspace();
     await waitFor(() => expect(screen.getByText('Mieszkanie Mokotów')).toBeInTheDocument());
     expect(photosApi.fetchPhotoCounts).not.toHaveBeenCalled();
-    await openProject();
+    await openProject('rooms');
     await waitFor(() => expect(photosApi.fetchPhotoCounts).toHaveBeenCalledTimes(1));
     expect(photosApi.fetchPhotoCounts).toHaveBeenCalledWith(project.id);
   });
 
-  it('shows a card between the summary and the rooms with the total count of the whole object', async () => {
+  it('shows the total count of the whole object on its tile, and the card of photos on its own screen (16K.3)', async () => {
     renderWorkspace();
-    await openProject();
-    const card = screen.getByLabelText('project-photos');
-    expect(within(card).getByRole('heading', { name: 'Zdjęcia obiektu' })).toBeInTheDocument();
+    await openProject('rooms');
+    // back to the hub: the tile carries the count, the card itself is not on the hub
+    fireEvent.click(screen.getByLabelText('back-to-project'));
+    expect(screen.queryByLabelText('project-photos')).toBeNull();
     // 1 (object) + 2 (Salon) + 3 (wall) + 1 (opening) — what the object's list will show
+    await waitFor(() => expect(screen.getByLabelText('object-tile-photos-count')).toHaveTextContent('7'));
+    fireEvent.click(screen.getByLabelText('object-tile-photos'));
+    const card = await screen.findByLabelText('project-photos');
+    expect(within(card).getByRole('heading', { name: 'Zdjęcia obiektu' })).toBeInTheDocument();
     expect(await countButton(card, 7)).toBeInTheDocument();
-    const detail = screen.getByLabelText('project-detail');
-    const rooms = await screen.findByLabelText('rooms-list');
-    expect(detail.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(card.compareDocumentPosition(rooms) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByLabelText('rooms-list')).toBeNull();
   });
 
   it('keeps the object card a fixed white surface with an explicit dark title (like project-detail)', async () => {
@@ -305,10 +316,7 @@ describe('ProjectWorkspace photos — the object card (view and edit everything)
     await openProject();
     const card = screen.getByLabelText('project-photos');
     const button = await countButton(card, 7);
-    expect(button).toHaveAttribute('aria-expanded', 'false');
-    expect(photosApi.fetchPhotos).not.toHaveBeenCalled(); // nothing is fetched while collapsed
-
-    fireEvent.click(button);
+    // the screen of the photos opens the list at once (16K.3: one tap fewer); the button still collapses it
     await waitFor(() => expect(photosApi.fetchPhotos).toHaveBeenCalledTimes(1));
     expect(lastListParams()).toMatchObject({ archived: false });
     expect(lastListParams()?.context).toBeUndefined();
@@ -320,6 +328,11 @@ describe('ProjectWorkspace photos — the object card (view and edit everything)
     await waitFor(() => expect(photosApi.fetchPhotoCounts).toHaveBeenCalledTimes(2)); // refetched on expand
     await waitFor(() => expect(surfacesApi.fetchSurfaces).toHaveBeenCalled());
     await waitFor(() => expect(openingsApi.fetchOpenings).toHaveBeenCalled());
+    // the button still collapses and opens the list again
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('writes the full path of every photo in the object list', async () => {
@@ -330,7 +343,7 @@ describe('ProjectWorkspace photos — the object card (view and edit everything)
     vi.mocked(photosApi.fetchPhotos).mockResolvedValue(listPage([roomPhoto, wallPhoto, doorPhoto, projectPhoto]));
     renderWorkspace();
     await openProject();
-    fireEvent.click(await countButton(screen.getByLabelText('project-photos'), 7));
+    await countButton(screen.getByLabelText('project-photos'), 7);
 
     await screen.findByText(/^Salon → Ściana 1 → Drzwi \(balkonowe\) → 23\.06\.2026/);
     expect(screen.getByText(/^Salon → Ściana 1 → 23\.06\.2026/)).toBeInTheDocument();
@@ -344,7 +357,7 @@ describe('ProjectWorkspace photos — the object card (view and edit everything)
     vi.mocked(photosApi.fetchPhotos).mockResolvedValue(listPage([wallPhoto]));
     renderWorkspace();
     await openProject();
-    fireEvent.click(await countButton(screen.getByLabelText('project-photos'), 7));
+    await countButton(screen.getByLabelText('project-photos'), 7);
     await screen.findByText(/^— → — → 23\.06\.2026/);
   });
 
@@ -355,7 +368,7 @@ describe('ProjectWorkspace photos — the object card (view and edit everything)
     renderWorkspace();
     await openProject();
     const card = screen.getByLabelText('project-photos');
-    fireEvent.click(await countButton(card, 7));
+    await countButton(card, 7);
     fireEvent.click(await within(card).findByRole('button', { name: /23\.06\.2026/ }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByLabelText('Opis')).toBeInTheDocument();
@@ -366,7 +379,7 @@ describe('ProjectWorkspace photos — the object card (view and edit everything)
 describe('ProjectWorkspace photos — rooms show everything in the room (view and edit)', () => {
   it('every room card has a button with the number of ALL its photos; only that room expands', async () => {
     renderWorkspace();
-    await openProject();
+    await openProject('rooms');
     const salonCard = await screen.findByLabelText(`room-item-${salon.id}`);
     const kuchniaCard = screen.getByLabelText(`room-item-${kuchnia.id}`);
     const button = await countButton(salonCard, 6); // 2 own + 3 on the wall + 1 on the opening
@@ -386,7 +399,7 @@ describe('ProjectWorkspace photos — rooms show everything in the room (view an
 
   it('a room list on the object tab offers no way to add a photo', async () => {
     renderWorkspace();
-    await openProject();
+    await openProject('rooms');
     const card = await screen.findByLabelText(`room-item-${salon.id}`);
     fireEvent.click(await countButton(card, 6));
     await within(card).findByText('Brak zdjęć. Dodaj je w karcie ściany, podłogi lub sufitu.');
@@ -396,7 +409,7 @@ describe('ProjectWorkspace photos — rooms show everything in the room (view an
 
   it('keeps the existing room actions and the room name intact', async () => {
     renderWorkspace();
-    await openProject();
+    await openProject('rooms');
     const card = await screen.findByLabelText(`room-item-${salon.id}`);
     expect(within(card).getByText('Salon')).toBeInTheDocument();
     expect(within(card).getByLabelText(`open-room-${salon.id}`)).toBeInTheDocument();
@@ -412,7 +425,7 @@ describe('ProjectWorkspace photos — rooms show everything in the room (view an
       ]),
     );
     renderWorkspace();
-    await openProject();
+    await openProject('rooms');
     const card = await screen.findByLabelText(`room-item-${salon.id}`);
     fireEvent.click(await countButton(card, 6));
     await within(card).findByText(/^Salon → 23\.06\.2026 \(10:15\) · zrobione w aplikacji/);
@@ -436,7 +449,7 @@ describe('ProjectWorkspace photos — rooms show everything in the room (view an
 
   it('keeps a section expanded while moving between the object and a room view', async () => {
     renderWorkspace();
-    await openProject();
+    await openProject('rooms');
     const button = await countButton(await screen.findByLabelText(`room-item-${salon.id}`), 6);
     fireEvent.click(button);
     await screen.findByRole('region', { name: 'Zdjęcia' });
@@ -447,17 +460,19 @@ describe('ProjectWorkspace photos — rooms show everything in the room (view an
     expect(within(screen.getByLabelText(`room-item-${salon.id}`)).getByRole('region', { name: 'Zdjęcia' })).toBeInTheDocument();
   });
 
-  it('a different object starts collapsed with its own counts', async () => {
+  it('a different object starts with its own counts and its own sections (16K.3: the photos screen opens the list)', async () => {
     renderWorkspace();
-    await openProject();
-    fireEvent.click(await countButton(screen.getByLabelText('project-photos'), 7));
+    await openProject('rooms');
+    // a room section opened in this object ...
+    fireEvent.click(await countButton(await screen.findByLabelText(`room-item-${salon.id}`), 6));
     await screen.findByRole('region', { name: 'Zdjęcia' });
     fireEvent.click(screen.getByLabelText('back-to-projects'));
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
     vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {} });
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
-    const card = await screen.findByLabelText('project-photos');
-    expect(await countButton(card, 0)).toHaveAttribute('aria-expanded', 'false');
+    // ... is not open when the object is opened again, and the counts are the new ones
+    await openObject(project.id, 'rooms');
+    const roomCard = await screen.findByLabelText(`room-item-${salon.id}`);
+    expect(await countButton(roomCard, 0)).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('region', { name: 'Zdjęcia' })).toBeNull();
   });
 });
@@ -563,12 +578,14 @@ describe('ProjectWorkspace photos — counts and uploads', () => {
     // back on the object tab: the room card and the object's total follow the same single correction
     fireEvent.click(screen.getByLabelText('back-to-rooms'));
     expect(await within(await screen.findByLabelText(`room-item-${salon.id}`)).findByRole('button', { name: 'Zdjęcia: 7' })).toBeInTheDocument();
-    expect(within(screen.getByLabelText('project-photos')).getByRole('button', { name: 'Zdjęcia: 8' })).toBeInTheDocument();
+    // the object's total follows too: the tile of the photos shows it
+    fireEvent.click(screen.getByLabelText('back-to-project'));
+    expect(await screen.findByLabelText('object-tile-photos-count')).toHaveTextContent('8');
   });
 
   it('the room card on the object tab follows the wall upload (room total)', async () => {
     renderWorkspace();
-    await openProject();
+    await openProject('rooms');
     const roomCard = await screen.findByLabelText(`room-item-${salon.id}`);
     await countButton(roomCard, 6);
     fireEvent.click(screen.getByLabelText(`open-room-${salon.id}`));
@@ -606,7 +623,7 @@ describe('ProjectWorkspace photos — Telegram BackButton', () => {
     vi.mocked(photosApi.fetchPhotos).mockResolvedValue(listPage([item]));
     vi.mocked(photosApi.fetchPhoto).mockResolvedValue(detailFor(item));
     renderWorkspace();
-    await openProject();
+    await openProject('rooms');
     const card = await screen.findByLabelText(`room-item-${salon.id}`);
     fireEvent.click(await countButton(card, 6));
     fireEvent.click(await within(card).findByRole('button', { name: /23\.06\.2026/ }));
@@ -619,11 +636,13 @@ describe('ProjectWorkspace photos — Telegram BackButton', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     // still inside the object: the rooms are on screen and the section is still open
     expect(screen.getByLabelText(`room-item-${salon.id}`)).toBeInTheDocument();
-    expect(screen.getByLabelText('project-photos')).toBeInTheDocument();
 
+    // the next Back leaves the rooms screen for the hub of the object, one more leaves the object
+    act(() => backClick?.());
+    await waitFor(() => expect(screen.getByLabelText('object-hub')).toBeInTheDocument());
+    expect(screen.queryByLabelText(`room-item-${salon.id}`)).toBeNull();
     act(() => backClick?.());
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    expect(screen.queryByLabelText('project-photos')).toBeNull();
   });
 
   it('Back inside the viewer saves an unsaved caption before it closes', async () => {
@@ -642,6 +661,8 @@ describe('ProjectWorkspace photos — Telegram BackButton', () => {
     act(() => backClick?.());
     await waitFor(() => expect(screen.getByLabelText(`room-item-${salon.id}`)).toBeInTheDocument());
     act(() => backClick?.());
+    await waitFor(() => expect(screen.getByLabelText('object-hub')).toBeInTheDocument());
+    act(() => backClick?.());
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
   });
 });
@@ -651,10 +672,10 @@ describe('ProjectWorkspace photos — locales', () => {
     localStorage.setItem('locale', 'ru');
     renderWorkspace();
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id, 'photos');
     const card = await screen.findByLabelText('project-photos');
     expect(within(card).getByRole('heading', { name: 'Фото объекта' })).toBeInTheDocument();
-    fireEvent.click(await within(card).findByRole('button', { name: 'Фото: 7' }));
+    await within(card).findByRole('button', { name: 'Фото: 7' });
     expect(await within(card).findByText('Фото пока нет. Добавьте их в карточке стены, пола или потолка.')).toBeInTheDocument();
     expect(within(card).queryByRole('button', { name: 'Сделать фото' })).toBeNull();
   });
@@ -663,7 +684,7 @@ describe('ProjectWorkspace photos — locales', () => {
     localStorage.setItem('locale', 'ru');
     renderWorkspace();
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     fireEvent.click(await screen.findByLabelText(`open-room-${salon.id}`));
     const card = await screen.findByLabelText(`surface-item-${wall.id}`);
     fireEvent.click(within(card).getByRole('button', { name: 'Фото: 3' }));
@@ -712,7 +733,7 @@ describe('ProjectWorkspace photos — execution photos are marked on the "Realiz
     vi.mocked(photosApi.fetchPhotoCounts).mockResolvedValue({ ...COUNTS, work_surfaces: { [wall.id]: 2 } });
     renderWorkspace();
     await screen.findByLabelText(`open-project-${project.id}`);
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     fireEvent.click(await screen.findByLabelText(`open-room-${salon.id}`));
     await screen.findByLabelText(`surface-item-${wall.id}`);
     expect(await screen.findByRole('img', { name: 'Фото выполнения: 2' })).toBeInTheDocument();

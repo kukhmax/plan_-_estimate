@@ -274,6 +274,13 @@ function renderWorkspace() {
   return render(<I18nProvider><ProjectWorkspace /></I18nProvider>);
 }
 
+// The object is a hub of tiles (Stage 16K.3): open it, then the tile of the screen the test is about.
+async function openObject(id: string, section: 'rooms' | 'photos' | 'documents' | 'legal' | null = 'rooms'): Promise<void> {
+  fireEvent.click(await screen.findByLabelText(`open-project-${id}`));
+  await screen.findByLabelText('project-detail');
+  if (section) fireEvent.click(await screen.findByLabelText(`object-tile-${section}`));
+}
+
 describe('ProjectWorkspace', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -316,7 +323,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByText('Mieszkanie Mokotów')).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id, null);
 
     const nav = await screen.findByLabelText('hierarchy-navigation');
     expect(nav.className).toContain('text-[var(--tg-theme-hint-color)]');
@@ -339,7 +346,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByText('Mieszkanie Mokotów')).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id, null);
 
     const card = await screen.findByLabelText('project-detail');
     expect(card.className).toContain('bg-white');
@@ -382,16 +389,20 @@ describe('ProjectWorkspace', () => {
     });
     expect(await screen.findByText('Obiekt został utworzony')).toBeInTheDocument();
     expect(screen.getByLabelText('project-detail')).toBeInTheDocument();
+    fireEvent.click(await screen.findByLabelText('object-tile-rooms'));
     expect(await screen.findByLabelText('no-rooms')).toBeInTheDocument();
   });
 
-  it('shows the closed documents card between the photos and the rooms (Stage 15F.3)', async () => {
+  it('shows the closed documents card on the screen of documents, not on the hub (Stage 15F.3, 16K.3)', async () => {
     renderWorkspace();
-    fireEvent.click(await screen.findByLabelText(`open-project-${project.id}`));
+    await openObject(project.id, null);
+    expect(screen.queryByLabelText('project-documents')).toBeNull();
+    fireEvent.click(await screen.findByLabelText('object-tile-documents'));
     const card = await screen.findByLabelText('project-documents');
     expect(within(card).getByRole('button', { name: 'toggle-project-documents' })).toHaveAttribute('aria-expanded', 'false');
     expect(within(card).queryByLabelText('photo-report-card')).toBeNull();
-    expect(screen.getByLabelText('project-photos').compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByLabelText('project-photos')).toBeNull();
+    expect(screen.queryByLabelText('rooms-list')).toBeNull();
   });
 
   const blockedSummary = (reason: 'PENDING' | 'NOT_IN_ESTIMATE') => ({
@@ -409,7 +420,7 @@ describe('ProjectWorkspace', () => {
     vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(blockedSummary('PENDING'));
     vi.mocked(inspectionsApi.fetchInspection).mockResolvedValue({ ...inspection, status: 'COMPLETED', answers: [] } as never);
     renderWorkspace();
-    fireEvent.click(await screen.findByLabelText(`open-project-${project.id}`));
+    await openObject(project.id, 'documents');
     const blockedWork = await screen.findByLabelText('unpriced-work-CENNIK_SKIM_CRACK-01');
     await act(async () => { fireEvent.click(blockedWork); });
     await waitFor(() => expect(roomsApi.fetchRoom).toHaveBeenCalledWith(project.id, room.id));
@@ -428,7 +439,7 @@ describe('ProjectWorkspace', () => {
     vi.mocked(estimatesApi.listEstimates).mockResolvedValue({ items: [summary], total: 1 });
     vi.mocked(estimatesApi.getEstimate).mockResolvedValue({ ...summary, lines: [] } as never);
     renderWorkspace();
-    fireEvent.click(await screen.findByLabelText(`open-project-${project.id}`));
+    await openObject(project.id, 'documents');
     const blockedWork = await screen.findByLabelText('unpriced-work-CENNIK_SKIM_CRACK-01');
     await act(async () => { fireEvent.click(blockedWork); });
     await waitFor(() => expect(estimatesApi.listEstimates).toHaveBeenCalledWith(project.id));
@@ -442,7 +453,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
 
@@ -506,7 +517,7 @@ describe('ProjectWorkspace', () => {
     expect(backButton.show).not.toHaveBeenCalled();
 
     // 2. Open project detail: BackButton becomes visible
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
     expect(backButton.show).toHaveBeenCalledTimes(1);
     expect(backButton.onClick).toHaveBeenCalled();
@@ -521,14 +532,20 @@ describe('ProjectWorkspace', () => {
     });
     await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
 
-    // 5. Click native BackButton again: returns to Projects list and hides BackButton
+    // 5. Click native BackButton again: the rooms screen gives way to the hub of the object (16K.3)
+    act(() => {
+      clickHandler?.();
+    });
+    await waitFor(() => expect(screen.getByLabelText('object-hub')).toBeInTheDocument());
+
+    // 6. ... and once more: returns to Projects list and hides BackButton
     act(() => {
       clickHandler?.();
     });
     await waitFor(() => expect(screen.getByText('Mieszkanie Mokotów')).toBeInTheDocument());
     expect(backButton.hide).toHaveBeenCalled();
 
-    // 6. Unmount cleanly
+    // 7. Unmount cleanly
     unmount();
     expect(backButton.offClick).toHaveBeenCalled();
   });
@@ -539,7 +556,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
 
     await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
@@ -563,7 +580,7 @@ describe('ProjectWorkspace', () => {
 
     // 1. Open project and room
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
 
@@ -641,7 +658,7 @@ describe('ProjectWorkspace', () => {
 
     // Open project and room
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
 
@@ -727,7 +744,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
 
@@ -787,7 +804,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
 
@@ -940,7 +957,7 @@ describe('ProjectWorkspace', () => {
 
     // Open project and room
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${canonicalRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${canonicalRoom.id}`));
 
@@ -990,7 +1007,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
 
@@ -1013,7 +1030,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
 
@@ -1047,7 +1064,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${customRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${customRoom.id}`));
 
@@ -1079,7 +1096,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${customRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${customRoom.id}`));
 
@@ -1122,7 +1139,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
 
     // Create the RECTANGLE room exactly as the owner did: 4.900 × 5.000 × 2.700, zero walls.
     await waitFor(() => expect(screen.getByLabelText('add-room')).toBeInTheDocument());
@@ -1203,7 +1220,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText('add-room')).toBeInTheDocument());
 
     // Real user sequence: fill the RECTANGLE form with positive L/W/H and submit.
@@ -1285,7 +1302,7 @@ describe('ProjectWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${rectRoomWithoutCalculations.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${rectRoomWithoutCalculations.id}`));
 
@@ -1327,7 +1344,7 @@ describe('Room measurement CTA routing (Stage 5D.1A.2)', () => {
     vi.mocked(roomsApi.fetchRoom).mockResolvedValue(roomToOpen);
     renderWorkspace();
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${roomToOpen.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${roomToOpen.id}`));
   };
@@ -1390,7 +1407,7 @@ describe('Room measurement CTA routing (Stage 5D.1A.2)', () => {
     renderWorkspace();
 
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${customMeasurementRoom.id}`)).toBeInTheDocument());
 
     // Custom room enters wall entry directly.
@@ -1430,7 +1447,7 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
   const openRoomView = async () => {
     renderWorkspace();
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${measuredRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${measuredRoom.id}`));
     await screen.findByLabelText('surfaces-section');
@@ -1592,13 +1609,14 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
   it('shows Kosztorys entry button in project detail view', async () => {
     renderWorkspace();
     await waitFor(() => screen.getByText('Mieszkanie Mokotów'));
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id, null);
     await waitFor(() => screen.getByLabelText('project-detail'));
     expect(screen.getByLabelText('open-estimates')).toBeInTheDocument();
     expect(screen.getByLabelText('open-estimates').textContent).toContain('Kosztorys');
-    // Owner walkthrough: a clearly accented primary entry, >=44px.
+    // Owner walkthrough: a clearly accented primary entry, the first tile of the hub, >=44px.
     expect(screen.getByLabelText('open-estimates').className).toContain('bg-amber-500');
-    expect(screen.getByLabelText('open-estimates').className).toContain('min-h-11');
+    expect(screen.getByLabelText('open-estimates').className).toContain('min-h-14');
+    expect(screen.getByLabelText('object-hub').firstElementChild).toBe(screen.getByLabelText('open-estimates'));
   });
 
   // K.2: the card of a client sends the owner straight to the estimates of one of his objects.
@@ -1642,7 +1660,7 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
   it('opens EstimateList when Kosztorys entry is tapped', async () => {
     renderWorkspace();
     await waitFor(() => screen.getByText('Mieszkanie Mokotów'));
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id, null);
     await waitFor(() => screen.getByLabelText('project-detail'));
 
     await act(async () => {
@@ -1657,9 +1675,11 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
     renderWorkspace();
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id, null);
     await waitFor(() => screen.getByLabelText('project-detail'));
-    // Overview keeps only its large card (no duplicate compact action).
+    // Overview keeps only its large tile (no duplicate compact action).
+    expect(screen.queryByLabelText('open-object-estimate')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('object-tile-rooms'));
     expect(screen.queryByLabelText('open-object-estimate')).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
@@ -1680,7 +1700,7 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [room], total: 1 });
     renderWorkspace();
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(screen.getByLabelText(`open-room-${room.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`open-room-${room.id}`));
     expect(await screen.findByLabelText('open-object-estimate')).toHaveTextContent('Смета');
@@ -1689,7 +1709,7 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
   it('shows Kosztorys breadcrumb segment after opening estimates', async () => {
     renderWorkspace();
     await waitFor(() => screen.getByText('Mieszkanie Mokotów'));
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id, null);
     await waitFor(() => screen.getByLabelText('project-detail'));
 
     await act(async () => {
@@ -1744,7 +1764,7 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
   const openProject = async () => {
     renderWorkspace();
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await screen.findByLabelText(`open-room-${roomWithOpenings.id}`);
   };
 
@@ -1796,7 +1816,7 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
     });
     renderWorkspace();
     await waitFor(() => expect(screen.getByLabelText(`open-project-${project.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-project-${project.id}`));
+    await openObject(project.id);
     await waitFor(() => expect(roomsApi.fetchProjectSummary).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByLabelText('object-summary')).not.toBeInTheDocument());
   });
@@ -1835,7 +1855,7 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
     };
     try {
       const view = render(<I18nProvider><ProjectWorkspace backSuspended={false} /></I18nProvider>);
-      fireEvent.click(await screen.findByLabelText(`open-project-${project.id}`));
+      await openObject(project.id);
       await waitFor(() => expect(backButton.onClick).toHaveBeenCalledTimes(1));
       view.rerender(<I18nProvider><ProjectWorkspace backSuspended /></I18nProvider>);
       await waitFor(() => expect(backButton.offClick).toHaveBeenCalledTimes(1));

@@ -24,6 +24,12 @@
       "request_failed": "Nie udało się zalogować. Spróbuj ponownie."
     }
   },
+  "objectHub": {
+    "legal": "Umowa i protokoły",
+    "group_parties": "Strony i wykonawcy",
+    "group_contract": "Umowa",
+    "group_protocols": "Protokoły"
+  },
   "navigation": {
     "clients": "Klienci",
     "projects": "Obiekty",
