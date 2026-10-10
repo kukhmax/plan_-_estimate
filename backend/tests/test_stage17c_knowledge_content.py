@@ -1,7 +1,7 @@
 """Stage 17C — the first content of the knowledge base: the provisions the contract template cites.
 
-The entries are skeletons prepared by the program: title, place in the act, tags, link to the source. The key points
-(summary_pl, explanation_ru) are written and approved by the owner and the lawyer (Q4, 2026-10-11); until then every
+The entries were prepared by the program: title, place in the act, tags, link to the source and (17C.1) a draft of the key points
+(summary_pl, explanation_ru), which the owner and the lawyer check and approve (Q4, 2026-10-11); until then every
 entry stays DRAFT with an open note saying what to check.
 """
 
@@ -46,10 +46,16 @@ def test_nothing_is_approved_before_the_owner_and_the_lawyer_check_it():
     assert all(e.status == "DRAFT" for e in CATALOG.entries)
 
 
-def test_a_draft_without_its_key_points_says_what_is_left_to_check():
+def test_a_draft_says_what_is_left_to_check():
+    # the key points written by the program (17C.1) are a draft too, until the owner or the lawyer checks them
     for entry in CATALOG.entries:
-        if entry.status == "DRAFT" and not entry.summary_pl:
+        if entry.status == "DRAFT":
             assert any(n.ref == "UNVERIFIED" and n.status == "OPEN" for n in entry.review_notes), entry.code
+
+
+def test_every_entry_tells_its_key_points_in_both_languages():
+    for entry in CATALOG.entries:
+        assert entry.summary_pl and entry.explanation_ru, entry.code
 
 
 def test_every_entry_has_its_place_in_the_act_and_both_titles():

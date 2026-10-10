@@ -1150,6 +1150,25 @@ Owner approved ("делаем 15E, лимит 60 фото ок"). Details: `docs
 - **Production:** none — no migration, no route; the code travels with 15F / 15H (the 60-photo render on the 1 OCPU server is measured at 15H).
 - **Next (only on owner approval):** 15F — issuing: journal of issued documents (numbering by date-time plus a running number per client and object), Telegram `sendDocument`, "Wyślij PDF" buttons, HTTP errors for the document exceptions.
 
+### Stage 17C.1 — draft key points, currency analysis, commentary and case law (2026-10-11, IMPLEMENTED LOCALLY — not deployed; no migration)
+On the owner's request ("содержание статей с анализом актуальности и юридических комментариев и прецедентов по спорным вопросам").
+- **Catalogue:**
+  - all 24 entries now hold a draft `summary_pl` (key points in own words) and `explanation_ru` (practical meaning for the contractor); still DRAFT;
+  - the `UNVERIFIED` note now says the text was prepared from web search without ISAP access and that case signatures come from secondary sources;
+  - 4 new lawyer questions: 30 days after an unsolicited visit (UPK art. 27 ust. 2); art. 38 ust. 2 (with art. 7aa not found); consequences of a missing notice under KC art. 634; rękojmia term 2 or 5 years for finishing works in a flat;
+  - source designations updated to t.j. KC Dz.U. 2026 poz. 795 and UPK Dz.U. 2026 poz. 1244, marked "potwierdzić w ISAP".
+- **Analysis:** `docs/STAGE_17C_LEGAL_CONTENT_REVIEW_RU.md` covers:
+  - method and limits — the environment's network policy blocks isap / eli / sn / saos, so the work was done through web search;
+  - currency of the sources;
+  - 8 main conclusions for the contract (qualification dzieło vs roboty budowlane and its consequences; 14 / 30 days; downtime pay vs art. 385³ pkt 17; art. 491 zwłoka; art. 558 after 2023; art. 634 as the legal anchor of substrate inspection; art. 635; art. 644);
+  - per-article commentary with case law marked "по обзору";
+  - proposed new entries;
+  - a checklist for the lawyer.
+  
+  Contract clause texts are untouched (Q11).
+- **Tests:** `test_stage17c_knowledge_content` 7: every DRAFT carries its open note; every entry has its key points in both languages. Knowledge and contract tests pass; ruff is clean.
+- **Production:** not deployed. **Next:** the owner / lawyer checks the drafts and the questions; 17D on the owner's word.
+
 ### Stage 17C — the first content: skeletons of the provisions the contract cites (2026-10-11, IMPLEMENTED LOCALLY — not deployed; no migration)
 Per Q1–Q2 the first batch is the provisions the Stage 16 contract template already cites. They are the program's skeletons, not approved content.
 - **Catalogue** (`backend/app/domain/knowledge/catalog/`, version 2):

@@ -5,6 +5,8 @@
     "locator": "art. 77²",
     "title_pl": "Forma dokumentowa",
     "title_ru": "Документальная форма (e-mail, SMS, мессенджер)",
+    "summary_pl": "Formę dokumentową zachowuje oświadczenie złożone w postaci dokumentu w sposób, który pozwala ustalić, kto je złożył. Nośnik jest dowolny: e-mail, SMS, PDF, wiadomość w komunikatorze, nagranie. Podpis własnoręczny ani kwalifikowany nie jest potrzebny. Forma obowiązuje od 8 września 2016 r. (dokument definiuje art. 77³). Rozmowa telefoniczna bez utrwalenia jej nie spełnia. Tożsamość nadawcy może wynikać z treści albo z nośnika (adres, numer), dlatego warto korzystać z kontaktów wskazanych w umowie i przechowywać korespondencję.",
+    "explanation_ru": "Документальная форма — это любое сохранённое сообщение (e-mail, SMS, мессенджер, PDF), по которому видно, кто его отправил. Подпись не нужна. Устный разговор по телефону её не заменяет. Практически: пишите клиенту только на адрес/номер из договора и не удаляйте переписку — это ваши доказательства (уведомления о простое, решения клиента).",
     "tags": [
       "forma",
       "dokumentowa",
@@ -15,7 +17,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -25,6 +27,8 @@
     "locator": "art. 355 § 2",
     "title_pl": "Należyta staranność zawodowa",
     "title_ru": "Должная профессиональная осмотрительность",
+    "summary_pl": "§ 1: dłużnik ma działać ze starannością ogólnie wymaganą w stosunkach danego rodzaju. § 2: staranność przedsiębiorcy ocenia się z uwzględnieniem zawodowego charakteru jego działalności — wymaga się wiedzy, umiejętności i przewidywania właściwych dla profesjonalisty w branży (np. ocena podłoża, znajomość kart technicznych materiałów). Miernik jest obiektywny, a nie zależny od indywidualnych możliwości wykonawcy. Według omówień orzecznictwa (SN, II CK 134/05) wykonawca może oprzeć się na jednoznacznej informacji zamawiającego, jeżeli nic nie wskazywało, że jest błędna.",
+    "explanation_ru": "Профессионала оценивают строже, чем обычного человека: от вас ожидают знаний и предусмотрительности мастера отрасли (проверить основание, знать техкарты). Если клиент дал вам чёткую информацию (например, о влажности) и не было признаков, что она ложна, суд может признать, что вы действовали должным образом — но фиксируйте такие сведения письменно.",
     "tags": [
       "starannosc",
       "obowiazki"
@@ -34,7 +38,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -44,6 +48,8 @@
     "locator": "art. 385³ pkt 17",
     "title_pl": "Niedozwolone postanowienia — rażąco wygórowane kwoty od konsumenta",
     "title_ru": "Недопустимые условия — чрезмерные суммы с потребителя",
+    "summary_pl": "Art. 385³ zawiera listę postanowień, które w razie wątpliwości uważa się za niedozwolone w umowach z konsumentem (tzw. szara lista). Pkt 17: obowiązek zapłaty przez konsumenta, który nie wykonał zobowiązania lub odstąpił od umowy, rażąco wygórowanej kary umownej lub odstępnego. Postanowienie niedozwolone nie wiąże konsumenta, a reszta umowy obowiązuje (art. 385¹ § 2). Kontroli nie podlegają jednoznacznie sformułowane główne świadczenia (cena, wynagrodzenie). Ustawa nie podaje progu kwotowego — ocena jest indywidualna (praktyka UOKiK i sądów).",
+    "explanation_ru": "Если в договоре с потребителем штраф или «отступное» несоразмерно велики, такой пункт не обязывает клиента (остальной договор действует). Порога в процентах закон не даёт — решает суд. Для оплаты простоя: чем ближе сумма к реальным расходам (люди, техника, срыв графика), тем меньше риск, что её признают скрытым штрафом.",
     "tags": [
       "konsument",
       "klauzule",
@@ -54,7 +60,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       },
       {
         "ref": "L-PRZESTOJ",
@@ -69,6 +75,8 @@
     "locator": "art. 474",
     "title_pl": "Odpowiedzialność za podwykonawców i pracowników",
     "title_ru": "Ответственность за субподрядчиков и работников",
+    "summary_pl": "Dłużnik odpowiada jak za własne działanie lub zaniechanie za osoby, z których pomocą wykonuje zobowiązanie, oraz za osoby, którym wykonanie powierza (pracownicy, podwykonawcy). Nie zwalnia go wykazanie starannego wyboru podwykonawcy. Zawinienie podwykonawcy ocenia się według miary obowiązującej wykonawcę. Zamawiający nie ma roszczeń umownych wobec podwykonawcy — dochodzi ich od wykonawcy.",
+    "explanation_ru": "За работников и субподрядчиков вы отвечаете перед клиентом как за себя. Ссылка «я нанял хорошего специалиста» не освобождает. Клиент предъявляет претензии вам, а не субподрядчику — поэтому свои отношения с субподрядчиком оформляйте отдельно (сроки, качество, регресс).",
     "tags": [
       "podwykonawca",
       "odpowiedzialnosc"
@@ -78,7 +86,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -88,6 +96,8 @@
     "locator": "art. 481",
     "title_pl": "Odsetki za opóźnienie w zapłacie",
     "title_ru": "Проценты за просрочку оплаты",
+    "summary_pl": "§ 1: za opóźnienie w zapłacie wierzyciel może żądać odsetek, nawet jeżeli nie poniósł szkody i opóźnienie nie wynika z winy dłużnika. § 2: odsetki ustawowe za opóźnienie = stopa referencyjna NBP + 5,5 p.p. (według wyszukiwania od 5.03.2026 r.: 9,25% rocznie — sprawdzić aktualną stopę). Odsetki maksymalne za opóźnienie = dwukrotność odsetek ustawowych za opóźnienie. Między przedsiębiorcami stosuje się ustawę z 8.03.2013 r. o przeciwdziałaniu nadmiernym opóźnieniom w transakcjach handlowych: wyższe odsetki (stopa referencyjna + 10 p.p.) i rekompensata za koszty odzyskiwania (40 / 70 / 100 euro zależnie od kwoty — do weryfikacji).",
+    "explanation_ru": "Проценты за просрочку оплаты положены автоматически — не нужно доказывать ущерб или вину клиента. Ставка привязана к ставке NBP и меняется; приложение не должно «зашивать» процент. Если клиент — фирма, действуют повышенные проценты и фиксированная компенсация в евро.",
     "tags": [
       "zaplata",
       "odsetki",
@@ -98,7 +108,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -108,6 +118,8 @@
     "locator": "art. 491",
     "title_pl": "Odstąpienie od umowy wzajemnej po wyznaczeniu dodatkowego terminu",
     "title_ru": "Отказ от взаимного договора после дополнительного срока",
+    "summary_pl": "§ 1: jeżeli strona umowy wzajemnej dopuszcza się zwłoki, druga strona może wyznaczyć jej odpowiedni dodatkowy termin z zagrożeniem, że po jego bezskutecznym upływie odstąpi od umowy. Zwłoka to opóźnienie z przyczyn, za które dłużnik odpowiada (art. 476) — samo opóźnienie nie wystarcza. Odstąpienie bez wcześniejszego wezwania z terminem i zagrożeniem jest nieskuteczne. § 2: przy świadczeniach podzielnych można odstąpić co do części (SN, uchwała III CZP 83/15). Art. 492 pozwala zastrzec w umowie odstąpienie bez dodatkowego terminu.",
+    "explanation_ru": "Чтобы отказаться от договора из-за неоплаты, нужно сначала письменно дать клиенту дополнительный разумный срок и прямо предупредить: «иначе я откажусь от договора». Просто «опоздал» недостаточно — нужна просрочка, за которую клиент отвечает. Без такого предупреждения отказ недействителен.",
     "tags": [
       "odstapienie",
       "zaplata"
@@ -117,7 +129,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       },
       {
         "ref": "L-ZWLOKA",
@@ -132,6 +144,8 @@
     "locator": "art. 556 i n.",
     "title_pl": "Rękojmia za wady fizyczne",
     "title_ru": "Гарантийная ответственность (rękojmia) за физические недостатки",
+    "summary_pl": "Rękojmia to odpowiedzialność za wady fizyczne i prawne niezależna od winy. Wada fizyczna to niezgodność z umową (art. 556¹), m.in. brak właściwości wynikających z celu umowy lub zapewnień. Uprawnienia (art. 560–561): obniżenie ceny, odstąpienie (gdy wada istotna), żądanie usunięcia wady. Terminy (art. 568): wada stwierdzona przed upływem 2 lat, a dla nieruchomości 5 lat od wydania. Od 1.01.2023 r. sprzedaż towarów (rzeczy ruchomych) konsumentom reguluje ustawa o prawach konsumenta; przepisy KC stosuje się nadal m.in. między przedsiębiorcami i do świadczeń niebędących towarem (np. roboty w lokalu) — do potwierdzenia.",
+    "explanation_ru": "Rękojmia — ответственность за недостатки без учёта вины: клиент может требовать устранения, снижения цены, а при существенном недостатке — отказаться от договора. Срок: 2 года, для недвижимости 5 лет (какой применять к отделке квартиры — спорно, см. анализ). С 2023 г. продажа вещей потребителям ушла в закон о правах потребителя, но работы в квартире, по преобладающему мнению, остаются под KC.",
     "tags": [
       "rekojmia",
       "wady"
@@ -141,7 +155,12 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
+      },
+      {
+        "ref": "L-TERMIN",
+        "text": "Termin rękojmi dla robót wykończeniowych w lokalu: 2 lata czy 5 lat (nieruchomość, art. 568 § 1) — brak jednoznacznego orzecznictwa dla umowy o dzieło.",
+        "status": "OPEN"
       }
     ]
   },
@@ -151,6 +170,8 @@
     "locator": "art. 557 § 1",
     "title_pl": "Wada znana w chwili odbioru",
     "title_ru": "Недостаток, известный при приёмке",
+    "summary_pl": "§ 1: sprzedawca (wykonawca — przez art. 638) jest zwolniony z rękojmi, jeżeli kupujący (zamawiający) wiedział o wadzie w chwili zawarcia umowy. Liczy się rzeczywista wiedza — nie wystarczy, że mógł lub powinien był wadę zauważyć (SN, IV CK 546/04, według omówienia). Wiedza uzyskana później nie wyłącza odpowiedzialności. Przy dziele moment oceny wiedzy (zawarcie umowy czy odbiór) bywa sporny — dowodem wiedzy zamawiającego jest pisemna informacja o stanie podłoża i jego decyzja.",
+    "explanation_ru": "Вы не отвечаете за недостаток, о котором клиент реально знал при заключении договора. «Мог догадаться» — недостаточно, нужна доказанная осведомлённость. Поэтому протокол информации и решений клиента (приложение 9) с подписью — ваше главное доказательство.",
     "tags": [
       "rekojmia",
       "wady",
@@ -161,7 +182,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -171,6 +192,8 @@
     "locator": "art. 558 § 1",
     "title_pl": "Rozszerzenie, ograniczenie lub wyłączenie rękojmi",
     "title_ru": "Расширение, ограничение или исключение rękojmi",
+    "summary_pl": "§ 1: strony mogą rękojmię rozszerzyć, ograniczyć lub wyłączyć; jeżeli kupującym (zamawiającym) jest konsument, ograniczenie lub wyłączenie jest dopuszczalne tylko w przypadkach określonych w przepisach szczególnych. Według tekstu podawanego dla Dz.U. 2026 poz. 795 to zdanie nadal obowiązuje (do potwierdzenia w ISAP). § 2: wyłączenie lub ograniczenie jest bezskuteczne, jeżeli wada została podstępnie zatajona. W umowach z przedsiębiorcą rękojmię można ograniczyć lub wyłączyć.",
+    "explanation_ru": "С потребителем rękojmię ограничить или исключить нельзя (кроме случаев, прямо предусмотренных законом). С фирмой — можно. Если недостаток скрыт умышленно, никакое ограничение не действует.",
     "tags": [
       "rekojmia",
       "konsument"
@@ -180,7 +203,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       },
       {
         "ref": "L-2023",
@@ -195,6 +218,8 @@
     "locator": "art. 627 i n.",
     "title_pl": "Umowa o dzieło",
     "title_ru": "Договор подряда на результат (umowa o dzieło)",
+    "summary_pl": "Przez umowę o dzieło przyjmujący zamówienie zobowiązuje się wykonać oznaczone dzieło, a zamawiający zapłacić wynagrodzenie. Istotą jest konkretny, sprawdzalny rezultat (np. powierzchnia w uzgodnionym standardzie), a nie samo staranne działanie. Wynagrodzenie może być ryczałtowe lub kosztorysowe (art. 628–632). Roszczenia z umowy o dzieło przedawniają się z upływem 2 lat od dnia oddania dzieła albo od dnia, w którym miało być oddane (art. 646). O rodzaju umowy decyduje jej treść, a nie nazwa.",
+    "explanation_ru": "Договор подряда на результат: вы обязуетесь сдать конкретный, проверяемый результат. Важно: требования по такому договору (в том числе ваша оплата!) погашаются давностью через 2 года после сдачи работы — не откладывайте взыскание. Название договора не решает — решает содержание.",
     "tags": [
       "umowa",
       "dzielo"
@@ -204,7 +229,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -214,6 +239,8 @@
     "locator": "art. 634",
     "title_pl": "Materiał zamawiającego — obowiązek zawiadomienia",
     "title_ru": "Материал заказчика — обязанность уведомить",
+    "summary_pl": "Jeżeli materiał dostarczony przez zamawiającego nie nadaje się do prawidłowego wykonania dzieła albo zajdą inne okoliczności, które mogą przeszkodzić prawidłowemu wykonaniu, przyjmujący zamówienie powinien niezwłocznie zawiadomić o tym zamawiającego. Obowiązek obejmuje więc także stan zastanego podłoża (wilgoć, słaba nośność, stare powłoki). Zaniechanie zawiadomienia może obciążyć wykonawcę odpowiedzialnością za skutki; zawiadomienie i decyzja zamawiającego przenoszą ryzyko na niego. Art. 633: materiał zamawiającego wykorzystać właściwie, rozliczyć i zwrócić resztę.",
+    "explanation_ru": "Если материал клиента не годится или есть другое препятствие (сырое или слабое основание, старая масляная краска), вы обязаны сразу сообщить клиенту. Это правовая основа обследования основания и протокола решений клиента: сообщили и зафиксировали решение — риск на клиенте; промолчали — риск на вас.",
     "tags": [
       "material",
       "zawiadomienie"
@@ -223,7 +250,12 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
+      },
+      {
+        "ref": "L-ZANIECHANIE",
+        "text": "Skutki zaniechania zawiadomienia (odpowiedzialność wykonawcy, przyczynienie się zamawiającego, art. 362) — potwierdzić w orzecznictwie.",
+        "status": "OPEN"
       }
     ]
   },
@@ -233,6 +265,8 @@
     "locator": "art. 635",
     "title_pl": "Opóźnienie wykonawcy — odstąpienie przed terminem",
     "title_ru": "Просрочка исполнителя — отказ до срока",
+    "summary_pl": "Jeżeli przyjmujący zamówienie opóźnia się z rozpoczęciem lub wykończeniem dzieła tak dalece, że nie jest prawdopodobne, aby zdołał je ukończyć w umówionym czasie, zamawiający może odstąpić od umowy przed upływem terminu, bez wyznaczania terminu dodatkowego. Wystarczy opóźnienie (wina nie jest wymagana), ale nie może ono wynikać z przyczyn po stronie zamawiającego, np. braku współdziałania (SN, I CSK 129/06, według omówienia). Do rozliczeń po odstąpieniu z art. 635 nie stosuje się reguły z art. 644 (SN, I CSK 587/17, według omówienia).",
+    "explanation_ru": "Клиент может отказаться от договора ещё до срока, если вы так отстаёте, что явно не успеете. Ваша вина не нужна, но если задержка из-за клиента (не дал доступ, не принял решение) — этот путь для него закрыт. Поэтому уведомления и протоколы простоя важны как доказательство причины задержки.",
     "tags": [
       "odstapienie",
       "termin"
@@ -242,7 +276,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -252,6 +286,8 @@
     "locator": "art. 636",
     "title_pl": "Wadliwe wykonywanie dzieła — wezwanie i odstąpienie",
     "title_ru": "Ненадлежащее выполнение — требование и отказ",
+    "summary_pl": "§ 1: jeżeli przyjmujący zamówienie wykonuje dzieło wadliwie albo sprzecznie z umową, zamawiający może wezwać go do zmiany sposobu wykonania i wyznaczyć odpowiedni termin. Po bezskutecznym upływie terminu może odstąpić od umowy albo powierzyć poprawienie lub dalsze wykonanie innej osobie na koszt i niebezpieczeństwo wykonawcy (wykonanie zastępcze). Wezwanie powinno wskazywać, co jest wadliwe i jakiej zmiany się oczekuje. Przepis dotyczy etapu wykonywania — po odbiorze stosuje się rękojmię. § 2: przy materiale zamawiającego — zwrot materiału po odstąpieniu.",
+    "explanation_ru": "Если клиент считает, что вы работаете неправильно, он должен письменно указать, что именно не так, и дать срок исправить. Только после этого он может отказаться от договора или нанять другого за ваш счёт. После приёмки работ действует уже rękojmia, а не эта статья.",
     "tags": [
       "odstapienie",
       "wady"
@@ -261,7 +297,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -271,6 +307,8 @@
     "locator": "art. 638",
     "title_pl": "Rękojmia przy umowie o dzieło",
     "title_ru": "Rękojmia по договору подряда (dzieło)",
+    "summary_pl": "§ 1: do odpowiedzialności za wady dzieła stosuje się odpowiednio przepisy o rękojmi przy sprzedaży (art. 556 i n.). § 2: jeżeli udzielono gwarancji, stosuje się odpowiednio przepisy o gwarancji przy sprzedaży. Gwarancja jest dobrowolna i działa obok rękojmi, nie zamiast niej. Dla dzieła będącego rzeczą ruchomą zamówioną przez konsumenta obowiązują przepisy szczególne (ustawa o prawach konsumenta) — do potwierdzenia aktualnego brzmienia.",
+    "explanation_ru": "Ответственность за недостатки работ — по правилам rękojmi при продаже, применяемым «соответственно». Гарантию вы даёте добровольно, она не отменяет rękojmię.",
     "tags": [
       "rekojmia",
       "dzielo"
@@ -280,7 +318,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -290,6 +328,8 @@
     "locator": "art. 639",
     "title_pl": "Wynagrodzenie mimo niewykonania z przyczyn zamawiającego",
     "title_ru": "Вознаграждение, если работа не выполнена по вине заказчика",
+    "summary_pl": "Zamawiający nie może odmówić zapłaty wynagrodzenia mimo niewykonania dzieła, jeżeli przyjmujący zamówienie był gotów je wykonać, lecz doznał przeszkody z przyczyn dotyczących zamawiającego. Zamawiający może odliczyć to, co wykonawca oszczędził przez niewykonanie dzieła. Przyczyny po stronie zamawiającego nie muszą być zawinione (SA, I AGa 236/22). Wykonawca dowodzi gotowości i przeszkody, zamawiający — wysokości oszczędności (SO Poznań, II Ca 1647/21; SN, II CSK 77/17 — według omówień).",
+    "explanation_ru": "Если вы были готовы работать, но помешала причина на стороне клиента (нет доступа, не куплен материал, не принято решение), клиент всё равно должен заплатить, за вычетом того, что вы сэкономили. Вину клиента доказывать не нужно — достаточно, что причина на его стороне. Вам нужно доказать готовность и препятствие: отсюда уведомление и протокол простоя.",
     "tags": [
       "przestoj",
       "wynagrodzenie"
@@ -299,7 +339,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -309,6 +349,8 @@
     "locator": "art. 640",
     "title_pl": "Brak współdziałania zamawiającego",
     "title_ru": "Отсутствие содействия заказчика",
+    "summary_pl": "Jeżeli do wykonania dzieła potrzebne jest współdziałanie zamawiającego (dostęp do lokalu, decyzje, materiały, roboty sąsiednie), a go brak, przyjmujący zamówienie może wyznaczyć mu odpowiedni termin z zagrożeniem, że po jego bezskutecznym upływie odstąpi od umowy. Wezwanie bez zagrożenia odstąpieniem nie daje tego prawa. To podstawowa kodeksowa podstawa odstąpienia przez wykonawcę; rozliczenie — według art. 639 (wynagrodzenie pomniejszone o oszczędności).",
+    "explanation_ru": "Если клиент не обеспечивает своё участие (доступ, решения, материалы, смежные работы), вы можете письменно дать ему срок и предупредить, что после него откажетесь от договора. Без слов «откажусь от договора» права отказа нет. После отказа — оплата по art. 639 за вычетом сэкономленного.",
     "tags": [
       "przestoj",
       "wspoldzialanie",
@@ -319,7 +361,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -329,6 +371,8 @@
     "locator": "art. 644",
     "title_pl": "Odstąpienie zamawiającego przed ukończeniem dzieła",
     "title_ru": "Отказ заказчика до завершения работ",
+    "summary_pl": "Dopóki dzieło nie zostało ukończone, zamawiający może w każdej chwili, bez podania przyczyny, odstąpić od umowy, płacąc umówione wynagrodzenie; może odliczyć to, co wykonawca oszczędził przez niewykonanie dzieła. Odliczyć można tylko rzeczywiste oszczędności, a ciężar ich wykazania spoczywa na zamawiającym (SA Szczecin, I ACa 984/15; według omówień). Co do skutku odstąpienia (ex nunc czy ex tunc) orzecznictwo SN było rozbieżne (II CKN 365/00 — skutek od chwili odstąpienia; II CKN 5/98 — odmiennie).",
+    "explanation_ru": "Клиент может в любой момент до завершения отказаться без причины, но должен заплатить всё оговорённое вознаграждение минус то, что вы реально сэкономили. Доказывать размер экономии должен клиент. Вам стоит хранить расчёт затрат по объекту — он помогает при таком споре.",
     "tags": [
       "odstapienie",
       "wynagrodzenie"
@@ -338,7 +382,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -348,6 +392,8 @@
     "locator": "art. 647 i n.",
     "title_pl": "Umowa o roboty budowlane",
     "title_ru": "Договор строительного подряда",
+    "summary_pl": "Przez umowę o roboty budowlane wykonawca zobowiązuje się oddać przewidziany w umowie obiekt wykonany zgodnie z projektem i zasadami wiedzy technicznej, a inwestor — przygotować roboty (m.in. przekazać teren, dostarczyć projekt), odebrać obiekt i zapłacić wynagrodzenie. O kwalifikacji decydują cechy przedmiotowe, nie nazwa: większe, zindywidualizowane przedsięwzięcie, zwykle z projektem i nadzorem (SN, IV CSK 255/18); remont w rozumieniu Prawa budowlanego — także części obiektu — bywa kwalifikowany jako roboty budowlane (SN, II CSK 112/08). Skutki: inne przedawnienie (dzieło — 2 lata, art. 646), gwarancja zapłaty (art. 649¹ i n.), solidarna odpowiedzialność za podwykonawców (art. 647¹). Sygnatury według omówień — do weryfikacji.",
+    "explanation_ru": "Строительный подряд отличается от подряда на результат масштабом: проект, надзор, объект. Отделка без проекта обычно — dzieło, но крупный ремонт в смысле строительного права суд может признать строительным подрядом, даже если договор назван иначе. От этого зависят давность (2 года для dzieło), гарантия оплаты и ответственность за субподрядчиков.",
     "tags": [
       "umowa",
       "roboty-budowlane"
@@ -357,7 +403,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       },
       {
         "ref": "L-KWALIFIKACJA",
@@ -372,6 +418,8 @@
     "locator": "art. 12",
     "title_pl": "Informacje dla konsumenta przed zawarciem umowy",
     "title_ru": "Информация для потребителя до заключения договора",
+    "summary_pl": "Najpóźniej w chwili, gdy konsument wyraża wolę związania się umową zawieraną na odległość lub poza lokalem, przedsiębiorca musi jasno i zrozumiale poinformować go m.in. o: głównych cechach świadczenia, swoich danych i adresie, łącznej cenie z podatkami, sposobie i terminie zapłaty i wykonania, procedurze reklamacyjnej, prawie odstąpienia (warunki, termin, sposób, wzór formularza), obowiązku zapłaty za usługi wykonane przed odstąpieniem (art. 35) lub braku prawa odstąpienia (art. 38). Przy umowie poza lokalem informacje i formularz przekazuje się na papierze lub, za zgodą konsumenta, na innym trwałym nośniku. Ciężar dowodu wykonania obowiązków spoczywa na przedsiębiorcy.",
+    "explanation_ru": "До подписания договора вне офиса (у клиента дома) вы обязаны дать потребителю полный набор сведений: кто вы, что и за сколько делаете, сроки, рекламации, право отказа и его последствия. На бумаге или, с согласия клиента, на другом надёжном носителе. Доказывать, что вы это сделали, придётся вам — отсюда приложение 11.",
     "tags": [
       "konsument",
       "informacje"
@@ -381,7 +429,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -391,6 +439,8 @@
     "locator": "art. 27",
     "title_pl": "Prawo odstąpienia od umowy zawartej poza lokalem lub na odległość",
     "title_ru": "Право отказа от договора, заключённого вне офиса или дистанционно",
+    "summary_pl": "Konsument, który zawarł umowę na odległość lub poza lokalem przedsiębiorstwa, może w terminie 14 dni odstąpić od niej bez podania przyczyny i bez kosztów, poza wskazanymi w ustawie. Jeżeli umowę zawarto podczas nieumówionej wizyty przedsiębiorcy w miejscu zamieszkania lub zwykłego pobytu konsumenta albo podczas wycieczki, termin wynosi 30 dni (art. 27 ust. 2). Dla usług termin biegnie od dnia zawarcia umowy. Bez pouczenia o prawie odstąpienia prawo to wygasa dopiero 12 miesięcy po upływie podstawowego terminu (art. 29).",
+    "explanation_ru": "Если договор заключён у клиента дома (вне офиса) или дистанционно, потребитель может отказаться в течение 14 дней без объяснений. Если вы пришли без предварительной договорённости (нежданный визит) — 30 дней. Если вы не проинформировали о праве отказа — срок продлевается на 12 месяцев. Визиты по записи (замер по договорённости) фиксируйте.",
     "tags": [
       "konsument",
       "odstapienie"
@@ -400,7 +450,12 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
+      },
+      {
+        "ref": "L-30DNI",
+        "text": "Umowa zawarta podczas nieumówionej wizyty: 30 dni (art. 27 ust. 2), a § 20 ust. 1 umowy podaje 14 dni — rozważyć wariant lub zastrzeżenie.",
+        "status": "OPEN"
       }
     ]
   },
@@ -410,6 +465,8 @@
     "locator": "art. 35",
     "title_pl": "Zapłata za usługi wykonane przed odstąpieniem",
     "title_ru": "Оплата услуг, выполненных до отказа",
+    "summary_pl": "Jeżeli konsument wyraźnie zażądał rozpoczęcia usługi przed upływem terminu do odstąpienia, a potem odstąpił, płaci za świadczenia spełnione do chwili odstąpienia — proporcjonalnie do zakresu wykonania, według ceny z umowy; gdy cena jest nadmierna, według wartości rynkowej. Jeżeli przedsiębiorca nie pouczył o prawie odstąpienia i jego skutkach albo konsument nie złożył żądania (art. 15 ust. 3, art. 21 ust. 2), konsument nie ponosi kosztów usług wykonanych do odstąpienia (art. 36).",
+    "explanation_ru": "Если клиент сам письменно попросил начать работы до конца 14 дней, а потом отказался — он платит за сделанное пропорционально цене. Если такой просьбы нет или вы не проинформировали о праве отказа — клиент может не заплатить ничего. Поэтому подпись под просьбой начать раньше (приложение 11) обязательна.",
     "tags": [
       "konsument",
       "odstapienie",
@@ -420,7 +477,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -430,6 +487,8 @@
     "locator": "art. 38",
     "title_pl": "Kiedy konsument nie ma prawa odstąpienia",
     "title_ru": "Когда у потребителя нет права отказа",
+    "summary_pl": "Prawo odstąpienia nie przysługuje m.in. przy usługach, za które konsument płaci, jeżeli przedsiębiorca wykonał usługę w pełni za wyraźną i uprzednią zgodą konsumenta, który przed rozpoczęciem został poinformowany, że po wykonaniu utraci prawo odstąpienia, i przyjął to do wiadomości (ust. 1 pkt 1). To wyłączenie nie działa, gdy umowę zawarto podczas nieumówionej wizyty przedsiębiorcy lub wycieczki (ust. 2). Osobny punkt dotyczy pilnej naprawy, gdy konsument sam zażądał przyjazdu — numeracja punktów różni się między wersjami tekstu (do weryfikacji).",
+    "explanation_ru": "Потребитель теряет право отказа, только если работа выполнена полностью, он заранее письменно согласился на начало работ и подтвердил, что знает о потере права. При нежданном визите (без договорённости) это исключение не действует — право отказа сохраняется.",
     "tags": [
       "konsument",
       "odstapienie"
@@ -439,7 +498,12 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
+      },
+      {
+        "ref": "L-WIZYTA",
+        "text": "Art. 38 ust. 2: przy nieumówionej wizycie wyłączenie z ust. 1 pkt 1 nie działa; potwierdzić też numer punktu o pilnej naprawie w t.j. 2026 poz. 1244. Treści art. 7aa nie ustalono.",
+        "status": "OPEN"
       }
     ]
   },
@@ -449,6 +513,8 @@
     "locator": "art. 6 ust. 1 lit. b, c, f",
     "title_pl": "Podstawy przetwarzania danych osobowych",
     "title_ru": "Основания обработки персональных данных",
+    "summary_pl": "Przetwarzanie danych jest zgodne z prawem, gdy zachodzi co najmniej jedna podstawa z art. 6 ust. 1. Dla wykonawcy typowe są: lit. b — niezbędność do zawarcia i wykonania umowy (także działania przed jej zawarciem na żądanie osoby, np. wycena), lit. c — obowiązek prawny (np. przechowywanie dokumentów księgowych i podatkowych), lit. f — prawnie uzasadniony interes administratora (np. dochodzenie i obrona przed roszczeniami). Do obsługi umowy zgoda (lit. a) nie jest potrzebna. Zdjęcia lokalu mogą zawierać dane osobowe — należy je ograniczać do celu.",
+    "explanation_ru": "Для данных клиента по договору согласие не нужно: основание — исполнение договора (b), обязанности по учёту и налогам (c) и защита от претензий (f). Фото квартиры могут содержать персональные данные — снимайте то, что нужно для работы.",
     "tags": [
       "dane-osobowe",
       "rodo"
@@ -458,7 +524,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   },
@@ -468,6 +534,8 @@
     "locator": "art. 13",
     "title_pl": "Obowiązek informacyjny wobec osoby, której dane dotyczą",
     "title_ru": "Обязанность информировать субъекта данных",
+    "summary_pl": "Przy zbieraniu danych od osoby administrator przekazuje jej m.in.: swoją tożsamość i dane kontaktowe, cele i podstawy prawne przetwarzania, prawnie uzasadnione interesy (przy lit. f), odbiorców danych, okres przechowywania lub kryteria jego ustalenia, prawa osoby (dostęp, sprostowanie, usunięcie, ograniczenie, przenoszenie, sprzeciw), prawo skargi do Prezesa UODO oraz informację, czy podanie danych jest wymogiem umownym. Informację przekazuje się w chwili pozyskania danych.",
+    "explanation_ru": "При получении данных клиента вы должны сообщить: кто вы, зачем и на каком основании обрабатываете данные, кому передаёте, сколько храните, какие у клиента права и что он может жаловаться в UODO. Это приложение 12 к договору.",
     "tags": [
       "dane-osobowe",
       "rodo",
@@ -478,7 +546,7 @@
       {
         "ref": "UNVERIFIED",
         "status": "OPEN",
-        "text": "Szkic przygotowany przez program: sprawdzić numer i zakres przepisu w aktualnym tekście jednolitym, napisać kluczowe punkty własnymi słowami (summary_pl, explanation_ru) i zatwierdzić."
+        "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
   }
