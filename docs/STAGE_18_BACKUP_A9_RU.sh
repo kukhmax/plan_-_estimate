@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# Stage 18 — A9: полный бэкап ПЕРЕД релизом Stage 18 (миграция 0054): образы бэкапа под голову 0053, db-dump → upload → verify (раздел 72.3 runbook).
+# Останавливается на первом непройденном условии и пишет, что делать. Секреты не печатает (upload.env — только хеш BACKUP_TOOL_COMMIT).
+# Запуск (в НОВОЙ SSH-сессии на VM; после него сессию ЗАКРЫТЬ и не запускать в ней docker compose, раздел 72.5):
+#   cd ~/apps/plan_-_estimate && git fetch -q origin stage-17 && git show origin/stage-17:docs/STAGE_18_BACKUP_A9_RU.sh > ~/backup_a9.sh && bash ~/backup_a9.sh
+# Если файла ещё нет в stage-17 (он лежит в stage-18): git fetch -q origin stage-18 && git show origin/stage-18:docs/STAGE_18_BACKUP_A9_RU.sh > ~/backup_a9.sh && bash ~/backup_a9.sh
+cd ~/apps/plan_-_estimate || { echo "FAIL: нет каталога ~/apps/plan_-_estimate"; return 1 2>/dev/null || exit 1; }
+
+(
+set -uo pipefail
+BRANCH=stage-17          # код, который сейчас в production: голова миграций 0053 (образы бэкапа обязаны совпасть с базой)
+R="$HOME/backups/plan-estimate/db-backup"
+fail() { echo; echo "=== FAIL на шаге: $1 ==="; echo "$2"; echo "Дальше НЕ идём. Пришлите весь вывод выше (без содержимого secrets/)."; exit 1; }
+ok()   { echo "PASS: $1"; }
+has()  { grep -q -- "$1" <<<"$2"; }
+
+echo "################ B0: проверка перед бэкапом (только чтение) ################"
+[ "$(env | grep -c '^MEDIA_S3\|^BACKUP_')" = "0" ] || fail "B0" "В оболочке лишние переменные MEDIA_S3/BACKUP_. Откройте НОВУЮ SSH-сессию."
+for f in backup.env upload.env pgpass; do [ -r "$R/secrets/$f" ] || fail "B0" "нет файла $R/secrets/$f"; done
+for f in backup.env upload.env pgpass; do
+  [ "$(stat -c %a "$R/secrets/$f")" = "600" ] || fail "B0" "права $R/secrets/$f не 600"
+done
+H=$(curl -fsS https://plan-estimate.pl/api/health) || fail "B0" "health недоступен"
+has '"status":"ok"' "$H" || fail "B0" "health не ok: $H"
+AL=$(docker exec plan_estimate_backend alembic current 2>/dev/null)
+has '0053_downtime_episodes' "$AL" || fail "B0" "alembic current не 0053_downtime_episodes (бэкап этим скриптом — только до миграции 0054): $AL"
+git fetch -q origin "$BRANCH" || fail "B0" "git fetch origin $BRANCH не удался"
+COMMIT=$(git rev-parse "origin/$BRANCH")
+VERS=$(git ls-tree -r --name-only "$COMMIT" backend/alembic/versions)
+has '0053_downtime_episodes' "$VERS" || fail "B0" "в origin/$BRANCH нет миграции 0053"
+has '0054_' "$VERS" && fail "B0" "в origin/$BRANCH уже есть 0054: образы будут под другую голову"
+docker network inspect plan-estimate_internal >/dev/null 2>&1 || fail "B0" "нет сети plan-estimate_internal"
+docker network inspect pe-upload >/dev/null 2>&1 || fail "B0" "нет сети pe-upload"
+LEFT=$(docker ps -a --format '{{.Names}}' | grep '^pe-backup-prod-' || true)
+[ -z "$LEFT" ] || fail "B0" "остались контейнеры бэкапа: $LEFT (docker rm -f их и повторить)"
+for d in work evidence; do
+  [ -z "$(ls -A "$R/data/$d" 2>/dev/null)" ] || fail "B0" "каталог $R/data/$d не пуст (остатки прошлого запуска): $(ls -A "$R/data/$d" | head -5)"
+done
+FREE=$(df --output=avail -BG / | tail -1 | tr -dc '0-9'); [ "$FREE" -ge 5 ] || fail "B0" "Свободно ${FREE} ГБ (< 5)"
+PREV=$(ls -1 "$R/data/encrypted" 2>/dev/null | tail -1 || true)
+echo "коммит инструмента бэкапа: ${COMMIT:0:12} (origin/$BRANCH); последний прежний запуск: ${PREV:-нет}"
+ok "B0"
+
+echo; echo "################ B1: образы бэкапа из git archive коммита ${COMMIT:0:12} ################"
+D=$(mktemp -d "$HOME/pe-build.XXXXXX")
+git archive --format=tar "$COMMIT" backend docker-compose.prod.yml | tar -x --no-same-owner -C "$D" || { rm -r "$D"; fail "B1" "git archive не удался"; }
+docker build -q -f "$D/backend/Dockerfile.backup" -t plan-estimate-backup:local "$D/backend" > /tmp/backup-build.log 2>&1 || { tail -n 20 /tmp/backup-build.log; rm -r "$D"; fail "B1" "сборка plan-estimate-backup:local не удалась"; }
+docker build -q -f "$D/backend/Dockerfile.uploader" --build-arg BACKUP_IMAGE=plan-estimate-backup:local -t plan-estimate-backup-upload:local "$D/backend" >> /tmp/backup-build.log 2>&1 || { tail -n 20 /tmp/backup-build.log; rm -r "$D"; fail "B1" "сборка plan-estimate-backup-upload:local не удалась"; }
+rm -r "$D"
+if grep -q '^BACKUP_TOOL_COMMIT=' "$R/secrets/upload.env"; then
+  sed -i "s/^BACKUP_TOOL_COMMIT=.*/BACKUP_TOOL_COMMIT=$COMMIT/" "$R/secrets/upload.env" || fail "B1" "не удалось обновить BACKUP_TOOL_COMMIT"
+else
+  fail "B1" "в upload.env нет строки BACKUP_TOOL_COMMIT= (формат файла другой): впишите её вручную, значение $COMMIT"
+fi
+[ "$(grep '^BACKUP_TOOL_COMMIT=' "$R/secrets/upload.env")" = "BACKUP_TOOL_COMMIT=$COMMIT" ] || fail "B1" "BACKUP_TOOL_COMMIT не совпал с коммитом"
+ok "B1 (образы собраны, BACKUP_TOOL_COMMIT=${COMMIT:0:12})"
+
+echo; echo "################ B2: db-dump (локальный зашифрованный бэкап) ################"
+set -a; . "$R/secrets/backup.env"; set +a
+OUT=$(docker run --name pe-backup-prod-dump --rm --init --stop-timeout 45 --read-only --cap-drop ALL \
+  --security-opt no-new-privileges:true --memory 512m --cpus 0.5 --pids-limit 64 \
+  --user "$BACKUP_UID:$BACKUP_GID" --network plan-estimate_internal --tmpfs /tmp:size=16m \
+  -v "$R/data:/backup" -v "$R/secrets/pgpass:/run/secrets/pgpass:ro" \
+  -e PGHOST="$BACKUP_PGHOST" -e PGPORT="$BACKUP_PGPORT" -e PGDATABASE="$BACKUP_PGDATABASE" \
+  -e PGUSER="$BACKUP_PGUSER" -e PGSSLMODE="$BACKUP_PGSSLMODE" -e PGPASSFILE=/run/secrets/pgpass \
+  -e BACKUP_AGE_RECIPIENTS="$BACKUP_AGE_RECIPIENTS" plan-estimate-backup:local db-dump 2>&1); RC=$?
+tail -n 6 <<<"$OUT"
+[ "$RC" = "0" ] || fail "B2" "db-dump завершился кодом $RC (0 = успех; 3 = блокировка занята; 4 = остатки в work/)"
+RUN=$(sed -n 's/.*backup complete: run_id=\([^ ]*\) ready_count=\([0-9]*\).*/\1/p' <<<"$OUT" | tail -1)
+READY=$(sed -n 's/.*backup complete: run_id=\([^ ]*\) ready_count=\([0-9]*\).*/\2/p' <<<"$OUT" | tail -1)
+[ -n "$RUN" ] || fail "B2" "в выводе нет строки «backup complete: run_id=… ready_count=…»"
+[ "$(ls -1 "$R/data/encrypted/$RUN" | wc -l)" = "4" ] || fail "B2" "в encrypted/$RUN не четыре файла: $(ls -1 "$R/data/encrypted/$RUN")"
+[ "$(find "$R/data/encrypted/$RUN" -type f ! -perm 600 | wc -l)" = "0" ] || fail "B2" "у файлов в encrypted/$RUN права не 0600"
+for d in work evidence; do [ -z "$(ls -A "$R/data/$d")" ] || fail "B2" "после db-dump не пуст $d/"; done
+ok "B2 (run_id=$RUN, ready_count=$READY)"
+
+echo; echo "################ B3: upload в Oracle (необратимо: загрузчик не перезаписывает и не удаляет) ################"
+set -a; . "$R/secrets/backup.env"; . "$R/secrets/upload.env"; set +a
+export MEDIA_S3_ENDPOINT_URL="$BACKUP_UPLOAD_S3_ENDPOINT_URL" MEDIA_S3_BUCKET="$BACKUP_UPLOAD_S3_BUCKET" MEDIA_S3_REGION="$BACKUP_UPLOAD_S3_REGION" \
+  MEDIA_S3_ACCESS_KEY_ID="$BACKUP_UPLOAD_S3_ACCESS_KEY_ID" MEDIA_S3_SECRET_ACCESS_KEY="$BACKUP_UPLOAD_S3_SECRET_ACCESS_KEY" MEDIA_STORAGE_NAME="$BACKUP_UPLOAD_SOURCE_NAME"
+OUT=$(docker run --name pe-backup-prod-upload --rm --init --stop-timeout 45 --read-only --cap-drop ALL \
+  --security-opt no-new-privileges:true --memory 512m --cpus 0.5 --pids-limit 64 \
+  --user "$BACKUP_UID:$BACKUP_GID" --network pe-upload --tmpfs /tmp:size=256m -v "$R/data:/backup" \
+  -e MEDIA_S3_ENDPOINT_URL -e MEDIA_S3_BUCKET -e MEDIA_S3_REGION -e MEDIA_S3_ACCESS_KEY_ID -e MEDIA_S3_SECRET_ACCESS_KEY -e MEDIA_STORAGE_NAME \
+  -e BACKUP_OCI_NAMESPACE -e BACKUP_OCI_BUCKET -e BACKUP_OCI_REGION -e BACKUP_TOOL_COMMIT -e BACKUP_AGE_RECIPIENTS \
+  plan-estimate-backup-upload:local upload --environment production --allow-production 2>&1); RC=$?
+tail -n 4 <<<"$OUT"
+[ "$RC" = "0" ] || fail "B3" "upload завершился кодом $RC (8 = нечего загружать; 10 = запуск запечатан, evidence не записано — повторить ТУ ЖЕ команду)"
+has 'upload complete' "$OUT" || fail "B3" "нет строки «upload complete»"
+ok "B3"
+
+echo; echo "################ B4: verify (полная проверка опубликованного запуска) ################"
+OUT=$(docker run --rm --init --read-only --cap-drop ALL --security-opt no-new-privileges:true --user "$BACKUP_UID:$BACKUP_GID" \
+  --network pe-upload --tmpfs /tmp:size=256m -e BACKUP_OCI_NAMESPACE -e BACKUP_OCI_BUCKET -e BACKUP_OCI_REGION -e BACKUP_AGE_RECIPIENTS \
+  plan-estimate-backup-upload:local verify --run-id "$RUN" --mode full 2>&1); RC=$?
+tail -n 4 <<<"$OUT"
+[ "$RC" = "0" ] || fail "B4" "verify завершился кодом $RC"
+has 'verify ok' "$OUT" || fail "B4" "нет строки «verify ok»"
+has 'mode=full' "$OUT" || fail "B4" "verify не в режиме full"
+ok "B4"
+
+echo
+echo "################ ИТОГ ################"
+echo "A9 PASS: run_id=$RUN ready_count=$READY, upload и verify full — ok. Коммит инструмента: ${COMMIT:0:12}."
+echo "ВАЖНО: ЗАКРОЙТЕ эту SSH-сессию и больше не запускайте в ней docker compose (раздел 72.5)."
+echo "После выкладки Stage 18 (миграция 0054) образы бэкапа надо пересобрать под новую голову — это шаг релиза Stage 18."
+)
