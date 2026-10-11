@@ -255,6 +255,15 @@ export function RiskPanel({ projectId, roomId, inspectionId }: RiskPanelProps) {
           ))}
         </ul>
       )}
+
+      {/* Stage 17E.1: the legal basis is the same for the risks of one inspection, so it is shown once for the list. */}
+      {!listLoading && items.length > 0 && (
+        <KnowledgeBasis
+          targets={[...new Set(items.map((risk) => risk.risk_code))].map((code) => ({ kind: 'RISK' as const, target: code }))}
+          heading={t.knowledge.basis_risks}
+          name="knowledge-basis-risks"
+        />
+      )}
     </div>
   );
 }
@@ -378,7 +387,6 @@ function RiskCard({
         </div>
       ) : null}
 
-      <KnowledgeBasis targets={[{ kind: 'RISK', target: risk.risk_code }]} name={`knowledge-basis-risk-${risk.risk_code}`} />
     </li>
   );
 }

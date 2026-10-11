@@ -6,6 +6,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_current_user
+from app.domain.contracts.clauses import load_clause_catalog
 from app.domain.knowledge.catalog import (
     Entry,
     KnowledgeCatalog,
@@ -22,6 +23,7 @@ from app.schemas.knowledge import (
     KnowledgeLinkIndex,
     KnowledgeLinkRead,
     KnowledgeMetaRead,
+    KnowledgePlaceRead,
     KnowledgeSituationList,
     KnowledgeSituationListItem,
 )
@@ -51,6 +53,19 @@ def _item(catalog: KnowledgeCatalog, entry: Entry) -> KnowledgeEntryListItem:
         code=entry.code, kind=source.kind, source=source.code, source_designation=source.designation, locator=entry.locator,
         title_pl=entry.title_pl, title_ru=entry.title_ru, status=entry.status, tags=list(entry.tags),
     )
+
+
+def _place(target_kind: Target, target: str) -> KnowledgePlaceRead:
+    """A clause is shown as "§ 10 ust. 5 — <title of the section>", in the numbering of the printed contract."""
+    if target_kind != "CLAUSE":
+        return KnowledgePlaceRead(target_kind=target_kind, target=target)
+    key, _, number = target.rpartition(".")
+    for index, section in enumerate(load_clause_catalog().sections, start=1):
+        if section.key == key:
+            return KnowledgePlaceRead(
+                target_kind=target_kind, target=target, section_number=index, clause_number=int(number), section_title_pl=section.title_pl,
+            )
+    return KnowledgePlaceRead(target_kind=target_kind, target=target)
 
 
 @router.get("/meta", response_model=KnowledgeMetaRead, summary="Version, date and disclaimer of the knowledge base")
@@ -91,7 +106,8 @@ async def read_entry(code: str, current_user: User = Depends(get_current_user)) 
         raise _error("KNOWLEDGE_ENTRY_NOT_FOUND", "No such entry", status.HTTP_404_NOT_FOUND)
     source = catalog.source(entry.source)
     assert source is not None
-    return KnowledgeEntryRead(entry=entry, source=source, linked_from=catalog.links_to(entry.code))
+    links = catalog.links_to(entry.code)
+    return KnowledgeEntryRead(entry=entry, source=source, linked_from=links, places=[_place(link.target_kind, link.target) for link in links])
 
 
 @router.get("/situations", response_model=KnowledgeSituationList, summary="The situations to choose from")

@@ -16,6 +16,7 @@ import type {
   KnowledgeSituationItem,
 } from '../types/knowledge';
 import { documentKindLabel } from '../utils/documentFormat';
+import type { DocumentKind } from '../types/document';
 import { KeyPoints, SourceLink, StatusBadge } from './KnowledgeEntryParts';
 
 type View = { kind: 'list' } | { kind: 'entry'; code: string } | { kind: 'situation'; code: string };
@@ -239,9 +240,26 @@ function KnowledgeEntryCard({ code, title }: TitleProps & { code: string }) {
   }
   if (!detail) return <p className="text-sm text-slate-500">{text.loading}</p>;
 
-  const { entry, source, linked_from: linked } = detail;
+  const { entry, source, places } = detail;
   const openNotes = entry.review_notes.filter((note) => note.status === 'OPEN');
-  const linkLabels = { RISK: text.link_RISK, CLAUSE: text.link_CLAUSE, PHRASE: text.link_PHRASE, DOCUMENT: text.link_DOCUMENT };
+  // a person reads the paragraph of the contract and the name of a document; the many risks and phrases that share an entry
+  // are counted, not listed (17E.1)
+  const placeLabels: string[] = [];
+  for (const place of places) {
+    if (place.target_kind === 'CLAUSE') {
+      placeLabels.push(
+        place.section_number !== null && place.clause_number !== null
+          ? fill(text.place_clause, { section: place.section_number, clause: place.clause_number, title: place.section_title_pl ?? '' })
+          : place.target,
+      );
+    } else if (place.target_kind === 'DOCUMENT') {
+      placeLabels.push(fill(text.place_document, { name: documentKindLabel(t.documents, place.target as DocumentKind) }));
+    }
+  }
+  const risks = places.filter((place) => place.target_kind === 'RISK').length;
+  const phrases = places.filter((place) => place.target_kind === 'PHRASE').length;
+  if (risks > 0) placeLabels.push(fill(text.place_risks, { count: risks }));
+  if (phrases > 0) placeLabels.push(fill(text.place_phrases, { count: phrases }));
 
   return (
     <article aria-label={`knowledge-card-${entry.code}`} className={`${CARD} space-y-3`}>
@@ -254,13 +272,13 @@ function KnowledgeEntryCard({ code, title }: TitleProps & { code: string }) {
 
       <KeyPoints entry={entry} />
 
-      {linked.length > 0 && (
+      {placeLabels.length > 0 && (
         <section aria-label="knowledge-linked" className="space-y-1">
           <h3 className="text-sm font-bold text-slate-700">{text.linked_title}</h3>
-          <ul className="flex flex-wrap gap-2">
-            {linked.map((link) => (
-              <li key={`${link.target_kind}:${link.target}`} className="px-2 py-1 text-xs rounded-lg bg-slate-100 text-slate-700 break-all">
-                {linkLabels[link.target_kind]}: {link.target}
+          <ul className="space-y-1">
+            {placeLabels.map((label) => (
+              <li key={label} className="px-2 py-1 text-xs rounded-lg bg-slate-100 text-slate-700 break-words">
+                {label}
               </li>
             ))}
           </ul>
@@ -283,6 +301,7 @@ function KnowledgeEntryCard({ code, title }: TitleProps & { code: string }) {
       <footer aria-label="knowledge-source" className="space-y-1 border-t border-slate-200 pt-2">
         <h3 className="text-sm font-bold text-slate-700">{text.source_title}</h3>
         <p className="text-xs text-slate-600 break-words">{text[`kind_${source.kind}` as const]} — {source.title_pl}</p>
+        <p aria-label="knowledge-current-text" className="text-xs font-semibold text-slate-700 break-words">{fill(text.current_text, { designation: source.designation })}</p>
         <p className="text-xs text-slate-500 break-words">
           {entry.checked_on ? fill(text.checked_on, { date: entry.checked_on }) : text.not_checked}
         </p>

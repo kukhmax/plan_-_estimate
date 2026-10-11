@@ -91,3 +91,14 @@ def test_the_documents_that_carry_a_decision_or_a_downtime_name_their_basis():
     assert by_place[("DOCUMENT", "DECISION_PROTOCOL")] == ["KC.634", "KC.557"]
     assert set(by_place[("DOCUMENT", "DOWNTIME_NOTICE")]) == set(by_place[("DOCUMENT", "DOWNTIME_PROTOCOL")]) == {"KC.639", "KC.640"}
     assert "KC.627" in by_place[("DOCUMENT", "CONTRACT")]
+
+
+def test_the_titles_say_what_the_provision_says():
+    """17E.1: the owner found titles that promised something else than the provision (art. 557 is about the knowledge at the
+    conclusion of the contract, art. 639 needs no fault, art. 634 is not only about the customer's material)."""
+    titles = {e.code: (e.title_pl, e.title_ru) for e in CATALOG.entries}
+    assert "zawarciu umowy" in titles["KC.557"][0] and "заключении договора" in titles["KC.557"][1]
+    assert "вине" not in titles["KC.639"][1]
+    assert "przeszkodach" in titles["KC.634"][0] and "препятствиях" in titles["KC.634"][1]
+    kc = CATALOG.source("KC")
+    assert "obowiązuje" in kc.title_pl and "2026" in kc.designation  # the act of 1964 in force, its current consolidated text

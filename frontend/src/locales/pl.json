@@ -2769,14 +2769,10 @@
     "source_open": "Otwórz źródło",
     "no_link": "Źródło bez linku.",
     "checked_on": "Stan na dzień sprawdzenia: {date}",
-    "not_checked": "Jeszcze nie sprawdzone z tekstem źródłowym.",
+    "not_checked": "Omówienie przygotowane przez AI, nie sprawdzone przez prawnika.",
     "approved_by": "Zatwierdził: {name}, {date}",
     "notes_title": "Do sprawdzenia przez prawnika ({count})",
     "linked_title": "Gdzie w aplikacji",
-    "link_RISK": "Ryzyko",
-    "link_CLAUSE": "Umowa",
-    "link_PHRASE": "Fraza dla klienta",
-    "link_DOCUMENT": "Dokument",
     "situation_restart": "Zacznij od początku",
     "situation_back": "Poprzednie pytanie",
     "situation_step": "Pytanie {n}",
@@ -2788,6 +2784,14 @@
     "situation_broken": "Ta sytuacja jest niekompletna.",
     "basis_title": "Podstawa ({count})",
     "basis_draft": "Wersje robocze — do sprawdzenia przez prawnika.",
-    "basis_loading": "Ładowanie…"
+    "basis_loading": "Ładowanie…",
+    "place_clause": "Umowa § {section} ust. {clause} — {title}",
+    "place_document": "Dokument: {name}",
+    "place_risks": "Ryzyka z badania podłoża: {count}",
+    "place_phrases": "Zwroty dla klienta: {count}",
+    "current_text": "Obowiązujący tekst: {designation}",
+    "basis_risks": "Podstawa prawna dla tych ryzyk ({count})",
+    "basis_phrases": "Dlaczego trzeba to powiedzieć klientowi ({count})",
+    "basis_document": "Podstawa prawna dokumentu ({count})"
   }
 }

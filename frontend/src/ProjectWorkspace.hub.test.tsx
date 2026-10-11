@@ -297,7 +297,7 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     for (const [id, count] of expected) {
       fireEvent.click(screen.getByLabelText(`legal-tile-${id}`));
       const toggle = await screen.findByLabelText(`knowledge-basis-${id}-toggle`);
-      expect(toggle).toHaveTextContent(`Podstawa (${count})`);
+      expect(toggle).toHaveTextContent(`Podstawa prawna dokumentu (${count})`);
       fireEvent.click(screen.getByLabelText('back-to-legal'));
       expect(screen.queryByLabelText(`knowledge-basis-${id}`)).toBeNull();
     }

@@ -36,6 +36,7 @@ const DETAIL = (code: string): KnowledgeEntryDetail => ({
   },
   source: { code: 'KC', kind: 'STATUTE', title_pl: 'Kodeks cywilny', designation: 'KC', url: 'https://example.org/kc', status: 'DRAFT' },
   linked_from: [],
+  places: [],
 });
 
 function renderBasis(targets: KnowledgeBasisTarget[] = [{ kind: 'RISK', target: 'MOISTURE_BLOCK_FINISHING' }]) {
@@ -173,35 +174,43 @@ describe('KnowledgeBasis (Stage 17E)', () => {
   });
 
   describe('on the screens that point at the knowledge base', () => {
-    it('a risk card carries the basis of its risk code', async () => {
-      vi.mocked(risksApi.fetchRisks).mockResolvedValue({
-        items: [{
-          id: 'r1', room_id: 'room', inspection_id: 'ins', risk_code: 'MOISTURE_BLOCK_FINISHING', rule_code: 'MOISTURE_BLOCK_FINISHING', rule_version: 1,
-          severity: 'CRITICAL', title_key: 'risk.moisture_block_finishing.title', explanation_key: 'x', consequence_key: 'x', mitigation_key: 'x',
-          communication_key: 'x', warranty_exclusion_candidate: true, blocks_finishing: true, source_signature: 's', is_active: true,
-          resolved_at: null, position: 0, created_at: '2026-09-12T08:00:00Z', updated_at: '2026-09-12T08:00:00Z',
-        }],
-        total: 1,
-      });
-      render(<I18nProvider><RiskPanel projectId="p" roomId="room" inspectionId="ins" /></I18nProvider>);
-      const block = await screen.findByLabelText('knowledge-basis-risk-MOISTURE_BLOCK_FINISHING');
-      expect(within(block).getByLabelText('knowledge-basis-risk-MOISTURE_BLOCK_FINISHING-toggle')).toHaveTextContent('Podstawa (2)');
+    const riskRow = (id: string, code: string, warranty: boolean) => ({
+      id, room_id: 'room', inspection_id: 'ins', risk_code: code, rule_code: code, rule_version: 1,
+      severity: 'CRITICAL' as const, title_key: `risk.${code.toLowerCase()}.title`, explanation_key: 'x', consequence_key: 'x', mitigation_key: 'x',
+      communication_key: 'x', warranty_exclusion_candidate: warranty, blocks_finishing: true, source_signature: 's', is_active: true,
+      resolved_at: null, position: 0, created_at: '2026-09-12T08:00:00Z', updated_at: '2026-09-12T08:00:00Z',
     });
 
-    it('a phrase for the client carries the basis of its phrase code', async () => {
+    it('the risks of an inspection share ONE block of the legal basis, not one under every card (17E.1)', async () => {
+      vi.mocked(api.fetchKnowledgeLinkIndex).mockResolvedValue({
+        items: [
+          { target_kind: 'RISK', target: 'MOISTURE_BLOCK_FINISHING', entries: [ITEM('KC.634'), ITEM('KC.557')] },
+          { target_kind: 'RISK', target: 'CRACK_RECURRENCE', entries: [ITEM('KC.634')] },
+        ],
+      });
+      vi.mocked(risksApi.fetchRisks).mockResolvedValue({
+        items: [riskRow('r1', 'MOISTURE_BLOCK_FINISHING', true), riskRow('r2', 'CRACK_RECURRENCE', false)], total: 2,
+      });
+      render(<I18nProvider><RiskPanel projectId="p" roomId="room" inspectionId="ins" /></I18nProvider>);
+      const toggle = await screen.findByLabelText('knowledge-basis-risks-toggle');
+      expect(toggle).toHaveTextContent('Podstawa prawna dla tych ryzyk (2)'); // KC.634 once, KC.557 once
+      expect(screen.getAllByLabelText(/^knowledge-basis.*-toggle$/)).toHaveLength(1);
+      expect(screen.queryByLabelText(/knowledge-basis-risk-/)).toBeNull();
+    });
+
+    it('the phrases for the client share one block that says why they must be said', async () => {
       const index: KnowledgeLinkIndex = { items: [{ target_kind: 'PHRASE', target: 'COMM_RISK_MOISTURE_BLOCK_FINISHING', entries: [ITEM('KC.634')] }] };
       vi.mocked(api.fetchKnowledgeLinkIndex).mockResolvedValue(index);
-      vi.mocked(communicationsApi.fetchCommunications).mockResolvedValue({
-        items: [{
-          id: 'c1', inspection_id: 'ins', phrase_code: 'COMM_RISK_MOISTURE_BLOCK_FINISHING', phrase_version: 1, category: 'REQUIRE_CLIENT_DECISION', priority: 1,
-          phrase_key: 'communication.comm_risk_moisture_block_finishing.phrase', why_key: null, seed_key: null, source_kind: 'RISK', source_signature: 's',
-          is_active: true, resolved_at: null, position: 0, created_at: '2026-09-12T08:00:00Z', updated_at: '2026-09-12T08:00:00Z',
-        }],
-        total: 1,
+      const phrase = (id: string) => ({
+        id, inspection_id: 'ins', phrase_code: 'COMM_RISK_MOISTURE_BLOCK_FINISHING', phrase_version: 1, category: 'REQUIRE_CLIENT_DECISION' as const, priority: 1,
+        phrase_key: 'communication.comm_risk_moisture_block_finishing.phrase', why_key: null, seed_key: null, source_kind: 'RISK' as const, source_signature: 's',
+        is_active: true, resolved_at: null, position: 0, created_at: '2026-09-12T08:00:00Z', updated_at: '2026-09-12T08:00:00Z',
       });
+      vi.mocked(communicationsApi.fetchCommunications).mockResolvedValue({ items: [phrase('c1'), phrase('c2')], total: 2 });
       render(<I18nProvider><CommunicationPanel projectId="p" roomId="room" inspectionId="ins" /></I18nProvider>);
-      const block = await screen.findByLabelText('knowledge-basis-phrase-COMM_RISK_MOISTURE_BLOCK_FINISHING');
-      expect(block).toHaveTextContent('Podstawa (1)');
+      const toggle = await screen.findByLabelText('knowledge-basis-phrases-toggle');
+      expect(toggle).toHaveTextContent('Dlaczego trzeba to powiedzieć klientowi (1)');
+      expect(screen.getAllByLabelText(/^knowledge-basis.*-toggle$/)).toHaveLength(1);
     });
   });
 });

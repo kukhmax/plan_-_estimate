@@ -890,7 +890,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
 
           {/* Stage 17E: the basis (law and norms) of the document of the open screen; nothing is shown when the knowledge base has none. */}
           {objectSection === 'legal' && legalSection !== null && LEGAL_BASIS[legalSection] && (
-            <KnowledgeBasis targets={LEGAL_BASIS[legalSection]} name={`knowledge-basis-${legalSection}`} />
+            <KnowledgeBasis targets={LEGAL_BASIS[legalSection]} name={`knowledge-basis-${legalSection}`} heading={t.knowledge.basis_document} />
           )}
 
           {/* Stage 16B.2: the persons of the object (who may accept the work and sign the protocols). */}

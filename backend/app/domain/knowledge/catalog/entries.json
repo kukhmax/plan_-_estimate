@@ -168,8 +168,8 @@
     "code": "KC.557",
     "source": "KC",
     "locator": "art. 557 § 1",
-    "title_pl": "Wada znana w chwili odbioru",
-    "title_ru": "Недостаток, известный при приёмке",
+    "title_pl": "Wada znana zamawiającemu przy zawarciu umowy",
+    "title_ru": "Недостаток, о котором клиент знал при заключении договора",
     "summary_pl": "§ 1: sprzedawca (wykonawca — przez art. 638) jest zwolniony z rękojmi, jeżeli kupujący (zamawiający) wiedział o wadzie w chwili zawarcia umowy. Liczy się rzeczywista wiedza — nie wystarczy, że mógł lub powinien był wadę zauważyć (SN, IV CK 546/04, według omówienia). Wiedza uzyskana później nie wyłącza odpowiedzialności. Przy dziele moment oceny wiedzy (zawarcie umowy czy odbiór) bywa sporny — dowodem wiedzy zamawiającego jest pisemna informacja o stanie podłoża i jego decyzja.",
     "explanation_ru": "Вы не отвечаете за недостаток, о котором клиент реально знал при заключении договора. «Мог догадаться» — недостаточно, нужна доказанная осведомлённость. Поэтому протокол информации и решений клиента (приложение 9) с подписью — ваше главное доказательство.",
     "tags": [
@@ -237,8 +237,8 @@
     "code": "KC.634",
     "source": "KC",
     "locator": "art. 634",
-    "title_pl": "Materiał zamawiającego — obowiązek zawiadomienia",
-    "title_ru": "Материал заказчика — обязанность уведомить",
+    "title_pl": "Obowiązek zawiadomienia zamawiającego o przeszkodach (materiał, stan podłoża)",
+    "title_ru": "Обязанность предупредить клиента о препятствиях (материал, состояние основания)",
     "summary_pl": "Jeżeli materiał dostarczony przez zamawiającego nie nadaje się do prawidłowego wykonania dzieła albo zajdą inne okoliczności, które mogą przeszkodzić prawidłowemu wykonaniu, przyjmujący zamówienie powinien niezwłocznie zawiadomić o tym zamawiającego. Obowiązek obejmuje więc także stan zastanego podłoża (wilgoć, słaba nośność, stare powłoki). Zaniechanie zawiadomienia może obciążyć wykonawcę odpowiedzialnością za skutki; zawiadomienie i decyzja zamawiającego przenoszą ryzyko na niego. Art. 633: materiał zamawiającego wykorzystać właściwie, rozliczyć i zwrócić resztę.",
     "explanation_ru": "Если материал клиента не годится или есть другое препятствие (сырое или слабое основание, старая масляная краска), вы обязаны сразу сообщить клиенту. Это правовая основа обследования основания и протокола решений клиента: сообщили и зафиксировали решение — риск на клиенте; промолчали — риск на вас.",
     "tags": [
@@ -263,8 +263,8 @@
     "code": "KC.635",
     "source": "KC",
     "locator": "art. 635",
-    "title_pl": "Opóźnienie wykonawcy — odstąpienie przed terminem",
-    "title_ru": "Просрочка исполнителя — отказ до срока",
+    "title_pl": "Opóźnienie wykonawcy — odstąpienie zamawiającego przed terminem",
+    "title_ru": "Задержка исполнителя — отказ заказчика до срока",
     "summary_pl": "Jeżeli przyjmujący zamówienie opóźnia się z rozpoczęciem lub wykończeniem dzieła tak dalece, że nie jest prawdopodobne, aby zdołał je ukończyć w umówionym czasie, zamawiający może odstąpić od umowy przed upływem terminu, bez wyznaczania terminu dodatkowego. Wystarczy opóźnienie (wina nie jest wymagana), ale nie może ono wynikać z przyczyn po stronie zamawiającego, np. braku współdziałania (SN, I CSK 129/06, według omówienia). Do rozliczeń po odstąpieniu z art. 635 nie stosuje się reguły z art. 644 (SN, I CSK 587/17, według omówienia).",
     "explanation_ru": "Клиент может отказаться от договора ещё до срока, если вы так отстаёте, что явно не успеете. Ваша вина не нужна, но если задержка из-за клиента (не дал доступ, не принял решение) — этот путь для него закрыт. Поэтому уведомления и протоколы простоя важны как доказательство причины задержки.",
     "tags": [
@@ -326,8 +326,8 @@
     "code": "KC.639",
     "source": "KC",
     "locator": "art. 639",
-    "title_pl": "Wynagrodzenie mimo niewykonania z przyczyn zamawiającego",
-    "title_ru": "Вознаграждение, если работа не выполнена по вине заказчика",
+    "title_pl": "Wynagrodzenie mimo niewykonania z przyczyn dotyczących zamawiającego",
+    "title_ru": "Оплата, если работа не выполнена по причинам на стороне заказчика",
     "summary_pl": "Zamawiający nie może odmówić zapłaty wynagrodzenia mimo niewykonania dzieła, jeżeli przyjmujący zamówienie był gotów je wykonać, lecz doznał przeszkody z przyczyn dotyczących zamawiającego. Zamawiający może odliczyć to, co wykonawca oszczędził przez niewykonanie dzieła. Przyczyny po stronie zamawiającego nie muszą być zawinione (SA, I AGa 236/22). Wykonawca dowodzi gotowości i przeszkody, zamawiający — wysokości oszczędności (SO Poznań, II Ca 1647/21; SN, II CSK 77/17 — według omówień).",
     "explanation_ru": "Если вы были готовы работать, но помешала причина на стороне клиента (нет доступа, не куплен материал, не принято решение), клиент всё равно должен заплатить, за вычетом того, что вы сэкономили. Вину клиента доказывать не нужно — достаточно, что причина на его стороне. Вам нужно доказать готовность и препятствие: отсюда уведомление и протокол простоя.",
     "tags": [

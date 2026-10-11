@@ -2769,14 +2769,10 @@
     "source_open": "Открыть источник",
     "no_link": "У источника нет ссылки.",
     "checked_on": "Состояние на дату сверки: {date}",
-    "not_checked": "Ещё не сверено с текстом источника.",
+    "not_checked": "Изложение подготовлено ИИ, юристом не проверено.",
     "approved_by": "Утвердил: {name}, {date}",
     "notes_title": "Юристу на проверку ({count})",
     "linked_title": "Где в приложении",
-    "link_RISK": "Риск",
-    "link_CLAUSE": "Договор",
-    "link_PHRASE": "Фраза клиенту",
-    "link_DOCUMENT": "Документ",
     "situation_restart": "Начать сначала",
     "situation_back": "Предыдущий вопрос",
     "situation_step": "Вопрос {n}",
@@ -2788,6 +2784,14 @@
     "situation_broken": "Эта ситуация неполная.",
     "basis_title": "Основание ({count})",
     "basis_draft": "Черновики — на проверку юристу.",
-    "basis_loading": "Загрузка…"
+    "basis_loading": "Загрузка…",
+    "place_clause": "Договор § {section} п. {clause} — {title}",
+    "place_document": "Документ: {name}",
+    "place_risks": "Риски обследования основания: {count}",
+    "place_phrases": "Фразы клиенту: {count}",
+    "current_text": "Действующий текст: {designation}",
+    "basis_risks": "Правовое основание по этим рискам ({count})",
+    "basis_phrases": "Почему это нужно сказать клиенту ({count})",
+    "basis_document": "Правовое основание документа ({count})"
   }
 }

@@ -70,10 +70,20 @@ export interface KnowledgeLink {
   entries: string[];
 }
 
+/** A place that points at an entry, named for a person (17E.1): a clause carries its paragraph and the title of its section. */
+export interface KnowledgePlace {
+  target_kind: KnowledgeLinkKind;
+  target: string;
+  section_number: number | null;
+  clause_number: number | null;
+  section_title_pl: string | null;
+}
+
 export interface KnowledgeEntryDetail {
   entry: KnowledgeEntry;
   source: KnowledgeSource;
   linked_from: KnowledgeLink[];
+  places: KnowledgePlace[];
 }
 
 export interface KnowledgeSituationItem {

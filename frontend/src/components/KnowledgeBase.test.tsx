@@ -33,6 +33,13 @@ const DETAIL = (overrides: Partial<KnowledgeEntryDetail['entry']> = {}, url: str
   },
   source: { code: 'KC', kind: 'STATUTE', title_pl: 'Kodeks cywilny', designation: 'Dz.U. 1964 nr 16 poz. 93', url, status: 'DRAFT' },
   linked_from: [{ target_kind: 'CLAUSE', target: 'downtime.5', entries: ['KC.640'] }],
+  places: [
+    { target_kind: 'CLAUSE', target: 'downtime.5', section_number: 10, clause_number: 5, section_title_pl: 'Przestój z przyczyn dotyczących Zamawiającego' },
+    { target_kind: 'DOCUMENT', target: 'DOWNTIME_NOTICE', section_number: null, clause_number: null, section_title_pl: null },
+    { target_kind: 'RISK', target: 'MOISTURE_BLOCK_FINISHING', section_number: null, clause_number: null, section_title_pl: null },
+    { target_kind: 'RISK', target: 'CRACK_RECURRENCE', section_number: null, clause_number: null, section_title_pl: null },
+    { target_kind: 'PHRASE', target: 'COMM_RISK_CRACK_RECURRENCE', section_number: null, clause_number: null, section_title_pl: null },
+  ],
 });
 
 const SITUATION: KnowledgeSituation = {
@@ -96,10 +103,17 @@ describe('KnowledgeBase (Stage 17D)', () => {
     expect(within(card).getByLabelText('knowledge-summary')).toHaveTextContent('Wykonawca wyznacza termin');
     // the Russian explanation belongs to the Russian interface only
     expect(within(card).queryByLabelText('knowledge-explanation')).toBeNull();
-    expect(within(card).getByLabelText('knowledge-linked')).toHaveTextContent('Umowa: downtime.5');
+    // where in the application, in words a person recognises: the paragraph of the contract, the name of the document, a count
+    const linked = within(card).getByLabelText('knowledge-linked');
+    expect(linked).toHaveTextContent('Umowa § 10 ust. 5 — Przestój z przyczyn dotyczących Zamawiającego');
+    expect(linked).toHaveTextContent('Dokument: Zawiadomienie o przestoju');
+    expect(linked).toHaveTextContent('Ryzyka z badania podłoża: 2');
+    expect(linked).toHaveTextContent('Zwroty dla klienta: 1');
+    for (const code of ['downtime.5', 'DOWNTIME_NOTICE', 'MOISTURE_BLOCK_FINISHING', 'COMM_RISK']) expect(linked).not.toHaveTextContent(code);
     const source = within(card).getByLabelText('knowledge-source');
     expect(source).toHaveTextContent('Kodeks cywilny');
-    expect(source).toHaveTextContent('Jeszcze nie sprawdzone z tekstem źródłowym.');
+    expect(source).toHaveTextContent('Omówienie przygotowane przez AI, nie sprawdzone przez prawnika.');
+    expect(within(card).getByLabelText('knowledge-current-text')).toHaveTextContent('Obowiązujący tekst: Dz.U. 1964 nr 16 poz. 93');
     const link = within(card).getByLabelText('knowledge-source-link');
     expect(link).toHaveAttribute('href', 'https://example.org/kc');
     expect(link).toHaveAttribute('target', '_blank');

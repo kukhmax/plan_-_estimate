@@ -14,6 +14,8 @@ interface KnowledgeBasisProps {
   targets: KnowledgeBasisTarget[];
   /** The label for tests and for screen readers of this block. */
   name?: string;
+  /** What the block answers, with `{count}` (default "Podstawa ({count})"). */
+  heading?: string;
 }
 
 /**
@@ -22,7 +24,7 @@ interface KnowledgeBasisProps {
  * the server unavailable): the screen it stands in must work the same without it. An entry opens inside the list, with its
  * key points and the link to its source; a draft is marked as a draft.
  */
-export function KnowledgeBasis({ targets, name = 'knowledge-basis' }: KnowledgeBasisProps) {
+export function KnowledgeBasis({ targets, name = 'knowledge-basis', heading }: KnowledgeBasisProps) {
   const { t, locale } = useI18n();
   const text = t.knowledge;
   const [entries, setEntries] = useState<KnowledgeEntryItem[]>([]);
@@ -84,7 +86,7 @@ export function KnowledgeBasis({ targets, name = 'knowledge-basis' }: KnowledgeB
         onClick={() => setOpen((value) => !value)}
         className="w-full min-h-11 px-3 flex items-center justify-between gap-2 text-left text-sm font-semibold text-slate-700"
       >
-        <span>{text.basis_title.replace('{count}', String(entries.length))}</span>
+        <span className="break-words">{(heading ?? text.basis_title).replace('{count}', String(entries.length))}</span>
         <span aria-hidden="true">{open ? '▴' : '▾'}</span>
       </button>
       {open && (

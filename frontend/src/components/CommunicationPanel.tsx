@@ -356,6 +356,15 @@ export function CommunicationPanel({
         </ul>
       )}
 
+      {/* Stage 17E.1: why the contractor must tell the client at all -- once for the list, not under every phrase. */}
+      {items.length > 0 && (
+        <KnowledgeBasis
+          targets={[...new Set(items.map((app) => app.phrase_code))].map((code) => ({ kind: 'PHRASE' as const, target: code }))}
+          heading={t.knowledge.basis_phrases}
+          name="knowledge-basis-phrases"
+        />
+      )}
+
       <span aria-live="polite" className="sr-only">
         {copyState
           ? (copyState.ok
@@ -476,7 +485,6 @@ function CommunicationCard({
         </div>
       ) : null}
 
-      <KnowledgeBasis targets={[{ kind: 'PHRASE', target: app.phrase_code }]} name={`knowledge-basis-phrase-${app.phrase_code}`} />
     </li>
   );
 }

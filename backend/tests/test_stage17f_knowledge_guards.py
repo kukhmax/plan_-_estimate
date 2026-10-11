@@ -52,5 +52,10 @@ async def test_the_real_catalogue_is_served_as_it_is_in_the_files(async_client):
     assert {"KC.556", "KC.558", "KC.638"} <= {item["code"] for item in found["items"]}  # letters without marks, the start of a word
     card = (await async_client.get("/api/knowledge/entries/KC.640", headers=headers)).json()
     assert card["entry"]["summary_pl"] and card["source"]["url"].startswith("https://")
+    # a clause is named as in the printed contract, not by its technical key (17E.1)
+    downtime = next(p for p in card["places"] if p["target"] == "downtime.5")
+    assert (downtime["section_number"], downtime["clause_number"]) == (10, 5)
+    assert downtime["section_title_pl"] == "Przestój z przyczyn dotyczących Zamawiającego"
+    assert {p["target"] for p in card["places"]} == {link["target"] for link in card["linked_from"]}
     index = (await async_client.get("/api/knowledge/links/index", headers=headers)).json()["items"]
     assert len(index) == 51 and all(row["entries"] for row in index)

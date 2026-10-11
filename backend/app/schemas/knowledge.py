@@ -38,11 +38,23 @@ class KnowledgeEntryList(BaseModel):
     total: int
 
 
+class KnowledgePlaceRead(BaseModel):
+    """A place of the application that points at an entry, with what a person needs to recognise it (Stage 17E.1): for a
+    clause of the contract its paragraph and the title of its section; the other kinds are named by the screen."""
+
+    target_kind: Literal["RISK", "CLAUSE", "PHRASE", "DOCUMENT"]
+    target: str
+    section_number: int | None = None
+    clause_number: int | None = None
+    section_title_pl: str | None = None
+
+
 class KnowledgeEntryRead(BaseModel):
     entry: Entry
     source: Source
     # where the application points at this entry (risks, clauses, phrases, documents)
     linked_from: list[Link]
+    places: list[KnowledgePlaceRead]
 
 
 class KnowledgeSituationListItem(BaseModel):
@@ -75,6 +87,7 @@ __all__ = [
     "KnowledgeLinkIndex",
     "KnowledgeLinkRead",
     "KnowledgeMetaRead",
+    "KnowledgePlaceRead",
     "KnowledgeSituationList",
     "KnowledgeSituationListItem",
     "Situation",
