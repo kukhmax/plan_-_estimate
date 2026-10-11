@@ -13,6 +13,9 @@ ok()   { echo "PASS: $1"; }
 has()  { grep -q -- "$1" <<<"$2"; }   # без конвейеров: pipefail не даёт ложных срабатываний
 
 echo "################ G0: проверка перед выкладкой (только чтение) ################"
+echo "--- ресурсы сервера (справочно, не критерий; нужны для решений по инфраструктуре) ---"
+echo "процессоров: $(nproc); память МБ (всего/занято/свободно): $(free -m | awk '/^Mem:/ {print $2"/"$3"/"$4}'); swap МБ: $(free -m | awk '/^Swap:/ {print $2}'); архитектура: $(uname -m)"
+docker stats --no-stream --format '  {{.Name}}: память {{.MemUsage}} ({{.MemPerc}}), процессор {{.CPUPerc}}' 2>/dev/null || true
 [ "$(env | grep -c '^MEDIA_S3\|^BACKUP_')" = "0" ] || fail "G0" "В оболочке лишние переменные MEDIA_S3/BACKUP_. Откройте новую SSH-сессию."
 [ "$(git branch --show-current)" = "stage-17" ] || fail "G0" "Ветка не stage-17: $(git branch --show-current)"
 [ -z "$(git status --short)" ] || fail "G0" "Рабочее дерево не чистое: $(git status --short)"
