@@ -842,3 +842,32 @@ class ExecutorProfileValidationError(Exception):
         super().__init__(", ".join(f"{field}: {code}" for field, code in fields.items()))
         self.fields = fields
 
+
+
+# ---------------------------------------------------------------------------
+# Stage 18C — calendar and reminders.
+# ---------------------------------------------------------------------------
+
+
+class ReminderNotFoundError(Exception):
+    """A reminder that does not exist or is not this owner's (Stage 18C)."""
+
+
+class ReminderInvalidError(Exception):
+    """An own reminder that cannot be made: `code` is TITLE_REQUIRED, TITLE_TOO_LONG, IN_THE_PAST or CLOSE_STATUS_INVALID."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+class CalendarSettingsInvalidError(Exception):
+    """Settings that cannot be saved: `code` is TIMEZONE_UNKNOWN, LANGUAGE_UNKNOWN, KIND_UNKNOWN or DIGEST_IN_QUIET_HOURS."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+class ScheduleOccurrenceNotFoundError(Exception):
+    """A planned work that is not an occurrence of a plan of this owner's object (Stage 18C)."""

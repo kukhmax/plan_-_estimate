@@ -43,6 +43,7 @@ from app.domain.rules.work_execution_rules import (  # noqa: F401 (re-exported)
     derive_ready_after,
     execution_view,
 )
+from app.domain.services.calendar_service import CalendarService
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.models.project import Project
 from app.models.room import Room
@@ -187,6 +188,9 @@ class SurfaceWorkExecutionService:
             self.db.add(execution)
 
         _apply_transition(execution, current, status, datetime.now(timezone.utc))
+        await self.db.flush()
+        # Stage 18C: the calendar follows the status in this very transaction (the break reminder, the reminders that waited for it).
+        await CalendarService(self.db).on_executions_changed(owner_id, project_id, {occurrence_key: status})
 
         view = execution_view(occurrence_key, execution, wait_after_hours)
         await self.db.commit()
@@ -330,5 +334,10 @@ class SurfaceWorkExecutionService:
                 )
                 self.db.add(execution)
             _apply_transition(execution, transition.from_status, transition.to_status, now)
+        if plan.transitions:
+            await self.db.flush()
+            await CalendarService(self.db).on_executions_changed(
+                owner_id, project_id, {t.occurrence_key: t.to_status for t in plan.transitions}
+            )
         await self.db.commit()
         return current, plan

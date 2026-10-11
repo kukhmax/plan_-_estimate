@@ -43,8 +43,8 @@ class EventKind(StrEnum):
 
 # Which kinds send a message by default (Q1, 2026-10-11); the owner switches the rest on in the settings. The calendar shows all of them.
 PUSH_BY_DEFAULT: frozenset[EventKind] = frozenset(
-    {EventKind.BREAK_END, EventKind.OBJECT_START, EventKind.OBJECT_END, EventKind.DELIVERY_DEADLINE, EventKind.ACCEPTANCE_TERM,
-     EventKind.CONCEALED_TERM, EventKind.DOWNTIME_TERM, EventKind.USER}
+    {EventKind.BREAK_END, EventKind.WORK_START, EventKind.WORK_END, EventKind.OBJECT_START, EventKind.OBJECT_END,
+     EventKind.DELIVERY_DEADLINE, EventKind.ACCEPTANCE_TERM, EventKind.CONCEALED_TERM, EventKind.DOWNTIME_TERM, EventKind.USER}
 )
 # How many days ahead of the day a reminder is also due; zero is the day itself. Only the delivery deadline is announced early.
 LEAD_DAYS: Mapping[EventKind, tuple[int, ...]] = {EventKind.DELIVERY_DEADLINE: (7, 3, 1, 0), EventKind.OBJECT_START: (1, 0)}

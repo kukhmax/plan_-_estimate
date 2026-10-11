@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import ClientNotFoundError, ProjectNotFoundError
+from app.domain.services.calendar_service import CalendarService
 from app.models.client import Client
 from app.models.project import Project
 from app.schemas.project import ProjectCreate, ProjectUpdate
@@ -102,6 +103,8 @@ class ProjectService:
     ) -> Project:
         project = await self.get_project(project_id, owner_id)
         project.is_archived = True
+        await self.db.flush()
+        await CalendarService(self.db).reconcile_project_guarded(owner_id, project_id)  # Stage 18C: an archived object keeps no reminders
         await self.db.commit()
         await self.db.refresh(project)
         return project
@@ -111,6 +114,8 @@ class ProjectService:
     ) -> Project:
         project = await self.get_project(project_id, owner_id)
         project.is_archived = False
+        await self.db.flush()
+        await CalendarService(self.db).reconcile_project_guarded(owner_id, project_id)
         await self.db.commit()
         await self.db.refresh(project)
         return project
