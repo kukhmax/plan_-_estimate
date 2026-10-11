@@ -45,7 +45,7 @@ async def test_the_real_catalogue_is_served_as_it_is_in_the_files(async_client):
 
     headers = auth_header(await get_token(async_client, VALID_USER))
     meta = (await async_client.get("/api/knowledge/meta", headers=headers)).json()
-    assert meta["entries"] == 34 and meta["sources"] == 13
+    assert meta["entries"] == 34 and meta["sources"] == 13 and meta["situations"] == 8
     entries = (await async_client.get("/api/knowledge/entries", params={"limit": 200}, headers=headers)).json()
     assert entries["total"] == 34 and all(item["status"] == "DRAFT" for item in entries["items"])
     found = (await async_client.get("/api/knowledge/entries", params={"q": "rekoj"}, headers=headers)).json()
@@ -57,5 +57,9 @@ async def test_the_real_catalogue_is_served_as_it_is_in_the_files(async_client):
     assert (downtime["section_number"], downtime["clause_number"]) == (10, 5)
     assert downtime["section_title_pl"] == "Przestój z przyczyn dotyczących Zamawiającego"
     assert {p["target"] for p in card["places"]} == {link["target"] for link in card["linked_from"]}
+    situations = (await async_client.get("/api/knowledge/situations", headers=headers)).json()["items"]
+    assert len(situations) == 8 and all(item["status"] == "DRAFT" for item in situations)
+    one = (await async_client.get("/api/knowledge/situations/SIT.MOISTURE_HIGH", headers=headers)).json()
+    assert one["start"] == "method" and {o["id"] for o in one["outcomes"]} == {"electronic", "ok", "drying", "source"}
     index = (await async_client.get("/api/knowledge/links/index", headers=headers)).json()["items"]
     assert len(index) == 51 and all(row["entries"] for row in index)

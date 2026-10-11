@@ -143,3 +143,75 @@ def test_a_norm_or_an_itb_instruction_is_told_in_own_words_never_copied():
     for entry in CATALOG.entries:
         if kinds[entry.source] in ("NORM", "ITB"):
             assert entry.summary_pl and len(entry.summary_pl) <= 900, entry.code
+
+
+# --- Stage 17C.4: the starter situations ----------------------------------------------------------------------------------------
+
+SITUATIONS = {s.code: s for s in CATALOG.situations}
+PL_PARAGRAPH = re.compile(r"§ (\d+)(?: ust\. (\d+))?")
+RU_PARAGRAPH = re.compile(r"§ (\d+)(?: п\. (\d+))?")
+
+
+def test_the_starter_situations_are_drafts_each_a_closed_tree():
+    assert set(SITUATIONS) == {
+        "SIT.RECOMMENDATION_REFUSED", "SIT.MOISTURE_HIGH", "SIT.ACCEPTANCE_NO_SHOW", "SIT.CLIENT_DOWNTIME",
+        "SIT.CLIENT_WITHDRAWS", "SIT.CLIENT_NOT_PAYING", "SIT.WARRANTY_CLAIM", "SIT.HIDDEN_PROBLEM",
+    }
+    assert all(s.status == "DRAFT" for s in CATALOG.situations)
+    for situation in CATALOG.situations:  # reading the catalogue already proved the tree; here only that each one decides something
+        assert len(situation.outcomes) >= 3 and len(situation.questions) >= 2, situation.code
+
+
+def test_every_outcome_says_what_to_do_and_leans_on_the_basis_of_the_law_or_the_technique():
+    for situation in CATALOG.situations:
+        for outcome in situation.outcomes:
+            assert len(outcome.steps_pl) >= 2, (situation.code, outcome.id)
+            assert outcome.entries or outcome.documents, (situation.code, outcome.id)
+
+
+def test_an_outcome_that_sends_to_a_lawyer_carries_the_lawyer_mark_and_the_other_way_round():
+    for situation in CATALOG.situations:
+        for outcome in situation.outcomes:
+            says_lawyer = any("prawnik" in step.lower() for step in outcome.steps_pl)
+            says_lawyer_ru = any("юрист" in step.lower() for step in outcome.steps_ru)
+            assert says_lawyer == outcome.lawyer == says_lawyer_ru, (situation.code, outcome.id)
+
+
+def _texts(situation):
+    """Every sentence of a situation with where it stands, per language: the questions, the answers and the steps."""
+    pl, ru = [], []
+    for question in situation.questions:
+        pl += [(f"{question.id}", question.text_pl)] + [(f"{question.id}>{a.next}", a.text_pl) for a in question.answers]
+        ru += [(f"{question.id}", question.text_ru)] + [(f"{question.id}>{a.next}", a.text_ru) for a in question.answers]
+    for outcome in situation.outcomes:
+        pl += [(f"{outcome.id}#{i}", step) for i, step in enumerate(outcome.steps_pl)]
+        ru += [(f"{outcome.id}#{i}", step) for i, step in enumerate(outcome.steps_ru)]
+    return pl, ru
+
+
+def test_the_paragraphs_of_the_contract_named_anywhere_in_a_situation_exist_in_the_contract():
+    """A sentence that says "§ 10 ust. 5" must point at a paragraph and a clause the contract really has, in a question, an
+    answer or a step, and the Polish and the Russian sentence must name the same ones."""
+    sections = [(s.key, len(s.clauses)) for s in load_clause_catalog().sections]
+    for situation in CATALOG.situations:
+        pl, ru = _texts(situation)
+        assert [place for place, _ in pl] == [place for place, _ in ru], situation.code
+        for (place, pl_text), (_, ru_text) in zip(pl, ru, strict=True):
+            for text, pattern in ((pl_text, PL_PARAGRAPH), (ru_text, RU_PARAGRAPH)):
+                for match in pattern.finditer(text):
+                    number, clause = int(match.group(1)), match.group(2)
+                    assert 1 <= number <= len(sections), (situation.code, place, match.group(0))
+                    if clause:
+                        assert 1 <= int(clause) <= sections[number - 1][1], (situation.code, place, match.group(0))
+            pl_names = [m.group(0).replace(" ust. ", "/") for m in PL_PARAGRAPH.finditer(pl_text)]
+            ru_names = [m.group(0).replace(" п. ", "/") for m in RU_PARAGRAPH.finditer(ru_text)]
+            assert pl_names == ru_names, (situation.code, place, pl_names, ru_names)
+
+
+def test_the_phrases_for_the_client_in_the_outcomes_belong_to_the_risks_of_the_situation():
+    """A phrase offered with a situation about moisture is a phrase about moisture, not any phrase."""
+    risk_of = {"SIT.MOISTURE_HIGH": {"MOISTURE_BLOCK_FINISHING"}}
+    for code, risks in risk_of.items():
+        for outcome in SITUATIONS[code].outcomes:
+            for phrase in outcome.phrases:
+                assert phrase.removeprefix("COMM_RISK_") in risks, (code, outcome.id, phrase)

@@ -148,3 +148,10 @@ unset TELEGRAM_BOT_TOKEN V
 ```bash
 cd ~/apps/plan_-_estimate && git fetch -q origin stage-17 && git show origin/stage-17:docs/STAGE_17_DEPLOY_17E1_17C3_RU.sh > ~/deploy17.sh && bash ~/deploy17.sh
 ```
+
+### Выкладка 17C.4 (ситуации) + 17F.1 (закреплённая шапка) одной командой
+Скрипт `docs/STAGE_17_DEPLOY_17C4_RU.sh` (то же устройство и те же остановки G0–G4; ожидаемый каталог **13 источников, 34 статьи, 51 связь, 8 ситуаций, версия 5**; теги отката `pre-17c4`; в `backend/app` допускаются только `situations.json` и `meta.json`). Запуск:
+```bash
+cd ~/apps/plan_-_estimate && git fetch -q origin stage-17 && git show origin/stage-17:docs/STAGE_17_DEPLOY_17C4_RU.sh > ~/deploy17c4.sh && bash ~/deploy17c4.sh
+```
+Он заменяет `STAGE_17_DEPLOY_FRONTEND_ONLY_RU.sh` (шапка входит в тот же релиз).

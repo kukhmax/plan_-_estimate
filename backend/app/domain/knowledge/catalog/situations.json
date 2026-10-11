@@ -1,1 +1,1226 @@
-[]
+[
+  {
+    "code": "SIT.RECOMMENDATION_REFUSED",
+    "status": "DRAFT",
+    "title_pl": "Klient odrzuca zalecane przygotowanie podłoża",
+    "title_ru": "Клиент отказывается от рекомендованной подготовки основания",
+    "start": "blocks",
+    "questions": [
+      {
+        "id": "blocks",
+        "text_pl": "Czy to ryzyko blokuje wykończenie (wilgoć, pleśń, luźne lub odspojone podłoże)?",
+        "text_ru": "Это риск, блокирующий отделку (влага, плесень, рыхлое или отслаивающееся основание)?",
+        "answers": [
+          {
+            "text_pl": "Tak, blokuje wykończenie",
+            "text_ru": "Да, блокирует отделку",
+            "next": "blocked"
+          },
+          {
+            "text_pl": "Nie, to ryzyko do zaakceptowania (np. grunt, zbrojenie)",
+            "text_ru": "Нет, риск можно принять (например, грунт, армирование)",
+            "next": "signs_q"
+          }
+        ]
+      },
+      {
+        "id": "signs_q",
+        "text_pl": "Czy klient podpisze Protokół informacji i decyzji (Załącznik 9) PRZED wykonaniem tej czynności?",
+        "text_ru": "Подпишет ли клиент Протокол информирования и решений (приложение 9) ДО выполнения этой операции?",
+        "answers": [
+          {
+            "text_pl": "Tak, podpisze",
+            "text_ru": "Да, подпишет",
+            "next": "signs"
+          },
+          {
+            "text_pl": "Nie, odmawia podpisu",
+            "text_ru": "Нет, отказывается подписывать",
+            "next": "no_sign"
+          }
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "id": "blocked",
+        "steps_pl": [
+          "Nie wykonuj wykańczania na tej powierzchni, dopóki przyczyna nie zostanie usunięta; możesz odmówić pracy wbrew technologii (§ 17 ust. 3).",
+          "Zawiadom klienta w Formie dokumentowej: co stwierdzono, dlaczego nie można szpachlować ani malować i co trzeba zrobić (dołącz zdjęcia z badania podłoża).",
+          "Zaproponuj wariant naprawczy z ceną (Zlecenie, Załącznik 10) albo ustal nowy termin po wyschnięciu lub usunięciu przyczyny.",
+          "Jeżeli klient naciska na wykonanie mimo wszystko, nie rób tego bez konsultacji z prawnikiem."
+        ],
+        "steps_ru": [
+          "Не выполняйте отделку на этой поверхности, пока не устранена причина; вы вправе отказаться от работы вопреки технологии (§ 17 п. 3).",
+          "Сообщите клиенту в документальной форме: что обнаружено, почему нельзя шпаклевать и красить и что нужно сделать (приложите фото обследования основания).",
+          "Предложите вариант устранения с ценой (Поручение, приложение 10) или назначьте новый срок после просушки или устранения причины.",
+          "Если клиент настаивает на выполнении, несмотря ни на что, не делайте этого без консультации с юристом."
+        ],
+        "entries": [
+          "KC.634",
+          "TECH.PREP"
+        ],
+        "phrases": [
+          "COMM_RISK_MOISTURE_BLOCK_FINISHING",
+          "COMM_RISK_MOLD_TREATMENT_BEFORE_FINISH"
+        ],
+        "documents": [
+          "DECISION_PROTOCOL"
+        ],
+        "lawyer": true
+      },
+      {
+        "id": "signs",
+        "steps_pl": [
+          "Opisz klientowi ryzyko i zalecany wariant z ceną oraz to, co się stanie przy rezygnacji (np. spękania, odspojenie powłoki).",
+          "Wpisz do Protokołu informacji i decyzji (Załącznik 9) wybrany wariant dla każdej powierzchni osobno i zbierz podpis przed wykonaniem czynności.",
+          "Wykonaj prace w sposób najlepszy możliwy przy dokonanym wyborze (§ 17 ust. 2); skutki opisanego ryzyka nie są objęte gwarancją.",
+          "Pamiętaj: wobec konsumenta rękojmia nie jest wyłączona; zachowaj protokół i zdjęcia z badania podłoża."
+        ],
+        "steps_ru": [
+          "Опишите клиенту риск и рекомендуемый вариант с ценой, а также что произойдёт при отказе (например, трещины, отслоение покрытия).",
+          "Запишите в Протокол информирования и решений (приложение 9) выбранный вариант отдельно для каждой поверхности и получите подпись до выполнения операции.",
+          "Выполняйте работы наилучшим из возможных способом при сделанном выборе (§ 17 п. 2); последствия описанного риска гарантией не покрываются.",
+          "Помните: перед потребителем rękojmia не исключается; сохраните протокол и фото обследования основания."
+        ],
+        "entries": [
+          "KC.634",
+          "KC.557",
+          "KC.558"
+        ],
+        "phrases": [
+          "COMM_RISK_DUSTY_SUBSTRATE_PRIME",
+          "COMM_RISK_WEAK_ADHESION_PREP",
+          "COMM_RISK_CRACK_RECURRENCE"
+        ],
+        "documents": [
+          "DECISION_PROTOCOL"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "no_sign",
+        "steps_pl": [
+          "Nie wykonuj czynności, której dotyczy zalecenie, na tej powierzchni: bez podpisanej decyzji nie możesz powoływać się na wyłączenie gwarancji (§ 17 ust. 1–2).",
+          "Zapisz odmowę w Formie dokumentowej (wiadomość do klienta z opisem ryzyka i Twoim zaleceniem) i zachowaj ją.",
+          "Zaproponuj klientowi ponownie wariant z ceną i ustal termin na decyzję.",
+          "Jeżeli klient żąda wykonania pracy wbrew technologii, skonsultuj się z prawnikiem przed podjęciem decyzji."
+        ],
+        "steps_ru": [
+          "Не выполняйте на этой поверхности операцию, к которой относится рекомендация: без подписанного решения вы не можете ссылаться на исключение гарантии (§ 17 п. 1–2).",
+          "Зафиксируйте отказ в документальной форме (сообщение клиенту с описанием риска и вашей рекомендацией) и сохраните его.",
+          "Ещё раз предложите клиенту вариант с ценой и назначьте срок для решения.",
+          "Если клиент требует выполнить работу вопреки технологии, проконсультируйтесь с юристом, прежде чем принимать решение."
+        ],
+        "entries": [
+          "KC.634",
+          "KC.557"
+        ],
+        "phrases": [
+          "COMM_RISK_DUSTY_SUBSTRATE_PRIME",
+          "COMM_RISK_WEAK_ADHESION_PREP"
+        ],
+        "documents": [
+          "DECISION_PROTOCOL"
+        ],
+        "lawyer": true
+      }
+    ]
+  },
+  {
+    "code": "SIT.MOISTURE_HIGH",
+    "status": "DRAFT",
+    "title_pl": "Podłoże jest za wilgotne",
+    "title_ru": "Основание слишком влажное",
+    "start": "method",
+    "questions": [
+      {
+        "id": "method",
+        "text_pl": "Jak zmierzono wilgotność podłoża?",
+        "text_ru": "Как измерена влажность основания?",
+        "answers": [
+          {
+            "text_pl": "Tylko miernikiem elektronicznym",
+            "text_ru": "Только электронным влагомером",
+            "next": "electronic"
+          },
+          {
+            "text_pl": "Metodą karbidową (CM)",
+            "text_ru": "Карбидным методом (CM)",
+            "next": "result"
+          }
+        ]
+      },
+      {
+        "id": "result",
+        "text_pl": "Jaki jest wynik CM względem progu (beton i tynk cementowo-wapienny — 3%, tynk gipsowy — 1%)?",
+        "text_ru": "Каков результат CM относительно порога (бетон и цементно-известковая штукатурка — 3%, гипсовая штукатурка — 1%)?",
+        "answers": [
+          {
+            "text_pl": "Poniżej progu",
+            "text_ru": "Ниже порога",
+            "next": "ok"
+          },
+          {
+            "text_pl": "Powyżej progu",
+            "text_ru": "Выше порога",
+            "next": "cause"
+          }
+        ]
+      },
+      {
+        "id": "cause",
+        "text_pl": "Jaka jest przyczyna wilgoci?",
+        "text_ru": "В чём причина влажности?",
+        "answers": [
+          {
+            "text_pl": "Świeży tynk lub beton jeszcze nie wysechł",
+            "text_ru": "Свежая штукатурка или бетон ещё не высохли",
+            "next": "drying"
+          },
+          {
+            "text_pl": "Przeciek, kondensacja lub inne aktywne źródło",
+            "text_ru": "Протечка, конденсат или другой действующий источник",
+            "next": "source"
+          }
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "id": "electronic",
+        "steps_pl": [
+          "Wynik miernika elektronicznego jest tylko orientacyjny: nie podejmuj na jego podstawie decyzji o starcie prac.",
+          "Wykonaj pomiar metodą karbidową (CM) i wpisz wynik do badania podłoża z datą i zdjęciem.",
+          "Dopiero po wyniku CM oceń, czy można zaczynać; karta producenta użytego wyrobu ma pierwszeństwo przed progami ogólnymi."
+        ],
+        "steps_ru": [
+          "Результат электронного влагомера лишь ориентировочный: не принимайте на его основе решение о начале работ.",
+          "Выполните замер карбидным методом (CM) и внесите результат в обследование основания с датой и фото.",
+          "Только по результату CM решайте, можно ли начинать; карта производителя применяемого материала важнее общих порогов."
+        ],
+        "entries": [
+          "TECH.MOISTURE"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": false
+      },
+      {
+        "id": "ok",
+        "steps_pl": [
+          "Wynik poniżej progu pozwala zaczynać, o ile karta producenta użytego wyrobu nie wymaga niższej wilgotności.",
+          "Zapisz wynik CM w badaniu podłoża (data, miejsce, zdjęcie).",
+          "Zagruntuj podłoże zgodnie z kartą wyrobu i zachowaj wynik na wypadek reklamacji."
+        ],
+        "steps_ru": [
+          "Результат ниже порога позволяет начинать, если карта производителя применяемого материала не требует меньшей влажности.",
+          "Запишите результат CM в обследование основания (дата, место, фото).",
+          "Загрунтуйте основание по карте материала и сохраните результат на случай рекламации."
+        ],
+        "entries": [
+          "TECH.MOISTURE",
+          "TECH.PREP"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": false
+      },
+      {
+        "id": "drying",
+        "steps_pl": [
+          "Nie rozpoczynaj gładzi ani malowania; zapisz wynik i datę pomiaru.",
+          "Ustal z klientem nowy termin: tynk cementowo-wapienny ok. 2–4 tygodnie sezonowania, beton ok. 4–6 miesięcy (karta Atlas OMEGA); zawsze według karty użytego wyrobu.",
+          "Zmień termin w harmonogramie i potwierdź go w Formie dokumentowej; to przerwa technologiczna, a nie przestój z winy klienta.",
+          "Powtórz pomiar CM przed startem."
+        ],
+        "steps_ru": [
+          "Не начинайте шпаклёвку и покраску; запишите результат и дату замера.",
+          "Согласуйте с клиентом новый срок: цементно-известковая штукатурка ок. 2–4 недели выдержки, бетон ок. 4–6 месяцев (карта Atlas OMEGA); всегда по карте применяемого материала.",
+          "Измените срок в графике и подтвердите его в документальной форме; это технологический перерыв, а не простой по вине клиента.",
+          "Повторите замер CM перед началом."
+        ],
+        "entries": [
+          "TECH.MOISTURE",
+          "KC.634"
+        ],
+        "phrases": [
+          "COMM_RISK_MOISTURE_BLOCK_FINISHING"
+        ],
+        "documents": [
+          "PRODUCTION_PLAN"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "source",
+        "steps_pl": [
+          "Wstrzymaj wykańczanie na tej powierzchni; zrób zdjęcia plam, zacieków i pomiaru.",
+          "Zawiadom klienta niezwłocznie w Formie dokumentowej (art. 634): przyczyną musi zająć się właściciel lub zarządca (współdziałanie Zamawiającego, § 8).",
+          "Jeżeli przeszkoda nie zostanie usunięta do końca następnego dnia roboczego, wystaw Zawiadomienie o przestoju (§ 10 ust. 2).",
+          "Wznów prace po usunięciu przyczyny, wyschnięciu i nowym pomiarze CM; decyzje klienta zapisz w Protokole informacji i decyzji."
+        ],
+        "steps_ru": [
+          "Приостановите отделку на этой поверхности; сфотографируйте пятна, подтёки и замер.",
+          "Немедленно уведомите клиента в документальной форме (art. 634): причиной должен заняться владелец или управляющий (содействие заказчика, § 8).",
+          "Если препятствие не устранено до конца следующего рабочего дня, выдайте Уведомление о простое (§ 10 п. 2).",
+          "Возобновите работы после устранения причины, высыхания и нового замера CM; решения клиента запишите в Протокол информирования и решений."
+        ],
+        "entries": [
+          "KC.634",
+          "KC.640",
+          "KC.639",
+          "TECH.MOISTURE"
+        ],
+        "phrases": [
+          "COMM_RISK_MOISTURE_BLOCK_FINISHING"
+        ],
+        "documents": [
+          "DOWNTIME_NOTICE",
+          "DECISION_PROTOCOL"
+        ],
+        "lawyer": false
+      }
+    ]
+  },
+  {
+    "code": "SIT.ACCEPTANCE_NO_SHOW",
+    "status": "DRAFT",
+    "title_pl": "Klient nie przychodzi na odbiór",
+    "title_ru": "Клиент не приходит на приёмку",
+    "start": "ready",
+    "questions": [
+      {
+        "id": "ready",
+        "text_pl": "Czy zgłosiłeś gotowość do odbioru w Formie dokumentowej (zakres i proponowany termin)?",
+        "text_ru": "Вы заявили о готовности к приёмке в документальной форме (объём и предлагаемый срок)?",
+        "answers": [
+          {
+            "text_pl": "Tak",
+            "text_ru": "Да",
+            "next": "term"
+          },
+          {
+            "text_pl": "Nie",
+            "text_ru": "Нет",
+            "next": "notify"
+          }
+        ]
+      },
+      {
+        "id": "term",
+        "text_pl": "Czy minął termin na stawienie się klienta z umowy (§ 14 ust. 2)?",
+        "text_ru": "Истёк ли срок явки клиента по договору (§ 14 п. 2)?",
+        "answers": [
+          {
+            "text_pl": "Tak, termin minął",
+            "text_ru": "Да, срок истёк",
+            "next": "recalled"
+          },
+          {
+            "text_pl": "Nie, jeszcze trwa",
+            "text_ru": "Нет, ещё идёт",
+            "next": "wait"
+          }
+        ]
+      },
+      {
+        "id": "recalled",
+        "text_pl": "Czy wezwałeś klienta ponownie, z dodatkowym terminem nie krótszym niż 3 dni robocze (§ 14 ust. 5)?",
+        "text_ru": "Вызывали ли вы клиента повторно с дополнительным сроком не менее 3 рабочих дней (§ 14 п. 5)?",
+        "answers": [
+          {
+            "text_pl": "Tak, wezwałem",
+            "text_ru": "Да, вызвал",
+            "next": "expired"
+          },
+          {
+            "text_pl": "Nie, jeszcze nie",
+            "text_ru": "Нет, ещё не вызывал",
+            "next": "recall"
+          }
+        ]
+      },
+      {
+        "id": "expired",
+        "text_pl": "Czy dodatkowy termin minął bezskutecznie?",
+        "text_ru": "Дополнительный срок истёк безрезультатно?",
+        "answers": [
+          {
+            "text_pl": "Tak, klient się nie stawił",
+            "text_ru": "Да, клиент не явился",
+            "next": "who"
+          },
+          {
+            "text_pl": "Nie, jeszcze trwa",
+            "text_ru": "Нет, ещё идёт",
+            "next": "wait"
+          }
+        ]
+      },
+      {
+        "id": "who",
+        "text_pl": "Czy klient jest konsumentem (osobą prywatną)?",
+        "text_ru": "Клиент — потребитель (частное лицо)?",
+        "answers": [
+          {
+            "text_pl": "Tak, konsument",
+            "text_ru": "Да, потребитель",
+            "next": "unilateral_consumer"
+          },
+          {
+            "text_pl": "Nie, przedsiębiorca",
+            "text_ru": "Нет, предприниматель",
+            "next": "unilateral"
+          }
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "id": "notify",
+        "steps_pl": [
+          "Zgłoś gotowość do odbioru w Formie dokumentowej: zakres, proponowany termin i adres.",
+          "Dołącz zdjęcia stanu prac.",
+          "Czekaj na stawienie się klienta w terminie z umowy (§ 14 ust. 2); nie sporządzaj protokołu jednostronnego wcześniej."
+        ],
+        "steps_ru": [
+          "Заявите о готовности к приёмке в документальной форме: объём, предлагаемый срок и адрес.",
+          "Приложите фото состояния работ.",
+          "Ждите явки клиента в срок по договору (§ 14 п. 2); не составляйте односторонний протокол раньше."
+        ],
+        "entries": [
+          "KC.77-2"
+        ],
+        "phrases": [],
+        "documents": [
+          "FINAL_PROTOCOL"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "wait",
+        "steps_pl": [
+          "Poczekaj do końca terminu; nie sporządzaj protokołu jednostronnego przed jego upływem.",
+          "Zachowaj dowód doręczenia zgłoszenia (wiadomość, potwierdzenie)."
+        ],
+        "steps_ru": [
+          "Дождитесь конца срока; не составляйте односторонний протокол до его истечения.",
+          "Сохраните доказательство доставки уведомления (сообщение, подтверждение)."
+        ],
+        "entries": [
+          "KC.77-2"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": false
+      },
+      {
+        "id": "recall",
+        "steps_pl": [
+          "Wezwij klienta ponownie w Formie dokumentowej, wyznaczając dodatkowy termin nie krótszy niż 3 dni robocze (§ 14 ust. 5).",
+          "Zachowaj dowód doręczenia (zrzut ekranu, potwierdzenie)."
+        ],
+        "steps_ru": [
+          "Вызовите клиента повторно в документальной форме, назначив дополнительный срок не менее 3 рабочих дней (§ 14 п. 5).",
+          "Сохраните доказательство доставки (скриншот, подтверждение)."
+        ],
+        "entries": [
+          "KC.77-2"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": false
+      },
+      {
+        "id": "unilateral",
+        "steps_pl": [
+          "Sporządź protokół jednostronny z dokumentacją zdjęciową (zdjęcia z datą i oznaczeniem miejsca) i doręcz go klientowi.",
+          "Od dnia doręczenia biegnie termin płatności; klient ma 14 dni na zgłoszenie uwag (§ 14 ust. 5).",
+          "Uwagi rozpatruj jak przy odbiorze (§ 14 ust. 4); uprawnienia klienta z rękojmi pozostają."
+        ],
+        "steps_ru": [
+          "Составьте односторонний протокол с фотодокументацией (фото с датой и привязкой к месту) и вручите его клиенту.",
+          "Со дня вручения течёт срок оплаты; у клиента 14 дней на замечания (§ 14 п. 5).",
+          "Замечания рассматривайте как при обычной приёмке (§ 14 п. 4); права клиента по rękojmi сохраняются."
+        ],
+        "entries": [
+          "KC.627",
+          "KC.77-2"
+        ],
+        "phrases": [],
+        "documents": [
+          "FINAL_PROTOCOL",
+          "PHOTO_REPORT"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "unilateral_consumer",
+        "steps_pl": [
+          "Sporządź protokół jednostronny z dokumentacją zdjęciową i doręcz go klientowi (§ 14 ust. 5).",
+          "Nie pisz w protokole, że klient «odebrał bez uwag»: wobec konsumenta takie zapisy można zakwestionować; klient zachowuje prawo zgłaszania wad.",
+          "Przed windykacją i naliczaniem terminu płatności skonsultuj się z prawnikiem (pytanie L2 do prawnika)."
+        ],
+        "steps_ru": [
+          "Составьте односторонний протокол с фотодокументацией и вручите его клиенту (§ 14 п. 5).",
+          "Не пишите в протоколе, что клиент «принял без замечаний»: перед потребителем такие записи можно оспорить; клиент сохраняет право заявлять о недостатках.",
+          "Перед взысканием и отсчётом срока оплаты проконсультируйтесь с юристом (вопрос L2 юристу)."
+        ],
+        "entries": [
+          "KC.627",
+          "KC.77-2"
+        ],
+        "phrases": [],
+        "documents": [
+          "FINAL_PROTOCOL",
+          "PHOTO_REPORT"
+        ],
+        "lawyer": true
+      }
+    ]
+  },
+  {
+    "code": "SIT.CLIENT_DOWNTIME",
+    "status": "DRAFT",
+    "title_pl": "Przestój z winy klienta (brak dostępu, brak decyzji)",
+    "title_ru": "Простой по вине клиента (нет доступа, нет решения)",
+    "start": "ready",
+    "questions": [
+      {
+        "id": "ready",
+        "text_pl": "Czy byłeś gotów do pracy, a przeszkoda leży po stronie klienta (brak dostępu, brak decyzji, brak materiałów klienta, prace innych wykonawców)?",
+        "text_ru": "Вы были готовы работать, а препятствие на стороне клиента (нет доступа, нет решения, нет материалов клиента, работы других подрядчиков)?",
+        "answers": [
+          {
+            "text_pl": "Tak, przeszkoda po stronie klienta",
+            "text_ru": "Да, препятствие на стороне клиента",
+            "next": "notice"
+          },
+          {
+            "text_pl": "Nie, to moja przyczyna lub przerwa technologiczna",
+            "text_ru": "Нет, это моя причина или технологический перерыв",
+            "next": "own"
+          }
+        ]
+      },
+      {
+        "id": "notice",
+        "text_pl": "Czy wystawiłeś klientowi Zawiadomienie o przestoju (Załącznik 8) z opisem i zdjęciami?",
+        "text_ru": "Вы выдали клиенту Уведомление о простое (приложение 8) с описанием и фото?",
+        "answers": [
+          {
+            "text_pl": "Tak, wystawiłem",
+            "text_ru": "Да, выдал",
+            "next": "limit"
+          },
+          {
+            "text_pl": "Nie, jeszcze nie",
+            "text_ru": "Нет, ещё не выдавал",
+            "next": "notify"
+          }
+        ]
+      },
+      {
+        "id": "limit",
+        "text_pl": "Czy przestój trwa dłużej niż limit z umowy (§ 10 ust. 5)?",
+        "text_ru": "Простой длится дольше лимита по договору (§ 10 п. 5)?",
+        "answers": [
+          {
+            "text_pl": "Tak, dłużej niż limit",
+            "text_ru": "Да, дольше лимита",
+            "next": "escalate"
+          },
+          {
+            "text_pl": "Nie, w ramach limitu",
+            "text_ru": "Нет, в пределах лимита",
+            "next": "record"
+          }
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "id": "own",
+        "steps_pl": [
+          "To nie jest przestój z winy klienta: przerwy technologiczne i przeszkody po Twojej stronie nie dają prawa do wynagrodzenia za gotowość (§ 10 ust. 4).",
+          "Zmień harmonogram i poinformuj klienta o nowym terminie."
+        ],
+        "steps_ru": [
+          "Это не простой по вине клиента: технологические перерывы и препятствия на вашей стороне не дают права на оплату за готовность (§ 10 п. 4).",
+          "Измените график и сообщите клиенту новый срок."
+        ],
+        "entries": [
+          "KC.639"
+        ],
+        "phrases": [],
+        "documents": [
+          "PRODUCTION_PLAN"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "notify",
+        "steps_pl": [
+          "Wystaw niezwłocznie Zawiadomienie o przestoju w Formie dokumentowej: opis przeszkody, zdjęcia, data i godzina.",
+          "Jeżeli przeszkoda nie zostanie usunięta do końca następnego dnia roboczego, każdy kolejny dzień roboczy bez pracy jest dniem przestoju (§ 10 ust. 2).",
+          "W miarę możliwości prowadź inne prace w Obiekcie; dzień, w którym pracowałeś, nie jest dniem przestoju (§ 10 ust. 3)."
+        ],
+        "steps_ru": [
+          "Немедленно выдайте Уведомление о простое в документальной форме: описание препятствия, фото, дата и время.",
+          "Если препятствие не устранено до конца следующего рабочего дня, каждый следующий рабочий день без работы считается днём простоя (§ 10 п. 2).",
+          "По возможности ведите другие работы на объекте; день, когда вы работали, не считается днём простоя (§ 10 п. 3)."
+        ],
+        "entries": [
+          "KC.639",
+          "KC.640"
+        ],
+        "phrases": [],
+        "documents": [
+          "DOWNTIME_NOTICE"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "record",
+        "steps_pl": [
+          "Potwierdzaj każdy dzień przestoju Protokołem przestoju (Załącznik 8) ze zdjęciami.",
+          "Naliczaj wynagrodzenie za gotowość według stawki z umowy z uwzględnieniem oszczędności (art. 639) i nie przekraczaj limitu z § 10 ust. 3.",
+          "Utrzymuj porządek dat: ponawiaj zawiadomienia, jeżeli przeszkoda trwa."
+        ],
+        "steps_ru": [
+          "Подтверждайте каждый день простоя Протоколом простоя (приложение 8) с фото.",
+          "Начисляйте оплату за готовность по ставке из договора с учётом экономии (art. 639) и не превышайте лимит из § 10 п. 3.",
+          "Следите за датами: повторяйте уведомления, пока препятствие не устранено."
+        ],
+        "entries": [
+          "KC.639",
+          "KC.385-3"
+        ],
+        "phrases": [],
+        "documents": [
+          "DOWNTIME_PROTOCOL"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "escalate",
+        "steps_pl": [
+          "Wyznacz klientowi w Formie dokumentowej odpowiedni termin na usunięcie przeszkody z wyraźnym zagrożeniem odstąpienia od umowy; bez takiego zagrożenia nie powstaje prawo odstąpienia (art. 640).",
+          "Nie odstępuj od umowy bez konsultacji z prawnikiem; po bezskutecznym terminie rozliczenie następuje według art. 639 (wynagrodzenie pomniejszone o oszczędności).",
+          "Po odstąpieniu w ciągu 7 dni sporządź protokół inwentaryzacji prac i materiałów (§ 19 ust. 4)."
+        ],
+        "steps_ru": [
+          "Назначьте клиенту в документальной форме разумный срок на устранение препятствия с прямым предупреждением об отказе от договора; без такого предупреждения права отказа не возникает (art. 640).",
+          "Не отказывайтесь от договора без консультации с юристом; после безрезультатного срока расчёт идёт по art. 639 (вознаграждение за вычетом экономии).",
+          "После отказа в течение 7 дней составьте протокол инвентаризации работ и материалов (§ 19 п. 4)."
+        ],
+        "entries": [
+          "KC.640",
+          "KC.639",
+          "KC.385-3"
+        ],
+        "phrases": [],
+        "documents": [
+          "DOWNTIME_PROTOCOL"
+        ],
+        "lawyer": true
+      }
+    ]
+  },
+  {
+    "code": "SIT.CLIENT_WITHDRAWS",
+    "status": "DRAFT",
+    "title_pl": "Klient chce zrezygnować z umowy",
+    "title_ru": "Клиент хочет отказаться от договора",
+    "start": "remote",
+    "questions": [
+      {
+        "id": "remote",
+        "text_pl": "Czy umowa została zawarta poza lokalem przedsiębiorstwa lub na odległość, a klient jest konsumentem?",
+        "text_ru": "Договор заключён вне офиса или дистанционно, а клиент — потребитель?",
+        "answers": [
+          {
+            "text_pl": "Tak",
+            "text_ru": "Да",
+            "next": "days"
+          },
+          {
+            "text_pl": "Nie, umowa zwykła",
+            "text_ru": "Нет, обычный договор",
+            "next": "done"
+          }
+        ]
+      },
+      {
+        "id": "days",
+        "text_pl": "Czy od zawarcia umowy minęło nie więcej niż 14 dni (30 dni, gdy przyjechałeś bez umówionej wizyty)?",
+        "text_ru": "С заключения договора прошло не более 14 дней (30 дней, если вы приехали без договорённости о визите)?",
+        "answers": [
+          {
+            "text_pl": "Tak, w terminie",
+            "text_ru": "Да, в срок",
+            "next": "early"
+          },
+          {
+            "text_pl": "Nie, termin minął i pouczenie zostało przekazane",
+            "text_ru": "Нет, срок прошёл, и информация о праве отказа была передана",
+            "next": "done"
+          },
+          {
+            "text_pl": "Nie, ale pouczenia o prawie odstąpienia nie przekazałem",
+            "text_ru": "Нет, но информацию о праве отказа я не передавал",
+            "next": "no_info"
+          }
+        ]
+      },
+      {
+        "id": "early",
+        "text_pl": "Czy klient pisemnie zażądał rozpoczęcia prac przed upływem terminu (Załącznik 11) i prace już ruszyły?",
+        "text_ru": "Требовал ли клиент письменно начать работы до истечения срока (приложение 11), и работы уже начались?",
+        "answers": [
+          {
+            "text_pl": "Tak, zażądał i prace trwają",
+            "text_ru": "Да, требовал, и работы идут",
+            "next": "paid"
+          },
+          {
+            "text_pl": "Nie, prace jeszcze nie ruszyły",
+            "text_ru": "Нет, работы ещё не начинались",
+            "next": "free"
+          }
+        ]
+      },
+      {
+        "id": "done",
+        "text_pl": "Czy prace są już ukończone i odebrane?",
+        "text_ru": "Работы уже завершены и приняты?",
+        "answers": [
+          {
+            "text_pl": "Tak, odebrane",
+            "text_ru": "Да, приняты",
+            "next": "finished"
+          },
+          {
+            "text_pl": "Nie, jeszcze trwają",
+            "text_ru": "Нет, ещё идут",
+            "next": "art644"
+          }
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "id": "free",
+        "steps_pl": [
+          "Przyjmij odstąpienie (wystarczy e-mail; wzór formularza nie jest obowiązkowy).",
+          "Zwróć wpłaty w ciągu 14 dni od otrzymania oświadczenia, tym samym sposobem płatności.",
+          "Klient nie płaci za nic: nie żądał wcześniejszego rozpoczęcia prac (art. 36 ustawy o prawach konsumenta)."
+        ],
+        "steps_ru": [
+          "Примите отказ (достаточно e-mail; образец формы необязателен).",
+          "Верните платежи в течение 14 дней с получения заявления тем же способом оплаты.",
+          "Клиент ничего не платит: он не требовал начать работы раньше срока (art. 36 закона о правах потребителя)."
+        ],
+        "entries": [
+          "UPK.27",
+          "UPK.35",
+          "UPK.12"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": false
+      },
+      {
+        "id": "paid",
+        "steps_pl": [
+          "Przyjmij odstąpienie i zwróć wpłaty w ciągu 14 dni.",
+          "Klient płaci za prace wykonane do chwili odstąpienia, proporcjonalnie do zakresu, według ceny z umowy (art. 35).",
+          "Sporządź protokół inwentaryzacji wykonanych prac ze zdjęciami i rozlicz."
+        ],
+        "steps_ru": [
+          "Примите отказ и верните платежи в течение 14 дней.",
+          "Клиент оплачивает работы, выполненные до момента отказа, пропорционально объёму по цене из договора (art. 35).",
+          "Составьте протокол инвентаризации выполненных работ с фото и произведите расчёт."
+        ],
+        "entries": [
+          "UPK.35",
+          "UPK.27"
+        ],
+        "phrases": [],
+        "documents": [
+          "FINAL_PROTOCOL"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "no_info",
+        "steps_pl": [
+          "Bez prawidłowego pouczenia klient może odstąpić nawet po wykonaniu prac, termin wydłuża się o 12 miesięcy i klient może nie płacić za wykonane prace (TSUE C-97/22, według omówienia).",
+          "Skonsultuj się z prawnikiem przed odmową przyjęcia odstąpienia i przed windykacją.",
+          "Na przyszłość: przekazuj Załącznik 11 przed podpisaniem umowy i zbieraj potwierdzenie."
+        ],
+        "steps_ru": [
+          "Без надлежащей информации клиент может отказаться даже после выполнения работ, срок продлевается на 12 месяцев, и клиент может не платить за выполненное (TSUE C-97/22, по обзору).",
+          "Проконсультируйтесь с юристом, прежде чем отказывать в принятии отказа и взыскивать оплату.",
+          "На будущее: передавайте приложение 11 до подписания договора и берите подтверждение."
+        ],
+        "entries": [
+          "UPK.12",
+          "UPK.27",
+          "UPK.38"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": true
+      },
+      {
+        "id": "art644",
+        "steps_pl": [
+          "Klient może odstąpić w każdej chwili przed ukończeniem dzieła; płaci umówione wynagrodzenie pomniejszone o to, co faktycznie zaoszczędziłeś (art. 644).",
+          "Wysokość oszczędności wykazuje klient: prowadź rozliczenie kosztów na obiekcie (materiały, robocizna).",
+          "W ciągu 7 dni sporządź protokół inwentaryzacji prac i materiałów ze zdjęciami (§ 19 ust. 4).",
+          "Rozlicz: wykonane prace, zakupione materiały i wynagrodzenie według art. 644."
+        ],
+        "steps_ru": [
+          "Клиент вправе отказаться в любой момент до завершения работ; он платит оговорённое вознаграждение за вычетом того, что вы реально сэкономили (art. 644).",
+          "Размер экономии доказывает клиент: ведите учёт затрат по объекту (материалы, работа).",
+          "В течение 7 дней составьте протокол инвентаризации работ и материалов с фото (§ 19 п. 4).",
+          "Рассчитайтесь: выполненные работы, закупленные материалы и вознаграждение по art. 644."
+        ],
+        "entries": [
+          "KC.644",
+          "KC.639"
+        ],
+        "phrases": [],
+        "documents": [
+          "FINAL_PROTOCOL",
+          "PHOTO_REPORT"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "finished",
+        "steps_pl": [
+          "Prace są odebrane: to nie odstąpienie, lecz ewentualna reklamacja (rękojmia).",
+          "Wskaż klientowi tryb reklamacji: zgłoszenie w Formie dokumentowej, odpowiedź w 14 dni (§ 16 ust. 5)."
+        ],
+        "steps_ru": [
+          "Работы приняты: это не отказ от договора, а возможная рекламация (rękojmia).",
+          "Объясните клиенту порядок рекламации: заявление в документальной форме, ответ в течение 14 дней (§ 16 п. 5)."
+        ],
+        "entries": [
+          "KC.556",
+          "KC.638"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": false
+      }
+    ]
+  },
+  {
+    "code": "SIT.CLIENT_NOT_PAYING",
+    "status": "DRAFT",
+    "title_pl": "Klient nie płaci",
+    "title_ru": "Клиент не платит",
+    "start": "goal",
+    "questions": [
+      {
+        "id": "goal",
+        "text_pl": "Co chcesz osiągnąć?",
+        "text_ru": "Чего вы хотите добиться?",
+        "answers": [
+          {
+            "text_pl": "Odzyskać należność z odsetkami",
+            "text_ru": "Вернуть долг с процентами",
+            "next": "who"
+          },
+          {
+            "text_pl": "Wstrzymać prace do czasu zapłaty",
+            "text_ru": "Приостановить работы до оплаты",
+            "next": "suspend"
+          },
+          {
+            "text_pl": "Odstąpić od umowy z powodu braku zapłaty",
+            "text_ru": "Отказаться от договора из-за неоплаты",
+            "next": "withdraw"
+          }
+        ]
+      },
+      {
+        "id": "who",
+        "text_pl": "Kto jest zamawiającym?",
+        "text_ru": "Кто заказчик?",
+        "answers": [
+          {
+            "text_pl": "Konsument (osoba prywatna)",
+            "text_ru": "Потребитель (частное лицо)",
+            "next": "interest_consumer"
+          },
+          {
+            "text_pl": "Przedsiębiorca (firma)",
+            "text_ru": "Предприниматель (фирма)",
+            "next": "interest_company"
+          }
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "id": "interest_consumer",
+        "steps_pl": [
+          "Wezwij do zapłaty w Formie dokumentowej, wskazując kwotę i termin.",
+          "Naliczaj odsetki ustawowe za opóźnienie (art. 481 KC); stawka zależy od stopy referencyjnej NBP i się zmienia, więc nie wpisuj stałej wartości w dokumentach: sprawdź aktualną.",
+          "Nie zwlekaj z dochodzeniem należności: roszczenia z umowy o dzieło przedawniają się po 2 latach od oddania dzieła (art. 646; termin do weryfikacji)."
+        ],
+        "steps_ru": [
+          "Направьте требование об оплате в документальной форме, указав сумму и срок.",
+          "Начисляйте законные проценты за просрочку (art. 481 KC); ставка зависит от ставки NBP и меняется, поэтому не вписывайте фиксированное значение в документы: проверяйте актуальную.",
+          "Не откладывайте взыскание: требования по договору подряда (dzieło) погашаются давностью через 2 года после сдачи работы (art. 646; срок проверить)."
+        ],
+        "entries": [
+          "KC.481",
+          "KC.627"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": false
+      },
+      {
+        "id": "interest_company",
+        "steps_pl": [
+          "Wezwij do zapłaty w Formie dokumentowej, wskazując kwotę i termin.",
+          "Wobec przedsiębiorcy należą się odsetki w transakcjach handlowych (wyższe niż kodeksowe) oraz rekompensata za koszty odzyskiwania należności (40, 70 lub 100 euro zależnie od kwoty; do weryfikacji).",
+          "Nie zwlekaj z dochodzeniem należności (przedawnienie: art. 646; termin do weryfikacji)."
+        ],
+        "steps_ru": [
+          "Направьте требование об оплате в документальной форме, указав сумму и срок.",
+          "С предпринимателя причитаются проценты по коммерческим сделкам (выше кодексных) и компенсация расходов на взыскание (40, 70 или 100 евро в зависимости от суммы; проверить).",
+          "Не откладывайте взыскание (давность: art. 646; срок проверить)."
+        ],
+        "entries": [
+          "KC.481",
+          "KC.627"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": false
+      },
+      {
+        "id": "suspend",
+        "steps_pl": [
+          "Możesz wstrzymać prace, gdy opóźnienie klienta przekracza 7 dni, po wezwaniu w Formie dokumentowej z dodatkowym terminem nie krótszym niż 7 dni (§ 6 ust. 5).",
+          "Termin wykonania prac ulega przesunięciu o czas wstrzymania.",
+          "Zapisz wstrzymanie: data, treść wezwania i dowód doręczenia."
+        ],
+        "steps_ru": [
+          "Вы можете приостановить работы, когда просрочка клиента превышает 7 дней, после требования в документальной форме с дополнительным сроком не менее 7 дней (§ 6 п. 5).",
+          "Срок выполнения работ сдвигается на время приостановки.",
+          "Зафиксируйте приостановку: дату, текст требования и доказательство доставки."
+        ],
+        "entries": [
+          "KC.481",
+          "KC.77-2"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": false
+      },
+      {
+        "id": "withdraw",
+        "steps_pl": [
+          "Odstąpienie z powodu braku zapłaty wymaga zwłoki klienta i wyznaczenia dodatkowego terminu nie krótszego niż 14 dni z wyraźnym zagrożeniem odstąpienia (art. 491; § 19 ust. 3 lit. b).",
+          "Bez takiego wezwania odstąpienie jest nieskuteczne.",
+          "Skonsultuj się z prawnikiem przed odstąpieniem (pytanie L-ZWLOKA do prawnika).",
+          "Po odstąpieniu w ciągu 7 dni sporządź protokół inwentaryzacji (§ 19 ust. 4); należy się wynagrodzenie za wykonane prace i zwrot kosztów materiałów."
+        ],
+        "steps_ru": [
+          "Отказ из-за неоплаты требует просрочки по вине клиента и назначения дополнительного срока не менее 14 дней с прямым предупреждением об отказе (art. 491; § 19 п. 3 б).",
+          "Без такого требования отказ недействителен.",
+          "Проконсультируйтесь с юристом до отказа (вопрос L-ZWLOKA юристу).",
+          "После отказа в течение 7 дней составьте протокол инвентаризации (§ 19 п. 4); вам причитается вознаграждение за выполненные работы и возмещение затрат на материалы."
+        ],
+        "entries": [
+          "KC.491",
+          "KC.639"
+        ],
+        "phrases": [],
+        "documents": [
+          "FINAL_PROTOCOL"
+        ],
+        "lawyer": true
+      }
+    ]
+  },
+  {
+    "code": "SIT.WARRANTY_CLAIM",
+    "status": "DRAFT",
+    "title_pl": "Klient zgłasza wadę po odbiorze",
+    "title_ru": "Клиент заявляет о недостатке после приёмки",
+    "start": "form",
+    "questions": [
+      {
+        "id": "form",
+        "text_pl": "Czy klient zgłosił wadę w Formie dokumentowej, wskazując miejsce i objaw?",
+        "text_ru": "Заявил ли клиент о недостатке в документальной форме, указав место и признак?",
+        "answers": [
+          {
+            "text_pl": "Tak",
+            "text_ru": "Да",
+            "next": "decision"
+          },
+          {
+            "text_pl": "Nie, tylko ustnie",
+            "text_ru": "Нет, только устно",
+            "next": "ask"
+          }
+        ]
+      },
+      {
+        "id": "decision",
+        "text_pl": "Czy sprawa dotyczy ryzyka, o którym klient był poinformowany, a jego decyzja jest podpisana w Protokole informacji i decyzji (Załącznik 9)?",
+        "text_ru": "Касается ли вопрос риска, о котором клиент был предупреждён, и его решение подписано в Протоколе информирования и решений (приложение 9)?",
+        "answers": [
+          {
+            "text_pl": "Tak, jest podpisany protokół",
+            "text_ru": "Да, есть подписанный протокол",
+            "next": "decided"
+          },
+          {
+            "text_pl": "Nie",
+            "text_ru": "Нет",
+            "next": "scope"
+          }
+        ]
+      },
+      {
+        "id": "scope",
+        "text_pl": "Czy wada leży w Twoim zakresie prac i nie wynika z prac osób trzecich, wilgoci lub użytkowania?",
+        "text_ru": "Недостаток лежит в вашем объёме работ и не вызван работами третьих лиц, влагой или эксплуатацией?",
+        "answers": [
+          {
+            "text_pl": "Tak, to moja praca",
+            "text_ru": "Да, это моя работа",
+            "next": "fix"
+          },
+          {
+            "text_pl": "Nie, przyczyna jest zewnętrzna",
+            "text_ru": "Нет, причина внешняя",
+            "next": "refuse"
+          }
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "id": "ask",
+        "steps_pl": [
+          "Poproś klienta o zgłoszenie w Formie dokumentowej: miejsce, objaw, zdjęcia (§ 16 ust. 5).",
+          "Nie obiecuj usunięcia wady na ustne żądanie.",
+          "Odpowiedz w ciągu 14 dni od zgłoszenia."
+        ],
+        "steps_ru": [
+          "Попросите клиента подать заявление в документальной форме: место, признак, фото (§ 16 п. 5).",
+          "Не обещайте устранить недостаток по устной просьбе.",
+          "Ответьте в течение 14 дней со дня заявления."
+        ],
+        "entries": [
+          "KC.556",
+          "KC.77-2"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": false
+      },
+      {
+        "id": "decided",
+        "steps_pl": [
+          "Pokaż klientowi podpisany protokół: wykonałeś pracę zgodnie z jego decyzją, a zakres prac określa umowa wraz z decyzjami.",
+          "Gwarancja nie obejmuje skutków ryzyka z protokołu (§ 16 ust. 3 lit. f), ale rękojmia wobec konsumenta nie jest wyłączona: oceń, czy wada nie wynika też z Twojej pracy.",
+          "Odpowiedz klientowi pisemnie w ciągu 14 dni.",
+          "Zakres, w jakim podpisana decyzja klienta wpływa na rękojmię, to pytanie do prawnika (L3): przy sporze skonsultuj się z prawnikiem."
+        ],
+        "steps_ru": [
+          "Покажите клиенту подписанный протокол: вы выполнили работу в соответствии с его решением, а объём работ определяет договор вместе с решениями.",
+          "Гарантия не покрывает последствия риска из протокола (§ 16 п. 3 f), но rękojmia перед потребителем не исключена: оцените, не вызван ли недостаток и вашей работой.",
+          "Ответьте клиенту письменно в течение 14 дней.",
+          "В какой мере подписанное решение клиента влияет на rękojmię — вопрос юристу (L3): при споре проконсультируйтесь с юристом."
+        ],
+        "entries": [
+          "KC.557",
+          "KC.558",
+          "KC.634"
+        ],
+        "phrases": [],
+        "documents": [
+          "DECISION_PROTOCOL"
+        ],
+        "lawyer": true
+      },
+      {
+        "id": "fix",
+        "steps_pl": [
+          "Zaproponuj termin oględzin i usuń uznaną wadę na swój koszt w terminie technologicznie uzasadnionym (§ 16 ust. 5).",
+          "Udokumentuj stan przed i po zdjęciami.",
+          "Odpowiedz w ciągu 14 dni od zgłoszenia."
+        ],
+        "steps_ru": [
+          "Предложите срок осмотра и устраните признанный недостаток за свой счёт в технологически обоснованный срок (§ 16 п. 5).",
+          "Задокументируйте состояние до и после фотографиями.",
+          "Ответьте в течение 14 дней со дня заявления."
+        ],
+        "entries": [
+          "KC.556",
+          "KC.638",
+          "KC.558"
+        ],
+        "phrases": [],
+        "documents": [
+          "PHOTO_REPORT"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "refuse",
+        "steps_pl": [
+          "Wykonaj oględziny z klientem, zrób zdjęcia i opisz przyczynę (prace osób trzecich, wilgoć, użytkowanie).",
+          "Odpowiedz w ciągu 14 dni w Formie dokumentowej z uzasadnieniem; nie odrzucaj reklamacji «z góry».",
+          "Jeżeli spór trwa, skonsultuj się z prawnikiem: wobec konsumenta rękojmia nie może być ograniczona umową (art. 558)."
+        ],
+        "steps_ru": [
+          "Проведите осмотр вместе с клиентом, сделайте фото и опишите причину (работы третьих лиц, влага, эксплуатация).",
+          "Ответьте в течение 14 дней в документальной форме с обоснованием; не отклоняйте рекламацию «с порога».",
+          "Если спор продолжается, проконсультируйтесь с юристом: перед потребителем rękojmia не может быть ограничена договором (art. 558)."
+        ],
+        "entries": [
+          "KC.556",
+          "KC.558",
+          "KC.557"
+        ],
+        "phrases": [],
+        "documents": [],
+        "lawyer": true
+      }
+    ]
+  },
+  {
+    "code": "SIT.HIDDEN_PROBLEM",
+    "status": "DRAFT",
+    "title_pl": "W trakcie prac wyszedł ukryty problem podłoża",
+    "title_ru": "В ходе работ вскрылась скрытая проблема основания",
+    "start": "cover",
+    "questions": [
+      {
+        "id": "cover",
+        "text_pl": "Czy problem dotyczy elementu, który zaraz zakryje następna warstwa (np. hydroizolacja, zbrojenie, instalacja pod gładzią)?",
+        "text_ru": "Проблема касается элемента, который скоро закроет следующий слой (например, гидроизоляция, армирование, коммуникации под шпаклёвкой)?",
+        "answers": [
+          {
+            "text_pl": "Tak, zaraz zostanie zakryty",
+            "text_ru": "Да, скоро будет закрыт",
+            "next": "concealed"
+          },
+          {
+            "text_pl": "Nie",
+            "text_ru": "Нет",
+            "next": "extra_q"
+          }
+        ]
+      },
+      {
+        "id": "extra_q",
+        "text_pl": "Czy usunięcie problemu wymaga prac poza zakresem kosztorysu?",
+        "text_ru": "Требует ли устранение проблемы работ вне объёма сметы?",
+        "answers": [
+          {
+            "text_pl": "Tak, potrzebne prace dodatkowe",
+            "text_ru": "Да, нужны дополнительные работы",
+            "next": "extra"
+          },
+          {
+            "text_pl": "Nie, mieści się w zakresie",
+            "text_ru": "Нет, укладывается в объём",
+            "next": "inform"
+          }
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "id": "concealed",
+        "steps_pl": [
+          "Przed zakryciem zawiadom klienta w Formie dokumentowej z wyprzedzeniem co najmniej 1 dnia roboczego (§ 13 ust. 1).",
+          "Zrób zdjęcia z datą i oznaczeniem miejsca; sporządź Protokół odbioru robót zanikających (Załącznik 6).",
+          "Jeżeli klient się nie stawi, sporządź protokół jednostronny ze zdjęciami i kontynuuj prace (§ 13 ust. 3)."
+        ],
+        "steps_ru": [
+          "Перед закрытием уведомите клиента в документальной форме не менее чем за 1 рабочий день (§ 13 п. 1).",
+          "Сделайте фото с датой и привязкой к месту; составьте Протокол приёмки скрытых работ (приложение 6).",
+          "Если клиент не явится, составьте односторонний протокол с фото и продолжайте работы (§ 13 п. 3)."
+        ],
+        "entries": [
+          "KC.634"
+        ],
+        "phrases": [],
+        "documents": [
+          "CONCEALED_WORKS_PROTOCOL",
+          "PHOTO_REPORT"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "extra",
+        "steps_pl": [
+          "Wstrzymaj prace na tej powierzchni i zrób zdjęcia.",
+          "Zawiadom klienta niezwłocznie (art. 634), opisz stan i przedstaw warianty z ceną.",
+          "Prace dodatkowe wykonuj tylko na podstawie Zlecenia (Załącznik 10) zaakceptowanego w Formie dokumentowej (§ 5 ust. 1); czynności zapobiegające szkodzie możesz wykonać od razu i zgłosić w ciągu 24 godzin (§ 5 ust. 3).",
+          "Decyzję klienta zapisz w Protokole informacji i decyzji."
+        ],
+        "steps_ru": [
+          "Приостановите работы на этой поверхности и сделайте фото.",
+          "Немедленно уведомите клиента (art. 634), опишите состояние и предложите варианты с ценой.",
+          "Дополнительные работы выполняйте только по Поручению (приложение 10), принятому в документальной форме (§ 5 п. 1); действия для предотвращения ущерба можно выполнить сразу и сообщить в течение 24 часов (§ 5 п. 3).",
+          "Решение клиента запишите в Протокол информирования и решений."
+        ],
+        "entries": [
+          "KC.634",
+          "KC.640",
+          "TECH.PREP"
+        ],
+        "phrases": [
+          "COMM_RISK_LOOSE_SUBSTRATE_REMOVAL",
+          "COMM_RISK_DELAMINATION_REPAIR"
+        ],
+        "documents": [
+          "DECISION_PROTOCOL",
+          "ESTIMATE"
+        ],
+        "lawyer": false
+      },
+      {
+        "id": "inform",
+        "steps_pl": [
+          "Zrób zdjęcia i dopisz ustalenie do badania podłoża.",
+          "Powiadom klienta w Formie dokumentowej o stanie i sposobie naprawy w ramach zakresu.",
+          "Kontynuuj według technologii i zachowaj zdjęcia."
+        ],
+        "steps_ru": [
+          "Сделайте фото и допишите находку в обследование основания.",
+          "Сообщите клиенту в документальной форме о состоянии и способе устранения в рамках объёма.",
+          "Продолжайте по технологии и сохраните фото."
+        ],
+        "entries": [
+          "KC.634",
+          "KC.355",
+          "TECH.PREP"
+        ],
+        "phrases": [],
+        "documents": [
+          "PHOTO_REPORT"
+        ],
+        "lawyer": false
+      }
+    ]
+  }
+]
