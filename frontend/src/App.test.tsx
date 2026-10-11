@@ -492,6 +492,22 @@ describe('App authentication component', () => {
     expect(screen.queryByLabelText('estimates-empty-state')).not.toBeInTheDocument();
   });
 
+  it('the header stays on the screen while the page scrolls: it is sticky and no ancestor of it is a scroll container (Stage 17)', async () => {
+    vi.mocked(api.loginWithTelegram).mockResolvedValueOnce({
+      access_token: 'mock-jwt-token', token_type: 'bearer', is_dev_auth: true,
+      user: { id: '11111111-1111-1111-1111-111111111111', telegram_user_id: 999999999, username: 'dev_contractor', first_name: 'Jan', last_name: 'Kowalski', language_code: 'pl', created_at: '2026-09-08T12:00:00Z', updated_at: '2026-09-08T12:00:00Z' },
+    });
+    render(<App />);
+    const header = await screen.findByLabelText('app-header');
+    expect(header.className).toMatch(/\bsticky\b/);
+    expect(header.className).toMatch(/\btop-0\b/);
+    // `overflow-x-hidden` / `-auto` / `-scroll` on an ancestor makes it the scroll container of the sticky header, which then
+    // never sticks to the screen. `overflow-x-clip` cuts the same overflow without that effect.
+    for (let node: HTMLElement | null = header.parentElement; node; node = node.parentElement) {
+      expect(node.className, `an ancestor (${node.tagName}) is a scroll container`).not.toMatch(/\boverflow(-[xy])?-(hidden|auto|scroll)\b/);
+    }
+  });
+
   it('the main menu has the six sections in the order of the owner: clients, objects, price, archive, sent documents, knowledge base (Stage 16K.5, 17D)', async () => {
     vi.mocked(api.loginWithTelegram).mockResolvedValueOnce({
       access_token: 'mock-jwt-token', token_type: 'bearer', is_dev_auth: true,

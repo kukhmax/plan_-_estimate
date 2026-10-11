@@ -46,8 +46,10 @@ const AppContent: React.FC = () => {
   ];
 
   return (
+    // overflow-x-clip, not -hidden: "hidden" makes this block a scroll container, the sticky header then sticks to it (it never
+    // scrolls) and not to the screen -- the header scrolled away on the phone (Stage 17). Guarded by App.test.tsx.
     <div
-      className="min-h-screen flex flex-col items-center justify-start w-full overflow-x-hidden transition-colors"
+      className="min-h-screen flex flex-col items-center justify-start w-full overflow-x-clip transition-colors"
       style={{
         backgroundColor: 'var(--tg-theme-bg-color)',
         color: 'var(--tg-theme-text-color)',
@@ -70,7 +72,8 @@ const AppContent: React.FC = () => {
         <header
           aria-label="app-header"
           className="sticky top-0 z-30 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 mb-4 px-4 sm:px-6 py-1 flex items-center justify-between gap-2 min-h-14"
-          style={{ backgroundColor: 'var(--tg-theme-bg-color)' }}
+          // a hairline under the pinned header, so scrolled content does not look cut off beneath it
+          style={{ backgroundColor: 'var(--tg-theme-bg-color)', borderBottom: '1px solid var(--tg-theme-secondary-bg-color)' }}
         >
           <div className="flex items-center gap-1 min-w-0">
             {!isLoading && user && (

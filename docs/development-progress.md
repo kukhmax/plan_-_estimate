@@ -1150,6 +1150,13 @@ Owner approved ("делаем 15E, лимит 60 фото ок"). Details: `docs
 - **Production:** none — no migration, no route; the code travels with 15F / 15H (the 60-photo render on the 1 OCPU server is measured at 15H).
 - **Next (only on owner approval):** 15F — issuing: journal of issued documents (numbering by date-time plus a running number per client and object), Telegram `sendDocument`, "Wyślij PDF" buttons, HTTP errors for the document exceptions.
 
+### Stage 17F.1 — the pinned header (2026-10-11, IMPLEMENTED LOCALLY — frontend only)
+Stage 17E.1 + 17C.3 were deployed and the owner's phone check passed ("Все PASS"); one visible defect: the header with the menu scrolled away with the page.
+- **Cause:** the header was already `sticky top-0` (Stage 16K), but the application's outer block had `overflow-x-hidden`. `overflow-x: hidden` makes a block a scroll container, so the sticky header stuck to that block (which never scrolls: it grows with its content) and not to the screen. Reproduced in Chromium before the fix: after scrolling 3984 px the header was at `top = -3984`.
+- **Fix:** `overflow-x-hidden` -> `overflow-x-clip` on the outer block (cuts the same horizontal overflow, creates no scroll container; `body { overflow-x: hidden }` in `index.css` propagates to the screen and does not interfere); a hairline under the header so scrolled content does not look cut off beneath it. Full-screen windows (menu z-40, dialogs and photo viewers z-50 and higher) stay above the header (z-30).
+- **Tests:** `App.test.tsx` — the header is `sticky top-0` and no ancestor of it has `overflow-(x|y)-(hidden|auto|scroll)` (the mutant "hidden again" fails it); in Chromium (320 / 390 / 412 px): after scrolling 3.6–4.0 thousand px the header is at `top = 0`, the menu opens while scrolled, no horizontal overflow. Frontend 2382 passed, `tsc`, `vite build`.
+- **Production:** frontend only, no backend, no migration: `docs/STAGE_17_DEPLOY_FRONTEND_ONLY_RU.sh`.
+
 ### Stage 17C.3 — the technical basis of the risks (2026-10-11, IMPLEMENTED LOCALLY — the second content batch of Q2)
 The owner asked when the risk-specific technical basis would come ("это когда доделаем?") and approved doing it before the deployment of 17E.1.
 - **Sources (+10, all DRAFT):** ITB WTWiORB part B issue 4 (painting works); PN-70/B-10100 (plaster tolerances; withdrawn, still referred to); PN-EN ISO 2409 (cross-cut test); the technical card of Atlas OMEGA gypsum skim coat; Polski Gips — technical conditions of dry-lining systems (2023); Rigips — Q1–Q4; Knauf glass-fibre fleece; Greinplast guide (grease, mould); Murator (priming, salts); Tytan Betonkontakt card. Norms and ITB have no link (paid texts); the manufacturers' documents have.
