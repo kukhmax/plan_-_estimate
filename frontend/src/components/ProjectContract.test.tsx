@@ -396,7 +396,11 @@ describe('ProjectContract (Stage 16E.1)', () => {
       const button = await screen.findByLabelText('sign-contract');
       await act(async () => { fireEvent.click(button); });
       expect(button).toHaveTextContent('Naciśnij ponownie');
-      fireEvent.change(screen.getByLabelText('contract-signed-on'), { target: { value: '2026-10-11' } });
+      // a date that differs from the default (today) on any day the test runs: a fixed date failed on that very day
+      const input = screen.getByLabelText('contract-signed-on') as HTMLInputElement;
+      const other = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      expect(other).not.toBe(input.value);
+      fireEvent.change(input, { target: { value: other } });
       expect(button).toHaveTextContent('Umowa podpisana');
       expect(api.signContract).not.toHaveBeenCalled();
     });

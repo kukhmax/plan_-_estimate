@@ -362,6 +362,7 @@ export function CommunicationPanel({
           targets={[...new Set(items.map((app) => app.phrase_code))].map((code) => ({ kind: 'PHRASE' as const, target: code }))}
           heading={t.knowledge.basis_phrases}
           name="knowledge-basis-phrases"
+          kinds={['STATUTE']}
         />
       )}
 

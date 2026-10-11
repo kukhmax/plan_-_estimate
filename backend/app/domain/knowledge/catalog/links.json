@@ -129,7 +129,8 @@
     "target_kind": "RISK",
     "target": "CRACK_RECURRENCE",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.FLEECE"
     ]
   },
   {
@@ -144,7 +145,9 @@
     "target": "BOARD_MOVEMENT_CRACK",
     "entries": [
       "KC.634",
-      "KC.557"
+      "KC.557",
+      "TECH.GK-SYSTEM",
+      "TECH.FLEECE"
     ]
   },
   {
@@ -160,7 +163,8 @@
     "target": "MOISTURE_BLOCK_FINISHING",
     "entries": [
       "KC.634",
-      "KC.557"
+      "KC.557",
+      "TECH.MOISTURE"
     ]
   },
   {
@@ -175,7 +179,9 @@
     "target_kind": "RISK",
     "target": "WEAK_ADHESION_PREP",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.ADHESION",
+      "TECH.PREP"
     ]
   },
   {
@@ -189,7 +195,8 @@
     "target_kind": "RISK",
     "target": "LOOSE_SUBSTRATE_REMOVAL",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.PREP"
     ]
   },
   {
@@ -203,7 +210,8 @@
     "target_kind": "RISK",
     "target": "DUSTY_SUBSTRATE_PRIME",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.PREP"
     ]
   },
   {
@@ -217,7 +225,9 @@
     "target_kind": "RISK",
     "target": "OILY_SUBSTRATE_DEGREASE",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.STAINS-MOLD",
+      "TECH.PREP"
     ]
   },
   {
@@ -231,7 +241,9 @@
     "target_kind": "RISK",
     "target": "MOLD_TREATMENT_BEFORE_FINISH",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.STAINS-MOLD",
+      "TECH.MOISTURE"
     ]
   },
   {
@@ -245,7 +257,9 @@
     "target_kind": "RISK",
     "target": "DELAMINATION_REPAIR",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.ADHESION",
+      "TECH.PREP"
     ]
   },
   {
@@ -259,7 +273,8 @@
     "target_kind": "RISK",
     "target": "UNEVENNESS_PREP_INCREASED",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.FLATNESS"
     ]
   },
   {
@@ -273,7 +288,9 @@
     "target_kind": "RISK",
     "target": "JOINT_TAPE_MISSING_REWORK",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.GK-Q",
+      "TECH.GK-SYSTEM"
     ]
   },
   {
@@ -287,7 +304,8 @@
     "target_kind": "RISK",
     "target": "FASTENER_CORROSION_FIX",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.GK-SYSTEM"
     ]
   },
   {
@@ -301,7 +319,9 @@
     "target_kind": "RISK",
     "target": "JOINT_GAP_FILLING",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.GK-SYSTEM",
+      "TECH.GK-Q"
     ]
   },
   {
@@ -315,7 +335,9 @@
     "target_kind": "RISK",
     "target": "EFFLORESCENCE_CAUSE_CHECK",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.EFFLORESCENCE",
+      "TECH.MOISTURE"
     ]
   },
   {
@@ -329,7 +351,8 @@
     "target_kind": "RISK",
     "target": "BLOW_HOLES_FILLING",
     "entries": [
-      "KC.634"
+      "KC.634",
+      "TECH.CONCRETE-PORES"
     ]
   },
   {

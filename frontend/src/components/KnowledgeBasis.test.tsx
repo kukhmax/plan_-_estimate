@@ -181,21 +181,38 @@ describe('KnowledgeBasis (Stage 17E)', () => {
       resolved_at: null, position: 0, created_at: '2026-09-12T08:00:00Z', updated_at: '2026-09-12T08:00:00Z',
     });
 
-    it('the risks of an inspection share ONE block of the legal basis, not one under every card (17E.1)', async () => {
+    it('the law is ONE block for the list; every risk card carries its own technical basis (17E.1, 17C.3)', async () => {
       vi.mocked(api.fetchKnowledgeLinkIndex).mockResolvedValue({
         items: [
-          { target_kind: 'RISK', target: 'MOISTURE_BLOCK_FINISHING', entries: [ITEM('KC.634'), ITEM('KC.557')] },
-          { target_kind: 'RISK', target: 'CRACK_RECURRENCE', entries: [ITEM('KC.634')] },
+          { target_kind: 'RISK', target: 'MOISTURE_BLOCK_FINISHING', entries: [ITEM('KC.634'), ITEM('KC.557'), ITEM('TECH.MOISTURE', { kind: 'OTHER' })] },
+          { target_kind: 'RISK', target: 'CRACK_RECURRENCE', entries: [ITEM('KC.634'), ITEM('TECH.FLEECE', { kind: 'OTHER' })] },
         ],
       });
       vi.mocked(risksApi.fetchRisks).mockResolvedValue({
         items: [riskRow('r1', 'MOISTURE_BLOCK_FINISHING', true), riskRow('r2', 'CRACK_RECURRENCE', false)], total: 2,
       });
       render(<I18nProvider><RiskPanel projectId="p" roomId="room" inspectionId="ins" /></I18nProvider>);
-      const toggle = await screen.findByLabelText('knowledge-basis-risks-toggle');
-      expect(toggle).toHaveTextContent('Podstawa prawna dla tych ryzyk (2)'); // KC.634 once, KC.557 once
-      expect(screen.getAllByLabelText(/^knowledge-basis.*-toggle$/)).toHaveLength(1);
-      expect(screen.queryByLabelText(/knowledge-basis-risk-/)).toBeNull();
+      const legal = await screen.findByLabelText('knowledge-basis-risks-toggle');
+      expect(legal).toHaveTextContent('Podstawa prawna dla tych ryzyk (2)'); // KC.634 once, KC.557 once, no technical entry
+      fireEvent.click(legal);
+      expect(screen.getByLabelText('knowledge-basis-risks-entry-KC.634')).toBeInTheDocument();
+      expect(screen.queryByLabelText('knowledge-basis-risks-entry-TECH.MOISTURE')).toBeNull();
+      // each card: its own norms and technical cards, never the law again
+      const moisture = await screen.findByLabelText('knowledge-basis-technical-MOISTURE_BLOCK_FINISHING-toggle');
+      expect(moisture).toHaveTextContent('Podstawa techniczna (1)');
+      fireEvent.click(moisture);
+      expect(screen.getByLabelText('knowledge-basis-technical-MOISTURE_BLOCK_FINISHING-entry-TECH.MOISTURE')).toBeInTheDocument();
+      expect(screen.queryByLabelText('knowledge-basis-technical-MOISTURE_BLOCK_FINISHING-entry-KC.634')).toBeNull();
+      expect(await screen.findByLabelText('knowledge-basis-technical-CRACK_RECURRENCE-toggle')).toHaveTextContent('Podstawa techniczna (1)');
+      expect(screen.getAllByLabelText(/^knowledge-basis-risks-toggle$/)).toHaveLength(1);
+    });
+
+    it('a risk without a technical entry shows no technical block at all', async () => {
+      vi.mocked(api.fetchKnowledgeLinkIndex).mockResolvedValue({ items: [{ target_kind: 'RISK', target: 'CRACK_RECURRENCE', entries: [ITEM('KC.634')] }] });
+      vi.mocked(risksApi.fetchRisks).mockResolvedValue({ items: [riskRow('r2', 'CRACK_RECURRENCE', false)], total: 1 });
+      render(<I18nProvider><RiskPanel projectId="p" roomId="room" inspectionId="ins" /></I18nProvider>);
+      await screen.findByLabelText('knowledge-basis-risks-toggle');
+      expect(screen.queryByLabelText('knowledge-basis-technical-CRACK_RECURRENCE-toggle')).toBeNull();
     });
 
     it('the phrases for the client share one block that says why they must be said', async () => {

@@ -2792,6 +2792,7 @@
     "current_text": "Действующий текст: {designation}",
     "basis_risks": "Правовое основание по этим рискам ({count})",
     "basis_phrases": "Почему это нужно сказать клиенту ({count})",
-    "basis_document": "Правовое основание документа ({count})"
+    "basis_document": "Правовое основание документа ({count})",
+    "basis_technical": "Техническое основание ({count})"
   }
 }

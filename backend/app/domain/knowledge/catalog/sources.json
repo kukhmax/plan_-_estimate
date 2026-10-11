@@ -22,5 +22,82 @@
     "designation": "RODO, UE 2016/679",
     "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
     "status": "DRAFT"
+  },
+  {
+    "code": "ITB.WTWIORB-B4",
+    "kind": "ITB",
+    "title_pl": "ITB — Warunki techniczne wykonania i odbioru robót budowlanych, część B, zeszyt 4: Roboty malarskie",
+    "designation": "ITB, WTWiORB cz. B z. 4",
+    "status": "DRAFT"
+  },
+  {
+    "code": "PN-70-B-10100",
+    "kind": "NORM",
+    "title_pl": "PN-70/B-10100 Roboty tynkowe — Tynki zwykłe — Wymagania i badania przy odbiorze (norma wycofana, nadal przywoływana w praktyce i w WTWiORB)",
+    "designation": "PN-70/B-10100",
+    "status": "DRAFT"
+  },
+  {
+    "code": "PN-EN-ISO-2409",
+    "kind": "NORM",
+    "title_pl": "PN-EN ISO 2409 Farby i lakiery — Badanie metodą siatki nacięć",
+    "designation": "PN-EN ISO 2409",
+    "status": "DRAFT"
+  },
+  {
+    "code": "TDS.ATLAS-OMEGA",
+    "kind": "OTHER",
+    "title_pl": "Atlas (Dolina Nidy) — karta techniczna: biała gipsowa gładź szpachlowa OMEGA",
+    "designation": "karta techniczna producenta",
+    "url": "https://baza.atlas.com.pl/pliki/pl_8755_20190724_133830.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "PG.WTWIO-SSZ",
+    "kind": "OTHER",
+    "title_pl": "Stowarzyszenie Polski Gips — Warunki techniczne wykonania i odbioru Systemów Suchej Zabudowy (wyd. 2023)",
+    "designation": "Polski Gips WTWiO SSZ 2023",
+    "url": "https://polskigips.pl/wp-content/uploads/2023/04/Polski_Gips_WTWiO_standard_A5_web_042023_L.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "RIGIPS.Q1-Q4",
+    "kind": "OTHER",
+    "title_pl": "Rigips — Standardy szpachlowania płyt g-k od Q1 do Q4",
+    "designation": "Rigips, poradnik producenta",
+    "url": "https://www.rigips.pl/aktualnosci/standardy-szpachlowania-od-q1-q4",
+    "status": "DRAFT"
+  },
+  {
+    "code": "TDS.KNAUF-FLEECE",
+    "kind": "OTHER",
+    "title_pl": "Knauf — tapeta (włóknina) z włókna szklanego, karta produktu",
+    "designation": "karta produktu producenta",
+    "url": "https://knauf.com/pl-PL/p/produkt/knauf-tapeta-z-wlokna-szklanego-21863_0120",
+    "status": "DRAFT"
+  },
+  {
+    "code": "GREINPLAST.PLAMY",
+    "kind": "OTHER",
+    "title_pl": "Greinplast — poradnik: usuwanie tłustych plam, pleśni i grzybów przed malowaniem",
+    "designation": "poradnik producenta",
+    "url": "https://www.greinplast.pl/poradnik/wnetrza/jak-usunac-tluste-plamy-plesnie-i-grzyby-przed-malowaniem.html",
+    "status": "DRAFT"
+  },
+  {
+    "code": "MURATOR.GRUNT",
+    "kind": "OTHER",
+    "title_pl": "Murator — przed malowaniem ścian: gruntowanie i przygotowanie podłoża",
+    "designation": "artykuł branżowy",
+    "url": "https://muratordom.pl/wnetrza/prace-wykonczeniowe/przed-malowaniem-scian-gruntowanie-scian-przygotowanie-podloza-aa-pJxT-ScvS-WMKm.html",
+    "status": "DRAFT"
+  },
+  {
+    "code": "TDS.TYTAN-BETONKONTAKT",
+    "kind": "OTHER",
+    "title_pl": "Tytan Professional — karta techniczna: grunt sczepny Betonkontakt",
+    "designation": "karta techniczna producenta",
+    "url": "https://tytan-cdn.tytan.com/uploads/sites/53/2020/11/TYTAN-PROFESSIONAL-Grunt-sczepny-BETONKONTAKT_09-09-2025_TDS_pl.pdf",
+    "status": "DRAFT"
   }
 ]

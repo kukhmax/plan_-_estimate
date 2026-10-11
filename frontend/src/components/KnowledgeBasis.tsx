@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchKnowledgeEntry, fetchKnowledgeLinkIndex } from '../api/knowledge';
 import { useI18n } from '../hooks/useI18n';
-import type { KnowledgeEntryDetail, KnowledgeEntryItem, KnowledgeLinkKind } from '../types/knowledge';
+import type { KnowledgeEntryDetail, KnowledgeEntryItem, KnowledgeLinkKind, KnowledgeSourceKind } from '../types/knowledge';
 import { KeyPoints, SourceLink, StatusBadge } from './KnowledgeEntryParts';
 
 export interface KnowledgeBasisTarget {
@@ -16,6 +16,8 @@ interface KnowledgeBasisProps {
   name?: string;
   /** What the block answers, with `{count}` (default "Podstawa ({count})"). */
   heading?: string;
+  /** Only entries from these kinds of sources: the law for a whole list, the norms and technical cards for one risk (17C.3). */
+  kinds?: KnowledgeSourceKind[];
 }
 
 /**
@@ -24,7 +26,7 @@ interface KnowledgeBasisProps {
  * the server unavailable): the screen it stands in must work the same without it. An entry opens inside the list, with its
  * key points and the link to its source; a draft is marked as a draft.
  */
-export function KnowledgeBasis({ targets, name = 'knowledge-basis', heading }: KnowledgeBasisProps) {
+export function KnowledgeBasis({ targets, name = 'knowledge-basis', heading, kinds }: KnowledgeBasisProps) {
   const { t, locale } = useI18n();
   const text = t.knowledge;
   const [entries, setEntries] = useState<KnowledgeEntryItem[]>([]);
@@ -33,10 +35,12 @@ export function KnowledgeBasis({ targets, name = 'knowledge-basis', heading }: K
   const [detail, setDetail] = useState<KnowledgeEntryDetail | null>(null);
   const [detailFailed, setDetailFailed] = useState(false);
   const wanted = targets.map((item) => `${item.kind}:${item.target}`).join('|');
+  const allowed = kinds ? kinds.join('|') : '';
 
   useEffect(() => {
     let alive = true;
     const keys = new Set(wanted.split('|'));
+    const allowedKinds = allowed ? new Set(allowed.split('|')) : null;
     fetchKnowledgeLinkIndex()
       .then((index) => {
         if (!alive) return;
@@ -45,6 +49,7 @@ export function KnowledgeBasis({ targets, name = 'knowledge-basis', heading }: K
         for (const row of index.items) {
           if (!keys.has(`${row.target_kind}:${row.target}`)) continue;
           for (const entry of row.entries) {
+            if (allowedKinds && !allowedKinds.has(entry.kind)) continue;
             if (!seen.has(entry.code)) {
               seen.add(entry.code);
               found.push(entry);
@@ -58,7 +63,7 @@ export function KnowledgeBasis({ targets, name = 'knowledge-basis', heading }: K
     return () => {
       alive = false;
     };
-  }, [wanted]);
+  }, [wanted, allowed]);
 
   useEffect(() => {
     if (!openEntry) return;

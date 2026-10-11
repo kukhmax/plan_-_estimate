@@ -549,5 +549,276 @@
         "text": "Kluczowe punkty przygotował program na podstawie wyszukiwania (bez dostępu do ISAP): sprawdzić z tekstem jednolitym (KC Dz.U. 2026 poz. 795, UPK Dz.U. 2026 poz. 1244), poprawić i zatwierdzić. Sygnatury orzeczeń podane za źródłami wtórnymi."
       }
     ]
+  },
+  {
+    "code": "TECH.MOISTURE",
+    "source": "TDS.ATLAS-OMEGA",
+    "locator": "przygotowanie podłoża",
+    "title_pl": "Wilgotność podłoża przed gładzią i malowaniem",
+    "title_ru": "Влажность основания перед шпаклёвкой и покраской",
+    "summary_pl": "Gładź i farbę nakłada się dopiero na podłoże suche i wysezonowane. Karta Atlas OMEGA: tynk cementowo-wapienny sezonować ok. 2–4 tygodnie, beton 4–6 miesięcy, wilgotność poniżej 3% mierzona metodą karbidową (CM). Inni producenci podają własne progi (np. Knauf dla swoich wyrobów — do 4% i wiek ponad 28 dni), dlatego decyduje karta wyrobu, który jest użyty. Dla tynku gipsowego w praktyce przyjmuje się ok. 1% (CM). Miernik elektroniczny daje wynik orientacyjny; rozstrzyga pomiar CM. Pomiar zapisuje się w protokole.",
+    "explanation_ru": "Шпаклевать и красить можно только сухое, выстоявшееся основание. По карте Atlas: цементно-известковая штукатурка — 2–4 недели, бетон — 4–6 месяцев, влажность ниже 3% по карбидному методу (CM). У других производителей свои пороги (Knauf — до 4%), поэтому решает карта того материала, которым работаете. Для гипсовой штукатурки ориентир ~1% CM. Электронный влагомер — только ориентир. Замер записывайте в протокол обследования.",
+    "tags": [
+      "wilgotnosc",
+      "cm",
+      "sezonowanie",
+      "beton",
+      "tynk"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-GIPS-1PROC",
+        "text": "Próg 1% dla tynku gipsowego bywa przypisywany PN-B-10110:2005, źródła są sprzeczne — sprawdzić w tekście normy.",
+        "status": "OPEN"
+      },
+      {
+        "ref": "L-PROGI",
+        "text": "Próg w aplikacji (podpowiedź: >3% CM beton, >1% tynk gipsowy) zgadza się z kartą Atlas i praktyką; Knauf dopuszcza 4% dla swoich wyrobów.",
+        "status": "OPEN"
+      }
+    ]
+  },
+  {
+    "code": "TECH.PREP",
+    "source": "ITB.WTWIORB-B4",
+    "locator": "odbiór podłoża",
+    "title_pl": "Przygotowanie i odbiór podłoża przed robotami malarskimi",
+    "title_ru": "Подготовка и приёмка основания перед малярными работами",
+    "summary_pl": "Według warunków ITB dla robót malarskich przed rozpoczęciem prac odbiera się podłoże: sprawdza się jego czystość, wilgotność, gładkość i przyczepność wcześniejszych powłok, a przy tynkach wapiennych i cementowych także stopień skarbonizowania; badanie wykonuje się po zamontowaniu elementów przeznaczonych do malowania, a wynik zapisuje w protokole. Podłoże ma być nośne, odpylone i odtłuszczone; luźne fragmenty i niestabilne powłoki usuwa się, ubytki uzupełnia, a podłoże gruntuje preparatem dobranym do jego chłonności (karty producentów).",
+    "explanation_ru": "По правилам ITB перед покраской основание принимают: проверяют чистоту, влажность, гладкость и сцепление старых покрытий (у известковых и цементных штукатурок — карбонизацию), после монтажа всего, что будет окрашиваться, и записывают в протокол. Основание должно быть прочным, обеспыленным и обезжиренным: слабое и отслаивающееся удаляют, дефекты заделывают, грунтуют по впитываемости.",
+    "tags": [
+      "podloze",
+      "odbior",
+      "gruntowanie",
+      "odpylenie"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-ITB-TEKST",
+        "text": "Treść streszczona ze specyfikacji opartych na WTWiORB ITB (zeszyt 4) — wartości z tablic nie zostały odczytane; sprawdzić w wydaniu ITB.",
+        "status": "OPEN"
+      }
+    ]
+  },
+  {
+    "code": "TECH.ADHESION",
+    "source": "PN-EN-ISO-2409",
+    "locator": "metoda siatki nacięć",
+    "title_pl": "Sprawdzenie przyczepności starej powłoki (siatka nacięć)",
+    "title_ru": "Проверка сцепления старого покрытия (решётчатый надрез)",
+    "summary_pl": "Norma opisuje ocenę odporności powłoki na oddzielenie od podłoża: nacina się siatkę aż do podłoża, przykleja i zrywa taśmę o określonej sile przylegania, a wynik ocenia wzrokowo — jako test tak/nie lub w sześciostopniowej skali. Metodę można stosować w terenie; nie nadaje się do powłok grubszych niż 250 µm ani strukturalnych. Sama metoda nie mierzy przyczepności liczbowo (do tego służy ISO 4624). Powłoka, która nie przechodzi próby, jest usuwana przed dalszymi pracami.",
+    "explanation_ru": "Решётчатый надрез до основания, на него — клейкая лента, резкий отрыв; оценка на глаз (да/нет или 6 степеней). Подходит для работы на объекте, не для покрытий толще 250 мкм и не для структурных. Если старое покрытие не проходит пробу — его удаляют до начала работ. Фото пробы — в протокол обследования.",
+    "tags": [
+      "przyczepnosc",
+      "stara-farba",
+      "test",
+      "siatka-naciec"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "TECH.FLATNESS",
+    "source": "PN-70-B-10100",
+    "locator": "tablica odchyłek, kat. II–IV",
+    "title_pl": "Dopuszczalne odchylenia tynku od płaszczyzny (łata 2 m)",
+    "title_ru": "Допустимые отклонения штукатурки от плоскости (рейка 2 м)",
+    "summary_pl": "Odchylenie powierzchni tynku od płaszczyzny sprawdza się łatą kontrolną długości 2 m. Dla tynku kategorii III dopuszcza się odchylenia nie większe niż 3 mm, w liczbie nie większej niż 3 na długości łaty; kategoria IV — 2 mm (najwyżej 2 miejsca); kategoria II — 4 mm. Norma jest formalnie wycofana, lecz nadal przywoływana w praktyce i warunkach ITB; tynki gipsowe maszynowe mają własną normę (PN-B-10110) z innymi wartościami. Przekroczenie oznacza dodatkowe szpachlowanie wyrównawcze, wyceniane osobno.",
+    "explanation_ru": "Отклонение от плоскости проверяют контрольной рейкой 2 м. Категория III — не более 3 мм и не более 3 мест на длине рейки; категория IV — 2 мм; категория II — 4 мм. Норма формально отменена, но на неё ссылаются на практике. Именно поэтому в приложении риск «повышенная неровность» срабатывает от 3 мм: больше — нужна выравнивающая шпаклёвка, это отдельная позиция сметы.",
+    "tags": [
+      "rownosc",
+      "odchylenie",
+      "lata",
+      "tynk",
+      "kategoria"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-NORMA-STATUS",
+        "text": "Status PN-70/B-10100 (wycofana) i wartości PN-B-10110 dla tynków gipsowych — potwierdzić w PKN.",
+        "status": "OPEN"
+      }
+    ]
+  },
+  {
+    "code": "TECH.GK-SYSTEM",
+    "source": "PG.WTWIO-SSZ",
+    "locator": "okładziny, spoiny, łączniki",
+    "title_pl": "Sucha zabudowa: montaż płyt, spoiny i łączniki",
+    "title_ru": "Сухая отделка: монтаж плит, стыки и крепёж",
+    "summary_pl": "Warunki Polskiego Gipsu dla systemów suchej zabudowy: elementy (płyty, profile, wkręty, masy, taśmy) stosuje się w ramach jednego systemu producenta; płyty mocuje się wkrętami w rozstawie ok. 25 cm przy pojedynczym opłytowaniu, łby wkrętów lekko zagłębia się bez przerwania kartonu; spoiny wypełnia się masą systemową ze zbrojeniem taśmą; sprawdza się rozstaw profili i taśmę uszczelniającą na obwodzie. Ruchliwe połączenia i szczeliny na łączeniach wymagają naprawy konstrukcji i ponownego spoinowania przed wykończeniem.",
+    "explanation_ru": "По правилам Polski Gips: все элементы — из одной системы производителя; шаг саморезов ~25 см при одном слое, шляпки чуть утоплены без разрыва картона; стыки — системной шпаклёвкой с армирующей лентой; проверяют шаг профилей и уплотнительную ленту по периметру. Подвижные стыки и щели сначала устраняют в конструкции, потом заново армируют стыки — иначе трещины вернутся.",
+    "tags": [
+      "gk",
+      "plyty",
+      "spoiny",
+      "wkrety",
+      "tasma"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-KOROZJA",
+        "text": "Nie znaleziono potwierdzonego źródła o korozji wkrętów i jej przebijaniu przez powłokę — dopisać kartę producenta wkrętów / gruntu izolującego.",
+        "status": "OPEN"
+      },
+      {
+        "ref": "L-SZCZELINA",
+        "text": "Wartość szczeliny na krawędziach (do 3 mm) podana tylko przez źródło wtórne — sprawdzić w dokumencie Polskiego Gipsu.",
+        "status": "OPEN"
+      }
+    ]
+  },
+  {
+    "code": "TECH.GK-Q",
+    "source": "RIGIPS.Q1-Q4",
+    "locator": "Q1–Q4",
+    "title_pl": "Poziomy jakości szpachlowania płyt g-k (Q1–Q4)",
+    "title_ru": "Уровни качества шпаклевания гипсокартона (Q1–Q4)",
+    "summary_pl": "Poziomy pochodzą z niemieckich wytycznych dla płyt gipsowych i są stosowane przez producentów w Polsce. Q1 — wypełnienie spoin z wtopieniem taśmy i zakrycie łbów wkrętów (pod płytki, ciężkie okładziny). Q2 — standard: spoiny wygładzone do lica płyty, pod zwykłe malowanie i tapety strukturalne. Q3 — Q2 plus szersze szpachlowanie i cienkie przeciągnięcie powierzchni, pod bardziej wymagające wykończenia. Q4 — szpachlowanie całej powierzchni cienką warstwą i szlif, pod światło smugowe i powłoki gładkie. Brak taśmy na spoinach oznacza, że nie spełniono nawet Q1.",
+    "explanation_ru": "Q1 — стыки заполнены, лента утоплена, шляпки закрыты (под плитку). Q2 — стандарт под обычную покраску. Q3 — Q2 плюс широкая шпаклёвка и тонкий слой по поверхности. Q4 — сплошная шпаклёвка всей поверхности и шлифовка — под боковой свет и гладкие покрытия. Нет ленты на стыках — не выполнен даже Q1: стыки переделывают.",
+    "tags": [
+      "gk",
+      "q1",
+      "q2",
+      "q3",
+      "q4",
+      "jakosc"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "TECH.FLEECE",
+    "source": "TDS.KNAUF-FLEECE",
+    "locator": "zastosowanie",
+    "title_pl": "Włóknina z włókna szklanego przeciw przenoszeniu rys",
+    "title_ru": "Стеклохолст против передачи трещин",
+    "summary_pl": "Włóknina z włókna szklanego (zwykle ok. 45 g/m²) przyklejona klejem do włóknin ogranicza przenoszenie się rys z podłoża na warstwy wykończeniowe; stosuje się ją na płytach g-k, tynkach gipsowych i cementowo-wapiennych, betonie i gładziach, pasy układa się na styk. Nie zastępuje usunięcia przyczyny pękania (ruchy konstrukcji, niestabilna zabudowa) — przy rysach od ruchu konstrukcji konieczna jest najpierw naprawa i dylatacja.",
+    "explanation_ru": "Стеклохолст (~45 г/м²) на специальном клею снижает передачу трещин из основания на отделку; клеят встык на ГКЛ, штукатурку, бетон. Но он не лечит причину: при подвижке конструкции её сначала устраняют (крепление, деформационный шов), иначе трещина вернётся.",
+    "tags": [
+      "rysy",
+      "wloknina",
+      "welon",
+      "pekniecia"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "TECH.STAINS-MOLD",
+    "source": "GREINPLAST.PLAMY",
+    "locator": "plamy i pleśń",
+    "title_pl": "Plamy tłuste, pleśń i grzyb — postępowanie przed malowaniem",
+    "title_ru": "Жирные пятна, плесень и грибок — порядок перед покраской",
+    "summary_pl": "Najpierw usuwa się przyczynę zawilgocenia, potem mechanicznie czyści porażone miejsca, nakłada preparat grzybobójczy zgodnie z kartą (zwykle 2–3 razy w odstępach 12–24 h) i gruntuje podłoże; farba z dodatkiem biocydów ogranicza nawrót, ale nie usuwa przyczyny. Plamy tłuste zmywa się środkiem odtłuszczającym; plamy, których nie da się usunąć, izoluje się gruntem lub farbą izolującą.",
+    "explanation_ru": "Сначала убрать причину сырости, потом механически очистить, обработать фунгицидом по его карте (обычно 2–3 раза через 12–24 ч) и загрунтовать. Краска с биоцидами снижает возврат, но причину не устраняет. Жирные пятна смывают обезжиривателем, неудаляемые — изолируют изолирующим грунтом/краской.",
+    "tags": [
+      "plesn",
+      "grzyb",
+      "biocyd",
+      "tluste-plamy",
+      "odtluszczanie"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "TECH.EFFLORESCENCE",
+    "source": "MURATOR.GRUNT",
+    "locator": "plamy i wykwity",
+    "title_pl": "Wykwity solne — przyczyna i przygotowanie podłoża",
+    "title_ru": "Высолы — причина и подготовка основания",
+    "summary_pl": "Wykwity solne są skutkiem wilgoci migrującej przez przegrodę, dlatego najpierw usuwa się źródło wilgoci i pozwala murowi wyschnąć. Wykwity usuwa się mechanicznie na sucho, a podłoże z plamami, których nie da się usunąć, gruntuje gruntem izolującym (blokującym) zgodnie z kartą wyrobu. Malowanie na zawilgoconą ścianę grozi powrotem wykwitów i odspojeniem powłoki.",
+    "explanation_ru": "Высолы — след влаги, которая идёт через стену. Сначала источник влаги и просушка, потом сухая механическая очистка и изолирующий грунт по карте. Красить по сырой стене — высолы вернутся, покрытие отслоится.",
+    "tags": [
+      "wykwity",
+      "sole",
+      "wilgoc",
+      "grunt-izolujacy"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-ZRODLO",
+        "text": "Źródło jest artykułem branżowym, nie kartą techniczną — dopisać kartę wyrobu do usuwania/blokowania soli.",
+        "status": "OPEN"
+      }
+    ]
+  },
+  {
+    "code": "TECH.CONCRETE-PORES",
+    "source": "TDS.TYTAN-BETONKONTAKT",
+    "locator": "zastosowanie",
+    "title_pl": "Pory i raki betonu, grunt sczepny na gładkim betonie",
+    "title_ru": "Поры и раковины бетона, адгезионный грунт на гладком бетоне",
+    "summary_pl": "Pory, raki i jamy w betonie wypełnia się szpachlami naprawczymi do betonu, a gładkie, niechłonne powierzchnie betonowe (np. stropy monolityczne i prefabrykowane) gruntuje się gruntem sczepnym typu Betonkontakt, który zwiększa szorstkość i poprawia przyczepność kolejnych warstw; dopiero potem nakłada się gładź. Czas schnięcia i warunki nakładania określa karta wyrobu.",
+    "explanation_ru": "Поры и раковины заделывают ремонтной шпаклёвкой по бетону, гладкий невпитывающий бетон (монолитные и сборные перекрытия) грунтуют адгезионным грунтом типа «бетонконтакт» — потом шпаклёвка. Время высыхания — по карте материала.",
+    "tags": [
+      "beton",
+      "raki",
+      "pory",
+      "grunt-sczepny"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ]
   }
 ]

@@ -36,8 +36,9 @@ def test_every_clause_citing_an_article_links_to_the_knowledge_base():
 
 
 def test_the_sources_are_the_acts_the_contract_relies_on_each_with_a_link():
-    assert {s.code for s in CATALOG.sources} == {"KC", "UPK", "RODO"}
-    for source in CATALOG.sources:
+    statutes = [s for s in CATALOG.sources if s.kind == "STATUTE"]
+    assert {s.code for s in statutes} == {"KC", "UPK", "RODO"}
+    for source in statutes:
         assert source.url and source.url.startswith(("https://isap.sejm.gov.pl/", "https://eur-lex.europa.eu/"))
 
 
@@ -59,8 +60,11 @@ def test_every_entry_tells_its_key_points_in_both_languages():
 
 
 def test_every_entry_has_its_place_in_the_act_and_both_titles():
+    kinds = {s.code: s.kind for s in CATALOG.sources}
     for entry in CATALOG.entries:
-        assert entry.locator and entry.locator.startswith("art.")
+        assert entry.locator, entry.code
+        if kinds[entry.source] == "STATUTE":
+            assert entry.locator.startswith("art."), entry.code
         assert entry.title_pl and entry.title_ru and entry.tags
 
 
@@ -83,7 +87,8 @@ def test_every_risk_and_its_client_phrase_has_a_basis():
         entries = by_place[("RISK", rule.code)]
         assert entries[0] == "KC.634"  # the duty to tell the customer about what may hinder the work
         assert ("KC.557" in entries) == rule.warranty_exclusion_candidate  # the customer's knowledge only where a warranty exclusion is possible
-        assert by_place[("PHRASE", f"COMM_RISK_{rule.code}")] == entries
+        legal = [code for code in entries if not code.startswith("TECH.")]
+        assert by_place[("PHRASE", f"COMM_RISK_{rule.code}")] == legal  # the phrase carries the law, the risk also its technique
 
 
 def test_the_documents_that_carry_a_decision_or_a_downtime_name_their_basis():
@@ -102,3 +107,39 @@ def test_the_titles_say_what_the_provision_says():
     assert "przeszkodach" in titles["KC.634"][0] and "препятствиях" in titles["KC.634"][1]
     kc = CATALOG.source("KC")
     assert "obowiązuje" in kc.title_pl and "2026" in kc.designation  # the act of 1964 in force, its current consolidated text
+
+
+# --- Stage 17C.3: the technical basis of the risks ----------------------------------------------------------------------------
+
+
+def test_every_risk_has_its_own_technical_basis_from_a_norm_itb_or_technical_card():
+    from app.domain.data.risk_rules import build_baseline_risk_rules
+
+    kinds = {s.code: s.kind for s in CATALOG.sources}
+    entries = {e.code: e for e in CATALOG.entries}
+    by_place = {(link.target_kind, link.target): link.entries for link in CATALOG.links}
+    for rule in build_baseline_risk_rules():
+        technical = [c for c in by_place[("RISK", rule.code)] if kinds[entries[c].source] != "STATUTE"]
+        assert technical, rule.code
+
+
+def test_the_technical_values_agree_with_the_thresholds_of_the_risk_rules():
+    """The knowledge base must not say one number and the risk engine fire on another."""
+    from app.domain.data.risk_rules import build_baseline_risk_rules
+
+    rules = {r.code: r for r in build_baseline_risk_rules()}
+    unevenness = next(c for c in rules["UNEVENNESS_PREP_INCREASED"].conditions if c.finding_key == "UNEVENNESS")
+    assert unevenness.value == {"value": "3.000"}
+    flatness = CATALOG.entry("TECH.FLATNESS")
+    assert "kategorii III" in flatness.summary_pl and "3 mm" in flatness.summary_pl and "2 m" in flatness.summary_pl
+    moisture = CATALOG.entry("TECH.MOISTURE")
+    assert "3% mierzona metodą karbidową (CM)" in moisture.summary_pl  # the hint of the inspection: > 3% CM for concrete
+    assert "1% (CM)" in moisture.summary_pl  # and > 1% for gypsum plaster
+
+
+def test_a_norm_or_an_itb_instruction_is_told_in_own_words_never_copied():
+    """Q4: key points and a link; the paid text of PN-EN / ITB is never copied -- a short summary only."""
+    kinds = {s.code: s.kind for s in CATALOG.sources}
+    for entry in CATALOG.entries:
+        if kinds[entry.source] in ("NORM", "ITB"):
+            assert entry.summary_pl and len(entry.summary_pl) <= 900, entry.code

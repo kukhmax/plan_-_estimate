@@ -262,6 +262,7 @@ export function RiskPanel({ projectId, roomId, inspectionId }: RiskPanelProps) {
           targets={[...new Set(items.map((risk) => risk.risk_code))].map((code) => ({ kind: 'RISK' as const, target: code }))}
           heading={t.knowledge.basis_risks}
           name="knowledge-basis-risks"
+          kinds={['STATUTE']}
         />
       )}
     </div>
@@ -387,6 +388,13 @@ function RiskCard({
         </div>
       ) : null}
 
+      {/* Stage 17C.3: the technical basis is the risk's own (norms, technical cards, ITB); the law is shown once under the list. */}
+      <KnowledgeBasis
+        targets={[{ kind: 'RISK', target: risk.risk_code }]}
+        kinds={['NORM', 'ITB', 'OTHER']}
+        heading={t.knowledge.basis_technical}
+        name={`knowledge-basis-technical-${risk.risk_code}`}
+      />
     </li>
   );
 }
