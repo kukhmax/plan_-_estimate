@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "titles": {
+    "calendar.event.break_start": {"pl": "Rozpoczęła się przerwa technologiczna", "ru": "Начался технологический перерыв"},
+    "calendar.event.break_end": {"pl": "Koniec przerwy technologicznej — można kontynuować prace", "ru": "Технологический перерыв закончился — можно продолжать работы"},
+    "calendar.event.work_start": {"pl": "Początek zaplanowanych prac w pomieszczeniu", "ru": "Начало запланированных работ в помещении"},
+    "calendar.event.work_end": {"pl": "Koniec zaplanowanych prac w pomieszczeniu", "ru": "Конец запланированных работ в помещении"},
+    "calendar.event.object_start": {"pl": "Rozpoczęcie prac na obiekcie (wg umowy)", "ru": "Начало работ на объекте (по договору)"},
+    "calendar.event.object_end": {"pl": "Zakończenie prac na obiekcie (wg umowy)", "ru": "Окончание работ на объекте (по договору)"},
+    "calendar.event.delivery_deadline": {"pl": "Termin oddania prac", "ru": "Срок сдачи работ"},
+    "calendar.event.acceptance_term.appearance": {"pl": "Upływa termin stawienia się Zamawiającego do odbioru (§ 14)", "ru": "Истекает срок явки заказчика на приёмку (§ 14)"},
+    "calendar.event.acceptance_term.reinvite": {"pl": "Upływa dodatkowy termin po ponownym wezwaniu do odbioru (§ 14 ust. 5)", "ru": "Истекает дополнительный срок после повторного вызова на приёмку (§ 14 п. 5)"},
+    "calendar.event.concealed_term.notice": {"pl": "Najwcześniejszy termin odbioru robót zanikających (§ 13)", "ru": "Самый ранний срок приёмки скрытых работ (§ 13)"},
+    "calendar.event.downtime_term.notice": {"pl": "Koniec następnego dnia roboczego po zawiadomieniu o przeszkodzie (§ 10)", "ru": "Конец следующего рабочего дня после уведомления о препятствии (§ 10)"},
+    "calendar.event.downtime_term.need_by": {"pl": "Termin usunięcia przeszkody wyznaczony Zamawiającemu (§ 10)", "ru": "Срок устранения препятствия, назначенный заказчику (§ 10)"},
+    "calendar.event.withdrawal_end": {"pl": "Koniec 14-dniowego terminu odstąpienia konsumenta (§ 20)", "ru": "Конец 14-дневного срока отказа потребителя (§ 20)"},
+    "calendar.event.payment_term.advance": {"pl": "Termin wpłaty zaliczki (§ 6)", "ru": "Срок внесения аванса (§ 6)"},
+    "calendar.event.adjacent_work.from": {"pl": "Początek prac innego wykonawcy w obiekcie", "ru": "Начало работ другого подрядчика на объекте"},
+    "calendar.event.adjacent_work.to": {"pl": "Koniec prac innego wykonawcy w obiekcie", "ru": "Окончание работ другого подрядчика на объекте"},
+    "calendar.event.price_validity_end": {"pl": "Koniec ważności cen jednostkowych (§ 4)", "ru": "Конец срока действия единичных цен (§ 4)"}
+  },
+  "frame": {
+    "late": {"pl": "(z opóźnieniem)", "ru": "(с опозданием)"},
+    "digest_title": {"pl": "📅 Plan na dziś", "ru": "📅 План на сегодня"},
+    "today": {"pl": "dziś", "ru": "сегодня"},
+    "in_days": {"pl": "za {n} dn.", "ru": "через {n} дн."},
+    "more": {"pl": "… i jeszcze {n}", "ru": "… и ещё {n}"},
+    "button": {"pl": "Otwórz", "ru": "Открыть"},
+    "break_hours": {"pl": "przerwa: {n} h", "ru": "перерыв: {n} ч"},
+    "surfaces": {"pl": "powierzchnie: {n}", "ru": "поверхностей: {n}"},
+    "own_prefix": {"pl": "🔔", "ru": "🔔"}
+  }
+}

@@ -21,6 +21,10 @@ from app.domain.exceptions import (
     DocumentDeliveryDisabledError,
     DocumentDeliveryRejectedError,
     DocumentDeliveryUnavailableError,
+    MessageChatUnavailableError,
+    MessageDeliveryDisabledError,
+    MessageRejectedError,
+    MessageUnavailableError,
 )
 
 for _name in ("httpx", "httpcore"):  # they log `POST https://api.telegram.org/bot<TOKEN>/sendDocument` at INFO
@@ -92,3 +96,75 @@ def delivery_from_settings(settings: Settings) -> DocumentDelivery:
     if settings.DOCUMENT_DELIVERY != "telegram" or not token:
         return DisabledDelivery()
     return TelegramBotApiDelivery(token, timeout=settings.DOCUMENT_DELIVERY_TIMEOUT_SECONDS)
+
+
+# --- text messages (Stage 18D) -------------------------------------------------------------------------------------------------------
+
+MAX_MESSAGE = 4096  # Telegram's limit for the text of a message
+
+
+class MessageSender(Protocol):
+    async def send_message(self, chat_id: int, text: str, *, open_url: str | None = None, button_text: str = "") -> None:
+        """Send `text` to the chat, with an inline button that opens the Mini App at `open_url` when it is given.
+        Raises a `MessageDeliveryError` subclass; returns only when Telegram accepted the message."""
+        ...
+
+
+class DisabledMessageSender:
+    async def send_message(self, chat_id: int, text: str, *, open_url: str | None = None, button_text: str = "") -> None:
+        raise MessageDeliveryDisabledError("sending of messages is switched off")
+
+
+class TelegramMessageSender:
+    """`sendMessage` of the Bot API. The token handling is that of `TelegramBotApiDelivery`: it lives only in the URL, which never
+    reaches a log, an exception or a repr."""
+
+    def __init__(
+        self, token: str, *, base_url: str = TELEGRAM_API, timeout: float = 20.0, transport: httpx.AsyncBaseTransport | None = None
+    ) -> None:
+        if not token:
+            raise ValueError("a bot token is required")
+        self._url = f"{base_url.rstrip('/')}/bot{token}/sendMessage"
+        self._timeout = httpx.Timeout(timeout, connect=10.0)
+        self._transport = transport
+
+    def __repr__(self) -> str:  # never print the URL (it holds the token)
+        return "TelegramMessageSender()"
+
+    async def send_message(self, chat_id: int, text: str, *, open_url: str | None = None, button_text: str = "") -> None:
+        payload: dict[str, object] = {"chat_id": chat_id, "text": text[:MAX_MESSAGE]}
+        if open_url:
+            payload["reply_markup"] = {"inline_keyboard": [[{"text": button_text or "Open", "web_app": {"url": open_url}}]]}
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
+                response = await client.post(self._url, json=payload)
+        except httpx.HTTPError:
+            raise MessageUnavailableError("Telegram could not be reached") from None
+        status = response.status_code
+        if status == 200:
+            return
+        description = _description(response)
+        if status == 403 or (status == 400 and "chat not found" in description.lower()):
+            raise MessageChatUnavailableError("Telegram does not allow the bot to write to this chat") from None
+        if status == 429:
+            raise MessageUnavailableError("Telegram asked to slow down", retry_after=_retry_after(response)) from None
+        if status >= 500:
+            raise MessageUnavailableError(f"Telegram answered {status}") from None
+        raise MessageRejectedError(f"Telegram refused the message ({status})") from None
+
+
+def _retry_after(response: httpx.Response) -> int | None:
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    parameters = payload.get("parameters") if isinstance(payload, dict) else None
+    value = parameters.get("retry_after") if isinstance(parameters, dict) else None
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
+def message_sender_from_settings(settings: Settings) -> MessageSender:
+    token = settings.TELEGRAM_BOT_TOKEN
+    if not token:
+        return DisabledMessageSender()
+    return TelegramMessageSender(token)

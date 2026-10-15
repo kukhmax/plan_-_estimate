@@ -2,7 +2,7 @@ import os
 import tempfile
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_PHOTO_TEMP_DIR = os.path.join(tempfile.gettempdir(), "plan-estimate-photos")
@@ -77,6 +77,21 @@ class Settings(BaseSettings):
     DOCUMENT_DELIVERY_TIMEOUT_SECONDS: float = Field(default=60.0, gt=0)
     DOCUMENT_MAX_ACTIVE: int = Field(default=3, gt=0)  # documents being made at once in this process (the queue limit)
     DOCUMENT_MAX_ASSET_BYTES: int = Field(default=60_000_000, gt=0)  # all assets of one document together
+    # Stage 18D calendar and reminders: the loop that sends the queue of reminders to the owner's chat. Off until the owner switches it on.
+    CALENDAR_DISPATCHER_ENABLED: bool = False
+    CALENDAR_DISPATCH_INTERVAL_SECONDS: float = Field(default=60.0, gt=0)  # how often the queue is looked through
+    CALENDAR_RECONCILE_INTERVAL_SECONDS: float = Field(default=600.0, gt=0)  # how often the queue is brought in step with the data
+    CALENDAR_WEB_APP_URL: str = ""  # the Mini App address for the "Open" button of a message (https only); empty: a message without the button
+    CALENDAR_MAX_PER_DAY: int = Field(default=100, gt=0)  # reminders sent to one owner in 24 hours: a guard against a flood, not a quota
+    CALENDAR_SEND_PAUSE_SECONDS: float = Field(default=1.1, ge=0)  # between two messages to one chat (Telegram allows about one a second)
+
+    @field_validator("CALENDAR_WEB_APP_URL")
+    @classmethod
+    def _web_app_url_is_https(cls, value: str) -> str:
+        value = value.strip()
+        if value and not value.startswith("https://"):  # Telegram opens a Mini App from a button only over https
+            raise ValueError("CALENDAR_WEB_APP_URL must start with https://")
+        return value.rstrip("/")
 
     @model_validator(mode="after")
     def _validate_media_configuration(self) -> "Settings":

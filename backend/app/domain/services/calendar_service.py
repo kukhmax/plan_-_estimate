@@ -85,7 +85,7 @@ class CalendarService:
             return CalendarPrefs()
         return CalendarPrefs(
             enabled=row.enabled, tz=parse_timezone(row.timezone), tz_name=row.timezone, kind_overrides=dict(row.kind_overrides or {}),
-            quiet_from=row.quiet_from, quiet_to=row.quiet_to, digest_at=row.digest_at,
+            quiet_from=row.quiet_from, quiet_to=row.quiet_to, digest_at=row.digest_at, language=row.language,
         )
 
     async def settings_row(self, owner_id: uuid.UUID) -> CalendarSettings | None:

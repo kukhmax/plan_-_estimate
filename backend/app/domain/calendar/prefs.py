@@ -40,6 +40,7 @@ class CalendarPrefs:
     quiet_from: time = time(21, 0)
     quiet_to: time = time(7, 0)
     digest_at: time = time(8, 0)
+    language: str | None = None  # the language of the messages; None: the language of the owner's Telegram
 
     def __post_init__(self) -> None:
         if in_quiet_hours(self.digest_at, self.quiet_from, self.quiet_to):

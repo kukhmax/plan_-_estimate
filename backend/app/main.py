@@ -16,6 +16,9 @@ from app.api.v1.endpoints.openings import router as openings_router
 from app.api.v1.endpoints.documents import router as documents_router
 from app.api.v1.endpoints.knowledge import router as knowledge_router
 from app.domain.knowledge.catalog import load_knowledge_catalog
+from app.domain.calendar.messages import load_texts
+from app.domain.services.calendar_dispatcher import start_dispatcher
+from app.core.database import async_session_maker
 from app.api.v1.endpoints.executor_profile import router as executor_profile_router
 from app.api.v1.endpoints.photos import router as photos_router
 from app.api.v1.endpoints.price_coefficients import router as price_coefficients_router
@@ -49,7 +52,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     sweep_stale_photo_temp(settings.PHOTO_TEMP_DIR, settings.PHOTO_TEMP_STALE_AFTER_SECONDS)
     # Stage 17B: a wrong file of the knowledge base stops the start instead of serving guessed content.
     load_knowledge_catalog()
-    yield
+    # Stage 18D: the texts of the reminders are a file like the knowledge base: a wrong one stops the start.
+    load_texts()
+    # Stage 18D: the loop that sends the reminders; off unless CALENDAR_DISPATCHER_ENABLED, and not started without a bot token.
+    loop = start_dispatcher(settings, async_session_maker)
+    try:
+        yield
+    finally:
+        if loop is not None:
+            await loop.stop()
 
 
 app = FastAPI(

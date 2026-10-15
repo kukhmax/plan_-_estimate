@@ -871,3 +871,38 @@ class CalendarSettingsInvalidError(Exception):
 
 class ScheduleOccurrenceNotFoundError(Exception):
     """A planned work that is not an occurrence of a plan of this owner's object (Stage 18C)."""
+
+
+class MessageDeliveryError(Exception):
+    """A text message to the owner's chat did not go (Stage 18D). `code` is the stable reason stored on the reminder; `retry_after` is
+    the number of seconds Telegram asked to wait (429), if any. No subclass carries the URL of the request (it holds the bot token)."""
+
+    code = "DELIVERY_ERROR"
+
+    def __init__(self, message: str, *, retry_after: int | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class MessageChatUnavailableError(MessageDeliveryError):
+    """The bot may not write to this chat (blocked, or the owner never started it): permanent, no retry."""
+
+    code = "BOT_BLOCKED"
+
+
+class MessageRejectedError(MessageDeliveryError):
+    """Telegram refused the message (a 4xx other than the above): permanent, no retry."""
+
+    code = "REJECTED"
+
+
+class MessageUnavailableError(MessageDeliveryError):
+    """Telegram could not be reached, answered 5xx or asked to slow down (429): temporary, retried with a delay."""
+
+    code = "UNAVAILABLE"
+
+
+class MessageDeliveryDisabledError(MessageDeliveryError):
+    """Sending of messages is switched off or has no bot token."""
+
+    code = "DELIVERY_DISABLED"

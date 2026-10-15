@@ -60,6 +60,12 @@ services:
       PHOTO_TEMP_STALE_AFTER_SECONDS: ${PHOTO_TEMP_STALE_AFTER_SECONDS:-86400}
       PHOTO_PROCESSING_WAIT_SECONDS: ${PHOTO_PROCESSING_WAIT_SECONDS:-30}
 
+      # Calendar and reminders (Stage 18D). The loop that sends reminders to the owner's chat is OFF until the owner sets it to true.
+      CALENDAR_DISPATCHER_ENABLED: ${CALENDAR_DISPATCHER_ENABLED:-false}
+      CALENDAR_WEB_APP_URL: ${CALENDAR_WEB_APP_URL:-https://${APP_DOMAIN}}
+      CALENDAR_DISPATCH_INTERVAL_SECONDS: ${CALENDAR_DISPATCH_INTERVAL_SECONDS:-60}
+      CALENDAR_RECONCILE_INTERVAL_SECONDS: ${CALENDAR_RECONCILE_INTERVAL_SECONDS:-600}
+
     depends_on:
       postgres:
         condition: service_healthy
