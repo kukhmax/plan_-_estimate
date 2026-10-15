@@ -65,6 +65,8 @@
   },
   "errors": {
     "reveal_work_requires_opening": "Prace na ościeżach dodaj w konkretnym otworze (Prace na ościeżach), a nie w planie ściany.",
+    "NOTE_INVALID": "Notatka jest pusta lub zbyt długa.",
+    "room_resize_exceeds_openings": "Nowe wymiary są za małe dla otworów w ścianach pomieszczenia. Zmniejsz lub zarchiwizuj otwory albo wpisz większe wymiary.",
     "openings_deductions_exceed_gross": "Łączna powierzchnia otworów nie może przekraczać powierzchni ściany.",
     "openings_require_wall_surface": "Otwory można dodawać tylko do ścian.",
     "validation_required": "To pole jest wymagane.",
@@ -2941,5 +2943,24 @@
       "ADJACENT_WORK": "Prace innych wykonawców",
       "PRICE_VALIDITY_END": "Ważność cen (§ 4)"
     }
+  },
+  "notes": {
+    "title": "Notatki",
+    "add": "Dodaj notatkę",
+    "placeholder": "Wpisz notatkę…",
+    "empty": "Brak notatek. Dodaj pierwszą.",
+    "loading": "Ładowanie notatek…",
+    "retry": "Spróbuj ponownie",
+    "load_error": "Nie udało się wczytać notatek.",
+    "save_error": "Nie udało się zapisać notatki.",
+    "delete_error": "Nie udało się usunąć notatki.",
+    "saved": "Notatka zapisana.",
+    "deleted": "Notatka usunięta.",
+    "edited": "zmieniono {date}",
+    "edit": "Edytuj",
+    "delete": "Usuń",
+    "confirm_delete": "Usunąć tę notatkę?",
+    "confirm_yes": "Usuń notatkę",
+    "count": "Znaków: {used} / {max}"
   }
 }

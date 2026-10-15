@@ -123,6 +123,14 @@ function renderAreaSegments(onMeasurementChanged = vi.fn(), onInspectPlane?: (pl
   );
 }
 
+function areaList(key: string) {
+  return (
+    <I18nProvider>
+      <AreaSegmentList projectId={projectId} roomId={roomId} dimensionsKey={key} />
+    </I18nProvider>
+  );
+}
+
 async function expandPlane(planeKey: 'floor' | 'ceiling') {
   const toggle = await screen.findByLabelText(`options-toggle-${planeKey}`);
   fireEvent.click(toggle);
@@ -436,6 +444,25 @@ describe('AreaSegmentList', () => {
     // Empty-state copy is still present for the no-segments list (behind Opcje)
     await expandPlane('floor');
     expect(screen.getByText('Brak prostokątów podłogi')).toBeInTheDocument();
+  });
+
+  it('re-reads the plane totals when the room size is corrected, and not when it is unchanged', async () => {
+    const planes = (area: string) => ({
+      FLOOR: { base_area: area, adjustment_area: '0.000', net_area: area },
+      CEILING: { base_area: area, adjustment_area: '0.000', net_area: area },
+    });
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValueOnce({ items: [], total: 0, planes: planes('9.470') });
+    const view = render(areaList('3.73|2.54|2.68'));
+    await waitFor(() => expect(screen.getAllByText(/Razem: 9\.47 m²/)).toHaveLength(2));
+
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0, planes: planes('8.650') });
+    view.rerender(areaList('3.73|2.54|2.68'));
+    expect(areaSegmentsApi.fetchAreaSegments).toHaveBeenCalledTimes(1);
+
+    view.rerender(areaList('3.73|2.32|2.68'));
+    await waitFor(() => expect(screen.getAllByText(/Razem: 8\.65 m²/)).toHaveLength(2));
+    expect(screen.queryByText(/Razem: 9\.47 m²/)).not.toBeInTheDocument();
+    expect(areaSegmentsApi.fetchAreaSegments).toHaveBeenCalledTimes(2);
   });
 
   it('shows base, negative adjustment, and effective total from the backend summary', async () => {

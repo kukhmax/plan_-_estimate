@@ -55,6 +55,7 @@ function renderSurfaces(
     roomHeight?: string | number | null;
     hasRoomDimensions?: boolean;
     wallMode?: 'RECTANGLE' | 'CUSTOM';
+    dimensionsKey?: string;
     onInspectSurface?: (surfaceId: string, surfaceName: string) => void;
   } = {},
 ) {
@@ -65,6 +66,7 @@ function renderSurfaces(
         roomId={roomId}
         roomHeight={props.roomHeight}
         hasRoomDimensions={props.hasRoomDimensions}
+        dimensionsKey={props.dimensionsKey}
         wallMode={props.wallMode}
         onInspectSurface={props.onInspectSurface}
       />
@@ -175,6 +177,27 @@ describe('SurfaceList', () => {
     expect(screen.getByLabelText(`add-opening-${surface.id}-OTHER`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveClass('min-h-11');
+  });
+
+  it('re-reads the walls when the room size is corrected, and not when it is unchanged', async () => {
+    const wall = (width: number, gross: string): SurfaceType => ({ ...surface, width, height: 2.68, gross_area: gross, deduction_area: '0.000', net_area: gross });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValueOnce({ items: [wall(4.08, '10.934')], total: 1 });
+    const view = renderSurfaces({ dimensionsKey: '3.73|2.32|2.68' });
+    await waitFor(() => expect(screen.getByText(/4\.08 × 2\.68 m/)).toBeInTheDocument());
+
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wall(2.32, '6.218')], total: 1 });
+    const again = (key: string) => (
+      <I18nProvider>
+        <SurfaceList projectId={projectId} roomId={roomId} dimensionsKey={key} />
+      </I18nProvider>
+    );
+    view.rerender(again('3.73|2.32|2.68'));
+    expect(surfacesApi.fetchSurfaces).toHaveBeenCalledTimes(1);
+
+    view.rerender(again('2.32|2.32|2.68'));
+    await waitFor(() => expect(screen.getByText(/2\.32 × 2\.68 m/)).toBeInTheDocument());
+    expect(screen.queryByText(/4\.08 × 2\.68 m/)).not.toBeInTheDocument();
+    expect(surfacesApi.fetchSurfaces).toHaveBeenCalledTimes(2);
   });
 
   it('renders wall dimensions, gross area, deduction area, and net area', async () => {

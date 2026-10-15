@@ -5,7 +5,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.exceptions import ProjectNotFoundError, RoomNotFoundError
+from app.domain.exceptions import DeductionExceedsGrossAreaError, ProjectNotFoundError, RoomNotFoundError
 from app.domain.rules.opening_summary import group_openings
 from app.domain.rules.room_geometry import (
     AREA_PRECISION,
@@ -17,6 +17,8 @@ from app.domain.rules.room_geometry import (
     calculate_reveal,
     calculate_room_geometry,
     calculate_wall_derived_totals,
+    generate_canonical_walls,
+    matches_canonical_wall_set,
     resolve_room_totals,
 )
 from app.models.area_segment import AreaOperation, AreaPlane, AreaSegment
@@ -590,13 +592,56 @@ class RoomService:
         owner_id: uuid.UUID,
     ) -> Room:
         room = await self.get_room(project_id, room_id, owner_id)
-        for field, value in payload.model_dump(exclude_unset=True).items():
+        changes = payload.model_dump(exclude_unset=True)
+        old_dimensions = (room.length, room.width, room.height)
+        # The walls the room generated (the canonical rectangle of its OLD size) follow the room when its size is corrected; walls the
+        # owner shaped by hand are the owner's and are never touched.
+        followers = await self._canonical_walls(room, old_dimensions) if {"length", "width", "height"} & set(changes) else []
+        for field, value in changes.items():
             setattr(room, field, value)
+        new_dimensions = (room.length, room.width, room.height)
+        if followers and None not in new_dimensions and new_dimensions != old_dimensions:
+            try:
+                await self._resize_walls(followers, new_dimensions)
+            except DeductionExceedsGrossAreaError:
+                await self.db.rollback()  # the room keeps its old size: nothing of the request is saved
+                raise
 
         await self.db.commit()
         await self.db.refresh(room)
         await self._attach_calculations(room)
         return room
+
+    async def _canonical_walls(self, room: Room, dimensions: tuple) -> list[Surface]:
+        """The active walls of the room when they are exactly the 4-wall rectangle of `dimensions`; otherwise none."""
+        if None in dimensions:
+            return []
+        walls = list((await self.db.execute(
+            select(Surface).where(Surface.room_id == room.id, Surface.is_archived.is_(False), Surface.surface_type == SurfaceType.WALL)
+            .order_by(Surface.position.asc().nulls_last(), Surface.created_at.desc())
+        )).scalars())
+        snapshot = [(wall.position, wall.surface_type, wall.width, wall.height) for wall in walls]
+        return walls if matches_canonical_wall_set(*dimensions, snapshot) else []
+
+    async def _resize_walls(self, walls: list[Surface], dimensions: tuple) -> None:
+        """Give the walls the canonical sizes of the new room size, keeping the rows (their plans, photos and openings stay attached).
+
+        The openings of a wall must still fit in it: a wall that would become smaller than its openings stops the change.
+        """
+        sizes = {position: (width, height) for position, _, width, height in generate_canonical_walls(*dimensions)}
+        deductions = dict((await self.db.execute(
+            select(Opening.surface_id, func.coalesce(func.sum(Opening.width * Opening.height * Opening.quantity), 0))
+            .where(Opening.surface_id.in_([wall.id for wall in walls]), Opening.is_archived.is_(False)).group_by(Opening.surface_id)
+        )).all())
+        for wall in walls:
+            width, height = sizes[wall.position]
+            gross = (width * height).quantize(Decimal("0.001"))
+            taken = Decimal(deductions.get(wall.id, 0))
+            if taken > gross:
+                raise DeductionExceedsGrossAreaError(
+                    f"New room size would make {wall.name} smaller than its openings: deductions ({taken}) exceed gross area ({gross})"
+                )
+            wall.width, wall.height = width, height
 
     async def archive_room(
         self,

@@ -8,7 +8,8 @@ import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 // The screen of an object is a hub of large tiles; each tile opens one screen of its own (Stage 16K.3).
 // The cards of the earlier stages live on those screens unchanged.
 
-export type ObjectSection = 'rooms' | 'photos' | 'documents' | 'legal' | 'summary';
+export type ObjectSection = 'rooms' | 'photos' | 'documents' | 'legal' | 'summary' | 'notes';
+// 'notes' has no tile: the notes of an object are opened with the button of its card in the list of objects.
 
 /** What the screen of documents lists: each piece of it is opened alone. */
 export type DocumentsSection = 'tech_card' | 'plan' | 'photo_report' | 'journal';

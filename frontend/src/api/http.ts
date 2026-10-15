@@ -11,6 +11,11 @@ const DOMAIN_ERROR_PATTERNS: Array<{ pattern: RegExp; code: string }> = [
     code: 'openings_deductions_exceed_gross',
   },
   {
+    // Room size corrected below what the openings of a generated wall need (422).
+    pattern: /new room size would make .* smaller than its openings/i,
+    code: 'room_resize_exceeds_openings',
+  },
+  {
     pattern: /openings can only be attached to wall surfaces/i,
     code: 'openings_require_wall_surface',
   },

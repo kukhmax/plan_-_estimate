@@ -20,7 +20,7 @@ echo "################ E0: проверка (только чтение) ########
 H=$(curl -fsS https://plan-estimate.pl/api/health) || fail "E0" "health недоступен"
 has '"status":"ok"' "$H" || fail "E0" "health не ok: $H"
 AL=$(docker exec plan_estimate_backend alembic current 2>/dev/null)
-has '0054_calendar_reminders' "$AL" || fail "E0" "alembic current не 0054_calendar_reminders (сначала выкладка Stage 18): $AL"
+has '0055_project_notes' "$AL" || fail "E0" "alembic current не 0055_project_notes (сначала выкладка Stage 18): $AL"
 [ "$(docker inspect -f '{{.State.Health.Status}}' plan_estimate_backend)" = "healthy" ] || fail "E0" "backend не healthy"
 TOKEN_SET=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(bool(s.TELEGRAM_BOT_TOKEN))")
 [ "$TOKEN_SET" = "True" ] || fail "E0" "в backend нет токена бота: сообщения слать нечем"

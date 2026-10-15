@@ -56,6 +56,7 @@ vi.mock('./components/ProjectAcceptance', () => ({ ProjectAcceptance: stub('acce
 vi.mock('./components/ProjectDecisions', () => ({ ProjectDecisions: stub('decisions') }));
 vi.mock('./components/ProjectDowntime', () => ({ ProjectDowntime: stub('downtime') }));
 vi.mock('./components/ProjectSummaryCard', () => ({ ProjectSummaryCard: stub('summary') }));
+vi.mock('./components/ProjectNotes', () => ({ ProjectNotes: ({ projectId }: { projectId: string }) => <div aria-label="stub-notes">{projectId}</div> }));
 vi.mock('./components/RoomList', () => ({ RoomList: stub('rooms') }));
 
 const project: ProjectType = {
@@ -199,6 +200,17 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(screen.getByLabelText('stub-summary')).toBeInTheDocument();
     expect(screen.queryByLabelText('stub-rooms')).toBeNull();
     expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Podsumowanie obiektu');
+  });
+
+  it('the Notes button on the card in the list opens the notes of that object, with its breadcrumb and a way back (Stage 18)', async () => {
+    renderWorkspace();
+    fireEvent.click(await screen.findByLabelText(`notes-project-${project.id}`));
+    expect(screen.getByLabelText('stub-notes')).toHaveTextContent(project.id);
+    expect(screen.queryByLabelText('object-hub')).toBeNull();
+    expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Notatki');
+    act(() => backClick?.());
+    expect(await screen.findByLabelText('object-hub')).toBeInTheDocument();
+    expect(screen.queryByLabelText('stub-notes')).toBeNull();
   });
 
   it('the documents tile opens a list of four rows, none of the pieces is open yet (16K.6)', async () => {

@@ -54,6 +54,19 @@ describe('apiRequest error detail parsing', () => {
     });
   });
 
+  it('maps a room resize that would not fit the wall openings to its own code', async () => {
+    const message = 'New room size would make Wall 2 smaller than its openings: deductions (1.800) exceed gross area (1.160)';
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      json: vi.fn().mockResolvedValue({ detail: message }),
+    } as unknown as Response);
+
+    const error = await apiRequest('/test').catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ status: 422, code: 'room_resize_exceeds_openings', message });
+  });
+
   it('uses the generic fallback only when no structured detail is available', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: false,

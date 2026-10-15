@@ -906,3 +906,13 @@ class MessageDeliveryDisabledError(MessageDeliveryError):
     """Sending of messages is switched off or has no bot token."""
 
     code = "DELIVERY_DISABLED"
+
+
+class ProjectNoteNotFoundError(Exception):
+    """A note that does not exist, is not on this object or is not this owner's (Stage 18)."""
+
+
+class ProjectNoteInvalidError(Exception):
+    """The words of a note are empty or too long (Stage 18)."""
+
+    code = "NOTE_INVALID"

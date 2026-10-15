@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Stage 18 — A9: полный бэкап ПЕРЕД релизом Stage 18 (миграция 0054): образы бэкапа под голову 0053, db-dump → upload → verify (раздел 72.3 runbook).
+# Stage 18 — A9: полный бэкап ПЕРЕД релизом Stage 18 (миграции 0054 и 0055): образы бэкапа под голову 0053, db-dump → upload → verify (раздел 72.3 runbook).
 # Останавливается на первом непройденном условии и пишет, что делать. Секреты не печатает (upload.env — только хеш BACKUP_TOOL_COMMIT).
 # Запуск (в НОВОЙ SSH-сессии на VM; после него сессию ЗАКРЫТЬ и не запускать в ней docker compose, раздел 72.5):
 #   cd ~/apps/plan_-_estimate && git fetch -q origin stage-17 && git show origin/stage-17:docs/STAGE_18_BACKUP_A9_RU.sh > ~/backup_a9.sh && bash ~/backup_a9.sh
 # Файл лежит в stage-18: git fetch -q origin stage-18 && git show origin/stage-18:docs/STAGE_18_BACKUP_A9_RU.sh > ~/backup_a9.sh && bash ~/backup_a9.sh
 #
-# ДО выкладки Stage 18 (по умолчанию): код stage-17, голова миграций 0053 — бэкап перед миграцией 0054.
+# ДО выкладки Stage 18 (по умолчанию): код stage-17, голова миграций 0053 — бэкап перед миграциями 0054 и 0055.
 # ПОСЛЕ выкладки Stage 18 (образы бэкапа под новую голову, иначе бэкап остановится безопасно):
-#   BACKUP_BRANCH=stage-18 BACKUP_HEAD=0054_calendar_reminders bash ~/backup_a9.sh
+#   BACKUP_BRANCH=stage-18 BACKUP_HEAD=0055_project_notes bash ~/backup_a9.sh
 cd ~/apps/plan_-_estimate || { echo "FAIL: нет каталога ~/apps/plan_-_estimate"; return 1 2>/dev/null || exit 1; }
 
 (
@@ -28,7 +28,7 @@ done
 H=$(curl -fsS https://plan-estimate.pl/api/health) || fail "B0" "health недоступен"
 has '"status":"ok"' "$H" || fail "B0" "health не ok: $H"
 AL=$(docker exec plan_estimate_backend alembic current 2>/dev/null)
-has "$HEAD_NAME" "$AL" || fail "B0" "alembic current не $HEAD_NAME: $AL (до выкладки Stage 18 нужен 0053_downtime_episodes, после — BACKUP_BRANCH=stage-18 BACKUP_HEAD=0054_calendar_reminders)"
+has "$HEAD_NAME" "$AL" || fail "B0" "alembic current не $HEAD_NAME: $AL (до выкладки Stage 18 нужен 0053_downtime_episodes, после — BACKUP_BRANCH=stage-18 BACKUP_HEAD=0055_project_notes)"
 git fetch -q origin "$BRANCH" || fail "B0" "git fetch origin $BRANCH не удался"
 COMMIT=$(git rev-parse "origin/$BRANCH")
 VERS=$(git ls-tree -r --name-only "$COMMIT" backend/alembic/versions | grep -E 'versions/[0-9]{4}_.*\.py$' | sort)
@@ -108,5 +108,5 @@ echo
 echo "################ ИТОГ ################"
 echo "A9 PASS: run_id=$RUN ready_count=$READY, upload и verify full — ok. Голова: $HEAD_NAME. Коммит инструмента: ${COMMIT:0:12}."
 echo "ВАЖНО: ЗАКРОЙТЕ эту SSH-сессию и больше не запускайте в ней docker compose (раздел 72.5)."
-echo "После выкладки Stage 18 (миграция 0054) бэкап надо повторить с BACKUP_BRANCH=stage-18 BACKUP_HEAD=0054_calendar_reminders (образы под новую голову)."
+echo "После выкладки Stage 18 (миграции 0054 и 0055) бэкап надо повторить с BACKUP_BRANCH=stage-18 BACKUP_HEAD=0055_project_notes (образы под новую голову)."
 )

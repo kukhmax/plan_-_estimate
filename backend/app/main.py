@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.endpoints.area_segments import router as area_segments_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.calendar import router as calendar_router
+from app.api.v1.endpoints.project_notes import router as project_notes_router
 from app.api.v1.endpoints.checklists import router as checklists_router
 from app.api.v1.endpoints.clients import router as clients_router
 from app.api.v1.endpoints.communications import router as communications_router
@@ -113,3 +114,4 @@ app.include_router(executor_profile_router, prefix="/api", tags=["executor-profi
 app.include_router(documents_router, prefix="/api", tags=["documents"])
 app.include_router(knowledge_router, prefix="/api", tags=["knowledge"])
 app.include_router(calendar_router, prefix="/api", tags=["calendar"])
+app.include_router(project_notes_router, prefix="/api", tags=["project-notes"])

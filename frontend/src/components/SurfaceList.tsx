@@ -39,6 +39,8 @@ interface SurfaceListProps {
   roomName?: string;
   roomHeight?: string | number | null;
   hasRoomDimensions?: boolean;
+  /** Changes whenever the room size is corrected, so the cards re-read the recalculated planes. */
+  dimensionsKey?: string;
   wallMode?: WallInputMode;
   onMeasurementChanged?: () => void;
   /** Open the inspection checklist for a wall surface (Stage 6C entry point). */
@@ -82,6 +84,7 @@ export function SurfaceList({
   roomName,
   roomHeight,
   hasRoomDimensions = false,
+  dimensionsKey,
   wallMode,
   onMeasurementChanged,
   onInspectSurface,
@@ -167,7 +170,7 @@ export function SurfaceList({
     } finally {
       setLoading(false);
     }
-  }, [includeArchived, projectId, roomId, t.surfaces.error]);
+  }, [includeArchived, projectId, roomId, dimensionsKey, t.surfaces.error]);
 
   useEffect(() => {
     void load();

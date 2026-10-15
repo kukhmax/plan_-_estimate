@@ -34,6 +34,7 @@ from app.models.decision_protocol import DecisionProtocol, DecisionStatus
 from app.models.calendar_settings import CalendarSettings
 from app.models.downtime_episode import DowntimeEpisode, DowntimeStatus
 from app.models.reminder import Reminder, ReminderOrigin, ReminderStatus
+from app.models.project_note import ProjectNote
 from app.models.work_schedule import WorkSchedule
 from app.models.adjacent_work import AdjacentWork, AdjacentWorkOrder
 from app.models.concealed_works_protocol import ConcealedStatus, ConcealedWorksProtocol
@@ -92,6 +93,7 @@ __all__ = [
     "Reminder",
     "ReminderOrigin",
     "ReminderStatus",
+    "ProjectNote",
     "WorkSchedule",
     "DowntimeStatus",
     "AdjacentWork",

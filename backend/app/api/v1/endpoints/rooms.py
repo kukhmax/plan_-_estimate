@@ -3,7 +3,11 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_current_user, get_room_service
-from app.domain.exceptions import ProjectNotFoundError, RoomNotFoundError
+from app.domain.exceptions import (
+    DeductionExceedsGrossAreaError,
+    ProjectNotFoundError,
+    RoomNotFoundError,
+)
 from app.domain.services.room_service import RoomService
 from app.models.user import User
 from app.schemas.room import (
@@ -148,6 +152,8 @@ async def update_room(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found",
         )
+    except DeductionExceedsGrossAreaError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error))
     except RoomNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

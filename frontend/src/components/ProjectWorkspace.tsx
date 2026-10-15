@@ -24,6 +24,7 @@ import {
 import { RoomType, RoomUpdatePayload } from '../types/room';
 import { InspectionTarget } from '../types/inspection';
 import { EstimateSummaryRead } from '../types/estimate';
+import { localizeApiError } from '../utils/apiErrors';
 import { formatMetric } from '../utils/format';
 import { AreaSegmentList } from './AreaSegmentList';
 import { EstimateList } from './EstimateList';
@@ -46,6 +47,7 @@ import type { UnpricedWork } from '../types/document';
 import { inspectionTargetOf } from '../utils/unpricedTarget';
 import { ProjectSummaryCard } from './ProjectSummaryCard';
 import { DocumentsMenu, DocumentsSection, LegalMenu, LegalSection, ObjectPhotos, ObjectSection, ProjectHub } from './ProjectHub';
+import { ProjectNotes } from './ProjectNotes';
 import { SurfaceList } from './SurfaceList';
 import { KnowledgeBasis, KnowledgeBasisTarget } from './KnowledgeBasis';
 
@@ -136,6 +138,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<ProjectType | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<RoomType | null>(null);
+  const roomDimensionsKey = `${selectedRoom?.length ?? ''}|${selectedRoom?.width ?? ''}|${selectedRoom?.height ?? ''}`;
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProjectFormState>(EMPTY_FORM);
@@ -270,7 +273,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       setShowRoomForm(false);
       setSuccess(t.rooms.updated);
     } catch (err) {
-      setRoomFormError(err instanceof Error ? err.message : t.rooms.error);
+      setRoomFormError(err instanceof Error ? localizeApiError(err, t) : t.rooms.error);
     } finally {
       setSavingRoom(false);
     }
@@ -341,6 +344,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       documents: t.documents.title,
       legal: t.objectHub.legal,
       summary: t.object_summary.title,
+      notes: t.notes.title,
     })[section];
 
   const documentsTitle = (section: DocumentsSection) =>
@@ -394,7 +398,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     setListVersion((version) => version + 1);
   };
 
-  const openProject = (project: ProjectType) => {
+  const openProject = (project: ProjectType, section: ObjectSection | null = null) => {
     closeForm();
     setShowRoomForm(false);
     closeInspections();
@@ -403,7 +407,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     setSelectedEstimateGroupKey(null);
     setSelectedProject(project);
     setSelectedRoom(null);
-    setObjectSection(null);
+    setObjectSection(section);
     setLegalSection(null);
     setDocumentsSection(null);
     setSuccess(null);
@@ -870,6 +874,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           )}
 
           {/* Stage 13F-PRE: the totals of the object, a screen of its own (the last tile of the hub). */}
+          {objectSection === 'notes' && <ProjectNotes projectId={selectedProject.id} />}
+
           {objectSection === 'summary' && <ProjectSummaryCard projectId={selectedProject.id} refreshToken={summaryToken} />}
 
           {/* Stage 14E.5: photos of the whole object. */}
@@ -1241,6 +1247,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             projectId={selectedProject.id}
             roomId={selectedRoom.id}
             roomName={selectedRoom.name}
+            dimensionsKey={roomDimensionsKey}
             onMeasurementChanged={refreshSelectedRoom}
             onInspectPlane={(plane) => openInspectionList({ kind: 'plane', plane })}
           />
@@ -1250,6 +1257,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             roomId={selectedRoom.id}
             roomName={selectedRoom.name}
             roomHeight={selectedRoom.height}
+            dimensionsKey={roomDimensionsKey}
             hasRoomDimensions={
               selectedRoom.length !== null && selectedRoom.length !== undefined &&
               selectedRoom.width !== null && selectedRoom.width !== undefined &&
@@ -1284,7 +1292,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               aria-label={`project-item-${project.id}`}
               className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="space-y-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-slate-900 text-sm">{project.name}</span>
@@ -1300,20 +1308,28 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                   <p className="text-xs text-slate-500 mt-1">{project.address}, {project.city}</p>
                   <p className="text-xs text-slate-500 mt-1">{t.projects.client}: {assignedClientName(project)}</p>
                 </div>
-                <div className="flex gap-1.5 flex-wrap justify-end">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     aria-label={`open-project-${project.id}`}
                     onClick={() => openProject(project)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
+                    className="min-h-11 px-3 text-sm rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
                   >
                     {t.common.open}
                   </button>
                   <button
                     type="button"
+                    aria-label={`notes-project-${project.id}`}
+                    onClick={() => openProject(project, 'notes')}
+                    className="min-h-11 px-3 text-sm rounded-xl bg-amber-50 text-amber-800 font-semibold hover:bg-amber-100 transition"
+                  >
+                    {t.notes.title}
+                  </button>
+                  <button
+                    type="button"
                     aria-label={`edit-project-${project.id}`}
                     onClick={() => startEdit(project)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                    className="min-h-11 px-3 text-sm rounded-xl bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
                   >
                     {t.common.edit}
                   </button>
@@ -1321,7 +1337,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     type="button"
                     aria-label={`${project.is_archived ? 'restore' : 'archive'}-project-${project.id}`}
                     onClick={() => void changeArchiveState(project)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                    className="min-h-11 px-3 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-semibold hover:bg-slate-100 transition"
                   >
                     {project.is_archived ? t.common.restore : t.common.archive}
                   </button>

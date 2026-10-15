@@ -28,6 +28,8 @@ interface AreaSegmentListProps {
   roomId: string;
   /** Room name for the photo caption path (Stage 14E.6); optional. */
   roomName?: string;
+  /** Changes whenever the room size is corrected, so the cards re-read the recalculated planes. */
+  dimensionsKey?: string;
   onMeasurementChanged?: () => void;
   /** Stage 13F-PRE: FLOOR / CEILING inspection lives in the plane's Opcje. */
   onInspectPlane?: (plane: AreaPlane) => void;
@@ -74,6 +76,7 @@ export function AreaSegmentList({
   projectId,
   roomId,
   roomName,
+  dimensionsKey,
   onMeasurementChanged,
   onInspectPlane,
 }: AreaSegmentListProps) {
@@ -115,7 +118,7 @@ export function AreaSegmentList({
     } finally {
       setLoading(false);
     }
-  }, [projectId, roomId, t.area_segments.error]);
+  }, [projectId, roomId, dimensionsKey, t.area_segments.error]);
 
   // Canonical plane identity comes from the room's real Surface rows, so it stays
   // available even when a plane has zero AreaSegment rows. If the surfaces fetch

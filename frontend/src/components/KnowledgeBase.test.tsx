@@ -51,7 +51,7 @@ const SITUATION: KnowledgeSituation = {
       answers: [{ text_pl: 'Tak', text_ru: 'Да', next: 'witness' }, { text_pl: 'Nie', text_ru: 'Нет', next: 'signs' }] },
   ],
   outcomes: [
-    { id: 'signs', steps_pl: ['Wydaj protokół decyzji.'], steps_ru: ['Выдайте протокол решений.'], entries: ['KC.640'], phrases: ['PHRASE_X'], documents: ['DECISION_PROTOCOL'], lawyer: false },
+    { id: 'signs', steps_pl: ['Wydaj protokół decyzji.'], steps_ru: ['Выдайте протокол решений.'], entries: ['KC.640'], phrases: ['COMM_RISK_MOISTURE_BLOCK_FINISHING', 'PHRASE_X'], documents: ['DECISION_PROTOCOL'], lawyer: false },
     { id: 'witness', steps_pl: ['Zapisz świadka.'], steps_ru: ['Запишите свидетеля.'], entries: [], phrases: [], documents: [], lawyer: true },
   ],
 };
@@ -283,10 +283,29 @@ describe('KnowledgeBase (Stage 17D)', () => {
       fireEvent.click(within(question).getByLabelText('knowledge-answer-0'));
       const outcome = await screen.findByLabelText('knowledge-outcome');
       expect(outcome).toHaveTextContent('Wydaj protokół decyzji.');
-      expect(outcome).toHaveTextContent('PHRASE_X');
+      // the words for the client, never the machine codes
+      expect(within(outcome).getByLabelText('knowledge-outcome-phrase-COMM_RISK_MOISTURE_BLOCK_FINISHING')).toHaveTextContent(
+        'Wstrzymuję prace do czasu osuszenia podłoża',
+      );
+      expect(within(outcome).getByLabelText('knowledge-outcome-phrase-PHRASE_X')).toHaveTextContent('Treść komunikacji jest niedostępna.');
+      expect(outcome).not.toHaveTextContent('COMM_RISK');
+      expect(outcome).not.toHaveTextContent('PHRASE_X');
       expect(outcome).toHaveTextContent('Protokół informacji i decyzji');
       expect(within(outcome).queryByText('Tu skonsultuj się z prawnikiem.')).toBeNull();
       expect(screen.queryByLabelText('knowledge-question')).toBeNull();
+    });
+
+    it('says the phrase for the client in Russian too', async () => {
+      localStorage.setItem('locale', 'ru');
+      renderScreen();
+      fireEvent.click(await screen.findByLabelText('knowledge-situation-SIT.PRIMER'));
+      fireEvent.click(await screen.findByLabelText('knowledge-answer-0'));
+      const outcome = await screen.findByLabelText('knowledge-outcome');
+      expect(within(outcome).getByLabelText('knowledge-outcome-phrase-COMM_RISK_MOISTURE_BLOCK_FINISHING')).toHaveTextContent(
+        'Приостанавливаю работы до просушки основания',
+      );
+      expect(within(outcome).getByLabelText('knowledge-outcome-phrase-PHRASE_X')).toHaveTextContent('Содержание фразы недоступно.');
+      expect(outcome).not.toHaveTextContent('COMM_RISK');
     });
 
     it('can step back one question and start again', async () => {

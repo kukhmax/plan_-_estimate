@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage 18 — выкладка календаря и напоминаний (18C + 18D + 18E): миграция 0054, backend, frontend, кнопка Telegram.
+# Stage 18 — выкладка календаря и напоминаний и заметок к объекту (18C + 18D + 18E + 18F + правки): миграции 0054 и 0055, backend, frontend, кнопка Telegram.
 # Цикл отправки сообщений остаётся ВЫКЛЮЧЕННЫМ (CALENDAR_DISPATCHER_ENABLED=false): его включает отдельный скрипт STAGE_18_ENABLE_LOOP_RU.sh после вашей проверки.
 # Останавливается на первом непройденном условии (FAIL) и пишет, что делать. Ворота M: миграция применяется только после того, как вы САМИ введёте подтверждение.
 # Секреты не печатает.
@@ -40,10 +40,10 @@ git merge-base --is-ancestor HEAD origin/stage-18 || fail "G0" "HEAD не пре
 INFRA=$(git diff --name-only HEAD origin/stage-18 -- Caddyfile backend/Dockerfile backend/Dockerfile.backup backend/Dockerfile.uploader backend/entrypoint.sh backend/requirements.txt backend/requirements-oci.txt frontend/package.json frontend/package-lock.json frontend/Dockerfile.prod backend/app/backup)
 [ -z "$INFRA" ] || fail "G0" "Изменились образы/зависимости/бэкап (этого релиза там быть не должно): $INFRA"
 NEWMIG=$(git diff --name-only --diff-filter=A HEAD origin/stage-18 -- backend/alembic/versions | grep -v '__pycache__' || true)
-[ "$NEWMIG" = "backend/alembic/versions/0054_calendar_reminders.py" ] || fail "G0" "ожидается ровно одна новая миграция 0054_calendar_reminders.py, а пришло: $NEWMIG"
+[ "$NEWMIG" = "$(printf 'backend/alembic/versions/0054_calendar_reminders.py\nbackend/alembic/versions/0055_project_notes.py')" ] || fail "G0" "ожидаются ровно две новые миграции (0054_calendar_reminders.py, 0055_project_notes.py), а пришло: $NEWMIG"
 CHGMIG=$(git diff --name-only --diff-filter=MD HEAD origin/stage-18 -- backend/alembic/versions | grep -v '__pycache__' || true)
 [ -z "$CHGMIG" ] || fail "G0" "существующие миграции изменены или удалены: $CHGMIG"
-BADALL=$(git diff --name-only HEAD origin/stage-18 | grep -Ev '^(backend/app/|backend/alembic/versions/0054_calendar_reminders\.py$|backend/tests/|frontend/src/|docs/|docker-compose\.prod\.yml$|\.env\.production\.example$)' || true)
+BADALL=$(git diff --name-only HEAD origin/stage-18 | grep -Ev '^(backend/app/|backend/alembic/versions/005[45]_[a-z_]+\.py$|backend/tests/|frontend/src/|docs/|docker-compose\.prod\.yml$|\.env\.production\.example$)' || true)
 [ -z "$BADALL" ] || fail "G0" "Неожиданные файлы в выкладке: $BADALL"
 CMP=$(git diff -U0 HEAD origin/stage-18 -- docker-compose.prod.yml | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -vE 'CALENDAR_|^\+\s*#|^\+\s*$' || true)
 [ -z "$CMP" ] || fail "G0" "в docker-compose.prod.yml изменено не только календарное: $CMP"
@@ -70,19 +70,19 @@ PC build backend frontend > /tmp/build18.log 2>&1 || { tail -n 30 /tmp/build18.l
 ok "G1 (сборка, теги pre-18; адрес кнопки https://$DOMAIN, цикл выключен)"
 
 echo; echo "################ ВОРОТА M: миграция базы данных ################"
-echo "Миграция 0054_calendar_reminders (проверена на PostgreSQL 16: вверх, вниз, вверх):"
-echo "  • СОЗДАЁТ три новые таблицы: work_schedule (плановые даты работ), reminders (очередь напоминаний), calendar_settings (настройки). Существующие таблицы и данные НЕ меняются."
+echo "Миграции 0054_calendar_reminders и 0055_project_notes (проверены на PostgreSQL 16: вверх, вниз, вверх):"
+echo "  • СОЗДАЁТ четыре новые таблицы: work_schedule (плановые даты работ), reminders (очередь напоминаний), calendar_settings (настройки), project_notes (заметки к объекту). Существующие таблицы и данные НЕ меняются."
 echo "  • Время: миллисекунды (таблицы пустые); одна транзакция: при ошибке откат целиком."
 echo "  • Простой API при пересоздании контейнера backend: около 30–60 секунд. Фото и база не затрагиваются."
 echo "  • Откат: образ backend откатывается командой из сообщения об ошибке (старый код новых таблиц не знает и не трогает — это безопасно). Откат самой миграции (alembic downgrade) НЕ нужен и отказывает, пока в таблицах есть ваши данные."
 echo "  • Бэкап перед миграцией: $LASTRUN (${AGE_H} ч назад)."
 echo "  • Отказ на этих воротах возвращает код на ветку $PREV; ничего не меняется."
 echo
-echo "Чтобы применить миграцию и пересоздать backend, введите ТОЧНО:  МИГРАЦИЯ 0054 ДА"
+echo "Чтобы применить миграцию и пересоздать backend, введите ТОЧНО:  МИГРАЦИИ 0054 0055 ДА"
 echo "Любой другой ввод останавливает выкладку; в production ничего не изменено (образы собраны, старая версия работает)."
 printf '> '
 read -r ANSWER < "${DEPLOY18_TTY:-/dev/tty}" || { git checkout -q "$PREV"; fail "M" "нет терминала для подтверждения: запустите скрипт в обычной SSH-сессии (код на VM возвращён на ветку $PREV)"; }
-[ "$ANSWER" = "МИГРАЦИЯ 0054 ДА" ] || { echo; git checkout -q "$PREV"; echo "Остановлено на воротах M (введено: '$ANSWER'). Production не менялся: работает прежняя версия; код на VM возвращён на ветку $PREV."; exit 1; }
+[ "$ANSWER" = "МИГРАЦИИ 0054 0055 ДА" ] || { echo; git checkout -q "$PREV"; echo "Остановлено на воротах M (введено: '$ANSWER'). Production не менялся: работает прежняя версия; код на VM возвращён на ветку $PREV."; exit 1; }
 ok "M (подтверждено вами)"
 
 echo; echo "################ G2: backend + миграция ################"
@@ -94,18 +94,19 @@ done
 [ "$(docker inspect -f '{{.State.Health.Status}}' plan_estimate_backend)" = "healthy" ] || { docker logs plan_estimate_backend --tail 40; fail "G2" "backend не стал healthy за 3 минуты. $ROLLB"; }
 LOG=$(docker logs plan_estimate_backend --tail 120 2>&1)
 has "Running upgrade 0053_downtime_episodes -> 0054_calendar_reminders" "$LOG" || fail "G2" "в логе нет применения миграции 0053 -> 0054. $ROLLB"
+has "Running upgrade 0054_calendar_reminders -> 0055_project_notes" "$LOG" || fail "G2" "в логе нет применения миграции 0054 -> 0055. $ROLLB"
 grep -qE "Traceback|KnowledgeCatalogError|CalendarTextsError" <<<"$LOG" && { tail -40 <<<"$LOG"; fail "G2" "в логе ошибка. $ROLLB"; }
 has "Application startup complete" "$LOG" || fail "G2" "нет Application startup complete. $ROLLB"
-AL2=$(docker exec plan_estimate_backend alembic current 2>/dev/null); has '0054_calendar_reminders' "$AL2" || fail "G2" "alembic не 0054. $ROLLB"
-TBL=$(docker exec plan_estimate_postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Atc \"select count(*) from information_schema.tables where table_name in ('work_schedule','reminders','calendar_settings')\"")
-[ "$TBL" = "3" ] || fail "G2" "новых таблиц $TBL из 3. $ROLLB"
+AL2=$(docker exec plan_estimate_backend alembic current 2>/dev/null); has '0055_project_notes' "$AL2" || fail "G2" "alembic не 0055. $ROLLB"
+TBL=$(docker exec plan_estimate_postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Atc \"select count(*) from information_schema.tables where table_name in ('work_schedule','reminders','calendar_settings','project_notes')\"")
+[ "$TBL" = "4" ] || fail "G2" "новых таблиц $TBL из 4. $ROLLB"
 CAT=$(docker exec plan_estimate_backend python -c "from app.domain.knowledge.catalog import load_knowledge_catalog as l; c=l(); print(len(c.sources), len(c.entries), len(c.links), len(c.situations), c.meta.version)")
 echo "каталог знаний (источники статьи связи ситуации версия): $CAT"
 [ "$CAT" = "13 34 51 8 5" ] || fail "G2" "каталог не 13 34 51 8 5. $ROLLB"
 TXT=$(docker exec plan_estimate_backend python -c "from app.domain.calendar.messages import load_texts; print(len(load_texts().titles))")
 [ "$TXT" = "17" ] || fail "G2" "тексты календаря: $TXT заголовков вместо 17. $ROLLB"
-API=$(docker exec plan_estimate_backend python -c "from app.main import app; p=app.openapi()['paths']; print('/api/calendar' in p, '/api/projects/{project_id}/schedule' in p)")
-[ "$API" = "True True" ] || fail "G2" "в API нет маршрутов календаря: $API. $ROLLB"
+API=$(docker exec plan_estimate_backend python -c "from app.main import app; p=app.openapi()['paths']; print('/api/calendar' in p, '/api/projects/{project_id}/schedule' in p, '/api/projects/{project_id}/notes' in p)")
+[ "$API" = "True True True" ] || fail "G2" "в API нет маршрутов календаря или заметок: $API. $ROLLB"
 CFG=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(s.CALENDAR_DISPATCHER_ENABLED, s.CALENDAR_WEB_APP_URL)")
 [ "$CFG" = "False https://$DOMAIN" ] || fail "G2" "настройки календаря в контейнере: '$CFG', ожидалось 'False https://$DOMAIN'. $ROLLB"
 echo "$LOG" | grep -q "calendar loop started" && fail "G2" "цикл отправки запущен, а должен быть выключен. $ROLLB"
@@ -114,7 +115,7 @@ KEY=$(docker exec plan_estimate_backend python -c "from app.core.config import s
 AFTER=$(docker exec plan_estimate_postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Atc '$Q'" | tr '\n' ' ')
 [ "$AFTER" = "$BEFORE" ] || fail "G2" "данные изменились: было $BEFORE стало $AFTER. $ROLLB"
 H=$(curl -fsS https://plan-estimate.pl/api/health) && has '"status":"ok"' "$H" || fail "G2" "health не ok. $ROLLB"
-ok "G2 (миграция 0054 применена, 3 таблицы, каталог 13/34/51/8/v5, тексты 17, маршруты календаря, цикл выключен, данные те же)"
+ok "G2 (миграции 0054 и 0055 применены, 4 таблицы, каталог 13/34/51/8/v5, тексты 17, маршруты календаря, цикл выключен, данные те же)"
 
 echo; echo "################ G3: frontend ################"
 ROLLF="Откат frontend:  docker tag plan-estimate-frontend:pre-18 plan-estimate-frontend:latest && docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml up -d --no-deps --no-build frontend"
@@ -138,9 +139,9 @@ has '"ok":true' "$R1" || fail "G4" "setChatMenuButton: $R1 (приложение
 has "?v=${NEW}" "$R2" || fail "G4" "getChatMenuButton не показывает ?v=${NEW}: $R2"
 ok "G4 (кнопка ?v=$NEW)"
 
-echo; echo "=============== ВСЁ PASS: версия $NEW выложена, миграция 0054 применена, цикл сообщений ВЫКЛЮЧЕН ==============="
+echo; echo "=============== ВСЁ PASS: версия $NEW выложена, миграции 0054 и 0055 применены, цикл сообщений ВЫКЛЮЧЕН ==============="
 echo "Дальше (по порядку, каждый шаг — после вашей проверки):"
 echo "  1) закройте Telegram полностью, откройте Mini App, пройдите чек-лист на телефоне (раздел 6 STAGE_18_PRODUCTION_RUNBOOK_RU.md);"
-echo "  2) бэкап под новую голову: BACKUP_BRANCH=stage-18 BACKUP_HEAD=0054_calendar_reminders bash ~/backup_a9.sh  (в НОВОЙ сессии, потом закрыть её);"
+echo "  2) бэкап под новую голову: BACKUP_BRANCH=stage-18 BACKUP_HEAD=0055_project_notes bash ~/backup_a9.sh  (в НОВОЙ сессии, потом закрыть её);"
 echo "  3) включение цикла сообщений: STAGE_18_ENABLE_LOOP_RU.sh (отдельное ваше «да»)."
 )
