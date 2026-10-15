@@ -86,6 +86,21 @@ class CalendarEvent:
         return self.on if self.on is not None else self.at.astimezone(tz).date()  # type: ignore[union-attr]
 
 
+def _plus_days(day: date, count: int) -> date | None:
+    """`day` plus calendar days; None when the result is not a date (a typo of the year must not stop the calendar)."""
+    try:
+        return day + timedelta(days=count)
+    except OverflowError:
+        return None
+
+
+def _plus_working_days(day: date, count: int) -> date | None:
+    try:
+        return add_working_days(day, count)
+    except (OverflowError, ValueError):
+        return None
+
+
 def _key(kind: EventKind, project_id: uuid.UUID, *parts: object) -> str:
     return ":".join([kind.value, str(project_id), *[str(p) for p in parts if p not in (None, "")]])
 
@@ -172,14 +187,15 @@ def contract_events(contract: ContractDates) -> list[CalendarEvent]:
         events.append(CalendarEvent(EventKind.OBJECT_END, _key(EventKind.OBJECT_END, pid), pid, on=contract.work_end_date))
         events.append(CalendarEvent(EventKind.DELIVERY_DEADLINE, _key(EventKind.DELIVERY_DEADLINE, pid), pid, on=contract.work_end_date))
     if contract.signed_on:
-        events.append(CalendarEvent(EventKind.PAYMENT_TERM, _key(EventKind.PAYMENT_TERM, pid, "advance"), pid, ref="advance",
-                                    on=contract.signed_on + timedelta(days=ADVANCE_DAYS)))
-        if contract.price_validity_days:
-            events.append(CalendarEvent(EventKind.PRICE_VALIDITY_END, _key(EventKind.PRICE_VALIDITY_END, pid), pid,
-                                        on=contract.signed_on + timedelta(days=contract.price_validity_days)))
-        if contract.consumer:
-            events.append(CalendarEvent(EventKind.WITHDRAWAL_END, _key(EventKind.WITHDRAWAL_END, pid), pid,
-                                        on=contract.signed_on + timedelta(days=CONSUMER_WITHDRAWAL_DAYS)))
+        advance = _plus_days(contract.signed_on, ADVANCE_DAYS)
+        if advance:
+            events.append(CalendarEvent(EventKind.PAYMENT_TERM, _key(EventKind.PAYMENT_TERM, pid, "advance"), pid, ref="advance", on=advance))
+        validity = _plus_days(contract.signed_on, contract.price_validity_days) if contract.price_validity_days else None
+        if validity:
+            events.append(CalendarEvent(EventKind.PRICE_VALIDITY_END, _key(EventKind.PRICE_VALIDITY_END, pid), pid, on=validity))
+        withdrawal = _plus_days(contract.signed_on, CONSUMER_WITHDRAWAL_DAYS) if contract.consumer else None
+        if withdrawal:
+            events.append(CalendarEvent(EventKind.WITHDRAWAL_END, _key(EventKind.WITHDRAWAL_END, pid), pid, on=withdrawal))
     return events
 
 
@@ -201,12 +217,12 @@ def acceptance_events(acceptance: AcceptanceDates) -> list[CalendarEvent]:
     if acceptance.held_on:
         return []
     events: list[CalendarEvent] = []
-    if acceptance.notified_on and acceptance.appearance_days:
-        events.append(CalendarEvent(EventKind.ACCEPTANCE_TERM, _key(EventKind.ACCEPTANCE_TERM, pid, "appearance"), pid, ref="appearance",
-                                    on=add_working_days(acceptance.notified_on, acceptance.appearance_days)))
-    if acceptance.renotified_on:
-        events.append(CalendarEvent(EventKind.ACCEPTANCE_TERM, _key(EventKind.ACCEPTANCE_TERM, pid, "reinvite"), pid, ref="reinvite",
-                                    on=add_working_days(acceptance.renotified_on, REINVITE_WORKING_DAYS)))
+    appearance = _plus_working_days(acceptance.notified_on, acceptance.appearance_days) if acceptance.notified_on and acceptance.appearance_days else None
+    if appearance:
+        events.append(CalendarEvent(EventKind.ACCEPTANCE_TERM, _key(EventKind.ACCEPTANCE_TERM, pid, "appearance"), pid, ref="appearance", on=appearance))
+    reinvite = _plus_working_days(acceptance.renotified_on, REINVITE_WORKING_DAYS) if acceptance.renotified_on else None
+    if reinvite:
+        events.append(CalendarEvent(EventKind.ACCEPTANCE_TERM, _key(EventKind.ACCEPTANCE_TERM, pid, "reinvite"), pid, ref="reinvite", on=reinvite))
     return events
 
 
@@ -222,11 +238,10 @@ def concealed_events(items: Iterable[ConcealedDates]) -> list[CalendarEvent]:
     """The earliest day the contractor may cover the work: the notice plus the working day of § 13 ust. 1; none once it was accepted."""
     events: list[CalendarEvent] = []
     for item in items:
-        if item.held_on or not item.notified_on:
-            continue
-        events.append(CalendarEvent(EventKind.CONCEALED_TERM, _key(EventKind.CONCEALED_TERM, item.project_id, item.ref), item.project_id,
-                                    ref="notice", on=add_working_days(item.notified_on, CONCEALED_NOTICE_WORKING_DAYS),
-                                    params={"concealed": item.ref}))
+        term = _plus_working_days(item.notified_on, CONCEALED_NOTICE_WORKING_DAYS) if item.notified_on and not item.held_on else None
+        if term:
+            events.append(CalendarEvent(EventKind.CONCEALED_TERM, _key(EventKind.CONCEALED_TERM, item.project_id, item.ref), item.project_id,
+                                        ref="notice", on=term, params={"concealed": item.ref}))
     return events
 
 
@@ -245,9 +260,9 @@ def downtime_events(downtime: DowntimeDates) -> list[CalendarEvent]:
     if downtime.held_on:
         return []
     events: list[CalendarEvent] = []
-    if downtime.noticed_on:
-        events.append(CalendarEvent(EventKind.DOWNTIME_TERM, _key(EventKind.DOWNTIME_TERM, pid, "notice"), pid, ref="notice",
-                                    on=add_working_days(downtime.noticed_on, DOWNTIME_REMOVAL_WORKING_DAYS)))
+    next_day = _plus_working_days(downtime.noticed_on, DOWNTIME_REMOVAL_WORKING_DAYS) if downtime.noticed_on else None
+    if next_day:
+        events.append(CalendarEvent(EventKind.DOWNTIME_TERM, _key(EventKind.DOWNTIME_TERM, pid, "notice"), pid, ref="notice", on=next_day))
     if downtime.need_by:
         events.append(CalendarEvent(EventKind.DOWNTIME_TERM, _key(EventKind.DOWNTIME_TERM, pid, "need_by"), pid, ref="need_by", on=downtime.need_by))
     return events

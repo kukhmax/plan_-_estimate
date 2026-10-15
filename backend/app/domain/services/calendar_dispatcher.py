@@ -19,7 +19,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -50,7 +50,8 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
-CLAIM_LIMIT = 100
+CLAIM_LIMIT = 100  # rows read at a time
+MAX_PAGES = 20  # pages of one pass: a queue longer than this waits for the next pass (2000 reminders)
 SessionFactory = Callable[[], AsyncSession]
 
 
@@ -65,6 +66,7 @@ class TickReport:
     missed: int = 0
     skipped: int = 0
     deferred_quiet: int = 0
+    deferred_off: int = 0
     errors: list[str] = field(default_factory=list)
 
 
@@ -132,33 +134,44 @@ class CalendarDispatcher:
         return len(rows)
 
     async def _claim(self, db: AsyncSession, now: datetime, report: TickReport) -> dict[uuid.UUID, list[uuid.UUID]]:
-        rows = (await db.execute(
-            select(Reminder).where(Reminder.status == ReminderStatus.PENDING.value, Reminder.send_at <= now)
-            .order_by(Reminder.send_at, Reminder.id).limit(CLAIM_LIMIT).with_for_update(skip_locked=True)
-        )).scalars().all()
+        """Take what is due, page by page (by time and id): a reminder that has to wait (quiet hours, the messages switched off) stays in
+        the queue and must not hide the ones behind it, so the pass goes on to the next page until the queue of the due is over."""
         prefs: dict[uuid.UUID, CalendarPrefs] = {}
         sent_today: dict[uuid.UUID, int] = {}
         claimed: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
-        for row in rows:
-            if row.owner_id not in prefs:
-                prefs[row.owner_id] = await CalendarService(db).prefs(row.owner_id)
-                sent_today[row.owner_id] = (await db.execute(
-                    select(func.count()).select_from(Reminder).where(
-                        Reminder.owner_id == row.owner_id, Reminder.status == ReminderStatus.SENT.value, Reminder.sent_at > now - timedelta(hours=24)
-                    )
-                )).scalar_one()
-            owner_prefs = prefs[row.owner_id]
-            late = policy.lateness(_utc(row.send_at), now)
-            if late == policy.MISSED:
-                row.status, report.missed = ReminderStatus.MISSED.value, report.missed + 1
-            elif row.origin == ReminderOrigin.AUTO.value and in_quiet_hours(now.astimezone(owner_prefs.tz).time(), owner_prefs.quiet_from, owner_prefs.quiet_to):
-                report.deferred_quiet += 1  # stays PENDING: it goes in the morning
-            elif sent_today[row.owner_id] + len(claimed[row.owner_id]) >= self._max_per_day:
-                row.status, row.error_code, report.skipped = ReminderStatus.SKIPPED.value, "DAILY_LIMIT", report.skipped + 1
-            else:
-                row.status, row.locked_at, row.attempts = ReminderStatus.SENDING.value, now, row.attempts + 1
-                claimed[row.owner_id].append(row.id)
-                report.claimed += 1
+        after: tuple[datetime, uuid.UUID] | None = None
+        for _ in range(MAX_PAGES):
+            stmt = select(Reminder).where(Reminder.status == ReminderStatus.PENDING.value, Reminder.send_at <= now)
+            if after is not None:
+                stmt = stmt.where(tuple_(Reminder.send_at, Reminder.id) > tuple_(after[0], after[1]))
+            rows = (await db.execute(stmt.order_by(Reminder.send_at, Reminder.id).limit(CLAIM_LIMIT).with_for_update(skip_locked=True))).scalars().all()
+            if not rows:
+                break
+            after = (rows[-1].send_at, rows[-1].id)
+            for row in rows:
+                if row.owner_id not in prefs:
+                    prefs[row.owner_id] = await CalendarService(db).prefs(row.owner_id)
+                    sent_today[row.owner_id] = (await db.execute(
+                        select(func.count()).select_from(Reminder).where(
+                            Reminder.owner_id == row.owner_id, Reminder.status == ReminderStatus.SENT.value, Reminder.sent_at > now - timedelta(hours=24)
+                        )
+                    )).scalar_one()
+                owner_prefs = prefs[row.owner_id]
+                late = policy.lateness(_utc(row.send_at), now)
+                if late == policy.MISSED:
+                    row.status, report.missed = ReminderStatus.MISSED.value, report.missed + 1
+                elif not owner_prefs.enabled:
+                    report.deferred_off += 1  # the owner switched the messages off: nothing goes, nothing is lost until it is too late
+                elif row.origin == ReminderOrigin.AUTO.value and in_quiet_hours(now.astimezone(owner_prefs.tz).time(), owner_prefs.quiet_from, owner_prefs.quiet_to):
+                    report.deferred_quiet += 1  # stays PENDING: it goes in the morning
+                elif sent_today[row.owner_id] + len(claimed[row.owner_id]) >= self._max_per_day:
+                    row.status, row.error_code, report.skipped = ReminderStatus.SKIPPED.value, "DAILY_LIMIT", report.skipped + 1
+                else:
+                    row.status, row.locked_at, row.attempts = ReminderStatus.SENDING.value, now, row.attempts + 1
+                    claimed[row.owner_id].append(row.id)
+                    report.claimed += 1
+            if len(rows) < CLAIM_LIMIT:
+                break
         await db.commit()
         return dict(claimed)
 

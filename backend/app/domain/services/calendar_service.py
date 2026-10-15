@@ -15,7 +15,9 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.calendar import agenda as ag
@@ -57,12 +59,19 @@ from app.models.work_schedule import WorkSchedule
 logger = logging.getLogger(__name__)
 
 TITLE_LIMIT = 120
+MAX_OWN_PENDING = 200  # waiting own reminders of one owner: a guard against a script or a stuck button, far above a real use
 LANGUAGES = ("pl", "ru")
 CLOSING_RANK = {WorkExecutionStatus.IN_PROGRESS.value: 1, WorkExecutionStatus.COMPLETED.value: 2}
 
 
 def _date(value: Any) -> date | None:
-    return date.fromisoformat(value) if isinstance(value, str) and value else None
+    """A date out of the answers of the contract; a value that is not a date is no date (the calendar goes on without it)."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def _utc(value: datetime | None) -> datetime | None:
@@ -74,8 +83,11 @@ def _utc_required(value: datetime) -> datetime:
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
+MAX_TERM_DAYS = 3650  # a term of the contract longer than ten years is a typo, not a term
+
+
 def _int(value: Any) -> int | None:
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
+    return value if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= MAX_TERM_DAYS else None
 
 
 @dataclass(frozen=True)
@@ -254,8 +266,7 @@ class CalendarService:
             )).scalars()
         }
         plan = plan_changes(desired, {key: QueuedReminder(row.status, _utc_required(row.send_at)) for key, row in rows.items()}, now)
-        for item in plan.insert:
-            self.db.add(self._row(owner_id, item, prefs))
+        await self._insert_new(owner_id, plan.insert, prefs)
         for item in plan.retime:
             rows[item.dedupe_key].send_at = item.send_at
             rows[item.dedupe_key].tz = prefs.tz_name
@@ -274,6 +285,16 @@ class CalendarService:
                 row.status = ReminderStatus.CANCELLED.value
         await self.db.flush()
         return plan
+
+    async def _insert_new(self, owner_id: uuid.UUID, items: list[DesiredReminder], prefs: CalendarPrefs) -> None:
+        """Queue the new facts. A fact another pass queued a moment ago (the periodic pass and a request meet on the same object) is
+        already there: the unique key makes the second insert a no-op instead of an error that would undo the user's own action."""
+        dialect = self.db.get_bind().dialect.name
+        insert = pg_insert if dialect == "postgresql" else sqlite_insert
+        for item in items:
+            row = self._row(owner_id, item, prefs)
+            values = {column.name: getattr(row, column.name) for column in Reminder.__table__.columns if getattr(row, column.name) is not None}
+            await self.db.execute(insert(Reminder).values(**values).on_conflict_do_nothing(index_elements=["owner_id", "dedupe_key"]))
 
     @staticmethod
     def _row(owner_id: uuid.UUID, item: DesiredReminder, prefs: CalendarPrefs) -> Reminder:
@@ -349,6 +370,13 @@ class CalendarService:
             raise ReminderInvalidError("IN_THE_PAST")
         if close_on_status is not None and close_on_status not in CLOSING_RANK:
             raise ReminderInvalidError("CLOSE_STATUS_INVALID")
+        waiting = (await self.db.execute(
+            select(func.count()).select_from(Reminder).where(
+                Reminder.owner_id == owner_id, Reminder.origin == ReminderOrigin.USER.value, Reminder.status == ReminderStatus.PENDING.value
+            )
+        )).scalar_one()
+        if waiting >= MAX_OWN_PENDING:
+            raise ReminderInvalidError("TOO_MANY")
         if project_id is not None:
             await self._project(owner_id, project_id)
         prefs = await self.prefs(owner_id)

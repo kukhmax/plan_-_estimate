@@ -2879,7 +2879,8 @@
         "TITLE_REQUIRED": "Wpisz notatkę.",
         "TITLE_TOO_LONG": "Notatka jest za długa (maks. 120 znaków).",
         "CUSTOM_TIME_REQUIRED": "Wybierz datę i godzinę.",
-        "generic": "Nie udało się zapisać przypomnienia."
+        "generic": "Nie udało się zapisać przypomnienia.",
+        "TOO_MANY": "Za dużo oczekujących przypomnień (maks. 200)."
       }
     },
     "schedule": {
