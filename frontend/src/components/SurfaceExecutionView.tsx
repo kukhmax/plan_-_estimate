@@ -12,6 +12,7 @@ import { fetchPriceItems } from '../api/priceItems';
 import { photoKey, useProjectPhotos } from '../hooks/ProjectPhotosContext';
 import { useI18n } from '../hooks/useI18n';
 import { subscribePhotoUploadRefetch } from '../hooks/usePhotoUploadQueue';
+import { useWorkCalendar } from '../hooks/useWorkCalendar';
 import { PhotoAttachmentRead, PhotoCategory } from '../types/photo';
 import { buildLocationPath } from '../utils/photoCaption';
 import {
@@ -21,6 +22,7 @@ import {
   WorkExecutionStatus,
 } from '../types/workPlan';
 import { localizeApiError } from '../utils/apiErrors';
+import { formatDayTime } from '../utils/calendarFormat';
 import { formatRecordedDateTime, pluralCount, priceItemLabel } from '../utils/executionFormat';
 import { formatWaitHours } from '../utils/waitFormat';
 import { displayCounts, ExecutionBulkSheet, nothingReason } from './ExecutionBulkSheet';
@@ -28,6 +30,9 @@ import { ExecutionStatusBadge } from './ExecutionStatusBadge';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { PhotoEntryButton } from './PhotoEntryButton';
 import { PhotoSection } from './PhotoSection';
+import { ReminderSheet } from './ReminderSheet';
+import { ScheduleSuggestSheet } from './ScheduleSuggestSheet';
+import { WorkCalendarRow } from './WorkCalendarRow';
 
 interface SurfaceExecutionViewProps {
   projectId: string;
@@ -172,6 +177,10 @@ export function SurfaceExecutionView({
   const [bulkSheetError, setBulkSheetError] = useState<string | null>(null);
   const [bulkNotice, setBulkNotice] = useState<BulkNotice | null>(null);
   const bulkInFlight = useRef(false);
+  // Stage 18E: the planned dates, their warnings and the own reminders of the object; the Remind sheet and the proposal of dates.
+  const calendar = useWorkCalendar(projectId);
+  const [remindFor, setRemindFor] = useState<string | null>(null);
+  const [suggestOpen, setSuggestOpen] = useState(false);
 
   const load = (silent: boolean) => {
     const generation = ++loadGeneration.current;
@@ -246,6 +255,7 @@ export function SurfaceExecutionView({
         ),
       });
       setOptionsKey(null);
+      void calendar.reload(); // the calendar follows the status: a break reminder appears, a waiting one closes
     } catch (error) {
       if (isWorkExecutionConflict(error)) {
         setMessages((prev) => ({ ...prev, [key]: { kind: 'conflict', text: t.execution.conflict } }));
@@ -289,6 +299,7 @@ export function SurfaceExecutionView({
       setBulkPreview(null);
       setBulkNotice({ kind: 'done', result });
       await load(true); // the source is unchanged; re-read it from the server anyway
+      void calendar.reload();
     } catch (error) {
       if (isWorkExecutionSourceChanged(error)) {
         // Stale confirmation: close it, show the current source, require a new preview.
@@ -458,6 +469,16 @@ export function SurfaceExecutionView({
                   </div>
                 )}
 
+                <WorkCalendarRow
+                  workKey={key}
+                  plannedDate={calendar.schedule.planned.find((item) => item.occurrence_key === key)?.planned_date ?? null}
+                  warnings={calendar.schedule.warnings.filter((warning) => warning.occurrence_key === key)}
+                  reminders={calendar.reminders.filter((reminder) => reminder.occurrence_key === key)}
+                  completed={status === 'COMPLETED'}
+                  onSetDate={(day) => calendar.setDate(key, day)}
+                  onRemind={() => setRemindFor(key)}
+                />
+
                 {message && (
                   <p
                     role={message.kind === 'error' ? 'alert' : 'status'}
@@ -563,6 +584,48 @@ export function SurfaceExecutionView({
           idSuffix={surfaceId}
         />
       )}
+
+      {loadState === 'ready' && works.length > 0 && (
+        <button type="button" aria-label={`schedule-suggest-open-${surfaceId}`} onClick={() => setSuggestOpen(true)} className={btnSecondary}>
+          {t.calendar.schedule.suggest}
+        </button>
+      )}
+
+      {suggestOpen && (
+        <ScheduleSuggestSheet
+          projectId={projectId}
+          roomId={roomId}
+          workNames={Object.fromEntries(works.map((work) => [work.occurrence_key, priceItemLabel(t, work.price_item, t.work_plan.unavailable_item)]))}
+          onClose={() => setSuggestOpen(false)}
+          onApplied={(schedule) => {
+            calendar.setSchedule(schedule);
+            void calendar.reload();
+          }}
+        />
+      )}
+
+      {remindFor && (() => {
+        const work = works.find((item) => item.occurrence_key === remindFor);
+        if (!work) return null;
+        const plannedDate = calendar.schedule.planned.find((item) => item.occurrence_key === remindFor)?.planned_date ?? null;
+        return (
+          <ReminderSheet
+            context={{
+              projectId,
+              roomId,
+              surfaceId,
+              occurrenceKey: remindFor,
+              defaultTitle: `${priceItemLabel(t, work.price_item, t.work_plan.unavailable_item)} — ${surfaceName}`,
+              hasPlannedDate: plannedDate !== null,
+              hasBreakEnd: Boolean(work.execution?.ready_after),
+            }}
+            existing={calendar.reminders.filter((reminder) => reminder.occurrence_key === remindFor)}
+            formatWhen={(iso) => formatDayTime(iso, locale)}
+            onClose={() => setRemindFor(null)}
+            onChanged={() => void calendar.reload()}
+          />
+        );
+      })()}
 
       {loadState === 'ready' && (
         <button

@@ -508,7 +508,7 @@ describe('App authentication component', () => {
     }
   });
 
-  it('the main menu has the six sections in the order of the owner: clients, objects, price, archive, sent documents, knowledge base (Stage 16K.5, 17D)', async () => {
+  it('the main menu has the seven sections in the order of the owner: clients, objects, calendar, price, archive, sent documents, knowledge base (Stage 16K.5, 17D, 18E)', async () => {
     vi.mocked(api.loginWithTelegram).mockResolvedValueOnce({
       access_token: 'mock-jwt-token', token_type: 'bearer', is_dev_auth: true,
       user: { id: '11111111-1111-1111-1111-111111111111', telegram_user_id: 999999999, username: 'dev_contractor', first_name: 'Jan', last_name: 'Kowalski', language_code: 'pl', created_at: '2026-09-08T12:00:00Z', updated_at: '2026-09-08T12:00:00Z' },
@@ -517,7 +517,7 @@ describe('App authentication component', () => {
     await openMenu();
     const nav = screen.getByRole('navigation', { name: 'main-navigation' });
     expect(Array.from(nav.querySelectorAll('button')).map((b) => b.textContent)).toEqual([
-      'Klienci', 'Obiekty', 'Cennik', 'Archiwum', 'Wysłane dokumenty', 'Baza wiedzy',
+      'Klienci', 'Obiekty', 'Kalendarz', 'Cennik', 'Archiwum', 'Wysłane dokumenty', 'Baza wiedzy',
     ]);
     fireEvent.click(screen.getByRole('button', { name: 'show-archive' }));
     expect(await screen.findByLabelText('archive-section')).toBeInTheDocument();

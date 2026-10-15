@@ -123,7 +123,7 @@ interface ProjectWorkspaceProps {
 export interface ProjectOpenRequest {
   token: number;
   projectId: string;
-  view: 'estimates';
+  view: 'estimates' | 'project';
 }
 
 export function ProjectWorkspace({ resetSignal, backSuspended = false, openRequest = null }: ProjectWorkspaceProps) {
@@ -521,7 +521,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       .then((project) => {
         if (cancelled) return;
         openProject(project);
-        setShowEstimates(true);
+        if (openRequest.view === 'estimates') setShowEstimates(true);
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : t.projects.error);

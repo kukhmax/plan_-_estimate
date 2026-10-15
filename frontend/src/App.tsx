@@ -5,22 +5,34 @@ import { ArchiveScreen } from './components/ArchiveScreen';
 import { ClientList } from './components/ClientList';
 import { PriceBook } from './components/PriceBook';
 import { SentDocuments } from './components/SentDocuments';
+import { CalendarScreen } from './components/CalendarScreen';
 import { KnowledgeBase } from './components/KnowledgeBase';
 import { ProjectOpenRequest, ProjectWorkspace } from './components/ProjectWorkspace';
 import { AccountModal } from './components/AccountModal';
 import { AppMenu, AppMenuItem } from './components/AppMenu';
 
-type Section = 'clients' | 'projects' | 'pricebook' | 'archive' | 'documents' | 'knowledge';
+type Section = 'clients' | 'projects' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge';
+
+/** The button of a reminder message opens the Mini App with `?open=calendar` or `?open=project:<id>` (Stage 18D / 18E). */
+function openTarget(search: string): { section: Section; projectId?: string } | null {
+  const value = new URLSearchParams(search).get('open');
+  if (value === 'calendar') return { section: 'calendar' };
+  const match = value?.match(/^project:([0-9a-f-]{36})$/i);
+  return match ? { section: 'projects', projectId: match[1] } : null;
+}
 
 const AppContent: React.FC = () => {
   const { user, isDevAuth, isLoading, error, retry } = useAuth();
   const { t, locale, setLocale } = useI18n();
-  const [activeSection, setActiveSection] = useState<Section>('clients');
+  const [target] = useState(() => openTarget(typeof window === 'undefined' ? '' : window.location.search));
+  const [activeSection, setActiveSection] = useState<Section>(target?.section ?? 'clients');
   const [projectsNavToken, setProjectsNavToken] = useState(0);
   const [showAccount, setShowAccount] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [priceNavToken, setPriceNavToken] = useState(0);
-  const [openRequest, setOpenRequest] = useState<ProjectOpenRequest | null>(null);
+  const [openRequest, setOpenRequest] = useState<ProjectOpenRequest | null>(
+    target?.projectId ? { token: 1, projectId: target.projectId, view: 'project' } : null,
+  );
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   const choose = (section: Section) => {
@@ -36,9 +48,15 @@ const AppContent: React.FC = () => {
     setOpenRequest((previous) => ({ token: (previous?.token ?? 0) + 1, projectId, view: 'estimates' }));
     setActiveSection('projects');
   };
+  // A line of the calendar leads to the screen of its object.
+  const openProjectOf = (projectId: string) => {
+    setOpenRequest((previous) => ({ token: (previous?.token ?? 0) + 1, projectId, view: 'project' }));
+    setActiveSection('projects');
+  };
   const menuItems: AppMenuItem[] = [
     { id: 'show-clients', label: t.navigation.clients, active: activeSection === 'clients', onSelect: () => choose('clients') },
     { id: 'show-projects', label: t.navigation.projects, active: activeSection === 'projects', onSelect: () => choose('projects') },
+    { id: 'show-calendar', label: t.navigation.calendar, active: activeSection === 'calendar', onSelect: () => choose('calendar') },
     { id: 'show-pricebook', label: t.navigation.pricebook, active: activeSection === 'pricebook', onSelect: () => choose('pricebook') },
     { id: 'show-archive', label: t.navigation.archive, active: activeSection === 'archive', onSelect: () => choose('archive') },
     { id: 'show-documents', label: t.navigation.documents, active: activeSection === 'documents', onSelect: () => choose('documents') },
@@ -164,6 +182,8 @@ const AppContent: React.FC = () => {
               <ClientList onOpenEstimate={openEstimatesOf} backSuspended={showAccount || menuOpen} />
             ) : activeSection === 'projects' ? (
               <ProjectWorkspace resetSignal={projectsNavToken} backSuspended={showAccount || menuOpen} openRequest={openRequest} />
+            ) : activeSection === 'calendar' ? (
+              <CalendarScreen backSuspended={showAccount || menuOpen} onOpenProject={openProjectOf} />
             ) : activeSection === 'archive' ? (
               <ArchiveScreen />
             ) : activeSection === 'documents' ? (

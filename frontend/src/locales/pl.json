@@ -60,7 +60,8 @@
     "pricebook": "Cennik",
     "archive": "Archiwum",
     "documents": "Wysłane dokumenty",
-    "knowledge": "Baza wiedzy"
+    "knowledge": "Baza wiedzy",
+    "calendar": "Kalendarz"
   },
   "errors": {
     "reveal_work_requires_opening": "Prace na ościeżach dodaj w konkretnym otworze (Prace na ościeżach), a nie w planie ściany.",
@@ -2794,5 +2795,150 @@
     "basis_phrases": "Dlaczego trzeba to powiedzieć klientowi ({count})",
     "basis_document": "Podstawa prawna dokumentu ({count})",
     "basis_technical": "Podstawa techniczna ({count})"
+  },
+  "calendar": {
+    "title": "Kalendarz",
+    "today": "Dziś",
+    "overdue": "Zaległe",
+    "upcoming": "Nadchodzące",
+    "empty": "Brak zdarzeń w tym okresie.",
+    "all_projects": "Wszystkie obiekty",
+    "add_reminder": "+ Własne przypomnienie",
+    "settings": "Ustawienia",
+    "back": "Kalendarz",
+    "load_error": "Nie udało się wczytać kalendarza.",
+    "retry": "Spróbuj ponownie",
+    "loading": "Wczytywanie…",
+    "sends": "wysyła wiadomość",
+    "calendar_only": "tylko w kalendarzu",
+    "planned_for": "zaplanowano na {date}",
+    "mark_started": "W trakcie",
+    "mark_done": "Wykonane",
+    "mark_error": "Nie udało się zmienić statusu pracy.",
+    "today_empty": "Na dziś nic nie zaplanowano.",
+    "due_in_period": "Zaplanowane prace",
+    "own_reminder": "Własne przypomnienie",
+    "at_time": "o {time}",
+    "day_label": "{day}",
+    "event": {
+      "break_start": "Rozpoczęła się przerwa technologiczna",
+      "break_end": "Koniec przerwy technologicznej — można kontynuować prace",
+      "work_start": "Początek zaplanowanych prac w pomieszczeniu",
+      "work_end": "Koniec zaplanowanych prac w pomieszczeniu",
+      "object_start": "Rozpoczęcie prac na obiekcie (wg umowy)",
+      "object_end": "Zakończenie prac na obiekcie (wg umowy)",
+      "delivery_deadline": "Termin oddania prac",
+      "acceptance_term": {
+        "appearance": "Upływa termin stawienia się Zamawiającego do odbioru (§ 14)",
+        "reinvite": "Upływa dodatkowy termin po ponownym wezwaniu do odbioru (§ 14 ust. 5)"
+      },
+      "concealed_term": {
+        "notice": "Najwcześniejszy termin odbioru robót zanikających (§ 13)"
+      },
+      "downtime_term": {
+        "notice": "Koniec następnego dnia roboczego po zawiadomieniu o przeszkodzie (§ 10)",
+        "need_by": "Termin usunięcia przeszkody wyznaczony Zamawiającemu (§ 10)"
+      },
+      "withdrawal_end": "Koniec 14-dniowego terminu odstąpienia konsumenta (§ 20)",
+      "payment_term": {
+        "advance": "Termin wpłaty zaliczki (§ 6)"
+      },
+      "adjacent_work": {
+        "from": "Początek prac innego wykonawcy w obiekcie",
+        "to": "Koniec prac innego wykonawcy w obiekcie"
+      },
+      "price_validity_end": "Koniec ważności cen jednostkowych (§ 4)"
+    },
+    "remind": {
+      "button": "Przypomnij",
+      "title": "Przypomnij",
+      "set_chip": "🔔 {when}",
+      "presets": {
+        "BREAK_END": "Gdy skończy się przerwa",
+        "WORK_DAY": "Rano w dniu pracy",
+        "DAY_BEFORE": "Dzień wcześniej wieczorem",
+        "IN_1H": "Za godzinę",
+        "IN_3H": "Za 3 godziny",
+        "TOMORROW": "Jutro rano",
+        "CUSTOM": "Własny termin…"
+      },
+      "note": "Notatka (opcjonalnie)",
+      "note_placeholder": "Np. zadzwonić do klienta",
+      "date": "Data",
+      "time": "Godzina",
+      "save": "Zapisz przypomnienie",
+      "cancel": "Anuluj",
+      "saving": "Zapisywanie…",
+      "remove": "Usuń",
+      "existing": "Ustawione przypomnienia",
+      "saved": "Przypomnienie zapisane.",
+      "errors": {
+        "NO_PLANNED_DATE": "Najpierw ustaw planowaną datę pracy.",
+        "NO_BREAK": "Przerwa zaczyna się po wykonaniu pracy.",
+        "IN_THE_PAST": "Ten termin już minął.",
+        "TITLE_REQUIRED": "Wpisz notatkę.",
+        "TITLE_TOO_LONG": "Notatka jest za długa (maks. 120 znaków).",
+        "CUSTOM_TIME_REQUIRED": "Wybierz datę i godzinę.",
+        "generic": "Nie udało się zapisać przypomnienia."
+      }
+    },
+    "schedule": {
+      "planned_date": "Planowana data",
+      "clear": "Wyczyść",
+      "set": "Ustaw",
+      "save_error": "Nie udało się zapisać daty.",
+      "warnings": {
+        "BEFORE_BREAK_END": "Wcześniej niż koniec przerwy poprzedniej pracy (od {date}).",
+        "BEFORE_CONTRACT_START": "Przed początkiem prac z umowy ({date}).",
+        "AFTER_CONTRACT_END": "Po zakończeniu prac z umowy ({date})."
+      },
+      "suggest": "Zaproponuj daty po kolei",
+      "suggest_from": "Od jakiej daty zacząć?",
+      "suggest_show": "Pokaż propozycję",
+      "suggest_apply": "Przyjmij wszystkie",
+      "suggest_close": "Zamknij",
+      "suggest_none": "Brak prac do zaplanowania.",
+      "suggest_summary": "Propozycja dla {count} prac w pomieszczeniu",
+      "suggest_applied": "Daty zapisane.",
+      "suggest_error": "Nie udało się przygotować propozycji."
+    },
+    "settings_page": {
+      "title": "Ustawienia kalendarza",
+      "enabled": "Powiadomienia w Telegramie",
+      "timezone": "Strefa czasowa",
+      "quiet": "Cisza nocna",
+      "quiet_from": "od",
+      "quiet_to": "do",
+      "digest": "Poranne podsumowanie o",
+      "language": "Język wiadomości",
+      "language_auto": "Jak w Telegramie",
+      "kinds": "Co przysyłać wiadomością",
+      "save": "Zapisz ustawienia",
+      "saved": "Ustawienia zapisane.",
+      "back": "Wróć do kalendarza",
+      "errors": {
+        "TIMEZONE_UNKNOWN": "Nieznana strefa czasowa.",
+        "LANGUAGE_UNKNOWN": "Nieznany język.",
+        "KIND_UNKNOWN": "Nieznany rodzaj zdarzenia.",
+        "DIGEST_IN_QUIET_HOURS": "Poranne podsumowanie nie może wypadać w ciszy nocnej.",
+        "generic": "Nie udało się zapisać ustawień."
+      }
+    },
+    "kind": {
+      "BREAK_START": "Początek przerwy technologicznej",
+      "BREAK_END": "Koniec przerwy technologicznej",
+      "WORK_START": "Początek prac w pomieszczeniu",
+      "WORK_END": "Koniec prac w pomieszczeniu",
+      "OBJECT_START": "Rozpoczęcie prac (umowa)",
+      "OBJECT_END": "Zakończenie prac (umowa)",
+      "DELIVERY_DEADLINE": "Termin oddania prac",
+      "ACCEPTANCE_TERM": "Terminy odbioru (§ 14)",
+      "CONCEALED_TERM": "Odbiór robót zanikających (§ 13)",
+      "DOWNTIME_TERM": "Przestój (§ 10)",
+      "WITHDRAWAL_END": "Odstąpienie konsumenta (§ 20)",
+      "PAYMENT_TERM": "Zaliczka (§ 6)",
+      "ADJACENT_WORK": "Prace innych wykonawców",
+      "PRICE_VALIDITY_END": "Ważność cen (§ 4)"
+    }
   }
 }

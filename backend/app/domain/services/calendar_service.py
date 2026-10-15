@@ -11,12 +11,14 @@ transaction of the change that caused them (a work marked done) so that the queu
 import logging
 import uuid
 from collections.abc import Iterable, Mapping
-from datetime import UTC, date, datetime, time
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.calendar import agenda as ag
 from app.domain.calendar import events as ev
 from app.domain.calendar import schedule as sched
 from app.domain.calendar.prefs import ALLOWED_TIMEZONES, CalendarPrefs, parse_timezone
@@ -25,6 +27,7 @@ from app.domain.calendar.reconcile import (
     QueuedReminder,
     ReconcilePlan,
     desired_reminders,
+    local_instant,
     plan_changes,
 )
 from app.domain.exceptions import (
@@ -34,6 +37,7 @@ from app.domain.exceptions import (
     ReminderNotFoundError,
     ScheduleOccurrenceNotFoundError,
 )
+from app.domain.rules.work_execution_rules import derive_ready_after
 from app.models.acceptance_protocol import AcceptanceProtocol, AcceptanceStatus
 from app.models.adjacent_work import AdjacentWork
 from app.models.calendar_settings import CalendarSettings
@@ -41,6 +45,7 @@ from app.models.client import Client, ClientType
 from app.models.concealed_works_protocol import ConcealedStatus, ConcealedWorksProtocol
 from app.models.contract import Contract, ContractStatus
 from app.models.downtime_episode import DowntimeEpisode, DowntimeStatus
+from app.models.price_item import PriceItem
 from app.models.project import Project
 from app.models.reminder import Reminder, ReminderOrigin, ReminderStatus
 from app.models.room import Room
@@ -71,6 +76,17 @@ def _utc_required(value: datetime) -> datetime:
 
 def _int(value: Any) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+@dataclass(frozen=True)
+class WorkRow:
+    room_id: uuid.UUID
+    room_name: str
+    surface_id: uuid.UUID
+    surface_name: str
+    step: sched.WorkStep
+    name_key: str | None
+    display_name: str | None
 
 
 class CalendarService:
@@ -131,17 +147,19 @@ class CalendarService:
             raise ProjectNotFoundError(f"Project {project_id} not found")
         return project
 
-    async def _steps(self, project_id: uuid.UUID) -> list[tuple[uuid.UUID, uuid.UUID, sched.WorkStep]]:
-        """(room_id, surface_id, step) of every work of the current plans of the object's live rooms and surfaces."""
+    async def _works(self, project_id: uuid.UUID) -> list["WorkRow"]:
+        """Every work of the current plans of the object's live rooms and surfaces, with the names the screens need."""
         rows = (
             await self.db.execute(
                 select(
-                    Room.id, Surface.id, SurfacePlannedWork.occurrence_key, SurfacePlannedWork.position, SurfacePlannedWork.wait_after_hours,
-                    SurfaceWorkExecution.status, SurfaceWorkExecution.completed_at, WorkSchedule.planned_date,
+                    Room.id, Room.name, Surface.id, Surface.name, SurfacePlannedWork.occurrence_key, SurfacePlannedWork.position,
+                    SurfacePlannedWork.wait_after_hours, SurfaceWorkExecution.status, SurfaceWorkExecution.completed_at, WorkSchedule.planned_date,
+                    PriceItem.name_key, PriceItem.display_name,
                 )
                 .join(Surface, Surface.room_id == Room.id)
                 .join(SurfaceWorkPlan, SurfaceWorkPlan.surface_id == Surface.id)
                 .join(SurfacePlannedWork, SurfacePlannedWork.work_plan_id == SurfaceWorkPlan.id)
+                .join(PriceItem, PriceItem.id == SurfacePlannedWork.price_item_id)
                 .outerjoin(SurfaceWorkExecution, SurfaceWorkExecution.occurrence_key == SurfacePlannedWork.occurrence_key)
                 .outerjoin(WorkSchedule, WorkSchedule.occurrence_key == SurfacePlannedWork.occurrence_key)
                 .where(Room.project_id == project_id, Room.is_archived.is_(False), Surface.is_archived.is_(False))
@@ -149,9 +167,14 @@ class CalendarService:
             )
         ).all()
         return [
-            (room_id, surface_id, sched.WorkStep(key, position, wait, status or WorkExecutionStatus.NOT_STARTED, _utc(completed_at), planned))
-            for room_id, surface_id, key, position, wait, status, completed_at, planned in rows
+            WorkRow(room_id, room_name, surface_id, surface_name,
+                    sched.WorkStep(key, position, wait, status or WorkExecutionStatus.NOT_STARTED, _utc(completed_at), planned), name_key, display_name)
+            for room_id, room_name, surface_id, surface_name, key, position, wait, status, completed_at, planned, name_key, display_name in rows
         ]
+
+    async def _steps(self, project_id: uuid.UUID) -> list[tuple[uuid.UUID, uuid.UUID, sched.WorkStep]]:
+        """(room_id, surface_id, step) of every work of the object."""
+        return [(w.room_id, w.surface_id, w.step) for w in await self._works(project_id)]
 
     async def _contract(self, project_id: uuid.UUID) -> Contract | None:
         """The contract the dates come from: the signed one, otherwise the issued one, otherwise the draft (never an archived version)."""
@@ -373,6 +396,13 @@ class CalendarService:
         await self.reconcile_project(owner_id, project_id)
         await self.db.commit()
 
+    async def contract_window(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> tuple[date | None, date | None]:
+        """The start and the end of the works as the contract says (the window the planned dates are checked against)."""
+        await self._project(owner_id, project_id)
+        contract = await self._contract(project_id)
+        answers = (contract.answers or {}) if contract else {}
+        return _date(answers.get("work_start_date")), _date(answers.get("work_end_date"))
+
     async def schedule_warnings(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> list[sched.ScheduleWarning]:
         await self._project(owner_id, project_id)
         prefs = await self.prefs(owner_id)
@@ -408,3 +438,121 @@ class CalendarService:
         if statuses is not None:
             stmt = stmt.where(Reminder.status.in_(list(statuses)))
         return list((await self.db.execute(stmt)).scalars())
+
+    # --- the agenda, the presets, the planned dates in bulk (Stage 18E) ---------------------------------------------------------------------
+
+    async def agenda(
+        self, owner_id: uuid.UUID, *, start: date | None = None, end: date | None = None, project_id: uuid.UUID | None = None,
+        now: datetime | None = None,
+    ) -> ag.Agenda:
+        """The agenda of the owner (or of one object) for the period: derived events, own reminders, dated works, overdue works."""
+        now = now or datetime.now(UTC)
+        prefs = await self.prefs(owner_id)
+        today = now.astimezone(prefs.tz).date()
+        start = start or today
+        end = end or start + timedelta(days=60)
+        if project_id is not None:
+            await self._project(owner_id, project_id)
+        projects = (await self.db.execute(
+            select(Project).where(Project.owner_id == owner_id, Project.is_archived.is_(False), *([Project.id == project_id] if project_id else []))
+        )).scalars().all()
+        names = {p.id: p.name for p in projects}
+        items: list[ag.AgendaItem] = []
+        works: list[ag.AgendaWork] = []
+        overdue: list[ag.AgendaWork] = []
+        room_names: dict[uuid.UUID, str] = {}
+        surface_names: dict[uuid.UUID, str] = {}
+        for project in projects:
+            for row in await self._works(project.id):
+                room_names[row.room_id], surface_names[row.surface_id] = row.room_name, row.surface_name
+                step = row.step
+                if step.planned_date is None or step.status == WorkExecutionStatus.COMPLETED:
+                    continue
+                work = ag.AgendaWork(
+                    step.occurrence_key, step.planned_date, step.status, step.wait_after_hours, project.id, project.name, row.room_id, row.room_name,
+                    row.surface_id, row.surface_name, row.name_key, row.display_name,
+                )
+                if step.planned_date < today:
+                    overdue.append(work)
+                elif start <= step.planned_date <= end:
+                    works.append(work)
+            for event in ev.sort_events(await self.events_for_project(owner_id, project.id), prefs.tz):
+                if start <= event.day(prefs.tz) <= end:
+                    items.append(ag.AgendaItem(
+                        source="EVENT", kind=event.kind.value, key=event.key, day=event.day(prefs.tz), on=event.on, at=event.at, ref=event.ref,
+                        title_key=event.title_key, params=dict(event.params), sends=prefs.sends(event.kind), project_id=project.id,
+                        project_name=project.name, room_id=event.room_id, room_name=room_names.get(event.room_id) if event.room_id else None,
+                        surface_id=event.surface_id, surface_name=surface_names.get(event.surface_id) if event.surface_id else None,
+                        occurrence_key=event.occurrence_key,
+                    ))
+        own = (await self.db.execute(
+            select(Reminder).where(
+                Reminder.owner_id == owner_id, Reminder.origin == ReminderOrigin.USER.value, Reminder.status == ReminderStatus.PENDING.value,
+                *([Reminder.project_id == project_id] if project_id else []),
+            ).order_by(Reminder.send_at)
+        )).scalars().all()
+        for row in own:
+            send_at = _utc_required(row.send_at)
+            day = send_at.astimezone(prefs.tz).date()
+            if start <= day <= end:
+                items.append(ag.AgendaItem(
+                    source="REMINDER", kind=ev.EventKind.USER.value, key=str(row.id), day=day, at=send_at, title=row.title, sends=True,
+                    reminder_id=row.id, project_id=row.project_id, project_name=names.get(row.project_id) if row.project_id else None,
+                    room_id=row.room_id, room_name=room_names.get(row.room_id) if row.room_id else None, surface_id=row.surface_id,
+                    surface_name=surface_names.get(row.surface_id) if row.surface_id else None, occurrence_key=row.occurrence_key,
+                ))
+        items.sort(key=lambda i: (i.day, i.at is not None, i.at or datetime.min.replace(tzinfo=UTC), i.kind, i.key))
+        works.sort(key=lambda w: (w.planned_date, w.project_name, w.room_name, w.surface_name))
+        overdue.sort(key=lambda w: (w.planned_date, w.project_name, w.room_name, w.surface_name))
+        return ag.Agenda(today, start, end, items, works, overdue)
+
+    async def create_reminder_from_preset(
+        self, owner_id: uuid.UUID, *, preset: str, title: str | None = None, send_at: datetime | None = None, project_id: uuid.UUID | None = None,
+        room_id: uuid.UUID | None = None, surface_id: uuid.UUID | None = None, occurrence_key: uuid.UUID | None = None, now: datetime | None = None,
+        local_date: date | None = None, local_time: time | None = None,
+    ) -> Reminder:
+        """The "Remind" button: the preset says when, the work (if any) says what it is about. The time is computed here, in the owner's zone."""
+        now = now or datetime.now(UTC)
+        prefs = await self.prefs(owner_id)
+        planned_date: date | None = None
+        ready_after: datetime | None = None
+        work_title: str | None = None
+        if occurrence_key is not None:
+            if project_id is None:
+                raise ag.PresetUnavailableError("WORK_REQUIRED")
+            await self._project(owner_id, project_id)
+            row = next((w for w in await self._works(project_id) if w.step.occurrence_key == occurrence_key), None)
+            if row is None:
+                raise ScheduleOccurrenceNotFoundError(str(occurrence_key))
+            room_id, surface_id = row.room_id, row.surface_id
+            planned_date = row.step.planned_date
+            ready_after = derive_ready_after(row.step.status, row.step.completed_at, row.step.wait_after_hours)
+            work_title = f"{row.display_name or row.name_key or ''} — {row.surface_name}".strip(" —")
+        elif preset in ag.NEEDS_WORK:
+            raise ag.PresetUnavailableError("WORK_REQUIRED")
+        if preset == ag.PRESET_CUSTOM and send_at is None and local_date is not None and local_time is not None:
+            send_at = local_instant(local_date, local_time, prefs.tz)  # the day and the hour the owner typed, in the owner's zone
+        moment = ag.preset_instant(preset, prefs, now, planned_date=planned_date, ready_after=ready_after, custom=send_at)
+        return await self.create_reminder(
+            owner_id, title=(title or "").strip() or work_title or "", send_at=moment, project_id=project_id, room_id=room_id, surface_id=surface_id,
+            occurrence_key=occurrence_key, close_on_status=ag.CLOSE_ON.get(preset), now=now,
+        )
+
+    async def apply_planned_dates(self, owner_id: uuid.UUID, project_id: uuid.UUID, dates: Mapping[uuid.UUID, date]) -> None:
+        """Accept a proposal (or several dates at once): all or nothing, one reconciliation, one commit."""
+        await self._project(owner_id, project_id)
+        known = {step.occurrence_key for _, _, step in await self._steps(project_id)}
+        if any(key not in known for key in dates):
+            raise ScheduleOccurrenceNotFoundError("one of the works is not a work of this object")
+        existing = {
+            row.occurrence_key: row
+            for row in (await self.db.execute(select(WorkSchedule).where(WorkSchedule.project_id == project_id))).scalars()
+        }
+        for key, day in dates.items():
+            if key in existing:
+                existing[key].planned_date = day
+            else:
+                self.db.add(WorkSchedule(owner_id=owner_id, project_id=project_id, occurrence_key=key, planned_date=day))
+        await self.db.flush()
+        await self.reconcile_project(owner_id, project_id)
+        await self.db.commit()
