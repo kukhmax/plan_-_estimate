@@ -1,3 +1,7 @@
+import { reportNetworkFailure, reportNetworkSuccess, reportServedFromCache } from '../offline/connection';
+import { isCacheablePath } from '../offline/cacheRules';
+import { loadRead, saveRead } from '../offline/readCache';
+
 export const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 // Map stable FastAPI domain-detail phrases without weakening backend validation.
@@ -97,14 +101,53 @@ function errorMessage(payload: unknown, status: number): string {
   return `Request failed (${status})`;
 }
 
+/** A read of the cached kinds that gets no answer in this time is given up: the saved copy (if any) is shown instead (Stage 19B). */
+export const READ_TIMEOUT_MS = 12_000;
+
+/** `fetch` rejects with a `TypeError` when the network cannot be reached (no signal, a refused connection). */
+function isNetworkError(error: unknown): boolean {
+  return error instanceof TypeError;
+}
+
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const token = localStorage.getItem('access_token');
+  const method = (init.method ?? 'GET').toUpperCase();
+  const cacheable = method === 'GET' && isCacheablePath(path);
 
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  let controller: AbortController | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false;
+  if (cacheable && !init.signal) {
+    controller = new AbortController();
+    timer = setTimeout(() => {
+      timedOut = true;
+      controller?.abort();
+    }, READ_TIMEOUT_MS);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, controller ? { ...init, headers, signal: controller.signal } : { ...init, headers });
+  } catch (error) {
+    clearTimeout(timer);
+    if (timedOut || isNetworkError(error)) {
+      reportNetworkFailure();
+      if (cacheable) {
+        const saved = await loadRead(path);
+        if (saved) {
+          reportServedFromCache(saved.savedAt);
+          return saved.data as T;
+        }
+      }
+    }
+    throw error;
+  }
+  clearTimeout(timer);
+  reportNetworkSuccess();
   if (!response.ok) {
     const payload: unknown = await response.json().catch(() => null);
     const detail = readDetail(payload);
@@ -115,5 +158,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   if (response.status === 204) {
     return undefined as T;
   }
-  return response.json() as Promise<T>;
+  const data = (await response.json()) as T;
+  if (cacheable) void saveRead(path, data); // keeps its own failures (warned, never thrown)
+  return data;
 }

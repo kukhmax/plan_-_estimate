@@ -2971,5 +2971,22 @@
     "confirm_delete": "Usunąć tę notatkę?",
     "confirm_yes": "Usuń notatkę",
     "count": "Znaków: {used} / {max}"
+  },
+  "offline": {
+    "banner_offline_copy": "Brak połączenia — pokazuję dane zapisane na telefonie (z {time}).",
+    "banner_offline": "Brak połączenia. To, co wymaga serwera, jest chwilowo niedostępne.",
+    "banner_copy": "Pokazane dane są z pamięci telefonu (z {time}). Odśwież ekran, gdy wróci połączenie.",
+    "prepare_button": "Przygotuj do pracy offline",
+    "prepare_hint": "Zapisuje na telefonie obiekt, pomieszczenia, ściany, otwory i badania — do pracy bez zasięgu.",
+    "prepare_running": "Zapisuję na telefonie… {done} / {total}",
+    "prepare_done": "Zapisano na telefonie: {saved} pozycji. Możesz pracować bez zasięgu.",
+    "prepare_partial": "Zapisano {saved}, nie udało się {failed}. Spróbuj ponownie przy lepszym zasięgu.",
+    "prepare_needs_connection": "Wymaga połączenia z internetem.",
+    "prepare_last": "Ostatnio przygotowano: {time}",
+    "clear_button": "Wyczyść dane offline",
+    "clear_note": "Dane zapisane na telefonie do pracy bez zasięgu.",
+    "clear_confirm": "Usunąć dane offline z telefonu? Obiekty zostaną na serwerze.",
+    "clear_yes": "Usuń",
+    "cleared": "Dane offline usunięto."
   }
 }

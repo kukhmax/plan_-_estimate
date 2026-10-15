@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { User } from '../types/auth';
+import { setOfflineOwner } from '../offline/readCache';
 import { loginWithTelegram, TelegramAuthRequestError } from '../api/auth';
 import { useTelegramWebApp } from './useTelegramWebApp';
 
@@ -68,6 +69,8 @@ export function useAuth() {
 
       const response = await loginWithTelegram(authenticationData);
       localStorage.setItem('access_token', response.access_token);
+      // the copies kept for work without a signal belong to this owner (another owner's are removed first)
+      await setOfflineOwner(response.user.id);
 
       setState({
         user: response.user,

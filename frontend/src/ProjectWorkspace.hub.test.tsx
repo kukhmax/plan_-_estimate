@@ -196,6 +196,14 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Zdjęcia obiektu');
   });
 
+  it('the object screen offers "Przygotuj do pracy offline" under the tiles, outside the hub of six (Stage 19B)', async () => {
+    renderWorkspace();
+    await openHub();
+    const button = screen.getByLabelText('prepare-offline-button');
+    expect(button).toHaveTextContent('Przygotuj do pracy offline');
+    expect(within(screen.getByLabelText('object-hub')).queryByLabelText('prepare-offline-button')).toBeNull();
+  });
+
   it('the summary tile opens the summary of the object on a screen of its own', async () => {
     renderWorkspace();
     await openHub();

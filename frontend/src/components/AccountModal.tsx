@@ -4,6 +4,7 @@ import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { User } from '../types/auth';
 import { ExecutorProfileModal } from './ExecutorProfileModal';
 import { Ico } from './Ico';
+import { clearOfflineData } from '../offline/readCache';
 
 interface AccountModalProps {
   user: User;
@@ -14,6 +15,8 @@ interface AccountModalProps {
 export function AccountModal({ user, isDevAuth, onClose }: AccountModalProps) {
   const { t } = useI18n();
   const [showProfile, setShowProfile] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [cleared, setCleared] = useState(false);
 
   // Escape and the Telegram BackButton close the top-most layer: the profile screen first, then this dialog.
   const closeTop = () => (showProfile ? setShowProfile(false) : onClose());
@@ -137,6 +140,46 @@ export function AccountModal({ user, isDevAuth, onClose }: AccountModalProps) {
               </dd>
             </div>
           </dl>
+          {/* Stage 19B: what the phone keeps for work without a signal can be removed here (the objects stay on the server) */}
+          <div className="mt-4 space-y-2 border-t border-slate-200 pt-3" aria-label="offline-data">
+            <p className="text-xs break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>{t.offline.clear_note}</p>
+            {confirmClear ? (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold break-words" style={{ color: 'var(--tg-theme-text-color)' }}>{t.offline.clear_confirm}</p>
+                <div className="flex gap-2">
+                  <button type="button" aria-label="clear-offline-cancel" onClick={() => setConfirmClear(false)} className="flex-1 min-h-10 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium">
+                    <Ico>✖️</Ico>{t.common.cancel}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="clear-offline-confirm"
+                    onClick={() => {
+                      void clearOfflineData().then(() => {
+                        setConfirmClear(false);
+                        setCleared(true);
+                      });
+                    }}
+                    className="flex-1 min-h-10 px-3 py-1 text-sm rounded-xl bg-red-600 text-white font-semibold"
+                  >
+                    <Ico>🗑️</Ico>{t.offline.clear_yes}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                aria-label="clear-offline-button"
+                onClick={() => {
+                  setCleared(false);
+                  setConfirmClear(true);
+                }}
+                className="w-full min-h-10 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium"
+              >
+                <Ico>🧹</Ico>{t.offline.clear_button}
+              </button>
+            )}
+            {cleared && <p role="status" className="text-xs font-medium text-emerald-700">{t.offline.cleared}</p>}
+          </div>
 
           <button
             type="button"

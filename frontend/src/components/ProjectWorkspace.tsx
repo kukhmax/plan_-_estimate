@@ -47,6 +47,7 @@ import type { UnpricedWork } from '../types/document';
 import { inspectionTargetOf } from '../utils/unpricedTarget';
 import { ProjectSummaryCard } from './ProjectSummaryCard';
 import { DocumentsMenu, DocumentsSection, LegalMenu, LegalSection, ObjectPhotos, ObjectSection, ProjectHub } from './ProjectHub';
+import { PrepareOfflineButton } from './PrepareOfflineButton';
 import { ProjectNotes } from './ProjectNotes';
 import { SurfaceList } from './SurfaceList';
 import { KnowledgeBasis, KnowledgeBasisTarget } from './KnowledgeBasis';
@@ -861,6 +862,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                   setObjectSection(section);
                 }}
               />
+              <PrepareOfflineButton projectId={selectedProject.id} />
             </div>
           )}
 

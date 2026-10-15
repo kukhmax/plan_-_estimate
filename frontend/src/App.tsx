@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { I18nProvider, useI18n } from './hooks/useI18n';
 import { ArchiveScreen } from './components/ArchiveScreen';
@@ -10,6 +10,9 @@ import { KnowledgeBase } from './components/KnowledgeBase';
 import { ProjectOpenRequest, ProjectWorkspace } from './components/ProjectWorkspace';
 import { AccountModal } from './components/AccountModal';
 import { AppMenu, AppMenuItem } from './components/AppMenu';
+import { ConnectionBanner } from './components/ConnectionBanner';
+import { purgeStaleReads } from './offline/readCache';
+import { startConnectionWatch } from './offline/watch';
 
 type Section = 'clients' | 'projects' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge';
 
@@ -34,6 +37,11 @@ const AppContent: React.FC = () => {
     target?.projectId ? { token: 1, projectId: target.projectId, view: 'project' } : null,
   );
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  // Stage 19B: the connection is watched while the application is open; copies not refreshed for 30 days are dropped
+  useEffect(() => {
+    void purgeStaleReads();
+    return startConnectionWatch();
+  }, []);
 
   const choose = (section: Section) => {
     setActiveSection(section);
@@ -131,6 +139,8 @@ const AppContent: React.FC = () => {
             ))}
           </div>
         </header>
+
+        {!isLoading && user && <ConnectionBanner />}
 
         {isLoading && (
           <div
