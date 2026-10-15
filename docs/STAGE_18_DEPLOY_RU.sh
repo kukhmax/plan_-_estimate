@@ -40,7 +40,7 @@ git merge-base --is-ancestor HEAD origin/stage-18 || fail "G0" "HEAD не пре
 INFRA=$(git diff --name-only HEAD origin/stage-18 -- Caddyfile backend/Dockerfile backend/Dockerfile.backup backend/Dockerfile.uploader backend/entrypoint.sh backend/requirements.txt backend/requirements-oci.txt frontend/package.json frontend/package-lock.json frontend/Dockerfile.prod backend/app/backup)
 [ -z "$INFRA" ] || fail "G0" "Изменились образы/зависимости/бэкап (этого релиза там быть не должно): $INFRA"
 NEWMIG=$(git diff --name-only --diff-filter=A HEAD origin/stage-18 -- backend/alembic/versions | grep -v '__pycache__' || true)
-[ "$NEWMIG" = "$(printf 'backend/alembic/versions/0054_calendar_reminders.py\nbackend/alembic/versions/0055_project_notes.py')" ] || fail "G0" "ожидаются ровно две новые миграции (0054_calendar_reminders.py, 0055_project_notes.py), а пришло: $NEWMIG"
+[ "$NEWMIG" = "$(printf 'backend/alembic/versions/0054_calendar_reminders.py\nbackend/alembic/versions/0055_project_notes.py')" ] || fail "G0" "ожидаются ровно две новые миграции (0054_calendar_reminders.py, 0055_project_notes.py), а пришло: $NEWMIG. Если VM осталась на ветке stage-18 после прерванного запуска и контейнеры ещё старые (alembic на 0053): git checkout stage-17 и запустите скрипт снова"
 CHGMIG=$(git diff --name-only --diff-filter=MD HEAD origin/stage-18 -- backend/alembic/versions | grep -v '__pycache__' || true)
 [ -z "$CHGMIG" ] || fail "G0" "существующие миграции изменены или удалены: $CHGMIG"
 BADALL=$(git diff --name-only HEAD origin/stage-18 | grep -Ev '^(backend/app/|backend/alembic/versions/005[45]_[a-z_]+\.py$|backend/tests/|frontend/src/|docs/|docker-compose\.prod\.yml$|\.env\.production\.example$)' || true)
@@ -57,16 +57,18 @@ echo "приходит:"; git log --oneline HEAD..origin/stage-18 | head -30
 ok "G0"
 
 echo; echo "################ G1: код и сборка (старый production работает) ################"
-git checkout -q -B stage-18 origin/stage-18 || fail "G1" "переключение на stage-18 не удалось"
+# до ворот M production не меняется: при любом отказе в G1 код на VM возвращается на прежнюю ветку
+fail1() { git checkout -q "$PREV" 2>/dev/null; fail "$1" "$2 (код на VM возвращён на ветку $PREV)"; }
+git checkout -q -B stage-18 origin/stage-18 || fail1 "G1" "переключение на stage-18 не удалось"
 NEW=$(git rev-parse --short HEAD); echo "HEAD: $NEW (ветка stage-18)"
-PC config --quiet || fail "G1" "docker compose config не прошёл"
+PC config --quiet || fail1 "G1" "docker compose config не прошёл"
 CFGURL=$(PC config | grep 'CALENDAR_WEB_APP_URL' | head -1 | sed -E 's/.*CALENDAR_WEB_APP_URL: *//; s/"//g')
-[ "$CFGURL" = "https://$DOMAIN" ] || fail "G1" "адрес кнопки в compose: '$CFGURL', ожидалось https://$DOMAIN (вложенная подстановка не сработала: задайте CALENDAR_WEB_APP_URL в .env.production)"
+[ "$CFGURL" = "https://$DOMAIN" ] || fail1 "G1" "адрес кнопки в compose: '$CFGURL', ожидалось https://$DOMAIN (вложенная подстановка не сработала: задайте CALENDAR_WEB_APP_URL в .env.production)"
 CFGON=$(PC config | grep 'CALENDAR_DISPATCHER_ENABLED' | head -1 | sed -E 's/.*CALENDAR_DISPATCHER_ENABLED: *//; s/"//g')
-[ "$CFGON" = "false" ] || fail "G1" "CALENDAR_DISPATCHER_ENABLED в compose = '$CFGON', ожидалось false при выкладке"
-docker tag "$(docker inspect -f '{{.Image}}' plan_estimate_backend)"  plan-estimate-backend:pre-18  || fail "G1" "тег pre-18 backend"
-docker tag "$(docker inspect -f '{{.Image}}' plan_estimate_frontend)" plan-estimate-frontend:pre-18 || fail "G1" "тег pre-18 frontend"
-PC build backend frontend > /tmp/build18.log 2>&1 || { tail -n 30 /tmp/build18.log; fail "G1" "сборка не удалась (старая версия продолжает работать)"; }
+[ "$CFGON" = "false" ] || fail1 "G1" "CALENDAR_DISPATCHER_ENABLED в compose = '$CFGON', ожидалось false при выкладке"
+docker tag "$(docker inspect -f '{{.Image}}' plan_estimate_backend)"  plan-estimate-backend:pre-18  || fail1 "G1" "тег pre-18 backend"
+docker tag "$(docker inspect -f '{{.Image}}' plan_estimate_frontend)" plan-estimate-frontend:pre-18 || fail1 "G1" "тег pre-18 frontend"
+PC build backend frontend > /tmp/build18.log 2>&1 || { tail -n 30 /tmp/build18.log; fail1 "G1" "сборка не удалась (старая версия продолжает работать)"; }
 ok "G1 (сборка, теги pre-18; адрес кнопки https://$DOMAIN, цикл выключен)"
 
 echo; echo "################ ВОРОТА M: миграция базы данных ################"
