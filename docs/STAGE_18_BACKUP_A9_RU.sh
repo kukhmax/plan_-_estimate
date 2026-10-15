@@ -38,9 +38,10 @@ docker network inspect plan-estimate_internal >/dev/null 2>&1 || fail "B0" "не
 docker network inspect pe-upload >/dev/null 2>&1 || fail "B0" "нет сети pe-upload"
 LEFT=$(docker ps -a --format '{{.Names}}' | grep '^pe-backup-prod-' || true)
 [ -z "$LEFT" ] || fail "B0" "остались контейнеры бэкапа: $LEFT (docker rm -f их и повторить)"
-for d in work evidence; do
-  [ -z "$(ls -A "$R/data/$d" 2>/dev/null)" ] || fail "B0" "каталог $R/data/$d не пуст (остатки прошлого запуска): $(ls -A "$R/data/$d" | head -5)"
-done
+[ -z "$(ls -A "$R/data/work" 2>/dev/null)" ] || fail "B0" "каталог $R/data/work не пуст (остатки прошлого запуска): $(ls -A "$R/data/work" | head -5)"
+# evidence/ хранит <run_id>.published.json прошлых опубликованных запусков: по ним загрузчик находит предыдущий запуск — они должны быть. Чужое там быть не должно.
+STRAY=$(ls -A "$R/data/evidence" 2>/dev/null | grep -v '\.published\.json$' || true)
+[ -z "$STRAY" ] || fail "B0" "в $R/data/evidence лежит не *.published.json (остатки неудачной загрузки?): $(head -5 <<<"$STRAY")"
 FREE=$(df --output=avail -BG / | tail -1 | tr -dc '0-9'); [ "$FREE" -ge 5 ] || fail "B0" "Свободно ${FREE} ГБ (< 5)"
 PREV=$(ls -1 "$R/data/encrypted" 2>/dev/null | tail -1 || true)
 echo "коммит инструмента бэкапа: ${COMMIT:0:12} (origin/$BRANCH); последний прежний запуск: ${PREV:-нет}"
@@ -76,7 +77,8 @@ READY=$(sed -n 's/.*backup complete: run_id=\([^ ]*\) ready_count=\([0-9]*\).*/\
 [ -n "$RUN" ] || fail "B2" "в выводе нет строки «backup complete: run_id=… ready_count=…»"
 [ "$(ls -1 "$R/data/encrypted/$RUN" | wc -l)" = "4" ] || fail "B2" "в encrypted/$RUN не четыре файла: $(ls -1 "$R/data/encrypted/$RUN")"
 [ "$(find "$R/data/encrypted/$RUN" -type f ! -perm 600 | wc -l)" = "0" ] || fail "B2" "у файлов в encrypted/$RUN права не 0600"
-for d in work evidence; do [ -z "$(ls -A "$R/data/$d")" ] || fail "B2" "после db-dump не пуст $d/"; done
+[ -z "$(ls -A "$R/data/work")" ] || fail "B2" "после db-dump не пуст work/"
+STRAY=$(ls -A "$R/data/evidence" | grep -v '\.published\.json$' || true); [ -z "$STRAY" ] || fail "B2" "после db-dump в evidence/ появилось не *.published.json: $(head -5 <<<"$STRAY")"
 ok "B2 (run_id=$RUN, ready_count=$READY)"
 
 echo; echo "################ B3: upload в Oracle (необратимо: загрузчик не перезаписывает и не удаляет) ################"
