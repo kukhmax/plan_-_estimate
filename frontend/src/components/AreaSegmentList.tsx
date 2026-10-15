@@ -24,6 +24,7 @@ import { SurfaceExecutionView } from './SurfaceExecutionView';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
+import { SurfaceRowButton } from './SurfaceRowButton';
 
 interface AreaSegmentListProps {
   projectId: string;
@@ -32,6 +33,8 @@ interface AreaSegmentListProps {
   roomName?: string;
   /** Changes whenever the room size is corrected, so the cards re-read the recalculated planes. */
   dimensionsKey?: string;
+  /** Open the floor and the ceiling cards on the first load (a collapsed row is the default). */
+  initiallyOpen?: boolean;
   onMeasurementChanged?: () => void;
   /** Stage 13F-PRE: FLOOR / CEILING inspection lives in the plane's Opcje. */
   onInspectPlane?: (plane: AreaPlane) => void;
@@ -83,6 +86,7 @@ export function AreaSegmentList({
   roomId,
   roomName,
   dimensionsKey,
+  initiallyOpen = false,
   onMeasurementChanged,
   onInspectPlane,
 }: AreaSegmentListProps) {
@@ -103,6 +107,10 @@ export function AreaSegmentList({
   const [saving, setSaving] = useState(false);
   /** Per-plane Opcje progressive disclosure — UI state only, FLOOR independent of CEILING. */
   const [expandedOptions, setExpandedOptions] = useState<Partial<Record<AreaPlane, boolean>>>({});
+  /** Which plane cards are open (the others are one-line rows); untouched planes follow `initiallyOpen`. */
+  const [openPlanes, setOpenPlanes] = useState<Partial<Record<AreaPlane, boolean>>>({});
+  const isPlaneOpen = (plane: AreaPlane) => openPlanes[plane] ?? initiallyOpen;
+  const togglePlane = (plane: AreaPlane) => setOpenPlanes((current) => ({ ...current, [plane]: !(current[plane] ?? initiallyOpen) }));
   const [activeWorkPlanPlane, setActiveWorkPlanPlane] = useState<AreaPlane | null>(null);
   // Stage 13H.5: Realizacja is separate from the plan editor (one open at a time).
   const [activeExecutionPlane, setActiveExecutionPlane] = useState<AreaPlane | null>(null);
@@ -329,6 +337,21 @@ export function AreaSegmentList({
     const isExecutionOpen = activeExecutionPlane === plane;
     const tint = surfaceTypeTint(plane);
 
+    if (!isPlaneOpen(plane)) {
+      return (
+        <div key={plane}>
+          <SurfaceRowButton
+            surfaceId={planeSurfaceId}
+            rowKey={`plane-${planeKey}`}
+            name={displayName}
+            area={hasPlaneArea ? `${formatMetric(totals.net)} ${t.common.unit_m2}` : '—'}
+            className={`${tint.bg} border ${tint.border} rounded-xl px-3 py-1.5 min-h-10 w-full flex items-center gap-2 shadow-sm`}
+            onOpen={() => togglePlane(plane)}
+          />
+        </div>
+      );
+    }
+
     return (
       <section
         key={plane}
@@ -336,7 +359,18 @@ export function AreaSegmentList({
         className={`${tint.bg} border ${tint.border} rounded-2xl p-4 shadow-sm space-y-2.5`}
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h4 className="text-sm font-semibold text-slate-900">{displayName}</h4>
+          <h4 className="text-sm font-semibold text-slate-900">
+            <button
+              type="button"
+              aria-label={`plane-collapse-${planeKey}`}
+              aria-expanded={true}
+              onClick={() => togglePlane(plane)}
+              className="min-h-10 flex items-center gap-2 text-left font-semibold"
+            >
+              <span aria-hidden="true" className="text-slate-500">▴</span>
+              <span>{displayName}</span>
+            </button>
+          </h4>
           <div className="ml-auto flex items-center gap-2">
             {hasPlaneArea && (
               // White background regardless of plane tint — a colored-on-colored

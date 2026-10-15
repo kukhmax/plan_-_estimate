@@ -5,6 +5,8 @@ import * as surfacesApi from './api/surfaces';
 import * as workPlansApi from './api/workPlans';
 import { AreaSegmentList } from './components/AreaSegmentList';
 import { I18nProvider } from './hooks/useI18n';
+import { ProjectPhotosContext } from './hooks/ProjectPhotosContext';
+import { EMPTY_PHOTO_COUNTS } from './hooks/usePhotoCounts';
 import { AreaSegmentType } from './types/areaSegment';
 import { SurfaceListResponse } from './types/surface';
 
@@ -116,6 +118,7 @@ function renderAreaSegments(onMeasurementChanged = vi.fn(), onInspectPlane?: (pl
       <AreaSegmentList
         projectId={projectId}
         roomId={roomId}
+        initiallyOpen
         onMeasurementChanged={onMeasurementChanged}
         onInspectPlane={onInspectPlane}
       />
@@ -126,7 +129,7 @@ function renderAreaSegments(onMeasurementChanged = vi.fn(), onInspectPlane?: (pl
 function areaList(key: string) {
   return (
     <I18nProvider>
-      <AreaSegmentList projectId={projectId} roomId={roomId} dimensionsKey={key} />
+      <AreaSegmentList projectId={projectId} roomId={roomId} dimensionsKey={key} initiallyOpen />
     </I18nProvider>
   );
 }
@@ -876,5 +879,95 @@ describe('The same rectangle on the other plane (Stage 18G)', () => {
     await openForm('floor', 'rectangle');
     expect(screen.getByLabelText('segment-also-opposite')).toHaveTextContent('Добавить и на потолок');
     expect(screen.getByLabelText(`copy-segment-${floorAdd.id}`)).toHaveTextContent('На потолок');
+  });
+});
+
+
+describe('Floor and ceiling rows (Stage 18H)', () => {
+  const photosValue = (surfaces: Record<string, number>) => ({
+    projectId,
+    counts: { ...EMPTY_PHOTO_COUNTS, surfaces },
+    isExpanded: () => false,
+    toggle: () => {},
+    adjust: () => {},
+    resolveLocation: () => '',
+    ensureLocations: () => {},
+  });
+  const renderRows = () =>
+    render(
+      <I18nProvider>
+        <ProjectPhotosContext.Provider value={photosValue({ [ceilingSurfaceId]: 1, [floorSurfaceId]: 4 })}>
+          <AreaSegmentList projectId={projectId} roomId={roomId} />
+        </ProjectPhotosContext.Provider>
+      </I18nProvider>,
+    );
+  const planes = (area: string) => ({
+    FLOOR: { base_area: area, adjustment_area: '0.000', net_area: area },
+    CEILING: { base_area: area, adjustment_area: '0.000', net_area: area },
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0, planes: planes('20.000') });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(canonicalPlanes);
+  });
+
+  it('shows the ceiling and the floor as one-line rows: name, photos, area — and nothing else', async () => {
+    renderRows();
+
+    const ceiling = await screen.findByLabelText('surface-row-plane-ceiling');
+    expect(ceiling).toHaveTextContent('Sufit');
+    await waitFor(() => expect(screen.getByLabelText('surface-row-photos-plane-ceiling')).toHaveTextContent('1'));
+    expect(screen.getByLabelText('surface-row-area-plane-ceiling')).toHaveTextContent('20.00 m²');
+    expect(screen.getByLabelText('surface-row-plane-floor')).toHaveTextContent('Podłoga');
+    expect(screen.getByLabelText('surface-row-photos-plane-floor')).toHaveTextContent('4');
+    expect(ceiling.className).toContain('min-h-10');
+    // no card behind the rows
+    expect(screen.queryByLabelText('options-toggle-ceiling')).toBeNull();
+    expect(screen.queryByLabelText('inspect-ceiling')).toBeNull();
+    expect(screen.queryByText('Powierzchnia bazowa')).toBeNull();
+  });
+
+  it('a tap opens the card of that plane only, and a tap on its name folds it back', async () => {
+    renderRows();
+    fireEvent.click(await screen.findByLabelText('surface-row-plane-ceiling'));
+
+    expect(screen.getByLabelText('options-toggle-ceiling')).toBeInTheDocument();
+    expect(screen.getByLabelText('ceiling-segments')).toBeInTheDocument();
+    expect(screen.queryByLabelText('surface-row-plane-ceiling')).toBeNull();
+    expect(screen.getByLabelText('surface-row-plane-floor')).toBeInTheDocument();
+    expect(screen.queryByLabelText('options-toggle-floor')).toBeNull();
+
+    fireEvent.click(screen.getByLabelText('plane-collapse-ceiling'));
+    expect(screen.getByLabelText('surface-row-plane-ceiling')).toBeInTheDocument();
+    expect(screen.queryByLabelText('options-toggle-ceiling')).toBeNull();
+  });
+
+  it('a plane without any area yet shows a dash', async () => {
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0 });
+    renderRows();
+    expect(await screen.findByLabelText('surface-row-area-plane-floor')).toHaveTextContent('—');
+  });
+
+  it('follows a corrected room size: the row shows the new area', async () => {
+    const view = renderRows();
+    await waitFor(() => expect(screen.getByLabelText('surface-row-area-plane-floor')).toHaveTextContent('20.00 m²'));
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0, planes: planes('8.650') });
+    view.rerender(
+      <I18nProvider>
+        <ProjectPhotosContext.Provider value={photosValue({})}>
+          <AreaSegmentList projectId={projectId} roomId={roomId} dimensionsKey="2.32" />
+        </ProjectPhotosContext.Provider>
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByLabelText('surface-row-area-plane-floor')).toHaveTextContent('8.65 m²'));
+  });
+
+  it('speaks Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    renderRows();
+    expect(await screen.findByLabelText('surface-row-plane-ceiling')).toHaveTextContent('Потолок');
+    expect(screen.getByLabelText('surface-row-plane-floor')).toHaveTextContent('Пол');
   });
 });
