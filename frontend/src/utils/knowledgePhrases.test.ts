@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import pl from '../locales/pl.json';
 import ru from '../locales/ru.json';
-import situations from '../../../backend/app/domain/knowledge/catalog/situations.json';
 import { clientPhraseText } from './knowledgePhrases';
 
-const catalog = situations as Array<{ outcomes: Array<{ phrases: string[] }> }>;
+// The catalogue lives in the backend. The frontend image is built from frontend/ alone (no backend folder, and no tests run there), so the
+// file is found by a glob: it is read in the repository, and simply absent in that image.
+const found = import.meta.glob('../../../backend/app/domain/knowledge/catalog/situations.json', { eager: true, import: 'default' });
+const catalog = (Object.values(found)[0] ?? []) as Array<{ outcomes: Array<{ phrases: string[] }> }>;
 const codes = [...new Set(catalog.flatMap((situation) => situation.outcomes.flatMap((outcome) => outcome.phrases)))];
 
 describe('clientPhraseText', () => {
