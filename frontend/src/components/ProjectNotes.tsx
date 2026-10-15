@@ -4,6 +4,7 @@ import { useI18n } from '../hooks/useI18n';
 import { MAX_NOTE_LENGTH, type ProjectNote } from '../types/projectNote';
 import { localizeApiError } from '../utils/apiErrors';
 import { formatNoteTime } from '../utils/noteFormat';
+import { Ico } from './Ico';
 
 interface ProjectNotesProps {
   projectId: string;
@@ -106,8 +107,8 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
 
   const counter = (used: number) => text.count.replace('{used}', String(used)).replace('{max}', String(MAX_NOTE_LENGTH));
   const field = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 bg-white min-h-24';
-  const primary = 'w-full min-h-11 px-4 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50';
-  const secondary = 'flex-1 min-h-11 px-3 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50';
+  const primary = 'w-full min-h-10 px-4 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50';
+  const secondary = 'flex-1 min-h-10 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50';
 
   return (
     <section aria-label="project-notes" className="space-y-3">
@@ -122,7 +123,7 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
         />
         <p className="text-xs text-slate-500">{counter(draft.length)}</p>
         <button type="submit" aria-label="note-add" disabled={busy || draft.trim() === ''} className={primary}>
-          {busy && editingId === null ? t.common.saving : text.add}
+          <Ico>{busy && editingId === null ? '⏳' : '➕'}</Ico>{busy && editingId === null ? t.common.saving : text.add}
         </button>
       </form>
 
@@ -136,7 +137,7 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
       {!loading && loadFailed && (
         <div className="space-y-2">
           <p role="alert" className="text-sm text-red-600 break-words">{text.load_error}</p>
-          <button type="button" aria-label="notes-retry" onClick={() => void load()} className={primary}>{text.retry}</button>
+          <button type="button" aria-label="notes-retry" onClick={() => void load()} className={primary}><Ico>🔄</Ico>{text.retry}</button>
         </div>
       )}
       {!loading && !loadFailed && notes.length === 0 && (
@@ -165,15 +166,15 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
                   <p className="text-xs text-slate-500">{counter(editText.length)}</p>
                   <div className="flex gap-2">
                     <button type="button" aria-label={`note-edit-cancel-${note.id}`} onClick={() => setEditingId(null)} className={secondary}>
-                      {t.common.cancel}
+                      <Ico>✖️</Ico>{t.common.cancel}
                     </button>
                     <button
                       type="submit"
                       aria-label={`note-edit-save-${note.id}`}
                       disabled={busy || editText.trim() === ''}
-                      className="flex-1 min-h-11 px-3 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                      className="flex-1 min-h-10 px-3 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50"
                     >
-                      {t.common.save}
+                      <Ico>💾</Ico>{t.common.save}
                     </button>
                   </div>
                 </form>
@@ -185,23 +186,23 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
                       <p className="text-sm font-semibold text-slate-800 break-words">{text.confirm_delete}</p>
                       <div className="flex gap-2">
                         <button type="button" aria-label={`note-delete-cancel-${note.id}`} onClick={() => setConfirmId(null)} className={secondary}>
-                          {t.common.cancel}
+                          <Ico>✖️</Ico>{t.common.cancel}
                         </button>
                         <button
                           type="button"
                           aria-label={`note-delete-confirm-${note.id}`}
                           disabled={busy}
                           onClick={() => void remove(note.id)}
-                          className="flex-1 min-h-11 px-3 text-sm bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 disabled:opacity-50"
+                          className="flex-1 min-h-10 px-3 py-1 text-sm bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 disabled:opacity-50"
                         >
-                          {text.confirm_yes}
+                          <Ico>🗑️</Ico>{text.confirm_yes}
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex gap-2">
                       <button type="button" aria-label={`note-edit-${note.id}`} onClick={() => startEdit(note)} className={secondary}>
-                        {text.edit}
+                        <Ico>✏️</Ico>{text.edit}
                       </button>
                       <button
                         type="button"
@@ -212,7 +213,7 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
                         }}
                         className={secondary}
                       >
-                        {text.delete}
+                        <Ico>🗑️</Ico>{text.delete}
                       </button>
                     </div>
                   )}

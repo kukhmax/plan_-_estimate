@@ -7,6 +7,7 @@ import { documentErrorText } from '../utils/documentErrors';
 import { documentKindLabel, formatIssued, formatSize } from '../utils/documentFormat';
 import { priceItemLabel } from '../utils/executionFormat';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
+import { Ico } from './Ico';
 
 const POLL_MS = 2500;
 const MAX_POLLS = 72; // three minutes
@@ -205,7 +206,7 @@ export function ProjectDocuments({ projectId, part, onOpenInspection, onOpenEsti
             onClick={() => void load()}
             className="w-full min-h-11 text-sm font-semibold text-slate-800 bg-slate-100 border border-slate-200 rounded-xl"
           >
-            {text.retry}
+            <Ico>🔄</Ico>{text.retry}
           </button>
         </div>
       )}

@@ -25,6 +25,7 @@ import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice } from '../utils/priceFormat';
 import { CoefficientAssignmentModal } from './CoefficientAssignmentModal';
 import { PriceItemForm } from './PriceItemForm';
+import { Ico } from './Ico';
 
 interface RevealWorkPlanEditorProps {
   projectId: string;
@@ -437,7 +438,7 @@ export function RevealWorkPlanEditor({
           disabled={saving}
           className="min-h-[44px] px-3 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold text-sm disabled:opacity-60"
         >
-          {t.common.close}
+          <Ico>✖️</Ico>{t.common.close}
         </button>
       </div>
 
@@ -469,7 +470,7 @@ export function RevealWorkPlanEditor({
             onClick={() => setLoadAttempt((current) => current + 1)}
             className="w-full min-h-[44px] px-3 rounded-xl bg-blue-600 text-white font-semibold text-sm"
           >
-            {t.work_plan.retry}
+            <Ico>🔄</Ico>{t.work_plan.retry}
           </button>
         </div>
       )}
@@ -559,7 +560,7 @@ export function RevealWorkPlanEditor({
                             disabled={saving}
                             className="min-h-[44px] min-w-[44px] flex items-center justify-center text-xs text-red-600 disabled:opacity-60"
                           >
-                            {t.work_plan.remove_work}
+                            <Ico>🗑️</Ico>{t.work_plan.remove_work}
                           </button>
                         </div>
                       </div>
@@ -603,7 +604,7 @@ export function RevealWorkPlanEditor({
               disabled={saving || pickerState === 'loading'}
               className="w-full min-h-[44px] px-3 rounded-xl border border-blue-600 text-blue-700 font-semibold text-sm disabled:opacity-60"
             >
-              {t.work_plan.add_work}
+              <Ico>➕</Ico>{t.work_plan.add_work}
             </button>
           </div>
 
@@ -627,7 +628,7 @@ export function RevealWorkPlanEditor({
             disabled={!dirty || saving}
             className="w-full min-h-[44px] px-3 rounded-xl bg-blue-600 text-white font-semibold text-sm disabled:opacity-60"
           >
-            {saving ? t.common.saving : t.common.save}
+            <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
           </button>
 
           {/* Apply to all reveal-enabled openings in the room (Stage 10G.4) —
@@ -643,7 +644,7 @@ export function RevealWorkPlanEditor({
                   disabled={saving}
                   className="w-full min-h-[44px] px-3 rounded-xl border border-blue-600 text-blue-700 font-semibold text-sm disabled:opacity-60"
                 >
-                  {t.reveals.apply_to_openings}
+                  <Ico>✅</Ico>{t.reveals.apply_to_openings}
                 </button>
               )}
               {applyState === 'counting' && (
@@ -669,7 +670,7 @@ export function RevealWorkPlanEditor({
                       onClick={() => void handleApplyToRoomOpenings()}
                       className="flex-1 min-h-[44px] px-3 rounded-xl bg-blue-600 text-white font-semibold text-sm"
                     >
-                      {t.reveals.apply_confirm_yes}
+                      <Ico>✅</Ico>{t.reveals.apply_confirm_yes}
                     </button>
                     <button
                       type="button"
@@ -677,7 +678,7 @@ export function RevealWorkPlanEditor({
                       onClick={handleApplyCancel}
                       className="flex-1 min-h-[44px] px-3 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm"
                     >
-                      {t.common.cancel}
+                      <Ico>✖️</Ico>{t.common.cancel}
                     </button>
                   </div>
                 </div>
@@ -698,7 +699,7 @@ export function RevealWorkPlanEditor({
                     onClick={handleApplyCancel}
                     className="w-full min-h-[44px] px-3 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium"
                   >
-                    {t.common.close}
+                    <Ico>✖️</Ico>{t.common.close}
                   </button>
                 </div>
               )}
@@ -714,7 +715,7 @@ export function RevealWorkPlanEditor({
                     onClick={handleApplyCancel}
                     className="w-full min-h-[44px] px-3 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium"
                   >
-                    {t.common.close}
+                    <Ico>✖️</Ico>{t.common.close}
                   </button>
                 </div>
               )}
@@ -743,7 +744,7 @@ export function RevealWorkPlanEditor({
                 onClick={closePicker}
                 className="min-h-[44px] min-w-[44px] flex items-center justify-center text-sm text-slate-500"
               >
-                {t.work_plan.picker_close}
+                <Ico>✖️</Ico>{t.work_plan.picker_close}
               </button>
             </div>
 
@@ -816,7 +817,7 @@ export function RevealWorkPlanEditor({
                     onClick={() => setCreatingPriceItem(true)}
                     className="w-full min-h-[44px] px-3 rounded-xl border border-dashed border-blue-400 text-blue-700 font-semibold text-sm"
                   >
-                    {t.work_plan.create_new_item}
+                    <Ico>➕</Ico>{t.work_plan.create_new_item}
                   </button>
                 </>
               )
@@ -834,7 +835,7 @@ export function RevealWorkPlanEditor({
           disabled={saving}
           className="w-full min-h-[44px] px-3 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold text-sm disabled:opacity-60"
         >
-          {t.common.close}
+          <Ico>✖️</Ico>{t.common.close}
         </button>
         </>
       )}

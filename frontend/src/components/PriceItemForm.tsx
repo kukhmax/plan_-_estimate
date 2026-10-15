@@ -14,6 +14,7 @@ import {
   PriceUnitValue,
 } from '../types/priceItem';
 import { normalizePriceInput } from '../utils/priceFormat';
+import { Ico } from './Ico';
 
 /**
  * Shared Price Book create/edit form (Stage 10G.4 extraction).
@@ -348,14 +349,14 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
             onClick={onCancel}
             className="min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
           >
-            {t.common.cancel}
+            <Ico>✖️</Ico>{t.common.cancel}
           </button>
           <button
             type="submit"
             disabled={saving || invalidPrice}
             className="min-h-11 px-3 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
           >
-            {saving ? t.common.saving : t.common.save}
+            <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
           </button>
         </div>
       </form>

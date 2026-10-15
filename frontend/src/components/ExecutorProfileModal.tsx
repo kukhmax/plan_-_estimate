@@ -3,6 +3,7 @@ import { fetchExecutorProfile, profileFieldErrors, saveExecutorProfile } from '.
 import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import { ExecutorProfile, ExecutorProfileField, ExecutorProfilePayload } from '../types/executorProfile';
+import { Ico } from './Ico';
 
 interface ExecutorProfileModalProps {
   onClose: () => void;
@@ -163,7 +164,7 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
                 color: 'var(--tg-theme-button-text-color)',
               }}
             >
-              {text.retry}
+              <Ico>🔄</Ico>{text.retry}
             </button>
           </div>
         )}
@@ -216,7 +217,7 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
                   color: 'var(--tg-theme-button-text-color)',
                 }}
               >
-                {saving ? t.common.saving : t.common.save}
+                <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
               </button>
               <button
                 type="button"
@@ -228,7 +229,7 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
                   borderColor: 'var(--tg-control-border-color, var(--tg-theme-hint-color))',
                 }}
               >
-                {t.common.close}
+                <Ico>✖️</Ico>{t.common.close}
               </button>
             </div>
           </form>

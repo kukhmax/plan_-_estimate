@@ -17,6 +17,7 @@ import {
   WorkRecommendationStatusValue,
 } from '../types/workRecommendation';
 import { RecommendationPriceItemPicker } from './RecommendationPriceItemPicker';
+import { Ico } from './Ico';
 
 export interface RecommendationPanelProps {
   projectId: string;
@@ -507,7 +508,7 @@ function RecommendationCard({
             disabled={pending}
             onClick={() => onCancelConfirmAgain(recommendation.id)}
           >
-            {t.recommendations.confirm_again_no}
+            <Ico>✅</Ico>{t.recommendations.confirm_again_no}
           </button>
         </div>
       ) : null}
@@ -539,7 +540,7 @@ function RecommendationCard({
             disabled={pending}
             onClick={() => onOpenFallback(recommendation.id)}
           >
-            {t.recommendations.fallback_button}
+            <Ico>🛠️</Ico>{t.recommendations.fallback_button}
           </button>
         )
       ) : null}
@@ -566,7 +567,7 @@ function RecommendationCard({
                   disabled={pending}
                   onClick={() => onDismiss(recommendation.id)}
                 >
-                  {t.recommendations.dismiss}
+                  <Ico>✖️</Ico>{t.recommendations.dismiss}
                 </button>
               ) : null}
               {recommendation.status === 'DISMISSED' ? (
@@ -577,7 +578,7 @@ function RecommendationCard({
                   disabled={pending}
                   onClick={() => onReconsider(recommendation.id)}
                 >
-                  {t.recommendations.reconsider}
+                  <Ico>🔄</Ico>{t.recommendations.reconsider}
                 </button>
               ) : null}
             </div>

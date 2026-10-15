@@ -15,6 +15,7 @@ import {
 import { MAX_FILES_PER_SELECTION } from '../utils/photoUploadQueue';
 import { hapticNotify } from '../utils/telegramHaptics';
 import { CameraIcon, CloseIcon } from './PhotoIcons';
+import { Ico } from './Ico';
 
 // The viewfinder (Stage 14E.10): a full-screen camera with a series mode — shot after shot without leaving the screen,
 // then "Gotowe" hands all the files over to the upload queue at once. Nothing is uploaded from here.
@@ -286,7 +287,7 @@ export function CameraCapture({ onDone, onCancel, onUseNativePicker, onCameraFai
                 onClick={() => void startCamera()}
                 className="min-h-11 w-full max-w-xs rounded-xl border border-white/40 px-3 py-2 text-sm font-semibold"
               >
-                {t.photos.camera.restart}
+                <Ico>🔄</Ico>{t.photos.camera.restart}
               </button>
             )}
             <button
@@ -339,7 +340,7 @@ export function CameraCapture({ onDone, onCancel, onUseNativePicker, onCameraFai
             <h2 className="break-words text-base font-semibold">{t.photos.camera.discard_title}</h2>
             <p className="break-words text-sm text-white/80">{t.photos.camera.discard_text.replace('{count}', String(shots.length))}</p>
             <button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-11 w-full rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black">
-              {t.photos.camera.discard_keep}
+              <Ico>✖️</Ico>{t.photos.camera.discard_keep}
             </button>
             <button
               type="button"
@@ -349,7 +350,7 @@ export function CameraCapture({ onDone, onCancel, onUseNativePicker, onCameraFai
               }}
               className="min-h-11 w-full rounded-xl border border-red-400 px-3 py-2 text-sm font-semibold text-red-300"
             >
-              {t.photos.camera.discard_confirm}
+              <Ico>✖️</Ico>{t.photos.camera.discard_confirm}
             </button>
           </div>
         </div>

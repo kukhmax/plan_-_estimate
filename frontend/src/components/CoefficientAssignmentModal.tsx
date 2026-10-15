@@ -15,6 +15,7 @@ import {
   coefficientOptionDescription,
   coefficientOptionName,
 } from '../utils/coefficientLabels';
+import { Ico } from './Ico';
 
 // Stage 12G: above this additive total the modal shows a non-blocking hint.
 const HIGH_TOTAL_WARNING_THRESHOLD = '50';
@@ -419,7 +420,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
             aria-label="coefficient-modal-cancel"
             className="flex-1 min-h-[44px] px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 active:bg-slate-100"
           >
-            {t.coefficients.cancel}
+            <Ico>✖️</Ico>{t.coefficients.cancel}
           </button>
           <button
             type="button"
@@ -430,7 +431,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
             aria-label="coefficient-modal-apply"
             className="flex-1 min-h-[44px] px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50"
           >
-            {t.coefficients.apply}
+            <Ico>✅</Ico>{t.coefficients.apply}
           </button>
         </div>
       </div>
@@ -472,7 +473,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
                 onClick={() => setDescriptionSheet(null)}
                 className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
-                {t.coefficients.close}
+                <Ico>✖️</Ico>{t.coefficients.close}
               </button>
             </div>
           </div>

@@ -8,6 +8,7 @@ import {
 } from '../api/inspections';
 import { Inspection, InspectionTarget } from '../types/inspection';
 import { QualityLevelValue, SubstrateValue } from '../types/checklist';
+import { Ico } from './Ico';
 
 export interface InspectionListProps {
   projectId: string;
@@ -135,7 +136,7 @@ function InspectionCard({
           disabled={busy}
           onClick={handleReopen}
         >
-          {t.inspections.reopen}
+          <Ico>🔁</Ico>{t.inspections.reopen}
         </button>
       ) : (
         <button
@@ -144,7 +145,7 @@ function InspectionCard({
           className="min-h-10 rounded-lg border border-blue-600 px-3 text-blue-700"
           onClick={() => onOpen(inspection.id)}
         >
-          {t.inspections.resume}
+          <Ico>▶️</Ico>{t.inspections.resume}
         </button>
       )}
       <button
@@ -238,7 +239,7 @@ export function InspectionList({
           className="min-h-11 shrink-0 rounded-lg bg-blue-600 px-4 font-medium text-white"
           onClick={() => onStart(target)}
         >
-          {t.inspections.start}
+          <Ico>▶️</Ico>{t.inspections.start}
         </button>
       </div>
 

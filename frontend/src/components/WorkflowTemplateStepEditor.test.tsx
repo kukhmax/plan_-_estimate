@@ -372,7 +372,7 @@ describe('Russian UI', () => {
     fireEvent.click(await screen.findByLabelText('process-card-tpl-b'));
     expect(screen.getByLabelText('process-edit-steps')).toHaveTextContent('Редактировать шаги');
     fireEvent.click(screen.getByLabelText('process-edit-steps'));
-    expect(screen.getByLabelText('steps-editor-add')).toHaveTextContent('+ Добавить шаг');
+    expect(screen.getByLabelText('steps-editor-add')).toHaveTextContent('Добавить шаг');
     openOptions(1);
     expect(screen.getByLabelText('steps-editor-up-1')).toHaveTextContent('Вверх');
     expect(screen.getByLabelText('steps-editor-down-1')).toHaveTextContent('Вниз');

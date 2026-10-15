@@ -14,6 +14,7 @@ import { resolveKey } from '../utils/i18nKeys';
 import { templateDescription, templateStepNote } from '../utils/workflowTemplateText';
 import { TemplateFormMode, WorkflowTemplateForm } from './WorkflowTemplateForm';
 import { WorkflowTemplateStepEditor } from './WorkflowTemplateStepEditor';
+import { Ico } from './Ico';
 
 /**
  * Stage 13F.3 — Cennik → Procesy: technological workflow templates (list +
@@ -288,7 +289,7 @@ export function WorkflowTemplateManager() {
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => setConfirmingArchive(false)} disabled={busy}
                   className="w-full min-h-11 px-3 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-60">
-                  {t.common.cancel}
+                  <Ico>✖️</Ico>{t.common.cancel}
                 </button>
                 <button type="button" aria-label="process-archive-confirm-yes" onClick={() => void changeArchiveState(tpl, true)} disabled={busy}
                   className="w-full min-h-11 px-3 rounded-xl bg-amber-600 text-white text-sm font-semibold disabled:opacity-60">
@@ -301,17 +302,17 @@ export function WorkflowTemplateManager() {
               <button type="button" aria-label="process-edit" disabled={busy}
                 onClick={() => { setNotice(null); setFormMode('edit'); }}
                 className="w-full min-h-11 px-3 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">
-                {t.processes.edit}
+                <Ico>✏️</Ico>{t.processes.edit}
               </button>
               <button type="button" aria-label="process-edit-steps" disabled={busy}
                 onClick={() => { setNotice(null); setEditingSteps(true); }}
                 className="w-full min-h-11 px-3 rounded-xl border border-blue-600 text-blue-700 bg-white text-sm font-semibold disabled:opacity-60">
-                {t.processes.edit_steps}
+                <Ico>✏️</Ico>{t.processes.edit_steps}
               </button>
               <button type="button" aria-label="process-duplicate" disabled={busy}
                 onClick={() => { setNotice(null); setFormMode('duplicate'); }}
                 className="w-full min-h-11 px-3 rounded-xl border border-blue-600 text-blue-700 bg-white text-sm font-semibold disabled:opacity-60">
-                {t.processes.duplicate}
+                <Ico>📑</Ico>{t.processes.duplicate}
               </button>
               {tpl.is_archived ? (
                 <button type="button" aria-label="process-restore" disabled={busy}
@@ -323,7 +324,7 @@ export function WorkflowTemplateManager() {
                 <button type="button" aria-label="process-archive" disabled={busy}
                   onClick={() => { setNotice(null); setConfirmingArchive(true); }}
                   className="w-full min-h-11 px-3 rounded-xl border border-amber-400 bg-white text-sm font-semibold text-amber-800 disabled:opacity-60">
-                  {t.processes.archive}
+                  <Ico>🗃️</Ico>{t.processes.archive}
                 </button>
               )}
             </>
@@ -351,7 +352,7 @@ export function WorkflowTemplateManager() {
         }}
         className="w-full min-h-11 px-3 rounded-xl bg-blue-600 text-white text-sm font-semibold"
       >
-        + {t.processes.create}
+        <Ico>➕</Ico>{t.processes.create}
       </button>
       <div role="tablist" aria-label="processes-archive-tabs" className="flex flex-wrap gap-2">
         {(['active', 'archived'] as const).map((value) => (
@@ -404,7 +405,7 @@ export function WorkflowTemplateManager() {
         <div role="alert" className="space-y-2">
           <p className="text-sm text-red-600">{t.work_plan.tpl_load_error}</p>
           <button type="button" className={chip(false)} onClick={() => setAttempt((n) => n + 1)}>
-            {t.work_plan.retry}
+            <Ico>🔄</Ico>{t.work_plan.retry}
           </button>
         </div>
       )}

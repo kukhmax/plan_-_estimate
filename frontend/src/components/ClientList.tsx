@@ -12,6 +12,7 @@ import { ProjectType } from '../types/project';
 import { useI18n } from '../hooks/useI18n';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { Ico } from './Ico';
 
 /** Digits and a single leading '+' only — a safe `tel:` href from a
  * human-readable stored phone value (spaces/dashes/parens stripped). */
@@ -414,14 +415,14 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
               onClick={closeForm}
               className="px-4 min-h-11 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
             >
-              {t.clients.cancel}
+              <Ico>✖️</Ico>{t.clients.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="px-4 min-h-11 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
             >
-              {t.clients.save}
+              <Ico>💾</Ico>{t.clients.save}
             </button>
           </div>
         </form>
@@ -552,7 +553,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
               onClick={() => openEdit(selected)}
               className="min-h-11 px-3 text-sm rounded-xl bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
             >
-              {t.clients.edit}
+              <Ico>✏️</Ico>{t.clients.edit}
             </button>
             {selected.is_archived ? (
               <button
@@ -561,7 +562,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
                 onClick={() => handleRestore(selected.id)}
                 className="min-h-11 px-3 text-sm rounded-xl bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 transition"
               >
-                {t.clients.restore}
+                <Ico>♻️</Ico>{t.clients.restore}
               </button>
             ) : (
               <button
@@ -570,7 +571,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
                 onClick={() => handleArchive(selected.id)}
                 className="min-h-11 px-3 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-600 font-semibold hover:bg-slate-100 transition"
               >
-                {t.clients.archive}
+                <Ico>🗃️</Ico>{t.clients.archive}
               </button>
             )}
           </div>
@@ -627,7 +628,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
           onClick={openCreate}
           className="min-h-11 px-4 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
         >
-          {t.clients.add_client}
+          <Ico>➕</Ico>{t.clients.add_client}
         </button>
       </div>
 

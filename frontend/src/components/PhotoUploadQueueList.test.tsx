@@ -85,7 +85,7 @@ describe('PhotoUploadQueueList', () => {
       item({ id: 'bad', state: 'failed', error: failure(422, 'PHOTO_INVALID_IMAGE') }),
     ]);
     const rows = screen.getAllByRole('listitem');
-    const names = (row: HTMLElement) => within(row).queryAllByRole('button').map((b) => b.textContent);
+    const names = (row: HTMLElement) => within(row).queryAllByRole('button').map((b) => b.textContent?.replace(/^\p{Extended_Pictographic}\uFE0F?/u, ''));
     expect(names(rows[0])).toEqual(['Anuluj']); // active: cancel only
     expect(names(rows[1])).toEqual(['Ponów', 'Zamknij']); // retryable
     expect(names(rows[2])).toEqual(['Ponów jako nowe', 'Zamknij']); // identity conflict: explicit new id only

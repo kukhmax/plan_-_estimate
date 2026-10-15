@@ -38,6 +38,7 @@ import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { RiskPanel } from './RiskPanel';
 import { RecommendationPanel } from './RecommendationPanel';
 import { CommunicationPanel } from './CommunicationPanel';
+import { Ico } from './Ico';
 
 export interface InspectionFlowProps {
   projectId: string;
@@ -609,7 +610,7 @@ export function InspectionFlow({
               className="min-h-11 flex-1 rounded-lg border border-neutral-300 bg-white px-3 font-medium text-neutral-700"
               onClick={() => setStep('substrate')}
             >
-              {t.common.cancel}
+              <Ico>✖️</Ico>{t.common.cancel}
             </button>
             <button
               type="button"
@@ -624,7 +625,7 @@ export function InspectionFlow({
                 else setStep('quality');
               }}
             >
-              {t.inspections.next}
+              <Ico>➡️</Ico>{t.inspections.next}
             </button>
           </div>
         </div>
@@ -669,7 +670,7 @@ export function InspectionFlow({
               void beginInspection({ substrate, quality: null });
             }}
           >
-            {t.inspections.skip}
+            <Ico>⏭️</Ico>{t.inspections.skip}
           </button>
           <div className="flex gap-2">
             <button
@@ -677,7 +678,7 @@ export function InspectionFlow({
               className="min-h-11 flex-1 rounded-lg border border-neutral-300 bg-white px-3 font-medium text-neutral-700"
               onClick={() => setStep('substrate')}
             >
-              {t.common.back}
+              <Ico>⬅️</Ico>{t.common.back}
             </button>
             <button
               type="button"
@@ -686,7 +687,7 @@ export function InspectionFlow({
               disabled={saving}
               onClick={() => void beginInspection()}
             >
-              {t.inspections.start}
+              <Ico>▶️</Ico>{t.inspections.start}
             </button>
           </div>
         </div>
@@ -726,7 +727,7 @@ export function InspectionFlow({
               disabled={saving || inspection === null}
               onClick={() => void saveDraft()}
             >
-              {t.inspections.save_draft}
+              <Ico>💾</Ico>{t.inspections.save_draft}
             </button>
             <button
               type="button"
@@ -734,7 +735,7 @@ export function InspectionFlow({
               className="min-h-11 rounded-lg bg-blue-600 px-3 font-medium text-white"
               onClick={() => setStep('review')}
             >
-              {t.inspections.review}
+              <Ico>🔎</Ico>{t.inspections.review}
             </button>
           </div>
         </div>
@@ -795,7 +796,7 @@ export function InspectionFlow({
                 disabled={saving}
                 onClick={() => void handleComplete()}
               >
-                {t.inspections.complete}
+                <Ico>✅</Ico>{t.inspections.complete}
               </button>
             </div>
           ) : (
@@ -822,7 +823,7 @@ export function InspectionFlow({
                 disabled={saving}
                 onClick={() => void handleReopen()}
               >
-                {t.inspections.reopen}
+                <Ico>🔁</Ico>{t.inspections.reopen}
               </button>
             </>
           )}
@@ -902,7 +903,7 @@ function QuestionField({
               }`}
               onClick={() => onChange({ value_bool: true })}
             >
-              {t.inspections.yes}
+              <Ico>👍</Ico>{t.inspections.yes}
             </button>
             <button
               type="button"
@@ -914,7 +915,7 @@ function QuestionField({
               }`}
               onClick={() => onChange({ value_bool: false })}
             >
-              {t.inspections.no}
+              <Ico>👎</Ico>{t.inspections.no}
             </button>
           </div>
         )

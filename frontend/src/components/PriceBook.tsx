@@ -29,6 +29,7 @@ import { formatPrice, normalizePriceInput } from '../utils/priceFormat';
 import { HubTile } from './HubTile';
 import { PriceBookMarket } from './PriceBookMarket';
 import { PriceItemForm } from './PriceItemForm';
+import { Ico } from './Ico';
 
 // Secondary screen, only shown on the "Współczynniki" tab — kept out of the
 // main bundle.
@@ -248,9 +249,9 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
         <>
           <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)] mb-3">{t.pricebook.title}</h2>
           <nav aria-label="pricebook-hub" className="grid grid-cols-1 gap-3">
-            <HubTile ariaLabel="pricebook-maintab-items" label={t.coefficients.tab_items} onOpen={() => setMainTab('items')} />
-            <HubTile ariaLabel="pricebook-maintab-coefficients" label={t.coefficients.tab_coefficients} onOpen={() => setMainTab('coefficients')} />
-            <HubTile ariaLabel="pricebook-maintab-processes" label={t.processes.tab} onOpen={() => setMainTab('processes')} />
+            <HubTile icon="🏷️" ariaLabel="pricebook-maintab-items" label={t.coefficients.tab_items} onOpen={() => setMainTab('items')} />
+            <HubTile icon="🎚️" ariaLabel="pricebook-maintab-coefficients" label={t.coefficients.tab_coefficients} onOpen={() => setMainTab('coefficients')} />
+            <HubTile icon="⚙️" ariaLabel="pricebook-maintab-processes" label={t.processes.tab} onOpen={() => setMainTab('processes')} />
           </nav>
         </>
       ) : (
@@ -349,7 +350,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
         onClick={openCreate}
         className="min-h-11 w-full px-3 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
       >
-        + {t.pricebook.add_item}
+        <Ico>➕</Ico>{t.pricebook.add_item}
       </button>
 
       {showForm && (
@@ -447,7 +448,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
                       onClick={closeInline}
                       className="min-h-11 flex-1 px-3 py-2 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
                     >
-                      {t.common.cancel}
+                      <Ico>✖️</Ico>{t.common.cancel}
                     </button>
                     <button
                       type="button"
@@ -456,7 +457,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
                       disabled={inlineSaving || invalidInlinePrice}
                       className="min-h-11 flex-1 px-3 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
                     >
-                      {inlineSaving ? t.common.saving : t.common.save}
+                      <Ico>💾</Ico>{inlineSaving ? t.common.saving : t.common.save}
                     </button>
                   </div>
                 </div>
@@ -487,7 +488,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
                   onClick={() => void handleRestore(item)}
                   className="mt-2 min-h-11 w-full px-3 py-2 text-xs rounded-lg bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition"
                 >
-                  {t.common.restore}
+                  <Ico>♻️</Ico>{t.common.restore}
                 </button>
               ) : (
                 inlineId !== item.id && (
@@ -500,7 +501,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
                       }
                       className="min-h-11 flex-1 px-3 py-2 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                     >
-                      {t.common.edit}
+                      <Ico>✏️</Ico>{t.common.edit}
                     </button>
                     <button
                       type="button"
@@ -508,7 +509,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
                       onClick={() => void handleArchive(item)}
                       className="min-h-11 flex-1 px-3 py-2 text-xs rounded-lg bg-orange-50 text-orange-700 font-medium hover:bg-orange-100 transition"
                     >
-                      {t.common.archive}
+                      <Ico>🗃️</Ico>{t.common.archive}
                     </button>
                   </div>
                 )

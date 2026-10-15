@@ -4,6 +4,7 @@ import { usePhotoBackRegistration } from '../hooks/PhotoBackContext';
 import { useI18n } from '../hooks/useI18n';
 import { MAX_MARKER_LABEL_LENGTH, PhotoAnnotationRead } from '../types/photo';
 import { PhotoErrorKey } from '../utils/photoErrors';
+import { Ico } from './Ico';
 
 // The window a tap on a marker opens (owner decision 2026-10-08: the label is shown in a pop-up): the label, edited in
 // place, and the way to delete the marker. A bottom sheet, so it never hides the marker's neighbourhood on a phone and
@@ -114,7 +115,7 @@ export function PointMarkerPopup({
                 onClick={() => onSaveLabel(trimmed === '' ? null : trimmed)}
                 className="min-h-11 w-full rounded-xl bg-[var(--tg-theme-button-color)] px-3 py-2 text-sm font-semibold text-[var(--tg-theme-button-text-color)] disabled:opacity-50"
               >
-                {t.photos.markers.popup_save}
+                <Ico>💾</Ico>{t.photos.markers.popup_save}
               </button>
               <button
                 type="button"
@@ -131,7 +132,7 @@ export function PointMarkerPopup({
                   onClick={onRemoveOutline}
                   className="min-h-11 w-full rounded-xl border border-[var(--tg-control-border-color)] px-3 py-2 text-sm font-semibold text-[var(--tg-theme-destructive-text-color)] disabled:opacity-50"
                 >
-                  {t.photos.markers.outline_remove}
+                  <Ico>🗑️</Ico>{t.photos.markers.outline_remove}
                 </button>
               )}
               <button
@@ -140,7 +141,7 @@ export function PointMarkerPopup({
                 onClick={onDelete}
                 className="min-h-11 w-full rounded-xl border border-[var(--tg-control-border-color)] px-3 py-2 text-sm font-semibold text-[var(--tg-theme-destructive-text-color)] disabled:opacity-50"
               >
-                {t.photos.markers.popup_delete}
+                <Ico>🗑️</Ico>{t.photos.markers.popup_delete}
               </button>
             </>
           )}
@@ -151,7 +152,7 @@ export function PointMarkerPopup({
             onClick={onClose}
             className="min-h-11 w-full rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] px-3 py-2 text-sm font-semibold text-[var(--tg-theme-text-color)] disabled:opacity-50"
           >
-            {t.photos.markers.popup_close}
+            <Ico>✖️</Ico>{t.photos.markers.popup_close}
           </button>
         </div>
       </div>

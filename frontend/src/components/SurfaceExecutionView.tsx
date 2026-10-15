@@ -33,6 +33,7 @@ import { PhotoSection } from './PhotoSection';
 import { ReminderSheet } from './ReminderSheet';
 import { ScheduleSuggestSheet } from './ScheduleSuggestSheet';
 import { WorkCalendarRow } from './WorkCalendarRow';
+import { Ico } from './Ico';
 
 interface SurfaceExecutionViewProps {
   projectId: string;
@@ -366,7 +367,7 @@ export function SurfaceExecutionView({
           onClick={onClose}
           className="min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)] font-semibold"
         >
-          {t.common.close}
+          <Ico>✖️</Ico>{t.common.close}
         </button>
       </div>
 
@@ -383,7 +384,7 @@ export function SurfaceExecutionView({
             onClick={() => setLoadAttempt((n) => n + 1)}
             className={btnPrimary}
           >
-            {t.execution.retry}
+            <Ico>🔄</Ico>{t.execution.retry}
           </button>
         </div>
       )}
@@ -395,7 +396,7 @@ export function SurfaceExecutionView({
           </p>
           {onOpenPlan && (
             <button type="button" aria-label={`execution-open-plan-${surfaceId}`} onClick={onOpenPlan} className={btnSecondary}>
-              {t.execution.open_plan}
+              <Ico>📂</Ico>{t.execution.open_plan}
             </button>
           )}
         </div>
@@ -495,13 +496,13 @@ export function SurfaceExecutionView({
                 {status === 'NOT_STARTED' && (
                   <button type="button" aria-label={`execution-start-${key}`} disabled={busy}
                     onClick={() => void transition(work, 'IN_PROGRESS')} className={btnPrimary}>
-                    {t.execution.start}
+                    <Ico>▶️</Ico>{t.execution.start}
                   </button>
                 )}
                 {status === 'IN_PROGRESS' && (
                   <button type="button" aria-label={`execution-complete-${key}`} disabled={busy}
                     onClick={() => void transition(work, 'COMPLETED')} className={btnPrimary}>
-                    {t.execution.complete}
+                    <Ico>✅</Ico>{t.execution.complete}
                   </button>
                 )}
                 {secondary.length > 0 && (
@@ -587,7 +588,7 @@ export function SurfaceExecutionView({
 
       {loadState === 'ready' && works.length > 0 && (
         <button type="button" aria-label={`schedule-suggest-open-${surfaceId}`} onClick={() => setSuggestOpen(true)} className={btnSecondary}>
-          {t.calendar.schedule.suggest}
+          <Ico>➕</Ico>{t.calendar.schedule.suggest}
         </button>
       )}
 
@@ -634,7 +635,7 @@ export function SurfaceExecutionView({
           onClick={onClose}
           className={btnSecondary}
         >
-          {t.common.close}
+          <Ico>✖️</Ico>{t.common.close}
         </button>
       )}
     </section>

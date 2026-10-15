@@ -19,6 +19,7 @@ import { documentKindLabel } from '../utils/documentFormat';
 import { clientPhraseText } from '../utils/knowledgePhrases';
 import type { DocumentKind } from '../types/document';
 import { KeyPoints, SourceLink, StatusBadge } from './KnowledgeEntryParts';
+import { Ico } from './Ico';
 
 type View = { kind: 'list' } | { kind: 'entry'; code: string } | { kind: 'situation'; code: string };
 
@@ -170,7 +171,7 @@ function KnowledgeList({ title, onOpenEntry, onOpenSituation }: TitleProps & { o
             onClick={() => void loadEntries(query)}
             className="w-full min-h-11 px-4 text-sm font-semibold rounded-xl bg-blue-600 text-white"
           >
-            {text.retry}
+            <Ico>🔄</Ico>{text.retry}
           </button>
         </div>
       )}
@@ -234,7 +235,7 @@ function KnowledgeEntryCard({ code, title }: TitleProps & { code: string }) {
       <div className="space-y-2">
         <p role="alert" className="text-sm text-red-600 break-words">{text.error_load}</p>
         <button type="button" aria-label="knowledge-retry" onClick={() => void load()} className="w-full min-h-11 px-4 text-sm font-semibold rounded-xl bg-blue-600 text-white">
-          {text.retry}
+          <Ico>🔄</Ico>{text.retry}
         </button>
       </div>
     );
@@ -355,7 +356,7 @@ function KnowledgeSituationPlayer({ code, title, onOpenEntry }: TitleProps & { c
       <div className="space-y-2">
         <p role="alert" className="text-sm text-red-600 break-words">{text.error_load}</p>
         <button type="button" aria-label="knowledge-retry" onClick={() => void load()} className="w-full min-h-11 px-4 text-sm font-semibold rounded-xl bg-blue-600 text-white">
-          {text.retry}
+          <Ico>🔄</Ico>{text.retry}
         </button>
       </div>
     );
@@ -459,7 +460,7 @@ function KnowledgeSituationPlayer({ code, title, onOpenEntry }: TitleProps & { c
             onClick={() => setPath((current) => current.slice(0, -1))}
             className="w-full min-h-11 px-4 text-sm font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
           >
-            {text.situation_back}
+            <Ico>⬅️</Ico>{text.situation_back}
           </button>
         )}
         {path.length > 1 && (

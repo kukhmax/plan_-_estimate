@@ -160,7 +160,7 @@ describe('ProjectNotes (Stage 18)', () => {
     expect(notesApi.fetchProjectNotes).toHaveBeenCalledTimes(2);
   });
 
-  it('speaks Russian, and long words stay inside the card (wrapping classes, 44px controls)', async () => {
+  it('speaks Russian, and long words stay inside the card (wrapping classes, compact 40 px controls)', async () => {
     localStorage.setItem('locale', 'ru');
     renderNotes();
 
@@ -169,7 +169,7 @@ describe('ProjectNotes (Stage 18)', () => {
     expect(screen.getByLabelText('note-delete-n2')).toHaveTextContent('Удалить');
     expect(screen.getByLabelText('note-body-n2').className).toContain('break-words');
     expect(screen.getByLabelText('note-body-n2').className).toContain('whitespace-pre-wrap');
-    for (const label of ['note-add', 'note-edit-n2', 'note-delete-n2']) expect(screen.getByLabelText(label).className).toContain('min-h-11');
+    for (const label of ['note-add', 'note-edit-n2', 'note-delete-n2']) expect(screen.getByLabelText(label).className).toContain('min-h-10');
     expect(screen.getByLabelText('note-time-n2').textContent).toMatch(/15\.10\.2026/);
   });
 });

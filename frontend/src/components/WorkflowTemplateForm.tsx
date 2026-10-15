@@ -13,6 +13,7 @@ import {
   WorkflowTemplateUpdatePayload,
 } from '../types/workflowTemplate';
 import { localizeApiError } from '../utils/apiErrors';
+import { Ico } from './Ico';
 
 /**
  * Stage 13F.4 — metadata form for workflow templates (create / edit /
@@ -259,7 +260,7 @@ export function WorkflowTemplateForm({ mode, source, sourceName, onSaved, onCanc
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={onCancel} disabled={saving}
           className="w-full min-h-11 px-3 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-60">
-          {t.common.cancel}
+          <Ico>✖️</Ico>{t.common.cancel}
         </button>
         <button type="submit" aria-label="process-form-submit" disabled={saving || archivedSteps > 0}
           className="w-full min-h-11 px-3 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">

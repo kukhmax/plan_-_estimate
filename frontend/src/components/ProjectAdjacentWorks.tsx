@@ -11,6 +11,7 @@ import { fetchRooms } from '../api/rooms';
 import { useI18n } from '../hooks/useI18n';
 import { ADJACENT_WORK_ORDERS, AdjacentWork, AdjacentWorkOrder } from '../types/adjacentWork';
 import type { RoomType } from '../types/room';
+import { Ico } from './Ico';
 
 interface ProjectAdjacentWorksProps {
   projectId: string;
@@ -196,7 +197,7 @@ export function ProjectAdjacentWorks({ projectId }: ProjectAdjacentWorksProps) {
             onClick={() => openForm('new')}
             className="min-h-11 px-4 shrink-0 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition"
           >
-            {text.add}
+            <Ico>➕</Ico>{text.add}
           </button>
         )}
       </div>
@@ -248,10 +249,10 @@ export function ProjectAdjacentWorks({ projectId }: ProjectAdjacentWorksProps) {
             </p>
           )}
           <button type="submit" disabled={saving} className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition">
-            {text.save}
+            <Ico>💾</Ico>{text.save}
           </button>
           <button type="button" onClick={closeForm} disabled={saving} className="w-full min-h-11 px-3 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition">
-            {text.cancel}
+            <Ico>✖️</Ico>{text.cancel}
           </button>
         </form>
       )}
@@ -261,7 +262,7 @@ export function ProjectAdjacentWorks({ projectId }: ProjectAdjacentWorksProps) {
         <div className="space-y-2">
           <p role="alert" className="text-sm text-red-700 break-words">{text.load_failed}</p>
           <button type="button" onClick={() => void load()} className="w-full min-h-11 text-sm font-semibold text-slate-800 bg-slate-100 border border-slate-200 rounded-xl">
-            {text.retry}
+            <Ico>🔄</Ico>{text.retry}
           </button>
         </div>
       )}
@@ -287,7 +288,7 @@ export function ProjectAdjacentWorks({ projectId }: ProjectAdjacentWorksProps) {
               <div className="flex flex-wrap gap-2 pt-1">
                 {!work.is_archived && (
                   <button type="button" aria-label={`edit-adjacent-work-${work.id}`} onClick={() => openForm(work)} className="min-h-11 px-4 text-sm font-semibold text-slate-800 bg-slate-100 border border-slate-200 rounded-xl hover:bg-slate-200 transition">
-                    {text.edit}
+                    <Ico>✏️</Ico>{text.edit}
                   </button>
                 )}
                 <button

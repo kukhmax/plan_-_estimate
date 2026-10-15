@@ -12,6 +12,7 @@ import {
   REPRESENTATIVE_SIDES,
   RepresentativeSide,
 } from '../types/representative';
+import { Ico } from './Ico';
 
 interface ProjectRepresentativesProps {
   projectId: string;
@@ -168,7 +169,7 @@ export function ProjectRepresentatives({ projectId }: ProjectRepresentativesProp
             onClick={() => openForm('new')}
             className="min-h-11 px-4 shrink-0 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition"
           >
-            {text.add}
+            <Ico>➕</Ico>{text.add}
           </button>
         )}
       </div>
@@ -218,7 +219,7 @@ export function ProjectRepresentatives({ projectId }: ProjectRepresentativesProp
             disabled={saving}
             className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition"
           >
-            {text.save}
+            <Ico>💾</Ico>{text.save}
           </button>
           <button
             type="button"
@@ -226,7 +227,7 @@ export function ProjectRepresentatives({ projectId }: ProjectRepresentativesProp
             disabled={saving}
             className="w-full min-h-11 px-3 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition"
           >
-            {text.cancel}
+            <Ico>✖️</Ico>{text.cancel}
           </button>
         </form>
       )}
@@ -236,7 +237,7 @@ export function ProjectRepresentatives({ projectId }: ProjectRepresentativesProp
         <div className="space-y-2">
           <p role="alert" className="text-sm text-red-700 break-words">{text.load_failed}</p>
           <button type="button" onClick={() => void load()} className="w-full min-h-11 text-sm font-semibold text-slate-800 bg-slate-100 border border-slate-200 rounded-xl">
-            {text.retry}
+            <Ico>🔄</Ico>{text.retry}
           </button>
         </div>
       )}
@@ -277,7 +278,7 @@ export function ProjectRepresentatives({ projectId }: ProjectRepresentativesProp
                     onClick={() => openForm(person)}
                     className="min-h-11 px-4 text-sm font-semibold text-slate-800 bg-slate-100 border border-slate-200 rounded-xl hover:bg-slate-200 transition"
                   >
-                    {text.edit}
+                    <Ico>✏️</Ico>{text.edit}
                   </button>
                 )}
                 <button

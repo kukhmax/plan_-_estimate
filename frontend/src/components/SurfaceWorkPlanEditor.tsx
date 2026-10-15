@@ -35,6 +35,7 @@ import { ExecutionStatusBadge } from './ExecutionStatusBadge';
 import { PriceItemForm } from './PriceItemForm';
 import { WorkflowTemplateApplySheet } from './WorkflowTemplateApplySheet';
 import { SurfaceTypeValue } from '../types/surface';
+import { Ico } from './Ico';
 
 interface SurfaceWorkPlanEditorProps {
   projectId: string;
@@ -623,7 +624,7 @@ export function SurfaceWorkPlanEditor({
           disabled={saving}
           className="min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)] font-semibold disabled:opacity-60"
         >
-          {t.common.close}
+          <Ico>✖️</Ico>{t.common.close}
         </button>
       </div>
 
@@ -647,7 +648,7 @@ export function SurfaceWorkPlanEditor({
             onClick={() => setLoadAttempt((current) => current + 1)}
             className="w-full min-h-11 px-3 rounded-xl bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] font-semibold"
           >
-            {t.work_plan.retry}
+            <Ico>🔄</Ico>{t.work_plan.retry}
           </button>
         </div>
       )}
@@ -794,7 +795,7 @@ export function SurfaceWorkPlanEditor({
                             disabled={saving}
                             className="min-h-[44px] min-w-[44px] flex items-center justify-center text-xs text-[var(--tg-theme-destructive-text-color)] disabled:opacity-60"
                           >
-                            {t.work_plan.remove_work}
+                            <Ico>🗑️</Ico>{t.work_plan.remove_work}
                           </button>
                         </div>
                       </div>
@@ -901,7 +902,7 @@ export function SurfaceWorkPlanEditor({
               disabled={saving || pickerState === 'loading'}
               className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm disabled:opacity-60"
             >
-              {t.work_plan.add_work}
+              <Ico>➕</Ico>{t.work_plan.add_work}
             </button>
           </div>
 
@@ -917,7 +918,7 @@ export function SurfaceWorkPlanEditor({
                 disabled={dirty || saving || !baseline.qualityTarget || !baseline.substrate}
                 className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm disabled:opacity-60 break-words"
               >
-                {t.work_plan.tpl_open}
+                <Ico>📂</Ico>{t.work_plan.tpl_open}
               </button>
               {dirty ? (
                 <p aria-label={`template-unsaved-${surfaceId}`} className="text-xs text-[var(--tg-theme-hint-color)] break-words">
@@ -954,7 +955,7 @@ export function SurfaceWorkPlanEditor({
                 onClick={() => setLoadAttempt((current) => current + 1)}
                 className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm"
               >
-                {t.work_plan.reload_plan}
+                <Ico>🔄</Ico>{t.work_plan.reload_plan}
               </button>
             </div>
           )}
@@ -981,7 +982,7 @@ export function SurfaceWorkPlanEditor({
             disabled={!substrate || !dirty || saving || invalidWait}
             className="w-full min-h-11 px-3 rounded-xl bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] font-semibold disabled:opacity-60"
           >
-            {saving ? t.common.saving : t.common.save}
+            <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
           </button>
 
           {/* Apply to all walls — WALL surfaces with a saved plan only */}
@@ -995,7 +996,7 @@ export function SurfaceWorkPlanEditor({
                   disabled={saving}
                   className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm disabled:opacity-60"
                 >
-                  {t.work_plan.apply_to_walls}
+                  <Ico>✅</Ico>{t.work_plan.apply_to_walls}
                 </button>
               )}
               {applyState === 'confirming' && (
@@ -1014,7 +1015,7 @@ export function SurfaceWorkPlanEditor({
                       disabled={detachPrompt !== null}
                       className="flex-1 min-h-11 px-3 rounded-xl bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] font-semibold text-sm"
                     >
-                      {t.work_plan.apply_confirm_yes}
+                      <Ico>✅</Ico>{t.work_plan.apply_confirm_yes}
                     </button>
                     <button
                       type="button"
@@ -1022,7 +1023,7 @@ export function SurfaceWorkPlanEditor({
                       onClick={handleApplyCancel}
                       className="flex-1 min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] font-semibold text-sm"
                     >
-                      {t.common.cancel}
+                      <Ico>✖️</Ico>{t.common.cancel}
                     </button>
                   </div>
                 </div>
@@ -1043,7 +1044,7 @@ export function SurfaceWorkPlanEditor({
                     onClick={handleApplyCancel}
                     className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] text-sm font-medium"
                   >
-                    {t.common.close}
+                    <Ico>✖️</Ico>{t.common.close}
                   </button>
                 </div>
               )}
@@ -1061,7 +1062,7 @@ export function SurfaceWorkPlanEditor({
                     onClick={handleApplyCancel}
                     className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] text-sm font-medium"
                   >
-                    {t.common.close}
+                    <Ico>✖️</Ico>{t.common.close}
                   </button>
                 </div>
               )}
@@ -1117,7 +1118,7 @@ export function SurfaceWorkPlanEditor({
                 onClick={closePicker}
                 className="min-h-11 min-w-11 flex items-center justify-center text-sm text-[var(--tg-theme-hint-color)]"
               >
-                {t.work_plan.picker_close}
+                <Ico>✖️</Ico>{t.work_plan.picker_close}
               </button>
             </div>
 
@@ -1191,7 +1192,7 @@ export function SurfaceWorkPlanEditor({
                     onClick={() => setCreatingPriceItem(true)}
                     className="w-full min-h-11 px-3 rounded-xl border border-dashed border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm"
                   >
-                    {t.work_plan.create_new_item}
+                    <Ico>➕</Ico>{t.work_plan.create_new_item}
                   </button>
                 </>
               )
@@ -1209,7 +1210,7 @@ export function SurfaceWorkPlanEditor({
           disabled={saving}
           className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)] font-semibold disabled:opacity-60"
         >
-          {t.common.close}
+          <Ico>✖️</Ico>{t.common.close}
         </button>
         </>
       )}

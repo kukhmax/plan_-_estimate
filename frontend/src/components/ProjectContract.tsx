@@ -11,6 +11,7 @@ import type { ContractCatalog, ContractQuestion, PremisesRequirement, QuestionGr
 import type { ProjectRepresentative } from '../types/representative';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { FieldValue, RequirementField, sameAnswer, toAnswer, toField } from '../utils/contractAnswers';
+import { Ico } from './Ico';
 
 interface ProjectContractProps {
   projectId: string;
@@ -435,7 +436,7 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
         <div className="space-y-2">
           <p role="alert" className="text-sm text-red-700 break-words">{text.load_failed}</p>
           <button type="button" onClick={() => void load()} className="w-full min-h-11 text-sm font-semibold text-slate-800 bg-slate-100 border border-slate-200 rounded-xl">
-            {text.retry}
+            <Ico>🔄</Ico>{text.retry}
           </button>
         </div>
       )}
@@ -559,16 +560,16 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
           {error && <p role="alert" aria-label="contract-error" className="text-sm text-red-700 break-words">{error}</p>}
           {note && <p role="status" aria-label="contract-note" className="text-sm text-emerald-800 break-words">{note}</p>}
           <button type="submit" aria-label="save-contract-answers" disabled={busy} className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition">
-            {text.save}
+            <Ico>💾</Ico>{text.save}
           </button>
           <button type="button" aria-label="preview-contract" disabled={busy} onClick={() => void preview()} className="w-full min-h-11 px-3 text-sm font-semibold text-slate-900 bg-slate-100 border border-slate-300 rounded-xl hover:bg-slate-200 disabled:opacity-60 transition break-words">
-            {text.preview}
+            <Ico>👁️</Ico>{text.preview}
           </button>
           <button type="button" aria-label="issue-contract" disabled={busy || !gate?.ready} onClick={() => void issue()} className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-sky-700 rounded-xl hover:bg-sky-800 disabled:opacity-60 transition break-words">
             {text.issue}
           </button>
           <button type="button" aria-label="close-contract-form" disabled={busy} onClick={() => setOpen(false)} className="w-full min-h-11 px-3 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition">
-            {text.close}
+            <Ico>✖️</Ico>{text.close}
           </button>
           <button type="button" aria-label="abandon-contract-draft" disabled={busy} onClick={() => void abandon()} className="w-full min-h-11 px-3 text-sm font-semibold text-red-800 bg-white border border-red-300 rounded-xl hover:bg-red-50 disabled:opacity-60 transition break-words">
             {confirmAbandon ? text.abandon_confirm : text.abandon}

@@ -19,6 +19,7 @@ import {
   coefficientOptionDescription,
   coefficientOptionName,
 } from '../utils/coefficientLabels';
+import { Ico } from './Ico';
 
 export const CoefficientCatalogManager: React.FC = () => {
   const { t, locale } = useI18n();
@@ -247,7 +248,7 @@ export const CoefficientCatalogManager: React.FC = () => {
             onClick={() => setIsAddGroupOpen(true)}
             className="min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 active:bg-blue-800"
           >
-            {t.coefficients.add_group}
+            <Ico>➕</Ico>{t.coefficients.add_group}
           </button>
         )}
       </div>
@@ -346,14 +347,14 @@ export const CoefficientCatalogManager: React.FC = () => {
                         onClick={() => handleUpdateGroup(group.id)}
                         className="min-h-[44px] px-3 py-1 bg-blue-600 text-white rounded text-xs font-semibold"
                       >
-                        {t.coefficients.save}
+                        <Ico>💾</Ico>{t.coefficients.save}
                       </button>
                       <button
                         type="button"
                         onClick={() => setEditingGroupId(null)}
                         className="min-h-[44px] px-2 py-1 text-slate-600 hover:text-slate-800 text-xs"
                       >
-                        {t.coefficients.cancel}
+                        <Ico>✖️</Ico>{t.coefficients.cancel}
                       </button>
                     </div>
                   ) : (
@@ -379,7 +380,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                         }}
                         className="min-h-[44px] px-2 py-1 text-xs text-slate-600 hover:text-blue-600"
                       >
-                        {t.coefficients.edit}
+                        <Ico>✏️</Ico>{t.coefficients.edit}
                       </button>
                     )}
                     {group.is_archived ? (
@@ -388,7 +389,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                         onClick={() => handleRestoreGroup(group.id)}
                         className="min-h-[44px] px-2 py-1 text-xs font-medium text-emerald-600 hover:text-emerald-700"
                       >
-                        {t.coefficients.restore}
+                        <Ico>♻️</Ico>{t.coefficients.restore}
                       </button>
                     ) : (
                       <button
@@ -396,7 +397,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                         onClick={() => handleArchiveGroup(group.id)}
                         className="min-h-[44px] px-2 py-1 text-xs text-slate-500 hover:text-red-600"
                       >
-                        {t.coefficients.archive}
+                        <Ico>🗃️</Ico>{t.coefficients.archive}
                       </button>
                     )}
                   </div>
@@ -447,7 +448,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                           }}
                           className="min-h-[44px] px-2 text-xs text-slate-600 hover:text-blue-600"
                         >
-                          {t.coefficients.edit}
+                          <Ico>✏️</Ico>{t.coefficients.edit}
                         </button>
                       )}
                       {opt.is_archived ? (
@@ -456,7 +457,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                           onClick={() => handleRestoreOption(opt.id)}
                           className="min-h-[44px] px-2 text-xs font-medium text-emerald-600 hover:text-emerald-700"
                         >
-                          {t.coefficients.restore}
+                          <Ico>♻️</Ico>{t.coefficients.restore}
                         </button>
                       ) : (
                         <button
@@ -464,7 +465,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                           onClick={() => handleArchiveOption(opt.id)}
                           className="min-h-[44px] px-2 text-xs text-slate-500 hover:text-red-600"
                         >
-                          {t.coefficients.archive}
+                          <Ico>🗃️</Ico>{t.coefficients.archive}
                         </button>
                       )}
                     </div>
@@ -485,7 +486,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                   }}
                   className="w-full min-h-[44px] px-3 py-2 border border-dashed border-slate-300 hover:border-blue-500 hover:text-blue-600 text-slate-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
                 >
-                  {t.coefficients.add_option}
+                  <Ico>➕</Ico>{t.coefficients.add_option}
                 </button>
               )}
               </div>
@@ -536,7 +537,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                   onClick={() => setIsAddGroupOpen(false)}
                   className="flex-1 min-h-[44px] px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50"
                 >
-                  {t.coefficients.cancel}
+                  <Ico>✖️</Ico>{t.coefficients.cancel}
                 </button>
                 <button
                   type="submit"
@@ -619,7 +620,7 @@ export const CoefficientCatalogManager: React.FC = () => {
                   onClick={() => setAddingOptionGroupId(null)}
                   className="flex-1 min-h-[44px] px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50"
                 >
-                  {t.coefficients.cancel}
+                  <Ico>✖️</Ico>{t.coefficients.cancel}
                 </button>
                 <button
                   type="submit"
@@ -700,14 +701,14 @@ export const CoefficientCatalogManager: React.FC = () => {
                   onClick={() => setEditingOption(null)}
                   className="flex-1 min-h-[44px] px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50"
                 >
-                  {t.coefficients.cancel}
+                  <Ico>✖️</Ico>{t.coefficients.cancel}
                 </button>
                 <button
                   type="submit"
                   disabled={!editOptionName.trim() || !editOptionPercentage.trim()}
                   className="flex-1 min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50"
                 >
-                  {t.coefficients.save}
+                  <Ico>💾</Ico>{t.coefficients.save}
                 </button>
               </div>
             </form>

@@ -14,6 +14,18 @@ export type ObjectSection = 'rooms' | 'photos' | 'documents' | 'legal' | 'summar
 /** What the screen of documents lists: each piece of it is opened alone. */
 export type DocumentsSection = 'tech_card' | 'plan' | 'photo_report' | 'journal';
 
+const DOCUMENT_ICONS: Record<string, string> = { tech_card: '📋', plan: '🗓️', photo_report: '🖼️', journal: '📨' };
+const LEGAL_ICONS: Record<string, string> = {
+  representatives: '🤝',
+  adjacent: '🔧',
+  contract: '📜',
+  handover: '🔑',
+  concealed: '🧱',
+  acceptance: '✅',
+  decisions: '🖊️',
+  downtime: '⏸️',
+};
+
 export type LegalSection =
   | 'representatives'
   | 'adjacent'
@@ -35,17 +47,18 @@ export function ProjectHub({ onOpenEstimates, onOpenSection }: ProjectHubProps) 
   const photos = useProjectPhotos();
   return (
     <nav aria-label="object-hub" className="grid grid-cols-1 gap-3">
-      <HubTile accent ariaLabel="open-estimates" label={t.estimates.title} onOpen={onOpenEstimates} />
-      <HubTile ariaLabel="object-tile-rooms" label={t.rooms.title} onOpen={() => onOpenSection('rooms')} />
+      <HubTile accent icon="🧮" ariaLabel="open-estimates" label={t.estimates.title} onOpen={onOpenEstimates} />
+      <HubTile icon="🚪" ariaLabel="object-tile-rooms" label={t.rooms.title} onOpen={() => onOpenSection('rooms')} />
       <HubTile
+        icon="📷"
         ariaLabel="object-tile-photos"
         label={t.photos.section.project_title}
         count={photos ? totalPhotoCount(photos.counts) : undefined}
         onOpen={() => onOpenSection('photos')}
       />
-      <HubTile ariaLabel="object-tile-documents" label={t.documents.title} onOpen={() => onOpenSection('documents')} />
-      <HubTile ariaLabel="object-tile-legal" label={t.objectHub.legal} onOpen={() => onOpenSection('legal')} />
-      <HubTile ariaLabel="object-tile-summary" label={t.object_summary.title} onOpen={() => onOpenSection('summary')} />
+      <HubTile icon="📄" ariaLabel="object-tile-documents" label={t.documents.title} onOpen={() => onOpenSection('documents')} />
+      <HubTile icon="⚖️" ariaLabel="object-tile-legal" label={t.objectHub.legal} onOpen={() => onOpenSection('legal')} />
+      <HubTile icon="📊" ariaLabel="object-tile-summary" label={t.object_summary.title} onOpen={() => onOpenSection('summary')} />
     </nav>
   );
 }
@@ -66,7 +79,7 @@ export function DocumentsMenu({ onOpen }: DocumentsMenuProps) {
   return (
     <nav aria-label="documents-menu" className="grid grid-cols-1 gap-3">
       {rows.map((row) => (
-        <HubTile key={row.id} ariaLabel={`docs-tile-${row.id}`} label={row.label} onOpen={() => onOpen(row.id)} />
+        <HubTile key={row.id} icon={DOCUMENT_ICONS[row.id]} ariaLabel={`docs-tile-${row.id}`} label={row.label} onOpen={() => onOpen(row.id)} />
       ))}
     </nav>
   );
@@ -105,7 +118,7 @@ export function LegalMenu({ onOpen }: LegalMenuProps) {
         <section key={group.title} aria-label={`legal-group-${group.items[0].id}`} className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--tg-theme-hint-color)]">{group.title}</h3>
           {group.items.map((item) => (
-            <HubTile key={item.id} ariaLabel={`legal-tile-${item.id}`} label={item.label} onOpen={() => onOpen(item.id)} />
+            <HubTile key={item.id} icon={LEGAL_ICONS[item.id]} ariaLabel={`legal-tile-${item.id}`} label={item.label} onOpen={() => onOpen(item.id)} />
           ))}
         </section>
       ))}

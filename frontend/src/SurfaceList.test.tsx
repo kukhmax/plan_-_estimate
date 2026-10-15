@@ -56,6 +56,7 @@ function renderSurfaces(
     hasRoomDimensions?: boolean;
     wallMode?: 'RECTANGLE' | 'CUSTOM';
     dimensionsKey?: string;
+    initiallyOpen?: boolean;
     onInspectSurface?: (surfaceId: string, surfaceName: string) => void;
   } = {},
 ) {
@@ -67,6 +68,7 @@ function renderSurfaces(
         roomHeight={props.roomHeight}
         hasRoomDimensions={props.hasRoomDimensions}
         dimensionsKey={props.dimensionsKey}
+        initiallyOpen={props.initiallyOpen ?? true}
         wallMode={props.wallMode}
         onInspectSurface={props.onInspectSurface}
       />
@@ -156,7 +158,7 @@ describe('SurfaceList', () => {
     expect(await screen.findByText('Powierzchnia została zaktualizowana')).toBeInTheDocument();
   });
 
-  it('renders mobile wall action buttons with 44px touch targets in a compact grid', async () => {
+  it('renders mobile wall action buttons with compact touch targets (40 px, owner request 18G) in a compact grid', async () => {
     const wallWithDims: SurfaceType = {
       ...surface,
       width: 5,
@@ -170,13 +172,13 @@ describe('SurfaceList', () => {
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     expandOptions(surface.id);
-    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toHaveClass('min-h-11');
-    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toHaveClass('min-h-11');
-    expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toHaveClass('min-h-11');
-    expect(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`)).toHaveClass('min-h-11');
-    expect(screen.getByLabelText(`add-opening-${surface.id}-OTHER`)).toHaveClass('min-h-11');
-    expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toHaveClass('min-h-11');
-    expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`add-opening-${surface.id}-OTHER`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveClass('min-h-10');
   });
 
   it('re-reads the walls when the room size is corrected, and not when it is unchanged', async () => {
@@ -188,7 +190,7 @@ describe('SurfaceList', () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wall(2.32, '6.218')], total: 1 });
     const again = (key: string) => (
       <I18nProvider>
-        <SurfaceList projectId={projectId} roomId={roomId} dimensionsKey={key} />
+        <SurfaceList projectId={projectId} roomId={roomId} dimensionsKey={key} initiallyOpen />
       </I18nProvider>
     );
     view.rerender(again('3.73|2.32|2.68'));
@@ -401,7 +403,7 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     expect(screen.getByText('Ściana 1')).toBeInTheDocument();
     expect(screen.queryByLabelText('mode-custom')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '2.5' } });
+    fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '250' } });
     fireEvent.submit(screen.getByLabelText('custom-wall-form'));
 
     await waitFor(() => {
@@ -434,7 +436,7 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
 
     expect(screen.getByLabelText('custom-wall-height')).toHaveValue('2.70 m');
 
-    fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '1.8' } });
+    fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '180' } });
     fireEvent.submit(screen.getByLabelText('custom-wall-form'));
 
     await waitFor(() => {
@@ -453,8 +455,8 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
 
     fireEvent.click(screen.getByLabelText('custom-wall-different-height'));
-    fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '1.8' } });
-    fireEvent.change(screen.getByLabelText('custom-wall-height'), { target: { value: '3.1' } });
+    fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '180' } });
+    fireEvent.change(screen.getByLabelText('custom-wall-height'), { target: { value: '310' } });
     fireEvent.submit(screen.getByLabelText('custom-wall-form'));
 
     await waitFor(() => {
@@ -609,7 +611,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     const bottomToggle = screen.getByLabelText(`options-toggle-bottom-${surface.id}`);
     expect(bottomToggle).toBeInTheDocument();
     expect(bottomToggle).toHaveTextContent('Ukryj otwory i opcje');
-    expect(bottomToggle.className).toContain('min-h-11');
+    expect(bottomToggle.className).toContain('min-h-10');
     expect(bottomToggle.className).toContain('w-full');
 
     // Reuses the exact same toggle handler/state as the top action — no
@@ -753,7 +755,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     expect(screen.getByLabelText(`work-plan-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByText('Rodzaje prac i jakość')).toBeInTheDocument();
-    expect(screen.getByLabelText(`work-plan-${surface.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`work-plan-${surface.id}`)).toHaveClass('min-h-10');
   });
 
   it('opens and closes the exact wall WorkPlan independently from Opcje', async () => {
@@ -1088,11 +1090,11 @@ describe('SurfaceList — compact upper-right Opcje (Stage 10G.4 follow-up)', ()
     expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
   });
 
-  it('meets the ~44px touch target as a compact button', async () => {
+  it('is a compact 40 px button (owner request, Stage 18G)', async () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
     renderSurfaces();
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
-    expect(screen.getByLabelText(`options-toggle-${surface.id}`).className).toContain('min-h-11');
+    expect(screen.getByLabelText(`options-toggle-${surface.id}`).className).toContain('min-h-10');
   });
 
   it('no duplicate full-width Opcje button remains on the card', async () => {
@@ -1370,7 +1372,7 @@ describe('Realizacja entry (Stage 13H.5)', () => {
 
     const execution = await screen.findByLabelText(`execution-${surface.id}`);
     expect(execution).toHaveTextContent('Realizacja');
-    expect(execution).toHaveClass('min-h-11');
+    expect(execution).toHaveClass('min-h-10');
     fireEvent.click(execution);
     expect(await screen.findByLabelText(`execution-view-${surface.id}`)).toBeInTheDocument();
     expect(await screen.findByLabelText('execution-status-key-1')).toHaveTextContent('W trakcie');
@@ -1419,7 +1421,7 @@ describe('Realizacja row — execution photo badge (Stage 14H.5)', () => {
         <ProjectPhotosContext.Provider
           value={{ ...photosValue(workSurfaces), counts: { ...EMPTY_PHOTO_COUNTS, work_surfaces: workSurfaces, inspection_surfaces: inspectionSurfaces } }}
         >
-          <SurfaceList projectId={projectId} roomId={roomId} onInspectSurface={() => {}} />
+          <SurfaceList projectId={projectId} roomId={roomId} onInspectSurface={() => {}} initiallyOpen />
         </ProjectPhotosContext.Provider>
       </I18nProvider>,
     );
@@ -1469,3 +1471,118 @@ describe('Realizacja row — execution photo badge (Stage 14H.5)', () => {
   });
 });
 
+
+describe('Wall rows and cards (Stage 18G)', () => {
+  const measured = (id: string, name: string, width: number, height: number, net: string): SurfaceType => ({
+    ...surface, id, name, width, height, gross_area: net, deduction_area: '0.000', net_area: net,
+  });
+  const WALL_A = measured('aaaaaaaa-0000-0000-0000-000000000001', 'Ściana 1', 3.42, 2.52, '8.62');
+  const WALL_B = measured('bbbbbbbb-0000-0000-0000-000000000002', 'Ściana 2', 2.78, 2.6, '7.23');
+
+  const photosValue = (surfaces: Record<string, number>) => ({
+    projectId,
+    counts: { ...EMPTY_PHOTO_COUNTS, surfaces },
+    isExpanded: () => false,
+    toggle: () => {},
+    adjust: () => {},
+    resolveLocation: () => '',
+    ensureLocations: () => {},
+  });
+  const renderRows = (props: { wallMode?: 'RECTANGLE' | 'CUSTOM'; onInspectSurface?: (id: string, name: string) => void } = {}) =>
+    render(
+      <I18nProvider>
+        <ProjectPhotosContext.Provider value={photosValue({ [WALL_A.id]: 3, [WALL_B.id]: 2 })}>
+          <SurfaceList projectId={projectId} roomId={roomId} wallMode={props.wallMode} onInspectSurface={props.onInspectSurface} />
+        </ProjectPhotosContext.Provider>
+      </I18nProvider>,
+    );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [WALL_A, WALL_B], total: 2 });
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue({ id: 'p', surface_id: WALL_A.id, substrate: 'CONCRETE', quality_target: 'S2', planned_works: [] });
+  });
+
+  it('lists the walls as one-line rows: name, type, photos, net area — and nothing else', async () => {
+    renderRows();
+
+    const row = await screen.findByLabelText(`surface-row-${WALL_A.id}`);
+    expect(row).toHaveTextContent('Ściana 1');
+    expect(row).toHaveTextContent('Ściana');
+    expect(screen.getByLabelText(`surface-row-photos-${WALL_A.id}`)).toHaveTextContent('3');
+    expect(screen.getByLabelText(`surface-row-area-${WALL_A.id}`)).toHaveTextContent('8.62 m²');
+    expect(screen.getByLabelText(`surface-row-area-${WALL_B.id}`)).toHaveTextContent('7.23 m²');
+    // no card behind the row
+    expect(screen.queryByLabelText(`options-toggle-${WALL_A.id}`)).toBeNull();
+    expect(screen.queryByText(/Powierzchnia brutto/)).toBeNull();
+    expect(screen.queryByLabelText(`work-plan-${WALL_A.id}`)).toBeNull();
+    expect(row.className).toContain('min-h-10');
+  });
+
+  it('a tap opens the card of that wall only, and a tap on its name folds it back', async () => {
+    renderRows();
+    fireEvent.click(await screen.findByLabelText(`surface-row-${WALL_A.id}`));
+
+    expect(screen.getByLabelText(`options-toggle-${WALL_A.id}`)).toBeInTheDocument();
+    expect(screen.getByText(/3\.42 × 2\.52 m/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`surface-row-${WALL_A.id}`)).toBeNull();
+    expect(screen.getByLabelText(`surface-row-${WALL_B.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`options-toggle-${WALL_B.id}`)).toBeNull();
+
+    fireEvent.click(screen.getByLabelText(`card-collapse-${WALL_A.id}`));
+    expect(screen.getByLabelText(`surface-row-${WALL_A.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`options-toggle-${WALL_A.id}`)).toBeNull();
+  });
+
+  it('a wall without dimensions shows a dash instead of an area', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [{ ...surface, name: 'Ściana bez wymiarów' }], total: 1 });
+    renderRows();
+    expect(await screen.findByLabelText(`surface-row-area-${surface.id}`)).toHaveTextContent('—');
+  });
+
+  it('the inspection is on the opened card, outside Opcje, in a calm green, right under the header', async () => {
+    const onInspect = vi.fn();
+    renderRows({ onInspectSurface: onInspect });
+    fireEvent.click(await screen.findByLabelText(`surface-row-${WALL_A.id}`));
+
+    const inspect = screen.getByLabelText(`inspect-surface-${WALL_A.id}`);
+    expect(screen.queryByLabelText(`add-opening-${WALL_A.id}-DOOR`)).toBeNull(); // Opcje is still closed
+    expect(inspect.className).toContain('bg-emerald-50');
+    expect(inspect.className).toContain('min-h-10');
+    expect(inspect.compareDocumentPosition(screen.getByLabelText(`work-plan-${WALL_A.id}`)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(inspect);
+    expect(onInspect).toHaveBeenCalledWith(WALL_A.id, 'Ściana 1');
+  });
+
+  it('duplicates a wall of an irregular room: the next number and position, the same width and height', async () => {
+    vi.mocked(surfacesApi.createSurface).mockResolvedValue({ ...WALL_A, id: 'cccccccc-0000-0000-0000-000000000003', name: 'Ściana 3' });
+    renderRows({ wallMode: 'CUSTOM' });
+    fireEvent.click(await screen.findByLabelText(`surface-row-${WALL_A.id}`));
+    fireEvent.click(screen.getByLabelText(`options-toggle-${WALL_A.id}`));
+    const duplicate = screen.getByLabelText(`duplicate-surface-${WALL_A.id}`);
+    expect(duplicate).toHaveTextContent('Duplikuj ścianę');
+    fireEvent.click(duplicate);
+
+    await waitFor(() => expect(surfacesApi.createSurface).toHaveBeenCalledTimes(1));
+    expect(surfacesApi.createSurface).toHaveBeenCalledWith(projectId, roomId, {
+      name: 'Ściana 3', surface_type: 'WALL', position: expect.any(Number), width: 3.42, height: 2.52, description: null,
+    });
+    expect(await screen.findByText('Ścianę zduplikowano')).toBeInTheDocument();
+  });
+
+  it('offers no duplicate button in a rectangular room', async () => {
+    renderRows();
+    fireEvent.click(await screen.findByLabelText(`surface-row-${WALL_A.id}`));
+    fireEvent.click(screen.getByLabelText(`options-toggle-${WALL_A.id}`));
+    expect(screen.queryByLabelText(`duplicate-surface-${WALL_A.id}`)).toBeNull();
+  });
+
+  it('speaks Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    renderRows({ wallMode: 'CUSTOM' });
+    fireEvent.click(await screen.findByLabelText(`surface-row-${WALL_A.id}`));
+    fireEvent.click(screen.getByLabelText(`options-toggle-${WALL_A.id}`));
+    expect(screen.getByLabelText(`duplicate-surface-${WALL_A.id}`)).toHaveTextContent('Дублировать стену');
+  });
+});

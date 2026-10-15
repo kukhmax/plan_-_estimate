@@ -2620,7 +2620,7 @@ describe('Stage 10G.3A — group price edit Russian localization', () => {
 
     expect(screen.getByLabelText('group-options-0').textContent).toBe('Опции');
     fireEvent.click(screen.getByLabelText('group-options-0'));
-    expect(screen.getByLabelText('group-price-edit-action-0').textContent).toBe('Установить цену для всех');
+    expect(screen.getByLabelText('group-price-edit-action-0').textContent?.replace(/^\p{Extended_Pictographic}\uFE0F?/u, '')).toBe('Установить цену для всех');
     expect(screen.getByLabelText('group-reset-price-action-0').textContent).toBe('Восстановить цены из прайса');
 
     fireEvent.click(screen.getByLabelText('group-price-edit-action-0'));

@@ -44,19 +44,15 @@ describe('RoomList measurement inputs', () => {
     vi.mocked(roomsApi.restoreRoom).mockResolvedValue(room);
   });
 
-  it('uses step="any" so natural decimals are valid (8C.1)', async () => {
+  it('takes centimetres in a text field with the decimal keypad, so no decimal point has to be typed (Stage 18G)', async () => {
     renderList();
     fireEvent.click(await screen.findByLabelText('add-room'));
 
-    // Regression (Blocker A): min="0.001" combined with step="0.01" made
-    // ordinary values like 6 / 4.9 / 4.76 fall outside the step lattice and
-    // native browser validation blocked them. step="any" keeps only min.
     for (const label of ['room-length', 'room-width', 'room-height']) {
       const input = screen.getByLabelText(label);
-      expect(input).toHaveAttribute('type', 'number');
+      expect(input).toHaveAttribute('type', 'text');
       expect(input).toHaveAttribute('inputMode', 'decimal');
-      expect(input).toHaveAttribute('min', '0.001');
-      expect(input).toHaveAttribute('step', 'any');
+      expect(input).not.toHaveAttribute('step');
     }
   });
 
@@ -65,9 +61,9 @@ describe('RoomList measurement inputs', () => {
     fireEvent.click(await screen.findByLabelText('add-room'));
 
     fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Salon' } });
-    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '6' } });
-    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '4.9' } });
-    fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '4.76' } });
+    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '600' } });
+    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '490' } });
+    fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '476' } });
     fireEvent.submit(screen.getByLabelText('room-form'));
 
     await waitFor(() =>
@@ -95,10 +91,10 @@ describe('RoomList action row on a narrow phone', () => {
     expect(actions).toHaveClass('grid', 'grid-cols-2');
     expect(actions).not.toHaveClass('grid-cols-3');
     const open = screen.getByLabelText('open-room-room-1');
-    expect(open).toHaveClass('col-span-2', 'min-h-11');
+    expect(open).toHaveClass('col-span-2', 'min-h-10');
     for (const label of ['edit-room-room-1', 'archive-room-room-1']) {
       const button = screen.getByLabelText(label);
-      expect(button).toHaveClass('min-h-11', 'min-w-0', 'break-words');
+      expect(button).toHaveClass('min-h-10', 'min-w-0', 'break-words');
     }
     expect(open).toHaveClass('break-words');
   });

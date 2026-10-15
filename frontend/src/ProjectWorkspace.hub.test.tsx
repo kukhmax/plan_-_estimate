@@ -126,10 +126,13 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(tiles.map((tile) => tile.getAttribute('aria-label'))).toEqual([
       'open-estimates', 'object-tile-rooms', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal', 'object-tile-summary',
     ]);
-    expect(tiles.map((tile) => tile.textContent?.replace(/[›\d]/g, '').trim())).toEqual([
+    expect(tiles.map((tile) => tile.textContent?.replace(/[›\d]/g, '').replace(/\p{Extended_Pictographic}️?/gu, '').trim())).toEqual([
       'Kosztorys', 'Pomieszczenia', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Podsumowanie obiektu',
     ]);
     for (const tile of tiles) expect(tile.className).toContain('min-h-14');
+    // every tile starts with its own decorative icon, hidden from the accessible name (Stage 18G)
+    expect(tiles.map((tile) => tile.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['🧮', '🚪', '📷', '📄', '⚖️', '📊']);
+    expect(screen.getByRole('button', { name: 'open-estimates' })).toBeInTheDocument();
     expect(tiles[0].className).toContain('bg-amber-500');
     // the number of the photos of the whole object is on its tile
     await waitFor(() => expect(screen.getByLabelText('object-tile-photos-count')).toHaveTextContent('4'));
@@ -221,7 +224,7 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(Array.from(menu.children).map((row) => row.getAttribute('aria-label'))).toEqual([
       'docs-tile-tech_card', 'docs-tile-plan', 'docs-tile-photo_report', 'docs-tile-journal',
     ]);
-    expect(Array.from(menu.children).map((row) => row.textContent?.replace('›', '').trim())).toEqual([
+    expect(Array.from(menu.children).map((row) => row.textContent?.replace('›', '').replace(/\p{Extended_Pictographic}️?/gu, '').trim())).toEqual([
       'Karta technologiczna', 'Plan produkcji prac', 'Raport fotograficzny', 'Wysłane dokumenty',
     ]);
     for (const row of Array.from(menu.children)) expect(row.className).toContain('min-h-14');

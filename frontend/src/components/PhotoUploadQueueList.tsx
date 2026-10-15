@@ -1,5 +1,6 @@
 import { useI18n } from '../hooks/useI18n';
 import { QueueItem } from '../utils/photoUploadQueue';
+import { Ico } from './Ico';
 
 // One row per queued file: local preview, name, state / progress / localized error, and the allowed actions.
 // Vertical stacking: the text block first, the action buttons wrap on their own line (never squeezed beside a name).
@@ -86,22 +87,22 @@ export function PhotoUploadQueueList({ items, onCancel, onRetry, onRetryAsNew, o
             <div className="flex flex-wrap gap-2">
               {active && (
                 <button type="button" className={actionClass} onClick={() => onCancel(item.id)}>
-                  {t.photos.queue.cancel}
+                  <Ico>✖️</Ico>{t.photos.queue.cancel}
                 </button>
               )}
               {failed && item.error?.retryable && (
                 <button type="button" className={actionClass} onClick={() => onRetry(item.id)}>
-                  {t.photos.queue.retry}
+                  <Ico>🔄</Ico>{t.photos.queue.retry}
                 </button>
               )}
               {failed && item.error?.retryAsNew && (
                 <button type="button" className={actionClass} onClick={() => onRetryAsNew(item.id)}>
-                  {t.photos.queue.retry_as_new}
+                  <Ico>🔄</Ico>{t.photos.queue.retry_as_new}
                 </button>
               )}
               {!active && (
                 <button type="button" className={actionClass} onClick={() => onDismiss(item.id)}>
-                  {t.photos.queue.dismiss}
+                  <Ico>✖️</Ico>{t.photos.queue.dismiss}
                 </button>
               )}
             </div>

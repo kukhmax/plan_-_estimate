@@ -5,10 +5,12 @@ interface HubTileProps {
   /** A small number on the right (photos). */
   count?: number;
   accent?: boolean;
+  /** A decorative emoji before the label. */
+  icon?: string;
 }
 
 /** One large full-width tile of a hub (the object, the price, the documents, the agreement and protocols): 56 px, wraps long names. */
-export function HubTile({ label, ariaLabel, onOpen, count, accent = false }: HubTileProps) {
+export function HubTile({ label, ariaLabel, onOpen, count, accent = false, icon }: HubTileProps) {
   return (
     <button
       type="button"
@@ -20,7 +22,10 @@ export function HubTile({ label, ariaLabel, onOpen, count, accent = false }: Hub
           : 'w-full min-h-14 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between gap-3 text-left hover:bg-slate-50 transition'
       }
     >
-      <span className={`font-bold text-sm break-words min-w-0 ${accent ? 'text-slate-950' : 'text-slate-900'}`}>{label}</span>
+      <span className={`font-bold text-sm break-words min-w-0 flex items-center gap-2.5 ${accent ? 'text-slate-950' : 'text-slate-900'}`}>
+        {icon && <span aria-hidden="true" className="text-xl leading-none shrink-0 select-none">{icon}</span>}
+        <span className="min-w-0">{label}</span>
+      </span>
       <span className="flex items-center gap-2 shrink-0">
         {count !== undefined && (
           <span aria-label={`${ariaLabel}-count`} className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold">

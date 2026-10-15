@@ -10,6 +10,7 @@ import { formatDecimalMoney } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
 import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
+import { Ico } from './Ico';
 
 // Stage 10G.3C — the backend rejects LABOR_AND_MATERIAL for MANUAL lines (no
 // PriceBook source to split into labor/material components), so the manual
@@ -735,7 +736,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
             onClick={() => void load()}
             className="text-sm text-blue-600 font-medium hover:underline"
           >
-            {t.estimates.retry}
+            <Ico>🔄</Ico>{t.estimates.retry}
           </button>
         </div>
       </article>
@@ -828,7 +829,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           onClick={() => void openPreview()}
           className="w-full min-h-[44px] px-3 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition"
         >
-          {t.estimates.check_changes_action}
+          <Ico>🔍</Ico>{t.estimates.check_changes_action}
         </button>
       ) : (
         <div aria-label="estimate-regeneration-panel" className="space-y-2">
@@ -854,7 +855,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                   onClick={() => void openPreview()}
                   className="flex-1 min-h-[44px] bg-blue-600 text-white text-sm font-medium rounded-lg px-3"
                 >
-                  {t.estimates.preview_retry}
+                  <Ico>🔄</Ico>{t.estimates.preview_retry}
                 </button>
                 <button
                   type="button"
@@ -862,7 +863,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                   onClick={closePreview}
                   className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3"
                 >
-                  {t.estimates.preview_close}
+                  <Ico>✖️</Ico>{t.estimates.preview_close}
                 </button>
               </div>
             </div>
@@ -879,7 +880,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                   onClick={closePreview}
                   className="w-full min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3"
                 >
-                  {t.estimates.preview_close}
+                  <Ico>✖️</Ico>{t.estimates.preview_close}
                 </button>
               </div>
             ) : (
@@ -1025,7 +1026,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                     disabled={regenerateBusy}
                     className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
                   >
-                    {t.estimates.preview_cancel}
+                    <Ico>✖️</Ico>{t.estimates.preview_cancel}
                   </button>
                 </div>
 
@@ -1061,7 +1062,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           onClick={openManualForm}
           className="w-full min-h-[44px] px-3 text-sm font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-xl hover:bg-violet-100 transition"
         >
-          {t.estimates.add_manual_line_action}
+          <Ico>➕</Ico>{t.estimates.add_manual_line_action}
         </button>
       ) : (
         <div aria-label="estimate-manual-line-form" className="space-y-2">
@@ -1168,7 +1169,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
               disabled={manualBusy}
               className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
             >
-              {t.estimates.line_edit_cancel}
+              <Ico>✖️</Ico>{t.estimates.line_edit_cancel}
             </button>
           </div>
         </div>
@@ -1190,7 +1191,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           onClick={openFinalizeConfirm}
           className="w-full min-h-[44px] px-3 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition"
         >
-          {t.estimates.finalize_action}
+          <Ico>🏁</Ico>{t.estimates.finalize_action}
         </button>
       ) : (
         <div aria-label="estimate-finalize-confirm" className="space-y-2">
@@ -1225,7 +1226,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
               disabled={finalizeBusy}
               className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
             >
-              {t.estimates.line_edit_cancel}
+              <Ico>✖️</Ico>{t.estimates.line_edit_cancel}
             </button>
           </div>
         </div>
@@ -1336,7 +1337,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                       onClick={() => beginEdit(line)}
                       className="shrink-0 min-h-[44px] px-3 text-xs font-medium text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"
                     >
-                      {t.estimates.line_edit_action}
+                      <Ico>✏️</Ico>{t.estimates.line_edit_action}
                     </button>
                   )}
                 </div>
@@ -1506,7 +1507,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                             disabled={actionBusyLineId === line.id}
                             className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
                           >
-                            {t.estimates.line_edit_cancel}
+                            <Ico>✖️</Ico>{t.estimates.line_edit_cancel}
                           </button>
                         </div>
                       </div>
@@ -1531,7 +1532,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                           disabled={actionBusyLineId === line.id}
                           className="min-h-[44px] px-3 text-xs font-medium text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-50 disabled:opacity-60"
                         >
-                          {t.estimates.line_reset_quantity}
+                          <Ico>↩️</Ico>{t.estimates.line_reset_quantity}
                         </button>
                       )}
                       {line.price_override && line.origin !== 'MANUAL' && (
@@ -1542,7 +1543,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                           disabled={actionBusyLineId === line.id}
                           className="min-h-[44px] px-3 text-xs font-medium text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-50 disabled:opacity-60"
                         >
-                          {t.estimates.line_reset_price}
+                          <Ico>↩️</Ico>{t.estimates.line_reset_price}
                         </button>
                       )}
                     </div>
@@ -1582,7 +1583,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                               disabled={deleteBusyLineId === line.id}
                               className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
                             >
-                              {t.estimates.line_edit_cancel}
+                              <Ico>✖️</Ico>{t.estimates.line_edit_cancel}
                             </button>
                           </div>
                         </div>
@@ -1594,7 +1595,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                             onClick={() => requestDeleteLine(line.id)}
                             className="min-h-[44px] px-3 text-xs font-medium text-red-700 border border-red-200 rounded-lg hover:bg-red-50"
                           >
-                            {t.estimates.manual_line_delete_action}
+                            <Ico>🗑️</Ico>{t.estimates.manual_line_delete_action}
                           </button>
                           {deleteError !== null && deleteError.lineId === line.id && (
                             <p
@@ -1746,7 +1747,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                     onClick={() => beginGroupPriceEdit(group)}
                     className="w-full min-h-[44px] px-3 text-xs font-medium text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50"
                   >
-                    {t.estimates.group_price_edit_action}
+                    <Ico>✏️</Ico>{t.estimates.group_price_edit_action}
                   </button>
 
                   {supportsPriceReset && (
@@ -1767,7 +1768,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                     onClick={() => closeGroupOptions(group.key)}
                     className="w-full min-h-[44px] px-3 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50"
                   >
-                    {t.estimates.group_options_close}
+                    <Ico>✖️</Ico>{t.estimates.group_options_close}
                   </button>
 
                   {/* Visible for both the bulk price-edit panel below and
@@ -1850,7 +1851,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                           disabled={isGroupBusy}
                           className="flex-1 min-h-[44px] border border-slate-300 text-slate-600 text-sm font-medium rounded-lg px-3 disabled:opacity-60"
                         >
-                          {t.estimates.group_price_edit_cancel}
+                          <Ico>✖️</Ico>{t.estimates.group_price_edit_cancel}
                         </button>
                       </div>
                     </div>

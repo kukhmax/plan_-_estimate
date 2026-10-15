@@ -12,6 +12,7 @@ import { WorkflowTemplateRead } from '../types/workflowTemplate';
 import { localizeApiError } from '../utils/apiErrors';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice } from '../utils/priceFormat';
+import { Ico } from './Ico';
 
 /**
  * Stage 13F.5 — technological step editor for ONE workflow template.
@@ -332,16 +333,16 @@ export function WorkflowTemplateStepEditor({ template, templateName, onSaved, on
                     <div role="alertdialog" aria-label={`steps-editor-remove-confirm-${index}`} className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
                       <p className="text-xs text-red-800 break-words">{t.processes.remove_step_confirm}</p>
                       <div className="grid grid-cols-2 gap-2">
-                        <button type="button" onClick={() => setConfirmRemoveKey(null)} className={secondary}>{t.common.cancel}</button>
+                        <button type="button" onClick={() => setConfirmRemoveKey(null)} className={secondary}><Ico>✖️</Ico>{t.common.cancel}</button>
                         <button type="button" aria-label={`steps-editor-remove-yes-${index}`} onClick={() => remove(step.key)}
-                          className={`${btn} bg-red-600 text-white`}>{t.processes.remove_step}</button>
+                          className={`${btn} bg-red-600 text-white`}><Ico>🗑️</Ico>{t.processes.remove_step}</button>
                       </div>
                     </div>
                   ) : (
                     <button type="button" aria-label={`steps-editor-remove-${index}`}
                       onClick={() => (step.key.startsWith('new-') ? remove(step.key) : setConfirmRemoveKey(step.key))}
                       className={`w-full ${btn} border border-red-300 bg-white text-red-700`}>
-                      {t.processes.remove_step}
+                      <Ico>🗑️</Ico>{t.processes.remove_step}
                     </button>
                   )}
                 </div>
@@ -356,7 +357,7 @@ export function WorkflowTemplateStepEditor({ template, templateName, onSaved, on
       ) : (
         <button type="button" aria-label="steps-editor-add" onClick={() => setPickerOpen(true)} disabled={saving}
           className={`w-full ${btn} border border-blue-600 bg-white text-blue-700`}>
-          + {t.processes.add_step}
+          <Ico>➕</Ico>{t.processes.add_step}
         </button>
       )}
 
@@ -367,7 +368,7 @@ export function WorkflowTemplateStepEditor({ template, templateName, onSaved, on
           {error.stale && (
             <button type="button" aria-label="steps-editor-reload" onClick={() => void reloadServer()} disabled={reloading}
               className={`w-full ${secondary}`}>
-              {t.processes.steps_reload}
+              <Ico>🔄</Ico>{t.processes.steps_reload}
             </button>
           )}
         </div>
@@ -377,16 +378,16 @@ export function WorkflowTemplateStepEditor({ template, templateName, onSaved, on
         <div role="alertdialog" aria-label="steps-editor-discard-confirm" className="rounded-2xl border border-amber-300 bg-amber-50 p-3 space-y-2">
           <p className="text-sm font-semibold text-amber-900 break-words">{t.processes.discard_title}</p>
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setConfirmDiscard(false)} className={secondary}>{t.processes.keep_editing}</button>
+            <button type="button" onClick={() => setConfirmDiscard(false)} className={secondary}><Ico>✖️</Ico>{t.processes.keep_editing}</button>
             <button type="button" aria-label="steps-editor-discard-yes" onClick={onClose} className={`${btn} bg-amber-600 text-white`}>
-              {t.processes.discard}
+              <Ico>✖️</Ico>{t.processes.discard}
             </button>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button type="button" aria-label="steps-editor-cancel" onClick={requestClose} disabled={saving} className={secondary}>
-            {t.common.cancel}
+            <Ico>✖️</Ico>{t.common.cancel}
           </button>
           <button type="button" aria-label="steps-editor-save" onClick={() => void save()}
             disabled={saving || !dirty || invalidWait} className={`${btn} bg-blue-600 text-white`}>
@@ -445,7 +446,7 @@ function StepItemPicker({ onPick, onCancel }: { onPick: (item: PriceItem) => voi
     <div aria-label="steps-editor-picker" className="rounded-2xl border border-blue-200 bg-white p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-semibold text-slate-900">{t.processes.picker_title}</span>
-        <button type="button" onClick={onCancel} className="min-h-11 px-3 rounded-xl text-sm text-slate-600">{t.common.cancel}</button>
+        <button type="button" onClick={onCancel} className="min-h-11 px-3 rounded-xl text-sm text-slate-600"><Ico>✖️</Ico>{t.common.cancel}</button>
       </div>
       <input type="search" aria-label="steps-editor-picker-search" value={search} onChange={(e) => setSearch(e.target.value)}
         placeholder={t.work_plan.picker_search} className="w-full min-h-11 px-3 rounded-xl border border-slate-300 text-sm" />
@@ -455,7 +456,7 @@ function StepItemPicker({ onPick, onCancel }: { onPick: (item: PriceItem) => voi
         <div role="alert" className="space-y-2">
           <p className="text-sm text-red-600">{t.processes.picker_error}</p>
           <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-11 px-3 rounded-xl bg-slate-100 text-sm font-semibold">
-            {t.work_plan.retry}
+            <Ico>🔄</Ico>{t.work_plan.retry}
           </button>
         </div>
       )}

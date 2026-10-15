@@ -106,9 +106,9 @@ describe('RoomList', () => {
     await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-room'));
     fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Salon' } });
-    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '4' } });
-    fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '2.7' } });
+    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '400' } });
+    fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '270' } });
     fireEvent.submit(screen.getByLabelText('room-form'));
 
     await waitFor(() => {
@@ -349,9 +349,9 @@ describe('RoomList', () => {
     expect(actions).toHaveClass('sm:flex');
 
     // Every action keeps a practical ~44px touch target.
-    expect(screen.getByLabelText(`open-room-${room.id}`)).toHaveClass('min-h-11');
-    expect(screen.getByLabelText(`edit-room-${room.id}`)).toHaveClass('min-h-11');
-    expect(screen.getByLabelText(`archive-room-${room.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`open-room-${room.id}`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`edit-room-${room.id}`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`archive-room-${room.id}`)).toHaveClass('min-h-10');
 
     // The measurements line wraps instead of overflowing the viewport.
     expect(screen.getByText(/5\.00 × 4\.00 × 2\.70 m/)).toBeInTheDocument();
@@ -397,7 +397,7 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
 
     expect(screen.queryByLabelText('room-length')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('room-width')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('room-custom-height')).toHaveValue(2.7);
+    expect(screen.getByLabelText('room-custom-height')).toHaveValue('270');
   });
 
   it('creates a custom-shape room without length/width using the default height', async () => {
@@ -429,7 +429,7 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
     fireEvent.click(screen.getByLabelText('add-room'));
     fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Garaż' } });
     fireEvent.click(screen.getByLabelText('room-shape-custom'));
-    fireEvent.change(screen.getByLabelText('room-custom-height'), { target: { value: '3.1' } });
+    fireEvent.change(screen.getByLabelText('room-custom-height'), { target: { value: '310' } });
     fireEvent.submit(screen.getByLabelText('room-form'));
 
     await waitFor(() => {
@@ -456,7 +456,7 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
     await waitFor(() => expect(screen.getByLabelText(`edit-room-${customRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`edit-room-${customRoom.id}`));
 
-    expect(screen.getByLabelText('room-custom-height')).toHaveValue(2.7);
+    expect(screen.getByLabelText('room-custom-height')).toHaveValue('270');
     expect(screen.queryByLabelText('room-length')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('room-width')).not.toBeInTheDocument();
   });
@@ -476,9 +476,9 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
     await waitFor(() => expect(screen.getByLabelText(`edit-room-${measuredRoom.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`edit-room-${measuredRoom.id}`));
 
-    expect(screen.getByLabelText('room-length')).toHaveValue(5);
-    expect(screen.getByLabelText('room-width')).toHaveValue(4);
-    expect(screen.getByLabelText('room-height')).toHaveValue(2.7);
+    expect(screen.getByLabelText('room-length')).toHaveValue('500');
+    expect(screen.getByLabelText('room-width')).toHaveValue('400');
+    expect(screen.getByLabelText('room-height')).toHaveValue('270');
     expect(screen.queryByLabelText('room-custom-height')).not.toBeInTheDocument();
   });
 
@@ -515,7 +515,7 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
     await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-room'));
     fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Salon' } });
-    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '5' } });
+    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '500' } });
     fireEvent.submit(screen.getByLabelText('room-form'));
 
     expect(await screen.findByText(/Podaj wszystkie trzy wymiary/)).toBeInTheDocument();
@@ -528,8 +528,8 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
     await waitFor(() => expect(screen.getByLabelText('no-rooms')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-room'));
     fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Salon' } });
-    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '400' } });
     fireEvent.submit(screen.getByLabelText('room-form'));
 
     expect(await screen.findByText(/Podaj wszystkie trzy wymiary/)).toBeInTheDocument();
@@ -544,7 +544,7 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
     fireEvent.click(screen.getByLabelText('add-room'));
     fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Poddasze' } });
     fireEvent.click(screen.getByLabelText('room-shape-custom'));
-    fireEvent.change(screen.getByLabelText('room-custom-height'), { target: { value: '3.1' } });
+    fireEvent.change(screen.getByLabelText('room-custom-height'), { target: { value: '310' } });
     fireEvent.submit(screen.getByLabelText('room-form'));
 
     await waitFor(() => {

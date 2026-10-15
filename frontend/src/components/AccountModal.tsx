@@ -3,6 +3,7 @@ import { useI18n } from '../hooks/useI18n';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { User } from '../types/auth';
 import { ExecutorProfileModal } from './ExecutorProfileModal';
+import { Ico } from './Ico';
 
 interface AccountModalProps {
   user: User;
@@ -146,7 +147,7 @@ export function AccountModal({ user, isDevAuth, onClose }: AccountModalProps) {
               color: 'var(--tg-theme-button-text-color)',
             }}
           >
-            {t.executor_profile.button}
+            <Ico>👷</Ico>{t.executor_profile.button}
           </button>
 
           <button
@@ -159,7 +160,7 @@ export function AccountModal({ user, isDevAuth, onClose }: AccountModalProps) {
               borderColor: 'var(--tg-control-border-color, var(--tg-theme-hint-color))',
             }}
           >
-            {t.common.close}
+            <Ico>✖️</Ico>{t.common.close}
           </button>
         </div>
       </div>

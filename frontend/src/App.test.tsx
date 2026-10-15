@@ -516,7 +516,7 @@ describe('App authentication component', () => {
     render(<App />);
     await openMenu();
     const nav = screen.getByRole('navigation', { name: 'main-navigation' });
-    expect(Array.from(nav.querySelectorAll('button')).map((b) => b.textContent)).toEqual([
+    expect(Array.from(nav.querySelectorAll('button')).map((b) => b.textContent?.replace(/\p{Extended_Pictographic}️?/gu, ''))).toEqual([
       'Klienci', 'Obiekty', 'Kalendarz', 'Cennik', 'Archiwum', 'Wysłane dokumenty', 'Baza wiedzy',
     ]);
     fireEvent.click(screen.getByRole('button', { name: 'show-archive' }));

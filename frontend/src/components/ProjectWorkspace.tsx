@@ -50,6 +50,8 @@ import { DocumentsMenu, DocumentsSection, LegalMenu, LegalSection, ObjectPhotos,
 import { ProjectNotes } from './ProjectNotes';
 import { SurfaceList } from './SurfaceList';
 import { KnowledgeBasis, KnowledgeBasisTarget } from './KnowledgeBasis';
+import { DimensionInput } from './DimensionInput';
+import { Ico } from './Ico';
 
 /** Which document of the knowledge base's links stands behind each screen of the section "Umowa i protokoły" (Stage 17E). */
 const LEGAL_BASIS: Partial<Record<LegalSection, KnowledgeBasisTarget[]>> = {
@@ -609,7 +611,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                 onClick={() => { setSelectedEstimate(null); setSelectedEstimateGroupKey(null); }}
                 className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
               >
-                {t.estimates.back_to_list}
+                <Ico>⬅️</Ico>{t.estimates.back_to_list}
               </button>
               <span>/</span>
               <span className="font-medium text-[var(--tg-theme-text-color)]">
@@ -704,7 +706,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             onClick={() => selectedProject ? startEdit(selectedProject) : startCreate()}
             className="min-h-11 px-4 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
           >
-            {selectedProject ? t.common.edit : t.projects.add}
+            <Ico>{selectedProject ? '✏️' : '➕'}</Ico>{selectedProject ? t.common.edit : t.projects.add}
           </button>
         </div>
       )}
@@ -795,14 +797,14 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               onClick={closeForm}
               className="px-3 py-1.5 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
             >
-              {t.common.cancel}
+              <Ico>✖️</Ico>{t.common.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
             >
-              {saving ? t.common.saving : t.common.save}
+              <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
             </button>
           </div>
         </form>
@@ -841,7 +843,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     onClick={() => void changeArchiveState(selectedProject)}
                     className="min-h-11 px-3 text-xs rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-medium hover:bg-slate-100 transition"
                   >
-                    {selectedProject.is_archived ? t.common.restore : t.common.archive}
+                    <Ico>{selectedProject.is_archived ? '♻️' : '🗃️'}</Ico>{selectedProject.is_archived ? t.common.restore : t.common.archive}
                   </button>
                 </div>
               </div>
@@ -991,9 +993,9 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                   type="button"
                   aria-label="edit-room-detail"
                   onClick={() => startEditRoom(selectedRoom)}
-                  className="text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                  className="min-h-10 text-xs px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                 >
-                  {t.common.edit}
+                  <Ico>✏️</Ico>{t.common.edit}
                 </button>
               </div>
             </div>
@@ -1168,43 +1170,31 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs text-slate-500 mb-1">{t.rooms.length}</label>
-                  <input
+                  <DimensionInput
                     aria-label="room-edit-length"
-                    type="number"
-                    inputMode="decimal"
-                    min="0.001"
-                    step="any"
-                    placeholder="5.000"
+                    placeholder="500"
                     value={roomForm.length}
-                    onChange={(e) => setRoomForm((cur) => ({ ...cur, length: e.target.value }))}
+                    onValueChange={(meters) => setRoomForm((cur) => ({ ...cur, length: meters }))}
                     className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
                   />
                 </div>
                 <div>
                   <label className="block text-xs text-slate-500 mb-1">{t.rooms.width}</label>
-                  <input
+                  <DimensionInput
                     aria-label="room-edit-width"
-                    type="number"
-                    inputMode="decimal"
-                    min="0.001"
-                    step="any"
-                    placeholder="4.000"
+                    placeholder="400"
                     value={roomForm.width}
-                    onChange={(e) => setRoomForm((cur) => ({ ...cur, width: e.target.value }))}
+                    onValueChange={(meters) => setRoomForm((cur) => ({ ...cur, width: meters }))}
                     className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
                   />
                 </div>
                 <div>
                   <label className="block text-xs text-slate-500 mb-1">{t.rooms.height}</label>
-                  <input
+                  <DimensionInput
                     aria-label="room-edit-height"
-                    type="number"
-                    inputMode="decimal"
-                    min="0.001"
-                    step="any"
-                    placeholder="2.700"
+                    placeholder="270"
                     value={roomForm.height}
-                    onChange={(e) => setRoomForm((cur) => ({ ...cur, height: e.target.value }))}
+                    onValueChange={(meters) => setRoomForm((cur) => ({ ...cur, height: meters }))}
                     className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
                   />
                 </div>
@@ -1226,14 +1216,14 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                   onClick={() => setShowRoomForm(false)}
                   className="px-3 py-1.5 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
                 >
-                  {t.common.cancel}
+                  <Ico>✖️</Ico>{t.common.cancel}
                 </button>
                 <button
                   type="submit"
                   disabled={savingRoom}
                   className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
                 >
-                  {savingRoom ? t.common.saving : t.common.save}
+                  <Ico>💾</Ico>{savingRoom ? t.common.saving : t.common.save}
                 </button>
               </div>
             </form>
@@ -1313,33 +1303,33 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     type="button"
                     aria-label={`open-project-${project.id}`}
                     onClick={() => openProject(project)}
-                    className="min-h-11 px-3 text-sm rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                    className="min-h-10 px-3 py-1 text-sm rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
                   >
-                    {t.common.open}
+                    <Ico>📂</Ico>{t.common.open}
                   </button>
                   <button
                     type="button"
                     aria-label={`notes-project-${project.id}`}
                     onClick={() => openProject(project, 'notes')}
-                    className="min-h-11 px-3 text-sm rounded-xl bg-amber-50 text-amber-800 font-semibold hover:bg-amber-100 transition"
+                    className="min-h-10 px-3 py-1 text-sm rounded-xl bg-amber-50 text-amber-800 font-semibold hover:bg-amber-100 transition"
                   >
-                    {t.notes.title}
+                    <Ico>📝</Ico>{t.notes.title}
                   </button>
                   <button
                     type="button"
                     aria-label={`edit-project-${project.id}`}
                     onClick={() => startEdit(project)}
-                    className="min-h-11 px-3 text-sm rounded-xl bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
+                    className="min-h-10 px-3 py-1 text-sm rounded-xl bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
                   >
-                    {t.common.edit}
+                    <Ico>✏️</Ico>{t.common.edit}
                   </button>
                   <button
                     type="button"
                     aria-label={`${project.is_archived ? 'restore' : 'archive'}-project-${project.id}`}
                     onClick={() => void changeArchiveState(project)}
-                    className="min-h-11 px-3 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-semibold hover:bg-slate-100 transition"
+                    className="min-h-10 px-3 py-1 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-semibold hover:bg-slate-100 transition"
                   >
-                    {project.is_archived ? t.common.restore : t.common.archive}
+                    <Ico>{project.is_archived ? '♻️' : '🗃️'}</Ico>{project.is_archived ? t.common.restore : t.common.archive}
                   </button>
                 </div>
               </div>

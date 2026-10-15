@@ -3,6 +3,7 @@ import { fetchCalendarSettings, saveCalendarSettings } from '../api/calendar';
 import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import type { CalendarSettings } from '../types/calendar';
+import { Ico } from './Ico';
 
 const input = 'w-full min-h-11 px-3 text-sm rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-control-bg-color)] text-[var(--tg-control-text-color)]';
 const hhmm = (value: string) => value.slice(0, 5);
@@ -140,7 +141,7 @@ export function CalendarSettingsForm({ onSaved }: { onSaved?: (settings: Calenda
         </p>
       )}
       <button type="button" aria-label="settings-save" disabled={busy} onClick={() => void save()} className="w-full min-h-11 px-4 text-sm font-semibold rounded-xl bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] disabled:opacity-60">
-        {s.save}
+        <Ico>💾</Ico>{s.save}
       </button>
     </div>
   );

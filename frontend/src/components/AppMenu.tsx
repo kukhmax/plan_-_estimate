@@ -1,5 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
+import { Ico } from './Ico';
+
+const MENU_ICONS: Record<string, string> = {
+  'show-clients': '👥',
+  'show-projects': '🏗️',
+  'show-calendar': '📅',
+  'show-pricebook': '💰',
+  'show-archive': '🗄️',
+  'show-documents': '📄',
+  'show-knowledge': '📚',
+};
 
 export interface AppMenuItem {
   /** Technical name, also the accessible name of the button (`show-projects`, …). */
@@ -85,6 +96,7 @@ export function AppMenu({ open, title, accountLabel, items, onClose, onOpenAccou
                   : { backgroundColor: 'var(--tg-theme-secondary-bg-color)', color: 'var(--tg-theme-text-color)' }
               }
             >
+              {MENU_ICONS[item.id] && <Ico>{MENU_ICONS[item.id]}</Ico>}
               {item.label}
             </button>
           ))}
@@ -98,6 +110,7 @@ export function AppMenu({ open, title, accountLabel, items, onClose, onOpenAccou
             className="min-h-12 w-full px-4 py-2 text-left text-base font-semibold rounded-xl transition"
             style={{ backgroundColor: 'var(--tg-theme-secondary-bg-color)', color: 'var(--tg-theme-link-color)' }}
           >
+            <Ico>👤</Ico>
             {accountLabel}
           </button>
         </div>

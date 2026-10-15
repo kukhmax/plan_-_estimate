@@ -17,6 +17,8 @@ import {
 } from '../types/opening';
 import { formatMetric } from '../utils/format';
 import { localizeApiError } from '../utils/apiErrors';
+import { DimensionInput } from './DimensionInput';
+import { Ico } from './Ico';
 
 interface OpeningListProps {
   projectId: string;
@@ -374,7 +376,7 @@ export function OpeningList({
                   onClick={() => startEdit(opening)}
                   className="min-h-[44px] min-w-[44px] text-xs px-3 py-2 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                 >
-                  {t.common.edit}
+                  <Ico>✏️</Ico>{t.common.edit}
                 </button>
                 <button
                   type="button"
@@ -382,7 +384,7 @@ export function OpeningList({
                   onClick={() => void changeArchiveState(opening)}
                   className="min-h-[44px] min-w-[44px] text-xs px-3 py-2 rounded-lg bg-slate-200 text-slate-700 font-medium hover:bg-slate-300 transition"
                 >
-                  {opening.is_archived ? t.common.restore : t.common.archive}
+                  <Ico>{opening.is_archived ? '♻️' : '🗃️'}</Ico>{opening.is_archived ? t.common.restore : t.common.archive}
                 </button>
               </div>
               </div>
@@ -429,7 +431,7 @@ export function OpeningList({
           onClick={() => startCreate()}
           className="mt-2 w-full min-h-[44px] px-3 py-2 text-xs font-semibold rounded-xl border border-dashed border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition"
         >
-          + {t.openings.add}
+          <Ico>➕</Ico>{t.openings.add}
         </button>
       )}
 
@@ -481,31 +483,23 @@ export function OpeningList({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs text-slate-500 mb-1">{t.openings.width}</label>
-              <input
+              <DimensionInput
                 aria-label="opening-width"
-                type="number"
-                inputMode="decimal"
-                min="0.001"
-                step="any"
                 required
-                placeholder="0.900"
+                placeholder="90"
                 value={form.width}
-                onChange={(e) => setForm((cur) => ({ ...cur, width: e.target.value }))}
+                onValueChange={(meters) => setForm((cur) => ({ ...cur, width: meters }))}
                 className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
               />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">{t.openings.height}</label>
-              <input
+              <DimensionInput
                 aria-label="opening-height"
-                type="number"
-                inputMode="decimal"
-                min="0.001"
-                step="any"
                 required
-                placeholder="2.000"
+                placeholder="200"
                 value={form.height}
-                onChange={(e) => setForm((cur) => ({ ...cur, height: e.target.value }))}
+                onValueChange={(meters) => setForm((cur) => ({ ...cur, height: meters }))}
                 className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
               />
             </div>
@@ -557,15 +551,11 @@ export function OpeningList({
                 <div className="space-y-2 pl-1">
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">{t.reveals.depth}</label>
-                    <input
+                    <DimensionInput
                       aria-label="reveal-depth"
-                      type="number"
-                      inputMode="decimal"
-                      min="0.001"
-                      step="any"
-                      placeholder="0.150"
+                      placeholder="15"
                       value={form.reveal_depth}
-                      onChange={(e) => setForm((cur) => ({ ...cur, reveal_depth: e.target.value }))}
+                      onValueChange={(meters) => setForm((cur) => ({ ...cur, reveal_depth: meters }))}
                       className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
                     />
                   </div>
@@ -630,14 +620,14 @@ export function OpeningList({
               onClick={closeForm}
               className="px-2.5 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
             >
-              {t.common.cancel}
+              <Ico>✖️</Ico>{t.common.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
             >
-              {saving ? t.common.saving : t.common.save}
+              <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
             </button>
           </div>
         </form>

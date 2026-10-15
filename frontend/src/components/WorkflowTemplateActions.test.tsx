@@ -374,7 +374,7 @@ describe('Russian UI (13F.4)', () => {
   it('actions and form are fully Russian', async () => {
     localStorage.setItem('locale', 'ru');
     render(<I18nProvider><WorkflowTemplateManager /></I18nProvider>);
-    expect(await screen.findByLabelText('process-create')).toHaveTextContent('+ Новый процесс');
+    expect(await screen.findByLabelText('process-create')).toHaveTextContent('Новый процесс');
     await openCard('tpl-c');
     expect(screen.getByLabelText('process-edit')).toHaveTextContent('Редактировать');
     expect(screen.getByLabelText('process-duplicate')).toHaveTextContent('Дублировать');

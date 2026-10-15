@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import type { Reminder, ScheduleWarning } from '../types/calendar';
 import { formatDayTime, formatShortDate } from '../utils/calendarFormat';
+import { Ico } from './Ico';
 
 interface WorkCalendarRowProps {
   workKey: string;
@@ -65,7 +66,7 @@ export function WorkCalendarRow({ workKey, plannedDate, warnings, reminders, com
               onClick={() => void change(null)}
               className="shrink-0 min-h-11 px-3 text-sm font-semibold rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)]"
             >
-              {s.clear}
+              <Ico>🧹</Ico>{s.clear}
             </button>
           )}
         </div>

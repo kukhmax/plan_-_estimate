@@ -4,6 +4,7 @@ import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice } from '../utils/priceFormat';
 import { fetchPriceItems } from '../api/priceItems';
 import { PriceItem } from '../types/priceItem';
+import { Ico } from './Ico';
 
 export interface RecommendationPriceItemPickerProps {
   onConfirm: (item: PriceItem) => void;
@@ -83,7 +84,7 @@ export function RecommendationPriceItemPicker({
           onClick={onCancel}
           disabled={disabled}
         >
-          {t.recommendations.picker_cancel}
+          <Ico>✖️</Ico>{t.recommendations.picker_cancel}
         </button>
       </div>
 
@@ -154,7 +155,7 @@ export function RecommendationPriceItemPicker({
               if (selected) onConfirm(selected);
             }}
           >
-            {t.recommendations.picker_confirm}
+            <Ico>✅</Ico>{t.recommendations.picker_confirm}
           </button>
         </>
       )}

@@ -13,6 +13,7 @@ import type { ProjectRepresentative } from '../types/representative';
 import { documentErrorText } from '../utils/documentErrors';
 import { newId } from '../utils/newId';
 import { CommitText, FIELD } from './CommitText';
+import { Ico } from './Ico';
 
 interface ProjectAcceptanceProps {
   projectId: string;
@@ -298,7 +299,7 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
       {loadFailed && (
         <div className="space-y-2">
           <p role="alert" className="text-sm text-red-700 break-words">{text.load_failed}</p>
-          <button type="button" onClick={() => void load()} className={`w-full ${BUTTON} text-slate-800 bg-slate-100 border-slate-200`}>{text.retry}</button>
+          <button type="button" onClick={() => void load()} className={`w-full ${BUTTON} text-slate-800 bg-slate-100 border-slate-200`}><Ico>🔄</Ico>{text.retry}</button>
         </div>
       )}
 
@@ -308,7 +309,7 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
           <button type="button" aria-label="start-acceptance" disabled={busy} onClick={() => void start()} className={`w-full ${BUTTON} text-white bg-blue-600 border-blue-600 hover:bg-blue-700`}>
             {busy ? text.loading : draft ? text.continue : latest ? text.new : text.start}
           </button>
-          <button type="button" aria-label="preview-acceptance" disabled={busy} onClick={() => void preview()} className={`w-full ${BUTTON} text-slate-900 bg-slate-100 border-slate-300 hover:bg-slate-200`}>{text.preview}</button>
+          <button type="button" aria-label="preview-acceptance" disabled={busy} onClick={() => void preview()} className={`w-full ${BUTTON} text-slate-900 bg-slate-100 border-slate-300 hover:bg-slate-200`}><Ico>👁️</Ico>{text.preview}</button>
         </>
       )}
 
@@ -370,14 +371,14 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
               {strangers.map((a, index) => (
                 <div key={`${a.name}-${index}`} className="flex items-center justify-between gap-3 min-h-11 text-sm text-slate-900">
                   <span className="min-w-0 break-words">{a.name}{a.role ? ` · ${a.role}` : ''}</span>
-                  <button type="button" aria-label={`acceptance-extra-remove-${index}`} onClick={() => removeExtra(index)} className={`shrink-0 ${BUTTON} text-red-800 bg-white border-red-300`}>{text.extra_remove}</button>
+                  <button type="button" aria-label={`acceptance-extra-remove-${index}`} onClick={() => removeExtra(index)} className={`shrink-0 ${BUTTON} text-red-800 bg-white border-red-300`}><Ico>🗑️</Ico>{text.extra_remove}</button>
                 </div>
               ))}
               <label className="block space-y-1 pt-1">
                 <span className="block text-xs text-slate-700 break-words">{text.extra_label}</span>
                 <input aria-label="acceptance-extra" value={extra} onChange={(e) => setExtra(e.target.value)} className={FIELD} />
               </label>
-              <button type="button" aria-label="acceptance-extra-add" disabled={!extra.trim()} onClick={addExtra} className={`w-full ${BUTTON} text-slate-900 bg-slate-100 border-slate-300`}>{text.extra_add}</button>
+              <button type="button" aria-label="acceptance-extra-add" disabled={!extra.trim()} onClick={addExtra} className={`w-full ${BUTTON} text-slate-900 bg-slate-100 border-slate-300`}><Ico>➕</Ico>{text.extra_add}</button>
             </fieldset>
           )}
 
@@ -442,8 +443,8 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
                       {remark.deadline ? ` · ${text.remark_deadline_row.replace('{date}', remark.deadline)}` : ''}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
-                      <button type="button" aria-label={`acceptance-remark-edit-${remark.id}`} onClick={() => openForm(surface, remark.id)} className={`${BUTTON} ${OFF}`}>{text.remark_edit}</button>
-                      <button type="button" aria-label={`acceptance-remark-remove-${remark.id}`} onClick={() => removeRemark(surface, remark.id)} className={`${BUTTON} text-red-800 bg-white border-red-300`}>{text.remark_remove}</button>
+                      <button type="button" aria-label={`acceptance-remark-edit-${remark.id}`} onClick={() => openForm(surface, remark.id)} className={`${BUTTON} ${OFF}`}><Ico>✏️</Ico>{text.remark_edit}</button>
+                      <button type="button" aria-label={`acceptance-remark-remove-${remark.id}`} onClick={() => removeRemark(surface, remark.id)} className={`${BUTTON} text-red-800 bg-white border-red-300`}><Ico>🗑️</Ico>{text.remark_remove}</button>
                     </div>
                   </div>
                 ))}
@@ -484,11 +485,11 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
                         </label>
                       ))}
                     </fieldset>
-                    <button type="button" aria-label="acceptance-remark-save" disabled={!formReady(form)} onClick={saveForm} className={`w-full ${BUTTON} text-white bg-blue-600 border-blue-600 hover:bg-blue-700`}>{text.remark_save}</button>
-                    <button type="button" aria-label="acceptance-remark-cancel" onClick={() => setForm(null)} className={`w-full ${BUTTON} text-slate-800 bg-white border-slate-300 hover:bg-slate-100`}>{text.remark_cancel}</button>
+                    <button type="button" aria-label="acceptance-remark-save" disabled={!formReady(form)} onClick={saveForm} className={`w-full ${BUTTON} text-white bg-blue-600 border-blue-600 hover:bg-blue-700`}><Ico>💾</Ico>{text.remark_save}</button>
+                    <button type="button" aria-label="acceptance-remark-cancel" onClick={() => setForm(null)} className={`w-full ${BUTTON} text-slate-800 bg-white border-slate-300 hover:bg-slate-100`}><Ico>✖️</Ico>{text.remark_cancel}</button>
                   </div>
                 ) : (
-                  <button type="button" aria-label={`acceptance-remark-add-${surface.id}`} onClick={() => openForm(surface, null)} className={`w-full ${BUTTON} text-slate-900 bg-slate-100 border-slate-300 hover:bg-slate-200`}>{text.remark_add}</button>
+                  <button type="button" aria-label={`acceptance-remark-add-${surface.id}`} onClick={() => openForm(surface, null)} className={`w-full ${BUTTON} text-slate-900 bg-slate-100 border-slate-300 hover:bg-slate-200`}><Ico>➕</Ico>{text.remark_add}</button>
                 )}
 
                 <p aria-label={`acceptance-surface-result-${surface.id}`} className={`text-sm font-semibold border rounded-lg px-3 py-2 break-words ${BADGE[surface.result]}`}>{text.surface_result[surface.result]}</p>
@@ -551,9 +552,9 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
           {saving > 0 && <p role="status" aria-label="acceptance-saving" className="text-xs text-slate-600">{text.saving}</p>}
           {error && <p role="alert" aria-label="acceptance-error" className="text-sm text-red-700 break-words">{error}</p>}
           {note && <p role="status" aria-label="acceptance-note" className="text-sm text-emerald-800 break-words">{note}</p>}
-          <button type="button" aria-label="preview-acceptance" disabled={busy} onClick={() => void preview()} className={`w-full ${BUTTON} text-slate-900 bg-slate-100 border-slate-300 hover:bg-slate-200`}>{text.preview}</button>
+          <button type="button" aria-label="preview-acceptance" disabled={busy} onClick={() => void preview()} className={`w-full ${BUTTON} text-slate-900 bg-slate-100 border-slate-300 hover:bg-slate-200`}><Ico>👁️</Ico>{text.preview}</button>
           <button type="button" aria-label="issue-acceptance" disabled={busy || draft.blockers.length > 0} onClick={() => void issue()} className={`w-full ${BUTTON} text-white bg-sky-700 border-sky-700 hover:bg-sky-800`}>{text.issue}</button>
-          <button type="button" aria-label="close-acceptance-form" disabled={busy} onClick={() => setOpen(false)} className={`w-full ${BUTTON} text-slate-800 bg-white border-slate-300 hover:bg-slate-100`}>{text.close}</button>
+          <button type="button" aria-label="close-acceptance-form" disabled={busy} onClick={() => setOpen(false)} className={`w-full ${BUTTON} text-slate-800 bg-white border-slate-300 hover:bg-slate-100`}><Ico>✖️</Ico>{text.close}</button>
           <button type="button" aria-label="abandon-acceptance-draft" disabled={busy} onClick={() => void abandon()} className={`w-full ${BUTTON} text-red-800 bg-white border-red-300 hover:bg-red-50`}>{confirmAbandon ? text.abandon_confirm : text.abandon}</button>
         </div>
       )}

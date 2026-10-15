@@ -4,6 +4,7 @@ import { PriceUnitValue } from '../types/priceItem';
 import { PriceSource } from '../types/marketEvidence';
 import { formatEvidenceDate } from '../utils/evidenceFormat';
 import { formatPrice } from '../utils/priceFormat';
+import { Ico } from './Ico';
 
 interface PriceSourceViewerProps {
   itemId: string;
@@ -91,7 +92,7 @@ export function PriceSourceViewer({
               color: 'var(--tg-theme-link-color)',
             }}
           >
-            {t.common.close}
+            <Ico>✖️</Ico>{t.common.close}
           </button>
         </div>
 

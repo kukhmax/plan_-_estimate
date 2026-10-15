@@ -137,7 +137,7 @@ describe('PriceBook — list and cards', () => {
   it('opens as a hub of three tiles: positions, coefficients, processes — and loads nothing until one is opened (16K.6)', async () => {
     renderHub();
     const hub = await screen.findByLabelText('pricebook-hub');
-    expect(Array.from(hub.children).map((tile) => tile.textContent?.replace('›', '').trim())).toEqual(['Pozycje cennika', 'Współczynniki', 'Procesy']);
+    expect(Array.from(hub.children).map((tile) => tile.textContent?.replace('›', '').replace(/\p{Extended_Pictographic}️?/gu, '').trim())).toEqual(['Pozycje cennika', 'Współczynniki', 'Procesy']);
     expect(screen.queryByLabelText('pricebook-tabs')).toBeNull();
     expect(screen.queryByLabelText('add-price-item')).toBeNull();
     expect(priceItemsApi.fetchPriceItems).not.toHaveBeenCalled();

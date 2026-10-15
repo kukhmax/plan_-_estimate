@@ -4,6 +4,7 @@ import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import type { EstimateSummaryRead, EstimateStatusValue } from '../types/estimate';
 import { formatDecimalMoney } from '../utils/format';
+import { Ico } from './Ico';
 
 interface EstimateListProps {
   projectId: string;
@@ -112,7 +113,7 @@ export function EstimateList({ projectId, onOpenEstimate }: EstimateListProps) {
           onClick={() => void load()}
           className="text-sm text-blue-600 font-medium hover:underline"
         >
-          {t.estimates.retry}
+          <Ico>🔄</Ico>{t.estimates.retry}
         </button>
       </div>
     );

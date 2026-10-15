@@ -23,6 +23,7 @@ import { PhotoPicker } from './PhotoPicker';
 import { PhotoThumbGrid } from './PhotoThumbGrid';
 import { PhotoUploadQueueList } from './PhotoUploadQueueList';
 import { PhotoViewer } from './PhotoViewer';
+import { Ico } from './Ico';
 
 // The reusable photo section (contract §3, §7): expanded INLINE inside its card by the host (the host owns the
 // corner `PhotoEntryButton` and mounts this component only while expanded, so nothing is fetched while collapsed).
@@ -412,7 +413,7 @@ export function PhotoSection({
                 onClick={() => void load(false)}
                 className="min-h-11 rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] px-3 py-2 text-sm font-semibold text-[var(--tg-theme-text-color)]"
               >
-                {t.photos.section.retry}
+                <Ico>🔄</Ico>{t.photos.section.retry}
               </button>
             </div>
           )}

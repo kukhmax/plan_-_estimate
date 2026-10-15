@@ -242,8 +242,8 @@ describe('AreaSegmentList', () => {
     await waitFor(() => expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-floor-rectangle'));
 
-    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '3' } });
-    fireEvent.change(screen.getByLabelText('segment-height'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '300' } });
+    fireEvent.change(screen.getByLabelText('segment-height'), { target: { value: '200' } });
     fireEvent.change(screen.getByLabelText('segment-label'), { target: { value: 'Parkiet wejście' } });
     fireEvent.submit(screen.getByLabelText('floor-segment-form'));
 
@@ -270,8 +270,8 @@ describe('AreaSegmentList', () => {
     fireEvent.click(screen.getByLabelText('add-floor-subtraction'));
 
     expect(screen.getByText('Odjęcie')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '1' } });
-    fireEvent.change(screen.getByLabelText('segment-height'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText('segment-height'), { target: { value: '100' } });
     fireEvent.submit(screen.getByLabelText('floor-segment-form'));
 
     await waitFor(() => {
@@ -294,8 +294,8 @@ describe('AreaSegmentList', () => {
     fireEvent.click(screen.getByLabelText('add-ceiling-rectangle'));
 
     expect(screen.getByLabelText('ceiling-segment-form')).toBeVisible();
-    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText('segment-height'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('segment-height'), { target: { value: '200' } });
     fireEvent.submit(screen.getByLabelText('ceiling-segment-form'));
 
     await waitFor(() => {
@@ -326,7 +326,7 @@ describe('AreaSegmentList', () => {
     );
     fireEvent.click(screen.getByLabelText(`edit-segment-${floorAdd.id}`));
 
-    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '400' } });
     fireEvent.submit(screen.getByLabelText('floor-segment-form'));
 
     await waitFor(() => {
@@ -349,15 +349,15 @@ describe('AreaSegmentList', () => {
     await waitFor(() => expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-floor-rectangle'));
 
-    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '-2' } });
+    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '-200' } });
     fireEvent.change(screen.getByLabelText('segment-height'), { target: { value: '0' } });
     fireEvent.submit(screen.getByLabelText('floor-segment-form'));
 
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Podaj poprawną szerokość i długość (m)');
+    expect(alert).toHaveTextContent('Podaj poprawną szerokość i długość (cm)');
     expect(areaSegmentsApi.createAreaSegment).not.toHaveBeenCalled();
     // Form stays open for correction
-    expect(screen.getByLabelText('segment-width')).toHaveValue(-2);
+    expect(screen.getByLabelText('segment-width')).toHaveValue('-200');
   });
 
   it('displays a readable 422 negative-net error without losing the form input', async () => {
@@ -370,13 +370,13 @@ describe('AreaSegmentList', () => {
     await waitFor(() => expect(screen.getByLabelText('add-floor-subtraction')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-floor-subtraction'));
 
-    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText('segment-height'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('segment-height'), { target: { value: '300' } });
     fireEvent.submit(screen.getByLabelText('floor-segment-form'));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('cannot be negative');
-    expect(screen.getByLabelText('segment-width')).toHaveValue(5);
+    expect(screen.getByLabelText('segment-width')).toHaveValue('500');
   });
 
   it('archives an active segment and notifies parent', async () => {
@@ -727,42 +727,45 @@ describe('AreaSegmentList plane inspection in Opcje (13F-PRE)', () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(canonicalPlanes);
   });
 
-  it('CEILING inspection is reachable only inside CEILING Opcje; FLOOR offers none (FIX.2)', async () => {
+  it('CEILING inspection is on the card of the ceiling, outside Opcje (Stage 18G); FLOOR offers none (FIX.2)', async () => {
     const onInspectPlane = vi.fn();
     renderAreaSegments(vi.fn(), onInspectPlane);
     const floorToggle = await screen.findByLabelText('options-toggle-floor');
-    expect(screen.queryByLabelText('inspect-ceiling')).not.toBeInTheDocument();
+    // visible without opening anything, above the Opcje toggle of its card
+    const ceilingButton = screen.getByLabelText('inspect-ceiling');
+    expect(ceilingButton.compareDocumentPosition(screen.getByLabelText('options-toggle-ceiling')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByLabelText('add-ceiling-rectangle')).not.toBeInTheDocument();
 
     fireEvent.click(floorToggle);
     expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument(); // Opcje open
     expect(screen.queryByLabelText('inspect-floor')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText('options-toggle-ceiling'));
-    const ceilingButton = screen.getByLabelText('inspect-ceiling');
     expect(ceilingButton).toHaveTextContent('Badanie sufitu');
     fireEvent.click(ceilingButton);
     expect(onInspectPlane).toHaveBeenCalledTimes(1);
     expect(onInspectPlane).toHaveBeenCalledWith('CEILING');
   });
 
-  it('touched plane Opcje controls meet the 44 px target class', async () => {
+  it('plane controls are compact (owner request, Stage 18G): 40 px high with little vertical padding, the inspection a calm green', async () => {
     renderAreaSegments(vi.fn(), vi.fn());
     fireEvent.click(await screen.findByLabelText('options-toggle-ceiling'));
-    for (const label of ['add-ceiling-rectangle', 'add-ceiling-subtraction', 'inspect-ceiling']) {
-      expect(screen.getByLabelText(label).className).toContain('min-h-11');
+    for (const label of ['add-ceiling-rectangle', 'add-ceiling-subtraction', 'inspect-ceiling', 'options-toggle-ceiling']) {
+      expect(screen.getByLabelText(label).className).toContain('min-h-10');
+      expect(screen.getByLabelText(label).className).toMatch(/\bpy-1\b/);
     }
+    expect(screen.getByLabelText('inspect-ceiling').className).toContain('bg-emerald-50');
   });
 
   it('renders no inspection button when no handler is given', async () => {
     renderAreaSegments();
-    fireEvent.click(await screen.findByLabelText('options-toggle-ceiling'));
+    await screen.findByLabelText('options-toggle-ceiling');
     expect(screen.queryByLabelText('inspect-ceiling')).not.toBeInTheDocument();
   });
 
   it('labels the plane inspection in Russian', async () => {
     localStorage.setItem('locale', 'ru');
     renderAreaSegments(vi.fn(), vi.fn());
-    fireEvent.click(await screen.findByLabelText('options-toggle-ceiling'));
+    await screen.findByLabelText('options-toggle-ceiling');
     expect(screen.getByLabelText('inspect-ceiling')).toHaveTextContent(/потолка/);
   });
 });
@@ -785,5 +788,93 @@ describe('Realizacja entry on floor/ceiling planes (Stage 13H.5)', () => {
     fireEvent.click(screen.getByLabelText(`work-plan-${floorSurfaceId}`));
     expect(await screen.findByLabelText(`work-plan-editor-${floorSurfaceId}`)).toBeInTheDocument();
     expect(screen.queryByLabelText(`execution-view-${floorSurfaceId}`)).not.toBeInTheDocument();
+  });
+});
+
+
+describe('The same rectangle on the other plane (Stage 18G)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [floorAdd], total: 1 });
+    vi.mocked(areaSegmentsApi.createAreaSegment).mockResolvedValue(floorAdd);
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(canonicalPlanes);
+  });
+
+  async function openForm(plane: 'floor' | 'ceiling', op: 'rectangle' | 'subtraction') {
+    renderAreaSegments();
+    await expandPlane(plane);
+    fireEvent.click(await screen.findByLabelText(`add-${plane}-${op}`));
+    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '250' } });
+    fireEvent.change(screen.getByLabelText('segment-height'), { target: { value: '300' } });
+  }
+
+  it('creates the rectangle on both planes when the button is pressed, in metres', async () => {
+    await openForm('floor', 'rectangle');
+    const toggle = screen.getByLabelText('segment-also-opposite');
+    expect(toggle).toHaveTextContent('Dodaj też do sufitu');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.submit(screen.getByLabelText('floor-segment-form'));
+
+    await waitFor(() => expect(areaSegmentsApi.createAreaSegment).toHaveBeenCalledTimes(2));
+    expect(areaSegmentsApi.createAreaSegment).toHaveBeenNthCalledWith(1, projectId, roomId, { plane: 'FLOOR', operation: 'ADD', width: 2.5, height: 3, label: null });
+    expect(areaSegmentsApi.createAreaSegment).toHaveBeenNthCalledWith(2, projectId, roomId, { plane: 'CEILING', operation: 'ADD', width: 2.5, height: 3, label: null });
+    expect(await screen.findByText('Prostokąt dodano na podłodze i suficie')).toBeInTheDocument();
+  });
+
+  it('a subtraction on the ceiling is copied to the floor as a subtraction', async () => {
+    await openForm('ceiling', 'subtraction');
+    expect(screen.getByLabelText('segment-also-opposite')).toHaveTextContent('Dodaj też do podłogi');
+    fireEvent.click(screen.getByLabelText('segment-also-opposite'));
+    fireEvent.submit(screen.getByLabelText('ceiling-segment-form'));
+
+    await waitFor(() => expect(areaSegmentsApi.createAreaSegment).toHaveBeenCalledTimes(2));
+    expect(areaSegmentsApi.createAreaSegment).toHaveBeenNthCalledWith(2, projectId, roomId, { plane: 'FLOOR', operation: 'SUBTRACT', width: 2.5, height: 3, label: null });
+  });
+
+  it('creates only one rectangle when the button is not pressed', async () => {
+    await openForm('floor', 'rectangle');
+    fireEvent.submit(screen.getByLabelText('floor-segment-form'));
+    await waitFor(() => expect(areaSegmentsApi.createAreaSegment).toHaveBeenCalledTimes(1));
+  });
+
+  it('says what is missing when the second rectangle fails, and the first one stays', async () => {
+    vi.mocked(areaSegmentsApi.createAreaSegment).mockResolvedValueOnce(floorAdd).mockRejectedValueOnce(new Error('Net area (-1.000) cannot be negative for a plane'));
+    await openForm('floor', 'rectangle');
+    fireEvent.click(screen.getByLabelText('segment-also-opposite'));
+    fireEvent.submit(screen.getByLabelText('floor-segment-form'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Pierwszy prostokąt zapisano, ale drugiego nie udało się dodać:');
+    expect(screen.getByRole('alert')).toHaveTextContent('Net area (-1.000)');
+    expect(areaSegmentsApi.createAreaSegment).toHaveBeenCalledTimes(2);
+  });
+
+  it('has no such button while editing a rectangle', async () => {
+    renderAreaSegments();
+    await expandPlane('floor');
+    fireEvent.click(await screen.findByLabelText(`edit-segment-${floorAdd.id}`));
+    expect(screen.queryByLabelText('segment-also-opposite')).not.toBeInTheDocument();
+  });
+
+  it('copies an existing rectangle to the other plane with one tap', async () => {
+    renderAreaSegments();
+    await expandPlane('floor');
+    const copy = await screen.findByLabelText(`copy-segment-${floorAdd.id}`);
+    expect(copy).toHaveTextContent('Na sufit');
+    fireEvent.click(copy);
+
+    await waitFor(() => expect(areaSegmentsApi.createAreaSegment).toHaveBeenCalledWith(projectId, roomId, {
+      plane: 'CEILING', operation: 'ADD', width: 3, height: 2, label: 'Parkiet wejście',
+    }));
+    expect(await screen.findByText('Prostokąt skopiowano na drugą płaszczyznę')).toBeInTheDocument();
+  });
+
+  it('speaks Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    await openForm('floor', 'rectangle');
+    expect(screen.getByLabelText('segment-also-opposite')).toHaveTextContent('Добавить и на потолок');
+    expect(screen.getByLabelText(`copy-segment-${floorAdd.id}`)).toHaveTextContent('На потолок');
   });
 });

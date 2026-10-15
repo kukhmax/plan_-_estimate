@@ -10,6 +10,7 @@ import * as roomsApi from './api/rooms';
 import * as surfacesApi from './api/surfaces';
 import * as photosApi from './api/photos';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
+import { installAutoOpenWalls } from './test/autoOpenWalls';
 import { I18nProvider } from './hooks/useI18n';
 import { resetPhotoStorage } from './hooks/usePhotoStorage';
 import { resetPhotoUploadQueue } from './hooks/usePhotoUploadQueue';
@@ -19,6 +20,14 @@ import { ProjectType } from './types/project';
 import { RoomType } from './types/room';
 import { SurfaceType } from './types/surface';
 import { detailFor, listPage, makeItem, storageStatus } from './test/photoFixtures';
+
+let stopAutoOpenWalls: (() => void) | undefined;
+beforeEach(() => {
+  stopAutoOpenWalls = installAutoOpenWalls();
+});
+afterEach(() => {
+  stopAutoOpenWalls?.();
+});
 
 // Stage 14E.5 — photo entry points wired into the object, room, surface and opening cards.
 

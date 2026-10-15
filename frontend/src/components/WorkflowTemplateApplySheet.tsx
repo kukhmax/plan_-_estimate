@@ -19,6 +19,7 @@ import { localizeApiError } from '../utils/apiErrors';
 import { resolveKey } from '../utils/i18nKeys';
 import { templateDescription, templateStepNote } from '../utils/workflowTemplateText';
 import { ExecutionDetachDialog } from './ExecutionDetachDialog';
+import { Ico } from './Ico';
 
 /**
  * Stage 13E.4 — technological workflow picker / preview / apply sheet.
@@ -412,7 +413,7 @@ export function WorkflowTemplateApplySheet({
             <div role="alert" className="space-y-2">
               <p className="text-sm text-[var(--tg-theme-destructive-text-color)]">{t.work_plan.tpl_load_error}</p>
               <button type="button" className={btnSecondary} onClick={() => setListAttempt((n) => n + 1)}>
-                {t.work_plan.retry}
+                <Ico>🔄</Ico>{t.work_plan.retry}
               </button>
             </div>
           )}
@@ -448,7 +449,7 @@ export function WorkflowTemplateApplySheet({
           {selected && !reviewing && (
             <>
               <button type="button" className={btnSecondary} onClick={backToList} disabled={applying}>
-                {t.work_plan.tpl_back}
+                <Ico>⬅️</Ico>{t.work_plan.tpl_back}
               </button>
               {templateDescription(t, selected) && (
                 <p className="text-xs text-[var(--tg-theme-hint-color)] whitespace-pre-line break-words">
@@ -649,7 +650,7 @@ export function WorkflowTemplateApplySheet({
               )}
               {error?.kind === 'transport' && (
                 <button type="button" className={btnSecondary} onClick={() => void submit()} disabled={applying}>
-                  {t.work_plan.tpl_retry}
+                  <Ico>🔄</Ico>{t.work_plan.tpl_retry}
                 </button>
               )}
               {selected && (error?.kind === 'stale_template' || error?.kind === 'error') && (
@@ -660,7 +661,7 @@ export function WorkflowTemplateApplySheet({
                   onClick={() => void refreshTemplate()}
                   disabled={refreshing || applying}
                 >
-                  {t.work_plan.tpl_refresh_template}
+                  <Ico>🔄</Ico>{t.work_plan.tpl_refresh_template}
                 </button>
               )}
               {error?.kind === 'stale_plan' && (
@@ -670,7 +671,7 @@ export function WorkflowTemplateApplySheet({
                   className={btnSecondary}
                   onClick={onReloadPlan}
                 >
-                  {t.work_plan.reload_plan}
+                  <Ico>🔄</Ico>{t.work_plan.reload_plan}
                 </button>
               )}
             </div>
@@ -734,7 +735,7 @@ export function WorkflowTemplateApplySheet({
                     }}
                     disabled={applying}
                   >
-                    {t.work_plan.tpl_review_back}
+                    <Ico>⬅️</Ico>{t.work_plan.tpl_review_back}
                   </button>
                   <button
                     type="button"
@@ -753,7 +754,7 @@ export function WorkflowTemplateApplySheet({
                 <p className="text-xs text-[var(--tg-theme-hint-color)] break-words">{t.work_plan.tpl_confirm_body}</p>
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" className={btnSecondary} onClick={() => setConfirming(false)} disabled={applying}>
-                    {t.work_plan.tpl_confirm_cancel}
+                    <Ico>✖️</Ico>{t.work_plan.tpl_confirm_cancel}
                   </button>
                   <button
                     type="button"

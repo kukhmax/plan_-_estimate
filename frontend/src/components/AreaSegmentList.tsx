@@ -22,6 +22,8 @@ import { surfaceTypeTint } from '../utils/surfaceTypeTint';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { SurfaceExecutionView } from './SurfaceExecutionView';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
+import { DimensionInput } from './DimensionInput';
+import { Ico } from './Ico';
 
 interface AreaSegmentListProps {
   projectId: string;
@@ -41,7 +43,11 @@ interface SegmentFormState {
   width: string;
   height: string;
   label: string;
+  /** Also create the same rectangle on the opposite plane (floor <-> ceiling). */
+  alsoOpposite: boolean;
 }
+
+const oppositePlane = (plane: AreaPlane): AreaPlane => (plane === 'FLOOR' ? 'CEILING' : 'FLOOR');
 
 const PLANES: AreaPlane[] = ['FLOOR', 'CEILING'];
 /** Planes with a real inspection checklist (13F-PRE FIX.2). The substrate
@@ -153,7 +159,7 @@ export function AreaSegmentList({
     setSuccess(null);
     setEditingId(null);
     setFormError(null);
-    setForm({ plane, operation, width: '', height: '', label: '' });
+    setForm({ plane, operation, width: '', height: '', label: '', alsoOpposite: false });
   };
 
   const startEdit = (segment: AreaSegmentType) => {
@@ -166,6 +172,7 @@ export function AreaSegmentList({
       width: String(segment.width),
       height: String(segment.height),
       label: segment.label ?? '',
+      alsoOpposite: false,
     });
   };
 
@@ -210,6 +217,27 @@ export function AreaSegmentList({
           label: form.label.trim() || null,
         });
         setSuccess(t.area_segments.created);
+        if (form.alsoOpposite) {
+          const other = oppositePlane(form.plane);
+          try {
+            await createAreaSegment(projectId, roomId, {
+              plane: other,
+              operation: form.operation,
+              width: widthVal,
+              height: heightVal,
+              label: form.label.trim() || null,
+            });
+            setSuccess(t.area_segments.created_both);
+          } catch (err) {
+            // the first rectangle is saved: say so, and what is missing
+            closeForm();
+            await load();
+            onMeasurementChanged?.();
+            setSuccess(null);
+            setError(`${t.area_segments.copy_failed} ${err instanceof Error ? err.message : t.area_segments.error}`);
+            return;
+          }
+        }
       }
       closeForm();
       await load();
@@ -232,6 +260,26 @@ export function AreaSegmentList({
         await archiveAreaSegment(projectId, roomId, segment.id);
         setSuccess(t.area_segments.archived);
       }
+      await load();
+      onMeasurementChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.area_segments.error);
+    }
+  };
+
+  /** The same rectangle on the other plane (floor <-> ceiling): the room is usually the same size above and below. */
+  const copyToOpposite = async (segment: AreaSegmentType) => {
+    setError(null);
+    setSuccess(null);
+    try {
+      await createAreaSegment(projectId, roomId, {
+        plane: oppositePlane(segment.plane),
+        operation: segment.operation,
+        width: Number(segment.width),
+        height: Number(segment.height),
+        label: segment.label,
+      });
+      setSuccess(t.area_segments.copied);
       await load();
       onMeasurementChanged?.();
     } catch (err) {
@@ -331,14 +379,27 @@ export function AreaSegmentList({
           </div>
         )}
 
+        {/* The inspection is a main action of the plane: it stays outside Opcje (owner, Stage 18G). */}
+        {onInspectPlane && INSPECTABLE_PLANES.includes(plane) && (
+          <button
+            type="button"
+            aria-label={`inspect-${planeKey}`}
+            onClick={() => onInspectPlane(plane)}
+            className={`w-full min-h-10 py-1 text-sm rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold hover:bg-emerald-100 transition ${INSPECT_BUTTON_WITH_BADGE}`}
+          >
+            <span className="min-w-0 break-words"><Ico>🔬</Ico>{plane === 'FLOOR' ? t.inspections.inspect_floor : t.inspections.inspect_ceiling}</span>
+            <InspectionPhotoBadge surfaceId={planeSurfaceId} roomId={roomId} plane={plane} />
+          </button>
+        )}
         {/* Progressive disclosure: Opcje reveals the plane's measurement actions. */}
         <button
           type="button"
           aria-label={`options-toggle-${planeKey}`}
           aria-expanded={isOptionsOpen}
           onClick={() => toggleOptions(plane)}
-          className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
+          className="w-full min-h-10 text-sm px-3 py-1 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
         >
+          <Ico>{isOptionsOpen ? '🔼' : '⚙️'}</Ico>
           {isOptionsOpen ? t.surfaces.hide_options : t.surfaces.options}
         </button>
 
@@ -350,8 +411,9 @@ export function AreaSegmentList({
               aria-expanded={isWorkPlanOpen}
               aria-controls={`work-plan-editor-${planeSurfaceId}`}
               onClick={() => toggleWorkPlan(plane)}
-              className="w-full min-h-11 text-sm px-3 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+              className="w-full min-h-10 text-sm px-3 py-1 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
             >
+              <Ico>🛠️</Ico>
               {t.surfaces.work_types_quality}
             </button>
 
@@ -371,9 +433,9 @@ export function AreaSegmentList({
               aria-label={`execution-${planeSurfaceId}`}
               aria-expanded={isExecutionOpen}
               onClick={() => toggleExecution(plane)}
-              className={`w-full min-h-11 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
+              className={`w-full min-h-10 py-1 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
             >
-              <span className="min-w-0 break-words">{t.execution.open}</span>
+              <span className="min-w-0 break-words"><Ico>🏗️</Ico>{t.execution.open}</span>
               <ExecutionPhotoBadge surfaceId={planeSurfaceId} />
             </button>
 
@@ -395,33 +457,22 @@ export function AreaSegmentList({
 
         {isOptionsOpen && (
           <>
-            {onInspectPlane && INSPECTABLE_PLANES.includes(plane) && (
-              <button
-                type="button"
-                aria-label={`inspect-${planeKey}`}
-                onClick={() => onInspectPlane(plane)}
-                className={`w-full min-h-11 text-xs rounded-lg bg-violet-50 text-violet-800 font-semibold hover:bg-violet-100 transition ${INSPECT_BUTTON_WITH_BADGE}`}
-              >
-                <span className="min-w-0 break-words">{plane === 'FLOOR' ? t.inspections.inspect_floor : t.inspections.inspect_ceiling}</span>
-                <InspectionPhotoBadge surfaceId={planeSurfaceId} roomId={roomId} plane={plane} />
-              </button>
-            )}
             <div className="flex gap-2 flex-wrap">
               <button
                 type="button"
                 aria-label={`add-${planeKey}-rectangle`}
                 onClick={() => startAdd(plane, 'ADD')}
-                className="min-h-11 text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
+                className="min-h-10 text-xs px-3 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
               >
-                + {t.area_segments.add_rectangle}
+                <Ico>➕</Ico>{t.area_segments.add_rectangle}
               </button>
               <button
                 type="button"
                 aria-label={`add-${planeKey}-subtraction`}
                 onClick={() => startAdd(plane, 'SUBTRACT')}
-                className="min-h-11 text-xs px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 transition"
+                className="min-h-10 text-xs px-3 py-1 rounded-lg bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 transition"
               >
-                + {t.area_segments.add_subtraction}
+                <Ico>➖</Ico>{t.area_segments.add_subtraction}
               </button>
             </div>
 
@@ -444,17 +495,13 @@ export function AreaSegmentList({
                     <label className="block text-xs text-slate-500 mb-1">
                       {t.area_segments.width}
                     </label>
-                    <input
+                    <DimensionInput
                       aria-label="segment-width"
-                      type="number"
-                      inputMode="decimal"
-                      min="0.001"
-                      step="any"
-                      placeholder="2.000"
+                      placeholder="200"
                       autoFocus
                       value={activeForm.width}
-                      onChange={(e) =>
-                        setForm((cur) => (cur ? { ...cur, width: e.target.value } : cur))
+                      onValueChange={(meters) =>
+                        setForm((cur) => (cur ? { ...cur, width: meters } : cur))
                       }
                       className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
                     />
@@ -463,21 +510,33 @@ export function AreaSegmentList({
                     <label className="block text-xs text-slate-500 mb-1">
                       {t.area_segments.length}
                     </label>
-                    <input
+                    <DimensionInput
                       aria-label="segment-height"
-                      type="number"
-                      inputMode="decimal"
-                      min="0.001"
-                      step="any"
-                      placeholder="2.000"
+                      placeholder="200"
                       value={activeForm.height}
-                      onChange={(e) =>
-                        setForm((cur) => (cur ? { ...cur, height: e.target.value } : cur))
+                      onValueChange={(meters) =>
+                        setForm((cur) => (cur ? { ...cur, height: meters } : cur))
                       }
                       className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
                     />
                   </div>
                 </div>
+                {!editingId && (
+                  <button
+                    type="button"
+                    aria-label="segment-also-opposite"
+                    aria-pressed={activeForm.alsoOpposite}
+                    onClick={() => setForm((cur) => (cur ? { ...cur, alsoOpposite: !cur.alsoOpposite } : cur))}
+                    className={`w-full min-h-10 px-3 py-1 text-sm rounded-xl border font-semibold transition ${
+                      activeForm.alsoOpposite
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Ico>{activeForm.alsoOpposite ? '☑️' : '🔁'}</Ico>
+                    {activeForm.plane === 'FLOOR' ? t.area_segments.also_ceiling : t.area_segments.also_floor}
+                  </button>
+                )}
                 <input
                   aria-label="segment-label"
                   type="text"
@@ -496,16 +555,16 @@ export function AreaSegmentList({
                   <button
                     type="button"
                     onClick={closeForm}
-                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100"
+                    className="min-h-10 px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100"
                   >
-                    {t.common.cancel}
+                    <Ico>✖️</Ico>{t.common.cancel}
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-2.5 py-1.5 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                    className="min-h-10 px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
                   >
-                    {saving ? t.common.saving : t.common.save}
+                    <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
                   </button>
                 </div>
               </form>
@@ -554,17 +613,28 @@ export function AreaSegmentList({
                         type="button"
                         aria-label={`edit-segment-${segment.id}`}
                         onClick={() => startEdit(segment)}
-                        className="text-xs px-2 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                        className="min-h-9 text-xs px-2 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                       >
-                        {t.common.edit}
+                        <Ico>✏️</Ico>{t.common.edit}
                       </button>
+                      {!segment.is_archived && (
+                        <button
+                          type="button"
+                          aria-label={`copy-segment-${segment.id}`}
+                          onClick={() => void copyToOpposite(segment)}
+                          className="min-h-9 text-xs px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100 transition"
+                        >
+                          <Ico>📋</Ico>
+                          {segment.plane === 'FLOOR' ? t.area_segments.copy_to_ceiling : t.area_segments.copy_to_floor}
+                        </button>
+                      )}
                       <button
                         type="button"
                         aria-label={`${segment.is_archived ? 'restore' : 'archive'}-segment-${segment.id}`}
                         onClick={() => void changeArchiveState(segment)}
-                        className="text-xs px-2 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-medium hover:bg-slate-200 transition"
+                        className="min-h-9 text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-600 font-medium hover:bg-slate-200 transition"
                       >
-                        {segment.is_archived ? t.common.restore : t.common.archive}
+                        <Ico>{segment.is_archived ? '♻️' : '🗃️'}</Ico>{segment.is_archived ? t.common.restore : t.common.archive}
                       </button>
                     </div>
                   </li>

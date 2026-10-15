@@ -4,6 +4,7 @@ import { fetchProjects, restoreProject } from '../api/projects';
 import { useI18n } from '../hooks/useI18n';
 import { ClientType } from '../types/client';
 import { ProjectType } from '../types/project';
+import { Ico } from './Ico';
 
 type ArchiveTab = 'clients' | 'projects';
 
@@ -107,7 +108,7 @@ export function ArchiveScreen() {
             onClick={() => void load()}
             className="w-full min-h-11 px-4 text-sm font-semibold rounded-xl bg-blue-600 text-white"
           >
-            {text.retry}
+            <Ico>🔄</Ico>{text.retry}
           </button>
         </div>
       )}

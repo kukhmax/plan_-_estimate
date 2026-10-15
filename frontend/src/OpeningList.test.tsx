@@ -136,8 +136,8 @@ describe('OpeningList', () => {
     await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
 
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '200' } });
 
     const preview = screen.getByLabelText('opening-preview-area');
     expect(preview).toBeInTheDocument();
@@ -159,8 +159,8 @@ describe('OpeningList', () => {
 
     fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'DOOR' } });
     fireEvent.change(screen.getByLabelText('opening-name'), { target: { value: 'Drzwi pokojowe' } });
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.0' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '200' } });
     fireEvent.change(screen.getByLabelText('opening-quantity'), { target: { value: '1' } });
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
 
@@ -193,7 +193,7 @@ describe('OpeningList', () => {
     await waitFor(() => expect(screen.getByLabelText(`edit-opening-${openingDoor.id}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`edit-opening-${openingDoor.id}`));
 
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '1.0' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '100' } });
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
 
     await waitFor(() => {
@@ -219,16 +219,16 @@ describe('OpeningList', () => {
     await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
 
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '300' } });
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('przekracza powierzchnię brutto ściany');
 
     // Form inputs remain intact for user correction
-    expect(screen.getByLabelText('opening-width')).toHaveValue(5);
-    expect(screen.getByLabelText('opening-height')).toHaveValue(3);
+    expect(screen.getByLabelText('opening-width')).toHaveValue('500');
+    expect(screen.getByLabelText('opening-height')).toHaveValue('300');
   });
 
   it('localizes an over-deduction 422 in Polish on every repeated submission', async () => {
@@ -243,8 +243,8 @@ describe('OpeningList', () => {
 
     await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.072' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '207.2' } });
     fireEvent.change(screen.getByLabelText('opening-quantity'), { target: { value: '11' } });
 
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
@@ -257,8 +257,8 @@ describe('OpeningList', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Łączna powierzchnia otworów nie może przekraczać powierzchni ściany.',
     );
-    expect(screen.getByLabelText('opening-width')).toHaveValue(0.9);
-    expect(screen.getByLabelText('opening-height')).toHaveValue(2.072);
+    expect(screen.getByLabelText('opening-width')).toHaveValue('90');
+    expect(screen.getByLabelText('opening-height')).toHaveValue('207.2');
     expect(screen.getByLabelText('opening-quantity')).toHaveValue(11);
   });
 
@@ -275,8 +275,8 @@ describe('OpeningList', () => {
 
     await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.072' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '207.2' } });
     fireEvent.change(screen.getByLabelText('opening-quantity'), { target: { value: '11' } });
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
 
@@ -296,15 +296,15 @@ describe('OpeningList', () => {
 
     await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.07207' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '207.2' } });
     fireEvent.change(screen.getByLabelText('opening-quantity'), { target: { value: '11' } });
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Podaj maksymalnie 3 miejsca po przecinku.',
     );
-    expect(screen.getByLabelText('opening-height')).toHaveValue(2.07207);
+    expect(screen.getByLabelText('opening-height')).toHaveValue('207.2');
   });
 
   it('uses a localized generic 422 only when the API supplied no structured detail', async () => {
@@ -315,8 +315,8 @@ describe('OpeningList', () => {
 
     await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '200' } });
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Sprawdź wprowadzone wartości.');
@@ -330,8 +330,8 @@ describe('OpeningList', () => {
 
     await waitFor(() => expect(screen.getByLabelText(`add-opening-${surfaceId}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '200' } });
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -400,8 +400,8 @@ describe('OpeningList dimension defaults (Stage 5D.1A.1)', () => {
 
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
     fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'DOOR' } });
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.0' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '200' } });
     fireEvent.click(screen.getByLabelText('set-opening-default'));
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
 
@@ -409,8 +409,8 @@ describe('OpeningList dimension defaults (Stage 5D.1A.1)', () => {
 
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
     expect(screen.getByLabelText('opening-type')).toHaveValue('DOOR');
-    expect(screen.getByLabelText('opening-width')).toHaveValue(0.9);
-    expect(screen.getByLabelText('opening-height')).toHaveValue(2.0);
+    expect(screen.getByLabelText('opening-width')).toHaveValue('90');
+    expect(screen.getByLabelText('opening-height')).toHaveValue('200');
   });
 
   it('keeps Window defaults independent from Door defaults', async () => {
@@ -422,8 +422,8 @@ describe('OpeningList dimension defaults (Stage 5D.1A.1)', () => {
     // Save a Door default 0.9 x 2.0
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
     fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'DOOR' } });
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.0' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '200' } });
     fireEvent.click(screen.getByLabelText('set-opening-default'));
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
     await waitFor(() => expect(openingsApi.createOpening).toHaveBeenCalledTimes(1));
@@ -431,12 +431,12 @@ describe('OpeningList dimension defaults (Stage 5D.1A.1)', () => {
     // Opening a Window form must NOT inherit the Door dimensions
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
     fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'WINDOW' } });
-    expect(screen.getByLabelText('opening-width')).toHaveValue(null);
-    expect(screen.getByLabelText('opening-height')).toHaveValue(null);
+    expect(screen.getByLabelText('opening-width')).toHaveValue('');
+    expect(screen.getByLabelText('opening-height')).toHaveValue('');
 
     // Save a Window default 1.5 x 1.4
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '1.5' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '1.4' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '150' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '140' } });
     fireEvent.click(screen.getByLabelText('set-opening-default'));
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
     await waitFor(() => expect(openingsApi.createOpening).toHaveBeenCalledTimes(2));
@@ -444,13 +444,13 @@ describe('OpeningList dimension defaults (Stage 5D.1A.1)', () => {
     // Window form prefills its own default
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
     fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'WINDOW' } });
-    expect(screen.getByLabelText('opening-width')).toHaveValue(1.5);
-    expect(screen.getByLabelText('opening-height')).toHaveValue(1.4);
+    expect(screen.getByLabelText('opening-width')).toHaveValue('150');
+    expect(screen.getByLabelText('opening-height')).toHaveValue('140');
 
     // Door form still prefills the Door default
     fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'DOOR' } });
-    expect(screen.getByLabelText('opening-width')).toHaveValue(0.9);
-    expect(screen.getByLabelText('opening-height')).toHaveValue(2.0);
+    expect(screen.getByLabelText('opening-width')).toHaveValue('90');
+    expect(screen.getByLabelText('opening-height')).toHaveValue('200');
   });
 
   it('never modifies existing openings when defaults change', async () => {
@@ -461,8 +461,8 @@ describe('OpeningList dimension defaults (Stage 5D.1A.1)', () => {
     await waitFor(() => expect(screen.getByLabelText(`edit-opening-${openingDoor.id}`)).toBeInTheDocument());
 
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.8' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.05' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '80' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '205' } });
     fireEvent.click(screen.getByLabelText('set-opening-default'));
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
 
@@ -546,12 +546,12 @@ describe('OpeningList reveals (Stage 5F)', () => {
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
 
     fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'WINDOW' } });
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '1.5' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '1.4' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '150' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '140' } });
 
     // enable reveal
     fireEvent.click(screen.getByLabelText(`reveal-toggle-${surfaceId}`));
-    fireEvent.change(screen.getByLabelText('reveal-depth'), { target: { value: '0.15' } });
+    fireEvent.change(screen.getByLabelText('reveal-depth'), { target: { value: '15' } });
     // bottom stays unchecked (default)
 
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
@@ -580,8 +580,8 @@ describe('OpeningList reveals (Stage 5F)', () => {
     await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
 
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.0' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '200' } });
     // reveal toggle not clicked
     fireEvent.submit(screen.getByLabelText(`opening-form-${surfaceId}`));
 
@@ -781,10 +781,10 @@ describe('OpeningList — owner walkthrough layout and reveal sides', () => {
     await waitFor(() => expect(screen.getByLabelText(`no-openings-${surfaceId}`)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(`add-opening-${surfaceId}`));
     fireEvent.change(screen.getByLabelText('opening-type'), { target: { value: 'WINDOW' } });
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '1.5' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '1.4' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '150' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '140' } });
     fireEvent.click(screen.getByLabelText(`reveal-toggle-${surfaceId}`));
-    fireEvent.change(screen.getByLabelText('reveal-depth'), { target: { value: '0.15' } });
+    fireEvent.change(screen.getByLabelText('reveal-depth'), { target: { value: '15' } });
     fireEvent.click(screen.getByLabelText('reveal-left'));
     fireEvent.click(screen.getByLabelText('reveal-right'));
     fireEvent.click(screen.getByLabelText('reveal-top'));

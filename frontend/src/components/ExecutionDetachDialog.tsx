@@ -2,6 +2,7 @@ import { useI18n } from '../hooks/useI18n';
 import { ExecutionDetachAffected } from '../types/workPlan';
 import { priceItemLabel } from '../utils/executionFormat';
 import { ExecutionStatusBadge } from './ExecutionStatusBadge';
+import { Ico } from './Ico';
 
 interface ExecutionDetachDialogProps {
   /** The server's authoritative list from the 409 (never rebuilt locally). */
@@ -107,7 +108,7 @@ export function ExecutionDetachDialog({
             disabled={busy}
             className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] font-semibold text-sm disabled:opacity-60"
           >
-            {t.execution.detach_cancel}
+            <Ico>✖️</Ico>{t.execution.detach_cancel}
           </button>
         </div>
       </div>

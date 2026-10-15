@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as checklistsApi from './api/checklists';
 import * as clientsApi from './api/clients';
 import * as documentsApi from './api/documents';
@@ -10,6 +10,7 @@ import * as projectsApi from './api/projects';
 import * as roomsApi from './api/rooms';
 import * as surfacesApi from './api/surfaces';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
+import { installAutoOpenWalls } from './test/autoOpenWalls';
 import { I18nProvider } from './hooks/useI18n';
 import { ChecklistTemplate } from './types/checklist';
 import { ClientType } from './types/client';
@@ -18,6 +19,14 @@ import { OpeningType } from './types/opening';
 import { ProjectType } from './types/project';
 import { ProjectSummary, RoomType } from './types/room';
 import { SurfaceType } from './types/surface';
+
+let stopAutoOpenWalls: (() => void) | undefined;
+beforeEach(() => {
+  stopAutoOpenWalls = installAutoOpenWalls();
+});
+afterEach(() => {
+  stopAutoOpenWalls?.();
+});
 
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
 vi.mock('./api/contracts', () => ({
@@ -621,8 +630,8 @@ describe('ProjectWorkspace', () => {
 
     // 4. Click add opening and submit form
     fireEvent.click(screen.getByLabelText(`add-opening-${wallSurface.id}`));
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '0.9' } });
-    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '2.0' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('opening-height'), { target: { value: '200' } });
     fireEvent.submit(screen.getByLabelText(`opening-form-${wallSurface.id}`));
 
     // 5. Verify Opening list refreshed
@@ -787,7 +796,7 @@ describe('ProjectWorkspace', () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [updatedSurface], total: 1 });
     vi.mocked(roomsApi.fetchRoom).mockResolvedValue(updatedRoom);
 
-    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '1.0' } });
+    fireEvent.change(screen.getByLabelText('opening-width'), { target: { value: '100' } });
     fireEvent.submit(screen.getByLabelText(`opening-form-${wallSurface.id}`));
 
     // Verify Opening updated
@@ -839,7 +848,7 @@ describe('ProjectWorkspace', () => {
     vi.mocked(roomsApi.updateRoom).mockResolvedValue(expandedRoom);
     vi.mocked(roomsApi.fetchRoom).mockResolvedValue(expandedRoom);
 
-    fireEvent.change(screen.getByLabelText('room-edit-length'), { target: { value: '6' } });
+    fireEvent.change(screen.getByLabelText('room-edit-length'), { target: { value: '600' } });
     fireEvent.submit(screen.getByLabelText('room-edit-form'));
 
     await waitFor(() => expect(screen.queryByLabelText('room-edit-form')).not.toBeInTheDocument());
@@ -1151,9 +1160,9 @@ describe('ProjectWorkspace', () => {
     await waitFor(() => expect(screen.getByLabelText('add-room')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('add-room'));
     fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Nowa łazienka' } });
-    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '4.9' } });
-    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '5.0' } });
-    fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '2.7' } });
+    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '490' } });
+    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '270' } });
     fireEvent.submit(screen.getByLabelText('room-form'));
 
     // New room appears in the list; open it.
@@ -1232,9 +1241,9 @@ describe('ProjectWorkspace', () => {
     // Real user sequence: fill the RECTANGLE form with positive L/W/H and submit.
     fireEvent.click(screen.getByLabelText('add-room'));
     fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Pokoj' } });
-    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '4.9' } });
-    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '5.0' } });
-    fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '2.7' } });
+    fireEvent.change(screen.getByLabelText('room-length'), { target: { value: '490' } });
+    fireEvent.change(screen.getByLabelText('room-width'), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '270' } });
     fireEvent.submit(screen.getByLabelText('room-form'));
 
     // The created response keeps all three dimensions.

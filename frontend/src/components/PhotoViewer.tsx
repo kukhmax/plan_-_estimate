@@ -27,6 +27,7 @@ import { PhotoFullscreen } from './PhotoFullscreen';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, ExpandIcon, PinIcon } from './PhotoIcons';
 import { PointMarkerLayer } from './PointMarkerLayer';
 import { PointMarkerPopup } from './PointMarkerPopup';
+import { Ico } from './Ico';
 
 // Full-screen sheet (contract §7). Loads the detail for the DISPLAY image (lists carry thumbnails only), edits the
 // metadata of THIS attachment (caption / category / report flag), archives or restores it in this context.
@@ -491,7 +492,7 @@ export function PhotoViewer({
                   setReloadTick((tick) => tick + 1);
                 }}
               >
-                {t.photos.viewer.retry}
+                <Ico>🔄</Ico>{t.photos.viewer.retry}
               </button>
             </div>
           )}
@@ -625,7 +626,7 @@ export function PhotoViewer({
           {dirty && (
             <div className="flex flex-wrap gap-2">
               <button type="button" className={primaryButton} disabled={disabled} onClick={() => void saveCaption()}>
-                {t.photos.viewer.save}
+                <Ico>💾</Ico>{t.photos.viewer.save}
               </button>
               <button
                 type="button"
@@ -633,7 +634,7 @@ export function PhotoViewer({
                 disabled={disabled}
                 onClick={() => setCaption(attachment.caption ?? '')}
               >
-                {t.photos.viewer.cancel}
+                <Ico>✖️</Ico>{t.photos.viewer.cancel}
               </button>
             </div>
           )}
@@ -690,23 +691,23 @@ export function PhotoViewer({
 
           {archivedView ? (
             <button type="button" className={`${primaryButton} w-full`} disabled={disabled} onClick={() => void changeArchiveState('restored')}>
-              {t.photos.viewer.restore}
+              <Ico>♻️</Ico>{t.photos.viewer.restore}
             </button>
           ) : confirmArchive ? (
             <div role="alertdialog" aria-label={t.photos.viewer.archive_confirm} className="space-y-2 rounded-xl border border-[var(--tg-control-border-color)] p-3">
               <p className="break-words text-sm">{t.photos.viewer.archive_confirm}</p>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={primaryButton} disabled={disabled} onClick={() => void changeArchiveState('archived')}>
-                  {t.photos.viewer.archive}
+                  <Ico>🗃️</Ico>{t.photos.viewer.archive}
                 </button>
                 <button type="button" className={secondaryButton} disabled={disabled} onClick={() => setConfirmArchive(false)}>
-                  {t.photos.viewer.cancel}
+                  <Ico>✖️</Ico>{t.photos.viewer.cancel}
                 </button>
               </div>
             </div>
           ) : (
             <button type="button" className={`${secondaryButton} w-full`} disabled={disabled} onClick={() => setConfirmArchive(true)}>
-              {t.photos.viewer.archive}
+              <Ico>🗃️</Ico>{t.photos.viewer.archive}
             </button>
           )}
         </div>

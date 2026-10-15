@@ -11,6 +11,7 @@ import type { ProjectRepresentative } from '../types/representative';
 import { documentErrorText } from '../utils/documentErrors';
 import { formatPrice } from '../utils/priceFormat';
 import { CommitText, FIELD } from './CommitText';
+import { Ico } from './Ico';
 
 interface ProjectDowntimeProps {
   projectId: string;
@@ -284,7 +285,7 @@ export function ProjectDowntime({ projectId }: ProjectDowntimeProps) {
       <button type="button" aria-label={`issue-downtime-${issueKey}`} disabled={busy || blockers.length > 0} onClick={() => void issue(issueKey)} className={`w-full ${BUTTON} text-white bg-sky-700 border-sky-700 hover:bg-sky-800`}>
         {issueKey === 'notice' ? text.issue_notice : text.issue_protocol}
       </button>
-      <button type="button" aria-label="close-downtime-form" disabled={busy} onClick={() => { setOpen(false); setConfirmFinish(false); }} className={`w-full ${BUTTON} text-slate-800 bg-white border-slate-300 hover:bg-slate-100`}>{text.close}</button>
+      <button type="button" aria-label="close-downtime-form" disabled={busy} onClick={() => { setOpen(false); setConfirmFinish(false); }} className={`w-full ${BUTTON} text-slate-800 bg-white border-slate-300 hover:bg-slate-100`}><Ico>✖️</Ico>{text.close}</button>
       <button type="button" aria-label="abandon-downtime" disabled={busy} onClick={() => void abandon()} className={`w-full ${BUTTON} text-red-800 bg-white border-red-300 hover:bg-red-50`}>
         {confirmFinish ? (issueKey === 'notice' ? text.abandon_confirm : text.finish_confirm) : issueKey === 'notice' ? text.abandon : text.finish_without}
       </button>
@@ -300,7 +301,7 @@ export function ProjectDowntime({ projectId }: ProjectDowntimeProps) {
       {loadFailed && (
         <div className="space-y-2">
           <p role="alert" className="text-sm text-red-700 break-words">{text.load_failed}</p>
-          <button type="button" onClick={() => void load()} className={`w-full ${BUTTON} text-slate-800 bg-slate-100 border-slate-200`}>{text.retry}</button>
+          <button type="button" onClick={() => void load()} className={`w-full ${BUTTON} text-slate-800 bg-slate-100 border-slate-200`}><Ico>🔄</Ico>{text.retry}</button>
         </div>
       )}
 
@@ -310,8 +311,8 @@ export function ProjectDowntime({ projectId }: ProjectDowntimeProps) {
           <button type="button" aria-label="start-downtime" disabled={busy} onClick={() => void start()} className={`w-full ${BUTTON} text-white bg-blue-600 border-blue-600 hover:bg-blue-700`}>
             {busy ? text.loading : episode ? text.continue : text.start}
           </button>
-          <button type="button" aria-label="preview-downtime-notice" disabled={busy} onClick={() => void preview('notice')} className={`w-full ${BUTTON} ${SECONDARY}`}>{text.preview_notice}</button>
-          <button type="button" aria-label="preview-downtime-protocol" disabled={busy} onClick={() => void preview('protocol')} className={`w-full ${BUTTON} ${SECONDARY}`}>{text.preview_protocol}</button>
+          <button type="button" aria-label="preview-downtime-notice" disabled={busy} onClick={() => void preview('notice')} className={`w-full ${BUTTON} ${SECONDARY}`}><Ico>👁️</Ico>{text.preview_notice}</button>
+          <button type="button" aria-label="preview-downtime-protocol" disabled={busy} onClick={() => void preview('protocol')} className={`w-full ${BUTTON} ${SECONDARY}`}><Ico>👁️</Ico>{text.preview_protocol}</button>
         </>
       )}
 
@@ -403,15 +404,15 @@ export function ProjectDowntime({ projectId }: ProjectDowntimeProps) {
                   <span className="block text-sm font-medium text-slate-900">{text.day_note}</span>
                   <CommitText label={`downtime-day-note-${day.date}`} value={day.note ?? ''} onCommit={(v) => save({ days: { [day.date]: { note: v.trim() === '' ? null : v } } })} />
                 </label>
-                <button type="button" aria-label={`downtime-day-remove-${day.date}`} onClick={() => save({ days: { [day.date]: null } })} className={`w-full ${BUTTON} text-red-800 bg-white border-red-300 hover:bg-red-50`}>{text.day_remove}</button>
+                <button type="button" aria-label={`downtime-day-remove-${day.date}`} onClick={() => save({ days: { [day.date]: null } })} className={`w-full ${BUTTON} text-red-800 bg-white border-red-300 hover:bg-red-50`}><Ico>🗑️</Ico>{text.day_remove}</button>
               </div>
             ))}
-            <button type="button" aria-label="downtime-add-next-day" disabled={!episode.noticed_on} onClick={addNextDay} className={`w-full ${BUTTON} text-white bg-blue-600 border-blue-600 hover:bg-blue-700`}>{text.add_next}</button>
+            <button type="button" aria-label="downtime-add-next-day" disabled={!episode.noticed_on} onClick={addNextDay} className={`w-full ${BUTTON} text-white bg-blue-600 border-blue-600 hover:bg-blue-700`}><Ico>➕</Ico>{text.add_next}</button>
             <label className="block space-y-1">
               <span className="block text-xs text-slate-700 break-words">{text.add_date}</span>
               <input type="date" aria-label="downtime-pick-day" value={pickedDay} onChange={(e) => setPickedDay(e.target.value)} className={FIELD} />
             </label>
-            <button type="button" aria-label="downtime-add-picked-day" disabled={!pickedDay} onClick={() => { addDay(pickedDay); setPickedDay(''); }} className={`w-full ${BUTTON} ${SECONDARY}`}>{text.add_date_button}</button>
+            <button type="button" aria-label="downtime-add-picked-day" disabled={!pickedDay} onClick={() => { addDay(pickedDay); setPickedDay(''); }} className={`w-full ${BUTTON} ${SECONDARY}`}><Ico>➕</Ico>{text.add_date_button}</button>
           </section>
 
           {episode.days.length > 0 && (
@@ -454,14 +455,14 @@ export function ProjectDowntime({ projectId }: ProjectDowntimeProps) {
             {strangers.map((a, index) => (
               <div key={`${a.name}-${index}`} className="flex items-center justify-between gap-3 min-h-11 text-sm text-slate-900">
                 <span className="min-w-0 break-words">{a.name}{a.role ? ` · ${a.role}` : ''}</span>
-                <button type="button" aria-label={`downtime-extra-remove-${index}`} onClick={() => removeExtra(index)} className={`shrink-0 ${BUTTON} text-red-800 bg-white border-red-300`}>{text.extra_remove}</button>
+                <button type="button" aria-label={`downtime-extra-remove-${index}`} onClick={() => removeExtra(index)} className={`shrink-0 ${BUTTON} text-red-800 bg-white border-red-300`}><Ico>🗑️</Ico>{text.extra_remove}</button>
               </div>
             ))}
             <label className="block space-y-1 pt-1">
               <span className="block text-xs text-slate-700 break-words">{text.extra_label}</span>
               <input aria-label="downtime-extra" value={extra} onChange={(e) => setExtra(e.target.value)} className={FIELD} />
             </label>
-            <button type="button" aria-label="downtime-extra-add" disabled={!extra.trim()} onClick={addExtra} className={`w-full ${BUTTON} ${SECONDARY}`}>{text.extra_add}</button>
+            <button type="button" aria-label="downtime-extra-add" disabled={!extra.trim()} onClick={addExtra} className={`w-full ${BUTTON} ${SECONDARY}`}><Ico>➕</Ico>{text.extra_add}</button>
           </fieldset>
 
           <label className="block space-y-1">

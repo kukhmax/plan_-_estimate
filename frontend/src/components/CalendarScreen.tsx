@@ -12,6 +12,7 @@ import { priceItemLabel } from '../utils/executionFormat';
 import { CalendarSettingsForm } from './CalendarSettingsForm';
 import { ExecutionStatusBadge } from './ExecutionStatusBadge';
 import { ReminderSheet } from './ReminderSheet';
+import { Ico } from './Ico';
 
 const btn = 'w-full min-h-11 px-4 text-sm font-semibold rounded-xl transition disabled:opacity-60 break-words';
 const primary = `${btn} bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)]`;
@@ -127,11 +128,11 @@ export function CalendarScreen({ backSuspended = false, onOpenProject }: Calenda
         <div className="grid grid-cols-1 gap-2">
           {work.status === 'NOT_STARTED' && (
             <button type="button" aria-label={`calendar-start-${work.occurrence_key}`} disabled={busyKey === work.occurrence_key} onClick={() => void mark(work, 'IN_PROGRESS')} className={secondary}>
-              {c.mark_started}
+              <Ico>▶️</Ico>{c.mark_started}
             </button>
           )}
           <button type="button" aria-label={`calendar-done-${work.occurrence_key}`} disabled={busyKey === work.occurrence_key} onClick={() => void mark(work, 'COMPLETED')} className={primary}>
-            <span aria-hidden="true">✓ </span>{c.mark_done}
+            <span aria-hidden="true">✓ </span><Ico>✅</Ico>{c.mark_done}
           </button>
         </div>
       )}
@@ -160,7 +161,7 @@ export function CalendarScreen({ backSuspended = false, onOpenProject }: Calenda
           )}
           {item.source === 'REMINDER' && (
             <button type="button" aria-label={`calendar-remove-${item.key}`} disabled={busyKey === item.key} onClick={() => void removeReminder(item)} className="min-h-11 px-3 text-sm font-semibold rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-destructive-text-color)]">
-              {t.calendar.remind.remove}
+              <Ico>🗑️</Ico>{t.calendar.remind.remove}
             </button>
           )}
         </div>
@@ -174,7 +175,7 @@ export function CalendarScreen({ backSuspended = false, onOpenProject }: Calenda
         <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{c.settings_page.title}</h2>
         <CalendarSettingsForm onSaved={(saved) => setTimeZone(saved.timezone)} />
         <button type="button" aria-label="calendar-settings-back" onClick={() => { setView('agenda'); void load(); }} className={secondary}>
-          {c.settings_page.back}
+          <Ico>⬅️</Ico>{c.settings_page.back}
         </button>
       </section>
     );
@@ -191,7 +192,7 @@ export function CalendarScreen({ backSuspended = false, onOpenProject }: Calenda
       <div className="flex items-center justify-between gap-2">
         <h2 className="min-w-0 text-lg font-bold text-[var(--tg-theme-text-color)] break-words">{c.title}</h2>
         <button type="button" aria-label="calendar-open-settings" onClick={() => setView('settings')} className="shrink-0 min-h-11 px-3 text-sm font-semibold rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)]">
-          {c.settings}
+          <Ico>⚙️</Ico>{c.settings}
         </button>
       </div>
 
@@ -200,13 +201,13 @@ export function CalendarScreen({ backSuspended = false, onOpenProject }: Calenda
         {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
       </select>
 
-      <button type="button" aria-label="calendar-add-reminder" onClick={() => setRemindOpen(true)} className={primary}>{c.add_reminder}</button>
+      <button type="button" aria-label="calendar-add-reminder" onClick={() => setRemindOpen(true)} className={primary}><Ico>➕</Ico>{c.add_reminder}</button>
 
       {notice && <p role="alert" className="text-sm font-semibold text-[var(--tg-theme-destructive-text-color)] break-words">{notice}</p>}
       {failed && (
         <div role="alert" className="space-y-2">
           <p className="text-sm text-[var(--tg-theme-destructive-text-color)] break-words">{c.load_error}</p>
-          <button type="button" aria-label="calendar-retry" onClick={() => void load()} className={secondary}>{c.retry}</button>
+          <button type="button" aria-label="calendar-retry" onClick={() => void load()} className={secondary}><Ico>🔄</Ico>{c.retry}</button>
         </div>
       )}
       {!agenda && !failed && <p className="text-sm text-[var(--tg-theme-hint-color)]">{c.loading}</p>}

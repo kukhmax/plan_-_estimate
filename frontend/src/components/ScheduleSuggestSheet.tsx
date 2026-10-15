@@ -3,6 +3,7 @@ import { applyPlannedDates, suggestDates } from '../api/calendar';
 import { useI18n } from '../hooks/useI18n';
 import type { PlannedDate, Schedule } from '../types/calendar';
 import { formatDay, todayIso } from '../utils/calendarFormat';
+import { Ico } from './Ico';
 
 interface ScheduleSuggestSheetProps {
   projectId: string;
@@ -75,7 +76,7 @@ export function ScheduleSuggestSheet({ projectId, roomId, workNames, onClose, on
         </label>
         {!proposal && (
           <button type="button" aria-label="suggest-show" disabled={busy || !start} onClick={() => void show()} className={`${btn} bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)]`}>
-            {s.suggest_show}
+            <Ico>👁️</Ico>{s.suggest_show}
           </button>
         )}
         {proposal && proposal.length === 0 && <p className="text-sm text-[var(--tg-theme-hint-color)]">{s.suggest_none}</p>}
@@ -91,13 +92,13 @@ export function ScheduleSuggestSheet({ projectId, roomId, workNames, onClose, on
               ))}
             </ul>
             <button type="button" aria-label="suggest-apply" disabled={busy} onClick={() => void apply()} className={`${btn} bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)]`}>
-              {s.suggest_apply}
+              <Ico>✅</Ico>{s.suggest_apply}
             </button>
           </div>
         )}
         {error && <p role="alert" className="text-sm font-semibold text-[var(--tg-theme-destructive-text-color)] break-words">{error}</p>}
         <button type="button" aria-label="suggest-close" onClick={onClose} className={`${btn} border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)]`}>
-          {s.suggest_close}
+          <Ico>✖️</Ico>{s.suggest_close}
         </button>
       </div>
     </div>

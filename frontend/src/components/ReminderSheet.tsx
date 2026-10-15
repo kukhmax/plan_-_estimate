@@ -4,6 +4,7 @@ import { useI18n } from '../hooks/useI18n';
 import { ApiError } from '../api/http';
 import type { Reminder, ReminderPreset } from '../types/calendar';
 import { todayIso } from '../utils/calendarFormat';
+import { Ico } from './Ico';
 
 export interface ReminderContext {
   projectId?: string | null;
@@ -124,7 +125,7 @@ export function ReminderSheet({ context, existing = [], formatWhen, onClose, onC
                   onClick={() => void remove(reminder)}
                   className="shrink-0 min-h-11 px-3 text-sm font-semibold rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-destructive-text-color)]"
                 >
-                  {r.remove}
+                  <Ico>🗑️</Ico>{r.remove}
                 </button>
               </div>
             ))}
@@ -179,7 +180,7 @@ export function ReminderSheet({ context, existing = [], formatWhen, onClose, onC
           {busy ? r.saving : r.save}
         </button>
         <button type="button" aria-label="reminder-cancel" onClick={onClose} className={`${btn} border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)]`}>
-          {r.cancel}
+          <Ico>✖️</Ico>{r.cancel}
         </button>
       </div>
     </div>
