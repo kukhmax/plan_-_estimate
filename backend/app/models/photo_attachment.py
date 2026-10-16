@@ -165,6 +165,9 @@ class PhotoAttachment(Base):
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Archive cleanup AC-1: the trash. A trashed attachment is an archived one the owner put in the trash ("Kosz"); nothing is
+    # deleted (the files stay in the storage and in the backups); AC-2 adds the final deletion. Trash is a state of the archive.
+    trashed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
@@ -177,9 +180,11 @@ class PhotoAttachment(Base):
 
     __table_args__ = (
         CheckConstraint(CONTEXT_TARGETS_CHECK, name="ck_photo_attachments_context_targets"),
+        CheckConstraint("trashed_at IS NULL OR archived_at IS NOT NULL", name="ck_photo_attachments_trashed_is_archived"),
         CheckConstraint("position >= 0", name="ck_photo_attachments_position_nonneg"),
         *(_active_unique_index(name, cols, pred) for name, cols, pred in ACTIVE_UNIQUE_INDEXES),
         Index("ix_photo_attachments_project_context_archived", "project_id", "context", "archived_at"),
+        Index("ix_photo_attachments_project_trashed", "project_id", "trashed_at"),
         Index("ix_photo_attachments_asset_id", "asset_id"),
         Index("ix_photo_attachments_room_id", "room_id"),
         Index("ix_photo_attachments_surface_id", "surface_id"),

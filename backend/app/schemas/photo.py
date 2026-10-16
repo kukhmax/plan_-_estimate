@@ -71,6 +71,7 @@ class PhotoAttachmentRead(BaseModel):
     include_in_report: bool
     position: int
     archived_at: datetime | None
+    trashed_at: datetime | None  # archive cleanup AC-1: archived and put in the trash
     created_at: datetime
     updated_at: datetime
 

@@ -23,7 +23,7 @@ import { MAX_FILES_PER_SELECTION, QueueItem } from '../utils/photoUploadQueue';
 import { PhotoPicker } from './PhotoPicker';
 import { PhotoThumbGrid } from './PhotoThumbGrid';
 import { PhotoUploadQueueList } from './PhotoUploadQueueList';
-import { PhotoViewer } from './PhotoViewer';
+import { PhotoViewer, type PhotoAttachmentChange } from './PhotoViewer';
 import { Ico } from './Ico';
 
 // The reusable photo section (contract §3, §7): expanded INLINE inside its card by the host (the host owns the
@@ -112,7 +112,9 @@ export function PhotoSection({
   const queue = usePhotoUploadQueue(projectId);
   const { offline } = useConnection();
 
-  const [archived, setArchived] = useState(false);
+  // Archive cleanup AC-1: the archive has two views, the archive itself and the trash (nothing in the trash is deleted)
+  const [view, setView] = useState<'active' | 'archive' | 'trash'>('active');
+  const archived = view !== 'active';
   const [categoryFilter, setCategoryFilter] = useState<PhotoCategory | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [items, setItems] = useState<PhotoListItem[]>([]);
@@ -147,12 +149,13 @@ export function PhotoSection({
                     surfaceId: context === 'SURFACE' ? targetId : undefined,
                     openingId: context === 'OPENING' ? targetId : undefined,
                   }),
-      archived,
+      archived: view === 'archive',
+      trashed: view === 'trash' ? true : undefined,
       category: categoryFilter ?? undefined,
       limit: PHOTO_PAGE_SIZE,
       cursor,
     }),
-    [context, targetId, questionId, lineageId, occurrenceKey, archived, categoryFilter],
+    [context, targetId, questionId, lineageId, occurrenceKey, view, categoryFilter],
   );
 
   // Execution evidence of works that left the plan: the plan's current keys are left out. A page that is empty after
@@ -328,7 +331,7 @@ export function PhotoSection({
     );
   };
 
-  const handleAttachmentRemoved = (attachment: PhotoAttachmentRead, action: 'archived' | 'restored') => {
+  const handleAttachmentRemoved = (attachment: PhotoAttachmentRead, action: PhotoAttachmentChange) => {
     const remaining = items.filter((entry) => entry.attachment.id !== attachment.id);
     setItems(remaining);
     const {
@@ -337,7 +340,8 @@ export function PhotoSection({
       questionId: attachmentQuestionId,
       occurrenceKey: attachmentOccurrenceKey,
     } = attachmentTarget(attachment);
-    onCountAdjust?.(
+    // archived photos are not in the badge counts: moving between the archive and the trash changes none
+    if (action === 'archived' || action === 'restored') onCountAdjust?.(
       attachmentContext,
       attachmentTargetId,
       action === 'archived' ? -1 : 1,
@@ -407,7 +411,22 @@ export function PhotoSection({
       ) : (
         <div className="space-y-3">
           {archived && (
-            <h4 className="text-sm font-semibold text-[var(--tg-theme-text-color)]">{t.photos.section.archive_view_title}</h4>
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-[var(--tg-theme-text-color)]">
+                {view === 'trash' ? t.photos.section.trash_view_title : t.photos.section.archive_view_title}
+              </h4>
+              <div role="group" aria-label={t.photos.section.archive_view_title} className="flex flex-wrap gap-2">
+                <button type="button" aria-pressed={view === 'archive'} className={chip(view === 'archive')} onClick={() => setView('archive')}>
+                  {t.photos.section.view_archive}
+                </button>
+                <button type="button" aria-pressed={view === 'trash'} className={chip(view === 'trash')} onClick={() => setView('trash')}>
+                  {t.photos.section.view_trash}
+                </button>
+              </div>
+              {view === 'trash' && (
+                <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">{t.photos.section.trash_hint}</p>
+              )}
+            </div>
           )}
           {status === 'loading' && (
             <p role="status" className="text-sm text-[var(--tg-theme-hint-color)]">
@@ -436,8 +455,10 @@ export function PhotoSection({
           )}
           {status === 'ready' && items.length === 0 && (
             <p className="text-sm text-[var(--tg-theme-hint-color)]">
-              {archived
-                ? t.photos.section.empty_archive
+              {view === 'trash'
+                ? t.photos.section.empty_trash
+                : archived
+                  ? t.photos.section.empty_archive
                 : aggregated
                   ? t.photos.section.empty_aggregated
                   : t.photos.section.empty}
@@ -479,7 +500,7 @@ export function PhotoSection({
               <button
                 type="button"
                 aria-pressed={archived}
-                onClick={() => setArchived((value) => !value)}
+                onClick={() => setView((value) => (value === 'active' ? 'archive' : 'active'))}
                 className="min-h-11 w-full rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] px-3 py-2 text-sm font-semibold text-[var(--tg-theme-text-color)]"
               >
                 {archived ? t.photos.section.hide_archive : t.photos.section.show_archive}
@@ -517,6 +538,7 @@ export function PhotoSection({
             items={items}
             index={viewerIndex}
             archivedView={archived}
+            trashView={view === 'trash'}
             captionFor={captionFor}
             onIndexChange={setViewerIndex}
             onClose={() => setViewerIndex(null)}

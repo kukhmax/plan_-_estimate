@@ -39,6 +39,7 @@ function listQuery(params: PhotoListParams): string {
   if (params.category) query.set('category', params.category);
   if (params.includeInReport !== undefined) query.set('include_in_report', String(params.includeInReport));
   if (params.archived !== undefined) query.set('archived', String(params.archived));
+  if (params.trashed) query.set('trashed', 'true');
   if (params.limit !== undefined) query.set('limit', String(params.limit));
   if (params.cursor) query.set('cursor', params.cursor);
   const text = query.toString();
@@ -79,6 +80,14 @@ export function archivePhotoAttachment(projectId: string, attachmentId: string):
 
 export function restorePhotoAttachment(projectId: string, attachmentId: string): Promise<PhotoAttachmentRead> {
   return apiRequest(`${attachmentPath(projectId, attachmentId)}/restore`, { method: 'POST' });
+}
+
+export function trashPhotoAttachment(projectId: string, attachmentId: string): Promise<PhotoAttachmentRead> {
+  return apiRequest(`${attachmentPath(projectId, attachmentId)}/trash`, { method: 'POST' });
+}
+
+export function untrashPhotoAttachment(projectId: string, attachmentId: string): Promise<PhotoAttachmentRead> {
+  return apiRequest(`${attachmentPath(projectId, attachmentId)}/untrash`, { method: 'POST' });
 }
 
 export function archivePhoto(projectId: string, assetId: string): Promise<PhotoAssetRead> {

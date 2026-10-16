@@ -49,6 +49,7 @@ from app.domain.exceptions import (
     OpeningNotFoundError,
     PhotoAssetNotFoundError,
     PhotoAttachmentDuplicateError,
+    PhotoAttachmentNotArchivedError,
     PhotoAttachmentNotFoundError,
     PhotoAttachmentValidationError,
     PhotoContextNotSupportedError,
@@ -424,9 +425,36 @@ class PhotoAttachmentService:
             return attachment
         if await self._active_duplicate_exists(attachment):
             raise PhotoAttachmentDuplicateError("an equivalent active attachment already exists")
+        # also from the trash: back to the active photos in one step (the trash is a state of the archive)
         attachment.archived_at = None
+        attachment.trashed_at = None
         await self._commit_or_duplicate(attachment)
         await self.db.refresh(attachment)
+        return attachment
+
+    async def trash_attachment(
+        self, owner_id: uuid.UUID, project_id: uuid.UUID, attachment_id: uuid.UUID
+    ) -> PhotoAttachment:
+        """Put an ARCHIVED attachment in the trash (archive cleanup AC-1). Idempotent; nothing is deleted, the asset and its
+        objects are untouched. An active attachment cannot be trashed: archive it first."""
+        attachment = await self.get_attachment(owner_id, project_id, attachment_id)
+        if attachment.archived_at is None:
+            raise PhotoAttachmentNotArchivedError("only an archived attachment can be put in the trash")
+        if attachment.trashed_at is None:
+            attachment.trashed_at = datetime.now(timezone.utc)
+            await self.db.commit()
+            await self.db.refresh(attachment)
+        return attachment
+
+    async def untrash_attachment(
+        self, owner_id: uuid.UUID, project_id: uuid.UUID, attachment_id: uuid.UUID
+    ) -> PhotoAttachment:
+        """Take an attachment out of the trash; it stays in the archive. Idempotent."""
+        attachment = await self.get_attachment(owner_id, project_id, attachment_id)
+        if attachment.trashed_at is not None:
+            attachment.trashed_at = None
+            await self.db.commit()
+            await self.db.refresh(attachment)
         return attachment
 
     # -- helpers ----------------------------------------------------------------

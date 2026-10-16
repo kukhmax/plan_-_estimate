@@ -58,6 +58,7 @@ from app.domain.exceptions import (
     PhotoAnnotationValidationError,
     PhotoAssetNotFoundError,
     PhotoAttachmentDuplicateError,
+    PhotoAttachmentNotArchivedError,
     PhotoAttachmentNotFoundError,
     PhotoAttachmentValidationError,
     PhotoContextNotSupportedError,
@@ -168,6 +169,7 @@ _MESSAGES = {
     "PHOTO_NOT_FOUND": "Photo not found",
     "PHOTO_ATTACHMENT_NOT_FOUND": "Photo attachment not found",
     "PHOTO_ATTACHMENT_DUPLICATE": "An equivalent active attachment already exists",
+    "PHOTO_ATTACHMENT_NOT_ARCHIVED": "Only an archived photo can be put in the trash",
     "PHOTO_ATTACHMENT_INVALID": "Invalid photo attachment data",
     "PHOTO_CURSOR_INVALID": "Invalid list cursor",
     "PHOTO_ANNOTATION_NOT_FOUND": "Photo marker not found",
@@ -475,6 +477,7 @@ _LIBRARY_ERRORS = (
     PhotoAssetNotFoundError,
     PhotoAttachmentNotFoundError,
     PhotoAttachmentDuplicateError,
+    PhotoAttachmentNotArchivedError,
     PhotoCursorInvalidError,
     PhotoAnnotationNotFoundError,
     PhotoAnnotationValidationError,
@@ -491,6 +494,8 @@ def _map_library_error(exc: Exception) -> HTTPException:
         return _error(status.HTTP_404_NOT_FOUND, "PHOTO_ATTACHMENT_NOT_FOUND")
     if isinstance(exc, PhotoAttachmentDuplicateError):
         return _error(status.HTTP_409_CONFLICT, "PHOTO_ATTACHMENT_DUPLICATE")
+    if isinstance(exc, PhotoAttachmentNotArchivedError):
+        return _error(status.HTTP_409_CONFLICT, "PHOTO_ATTACHMENT_NOT_ARCHIVED")
     if isinstance(exc, PhotoAttachmentValidationError):
         return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, "PHOTO_ATTACHMENT_INVALID")
     if isinstance(exc, PhotoCursorInvalidError):
@@ -553,7 +558,8 @@ async def list_photos(
     ),
     category: PhotoCategory | None = Query(default=None),
     include_in_report: bool | None = Query(default=None),
-    archived: bool = Query(default=False, description="false: normal view; true: archive view (restorable items)"),
+    archived: bool = Query(default=False, description="false: normal view; true: archive view (restorable items, the trash left out)"),
+    trashed: bool = Query(default=False, description="true: the trash view (archive cleanup AC-1); exclusive with archived"),
     limit: int = Query(default=DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     cursor: str | None = Query(default=None),
     current_user: User = Depends(get_current_user),
@@ -563,7 +569,7 @@ async def list_photos(
     filters = PhotoListFilters(
         context=context, room_id=room_id, surface_id=surface_id, opening_id=opening_id,
         inspection_id=inspection_id, question_id=question_id, finding_id=finding_id, occurrence_key=occurrence_key,
-        category=category, include_in_report=include_in_report, archived=archived, in_room_id=in_room_id,
+        category=category, include_in_report=include_in_report, archived=archived, trashed=trashed, in_room_id=in_room_id,
         lineage_id=lineage, site_only=site_only,
     )
     try:
@@ -701,15 +707,18 @@ async def update_photo_attachment(
 
 
 async def _attachment_state(
-    project_id: uuid.UUID, attachment_id: uuid.UUID, owner_id: uuid.UUID, db: AsyncSession, *, archive: bool
+    project_id: uuid.UUID, attachment_id: uuid.UUID, owner_id: uuid.UUID, db: AsyncSession, *, action: str
 ) -> PhotoAttachmentRead:
     service = PhotoAttachmentService(db)
+    steps = {
+        "archive": service.archive_attachment,
+        "restore": service.restore_attachment,
+        "trash": service.trash_attachment,
+        "untrash": service.untrash_attachment,
+    }
     try:
         await ProjectService(db).get_project(project_id, owner_id)
-        if archive:
-            attachment = await service.archive_attachment(owner_id, project_id, attachment_id)
-        else:
-            attachment = await service.restore_attachment(owner_id, project_id, attachment_id)
+        attachment = await steps[action](owner_id, project_id, attachment_id)
     except _LIBRARY_ERRORS as exc:
         raise _map_library_error(exc) from None
     return PhotoAttachmentRead.model_validate(attachment)
@@ -726,7 +735,7 @@ async def archive_photo_attachment(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> PhotoAttachmentRead:
-    return await _attachment_state(project_id, attachment_id, current_user.id, db, archive=True)
+    return await _attachment_state(project_id, attachment_id, current_user.id, db, action="archive")
 
 
 @router.post(
@@ -740,7 +749,35 @@ async def restore_photo_attachment(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> PhotoAttachmentRead:
-    return await _attachment_state(project_id, attachment_id, current_user.id, db, archive=False)
+    return await _attachment_state(project_id, attachment_id, current_user.id, db, action="restore")
+
+
+@router.post(
+    "/projects/{project_id}/photo-attachments/{attachment_id}/trash",
+    response_model=PhotoAttachmentRead,
+    summary="Put an archived attachment in the trash (idempotent; 409 when it is not archived; nothing is deleted)",
+)
+async def trash_photo_attachment(
+    project_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAttachmentRead:
+    return await _attachment_state(project_id, attachment_id, current_user.id, db, action="trash")
+
+
+@router.post(
+    "/projects/{project_id}/photo-attachments/{attachment_id}/untrash",
+    response_model=PhotoAttachmentRead,
+    summary="Take an attachment out of the trash; it stays in the archive (idempotent)",
+)
+async def untrash_photo_attachment(
+    project_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PhotoAttachmentRead:
+    return await _attachment_state(project_id, attachment_id, current_user.id, db, action="untrash")
 
 
 async def _asset_state(

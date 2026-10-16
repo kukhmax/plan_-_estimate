@@ -21,6 +21,8 @@ vi.mock('../api/photos', async () => {
     patchPhotoAttachment: vi.fn(),
     archivePhotoAttachment: vi.fn(),
     restorePhotoAttachment: vi.fn(),
+    trashPhotoAttachment: vi.fn(),
+    untrashPhotoAttachment: vi.fn(),
     createPhotoAnnotation: vi.fn(),
     deletePhotoAnnotation: vi.fn(),
   };
@@ -33,6 +35,8 @@ import {
   fetchPhotos,
   fetchPhotoStorage,
   restorePhotoAttachment,
+  trashPhotoAttachment,
+  untrashPhotoAttachment,
   uploadPhoto,
 } from '../api/photos';
 
@@ -83,6 +87,8 @@ beforeEach(() => {
   vi.mocked(fetchPhotoStorage).mockReset().mockResolvedValue(storageStatus());
   vi.mocked(archivePhotoAttachment).mockReset();
   vi.mocked(restorePhotoAttachment).mockReset();
+  vi.mocked(trashPhotoAttachment).mockReset();
+  vi.mocked(untrashPhotoAttachment).mockReset();
   vi.mocked(uploadPhoto).mockReset().mockImplementation(
     (params) =>
       new Promise<PhotoUploadResponse>((resolve, reject) => {
@@ -992,5 +998,96 @@ describe('PhotoSection — without a signal (Stage 19D)', () => {
     await screen.findByRole('button', { name: 'Из галереи' });
     pickGallery([file('a.jpg')]);
     expect(await screen.findByText('Ждёт связи — фото сохранено на телефоне')).toBeInTheDocument();
+  });
+});
+
+
+describe('PhotoSection — the trash of archived photos (archive cleanup AC-1)', () => {
+  const archivedItem = () => makeItem({ attachment: { archived_at: '2026-06-23T12:00:00Z' } });
+  const trashedItem = () => makeItem({ attachment: { archived_at: '2026-06-23T12:00:00Z', trashed_at: '2026-06-23T13:00:00Z' } });
+
+  const openArchive = async (item: ReturnType<typeof makeItem>) => {
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([]));
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item));
+    const view = renderSection();
+    fireEvent.click(await screen.findByRole('button', { name: 'Opcje zdjęć' }));
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([item]));
+    fireEvent.click(screen.getByRole('button', { name: 'Pokaż archiwum' }));
+    return view;
+  };
+  const openViewer = async () => {
+    fireEvent.click((await screen.findAllByRole('button', { name: /23\.06\.2026/ }))[0]);
+    await screen.findByRole('dialog');
+  };
+
+  it('the archive offers the trash as a second view, and the trash view asks the server for the trash only', async () => {
+    await openArchive(archivedItem());
+    await screen.findByRole('list');
+    expect(screen.getByRole('button', { name: 'Archiwum', pressed: true })).toBeInTheDocument();
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([]));
+    fireEvent.click(screen.getByRole('button', { name: 'Kosz' }));
+    await waitFor(() => expect(lastListParams()).toMatchObject({ trashed: true, archived: false }));
+    expect(await screen.findByText('Kosz jest pusty.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Kosz zdjęć' })).toBeInTheDocument();
+    expect(screen.getByText(/nie zostały usunięte/)).toBeInTheDocument();
+  });
+
+  it('"Do kosza" in the archive moves the photo out of the list, deletes nothing and changes no count', async () => {
+    const item = archivedItem();
+    const { onCountAdjust } = await openArchive(item);
+    await openViewer();
+    expect(screen.getByText(/nie zostanie usunięte/)).toBeInTheDocument();
+    vi.mocked(trashPhotoAttachment).mockResolvedValue({ ...item.attachment, trashed_at: '2026-06-23T13:00:00Z' });
+    fireEvent.click(screen.getByRole('button', { name: 'photo-trash' }));
+    await waitFor(() => expect(trashPhotoAttachment).toHaveBeenCalledWith(PROJECT_ID, item.attachment.id));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(onCountAdjust).not.toHaveBeenCalled();
+  });
+
+  it('in the trash: "Wyjmij z kosza" goes back to the archive, "Przywróć" to the active photos (count +1)', async () => {
+    const item = trashedItem();
+    const { onCountAdjust } = await openArchive(item);
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([item]));
+    fireEvent.click(await screen.findByRole('button', { name: 'Kosz' }));
+    await openViewer();
+    expect(screen.queryByRole('button', { name: 'photo-trash' })).toBeNull();
+    vi.mocked(untrashPhotoAttachment).mockResolvedValue({ ...item.attachment, trashed_at: null });
+    fireEvent.click(screen.getByRole('button', { name: 'photo-untrash' }));
+    await waitFor(() => expect(untrashPhotoAttachment).toHaveBeenCalledWith(PROJECT_ID, item.attachment.id));
+    expect(onCountAdjust).not.toHaveBeenCalled();
+  });
+
+  it('restoring from the trash raises the count like restoring from the archive', async () => {
+    const item = trashedItem();
+    const { onCountAdjust } = await openArchive(item);
+    fireEvent.click(await screen.findByRole('button', { name: 'Kosz' }));
+    await openViewer();
+    vi.mocked(restorePhotoAttachment).mockResolvedValue({ ...item.attachment, archived_at: null, trashed_at: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Przywróć' }));
+    await waitFor(() => expect(onCountAdjust).toHaveBeenCalledWith('ROOM', ROOM_ID, 1, ROOM_ID, { questionId: undefined, lineageId: undefined }));
+  });
+
+  it('an active photo has no trash button: only the archive one', async () => {
+    const item = makeItem();
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([item]));
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item));
+    renderSection();
+    fireEvent.click((await screen.findAllByRole('button', { name: /23\.06\.2026/ }))[0]);
+    await screen.findByRole('dialog');
+    expect(screen.queryByRole('button', { name: 'photo-trash' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Archiwizuj' })).toBeInTheDocument();
+  });
+
+  it('after "Do kosza" the viewer is closed for good: switching to the trash does not open a photo by itself', async () => {
+    const item = archivedItem();
+    await openArchive(item);
+    await openViewer();
+    vi.mocked(trashPhotoAttachment).mockResolvedValue({ ...item.attachment, trashed_at: '2026-06-23T13:00:00Z' });
+    fireEvent.click(screen.getByRole('button', { name: 'photo-trash' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([trashedItem()]));
+    fireEvent.click(await screen.findByRole('button', { name: 'Kosz' }));
+    await screen.findByRole('list');
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

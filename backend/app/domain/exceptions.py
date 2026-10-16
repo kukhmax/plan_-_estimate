@@ -614,6 +614,12 @@ class PhotoAttachmentDuplicateError(Exception):
     code = "PHOTO_ATTACHMENT_DUPLICATE"
 
 
+class PhotoAttachmentNotArchivedError(Exception):
+    """Only an archived attachment can be put in the trash (archive cleanup AC-1)."""
+
+    code = "PHOTO_ATTACHMENT_NOT_ARCHIVED"
+
+
 class PhotoContextNotSupportedError(Exception):
     """The attachment context exists in the schema but is not enabled yet
     (INSPECTION / FINDING are enabled since Stage 14F.2, WORK since Stage 14H.1;

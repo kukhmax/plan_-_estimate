@@ -59,6 +59,8 @@ export interface PhotoAttachmentRead {
   include_in_report: boolean;
   position: number;
   archived_at: string | null;
+  /** Archive cleanup AC-1: archived and put in the trash ("Kosz"). */
+  trashed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -171,6 +173,8 @@ export interface PhotoListParams {
   category?: PhotoCategory;
   includeInReport?: boolean;
   archived?: boolean;
+  /** The trash view (archive cleanup AC-1); exclusive with `archived`. */
+  trashed?: boolean;
   limit?: number;
   cursor?: string;
 }

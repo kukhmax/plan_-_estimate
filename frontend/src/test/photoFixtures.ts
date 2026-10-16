@@ -55,6 +55,7 @@ export function makeItem(over: {
     include_in_report: false,
     position: seq,
     archived_at: null,
+    trashed_at: null,
     created_at: '2026-06-23T08:20:00Z',
     updated_at: '2026-06-23T08:20:00Z',
     ...over.attachment,

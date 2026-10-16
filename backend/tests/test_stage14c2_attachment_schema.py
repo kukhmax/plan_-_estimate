@@ -96,7 +96,7 @@ def test_revision_chain_and_single_head():
     config.set_main_option("script_location", str(BACKEND / "alembic"))
     # Stage 14E.2 added 0033, 14F.1 0034, 14G.1 0035, 14G.4 0036, 15C 0037 and 15F 0038 on top; 0032 must stay 0033's direct parent (single linear chain).
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0055_project_notes"]
+    assert scripts.get_heads() == ["0056_photo_trash"]
     assert scripts.get_revision("0034_finding_lineage").down_revision == "0033_photo_capture_source"
     assert scripts.get_revision("0033_photo_capture_source").down_revision == "0032_photo_attachments"
 
@@ -117,14 +117,17 @@ def test_upgrade_matches_model_and_downgrade_removes_only_the_table():
     run_op(engine, lambda m: m.upgrade())
     insp = inspect(engine)
     model = Base.metadata.tables["photo_attachments"]
+    # what 0056 (archive cleanup AC-1, the trash) added later: this migration (0032) must match the model without it
+    later_columns, later_indexes = {"trashed_at"}, {"ix_photo_attachments_project_trashed"}
 
     columns = {c["name"]: c for c in insp.get_columns("photo_attachments")}
-    assert set(columns) == set(model.columns.keys())
+    assert set(columns) == set(model.columns.keys()) - later_columns
     for name, col in model.columns.items():
-        assert columns[name]["nullable"] == col.nullable, name
+        if name not in later_columns:
+            assert columns[name]["nullable"] == col.nullable, name
 
     indexes = {i["name"]: bool(i["unique"]) for i in insp.get_indexes("photo_attachments")}
-    assert indexes == {i.name: bool(i.unique) for i in model.indexes}
+    assert indexes == {i.name: bool(i.unique) for i in model.indexes if i.name not in later_indexes}
     assert sum(indexes.values()) == 8
 
     checks = {c["name"] for c in insp.get_check_constraints("photo_attachments")}
@@ -150,7 +153,7 @@ def test_upgrade_matches_model_and_downgrade_removes_only_the_table():
     migrated_indexes = _index_sql(engine)
     model_engine = create_engine("sqlite://")
     Base.metadata.create_all(model_engine)
-    assert migrated_indexes == _index_sql(model_engine)
+    assert migrated_indexes == {k: v for k, v in _index_sql(model_engine).items() if k not in later_indexes}
     for name, _cols, predicate in ACTIVE_UNIQUE_INDEXES:
         assert migrated_indexes[name].endswith(f"WHERE {predicate} AND archived_at IS NULL")
 
@@ -163,6 +166,7 @@ def test_upgrade_matches_model_and_downgrade_removes_only_the_table():
     migrated_table = table_sql(engine)
     model_table = table_sql(model_engine)
     fragments = re.findall(r"CONSTRAINT \w+ CHECK \(.*?\)\)?(?=, CONSTRAINT|, FOREIGN|\)$)", model_table)
+    fragments = [f for f in fragments if "ck_photo_attachments_trashed_is_archived" not in f]  # added by 0056
     # Non-vacuous: exactly the two named CHECKs, each captured in full (not a truncated prefix).
     assert fragments == [
         f"CONSTRAINT ck_photo_attachments_context_targets CHECK ({_normalize(CONTEXT_TARGETS_CHECK)})",

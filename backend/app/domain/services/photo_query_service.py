@@ -79,6 +79,8 @@ class PhotoListFilters:
     category: PhotoCategory | None = None
     include_in_report: bool | None = None
     archived: bool = False
+    # Archive cleanup AC-1: the trash view (attachments put in the trash). Exclusive with `archived`; the archive view no longer shows them.
+    trashed: bool = False
     # Stage 14E.6: every photo whose target is this room OR lies inside it (its surfaces, their openings). Exclusive with
     # the single-target filters above.
     in_room_id: uuid.UUID | None = None
@@ -99,6 +101,7 @@ class PhotoListFilters:
                 self.category.value if self.category else None,
                 self.include_in_report,
                 self.archived,
+                self.trashed,
                 str(self.in_room_id) if self.in_room_id else None,
                 str(self.inspection_id) if self.inspection_id else None,
                 str(self.question_id) if self.question_id else None,
@@ -310,8 +313,15 @@ class PhotoQueryService:
                 PhotoAsset.status == PhotoAssetStatus.READY,
             )
         )
-        if filters.archived:
-            stmt = stmt.where(or_(PhotoAttachment.archived_at.is_not(None), PhotoAsset.archived_at.is_not(None)))
+        if filters.archived and filters.trashed:
+            raise PhotoAttachmentValidationError("archived and trashed are exclusive views")
+        if filters.trashed:
+            stmt = stmt.where(PhotoAttachment.trashed_at.is_not(None))
+        elif filters.archived:
+            stmt = stmt.where(
+                or_(PhotoAttachment.archived_at.is_not(None), PhotoAsset.archived_at.is_not(None)),
+                PhotoAttachment.trashed_at.is_(None),
+            )
         else:
             stmt = stmt.where(PhotoAttachment.archived_at.is_(None), PhotoAsset.archived_at.is_(None))
         if filters.context is not None:

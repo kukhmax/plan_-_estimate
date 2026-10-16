@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   archivePhotoAttachment,
+  trashPhotoAttachment,
+  untrashPhotoAttachment,
   createPhotoAnnotation,
   deletePhotoAnnotation,
   fetchPhoto,
@@ -40,16 +42,21 @@ const DEFAULT_MARKER_LIMIT = 10;
 /** Signed links are refetched this long before they expire (contract §7c). */
 const URL_REFRESH_MARGIN_MS = 30_000;
 
+/** What the viewer did to the attachment: archive, restore, put it in the trash (AC-1) or take it out of the trash. */
+export type PhotoAttachmentChange = 'archived' | 'restored' | 'trashed' | 'untrashed';
+
 interface PhotoViewerProps {
   projectId: string;
   items: readonly PhotoListItem[];
   index: number;
   archivedView: boolean;
+  /** Archive cleanup AC-1: the list is the trash (the archived view too). */
+  trashView?: boolean;
   captionFor: (item: PhotoListItem) => string;
   onIndexChange: (index: number) => void;
   onClose: () => void;
   onAttachmentUpdated: (attachment: PhotoAttachmentRead) => void;
-  onAttachmentRemoved: (attachment: PhotoAttachmentRead, action: 'archived' | 'restored') => void;
+  onAttachmentRemoved: (attachment: PhotoAttachmentRead, action: PhotoAttachmentChange) => void;
   /** The photo vanished meanwhile: the host should refetch its list. */
   onRefresh?: () => void;
   /** The number of point markers on an attachment changed (the grid shows it on the tile). */
@@ -78,6 +85,7 @@ export function PhotoViewer({
   items,
   index,
   archivedView,
+  trashView = false,
   captionFor,
   onIndexChange,
   onClose,
@@ -410,14 +418,18 @@ export function PhotoViewer({
     if (x >= 0 && x <= 1 && y >= 0 && y <= 1) void placeMarker(x, y);
   };
 
-  const changeArchiveState = async (action: 'archived' | 'restored') => {
+  const changeArchiveState = async (action: PhotoAttachmentChange) => {
     setBusy(true);
     setError(null);
     try {
       const updated =
         action === 'archived'
           ? await archivePhotoAttachment(projectId, attachment.id)
-          : await restorePhotoAttachment(projectId, attachment.id);
+          : action === 'restored'
+            ? await restorePhotoAttachment(projectId, attachment.id)
+            : action === 'trashed'
+              ? await trashPhotoAttachment(projectId, attachment.id)
+              : await untrashPhotoAttachment(projectId, attachment.id);
       hapticNotify('success');
       onAttachmentRemoved(updated, action);
     } catch (caught) {
@@ -690,9 +702,23 @@ export function PhotoViewer({
           )}
 
           {archivedView ? (
-            <button type="button" className={`${primaryButton} w-full`} disabled={disabled} onClick={() => void changeArchiveState('restored')}>
-              <Ico>♻️</Ico>{t.photos.viewer.restore}
-            </button>
+            <div className="space-y-2">
+              <button type="button" className={`${primaryButton} w-full`} disabled={disabled} onClick={() => void changeArchiveState('restored')}>
+                <Ico>♻️</Ico>{t.photos.viewer.restore}
+              </button>
+              {trashView ? (
+                <button type="button" aria-label="photo-untrash" className={`${secondaryButton} w-full`} disabled={disabled} onClick={() => void changeArchiveState('untrashed')}>
+                  <Ico>🗃️</Ico>{t.photos.viewer.untrash}
+                </button>
+              ) : (
+                <>
+                  <button type="button" aria-label="photo-trash" className={`${secondaryButton} w-full`} disabled={disabled} onClick={() => void changeArchiveState('trashed')}>
+                    <Ico>🗑️</Ico>{t.photos.viewer.trash}
+                  </button>
+                  <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">{t.photos.viewer.trash_note}</p>
+                </>
+              )}
+            </div>
           ) : confirmArchive ? (
             <div role="alertdialog" aria-label={t.photos.viewer.archive_confirm} className="space-y-2 rounded-xl border border-[var(--tg-control-border-color)] p-3">
               <p className="break-words text-sm">{t.photos.viewer.archive_confirm}</p>
