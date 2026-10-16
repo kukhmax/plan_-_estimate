@@ -125,9 +125,11 @@ API=$(docker exec plan_estimate_backend python -c "from app.main import app; p=a
 CFG=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(str(s.CALENDAR_DISPATCHER_ENABLED).lower(), s.CALENDAR_WEB_APP_URL)")
 [ "$CFG" = "$LOOP_ENV https://$DOMAIN" ] || fail "G2" "настройки календаря в контейнере: '$CFG', ожидалось '$LOOP_ENV https://$DOMAIN'. $ROLLALL"
 if [ "$LOOP_ENV" = "true" ]; then
-  has "calendar loop started" "$LOG" || fail "G2" "цикл календаря включён в .env.production, но в логе нет 'calendar loop started'. $ROLLALL"
-else
-  has "calendar loop started" "$LOG" && fail "G2" "цикл календаря запущен, а должен быть выключен. $ROLLALL"
+  # INFO-строки приложения в docker logs не попадают (в приложении нет настройки logging, видны только строки uvicorn и ERROR/WARNING),
+  # поэтому «calendar loop started» искать нельзя. Цикл не запускается только в одном случае — нет токена бота — и тогда в лог идёт ERROR.
+  has "calendar loop is not started" "$LOG" && fail "G2" "цикл календаря включён, но не запущен (нет токена бота). $ROLLALL"
+  TOK=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(bool(s.TELEGRAM_BOT_TOKEN))")
+  [ "$TOK" = "True" ] || fail "G2" "цикл календаря включён, а токена бота в контейнере нет: $TOK. $ROLLALL"
 fi
 KEY=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; k=s.MEDIA_S3_ACCESS_KEY_ID.get_secret_value(); print(k[:6]+'…'+k[-4:], s.MEDIA_S3_BUCKET, s.DOCUMENT_DELIVERY)")
 [ "$KEY" = "97bfe5…6dab plan-estimate-media-prod telegram" ] || fail "G2" "ключ/бакет/доставка не те: $KEY. $ROLLALL"

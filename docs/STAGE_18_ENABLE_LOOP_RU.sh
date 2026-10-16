@@ -50,7 +50,9 @@ has "Application startup complete" "$LOG" || fail "E1" "нет Application start
 NOW2=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(s.CALENDAR_DISPATCHER_ENABLED)")
 [ "$NOW2" = "$WANTPY" ] || fail "E1" "в контейнере CALENDAR_DISPATCHER_ENABLED = $NOW2. $ROLL"
 if [ "$MODE" = "on" ]; then
-  has "calendar loop started" "$LOG" || fail "E1" "в логе нет «calendar loop started» (цикл не запустился). $ROLL"
+  # INFO-строки приложения в docker logs не попадают (нет настройки logging): ищем только ERROR «not started» и проверяем токен бота
+  has "calendar loop is not started" "$LOG" && fail "E1" "цикл не запущен (нет токена бота). $ROLL"
+  [ "$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(bool(s.TELEGRAM_BOT_TOKEN))")" = "True" ] || fail "E1" "в контейнере нет токена бота. $ROLL"
   sleep 75
   LOG2=$(docker logs plan_estimate_backend --since 2m 2>&1)
   grep -qE "calendar loop pass failed|calendar delivery failed|calendar reconciliation failed" <<<"$LOG2" && { grep -E "calendar" <<<"$LOG2" | tail -10; fail "E1" "цикл работает с ошибками (см. выше). Выключить: bash ~/enable_loop.sh off"; }
