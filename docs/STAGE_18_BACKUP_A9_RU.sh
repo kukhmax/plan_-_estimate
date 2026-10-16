@@ -20,7 +20,8 @@ ok()   { echo "PASS: $1"; }
 has()  { grep -q -- "$1" <<<"$2"; }
 
 echo "################ B0: проверка перед бэкапом (только чтение) ################"
-[ "$(env | grep -c '^MEDIA_S3\|^BACKUP_')" = "0" ] || fail "B0" "В оболочке лишние переменные MEDIA_S3/BACKUP_. Откройте НОВУЮ SSH-сессию."
+# BACKUP_BRANCH и BACKUP_HEAD — параметры самого скрипта (их передают в команде запуска): они не считаются «лишними»; любые другие MEDIA_S3* / BACKUP_* — считаются
+[ "$(env | grep '^MEDIA_S3\|^BACKUP_' | grep -vc '^BACKUP_BRANCH=\|^BACKUP_HEAD=')" = "0" ] || fail "B0" "В оболочке лишние переменные MEDIA_S3/BACKUP_. Откройте НОВУЮ SSH-сессию."
 for f in backup.env upload.env pgpass; do [ -r "$R/secrets/$f" ] || fail "B0" "нет файла $R/secrets/$f"; done
 for f in backup.env upload.env pgpass; do
   [ "$(stat -c %a "$R/secrets/$f")" = "600" ] || fail "B0" "права $R/secrets/$f не 600"

@@ -17,7 +17,7 @@
 
 | Шаг | Что | Как |
 |---|---|---|
-| **0. Бэкап (по желанию, но разумно)** | миграции нет, выкладка данные не меняет, откат образов копии не требует; свежая копия перед любой выкладкой — привычка | **новая сессия:** `cd ~/apps/plan_-_estimate && git fetch -q origin main && git show origin/main:docs/STAGE_18_BACKUP_A9_RU.sh > ~/backup_a9.sh && BACKUP_BRANCH=main BACKUP_HEAD=0055_project_notes bash ~/backup_a9.sh` — потом **закрыть сессию** |
+| **0. Бэкап (по желанию, но разумно)** | миграции нет, выкладка данные не меняет, откат образов копии не требует; свежая копия перед любой выкладкой — привычка | **новая сессия:** `cd ~/apps/plan_-_estimate && git fetch -q origin stage-19 && git show origin/stage-19:docs/STAGE_18_BACKUP_A9_RU.sh > ~/backup_a9.sh && BACKUP_BRANCH=main BACKUP_HEAD=0055_project_notes bash ~/backup_a9.sh` — потом **закрыть сессию** (скрипт взят из `stage-19`: в версии Stage 18 проверка «лишних переменных» считала и сами параметры `BACKUP_BRANCH` / `BACKUP_HEAD` — исправлено в 19G) |
 | **1. Выкладка** | G0 проверки → G1 сборка → **ворота M (вы вводите «ВЫКЛАДКА STAGE 19 ДА»)** → G2 backend → G3 frontend → G4 кнопка Telegram | **новая сессия:** `cd ~/apps/plan_-_estimate && git fetch -q origin stage-19 && git show origin/stage-19:docs/STAGE_19_DEPLOY_RU.sh > ~/deploy19.sh && bash ~/deploy19.sh` |
 | **2. Проверка на телефоне** | сценарий раздела 6 («режим полёта») | вы |
 | **3. Приёмка** | «принимаем Stage 19» → я записываю приёмку; слияние `stage-19` → `main` и переключение VM на `main` — **отдельными вашими «да»** | — |
