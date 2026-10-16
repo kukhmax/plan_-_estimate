@@ -1,3 +1,4 @@
+import { useConnection } from '../offline/connection';
 import { useI18n } from '../hooks/useI18n';
 import { QueueItem } from '../utils/photoUploadQueue';
 import { Ico } from './Ico';
@@ -18,12 +19,14 @@ const actionClass =
 
 export function PhotoUploadQueueList({ items, onCancel, onRetry, onRetryAsNew, onDismiss }: PhotoUploadQueueListProps) {
   const { t } = useI18n();
+  const { offline } = useConnection();
   if (items.length === 0) return null;
 
   const statusText = (item: QueueItem): string => {
     switch (item.state) {
       case 'queued':
-        return t.photos.queue.waiting;
+        // a photo that rests on the phone and waits for the signal says so (Stage 19D)
+        return offline ? t.photos.queue.waiting_signal : t.photos.queue.waiting;
       case 'uploading':
         return t.photos.queue.uploading.replace('{percent}', String(Math.round(item.progress * 100)));
       case 'processing':
@@ -59,7 +62,7 @@ export function PhotoUploadQueueList({ items, onCancel, onRetry, onRetryAsNew, o
                 <div aria-hidden className="h-14 w-14 shrink-0 rounded-lg bg-[var(--tg-theme-bg-color)]" />
               )}
               <div className="min-w-0 flex-1 space-y-1">
-                <p className="break-all text-xs text-[var(--tg-theme-hint-color)]">{item.file.name}</p>
+                <p className="break-all text-xs text-[var(--tg-theme-hint-color)]">{item.name}</p>
                 <p
                   role={failed ? 'alert' : 'status'}
                   className={`break-words text-sm ${
@@ -68,6 +71,11 @@ export function PhotoUploadQueueList({ items, onCancel, onRetry, onRetryAsNew, o
                 >
                   {statusText(item)}
                 </p>
+                {item.saveFailed && (
+                  <p role="alert" className="break-words text-xs font-medium text-[var(--tg-theme-destructive-text-color)]">
+                    {t.photos.queue.not_saved}
+                  </p>
+                )}
                 {(item.state === 'uploading' || item.state === 'processing') && (
                   <div
                     role="progressbar"

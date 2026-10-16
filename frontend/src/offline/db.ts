@@ -1,8 +1,9 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { OutboxOp } from './opTypes';
+import type { StoredPhoto } from '../utils/photoUploadQueue';
 
 export const OFFLINE_DB_NAME = 'plan-estimate-offline';
-export const OFFLINE_DB_VERSION = 2;
+export const OFFLINE_DB_VERSION = 3;
 
 export interface CachedRead {
   /** `<owner>|<path>`: the copies of two owners never meet. */
@@ -23,6 +24,16 @@ interface OfflineDb extends DBSchema {
   meta: { key: string; value: MetaRecord };
   /** Stage 19C: the changes made without a signal, in the order they were made (`seq`). */
   outbox: { key: number; value: OutboxOp };
+  /** Stage 19D: the photos taken without a signal, what is known about each one (the bytes are in `photoFiles`). */
+  photos: { key: string; value: StoredPhoto };
+  /** Stage 19D: the bytes of a waiting photo; kept apart so that a change of state does not rewrite up to 25 MB. */
+  photoFiles: { key: string; value: PhotoBytes };
+}
+
+export interface PhotoBytes {
+  id: string;
+  /** An ArrayBuffer rather than a Blob: it is copied faithfully by every WebView. */
+  bytes: ArrayBuffer;
 }
 
 let opened: Promise<IDBPDatabase<OfflineDb>> | null = null;
@@ -39,6 +50,10 @@ export function offlineDb(): Promise<IDBPDatabase<OfflineDb>> | null {
           db.createObjectStore('meta', { keyPath: 'key' });
         }
         if (oldVersion < 2) db.createObjectStore('outbox', { keyPath: 'seq', autoIncrement: true });
+        if (oldVersion < 3) {
+          db.createObjectStore('photos', { keyPath: 'id' });
+          db.createObjectStore('photoFiles', { keyPath: 'id' });
+        }
       },
     }).catch((error: unknown) => {
       opened = null; // try again next time (a private window, a full disk)

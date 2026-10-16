@@ -16,7 +16,9 @@ import {
 import { PhotoErrorInfo, classifyPhotoError, isTransportFailure } from './photoErrors';
 
 // UI-free upload queue (contract §5). One lane (concurrency 1), stable `upload_id` per file across every
-// retry, GET-first retry protocol after a transport failure, foreground reconcile. Nothing is persisted (D2).
+// retry, GET-first retry protocol after a transport failure, foreground reconcile.
+// Stage 19D: the unfinished photos are also kept on the phone (`store`), so a closed application or a missing signal
+// no longer loses them; the queue waits for the signal (`canStart`) and refuses more than 200 MB of waiting photos.
 
 export const MAX_FILES_PER_SELECTION = 10;
 /** Advisory client-side limit; the server stays the authority (25 000 000 canonical image bytes). */
@@ -24,6 +26,10 @@ export const PHOTO_MAX_UPLOAD_BYTES = 25_000_000;
 export const PHOTO_ACCEPTED_TYPES: readonly string[] = ['image/jpeg', 'image/png', 'image/webp'];
 /** Automatic re-POSTs after a transport failure whose GET-first check found nothing on the server. */
 export const MAX_AUTO_RETRIES = 2;
+/** Photos waiting on the phone (not yet sent) may take this much room together (owner decision Q3). */
+export const PHOTO_QUEUE_LIMIT_BYTES = 200 * 1024 * 1024;
+/** From this much on the owner is warned that the queue is nearly full (80 %). */
+export const PHOTO_QUEUE_WARN_BYTES = 160 * 1024 * 1024;
 export const DEFAULT_BUSY_RETRY_SECONDS = 3;
 export const BUSY_RETRY_CAP_SECONDS = 30;
 const AUTO_RETRY_BACKOFF_MS = 2_000;
@@ -43,7 +49,10 @@ export interface QueueItem {
   id: string;
   /** Idempotency key sent as `upload_id` (= asset id); reused by every retry, replaced only by retryAsNew. */
   uploadId: string;
-  file: File;
+  /** Null while the bytes rest in the phone's storage only (after a restart, or to free memory); loaded when the upload starts. */
+  file: File | null;
+  name: string;
+  size: number;
   target: PhotoTarget;
   source: PhotoCaptureSource;
   state: QueueItemState;
@@ -58,6 +67,40 @@ export interface QueueItem {
   notBefore: number;
   networkRetries: number;
   busyRetried: boolean;
+  /** The server may already have this photo (a POST was started before the application closed or the signal went): ask first. */
+  verify: boolean;
+  /** The token was renewed once for this run. */
+  authRetried: boolean;
+  /** The photo could not be written to the phone's storage: it is sent in this session only. */
+  saveFailed: boolean;
+}
+
+/** What the phone keeps about an unfinished photo (its bytes are stored next to it, under the same id). */
+export interface StoredPhoto {
+  id: string;
+  ownerId: string;
+  uploadId: string;
+  target: PhotoTarget;
+  source: PhotoCaptureSource;
+  name: string;
+  type: string;
+  lastModified: number;
+  size: number;
+  createdAt: number;
+  state: 'queued' | 'failed';
+  /** POSTs started for the current uploadId; above 0 means the server may have the photo already. */
+  attempt: number;
+  error: PhotoErrorInfo | null;
+}
+
+export type StoredPhotoPatch = Partial<Pick<StoredPhoto, 'uploadId' | 'state' | 'attempt' | 'error'>>;
+
+/** Where unfinished photos rest between sessions (IndexedDB in the application, a fake in tests). */
+export interface PhotoQueueStore {
+  put(item: QueueItem, file: File): Promise<void>;
+  update(id: string, patch: StoredPhotoPatch): Promise<void>;
+  remove(id: string): Promise<void>;
+  loadFile(id: string): Promise<File | null>;
 }
 
 export interface PhotoQueueTransport {
@@ -81,12 +124,28 @@ export interface PhotoQueueOptions {
   onRefetch?: (what: 'parent' | 'list', item: QueueItem) => void;
   /** Called when the server gate / quota stops the queue (host updates storage status). */
   onStopped?: (info: PhotoErrorInfo) => void;
+  /** Where unfinished photos are kept; without it the queue lives in memory only. */
+  store?: PhotoQueueStore;
+  /** False while there is no signal, or older changes still have to reach the server first (a photo may belong to them). */
+  canStart?: () => boolean;
+  /** The token expired: sign in again; true when a new token is in place. */
+  refreshSession?: () => Promise<boolean>;
+  limitBytes?: number;
 }
 
 export interface EnqueueResult {
   items: QueueItem[];
   /** Files beyond MAX_FILES_PER_SELECTION that were ignored. */
   ignored: number;
+  /** Files left out because the waiting photos would take more than the limit. */
+  rejected: number;
+}
+
+/** Bytes taken by the photos that still have to be sent (a failed one stays until the owner closes it). */
+export function queueBytes(items: readonly QueueItem[]): number {
+  return items
+    .filter((item) => item.state === 'queued' || item.state === 'uploading' || item.state === 'processing' || item.state === 'failed')
+    .reduce((sum, item) => sum + item.size, 0);
 }
 
 /** RFC 4122 v4; `crypto.randomUUID` where available, `getRandomValues` otherwise. */
@@ -146,11 +205,15 @@ export class PhotoUploadQueue {
   private readonly options: PhotoQueueOptions;
   private readonly previews: PhotoQueuePreviews;
   private readonly maxAutoRetries: number;
+  private readonly limitBytes: number;
+  /** Writes to the phone's storage go one after another, so a removal never overtakes the write before it. */
+  private storeChain: Promise<void> = Promise.resolve();
 
   constructor(options: PhotoQueueOptions) {
     this.options = options;
     this.previews = options.previews ?? defaultPreviews;
     this.maxAutoRetries = options.maxAutoRetries ?? MAX_AUTO_RETRIES;
+    this.limitBytes = options.limitBytes ?? PHOTO_QUEUE_LIMIT_BYTES;
   }
 
   // ---- external-store API (useSyncExternalStore) ----
@@ -169,11 +232,70 @@ export class PhotoUploadQueue {
 
   enqueue(files: readonly File[], target: PhotoTarget, source: PhotoCaptureSource): EnqueueResult {
     const accepted = files.slice(0, MAX_FILES_PER_SELECTION);
-    const created = accepted.map((file) => this.createItem(file, target, source));
+    const created: QueueItem[] = [];
+    let used = queueBytes(this.items);
+    let rejected = 0;
+    for (const file of accepted) {
+      const item = this.createItem(file, target, source);
+      if (item.state === 'queued') {
+        if (used + item.size > this.limitBytes) {
+          rejected += 1;
+          this.revokePreview(item);
+          continue;
+        }
+        used += item.size;
+      }
+      created.push(item);
+    }
     this.items = [...this.items, ...created];
     this.emit();
+    created.forEach((item) => {
+      if (item.state === 'queued' && item.file) this.keep(item, item.file);
+    });
     this.pump();
-    return { items: created, ignored: files.length - accepted.length };
+    return { items: created, ignored: files.length - accepted.length, rejected };
+  }
+
+  /**
+   * Puts back the photos the phone kept from an earlier session. Their bytes stay in storage until the upload starts, so a
+   * long queue does not fill the memory.
+   */
+  restore(records: readonly StoredPhoto[]): void {
+    if (this.destroyed) return;
+    const known = new Set(this.items.map((item) => item.id));
+    const back = [...records]
+      .filter((record) => !known.has(record.id))
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map<QueueItem>((record) => ({
+        id: record.id,
+        uploadId: record.uploadId,
+        file: null,
+        name: record.name,
+        size: record.size,
+        target: record.target,
+        source: record.source,
+        state: record.state,
+        progress: 0,
+        attempt: record.attempt,
+        previewUrl: null,
+        error: record.error,
+        result: null,
+        notBefore: 0,
+        networkRetries: 0,
+        busyRetried: false,
+        verify: record.attempt > 0,
+        authRetried: false,
+        saveFailed: false,
+      }));
+    if (back.length === 0) return;
+    this.items = [...back, ...this.items];
+    this.emit();
+    this.pump();
+  }
+
+  /** The signal came back, or the older changes reached the server: try to start. */
+  kick(): void {
+    this.pump();
   }
 
   cancel(id: string): void {
@@ -181,7 +303,8 @@ export class PhotoUploadQueue {
     if (!item || !['queued', 'uploading', 'processing'].includes(item.state)) return;
     const wasActive = this.active?.itemId === id;
     this.revokePreview(item);
-    this.patch(id, { state: 'canceled', previewUrl: null });
+    this.patch(id, { state: 'canceled', previewUrl: null, file: null });
+    this.forget(id);
     if (wasActive) this.active?.controller.abort();
   }
 
@@ -204,6 +327,7 @@ export class PhotoUploadQueue {
     if (!item || !['done', 'failed', 'canceled'].includes(item.state)) return;
     this.revokePreview(item);
     this.items = this.items.filter((candidate) => candidate.id !== id);
+    this.forget(id); // a failed photo is still kept until the owner closes it
     this.emit();
   }
 
@@ -258,6 +382,8 @@ export class PhotoUploadQueue {
       id: `q${this.counter}-${(this.options.newId ?? generateUploadId)()}`,
       uploadId: (this.options.newId ?? generateUploadId)(),
       file,
+      name: file.name,
+      size: file.size,
       target,
       source,
       state: 'queued',
@@ -269,6 +395,9 @@ export class PhotoUploadQueue {
       notBefore: 0,
       networkRetries: 0,
       busyRetried: false,
+      verify: false,
+      authRetried: false,
+      saveFailed: false,
     };
     // Local advisory checks: no request is made for an obviously unusable file. An empty MIME (some
     // WebViews omit it for camera files) is left to the server, which never trusts the MIME anyway.
@@ -299,6 +428,55 @@ export class PhotoUploadQueue {
     if (item.previewUrl) this.previews.revoke(item.previewUrl);
   }
 
+  // ---- the phone's storage (Stage 19D) ----
+
+  /** Queues a write to the store; a failure is shown on the row (the photo is then sent in this session only). */
+  private storeStep(step: (store: PhotoQueueStore) => Promise<void>, onError?: () => void): void {
+    const store = this.options.store;
+    if (!store) return;
+    this.storeChain = this.storeChain
+      .then(() => step(store))
+      .catch((error: unknown) => {
+        console.warn('[photos] the phone could not keep a photo', error);
+        onError?.();
+      });
+  }
+
+  private keep(item: QueueItem, file: File): void {
+    this.storeStep(
+      (store) => store.put(item, file),
+      () => {
+        if (this.find(item.id)) this.patch(item.id, { saveFailed: true });
+      },
+    );
+  }
+
+  private save(id: string, patch: StoredPhotoPatch): void {
+    this.storeStep((store) => store.update(id, patch));
+  }
+
+  private forget(id: string): void {
+    this.storeStep((store) => store.remove(id));
+  }
+
+  /** The bytes of an item: in memory, or from the phone's storage (a restored photo). */
+  private async bytesOf(item: QueueItem): Promise<File | null> {
+    if (item.file) return item.file;
+    const store = this.options.store;
+    if (!store) return null;
+    await this.storeChain; // a write that is still on its way
+    try {
+      return await store.loadFile(item.id);
+    } catch (error) {
+      console.warn('[photos] the photo could not be read from the phone', error);
+      return null;
+    }
+  }
+
+  private canStart(): boolean {
+    return this.options.canStart ? this.options.canStart() : true;
+  }
+
   private requeue(item: QueueItem, uploadId: string): void {
     this.patch(item.id, {
       uploadId,
@@ -309,12 +487,16 @@ export class PhotoUploadQueue {
       notBefore: 0,
       networkRetries: 0,
       busyRetried: false,
+      authRetried: false,
+      verify: false,
     });
+    this.save(item.id, { uploadId, state: 'queued', attempt: 0, error: null });
     this.pump();
   }
 
   private pump(): void {
     if (this.destroyed || this.active) return;
+    if (!this.canStart()) return; // no signal, or older changes first: `kick()` is called when that changes
     if (this.pumpTimer !== undefined) {
       clearTimeout(this.pumpTimer);
       this.pumpTimer = undefined;
@@ -339,13 +521,23 @@ export class PhotoUploadQueue {
     const run: ActiveRun = { itemId: item.id, controller: new AbortController() };
     this.active = run;
     this.patch(item.id, { state: 'uploading', progress: 0, attempt: item.attempt + 1, error: null });
-    const params: UploadPhotoParams = {
-      ...item.target,
-      uploadId: item.uploadId,
-      file: item.file,
-      source: item.source,
-    };
+    this.save(item.id, { attempt: item.attempt + 1 });
     try {
+      const file = await this.bytesOf(item);
+      if (this.active !== run || this.find(item.id)?.state !== 'uploading') return; // canceled meanwhile
+      if (!file) {
+        // The phone no longer has the photo (its storage was cleared): nothing to send.
+        this.fail(item.id, classifyPhotoError(new ApiError('photo is gone', 410, 'PHOTO_GONE_FROM_PHONE')));
+        return;
+      }
+      if (item.verify && (await this.alreadyOnServer(item, run))) return;
+      if (this.active !== run || this.find(item.id)?.state !== 'uploading') return;
+      const params: UploadPhotoParams = {
+        ...item.target,
+        uploadId: item.uploadId,
+        file,
+        source: item.source,
+      };
       const response = await this.options.transport.upload(params, {
         signal: run.controller.signal,
         onProgress: (loaded, total) => {
@@ -367,8 +559,44 @@ export class PhotoUploadQueue {
       if (this.active === run) await this.handleFailure(item.id, error);
     } finally {
       if (this.active === run) this.active = null;
+      this.releaseMemory(item.id);
       this.pump();
     }
+  }
+
+  /** Photos that rest on the phone need not stay in memory as well. */
+  private releaseMemory(id: string): void {
+    const current = this.find(id);
+    if (current && current.file && !current.saveFailed && this.options.store && (current.state === 'queued' || current.state === 'failed')) {
+      this.patch(id, { file: null });
+    }
+  }
+
+  /**
+   * GET-first for a photo whose POST may have reached the server before the application closed or the signal went.
+   * True when the photo is there (the item is done); a missing signal puts the item back to wait.
+   */
+  private async alreadyOnServer(item: QueueItem, run: ActiveRun): Promise<boolean> {
+    try {
+      const detail = await this.options.transport.fetchDetail(item.target.projectId, item.uploadId);
+      const current = this.find(item.id);
+      if (this.active === run && current && current.state === 'uploading') this.complete(current, resultFromDetail(detail));
+      return true;
+    } catch (lookup) {
+      const current = this.find(item.id);
+      if (!current || current.state !== 'uploading') return true; // canceled meanwhile
+      if (lookup instanceof ApiError && lookup.status !== 0) {
+        this.patch(item.id, { verify: false }); // the server answered (404 …): the photo is not there, send it
+        return false;
+      }
+      this.waitForSignal(item.id);
+      return true;
+    }
+  }
+
+  /** No answer at all: it is the connection. The item waits (nothing is counted against it) until `kick()`. */
+  private waitForSignal(id: string): void {
+    this.patch(id, { state: 'queued', progress: 0, verify: true });
   }
 
   private async handleFailure(id: string, error: unknown): Promise<void> {
@@ -381,6 +609,14 @@ export class PhotoUploadQueue {
       return;
     }
     const info = classifyPhotoError(error);
+    if (info.code === 'HTTP_401' && !current.authRetried && this.options.refreshSession) {
+      // The token expired while the photo waited on the phone: sign in again and send it once more.
+      this.patch(id, { authRetried: true });
+      if (await this.options.refreshSession()) {
+        this.patch(id, { state: 'queued', progress: 0, notBefore: 0 });
+        return;
+      }
+    }
     if (info.code === 'PHOTO_PROCESSING_BUSY' && !current.busyRetried) {
       const requested = error instanceof PhotoUploadError ? error.retryAfterSeconds : undefined;
       const seconds = Math.min(requested ?? DEFAULT_BUSY_RETRY_SECONDS, BUSY_RETRY_CAP_SECONDS);
@@ -417,25 +653,33 @@ export class PhotoUploadQueue {
       // The check itself failed: a real HTTP answer (e.g. 401 / 5xx) is reported as such; no answer at all — `fetch`
       // rejects with a plain TypeError when the server is unreachable — keeps the transport failure that started this.
       const answered = lookup instanceof ApiError && lookup.status !== 0;
+      if (!answered && !notThere && !this.canStart()) {
+        this.waitForSignal(item.id); // the connection is gone: the photo waits on the phone for it to return
+        return;
+      }
       this.fail(item.id, notThere || !answered ? failure : classifyPhotoError(lookup));
     }
   }
 
   private complete(item: QueueItem, result: QueueResult): void {
     this.revokePreview(item);
-    this.patch(item.id, { state: 'done', progress: 1, error: null, result, previewUrl: null });
+    this.patch(item.id, { state: 'done', progress: 1, error: null, result, previewUrl: null, file: null });
+    this.forget(item.id);
     const done = this.find(item.id);
     if (done) this.options.onDone?.(done);
   }
 
   private fail(id: string, info: PhotoErrorInfo): void {
     this.patch(id, { state: 'failed', error: info });
+    this.save(id, { state: 'failed', error: info });
     const failed = this.find(id);
     if (failed && info.refetch) this.options.onRefetch?.(info.refetch, failed);
     if (info.stopsQueue) {
+      const stopped = this.items.filter((item) => item.state === 'queued');
       this.items = this.items.map((item) =>
         item.state === 'queued' ? { ...item, state: 'failed', error: info } : item,
       );
+      stopped.forEach((item) => this.save(item.id, { state: 'failed', error: info }));
       this.emit();
       this.options.onStopped?.(info);
     }

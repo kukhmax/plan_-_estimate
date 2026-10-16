@@ -16,6 +16,7 @@ import { I18nProvider } from './hooks/useI18n';
 import { getPhotoUploadQueue, resetPhotoUploadQueue } from './hooks/usePhotoUploadQueue';
 import { jpegFile, jpegWithExif } from './test/jpegFixtures';
 import { makeItem } from './test/photoFixtures';
+import { reportNetworkSuccess } from './offline/connection';
 import { PhotoCounts } from './types/photo';
 import {
   PlannedWorkExecutionRead,
@@ -279,6 +280,9 @@ describe('evidence of works that left the plan', () => {
 
 describe('an upload refused because the work left the plan', () => {
   const failUpload = async (target: Record<string, string>) => {
+    // the calendar requests of the screen found no server in the test and marked the application "no signal"; since Stage 19D
+    // the upload queue waits for the signal, so the test says the server is there
+    reportNetworkSuccess();
     vi.mocked(photosApi.uploadPhoto).mockRejectedValue(new ApiError('gone', 409, 'WORK_OCCURRENCE_NOT_CURRENT'));
     await act(async () => {
       getPhotoUploadQueue().enqueue(

@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AccountModal } from './components/AccountModal';
 import { I18nProvider } from './hooks/useI18n';
+import { getPhotoUploadQueue, resetPhotoUploadQueue } from './hooks/usePhotoUploadQueue';
+import { reportNetworkFailure, resetConnectionForTests } from './offline/connection';
+import { loadStoredPhotos } from './offline/photoStore';
 import { addOp, listOps } from './offline/outbox';
 import { resetSyncStateForTests } from './offline/outboxState';
 import { loadRead, saveRead, setOfflineOwner } from './offline/readCache';
@@ -17,9 +20,15 @@ describe('"Wyczyść dane offline" in the account window (Stage 19B)', () => {
   beforeEach(async () => {
     localStorage.clear();
     resetSyncStateForTests();
+    resetPhotoUploadQueue();
+    resetConnectionForTests();
     await freshIndexedDb();
     await setOfflineOwner('owner-1');
     await saveRead('/api/projects', { items: [] });
+  });
+  afterEach(() => {
+    resetPhotoUploadQueue();
+    resetConnectionForTests();
   });
 
   it('removes the copies kept on the phone only after a second tap', async () => {
@@ -55,10 +64,26 @@ describe('"Wyczyść dane offline" in the account window (Stage 19B)', () => {
     expect(await listOps()).toEqual([]);
   });
 
+  it('warns about the photos waiting on the phone, and removes them with the rest when confirmed (Stage 19D)', async () => {
+    reportNetworkFailure(); // no signal: the photo stays on the phone
+    getPhotoUploadQueue().enqueue([new File(['x'], 'IMG.jpg', { type: 'image/jpeg' })], { projectId: 'p', context: 'SURFACE', surfaceId: 's' }, 'CAMERA');
+    await waitFor(async () => expect(await loadStoredPhotos()).toHaveLength(1));
+    view();
+    fireEvent.click(screen.getByLabelText('clear-offline-button'));
+    expect(await screen.findByLabelText('clear-offline-photos')).toHaveTextContent('zdjęcia niewysłane na serwer zostaną utracone (1)');
+
+    fireEvent.click(screen.getByLabelText('clear-offline-confirm'));
+
+    expect(await screen.findByText('Dane offline usunięto.')).toBeInTheDocument();
+    expect(await loadStoredPhotos()).toEqual([]);
+    expect(getPhotoUploadQueue().getItems()).toEqual([]);
+  });
+
   it('gives no such warning when nothing waits', () => {
     view();
     fireEvent.click(screen.getByLabelText('clear-offline-button'));
     expect(screen.queryByLabelText('clear-offline-pending')).toBeNull();
+    expect(screen.queryByLabelText('clear-offline-photos')).toBeNull();
   });
 
   it('speaks Russian', () => {

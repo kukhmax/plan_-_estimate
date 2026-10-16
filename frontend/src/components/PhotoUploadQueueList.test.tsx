@@ -11,6 +11,8 @@ function item(over: Partial<QueueItem> = {}): QueueItem {
     id: 'q1',
     uploadId: 'u1',
     file: new File(['x'], 'IMG_0001.jpg', { type: 'image/jpeg' }),
+    name: 'IMG_0001.jpg',
+    size: 1,
     target: { projectId: 'p', context: 'PROJECT' },
     source: 'CAMERA',
     state: 'queued',
@@ -22,6 +24,9 @@ function item(over: Partial<QueueItem> = {}): QueueItem {
     notBefore: 0,
     networkRetries: 0,
     busyRetried: false,
+    verify: false,
+    authRetried: false,
+    saveFailed: false,
     ...over,
   };
 }
@@ -118,6 +123,7 @@ describe('PhotoUploadQueueList', () => {
     renderList([
       item({
         file: new File(['x'], longName, { type: 'image/jpeg' }),
+        name: longName,
         state: 'failed',
         error: failure(503, 'PHOTO_STORAGE_UNAVAILABLE'),
       }),

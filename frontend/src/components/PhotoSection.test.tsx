@@ -2,7 +2,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/http';
 import { I18nProvider } from '../hooks/useI18n';
-import { resetPhotoStorage } from '../hooks/usePhotoStorage';
+import { refreshPhotoStorage, resetPhotoStorage } from '../hooks/usePhotoStorage';
+import { reportNetworkFailure, reportNetworkSuccess, resetConnectionForTests } from '../offline/connection';
 import { resetPhotoUploadQueue } from '../hooks/usePhotoUploadQueue';
 import { PhotoUploadResponse } from '../types/photo';
 import { jpegFile, jpegWithExif } from '../test/jpegFixtures';
@@ -93,6 +94,7 @@ beforeEach(() => {
 afterEach(() => {
   resetPhotoUploadQueue();
   resetPhotoStorage();
+  resetConnectionForTests();
 });
 
 function uploadResult(item = makeItem()): PhotoUploadResponse {
@@ -920,5 +922,75 @@ describe('PhotoSection — execution evidence (14H)', () => {
         occurrenceKey: KEY_A,
       }),
     );
+  });
+});
+
+describe('PhotoSection — without a signal (Stage 19D)', () => {
+  const sized = (name: string, megabytes: number) => {
+    const f = file(name);
+    Object.defineProperty(f, 'size', { value: megabytes * 1024 * 1024 });
+    return f;
+  };
+
+  it('the buttons stay (the last answer about the storage is kept) and a photo waits on the phone until the signal returns', async () => {
+    renderSection();
+    await screen.findByRole('button', { name: 'Zrób zdjęcie' });
+
+    vi.mocked(fetchPhotoStorage).mockRejectedValue(new TypeError('Failed to fetch'));
+    await act(async () => {
+      reportNetworkFailure();
+      await refreshPhotoStorage();
+    });
+    expect(screen.getByRole('button', { name: 'Zrób zdjęcie' })).toBeEnabled();
+
+    pickGallery([file('basement.jpg')]);
+    expect(await screen.findByText('Czeka na zasięg — zdjęcie jest zapisane na telefonie')).toBeInTheDocument();
+    expect(uploadPhoto).not.toHaveBeenCalled();
+
+    await act(async () => {
+      reportNetworkSuccess();
+    });
+    await waitFor(() => expect(uploadPhoto).toHaveBeenCalledTimes(1));
+  });
+
+  it('without a signal the unreachable list is explained calmly, not as a red error with "retry"', async () => {
+    await act(async () => {
+      await refreshPhotoStorage();
+      reportNetworkFailure();
+    });
+    vi.mocked(fetchPhotos).mockRejectedValue(new TypeError('Failed to fetch'));
+    renderSection();
+    expect(await screen.findByText(/Brak zasięgu — lista zdjęć jest niedostępna/)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Spróbuj ponownie' })).toBeNull();
+  });
+
+  it('warns from 160 MB of waiting photos and refuses what would pass 200 MB', async () => {
+    await act(async () => {
+      await refreshPhotoStorage();
+      reportNetworkFailure();
+    });
+    renderSection();
+    await screen.findByRole('button', { name: 'Z galerii' });
+    expect(screen.queryByText(/prawie pełna/)).toBeNull();
+
+    pickGallery([sized('big1.jpg', 20), sized('big2.jpg', 20), sized('big3.jpg', 20), sized('big4.jpg', 20), sized('big5.jpg', 20), sized('big6.jpg', 20), sized('big7.jpg', 20), sized('big8.jpg', 20)]);
+    expect(await screen.findByText(/Kolejka zdjęć na telefonie jest prawie pełna: 160 z 200 MB/)).toBeInTheDocument();
+
+    pickGallery([sized('big9.jpg', 20), sized('big10.jpg', 21)]);
+    expect(await screen.findByText(/Kolejka zdjęć na telefonie jest pełna \(200 MB\)/)).toBeInTheDocument();
+    expect(screen.getAllByText(/big\d+\.jpg/)).toHaveLength(9); // the 21 MB one did not fit
+  });
+
+  it('Russian: the waiting row and the warnings are translated', async () => {
+    localStorage.setItem('locale', 'ru');
+    await act(async () => {
+      await refreshPhotoStorage();
+      reportNetworkFailure();
+    });
+    renderSection();
+    await screen.findByRole('button', { name: 'Из галереи' });
+    pickGallery([file('a.jpg')]);
+    expect(await screen.findByText('Ждёт связи — фото сохранено на телефоне')).toBeInTheDocument();
   });
 });

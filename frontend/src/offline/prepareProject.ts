@@ -9,6 +9,7 @@ import { fetchProject } from '../api/projects';
 import { fetchProjectSummary, fetchRoom, fetchRooms } from '../api/rooms';
 import { fetchSurfaces } from '../api/surfaces';
 import { fetchSurfaceWorkPlan } from '../api/workPlans';
+import { refreshPhotoStorage } from '../hooks/usePhotoStorage';
 import { getMeta, setMeta } from './readCache';
 
 export interface PrepareProgress {
@@ -65,6 +66,7 @@ export async function prepareProjectOffline(
     }
   }
 
+  await refreshPhotoStorage(); // so photos can be taken, and wait on the phone, without a signal (never fails: the last answer is kept)
   await step(() => fetchProject(projectId));
   await step(() => fetchProjectSummary(projectId));
   await step(() => fetchProjectNotes(projectId));

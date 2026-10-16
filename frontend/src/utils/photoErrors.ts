@@ -86,6 +86,9 @@ function byCode(code: string): PhotoErrorInfo | null {
     case 'WORK_OCCURRENCE_NOT_CURRENT':
       // The work left the plan while the screen was open: the plan must be read again (the host's refetch), not the upload retried.
       return info(code, 'work_not_current', { refetch: 'parent' });
+    case 'PHOTO_GONE_FROM_PHONE':
+      // Stage 19D: a photo waiting on the phone could not be read from the phone's storage any more.
+      return info(code, 'gone_from_phone');
     case 'PHOTO_ANNOTATION_LIMIT_REACHED':
       return info(code, 'marker_limit');
     case 'PHOTO_ANNOTATION_READ_ONLY':

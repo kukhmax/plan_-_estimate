@@ -1933,12 +1933,14 @@
       "options_toggle": "Opcje zdjęć",
       "project_title": "Zdjęcia obiektu",
       "empty_aggregated": "Brak zdjęć. Dodaj je w karcie ściany, podłogi lub sufitu.",
-      "room_title": "Zdjęcia pomieszczenia"
+      "room_title": "Zdjęcia pomieszczenia",
+      "offline_list_note": "Brak zasięgu — lista zdjęć jest niedostępna. Nowe zdjęcia czekają na telefonie i zostaną wysłane po powrocie zasięgu."
     },
     "picker": {
       "take_photo": "Zrób zdjęcie",
       "from_gallery": "Z galerii",
-      "too_many_selected": "Wybrano zbyt wiele plików — dodano pierwsze {count}."
+      "too_many_selected": "Wybrano zbyt wiele plików — dodano pierwsze {count}.",
+      "queue_full": "Kolejka zdjęć na telefonie jest pełna ({limit} MB) — niektórych zdjęć nie dodano. Poczekaj na wysłanie."
     },
     "queue": {
       "title": "Wysyłanie zdjęć",
@@ -1952,7 +1954,10 @@
       "retry_as_new": "Ponów jako nowe",
       "cancel": "Anuluj",
       "dismiss": "Zamknij",
-      "preview_alt": "Podgląd wybranego zdjęcia"
+      "preview_alt": "Podgląd wybranego zdjęcia",
+      "waiting_signal": "Czeka na zasięg — zdjęcie jest zapisane na telefonie",
+      "not_saved": "Nie udało się zapisać na telefonie — zdjęcie zostanie wysłane tylko, jeśli aplikacja pozostanie otwarta.",
+      "almost_full": "Kolejka zdjęć na telefonie jest prawie pełna: {used} z {limit} MB. Wyślij je, gdy wróci zasięg."
     },
     "viewer": {
       "photo_alt": "Zdjęcie",
@@ -2048,7 +2053,8 @@
       "marker_read_only": "Znaczników zarchiwizowanego zdjęcia nie można zmieniać.",
       "marker_invalid": "Nieprawidłowy znacznik. Spróbuj ponownie.",
       "marker_not_found": "Tego znacznika już nie ma.",
-      "unknown": "Wystąpił nieoczekiwany błąd."
+      "unknown": "Wystąpił nieoczekiwany błąd.",
+      "gone_from_phone": "Zdjęcia nie ma już w pamięci telefonu (dane offline wyczyszczono). Zrób je ponownie."
     },
     "storage": {
       "uploads_disabled": "Dodawanie zdjęć jest wyłączone.",
@@ -2994,6 +3000,7 @@
     "clear_note": "Dane zapisane na telefonie do pracy bez zasięgu.",
     "clear_confirm": "Usunąć dane offline z telefonu? Obiekty zostaną na serwerze.",
     "clear_yes": "Usuń",
-    "cleared": "Dane offline usunięto."
+    "cleared": "Dane offline usunięto.",
+    "clear_pending_photos": "Uwaga: zdjęcia niewysłane na serwer zostaną utracone ({n})."
   }
 }

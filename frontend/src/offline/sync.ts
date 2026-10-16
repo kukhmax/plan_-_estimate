@@ -50,7 +50,7 @@ async function sendOp(op: OutboxOp): Promise<Outcome> {
 }
 
 /** The token expired while the changes were waiting: sign in again by the data Telegram gives the open Mini App (no password). */
-async function signInAgain(): Promise<boolean> {
+export async function signInAgain(): Promise<boolean> {
   const initData = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData;
   if (!initData) return false;
   try {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchPhotos } from '../api/photos';
 import { useI18n } from '../hooks/useI18n';
+import { useConnection } from '../offline/connection';
 import { subscribePhotoUploadDone, usePhotoUploadQueue } from '../hooks/usePhotoUploadQueue';
 import { PhotoCountScope } from '../hooks/usePhotoCounts';
 import { usePhotoStorage } from '../hooks/usePhotoStorage';
@@ -30,6 +31,7 @@ import { Ico } from './Ico';
 // PROJECT lists every photo of the object (C-3); ROOM / SURFACE / OPENING list their own.
 
 export const PHOTO_PAGE_SIZE = 30;
+const MB = 1024 * 1024;
 
 interface PhotoSectionProps {
   projectId: string;
@@ -108,6 +110,7 @@ export function PhotoSection({
   const aggregated = context === 'PROJECT' || context === 'ROOM';
   const storage = usePhotoStorage();
   const queue = usePhotoUploadQueue(projectId);
+  const { offline } = useConnection();
 
   const [archived, setArchived] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<PhotoCategory | null>(null);
@@ -297,9 +300,10 @@ export function PhotoSection({
       buildTarget(projectId, context, targetId, roomId, questionId, lineageId, occurrenceKey, defaultCategory),
       source,
     );
-    setPickerNote(
-      result.ignored > 0 ? t.photos.picker.too_many_selected.replace('{count}', String(MAX_FILES_PER_SELECTION)) : null,
-    );
+    const notes: string[] = [];
+    if (result.ignored > 0) notes.push(t.photos.picker.too_many_selected.replace('{count}', String(MAX_FILES_PER_SELECTION)));
+    if (result.rejected > 0) notes.push(t.photos.picker.queue_full.replace('{limit}', String(Math.round(queue.limitBytes / MB))));
+    setPickerNote(notes.length > 0 ? notes.join(' ') : null);
   };
 
   const captionFor = useCallback(
@@ -350,10 +354,10 @@ export function PhotoSection({
     });
   };
 
-  const mediaUnavailable = storage.status === 'ready' && !storage.mediaAvailable;
-  const canUpload = allowUpload && storage.status === 'ready' && storage.uploadsEnabled && storage.mediaAvailable;
+  const mediaUnavailable = storage.usable && !storage.mediaAvailable;
+  const canUpload = allowUpload && storage.usable && storage.uploadsEnabled && storage.mediaAvailable;
   const uploadsOffNote =
-    allowUpload && storage.status === 'ready' && storage.mediaAvailable && !storage.uploadsEnabled
+    allowUpload && storage.usable && storage.mediaAvailable && !storage.uploadsEnabled
       ? storage.state === 'FULL'
         ? t.photos.storage.full
         : t.photos.section.uploads_off_note
@@ -375,6 +379,13 @@ export function PhotoSection({
       {canUpload && <PhotoPicker onFiles={handleFiles} />}
       {canUpload && storage.state === 'WARNING' && (
         <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">{t.photos.storage.warning}</p>
+      )}
+      {canUpload && queue.nearlyFull && (
+        <p role="status" className="break-words text-xs font-medium text-[var(--tg-theme-destructive-text-color)]">
+          {t.photos.queue.almost_full
+            .replace('{used}', String(Math.round(queue.usedBytes / MB)))
+            .replace('{limit}', String(Math.round(queue.limitBytes / MB)))}
+        </p>
       )}
       {uploadsOffNote && <p className="break-words text-sm text-[var(--tg-theme-hint-color)]">{uploadsOffNote}</p>}
       {pickerNote && (
@@ -403,7 +414,13 @@ export function PhotoSection({
               {t.photos.section.loading}
             </p>
           )}
-          {status === 'error' && (
+          {status === 'error' && offline && (
+            // no signal: the list lives on the server, so say so calmly (the photos taken meanwhile are above)
+            <p role="status" className="break-words text-sm text-[var(--tg-theme-hint-color)]">
+              {t.photos.section.offline_list_note}
+            </p>
+          )}
+          {status === 'error' && !offline && (
             <div className="space-y-2">
               <p role="alert" className="break-words text-sm text-[var(--tg-theme-destructive-text-color)]">
                 {loadError ? t.photos.errors[loadError] : t.photos.section.load_error}

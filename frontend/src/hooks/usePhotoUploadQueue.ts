@@ -1,20 +1,32 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { fetchPhoto, uploadPhoto } from '../api/photos';
 import { PhotoCaptureSource, PhotoTarget } from '../types/photo';
-import { PhotoUploadQueue, QueueItem } from '../utils/photoUploadQueue';
+import { getConnectionState, subscribeConnection } from '../offline/connection';
+import { offlineDb } from '../offline/db';
+import { getOutboxCounts, subscribeOutbox } from '../offline/outboxState';
+import { idbPhotoStore, loadStoredPhotos } from '../offline/photoStore';
+import { onOfflineDataCleared } from '../offline/readCache';
+import { signInAgain } from '../offline/sync';
+import { PHOTO_QUEUE_LIMIT_BYTES, PHOTO_QUEUE_WARN_BYTES, PhotoUploadQueue, QueueItem, queueBytes } from '../utils/photoUploadQueue';
 import { refreshPhotoStorage } from './usePhotoStorage';
 
-// One queue per app session, so uploads started in a card keep going while the user navigates inside the Mini App
-// (D2: in-memory only, a WebView restart drops it).
+// One queue per app session, so uploads started in a card keep going while the user navigates inside the Mini App.
+// Stage 19D: the unfinished photos are kept on the phone (IndexedDB), so a closed application or a missing signal does not lose
+// them. The queue waits while there is no signal, and while older changes (a room, a wall the photo belongs to) are still
+// on the phone; it starts again by itself when either changes.
 
 let shared: PhotoUploadQueue | null = null;
+let stopWatching: (() => void) | null = null;
 const doneListeners = new Set<(item: QueueItem) => void>();
 const refetchListeners = new Set<(what: 'parent' | 'list', item: QueueItem) => void>();
 
 export function getPhotoUploadQueue(): PhotoUploadQueue {
   if (!shared) {
-    shared = new PhotoUploadQueue({
+    const queue = new PhotoUploadQueue({
       transport: { upload: uploadPhoto, fetchDetail: fetchPhoto },
+      store: offlineDb() ? idbPhotoStore : undefined,
+      canStart: () => !getConnectionState().offline && getOutboxCounts().pending === 0,
+      refreshSession: signInAgain,
       onDone: (item) => doneListeners.forEach((listener) => listener(item)),
       onRefetch: (what, item) => refetchListeners.forEach((listener) => listener(what, item)),
       // The gate closed or the quota is full: refresh the shared status so every section hides its buttons.
@@ -22,12 +34,30 @@ export function getPhotoUploadQueue(): PhotoUploadQueue {
         void refreshPhotoStorage();
       },
     });
+    shared = queue;
+    const offConnection = subscribeConnection(() => queue.kick());
+    const offOutbox = subscribeOutbox(() => queue.kick());
+    const offCleared = onOfflineDataCleared(() => resetPhotoUploadQueue());
+    stopWatching = () => {
+      offConnection();
+      offOutbox();
+      offCleared();
+    };
   }
   return shared;
 }
 
+/** After the owner is known: puts back the photos the phone kept from an earlier session and starts sending them. */
+export async function restorePhotoQueue(): Promise<void> {
+  if (!offlineDb()) return;
+  const records = await loadStoredPhotos();
+  if (records.length > 0) getPhotoUploadQueue().restore(records);
+}
+
 /** Tests / logout: drop the shared queue (aborts the active upload, revokes previews). */
 export function resetPhotoUploadQueue(): void {
+  stopWatching?.();
+  stopWatching = null;
   shared?.destroy();
   shared = null;
 }
@@ -55,6 +85,10 @@ export interface PhotoUploadQueueView {
   retryAsNew: (id: string) => void;
   dismiss: (id: string) => void;
   dismissDone: () => void;
+  /** Bytes taken by the photos still waiting on the phone, and the limit (Q3: 200 MB, a warning from 80 %). */
+  usedBytes: number;
+  limitBytes: number;
+  nearlyFull: boolean;
 }
 
 /** Queue items of one project (all items when `projectId` is omitted). */
@@ -83,6 +117,8 @@ export function usePhotoUploadQueue(projectId?: string): PhotoUploadQueueView {
     [all, projectId],
   );
 
+  const usedBytes = useMemo(() => queueBytes(all), [all]);
+
   const enqueue = useCallback(
     (files: readonly File[], target: PhotoTarget, source: PhotoCaptureSource) => queue.enqueue(files, target, source),
     [queue],
@@ -96,5 +132,8 @@ export function usePhotoUploadQueue(projectId?: string): PhotoUploadQueueView {
     retryAsNew: useCallback((id: string) => queue.retryAsNew(id), [queue]),
     dismiss: useCallback((id: string) => queue.dismiss(id), [queue]),
     dismissDone: useCallback(() => queue.dismissDone(), [queue]),
+    usedBytes,
+    limitBytes: PHOTO_QUEUE_LIMIT_BYTES,
+    nearlyFull: usedBytes >= PHOTO_QUEUE_WARN_BYTES,
   };
 }

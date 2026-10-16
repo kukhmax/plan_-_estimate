@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { fetchPhotoStorage } from '../api/photos';
+import { useConnection } from '../offline/connection';
 import { PhotoStorageState, PhotoStorageStatus } from '../types/photo';
 
 // One shared `GET /api/photo-storage` per workspace session (contract §4): every photo section reads the same
@@ -55,6 +56,11 @@ export function resetPhotoStorage(): void {
 export interface PhotoStorageView {
   status: LoadStatus;
   data: PhotoStorageStatus | null;
+  /**
+   * The status can be relied on: the server answered, or (Stage 19D) there is no signal and the last answer is kept — a photo
+   * taken in a basement then waits on the phone instead of the buttons disappearing.
+   */
+  usable: boolean;
   /** False while unknown, on error and when the server gate is closed (D5: no upload controls then). */
   uploadsEnabled: boolean;
   mediaAvailable: boolean;
@@ -64,6 +70,7 @@ export interface PhotoStorageView {
 
 export function usePhotoStorage(): PhotoStorageView {
   const current = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const { offline } = useConnection();
 
   useEffect(() => {
     if (snapshot.status === 'idle') void refreshPhotoStorage();
@@ -73,6 +80,7 @@ export function usePhotoStorage(): PhotoStorageView {
   return {
     status: current.status,
     data,
+    usable: current.status === 'ready' || (current.status === 'error' && data !== null && offline),
     uploadsEnabled: data?.uploads_enabled === true && data.state !== 'FULL',
     mediaAvailable: data?.media_available === true,
     state: data?.state ?? null,

@@ -4,6 +4,7 @@ import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { User } from '../types/auth';
 import { ExecutorProfileModal } from './ExecutorProfileModal';
 import { Ico } from './Ico';
+import { usePhotoUploadQueue } from '../hooks/usePhotoUploadQueue';
 import { useOutboxCounts } from '../offline/outboxState';
 import { clearOfflineData } from '../offline/readCache';
 
@@ -18,6 +19,8 @@ export function AccountModal({ user, isDevAuth, onClose }: AccountModalProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const { pending, failed } = useOutboxCounts();
+  // photos that wait on the phone are lost by the removal as well (Stage 19D)
+  const waitingPhotos = usePhotoUploadQueue().items.filter((entry) => entry.state !== 'done' && entry.state !== 'canceled').length;
   const [cleared, setCleared] = useState(false);
 
   // Escape and the Telegram BackButton close the top-most layer: the profile screen first, then this dialog.
@@ -151,6 +154,11 @@ export function AccountModal({ user, isDevAuth, onClose }: AccountModalProps) {
                 {pending + failed > 0 && (
                   <p role="alert" aria-label="clear-offline-pending" className="text-xs font-semibold text-red-700 break-words">
                     {t.offline.clear_pending.replace('{n}', String(pending + failed))}
+                  </p>
+                )}
+                {waitingPhotos > 0 && (
+                  <p role="alert" aria-label="clear-offline-photos" className="text-xs font-semibold text-red-700 break-words">
+                    {t.offline.clear_pending_photos.replace('{n}', String(waitingPhotos))}
                   </p>
                 )}
                 <div className="flex gap-2">

@@ -83,6 +83,16 @@ export async function countSavedReads(): Promise<number> {
   }
 }
 
+const clearedListeners = new Set<() => void>();
+
+/** Something that keeps its own copy in memory (the photo queue) lets go of it when the stored data is removed. */
+export function onOfflineDataCleared(listener: () => void): () => void {
+  clearedListeners.add(listener);
+  return () => {
+    clearedListeners.delete(listener);
+  };
+}
+
 /** Removes everything the application keeps for work without a signal ("Wyczyść dane offline", a change of owner). */
 export async function clearOfflineData(): Promise<void> {
   const db = offlineDb();
@@ -92,7 +102,10 @@ export async function clearOfflineData(): Promise<void> {
     await handle.clear('readCache');
     await handle.clear('meta');
     await handle.clear('outbox');
+    await handle.clear('photos');
+    await handle.clear('photoFiles');
     setOutboxCounts({ pending: 0, failed: 0 });
+    clearedListeners.forEach((listener) => listener());
   } catch (error) {
     warn('the offline data could not be cleared', error);
   }

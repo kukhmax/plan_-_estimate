@@ -55,8 +55,8 @@ describe('usePhotoUploadQueue', () => {
       p1.result.current.enqueue([file('1.jpg')], { projectId: 'p1', context: 'PROJECT' }, 'GALLERY');
       p2.result.current.enqueue([file('2.jpg')], { projectId: 'p2', context: 'PROJECT' }, 'GALLERY');
     });
-    expect(p1.result.current.items.map((i) => i.file.name)).toEqual(['1.jpg']);
-    expect(p2.result.current.items.map((i) => i.file.name)).toEqual(['2.jpg']);
+    expect(p1.result.current.items.map((i) => i.name)).toEqual(['1.jpg']);
+    expect(p2.result.current.items.map((i) => i.name)).toEqual(['2.jpg']);
     expect(all.result.current.items).toHaveLength(2);
   });
 
