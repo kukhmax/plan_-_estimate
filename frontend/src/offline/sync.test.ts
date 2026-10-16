@@ -3,7 +3,7 @@ import * as authApi from '../api/auth';
 import { freshIndexedDb } from '../test/fakeIdb';
 import { getConnectionState, reportNetworkFailure, reportNetworkSuccess, resetConnectionForTests } from './connection';
 import { addOp, listOps, refreshOutboxCounts } from './outbox';
-import { getOutboxCounts, getSyncInfo, resetSyncStateForTests } from './outboxState';
+import { drainNow, getOutboxCounts, getSyncInfo, resetSyncStateForTests } from './outboxState';
 import type { OutboxKind } from './opTypes';
 import { setOfflineOwner } from './readCache';
 import { MAX_ATTEMPTS, SYNC_INTERVAL_MS, drainOutbox, startSync } from './sync';
@@ -235,6 +235,19 @@ describe('when the engine looks at the outbox (Stage 19C)', () => {
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
     await idle();
     stop();
+  });
+
+  it('lets what acts on the server send the waiting changes first, and only while it runs (Stage 19C.3)', async () => {
+    const stop = startSync();
+    await drainNow(); // the engine's own runner, not the timer
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(getOutboxCounts().pending).toBe(0);
+
+    stop();
+    await create('B');
+    await refreshOutboxCounts();
+    await drainNow();
+    expect(fetch).toHaveBeenCalledTimes(1); // nothing is sent once the engine is stopped
   });
 
   it('stops looking when stopped', async () => {

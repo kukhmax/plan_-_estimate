@@ -57,6 +57,8 @@ export interface WorkExecutionTransition {
   status: WorkExecutionStatus;
   /** The status the owner saw when starting the action (optimistic concurrency). */
   expected_status: WorkExecutionStatus;
+  /** The moment of the tap (ISO, UTC). Added by `apiRequest` so that a status marked without a signal is recorded when it was made. */
+  recorded_at?: string;
 }
 
 /** One entry of the 409 WORK_EXECUTION_DETACH_CONFIRMATION_REQUIRED list (13H.4). */

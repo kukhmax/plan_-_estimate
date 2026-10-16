@@ -9,6 +9,7 @@ import { fetchProject } from '../api/projects';
 import { fetchProjectSummary, fetchRoom, fetchRooms } from '../api/rooms';
 import { fetchSurfaces } from '../api/surfaces';
 import { fetchSurfaceWorkPlan } from '../api/workPlans';
+import { SUBSTRATE_ORDER } from '../components/InspectionList';
 import { refreshPhotoStorage } from '../hooks/usePhotoStorage';
 import { getMeta, setMeta } from './readCache';
 
@@ -72,6 +73,11 @@ export async function prepareProjectOffline(
   await step(() => fetchProjectNotes(projectId));
   await step(() => fetchClients({ include_archived: true }));
   const templates = await step(() => fetchChecklistTemplates());
+  // starting an inspection asks for the templates of one substrate, then for the template itself (Stage 19C.3)
+  for (const substrate of SUBSTRATE_ORDER) {
+    if (shouldStop()) break;
+    await step(() => fetchChecklistTemplates(substrate));
+  }
   for (const template of templates?.items ?? []) {
     if (shouldStop()) break;
     await step(() => fetchChecklistTemplate(template.id));

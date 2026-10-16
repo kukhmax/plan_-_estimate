@@ -10,6 +10,7 @@ const A = '55555555-5555-4555-8555-555555555555';
 const N = '66666666-6666-4666-8666-666666666666';
 const I = '77777777-7777-4777-8777-777777777777';
 const NEW = '99999999-9999-4999-8999-999999999999';
+const K = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 const T0 = Date.UTC(2026, 9, 15, 12, 0, 0);
 let seq = 0;
@@ -46,6 +47,8 @@ describe('matchWrite (Stage 19C)', () => {
     ['POST', `${segmentsPath}/${A}/archive`, 'segment.archive'],
     ['POST', `${segmentsPath}/${A}/restore`, 'segment.restore'],
     ['PUT', answersPath, 'answers.put'],
+    ['POST', `${roomsPath}/${R}/inspections`, 'inspection.create'],
+    ['PATCH', `${wallsPath}/${S}/work-plan/occurrences/${K}/execution`, 'execution.transition'],
   ])('%s %s is %s', (method, path, kind) => {
     expect(matchWrite(method, path)?.kind).toBe(kind);
   });
@@ -56,8 +59,9 @@ describe('matchWrite (Stage 19C)', () => {
 
   it.each([
     ['POST', `${wallsPath}/generate`], // computed by the server
-    ['POST', `${roomsPath}/${R}/inspections`],
     ['POST', `${roomsPath}/${R}/inspections/${I}/complete`],
+    ['POST', `${roomsPath}/${R}/inspections/${I}/reopen`],
+    ['POST', `${wallsPath}/${S}/work-plan/execution/bulk`], // carries a status to the other walls: computed by the server
     ['POST', `/api/projects/${P}/photos`],
     ['POST', `/api/projects/${P}/estimates/generate`],
     ['POST', `/api/projects/${P}/archive`],
@@ -218,5 +222,124 @@ describe('labelOf', () => {
     expect(labelOf(matchWrite('POST', openingsPath)!, { opening_type: 'DOOR', width: 0.9, height: 2 })).toBe('DOOR 0.9 × 2');
     expect(labelOf(matchWrite('POST', segmentsPath)!, { plane: 'FLOOR', width: 2, height: 3 })).toBe('FLOOR 2 × 3');
     expect(labelOf(matchWrite('PUT', answersPath)!, null)).toBe('');
+  });
+});
+
+
+// --- Stage 19C.3: an inspection started without a signal, the status of a planned work ---------------------------------------------
+
+const inspectionsPath = `${roomsPath}/${R}/inspections`;
+const planPath = `${wallsPath}/${S}/work-plan`;
+const executionPath = `${planPath}/occurrences/${K}/execution`;
+const startInspection = (id = NEW) =>
+  op('inspection.create', 'POST', inspectionsPath, { id, template_id: 'tpl', substrate: 'CONCRETE', plane: 'CEILING', quality_target: 'S2' }, id);
+const savedPlan = (execution: Record<string, unknown>) => ({
+  id: 'plan', substrate: 'CONCRETE', planned_works: [{ occurrence_key: K, position: 0, execution }, { occurrence_key: 'other', position: 1, execution: { status: 'NOT_STARTED', started_at: null, completed_at: null, ready_after: null } }],
+});
+const NOT_STARTED = { status: 'NOT_STARTED', started_at: null, completed_at: null, ready_after: null };
+const transition = (status: string, expected: string, recorded?: string) =>
+  op('execution.transition', 'PATCH', executionPath, { status, expected_status: expected, ...(recorded ? { recorded_at: recorded } : {}) }, K);
+
+describe('an inspection started without a signal', () => {
+  it('is a draft with no answers, in the list of its room and as a record of its own', () => {
+    const started = startInspection();
+    const inList = overlayRead(inspectionsPath, list(), [started]) as { items: Array<Record<string, unknown>> };
+    expect(inList.items).toHaveLength(1);
+    expect(inList.items[0]).toMatchObject({ id: NEW, room_id: R, status: 'DRAFT', plane: 'CEILING', surface_id: null, notes: null, answers: [], is_archived: false, _pending: true });
+
+    const itself = resolveFromOutbox(`${inspectionsPath}/${NEW}`, [started]) as Record<string, unknown>;
+    expect(itself).toMatchObject({ id: NEW, status: 'DRAFT', template_id: 'tpl', quality_target: 'S2', answers: [] });
+  });
+
+  it('has empty answers and findings, then the answers typed on the phone', () => {
+    const started = startInspection();
+    expect(resolveFromOutbox(`${inspectionsPath}/${NEW}/answers`, [started])).toEqual({ items: [], total: 0 });
+    expect(resolveFromOutbox(`${inspectionsPath}/${NEW}/findings?include_resolved=true`, [started])).toEqual({ items: [], total: 0 });
+    const typed = op('answers.put', 'PUT', `${inspectionsPath}/${NEW}/answers`, { answers: [{ question_id: 'q1', value_bool: true }] }, NEW);
+    const answers = resolveFromOutbox(`${inspectionsPath}/${NEW}/answers`, [started, typed]) as { items: unknown[] };
+    expect(answers.items).toMatchObject([{ question_id: 'q1', value_bool: true, _pending: true }]);
+  });
+
+  it('knows nothing about another inspection', () => {
+    expect(resolveFromOutbox(`${inspectionsPath}/${I}/answers`, [startInspection()])).toBeUndefined();
+  });
+
+  it('the answers typed on the phone are laid over the inspection the server has, so the form shows them', () => {
+    const server = { id: I, room_id: R, status: 'DRAFT', answers: [{ id: 'old', question_id: 'q-old', value_bool: false }] };
+    const typed = op('answers.put', 'PUT', answersPath, { answers: [{ question_id: 'q1', value_number: '3.5' }] }, I);
+    const shown = overlayRead(`${inspectionsPath}/${I}`, server, [typed]) as { answers: Array<Record<string, unknown>> };
+    expect(shown.answers).toHaveLength(1); // the set is replaced, as the server replaces it
+    expect(shown.answers[0]).toMatchObject({ question_id: 'q1', value_number: '3.5' });
+    expect(overlayRead(`${inspectionsPath}/${NEW}`, { id: NEW, answers: [] }, [typed])).toEqual({ id: NEW, answers: [] }); // not about it
+  });
+
+  it('gives the screen the inspection with the id of the phone', () => {
+    const started = startInspection();
+    expect(optimisticResult(started, [], [started])).toMatchObject({ id: NEW, room_id: R, status: 'DRAFT', _pending: true });
+  });
+
+  it('is named in a few words', () => {
+    const match = matchWrite('POST', inspectionsPath)!;
+    expect(labelOf(match, { plane: 'CEILING', substrate: 'CONCRETE' })).toBe('CEILING CONCRETE');
+  });
+});
+
+describe('the status of a planned work marked without a signal', () => {
+  const tap = '2026-10-16T08:30:00.000Z';
+
+  it('is shown on the work of the plan at once, with the moment of the tap', () => {
+    const shown = overlayRead(planPath, savedPlan(NOT_STARTED), [transition('IN_PROGRESS', 'NOT_STARTED', tap)]) as { planned_works: Array<{ occurrence_key: string; execution: Record<string, unknown> }> };
+    expect(shown.planned_works[0].execution).toMatchObject({ status: 'IN_PROGRESS', started_at: tap, completed_at: null, ready_after: null, _pending: true });
+    expect(shown.planned_works[1].execution.status).toBe('NOT_STARTED'); // another work is left alone
+  });
+
+  it('uses the time the change was made when no moment came with it', () => {
+    const waiting = transition('IN_PROGRESS', 'NOT_STARTED');
+    const shown = overlayRead(planPath, savedPlan(NOT_STARTED), [waiting]) as { planned_works: Array<{ execution: Record<string, unknown> }> };
+    expect(shown.planned_works[0].execution.started_at).toBe(new Date(waiting.createdAt).toISOString());
+  });
+
+  it('follows the rules of the server: finishing keeps the start; reopening keeps it and clears the finish; resetting clears the start', () => {
+    const t1 = '2026-10-16T08:00:00.000Z', t2 = '2026-10-16T09:00:00.000Z';
+    const work = (ops: OutboxOp[]) => (overlayRead(planPath, savedPlan(NOT_STARTED), ops) as { planned_works: Array<{ execution: Record<string, unknown> }> }).planned_works[0].execution;
+    const start = transition('IN_PROGRESS', 'NOT_STARTED', t1);
+    const finish = transition('COMPLETED', 'IN_PROGRESS', t2);
+    expect(work([start, finish])).toMatchObject({ status: 'COMPLETED', started_at: t1, completed_at: t2 });
+    expect(work([start, finish, transition('IN_PROGRESS', 'COMPLETED', '2026-10-16T10:00:00.000Z')])).toMatchObject({ status: 'IN_PROGRESS', started_at: t1, completed_at: null });
+    expect(work([start, transition('NOT_STARTED', 'IN_PROGRESS', t2)])).toMatchObject({ status: 'NOT_STARTED', started_at: null });
+    expect(work([transition('COMPLETED', 'NOT_STARTED', t2)])).toMatchObject({ status: 'COMPLETED', started_at: t2, completed_at: t2 }); // the shortcut
+  });
+
+  it('leaves another surface, another path and a plan the change is not about alone', () => {
+    expect(overlayRead(`${wallsPath}/${NEW}/work-plan`, savedPlan(NOT_STARTED), [transition('IN_PROGRESS', 'NOT_STARTED', tap)])).toEqual(savedPlan(NOT_STARTED));
+    expect(overlayRead(`${wallsPath}/${S}`, { id: S }, [transition('IN_PROGRESS', 'NOT_STARTED', tap)])).toEqual({ id: S });
+  });
+
+  it('the screen that made the change gets the answer of the server\'s shape, built on the changes before it', () => {
+    const start = transition('IN_PROGRESS', 'NOT_STARTED', '2026-10-16T08:00:00.000Z');
+    const finish = transition('COMPLETED', 'IN_PROGRESS', '2026-10-16T09:00:00.000Z');
+    const saved = [{ path: planPath, data: savedPlan(NOT_STARTED) }];
+    expect(optimisticResult(start, saved, [start])).toEqual({ occurrence_key: K, status: 'IN_PROGRESS', started_at: '2026-10-16T08:00:00.000Z', completed_at: null, ready_after: null });
+    expect(optimisticResult(finish, saved, [start, finish])).toEqual({ occurrence_key: K, status: 'COMPLETED', started_at: '2026-10-16T08:00:00.000Z', completed_at: '2026-10-16T09:00:00.000Z', ready_after: null });
+  });
+
+  it('the answer to a change is not changed by the changes made after it', () => {
+    const start = transition('IN_PROGRESS', 'NOT_STARTED', '2026-10-16T08:00:00.000Z');
+    const finish = transition('COMPLETED', 'IN_PROGRESS', '2026-10-16T09:00:00.000Z');
+    const saved = [{ path: planPath, data: savedPlan(NOT_STARTED) }];
+    expect(optimisticResult(start, saved, [start, finish])).toMatchObject({ status: 'IN_PROGRESS', completed_at: null });
+    // the work was started, reset and started again: the answer to the FIRST start knows nothing of the later moments
+    const reset = transition('NOT_STARTED', 'IN_PROGRESS', '2026-10-16T08:30:00.000Z');
+    const again = transition('IN_PROGRESS', 'NOT_STARTED', '2026-10-16T10:00:00.000Z');
+    expect(optimisticResult(start, saved, [start, reset, again])).toMatchObject({ status: 'IN_PROGRESS', started_at: '2026-10-16T08:00:00.000Z' });
+  });
+
+  it('with no saved plan the change still answers with its own status and moment', () => {
+    const only = transition('IN_PROGRESS', 'NOT_STARTED', tap);
+    expect(optimisticResult(only, [], [only])).toMatchObject({ occurrence_key: K, status: 'IN_PROGRESS', started_at: tap });
+  });
+
+  it('is named by its status', () => {
+    expect(labelOf(matchWrite('PATCH', executionPath)!, { status: 'COMPLETED' })).toBe('COMPLETED');
   });
 });

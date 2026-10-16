@@ -7,7 +7,7 @@ docs/STAGE_13_TECHNOLOGICAL_WORKFLOWS_ARCHITECTURE.md §33.
 """
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.models.work_execution import SurfaceWorkExecution, WorkExecutionStatus
 
@@ -22,6 +22,34 @@ ALLOWED_TRANSITIONS: frozenset[tuple[WorkExecutionStatus, WorkExecutionStatus]] 
         (S.IN_PROGRESS, S.NOT_STARTED),
     }
 )
+
+
+# Stage 19C.3: a status marked on the phone without a signal carries the moment of the tap (`recorded_at`). The server believes it
+# only within these bounds -- it is still the application's record, never proof of the physical moment.
+RECORDED_AT_MAX_AGE = timedelta(days=14)
+RECORDED_AT_FUTURE_SKEW = timedelta(minutes=2)
+
+
+def resolve_moment(
+    recorded_at: datetime | None,
+    now: datetime,
+    latest_known: datetime | None,
+) -> datetime:
+    """The moment to record for a transition: the phone's `recorded_at` when it is plausible, the server's `now` otherwise.
+
+    Plausible = has a time zone, is not in the future (a small clock skew is clamped to `now`), is not older than 14 days and does
+    not precede what is already recorded for this work (`latest_known`: the later of its started_at / completed_at).
+    """
+    if recorded_at is None or recorded_at.tzinfo is None:
+        return now
+    moment = recorded_at.astimezone(timezone.utc)
+    if moment > now + RECORDED_AT_FUTURE_SKEW or moment < now - RECORDED_AT_MAX_AGE:
+        return now
+    if latest_known is not None:
+        known = latest_known if latest_known.tzinfo is not None else latest_known.replace(tzinfo=timezone.utc)
+        if moment < known:
+            return now
+    return min(moment, now)
 
 
 def derive_ready_after(

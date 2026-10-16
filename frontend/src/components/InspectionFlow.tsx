@@ -485,9 +485,13 @@ export function InspectionFlow({
       setError(
         err instanceof ApiError && err.status === 422
           ? t.inspections.error_validation
-          : err instanceof Error
-            ? err.message
-            : t.inspections.error_validation,
+          : err instanceof ApiError && err.code === 'CHANGES_WAITING'
+            ? t.errors.CHANGES_WAITING
+            : err instanceof TypeError
+              ? t.offline.complete_needs_connection // no signal: the answers are on the phone, closing needs the server
+              : err instanceof Error
+                ? err.message
+                : t.inspections.error_validation,
       );
     } finally {
       setSaving(false);

@@ -5,7 +5,9 @@ export type OutboxKind =
   | 'surface.create' | 'surface.update' | 'surface.archive' | 'surface.restore'
   | 'opening.create' | 'opening.update' | 'opening.archive' | 'opening.restore'
   | 'segment.create' | 'segment.update' | 'segment.archive' | 'segment.restore'
-  | 'answers.put';
+  | 'answers.put'
+  | 'inspection.create'
+  | 'execution.transition';
 
 export interface OutboxError {
   status: number;

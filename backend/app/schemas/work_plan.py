@@ -124,12 +124,16 @@ class SurfaceWorkExecutionTransition(BaseModel):
     """PATCH body of the dedicated execution endpoint (Stage 13H.3).
 
     Only the target status and the status the client last saw
-    (`expected_status`, optimistic concurrency) -- timestamps and ready_after
-    are always server-derived and cannot be sent.
+    (`expected_status`, optimistic concurrency) -- ready_after is always
+    derived; the timestamps are the server's, except that a plausible
+    `recorded_at` (a status marked on the phone without a signal) is used.
     """
 
     status: WorkExecutionStatus
     expected_status: WorkExecutionStatus
+    # Stage 19C.3: the moment the owner tapped it on the phone without a signal. Optional; the server believes it only when it is
+    # plausible (not in the future, not older than 14 days, not before what is already recorded) and uses its own time otherwise.
+    recorded_at: datetime | None = None
 
     model_config = ConfigDict(extra="forbid")
 

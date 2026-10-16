@@ -793,6 +793,29 @@ describe('InspectionFlow substrate step', () => {
     expect(screen.getByLabelText('Zakończ badanie')).toBeInTheDocument();
   });
 
+  it.each([
+    ['without a signal (a failed fetch)', () => new TypeError('Failed to fetch'), /Zakończenie badania wymaga połączenia z internetem/],
+    ['while earlier changes still wait to be sent', () => new ApiError('2 change(s) made earlier are still waiting', 0, 'CHANGES_WAITING'), /Zmiany zrobione bez zasięgu czekają jeszcze na wysłanie/],
+  ])('closing the inspection %s says so, in words, and keeps the answers (Stage 19C.3)', async (_name, failure, message) => {
+    vi.mocked(inspectionsApi.completeInspection).mockRejectedValue(failure());
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await screen.findByText(/Odpowiedzi: 0 \/ 5/);
+    fireEvent.click(screen.getByLabelText('Tak'));
+    fireEvent.click(screen.getByLabelText('Przejrzyj i zakończ'));
+    await screen.findByText('Podsumowanie odpowiedzi');
+
+    fireEvent.click(screen.getByLabelText('Zakończ badanie'));
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.queryByText('Failed to fetch')).toBeNull();
+    expect(screen.getByText('Tak')).toBeInTheDocument();
+    expect(screen.getByLabelText('Zakończ badanie')).toBeInTheDocument();
+  });
+
   it('reopens a completed inspection back into an editable draft (LIFECYCLE)', async () => {
     const detail: InspectionDetail = {
       ...draftInspection,

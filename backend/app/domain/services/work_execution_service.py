@@ -15,6 +15,9 @@ Transitions (D-H5/D-H6), all timestamps server-generated UTC:
 
 COMPLETED -> NOT_STARTED is not a transition: reopen first.
 
+Stage 19C.3: a status marked on the phone without a signal carries `recorded_at`; where this module says "now", that moment is used
+when it is plausible (see `resolve_moment`), the server's own time otherwise.
+
 Order of checks (D-H18): a request for the status the occurrence already has
 succeeds without changing anything; otherwise a stale `expected_status` or a
 disallowed transition is a conflict. Every transition runs under the plan row
@@ -42,6 +45,7 @@ from app.domain.rules.work_execution_rules import (  # noqa: F401 (re-exported)
     calculate_bulk_execution_plan,
     derive_ready_after,
     execution_view,
+    resolve_moment,
 )
 from app.domain.services.calendar_service import CalendarService
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
@@ -137,6 +141,7 @@ class SurfaceWorkExecutionService:
         *,
         status: WorkExecutionStatus,
         expected_status: WorkExecutionStatus,
+        recorded_at: datetime | None = None,
     ) -> OccurrenceExecution:
         """Move one current occurrence to `status` atomically (see module
         docstring) and commit. An idempotent repeat writes nothing; its commit
@@ -187,7 +192,10 @@ class SurfaceWorkExecutionService:
             )
             self.db.add(execution)
 
-        _apply_transition(execution, current, status, datetime.now(timezone.utc))
+        now = datetime.now(timezone.utc)
+        known = [moment for moment in (execution.started_at, execution.completed_at) if moment is not None]
+        moment = resolve_moment(recorded_at, now, max(known) if known else None)
+        _apply_transition(execution, current, status, moment)
         await self.db.flush()
         # Stage 18C: the calendar follows the status in this very transaction (the break reminder, the reminders that waited for it).
         await CalendarService(self.db).on_executions_changed(owner_id, project_id, {occurrence_key: status})

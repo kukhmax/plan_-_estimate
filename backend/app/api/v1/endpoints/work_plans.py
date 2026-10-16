@@ -311,6 +311,7 @@ async def transition_execution(
             occurrence_key,
             status=payload.status,
             expected_status=payload.expected_status,
+            recorded_at=payload.recorded_at,
         )
     except ProjectNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")

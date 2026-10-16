@@ -2,7 +2,7 @@ import { getConnectionState, reportNetworkFailure, reportNetworkSuccess, reportS
 import { isCacheablePath } from '../offline/cacheRules';
 import { newId } from '../offline/ids';
 import { listOps } from '../offline/outbox';
-import { getOutboxCounts } from '../offline/outboxState';
+import { drainNow, getOutboxCounts } from '../offline/outboxState';
 import { queueWrite } from '../offline/queueWrite';
 import { loadRead, saveRead } from '../offline/readCache';
 import { matchWrite, overlayRead, resolveFromOutbox } from '../offline/writeRules';
@@ -136,6 +136,18 @@ async function readFromPhone(path: string): Promise<{ value: unknown } | null> {
   return null;
 }
 
+/**
+ * A write that cannot be kept on the phone (an estimate, a contract, closing an inspection …) acts on what the server holds. While
+ * changes made without a signal still wait, it would act on stale data (an estimate without the room just measured, an inspection closed
+ * before its answers arrived): so the waiting changes are sent first, and the request goes on only when nothing waits any more.
+ */
+async function ensureEarlierChangesSent(): Promise<void> {
+  if (getOutboxCounts().pending === 0) return;
+  if (!getConnectionState().offline) await drainNow();
+  const waiting = getOutboxCounts().pending;
+  if (waiting > 0) throw new ApiError(`${waiting} change(s) made earlier are still waiting to be sent`, 0, 'CHANGES_WAITING', { waiting });
+}
+
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const token = localStorage.getItem('access_token');
@@ -155,11 +167,17 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
           writeBody = { ...writeBody, id: newId() };
           requestBody = JSON.stringify(writeBody);
         }
+        if (write.action === 'transition' && writeBody.recorded_at === undefined) {
+          // the moment of the tap goes with the status, so that a status marked without a signal is recorded when it was made
+          writeBody = { ...writeBody, recorded_at: new Date().toISOString() };
+          requestBody = JSON.stringify(writeBody);
+        }
       }
     } catch {
       writeBody = null; // not JSON: sent as it is, never kept
     }
   }
+  if (method !== 'GET' && !write) await ensureEarlierChangesSent();
   const keepable = write !== null && (write.action === 'delete' || write.action === 'archive' || write.action === 'restore' || writeBody !== null);
 
   if (requestBody && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');

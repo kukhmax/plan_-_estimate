@@ -67,6 +67,10 @@ describe('"Przygotuj do pracy offline" (Stage 19B)', () => {
     expect(notesApi.fetchProjectNotes).toHaveBeenCalledWith(P);
     expect(clientsApi.fetchClients).toHaveBeenCalledWith({ include_archived: true });
     expect(checklistsApi.fetchChecklistTemplate).toHaveBeenCalledTimes(2);
+    // starting an inspection without a signal asks for the templates of ONE substrate (Stage 19C.3): every list is kept
+    for (const substrate of ['CONCRETE', 'GYPSUM_PLASTER', 'CEMENT_LIME_PLASTER', 'GYPSUM_BOARD', 'PAINTED', 'OTHER']) {
+      expect(checklistsApi.fetchChecklistTemplates).toHaveBeenCalledWith(substrate);
+    }
     expect(roomsApi.fetchRoom).toHaveBeenCalledWith(P, 'r1');
     expect(surfacesApi.fetchSurfaces).toHaveBeenCalledWith(P, 'r1');
     expect(areaApi.fetchAreaSegments).toHaveBeenCalledWith(P, 'r1');

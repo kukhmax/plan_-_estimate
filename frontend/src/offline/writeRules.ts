@@ -12,9 +12,9 @@ const P = `/api/projects/(?<project>${U})`;
 const R = `${P}/rooms/(?<room>${U})`;
 const S = `${R}/surfaces/(?<surface>${U})`;
 
-export type Entity = 'note' | 'room' | 'surface' | 'opening' | 'segment' | 'answers';
-export type Action = 'create' | 'update' | 'archive' | 'restore' | 'delete' | 'replace';
-export type Ids = Partial<Record<'project' | 'room' | 'surface' | 'opening' | 'segment' | 'note' | 'inspection', string>>;
+export type Entity = 'note' | 'room' | 'surface' | 'opening' | 'segment' | 'answers' | 'inspection' | 'execution';
+export type Action = 'create' | 'update' | 'archive' | 'restore' | 'delete' | 'replace' | 'transition';
+export type Ids = Partial<Record<'project' | 'room' | 'surface' | 'opening' | 'segment' | 'note' | 'inspection' | 'occurrence', string>>;
 
 interface Rule {
   kind: OutboxKind;
@@ -53,6 +53,9 @@ const RULES: readonly Rule[] = [
   rule('segment.archive', 'POST', `${R}/area-segments/(?<segment>${U})/archive`, 'segment', 'archive'),
   rule('segment.restore', 'POST', `${R}/area-segments/(?<segment>${U})/restore`, 'segment', 'restore'),
   rule('answers.put', 'PUT', `${R}/inspections/(?<inspection>${U})/answers`, 'answers', 'replace'),
+  // Stage 19C.3: starting an inspection, and the status of a planned work (it carries the moment of the tap)
+  rule('inspection.create', 'POST', `${R}/inspections`, 'inspection', 'create'),
+  rule('execution.transition', 'PATCH', `${S}/work-plan/occurrences/(?<occurrence>${U})/execution`, 'execution', 'transition'),
 ];
 
 const BY_KIND = new Map(RULES.map((r) => [r.kind, r]));
@@ -90,7 +93,7 @@ interface EntityDef {
   idKey: keyof Ids;
 }
 
-const ENTITIES: Record<Exclude<Entity, 'answers'>, EntityDef> = {
+const ENTITIES: Record<Exclude<Entity, 'answers' | 'execution'>, EntityDef> = {
   note: {
     listPath: (ids) => `/api/projects/${ids.project}/notes`,
     itemPath: () => null,
@@ -119,6 +122,14 @@ const ENTITIES: Record<Exclude<Entity, 'answers'>, EntityDef> = {
     fromParent: (ids) => ({ surface_id: ids.surface }),
     defaults: { name: null, quantity: 1, description: null },
     idKey: 'opening',
+  },
+  inspection: {
+    listPath: (ids) => `/api/projects/${ids.project}/rooms/${ids.room}/inspections`,
+    itemPath: (ids, id) => `/api/projects/${ids.project}/rooms/${ids.room}/inspections/${id}`,
+    fromParent: (ids) => ({ room_id: ids.room }),
+    // a new inspection is a draft with no answers (the screen reads them from the detail)
+    defaults: { surface_id: null, plane: null, quality_target: null, notes: null, status: 'DRAFT', completed_at: null, answers: [] },
+    idKey: 'inspection',
   },
   segment: {
     listPath: (ids) => `/api/projects/${ids.project}/rooms/${ids.room}/area-segments`,
@@ -177,6 +188,48 @@ function answersList(op: OutboxOp): Json {
   return { items, total: items.length };
 }
 
+const EXECUTION_STATUSES = ['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED'] as const;
+type ExecutionStatus = (typeof EXECUTION_STATUSES)[number];
+const isExecutionStatus = (value: unknown): value is ExecutionStatus => EXECUTION_STATUSES.includes(value as ExecutionStatus);
+
+/** The moment of the tap: the phone's own clock, written into the change when it was made (the server believes it only when plausible). */
+const tappedAt = (op: OutboxOp): string => (typeof op.body?.recorded_at === 'string' ? op.body.recorded_at : iso(op.createdAt));
+
+/**
+ * What the screen shows of a work after a status change, until the server has answered. Only the timestamps the owner has just made
+ * (as the server records them); `ready_after` is derived by the server and stays empty until it answers.
+ */
+function movedExecution(current: Json | undefined, op: OutboxOp): Json {
+  const status = op.body?.status;
+  const was: ExecutionStatus = isExecutionStatus(current?.status) ? current.status : 'NOT_STARTED';
+  const at = tappedAt(op);
+  let startedAt = (current?.started_at as string | null | undefined) ?? null;
+  let completedAt = (current?.completed_at as string | null | undefined) ?? null;
+  if (status === 'IN_PROGRESS') {
+    if (was === 'NOT_STARTED') startedAt = at;
+    else completedAt = null; // reopened
+  } else if (status === 'COMPLETED') {
+    if (was === 'NOT_STARTED') startedAt = at;
+    completedAt = at;
+  } else if (status === 'NOT_STARTED') {
+    startedAt = null;
+  }
+  return { status: isExecutionStatus(status) ? status : was, started_at: startedAt, completed_at: completedAt, ready_after: null };
+}
+
+/** A work plan with the status change laid over the work it is about. */
+function overlayExecution(op: OutboxOp, ids: Ids, base: string, data: Json): Json {
+  if (base !== `/api/projects/${ids.project}/rooms/${ids.room}/surfaces/${ids.surface}/work-plan` || !Array.isArray(data.planned_works)) return data;
+  return {
+    ...data,
+    planned_works: (data.planned_works as unknown[]).map((work) =>
+      isObject(work) && work.occurrence_key === ids.occurrence
+        ? { ...work, execution: { ...movedExecution(isObject(work.execution) ? work.execution : undefined, op), _pending: true } }
+        : work,
+    ),
+  };
+}
+
 /** One waiting change laid over what a GET returned (or would return). Pure; a path it is not about is returned as it came. */
 function applyOp(op: OutboxOp, path: string, data: unknown): unknown {
   const match = matchOp(op);
@@ -185,8 +238,13 @@ function applyOp(op: OutboxOp, path: string, data: unknown): unknown {
   const includeArchived = /(^|&)include_archived=true(&|$)/.test(query);
 
   if (match.entity === 'answers') {
-    return base === `/api/projects/${match.ids.project}/rooms/${match.ids.room}/inspections/${match.ids.inspection}/answers` ? answersList(op) : data;
+    const inspectionPath = `/api/projects/${match.ids.project}/rooms/${match.ids.room}/inspections/${match.ids.inspection}`;
+    if (base === `${inspectionPath}/answers`) return answersList(op);
+    // the inspection itself carries its answers (the screen seeds the form from it)
+    if (base === inspectionPath && data.id === match.ids.inspection) return { ...data, answers: answersList(op).items };
+    return data;
   }
+  if (match.entity === 'execution') return overlayExecution(op, match.ids, base, data);
 
   const def = ENTITIES[match.entity];
   const id = match.action === 'create' ? op.entityId : match.ids[def.idKey];
@@ -226,6 +284,7 @@ export function overlayRead(path: string, data: unknown, ops: readonly OutboxOp[
 }
 
 const LISTS_UNDER_ROOM = /^\/api\/projects\/[^/]+\/rooms\/(?<room>[^/?]+)\/(?:surfaces|area-segments|inspections)(?:\?.*)?$/i;
+const UNDER_INSPECTION = /^\/api\/projects\/[^/]+\/rooms\/[^/]+\/inspections\/(?<inspection>[^/?]+)\/(?:answers|findings)(?:\?.*)?$/i;
 const OPENINGS_UNDER_SURFACE = /^\/api\/projects\/[^/]+\/rooms\/[^/]+\/surfaces\/(?<surface>[^/?]+)\/openings(?:\?.*)?$/i;
 
 /**
@@ -237,7 +296,7 @@ export function resolveFromOutbox(path: string, ops: readonly OutboxOp[]): unkno
   const [base] = path.split('?');
   for (const op of pending) {
     const match = matchOp(op);
-    if (!match || match.action !== 'create' || match.entity === 'answers' || !op.entityId) continue;
+    if (!match || match.action !== 'create' || match.entity === 'answers' || match.entity === 'execution' || !op.entityId) continue;
     const def = ENTITIES[match.entity];
     if (def.itemPath(match.ids, op.entityId) === base) return overlayRead(path, newRecord(def, op, match.ids), pending);
   }
@@ -245,7 +304,9 @@ export function resolveFromOutbox(path: string, ops: readonly OutboxOp[]): unkno
   const createdSurface = (id: string) => pending.some((op) => op.kind === 'surface.create' && op.entityId === id);
   const underRoom = LISTS_UNDER_ROOM.exec(path)?.groups?.room;
   const underSurface = OPENINGS_UNDER_SURFACE.exec(path)?.groups?.surface;
-  if ((underRoom && createdRoom(underRoom)) || (underSurface && createdSurface(underSurface))) {
+  const underInspection = UNDER_INSPECTION.exec(path)?.groups?.inspection;
+  const createdInspection = (id: string) => pending.some((op) => op.kind === 'inspection.create' && op.entityId === id);
+  if ((underRoom && createdRoom(underRoom)) || (underSurface && createdSurface(underSurface)) || (underInspection && createdInspection(underInspection))) {
     return overlayRead(path, { items: [], total: 0 }, pending);
   }
   return undefined;
@@ -257,6 +318,7 @@ export function optimisticResult(op: OutboxOp, saved: ReadonlyArray<{ path: stri
   if (!match) return undefined;
   if (match.action === 'delete') return undefined;
   if (match.entity === 'answers') return answersList(op);
+  if (match.entity === 'execution') return optimisticExecution(op, match.ids, saved, ops);
   const def = ENTITIES[match.entity];
   if (match.action === 'create') return newRecord(def, op, match.ids);
   const id = match.ids[def.idKey] as string;
@@ -272,6 +334,23 @@ export function optimisticResult(op: OutboxOp, saved: ReadonlyArray<{ path: stri
   return changeRecord({ id }, match.action, op);
 }
 
+/**
+ * The answer a status change gives the screen that made it (the shape of `SurfaceWorkExecutionRead`): the work as the plan shows it,
+ * with the status changes made before this one already laid over it, then this change.
+ */
+function optimisticExecution(op: OutboxOp, ids: Ids, saved: ReadonlyArray<{ path: string; data: unknown }>, ops: readonly OutboxOp[]): unknown {
+  const planPath = `/api/projects/${ids.project}/rooms/${ids.room}/surfaces/${ids.surface}/work-plan`;
+  const before = ops.filter((candidate) => candidate.seq === undefined || op.seq === undefined || candidate.seq < op.seq);
+  let current: Json | undefined;
+  for (const candidate of saved) {
+    if (candidate.path !== planPath) continue;
+    const laid = overlayRead(candidate.path, candidate.data, before);
+    const work = isObject(laid) && Array.isArray(laid.planned_works) ? (laid.planned_works as unknown[]).find((w) => isObject(w) && w.occurrence_key === ids.occurrence) : undefined;
+    if (isObject(work) && isObject(work.execution)) current = work.execution;
+  }
+  return { occurrence_key: ids.occurrence, ...movedExecution(current, op) };
+}
+
 export function labelOf(match: WriteMatch, body: Record<string, unknown> | null): string {
   const text = (value: unknown) => (typeof value === 'string' ? value.trim().slice(0, 40) : '');
   switch (match.entity) {
@@ -284,6 +363,10 @@ export function labelOf(match: WriteMatch, body: Record<string, unknown> | null)
       return [text(body?.name) || String(body?.opening_type ?? ''), body?.width && body?.height ? `${body.width} × ${body.height}` : ''].filter(Boolean).join(' ');
     case 'segment':
       return [String(body?.plane ?? ''), body?.width && body?.height ? `${body.width} × ${body.height}` : ''].filter(Boolean).join(' ');
+    case 'inspection':
+      return [String(body?.plane ?? ''), String(body?.substrate ?? '')].filter(Boolean).join(' ');
+    case 'execution':
+      return String(body?.status ?? '');
     default:
       return '';
   }
@@ -292,5 +375,6 @@ export function labelOf(match: WriteMatch, body: Record<string, unknown> | null)
 /** The saved copies a change is about: the list of its kind of record (and the records under it). */
 export function cachePrefix(match: WriteMatch): string {
   if (match.entity === 'answers') return `/api/projects/${match.ids.project}/rooms/${match.ids.room}/inspections/${match.ids.inspection}/answers`;
+  if (match.entity === 'execution') return `/api/projects/${match.ids.project}/rooms/${match.ids.room}/surfaces/${match.ids.surface}/work-plan`;
   return ENTITIES[match.entity].listPath(match.ids);
 }

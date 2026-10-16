@@ -2,7 +2,7 @@ import { loginWithTelegram } from '../api/auth';
 import { API_BASE, domainErrorCodeFromMessage } from '../api/http';
 import { getConnectionState, reportNetworkFailure, reportNetworkSuccess, subscribeConnection } from './connection';
 import { listOps, refreshOutboxCounts, removeOp, updateOp } from './outbox';
-import { getOutboxCounts, setDrainRequester, setSyncInfo } from './outboxState';
+import { getOutboxCounts, setDrainRequester, setDrainRunner, setSyncInfo } from './outboxState';
 import type { OutboxOp } from './opTypes';
 
 export const SEND_TIMEOUT_MS = 20_000;
@@ -145,6 +145,7 @@ export function startSync(): () => void {
     }, delayMs);
   };
   setDrainRequester(request);
+  setDrainRunner(drainOutbox);
   void refreshOutboxCounts().then(() => request(1000));
   let wasOffline = getConnectionState().offline;
   const unsubscribe = subscribeConnection(() => {
@@ -159,5 +160,6 @@ export function startSync(): () => void {
     clearInterval(interval);
     unsubscribe();
     setDrainRequester(() => {});
+    setDrainRunner(null);
   };
 }

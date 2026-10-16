@@ -69,8 +69,18 @@ export function askForSending(delayMs?: number): void {
   requestDrain(delayMs);
 }
 
+/** Sends what waits right now and resolves when the sending is over (the engine registers it); nothing is sent without the engine. */
+let drainRunner: (() => Promise<unknown>) | null = null;
+export function setDrainRunner(fn: (() => Promise<unknown>) | null): void {
+  drainRunner = fn;
+}
+export async function drainNow(): Promise<void> {
+  if (drainRunner) await drainRunner();
+}
+
 export function resetSyncStateForTests(): void {
   info = { running: false, lastSent: null, needsLogin: false };
   counts = { pending: 0, failed: 0 };
   requestDrain = () => {};
+  drainRunner = null;
 }

@@ -35,6 +35,7 @@ from app.models.inspection import (
     InspectionFinding,
     InspectionStatus,
 )
+from app.domain.services.client_ids import find_repeat
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
@@ -401,6 +402,17 @@ class InspectionService:
     ) -> Inspection:
         await self._ensure_room_owned(project_id, room_id, owner_id)
 
+        # Stage 19C.3: the same id with the same room, target and content is the request repeated after a lost answer
+        repeat = await find_repeat(
+            self.db, Inspection, payload.id,
+            {
+                "room_id": room_id, "surface_id": payload.surface_id, "plane": payload.plane, "template_id": payload.template_id,
+                "substrate": payload.substrate, "quality_target": payload.quality_target, "notes": payload.notes,
+            },
+        )
+        if repeat is not None:
+            return repeat
+
         if payload.surface_id is not None and payload.plane is not None:
             raise InvalidInspectionTargetError(
                 "Inspection cannot target both a surface and a plane"
@@ -429,6 +441,7 @@ class InspectionService:
             await self._ensure_surface_in_room(room_id, payload.surface_id)
 
         inspection = Inspection(
+            **({"id": payload.id} if payload.id is not None else {}),
             room_id=room_id,
             surface_id=payload.surface_id,
             plane=payload.plane,

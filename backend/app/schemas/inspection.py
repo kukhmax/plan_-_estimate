@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.models.area_segment import AreaPlane
 from app.models.checklist import QualityLevel, Substrate
 from app.models.inspection import InspectionStatus
+from app.schemas.client_id import ClientId
 
 
 class InspectionCreate(BaseModel):
@@ -14,8 +15,11 @@ class InspectionCreate(BaseModel):
 
     At most one of surface_id (a WALL surface) or plane (FLOOR/CEILING) may be
     set; neither set means a room-level inspection. Targeting both is invalid.
+
+    `id` (Stage 19C.3) is the optional id chosen by the phone, which makes the create safely repeatable.
     """
 
+    id: ClientId
     template_id: uuid.UUID
     substrate: Substrate
     quality_target: QualityLevel | None = None

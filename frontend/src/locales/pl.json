@@ -75,7 +75,8 @@
     "validation_greater_than_equal": "Wartość musi wynosić co najmniej 1.",
     "validation_integer": "Podaj liczbę całkowitą.",
     "validation_failed": "Sprawdź wprowadzone wartości.",
-    "execution_archived": "Nie można zmieniać realizacji w zarchiwizowanym obiekcie, pomieszczeniu lub powierzchni. Najpierw je przywróć."
+    "execution_archived": "Nie można zmieniać realizacji w zarchiwizowanym obiekcie, pomieszczeniu lub powierzchni. Najpierw je przywróć.",
+    "CHANGES_WAITING": "Zmiany zrobione bez zasięgu czekają jeszcze na wysłanie na serwer. Poczekaj chwilę na zasięg i spróbuj ponownie."
   },
   "common": {
     "open": "Otwórz",
@@ -3001,6 +3002,7 @@
     "clear_confirm": "Usunąć dane offline z telefonu? Obiekty zostaną na serwerze.",
     "clear_yes": "Usuń",
     "cleared": "Dane offline usunięto.",
-    "clear_pending_photos": "Uwaga: zdjęcia niewysłane na serwer zostaną utracone ({n})."
+    "clear_pending_photos": "Uwaga: zdjęcia niewysłane na serwer zostaną utracone ({n}).",
+    "complete_needs_connection": "Zakończenie badania wymaga połączenia z internetem. Odpowiedzi są zapisane na telefonie — zakończ badanie, gdy wróci zasięg."
   }
 }
