@@ -1026,6 +1026,16 @@ describe('PhotoSection — the trash of archived photos (archive cleanup AC-1)',
     await screen.findByRole('dialog');
   };
 
+  it('the archive view says that a photo is opened to be restored or put in the trash (AC-3a)', async () => {
+    await openArchive(archivedItem());
+    await screen.findByRole('list');
+    expect(screen.getByText('Otwórz zdjęcie, aby je przywrócić albo przenieść do kosza.')).toBeInTheDocument();
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([]));
+    fireEvent.click(screen.getByRole('button', { name: 'Kosz' }));
+    await screen.findByText('Kosz jest pusty.');
+    expect(screen.queryByText('Otwórz zdjęcie, aby je przywrócić albo przenieść do kosza.')).toBeNull();
+  });
+
   it('the archive offers the trash as a second view, and the trash view asks the server for the trash only', async () => {
     await openArchive(archivedItem());
     await screen.findByRole('list');

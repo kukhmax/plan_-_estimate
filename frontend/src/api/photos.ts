@@ -1,6 +1,7 @@
 import { API_BASE, ApiError, apiRequest } from './http';
 import {
   PhotoAnnotationRead,
+  PhotoArchiveResponse,
   PhotoAttachPayload,
   PhotoAttachmentPatch,
   PhotoAttachmentRead,
@@ -50,6 +51,13 @@ function listQuery(params: PhotoListParams): string {
 
 export function fetchPhotos(projectId: string, params: PhotoListParams = {}): Promise<PhotoListResponse> {
   return apiRequest(`${photosPath(projectId)}${listQuery(params)}`);
+}
+
+/** The photos of the archive or of the trash across all objects (archive cleanup AC-3a); the totals of both views come with it. */
+export function fetchPhotoArchive(view: 'archived' | 'trashed', limit?: number): Promise<PhotoArchiveResponse> {
+  const query = new URLSearchParams({ view });
+  if (limit !== undefined) query.set('limit', String(limit));
+  return apiRequest<PhotoArchiveResponse>(`/api/photos/archive?${query.toString()}`);
 }
 
 export function fetchPhoto(projectId: string, assetId: string): Promise<PhotoDetailResponse> {

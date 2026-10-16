@@ -424,8 +424,10 @@ export function PhotoSection({
                   {t.photos.section.view_trash}
                 </button>
               </div>
-              {view === 'trash' && (
+              {view === 'trash' ? (
                 <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">{t.photos.section.trash_hint}</p>
+              ) : (
+                <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">{t.photos.section.archive_hint}</p>
               )}
             </div>
           )}

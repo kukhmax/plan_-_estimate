@@ -1,5 +1,7 @@
 // TypeScript mirrors of the backend photo DTOs (backend/app/schemas/photo.py, Stage 14C/14E.2).
 // Contract: docs/STAGE_14E_PHOTO_UI_CONTRACT.md §4.
+import type { OpeningTypeValue } from './opening';
+import type { SurfaceTypeValue } from './surface';
 
 export const PHOTO_CATEGORIES = [
   'GENERAL',
@@ -71,6 +73,30 @@ export interface PhotoListItem {
   thumbnail_url: string | null;
   /** Point markers on this attachment (Stage 14G). */
   annotation_count: number;
+}
+
+/** Where an archived photo lives (archive cleanup AC-3a): names resolved by the server, any of them may be missing. */
+export interface PhotoPlace {
+  room_name: string | null;
+  surface_name: string | null;
+  surface_type: SurfaceTypeValue | null;
+  opening_type: OpeningTypeValue | null;
+  opening_name: string | null;
+}
+
+/** A photo of the archive / trash page, with the object it belongs to. */
+export interface ArchivedPhotoItem extends PhotoListItem {
+  project_id: string;
+  project_name: string;
+  place: PhotoPlace;
+}
+
+export interface PhotoArchiveResponse {
+  items: ArchivedPhotoItem[];
+  /** Every photo in the archive (the trash left out) and in the trash, whichever view was asked for. */
+  archived_total: number;
+  trashed_total: number;
+  urls_expire_at: string | null;
 }
 
 export interface PhotoListResponse {

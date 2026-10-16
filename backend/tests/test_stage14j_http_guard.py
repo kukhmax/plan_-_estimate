@@ -42,6 +42,7 @@ PHOTO_OPERATIONS = {
     ("POST", "/api/projects/{project_id}/photo-attachments/{attachment_id}/purge"),
     ("GET", "/api/photo-purge/status"),
     ("POST", "/api/photo-purge/retry"),
+    ("GET", "/api/photos/archive"),  # archive cleanup AC-3a
     ("GET", "/api/projects/{project_id}/photos"),
     ("POST", "/api/projects/{project_id}/photos"),
     ("GET", "/api/projects/{project_id}/photo-report/summary"),  # Stage 15F: counts for the document screen

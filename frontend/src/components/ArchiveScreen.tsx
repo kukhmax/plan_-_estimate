@@ -4,9 +4,10 @@ import { fetchProjects, restoreProject } from '../api/projects';
 import { useI18n } from '../hooks/useI18n';
 import { ClientType } from '../types/client';
 import { ProjectType } from '../types/project';
+import { ArchivePhotos } from './ArchivePhotos';
 import { Ico } from './Ico';
 
-type ArchiveTab = 'clients' | 'projects';
+type ArchiveTab = 'clients' | 'projects' | 'photos';
 
 function clientName(client: ClientType): string {
   if (client.client_type === 'COMPANY') return client.company_name ?? '—';
@@ -23,6 +24,7 @@ export function ArchiveScreen() {
   const [tab, setTab] = useState<ArchiveTab>('clients');
   const [clients, setClients] = useState<ClientType[] | null>(null);
   const [projects, setProjects] = useState<ProjectType[] | null>(null);
+  const [photoTotals, setPhotoTotals] = useState<{ archived: number; trashed: number } | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export function ArchiveScreen() {
     void load();
   }, [load]);
 
-  const restore = async (kind: ArchiveTab, id: string) => {
+  const restore = async (kind: 'clients' | 'projects', id: string) => {
     if (busyId) return;
     setBusyId(id);
     setError(null);
@@ -94,12 +96,16 @@ export function ArchiveScreen() {
       <div role="tablist" aria-label="archive-tabs" className="flex flex-wrap gap-2">
         {tabButton('clients', text.clients_tab, clients?.length)}
         {tabButton('projects', text.projects_tab, projects?.length)}
+        {tabButton('photos', text.photos_tab, photoTotals ? photoTotals.archived + photoTotals.trashed : undefined)}
       </div>
 
       {notice && <p role="status" className="text-sm text-emerald-700 break-words">{notice}</p>}
       {error && <p role="alert" className="text-sm text-red-600 break-words">{error}</p>}
 
-      {loadFailed && (
+      {/* the photos load by themselves (and stay mounted, so the count of the tab is there before it is opened) */}
+      <ArchivePhotos active={tab === 'photos'} onTotals={setPhotoTotals} />
+
+      {loadFailed && tab !== 'photos' && (
         <div className="space-y-2">
           <p role="alert" className="text-sm text-red-600 break-words">{text.error_load}</p>
           <button
@@ -113,7 +119,7 @@ export function ArchiveScreen() {
         </div>
       )}
 
-      {!loadFailed && (tab === 'clients' ? clients : projects) === null && (
+      {!loadFailed && tab !== 'photos' && (tab === 'clients' ? clients : projects) === null && (
         <p className="text-sm text-slate-500">{t.clients.loading}</p>
       )}
 

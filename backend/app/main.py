@@ -24,6 +24,7 @@ from app.domain.exceptions import ClientIdConflictError
 from app.domain.services.calendar_dispatcher import start_dispatcher
 from app.core.database import async_session_maker
 from app.api.v1.endpoints.executor_profile import router as executor_profile_router
+from app.api.v1.endpoints.photo_archive import router as photo_archive_router
 from app.api.v1.endpoints.photo_purge import router as photo_purge_router
 from app.api.v1.endpoints.photos import router as photos_router
 from app.api.v1.endpoints.price_coefficients import router as price_coefficients_router
@@ -121,6 +122,7 @@ app.include_router(reveal_works_router, prefix="/api", tags=["reveal-works"])
 app.include_router(work_recommendations_router, prefix="/api", tags=["work-recommendations"])
 app.include_router(workflow_templates_router, prefix="/api", tags=["workflow-templates"])
 app.include_router(photos_router, prefix="/api", tags=["photos"])
+app.include_router(photo_archive_router, prefix="/api", tags=["photo-archive"])
 app.include_router(photo_purge_router, prefix="/api", tags=["photo-purge"])
 app.include_router(executor_profile_router, prefix="/api", tags=["executor-profile"])
 app.include_router(documents_router, prefix="/api", tags=["documents"])

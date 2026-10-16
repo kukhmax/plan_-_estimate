@@ -43,7 +43,12 @@
     "restored_project": "Obiekt przywrócony.",
     "error_load": "Nie udało się wczytać archiwum.",
     "error_restore": "Nie udało się przywrócić.",
-    "retry": "Spróbuj ponownie"
+    "retry": "Spróbuj ponownie",
+    "photos_tab": "Zdjęcia",
+    "photos_intro": "Zdjęcia z archiwum i z kosza wszystkich obiektów. Otwórz zdjęcie, aby je przywrócić, przenieść do kosza lub usunąć na zawsze (z kosza).",
+    "photos_view_group": "Zdjęcia: archiwum lub kosz",
+    "photos_shown": "Pokazano najnowsze {shown} z {total}.",
+    "photos_error": "Nie udało się wczytać zdjęć."
   },
   "sentDocuments": {
     "intro": "Wszystkie dokumenty wysłane do czatu z botem, ze wszystkich obiektów, od najnowszych.",
@@ -1944,7 +1949,8 @@
       "project_title": "Zdjęcia obiektu",
       "empty_aggregated": "Brak zdjęć. Dodaj je w karcie ściany, podłogi lub sufitu.",
       "room_title": "Zdjęcia pomieszczenia",
-      "offline_list_note": "Brak zasięgu — lista zdjęć jest niedostępna. Nowe zdjęcia czekają na telefonie i zostaną wysłane po powrocie zasięgu."
+      "offline_list_note": "Brak zasięgu — lista zdjęć jest niedostępna. Nowe zdjęcia czekają na telefonie i zostaną wysłane po powrocie zasięgu.",
+      "archive_hint": "Otwórz zdjęcie, aby je przywrócić albo przenieść do kosza."
     },
     "picker": {
       "take_photo": "Zrób zdjęcie",
