@@ -353,6 +353,101 @@ export function AreaSegmentList({
       );
     }
 
+    // the form is drawn where the owner works: a new rectangle above the list, a rectangle being changed IN ITS OWN PLACE (Stage 19, owner request)
+    const segmentForm = activeForm ? (
+        <form
+          aria-label={`${planeKey}-segment-form`}
+          onSubmit={handleSubmit}
+          className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5"
+        >
+          <div className="flex items-center justify-between flex-wrap gap-1">
+            <h5 className="text-xs font-semibold text-slate-700">
+              {editingId ? t.area_segments.edit : t.area_segments.add}
+            </h5>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
+              {operationLabel(activeForm.operation)}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                {t.area_segments.width}
+              </label>
+              <DimensionInput
+                aria-label="segment-width"
+                placeholder="200"
+                autoFocus
+                value={activeForm.width}
+                onValueChange={(meters) =>
+                  setForm((cur) => (cur ? { ...cur, width: meters } : cur))
+                }
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                {t.area_segments.length}
+              </label>
+              <DimensionInput
+                aria-label="segment-height"
+                placeholder="200"
+                value={activeForm.height}
+                onValueChange={(meters) =>
+                  setForm((cur) => (cur ? { ...cur, height: meters } : cur))
+                }
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+          </div>
+          {!editingId && (
+            <button
+              type="button"
+              aria-label="segment-also-opposite"
+              aria-pressed={activeForm.alsoOpposite}
+              onClick={() => setForm((cur) => (cur ? { ...cur, alsoOpposite: !cur.alsoOpposite } : cur))}
+              className={`w-full min-h-10 px-3 py-1 text-sm rounded-xl border font-semibold transition ${
+                activeForm.alsoOpposite
+                  ? 'bg-blue-600 border-blue-600 text-white'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Ico>{activeForm.alsoOpposite ? '☑️' : '🔁'}</Ico>
+              {activeForm.plane === 'FLOOR' ? t.area_segments.also_ceiling : t.area_segments.also_floor}
+            </button>
+          )}
+          <input
+            aria-label="segment-label"
+            type="text"
+            maxLength={255}
+            placeholder={t.area_segments.label}
+            value={activeForm.label}
+            onChange={(e) =>
+              setForm((cur) => (cur ? { ...cur, label: e.target.value } : cur))
+            }
+            className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+          />
+          {formError && (
+            <p role="alert" className="text-sm text-red-600 font-medium">{formError}</p>
+          )}
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={closeForm}
+              className="min-h-10 px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100"
+            >
+              <Ico>✖️</Ico>{t.common.cancel}
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="min-h-10 px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
+            </button>
+          </div>
+        </form>
+    ) : null;
+
     return (
       <section
         key={plane}
@@ -511,99 +606,7 @@ export function AreaSegmentList({
               </button>
             </div>
 
-            {activeForm && (
-              <form
-                aria-label={`${planeKey}-segment-form`}
-                onSubmit={handleSubmit}
-                className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5"
-              >
-                <div className="flex items-center justify-between flex-wrap gap-1">
-                  <h5 className="text-xs font-semibold text-slate-700">
-                    {editingId ? t.area_segments.edit : t.area_segments.add}
-                  </h5>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
-                    {operationLabel(activeForm.operation)}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1">
-                      {t.area_segments.width}
-                    </label>
-                    <DimensionInput
-                      aria-label="segment-width"
-                      placeholder="200"
-                      autoFocus
-                      value={activeForm.width}
-                      onValueChange={(meters) =>
-                        setForm((cur) => (cur ? { ...cur, width: meters } : cur))
-                      }
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1">
-                      {t.area_segments.length}
-                    </label>
-                    <DimensionInput
-                      aria-label="segment-height"
-                      placeholder="200"
-                      value={activeForm.height}
-                      onValueChange={(meters) =>
-                        setForm((cur) => (cur ? { ...cur, height: meters } : cur))
-                      }
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
-                    />
-                  </div>
-                </div>
-                {!editingId && (
-                  <button
-                    type="button"
-                    aria-label="segment-also-opposite"
-                    aria-pressed={activeForm.alsoOpposite}
-                    onClick={() => setForm((cur) => (cur ? { ...cur, alsoOpposite: !cur.alsoOpposite } : cur))}
-                    className={`w-full min-h-10 px-3 py-1 text-sm rounded-xl border font-semibold transition ${
-                      activeForm.alsoOpposite
-                        ? 'bg-blue-600 border-blue-600 text-white'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Ico>{activeForm.alsoOpposite ? '☑️' : '🔁'}</Ico>
-                    {activeForm.plane === 'FLOOR' ? t.area_segments.also_ceiling : t.area_segments.also_floor}
-                  </button>
-                )}
-                <input
-                  aria-label="segment-label"
-                  type="text"
-                  maxLength={255}
-                  placeholder={t.area_segments.label}
-                  value={activeForm.label}
-                  onChange={(e) =>
-                    setForm((cur) => (cur ? { ...cur, label: e.target.value } : cur))
-                  }
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
-                />
-                {formError && (
-                  <p role="alert" className="text-sm text-red-600 font-medium">{formError}</p>
-                )}
-                <div className="flex gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={closeForm}
-                    className="min-h-10 px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100"
-                  >
-                    <Ico>✖️</Ico>{t.common.cancel}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="min-h-10 px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-                  >
-                    <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
-                  </button>
-                </div>
-              </form>
-            )}
+            {!editingId && segmentForm}
 
             {planeSegments.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-2">
@@ -613,13 +616,18 @@ export function AreaSegmentList({
               </p>
             ) : (
               <ul className="space-y-1.5">
-                {planeSegments.map((segment) => (
+                {planeSegments.map((segment) =>
+                  editingId === segment.id && segmentForm ? (
+                  <li key={segment.id} aria-label={`segment-editing-${segment.id}`}>
+                    {segmentForm}
+                  </li>
+                  ) : (
                   <li
                     key={segment.id}
                     aria-label={`segment-item-${segment.id}`}
-                    className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 text-xs"
+                    className="flex flex-col gap-2 bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 text-xs"
                   >
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span
                           className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
@@ -631,20 +639,21 @@ export function AreaSegmentList({
                           {operationLabel(segment.operation)}
                         </span>
                         {segment.label && (
-                          <span className="font-semibold text-slate-800 truncate">
+                          <span className="font-semibold text-slate-800 min-w-0 break-words">
                             {segment.label}
                           </span>
                         )}
                         <PendingMark record={segment} id={segment.id} />
                       </div>
-                      <p className="text-slate-500 mt-0.5">
+                      <p className="text-slate-500 mt-0.5 break-words">
                         {formatMetric(segment.width)} × {formatMetric(segment.height)} {t.common.unit_m} ={' '}
                         <strong className="text-slate-800">
                           {formatMetric(segment.area ?? segmentArea(segment))} {t.common.unit_m2}
                         </strong>
                       </p>
                     </div>
-                    <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
+                    {/* the buttons keep their own line: beside them the numbers were squeezed into a narrow column (owner, Stage 19) */}
+                    <div className="flex gap-1.5 flex-wrap">
                       <button
                         type="button"
                         aria-label={`edit-segment-${segment.id}`}
@@ -674,7 +683,8 @@ export function AreaSegmentList({
                       </button>
                     </div>
                   </li>
-                ))}
+                  ),
+                )}
               </ul>
             )}
           </>

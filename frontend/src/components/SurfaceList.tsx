@@ -30,6 +30,7 @@ import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
 import { PendingMark } from './PendingMark';
+import { SurfaceDimensions } from './SurfaceDimensions';
 import { SurfaceRowButton } from './SurfaceRowButton';
 import { previewArea } from '../offline/preview';
 
@@ -421,6 +422,14 @@ export function SurfaceList({
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveDimensions = async (surfaceId: string, width: number, height: number) => {
+    setSuccess(null);
+    await updateSurface(projectId, roomId, surfaceId, { width, height });
+    setSuccess(t.surfaces.dimensions_saved);
+    await load();
+    onMeasurementChanged?.();
   };
 
   const changeArchiveState = async (surface: SurfaceType) => {
@@ -820,14 +829,14 @@ export function SurfaceList({
                   </button>
                 )}
 
-                {hasDimensions && (
-                  <p className="text-xs text-slate-600">
-                    <span>{t.surfaces.dimensions}: </span>
-                    <strong className="text-slate-900 font-semibold">
-                      {formatMetric(surface.width)} × {formatMetric(surface.height)} {t.common.unit_m}
-                    </strong>
-                  </p>
-                )}
+                {/* the size, with a one-tap way to change it right on the card (Stage 19, owner request) */}
+                <SurfaceDimensions
+                  surfaceId={surface.id}
+                  width={surface.width}
+                  height={surface.height}
+                  readOnly={surface.is_archived}
+                  onSave={(width, height) => saveDimensions(surface.id, width, height)}
+                />
 
                 {openingSummary.length > 0 && (
                   <div aria-label={`openings-summary-${surface.id}`} className="text-xs text-slate-600">

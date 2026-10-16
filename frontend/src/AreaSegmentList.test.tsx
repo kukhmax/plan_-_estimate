@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as areaSegmentsApi from './api/areaSegments';
 import * as surfacesApi from './api/surfaces';
@@ -969,5 +969,72 @@ describe('Floor and ceiling rows (Stage 18H)', () => {
     renderRows();
     expect(await screen.findByLabelText('surface-row-plane-ceiling')).toHaveTextContent('Потолок');
     expect(screen.getByLabelText('surface-row-plane-floor')).toHaveTextContent('Пол');
+  });
+});
+
+describe('AreaSegmentList: the rows of the rectangles (owner request, Stage 19)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('give the name and the numbers the whole width, and the buttons their own line (they were squeezed into a narrow column)', async () => {
+    const long = { ...floorAdd, label: 'Parkiet w przedpokoju przy wejściu głównym' };
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [long], total: 1 });
+    renderAreaSegments();
+    await expandPlane('floor');
+    const row = await screen.findByLabelText(`segment-item-${floorAdd.id}`);
+
+    expect(row.className).toMatch(/flex-col/); // stacked: info first, buttons below
+    expect(row.className).not.toMatch(/justify-between/);
+    const name = screen.getByText('Parkiet w przedpokoju przy wejściu głównym');
+    expect(name.className).toMatch(/break-words/);
+    expect(name.className).not.toMatch(/truncate/); // the name is never cut to "Co …"
+    expect(row).toHaveTextContent('3.00 × 2.00 m = 6.00 m²');
+    const numbers = within(row).getByText(/3\.00 × 2\.00 m/).closest('p');
+    expect(numbers?.className).toMatch(/break-words/);
+    const buttons = within(row).getByLabelText(`edit-segment-${floorAdd.id}`).parentElement;
+    expect(buttons?.className).toMatch(/flex-wrap/);
+    expect(buttons).not.toBe(numbers?.parentElement); // not in the same line as the numbers
+    for (const label of [`edit-segment-${floorAdd.id}`, `copy-segment-${floorAdd.id}`, `archive-segment-${floorAdd.id}`]) {
+      expect(within(row).getByLabelText(label).className).toMatch(/min-h-9/);
+    }
+  });
+
+  it('a rectangle being changed is changed IN ITS OWN PLACE, not in a form above a long list', async () => {
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [floorAdd, floorSubtract], total: 2 });
+    renderAreaSegments();
+    await expandPlane('floor');
+    fireEvent.click(await screen.findByLabelText(`edit-segment-${floorSubtract.id}`));
+
+    const place = await screen.findByLabelText(`segment-editing-${floorSubtract.id}`);
+    expect(within(place).getByLabelText('floor-segment-form')).toBeInTheDocument();
+    expect(within(place).getByLabelText('segment-width')).toHaveValue('100'); // centimetres
+    expect(screen.getAllByLabelText('floor-segment-form')).toHaveLength(1); // not a second one above the list
+    expect(screen.queryByLabelText(`segment-item-${floorSubtract.id}`)).toBeNull(); // the row gives way to it
+    expect(screen.getByLabelText(`segment-item-${floorAdd.id}`)).toBeInTheDocument(); // the others stay
+  });
+
+  it('a new rectangle is still added in the form above the list', async () => {
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [floorAdd], total: 1 });
+    renderAreaSegments();
+    await expandPlane('floor');
+    fireEvent.click(await screen.findByLabelText('add-floor-rectangle'));
+    const form = await screen.findByLabelText('floor-segment-form');
+    expect(form.closest('li')).toBeNull();
+    expect(screen.getByLabelText(`segment-item-${floorAdd.id}`)).toBeInTheDocument();
+  });
+
+  it('saving the change closes the place and shows the new numbers', async () => {
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValueOnce({ items: [floorAdd], total: 1 }).mockResolvedValue({ items: [{ ...floorAdd, width: 4, area: '8.000' }], total: 1 });
+    vi.mocked(areaSegmentsApi.updateAreaSegment).mockResolvedValue({ ...floorAdd, width: 4, area: '8.000' });
+    renderAreaSegments();
+    await expandPlane('floor');
+    fireEvent.click(await screen.findByLabelText(`edit-segment-${floorAdd.id}`));
+    fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '400' } });
+    fireEvent.submit(screen.getByLabelText('floor-segment-form'));
+
+    expect(await screen.findByText(/4\.00 × 2\.00 m/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`segment-editing-${floorAdd.id}`)).toBeNull();
   });
 });

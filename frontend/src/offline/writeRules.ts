@@ -160,9 +160,27 @@ function newRecord(def: EntityDef, op: OutboxOp, ids: Ids): Json {
   };
 }
 
+/**
+ * What the server derives from a record's size (areas, totals). A change of the size makes the saved numbers wrong until the server
+ * counts again, so they are emptied (the screens then show the typed size and, for a wall, the "~" preview) instead of showing the
+ * old area beside the new size.
+ */
+const SIZE_FIELDS = ['width', 'height', 'length', 'quantity'];
+const DERIVED_BY_SIZE: Partial<Record<Entity, readonly string[]>> = {
+  room: ['calculations'],
+  surface: ['gross_area', 'net_area'],
+  opening: ['single_area', 'total_area', 'reveal_single_length', 'reveal_single_area', 'reveal_total_length', 'reveal_total_area'],
+  segment: ['area'],
+};
+
 function changeRecord(record: Json, action: Action, op: OutboxOp): Json {
   const stamp = { updated_at: iso(op.createdAt), _pending: true };
-  if (action === 'update') return { ...record, ...(op.body ?? {}), ...stamp };
+  if (action === 'update') {
+    const body = op.body ?? {};
+    const derived = DERIVED_BY_SIZE[matchOp(op)?.entity as Entity] ?? [];
+    const stale = SIZE_FIELDS.some((field) => field in body) ? Object.fromEntries(derived.map((field) => [field, null])) : {};
+    return { ...record, ...body, ...stale, ...stamp };
+  }
   if (action === 'archive') return { ...record, is_archived: true, ...stamp };
   if (action === 'restore') return { ...record, is_archived: false, ...stamp };
   return record;

@@ -700,7 +700,10 @@
     "add_wall": "Dodaj ścianę",
     "openings_and_options": "Otwory i opcje",
     "hide_openings_and_options": "Ukryj otwory i opcje",
-    "openings_summary_title": "Otwory:"
+    "openings_summary_title": "Otwory:",
+    "add_dimensions": "Dodaj wymiary",
+    "edit_dimensions": "Edytuj wymiary",
+    "dimensions_saved": "Wymiary zapisane."
   },
   "work_plan": {
     "legacy_reveal_note": "Praca na ościeżach zapisana na ścianie (starsze ustawienie). Zalecane: dodaj ją w konkretnym otworze → Prace na ościeżach i usuń stąd. Ta pozycja nie ma automatycznej ilości.",

@@ -1634,3 +1634,112 @@ describe('SurfaceList: a wall only the phone knows (Stage 19E, Q5 (b))', () => {
     expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).toHaveTextContent('—');
   });
 });
+
+describe('SurfaceList: changing the size right on the card (owner request, Stage 19)', () => {
+  const sized: SurfaceType = { ...surface, width: 1.95, height: 2.6, gross_area: '5.070', net_area: '5.070', deduction_area: '0.000' };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('the size has an "Edytuj" next to it, without opening the options', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [sized], total: 1 });
+    renderSurfaces();
+    const button = await screen.findByLabelText(`edit-dimensions-${surface.id}`);
+    expect(button).toHaveTextContent('Edytuj');
+    expect(button.className).toMatch(/min-h-10/);
+    expect(screen.getByText(/1\.95 × 2\.60 m/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`dimensions-form-${surface.id}`)).toBeNull();
+  });
+
+  it('opens the two fields in place (centimetres, with the saved size), and saves just the size', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [sized], total: 1 });
+    vi.mocked(surfacesApi.updateSurface).mockResolvedValue({ ...sized, width: 2, height: 2.7 });
+    const onChanged = vi.fn();
+    render(
+      <I18nProvider>
+        <SurfaceList projectId={projectId} roomId={roomId} initiallyOpen onMeasurementChanged={onChanged} />
+      </I18nProvider>,
+    );
+    fireEvent.click(await screen.findByLabelText(`edit-dimensions-${surface.id}`));
+
+    const width = screen.getByLabelText(`dimensions-width-${surface.id}`);
+    expect(width).toHaveValue('195');
+    expect(screen.getByLabelText(`dimensions-height-${surface.id}`)).toHaveValue('260');
+    fireEvent.change(width, { target: { value: '200' } });
+    fireEvent.change(screen.getByLabelText(`dimensions-height-${surface.id}`), { target: { value: '270' } });
+    fireEvent.click(screen.getByLabelText(`dimensions-save-${surface.id}`));
+
+    await waitFor(() => expect(surfacesApi.updateSurface).toHaveBeenCalledWith(projectId, roomId, surface.id, { width: 2, height: 2.7 }));
+    expect(await screen.findByText('Wymiary zapisane.')).toBeInTheDocument();
+    expect(surfacesApi.fetchSurfaces).toHaveBeenCalledTimes(2); // the list is read again: the area is the server's
+    expect(onChanged).toHaveBeenCalled();
+    expect(screen.queryByLabelText(`dimensions-form-${surface.id}`)).toBeNull();
+  });
+
+  it('"Anuluj" closes it and changes nothing', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [sized], total: 1 });
+    renderSurfaces();
+    fireEvent.click(await screen.findByLabelText(`edit-dimensions-${surface.id}`));
+    fireEvent.change(screen.getByLabelText(`dimensions-width-${surface.id}`), { target: { value: '999' } });
+    fireEvent.click(screen.getByLabelText(`dimensions-cancel-${surface.id}`));
+    expect(screen.queryByLabelText(`dimensions-form-${surface.id}`)).toBeNull();
+    expect(surfacesApi.updateSurface).not.toHaveBeenCalled();
+    expect(screen.getByText(/1\.95 × 2\.60 m/)).toBeInTheDocument();
+  });
+
+  it('a size that is empty or not a positive number is refused before anything is sent', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [sized], total: 1 });
+    renderSurfaces();
+    fireEvent.click(await screen.findByLabelText(`edit-dimensions-${surface.id}`));
+    fireEvent.change(screen.getByLabelText(`dimensions-height-${surface.id}`), { target: { value: '' } });
+    fireEvent.click(screen.getByLabelText(`dimensions-save-${surface.id}`));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(surfacesApi.updateSurface).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(`dimensions-form-${surface.id}`)).toBeInTheDocument(); // stays open: nothing typed is lost
+  });
+
+  it('when the server refuses, the message is shown and the typed size stays', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [sized], total: 1 });
+    vi.mocked(surfacesApi.updateSurface).mockRejectedValue(new Error('Server said no'));
+    renderSurfaces();
+    fireEvent.click(await screen.findByLabelText(`edit-dimensions-${surface.id}`));
+    fireEvent.change(screen.getByLabelText(`dimensions-width-${surface.id}`), { target: { value: '210' } });
+    fireEvent.click(screen.getByLabelText(`dimensions-save-${surface.id}`));
+    expect(await screen.findByText('Server said no')).toBeInTheDocument();
+    expect(screen.getByLabelText(`dimensions-width-${surface.id}`)).toHaveValue('210');
+  });
+
+  it('a wall without a size is offered "Dodaj wymiary" in the same place', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [surface], total: 1 });
+    renderSurfaces();
+    const button = await screen.findByLabelText(`edit-dimensions-${surface.id}`);
+    expect(button).toHaveTextContent('Dodaj wymiary');
+    fireEvent.click(button);
+    expect(screen.getByLabelText(`dimensions-width-${surface.id}`)).toHaveValue('');
+  });
+
+  it('an archived wall is not edited from the card', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [{ ...sized, is_archived: true }], total: 1 });
+    renderSurfaces();
+    await screen.findByText(/1\.95 × 2\.60 m/);
+    expect(screen.queryByLabelText(`edit-dimensions-${surface.id}`)).toBeNull();
+  });
+
+  it('speaks Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [sized], total: 1 });
+    renderSurfaces();
+    expect(await screen.findByLabelText(`edit-dimensions-${surface.id}`)).toHaveTextContent('Редактировать');
+  });
+
+  it('a wall that only the phone knows can be corrected too (the change waits with it)', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [{ ...sized, gross_area: null, net_area: null, _pending: true }], total: 1 });
+    vi.mocked(surfacesApi.updateSurface).mockResolvedValue({ ...sized, width: 2 });
+    renderSurfaces();
+    fireEvent.click(await screen.findByLabelText(`edit-dimensions-${surface.id}`));
+    fireEvent.change(screen.getByLabelText(`dimensions-width-${surface.id}`), { target: { value: '200' } });
+    fireEvent.click(screen.getByLabelText(`dimensions-save-${surface.id}`));
+    await waitFor(() => expect(surfacesApi.updateSurface).toHaveBeenCalledWith(projectId, roomId, surface.id, { width: 2, height: 2.6 }));
+  });
+});

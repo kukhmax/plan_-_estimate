@@ -402,3 +402,42 @@ describe('a waiting "restore" of a record that the list being read hides (Stage 
     expect(archivedPoolFrom(null).order).toEqual([]);
   });
 });
+
+describe('a change of the size makes the saved numbers wrong until the server counts again (Stage 19)', () => {
+  const wall = { id: S, room_id: R, name: 'Ściana 1', width: 1.95, height: 2.6, gross_area: '5.070', deduction_area: '0.900', net_area: '4.170', is_archived: false };
+  const wallPath = `${roomsPath}/${R}/surfaces`;
+  const change = (body: Record<string, unknown>) => op('surface.update', 'PATCH', `${wallPath}/${S}`, body, S);
+
+  it('a wall: the new size is shown and the old gross and net areas are emptied (the openings\' deduction stays)', () => {
+    const shown = overlayRead(wallPath, list(wall), [change({ width: 2, height: 2.7 })]) as { items: Array<Record<string, unknown>> };
+    expect(shown.items[0]).toMatchObject({ width: 2, height: 2.7, gross_area: null, net_area: null, deduction_area: '0.900', _pending: true });
+    const one = overlayRead(`${wallPath}/${S}`, wall, [change({ width: 2 })]) as Record<string, unknown>;
+    expect(one).toMatchObject({ width: 2, gross_area: null, net_area: null });
+  });
+
+  it('a change that is not of the size keeps the numbers', () => {
+    const shown = overlayRead(wallPath, list(wall), [change({ name: 'Nowa nazwa', description: 'x' })]) as { items: Array<Record<string, unknown>> };
+    expect(shown.items[0]).toMatchObject({ name: 'Nowa nazwa', gross_area: '5.070', net_area: '4.170' });
+  });
+
+  it('a room: the totals are emptied, an opening: its areas, a rectangle: its area (the screen counts the typed one)', () => {
+    const room = { id: R, name: 'Salon', length: 3, width: 2, height: 2.5, calculations: { floor_area: '6.000' }, is_archived: false };
+    const shownRoom = overlayRead(roomsPath, list(room), [op('room.update', 'PATCH', `${roomsPath}/${R}`, { length: 4 }, R)]) as { items: Array<Record<string, unknown>> };
+    expect(shownRoom.items[0]).toMatchObject({ length: 4, calculations: null });
+    expect((overlayRead(roomsPath, list(room), [op('room.update', 'PATCH', `${roomsPath}/${R}`, { name: 'Inny' }, R)]) as { items: Array<Record<string, unknown>> }).items[0].calculations).toEqual({ floor_area: '6.000' });
+
+    const opening = { id: O, width: 0.9, height: 2, quantity: 1, single_area: '1.800', total_area: '1.800', reveal_total_area: '0.5', is_archived: false };
+    const shownOpening = overlayRead(openingsPath, list(opening), [op('opening.update', 'PATCH', `${openingsPath}/${O}`, { quantity: 2 }, O)]) as { items: Array<Record<string, unknown>> };
+    expect(shownOpening.items[0]).toMatchObject({ quantity: 2, single_area: null, total_area: null, reveal_total_area: null });
+
+    const segment = { id: A, width: 3, height: 2, area: '6.000', is_archived: false };
+    const shownSegment = overlayRead(segmentsPath, list(segment), [op('segment.update', 'PATCH', `${segmentsPath}/${A}`, { width: 4 }, A)]) as { items: Array<Record<string, unknown>> };
+    expect(shownSegment.items[0]).toMatchObject({ width: 4, area: null });
+  });
+
+  it('the answer given to the screen that made the change agrees (no old area beside the new size)', () => {
+    const made = change({ width: 2, height: 2.7 });
+    const answer = optimisticResult(made, [{ path: wallPath, data: list(wall) }], [made]) as Record<string, unknown>;
+    expect(answer).toMatchObject({ width: 2, height: 2.7, gross_area: null, net_area: null });
+  });
+});
