@@ -59,11 +59,20 @@ class SetOutcome:
     found: int  # versions (and delete markers) that existed before
     deleted: int
     failed: bool
+    reason: str = ""  # type, HTTP status and OCI error code of the failure (never a key or a message)
 
     def report_entry(self) -> ReportEntry:
         if self.failed:
             return ReportEntry(self.entry.asset_id, "failed", self.deleted)
         return ReportEntry(self.entry.asset_id, "deleted" if self.deleted else "already_absent", self.deleted)
+
+
+def describe_error(exc: BaseException) -> str:
+    """What a failure may say: the exception type and, for an OCI service error, its HTTP status and error code (neither is secret)."""
+    status, code = getattr(exc, "status", None), getattr(exc, "code", None)
+    if isinstance(status, int) and isinstance(code, str):
+        return f"{type(exc).__name__}, HTTP {status}, {code}"
+    return type(exc).__name__
 
 
 def versions_of(client: Any, namespace: str, bucket: str, key: str) -> list[Any]:
@@ -95,8 +104,8 @@ def clean_set(client: Any, namespace: str, bucket: str, entry: LedgerEntry, *, e
                 found, deleted = found + key_found, deleted + key_deleted
             else:
                 found += len(versions_of(client, namespace, bucket, key))
-    except Exception:  # noqa: BLE001 - provider errors never carry anything we print; the outcome is "failed"
-        return SetOutcome(entry, found, deleted, True)
+    except Exception as exc:  # noqa: BLE001 - the outcome is "failed"; only the type, status and code are kept
+        return SetOutcome(entry, found, deleted, True, describe_error(exc))
     return SetOutcome(entry, found, deleted, False)
 
 
@@ -177,7 +186,7 @@ def main(
     try:
         client = make_client(args)
     except Exception as exc:  # noqa: BLE001 - the SDK or the config file is unusable; say which kind of failure, never why
-        print(f"cannot run: the OCI client cannot be built ({type(exc).__name__})", file=out)
+        print(f"cannot run: the OCI client cannot be built ({describe_error(exc)})", file=out)
         return EXIT_CANNOT_RUN
 
     mode = "DELETE" if args.execute else "DRY RUN (nothing is deleted)"
@@ -191,7 +200,8 @@ def main(
     outcomes = [clean_set(client, args.namespace, args.bucket, entry, execute=args.execute) for entry in ledger.entries]
     for outcome in outcomes:
         state = "FAILED" if outcome.failed else ("clean" if outcome.found == 0 else ("removed" if args.execute else "present"))
-        print(f"  {str(outcome.entry.asset_id)[:8]}…  versions found={outcome.found} deleted={outcome.deleted}  {state}", file=out)
+        why = f" ({outcome.reason})" if outcome.failed and outcome.reason else ""
+        print(f"  {str(outcome.entry.asset_id)[:8]}…  versions found={outcome.found} deleted={outcome.deleted}  {state}{why}", file=out)
     failed = [o for o in outcomes if o.failed]
     if args.execute:
         report = serialize_report([o.report_entry() for o in outcomes], bucket_kind=kind, finished_at=now().strftime("%Y-%m-%dT%H:%M:%SZ"))

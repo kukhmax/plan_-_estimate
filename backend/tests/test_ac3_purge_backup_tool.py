@@ -203,3 +203,18 @@ def test_an_empty_ledger_is_nothing_to_do(tmp_path):
     fake = Fake(*ALL)
     code, text, _ = run(tmp_path, fake, "--bucket", tool.DRILL_BUCKET, ledger=empty)
     assert code == 0 and "empty" in text and fake.calls == []
+
+
+def test_a_failed_set_says_the_http_status_and_the_code_of_the_refusal_but_not_the_message(tmp_path):
+    class Denied(Exception):
+        status, code = 404, "NotAuthorizedOrNotFound"
+
+    fake = Fake(*keys_of(1))
+
+    def refuse(*args, **kwargs):
+        raise Denied("namespace ns-secret key photos/v1/x")
+
+    fake.list_object_versions = refuse
+    code, text, _ = run(tmp_path, fake, "--bucket", tool.DRILL_BUCKET, "--execute", "--report", str(tmp_path / "r.jsonl"), phrase=tool.CONFIRM_PHRASES["drill"], ledger=ledger_file(tmp_path, 1))
+    assert code == tool.EXIT_FAILED and "FAILED (Denied, HTTP 404, NotAuthorizedOrNotFound)" in text
+    assert "ns-secret" not in text and "photos/v1" not in text

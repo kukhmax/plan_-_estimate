@@ -35,6 +35,14 @@ _KEY = re.compile(r"^photos/v1/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a
 MAX_PAGES = 200
 
 
+def describe_error(exc: BaseException) -> str:
+    """What a failure may say: the exception type and, for an OCI service error, its HTTP status and error code (neither is secret)."""
+    status, code = getattr(exc, "status", None), getattr(exc, "code", None)
+    if isinstance(status, int) and isinstance(code, str):
+        return f"{type(exc).__name__}, HTTP {status}, {code}"
+    return type(exc).__name__
+
+
 def list_sizes(client: Any, namespace: str, bucket: str) -> dict[str, int]:
     """name -> size of the objects under photos/v1/ (pages followed by `next_start_with`)."""
     sizes: dict[str, int] = {}
@@ -91,7 +99,7 @@ def main(argv: Sequence[str], out: TextIO = sys.stdout, *, make_client: Callable
     try:
         sizes = list_sizes(make_client(args), args.namespace, DRILL_BUCKET)
     except Exception as exc:  # noqa: BLE001
-        print(f"cannot run: the drill bucket cannot be read ({type(exc).__name__})", file=out)
+        print(f"cannot run: the drill bucket cannot be read ({describe_error(exc)})", file=out)
         return 2
     sets = complete_sets(sizes)
     if not sets:

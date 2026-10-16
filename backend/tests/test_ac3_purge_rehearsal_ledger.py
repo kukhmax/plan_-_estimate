@@ -58,3 +58,29 @@ def test_it_refuses_when_there_is_nothing_complete_to_rehearse_on_or_the_target_
     assert code == 2 and existing.read_bytes() == b"x"
     assert run(tmp_path / "nope", Fake(keys_of(1)))[0] == 2
     assert run(tmp_path, Fake(keys_of(1)), "--count", "11")[0] == 2
+
+
+class ServiceError(Exception):
+    def __init__(self, status: int, code: str) -> None:
+        super().__init__("a message that must never be printed: namespace ns-secret, key photos/v1/x")
+        self.status, self.code = status, code
+
+
+class Broken:
+    def list_objects(self, *args, **kwargs):
+        raise ServiceError(404, "NotAuthorizedOrNotFound")
+
+
+def test_a_refused_listing_says_the_status_and_the_code_but_never_the_message(tmp_path):
+    code, text, _ = run(tmp_path, Broken())
+    assert code == 2 and "ServiceError, HTTP 404, NotAuthorizedOrNotFound" in text
+    assert "ns-secret" not in text and "photos/v1" not in text and "message" not in text
+
+
+def test_an_error_that_is_not_an_oci_one_says_only_its_type(tmp_path):
+    class Odd:
+        def list_objects(self, *args, **kwargs):
+            raise RuntimeError("secret detail")
+
+    code, text, _ = run(tmp_path, Odd())
+    assert code == 2 and "(RuntimeError)" in text and "secret detail" not in text
