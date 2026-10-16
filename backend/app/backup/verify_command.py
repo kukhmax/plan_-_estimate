@@ -40,6 +40,7 @@ from app.backup.db_dump_command import (
     EXIT_SUCCESS,
     run_cancellable,
 )
+from app.backup.purge_ledger import PurgeLedgerError, parse_ledger
 from app.backup.restore_command import (
     EXIT_REPORT_NOT_WRITTEN,
     check_report_target,
@@ -107,6 +108,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--oci-profile", default="DEFAULT")
     parser.add_argument("--report-file", default=None, help="absolute path of a NEW file for the canonical report")
     parser.add_argument("--scratch-dir", default=None, help="private scratch directory (default /tmp)")
+    parser.add_argument(
+        "--purge-ledger", default=None,
+        help="absolute path of the exported purge ledger (archive cleanup AC-3): an object it lists that is gone from the backup is expected",
+    )
     return parser
 
 
@@ -177,7 +182,7 @@ def run_verify(
         settings = settings_from_env(env, args)
         if not _PROFILE.fullmatch(args.oci_profile):
             raise VerifyConfigError("--oci-profile is not a valid profile name")
-        for name in ("oci_config", "report_file", "scratch_dir"):
+        for name in ("oci_config", "report_file", "scratch_dir", "purge_ledger"):
             value = getattr(args, name)
             if value is not None and not Path(value).is_absolute():
                 raise VerifyConfigError(f"--{name.replace('_', '-')} must be an absolute path")
@@ -190,6 +195,14 @@ def run_verify(
         scratch_parent = Path(args.scratch_dir or DEFAULT_SCRATCH)
         if not scratch_parent.is_dir():
             raise VerifyConfigError("the scratch directory does not exist")
+        purged_keys: frozenset[str] = frozenset()
+        if args.purge_ledger:
+            try:
+                purged_keys = parse_ledger(Path(args.purge_ledger).read_bytes()).purged_keys
+            except OSError:
+                raise VerifyConfigError("--purge-ledger cannot be read") from None
+            except PurgeLedgerError:
+                raise VerifyConfigError("--purge-ledger is not a valid purge ledger export") from None
     except (VerifyConfigError, RunIdError) as exc:
         print(f"verify preflight failed: {exc}", file=out)
         return EXIT_PREFLIGHT
@@ -213,6 +226,7 @@ def run_verify(
                         scratch_dir=scratch,
                         mode=VerifyMode(args.mode),
                         expected_recipients=settings.recipients,
+                        **({"purged_keys": purged_keys} if purged_keys else {}),
                     ),
                     signals,
                 )

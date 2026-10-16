@@ -61,6 +61,7 @@ from app.backup.pg_connection import (
     PgConnectionConfigError,
     validate_passfile,
 )
+from app.backup.purge_ledger import PurgeLedgerError, PurgeLedgerFile, parse_ledger
 from app.backup.restore_guards import (
     RestoreGuardError,
     validate_identity_file,
@@ -150,6 +151,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--allow-non-drill", action="store_true", help="accept a destination bucket without 'drill' in its name")
     parser.add_argument("--allow-foreign-objects", action="store_true", help="accept destination objects outside the run")
     parser.add_argument("--no-verify-destination", action="store_true", help="skip the final read-back of the destination")
+    parser.add_argument(
+        "--purge-ledger", default=None,
+        help="absolute path of the exported purge ledger (archive cleanup AC-3): purged objects missing from the backup are expected, "
+        "and after the media step the purged photos are removed again from the restored database",
+    )
     return parser
 
 
@@ -221,10 +227,29 @@ def write_report_file(path: Path, data: bytes) -> None:
         os.close(fd)
 
 
+MAX_LEDGER_FILE_BYTES = 64 * 1024 * 1024
+
+
+def load_purge_ledger(path: Path) -> PurgeLedgerFile:
+    """The exported purge ledger (archive cleanup AC-3); anything else than a valid export is a preflight failure."""
+    try:
+        if path.stat().st_size > MAX_LEDGER_FILE_BYTES:
+            raise RestoreConfigError("--purge-ledger is too large")
+        return parse_ledger(path.read_bytes())
+    except OSError:
+        raise RestoreConfigError("--purge-ledger cannot be read") from None
+    except PurgeLedgerError:
+        raise RestoreConfigError("--purge-ledger is not a valid purge ledger export") from None
+
+
 def summary_line(report: RestoreRunReport) -> str:
     if report.ok:
         counts = report.media.counts if report.media else None
         detail = f" restored={counts.restored} already_present={counts.already_present} total={counts.objects_total}" if counts else ""
+        if counts and counts.purged_skipped:
+            detail += f" purged_skipped={counts.purged_skipped}"
+        if report.replay is not None:
+            detail += f" replay_assets_removed={report.replay.assets_removed}"
         ready = f" ready_count={report.database.ready_count}" if report.database else ""
         return f"restore ok: run_id={report.run_id} phase={report.phase.value}{ready}{detail}"
     parts = [f"restore failed: run_id={report.run_id} step={report.step.value}"]
@@ -281,6 +306,7 @@ def run_restore(
         if not scratch_parent.is_dir():
             raise RestoreConfigError("the scratch directory does not exist")
         check_report_target(report_file)
+        purge_ledger = load_purge_ledger(_absolute(args.purge_ledger, "--purge-ledger")) if args.purge_ledger else None
     except (RestoreConfigError, RunIdError, RestoreGuardError, PassfileError) as exc:
         print(f"restore preflight failed: {exc}", file=out)
         return EXIT_PREFLIGHT
@@ -313,6 +339,7 @@ def run_restore(
                         allow_foreign_objects=args.allow_foreign_objects,
                         verify_destination=not args.no_verify_destination,
                         phase=RestorePhase(args.phase),
+                        **({} if purge_ledger is None else {"purge_ledger": purge_ledger}),
                     ),
                     signals,
                 )

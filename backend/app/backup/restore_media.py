@@ -123,6 +123,7 @@ class RestoreCounts:
     failed: int = 0
     bytes_restored: int = 0
     foreign_objects: int = 0  # reported with FOREIGN_OBJECTS_PRESENT
+    purged_skipped: int = 0  # archive cleanup AC-3: deleted for good (the purge ledger), absent from the backup, not restored
 
     def to_dict(self) -> dict[str, int]:
         return {
@@ -132,6 +133,7 @@ class RestoreCounts:
             "failed": self.failed,
             "bytes_restored": self.bytes_restored,
             "foreign_objects": self.foreign_objects,
+            "purged_skipped": self.purged_skipped,
         }
 
 
@@ -149,7 +151,7 @@ class MediaRestoreReport:
             self.preflight is None
             and not self.object_problems
             and self.aborted is None
-            and self.counts.restored + self.counts.already_present == self.counts.objects_total
+            and self.counts.restored + self.counts.already_present + self.counts.purged_skipped == self.counts.objects_total
         )
 
     def report_bytes(self) -> bytes:
@@ -276,8 +278,13 @@ async def restore_media(
     retry: RetryPolicy = DEFAULT_RETRY,
     sleep: Sleep | None = None,
     max_consecutive_unavailable: int = MAX_CONSECUTIVE_UNAVAILABLE,
+    purged_keys: frozenset[str] = frozenset(),
 ) -> MediaRestoreReport:
     """Restore every object of `run` into `destination` and report exactly what happened (module docstring).
+
+    `purged_keys` (archive cleanup AC-3): keys the purge ledger lists. An object of the manifest with such a key is skipped
+    (`purged_skipped`) -- it was deleted for good on purpose and is never copied back, even when the backup still holds it. A missing
+    object with any other key is still a problem.
 
     `ready_assets` is the READY set read from the RESTORED database (14D.2I.1); `destination_bucket` is the name of
     the bucket `destination` writes to (the adapter cannot be asked, so the caller states it and the guard checks it).
@@ -330,9 +337,13 @@ async def restore_media(
 
     # -- objects --------------------------------------------------------------------------------------------
     problems: list[ObjectProblem] = []
-    restored = present = bytes_restored = streak = 0
+    restored = present = bytes_restored = streak = purged_skipped = 0
     aborted: AbortReason | None = None
     for obj in objects:
+        if obj.key in purged_keys:
+            # deleted for good on purpose: never copied back (the replayed database no longer has the photo), whether or not the backup still holds it
+            purged_skipped += 1
+            continue
         try:
             created = await restorer.restore_one(obj)
         except _Problem as problem:
@@ -358,13 +369,15 @@ async def restore_media(
         failed=len(problems),
         bytes_restored=bytes_restored,
         foreign_objects=foreign,
+        purged_skipped=purged_skipped,
     )
     logger.info(
-        "media restore finished: run=%s objects=%d restored=%d present=%d failed=%d aborted=%s",
+        "media restore finished: run=%s objects=%d restored=%d present=%d purged=%d failed=%d aborted=%s",
         run.run_id,
         len(objects),
         restored,
         present,
+        purged_skipped,
         len(problems),
         aborted,
     )

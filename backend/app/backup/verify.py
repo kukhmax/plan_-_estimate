@@ -120,6 +120,11 @@ class VerifyCounts:
     bytes_hashed: int = 0
     inherited_lines: int = 0  # object lines whose SHA-256 the manifest inherited (informational)
     downloaded_lines: int = 0
+    # archive cleanup AC-3: lines of objects the purge ledger says were deleted for good. Absent from the backup is the expected
+    # state (`purged_absent`, not a problem); still present means the owner's cleaning of the backup has not run yet (`purged_present`,
+    # the object is then checked like any other).
+    purged_absent: int = 0
+    purged_present: int = 0
 
     def to_dict(self) -> dict[str, int]:
         return {
@@ -129,6 +134,8 @@ class VerifyCounts:
             "bytes_hashed": self.bytes_hashed,
             "inherited_lines": self.inherited_lines,
             "downloaded_lines": self.downloaded_lines,
+            "purged_absent": self.purged_absent,
+            "purged_present": self.purged_present,
         }
 
 
@@ -279,8 +286,13 @@ async def verify_run_in_target(
     sleep: Sleep | None = None,
     clock: Clock = utc_now,
     max_consecutive_unavailable: int = MAX_CONSECUTIVE_UNAVAILABLE,
+    purged_keys: frozenset[str] = frozenset(),
 ) -> VerifyReport:
-    """Check one run in the backup target and report exactly what was found."""
+    """Check one run in the backup target and report exactly what was found.
+
+    `purged_keys` (archive cleanup AC-3): the keys the purge ledger lists. A manifest line with such a key whose object is gone from the
+    target is the expected result of the cleaning, counted as `purged_absent`, never a problem; one that is still there is checked as usual.
+    """
     validate_run_id(run_id)
     if max_consecutive_unavailable < 1:
         raise ValueError("max_consecutive_unavailable must be at least 1")
@@ -333,7 +345,7 @@ async def verify_run_in_target(
 
     # -- objects ------------------------------------------------------------------------------------
     found: list[ObjectProblem] = []
-    size_checked = sha_checked = bytes_hashed = streak = 0
+    size_checked = sha_checked = bytes_hashed = streak = purged_absent = purged_present = 0
     aborted: AbortReason | None = None
     for obj in objects:
         try:
@@ -341,6 +353,12 @@ async def verify_run_in_target(
         except _Abort as abort:
             aborted = abort.reason
             break
+        if obj.key in purged_keys:
+            if code is ObjectProblemCode.MISSING_OBJECT:
+                purged_absent += 1
+                streak = 0
+                continue
+            purged_present += 1
         if code is not None:
             found.append(ObjectProblem(obj.asset_id, obj.role, code))
         if code is ObjectProblemCode.UNAVAILABLE:
@@ -362,6 +380,8 @@ async def verify_run_in_target(
         bytes_hashed=bytes_hashed,
         inherited_lines=inherited,
         downloaded_lines=len(objects) - inherited,
+        purged_absent=purged_absent,
+        purged_present=purged_present,
     )
     result = report(problems, found, aborted, counts, dump_checked)
     logger.info(

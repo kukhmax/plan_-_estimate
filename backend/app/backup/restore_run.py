@@ -36,6 +36,8 @@ import asyncpg
 from app.backup.manifest import canonical_line
 from app.backup.media_sync import PriorRunError, load_prior_run
 from app.backup.pg_connection import PgConnectionConfig
+from app.backup.purge_ledger import PurgeLedgerFile
+from app.backup.purge_replay import PurgeReplayError, PurgeReplayReport, replay_purge
 from app.backup.restore_db import (
     DEFAULT_MAX_PLAINTEXT_BYTES,
     DEFAULT_TIMEOUT_SECONDS,
@@ -73,6 +75,7 @@ class RunStep(enum.StrEnum):
     DATABASE = "database"
     READY_SET = "ready_set"
     MEDIA = "media"
+    REPLAY = "replay"  # archive cleanup AC-3: the purge ledger replayed on the restored database
     DONE = "done"
 
 
@@ -83,6 +86,7 @@ class ChainFailure(enum.StrEnum):
     STORAGE_MISCONFIGURED = "STORAGE_MISCONFIGURED"
     READY_SET_UNREADABLE = "READY_SET_UNREADABLE"  # the restored database could not give its READY set back
     DATABASE_UNSAFE = "DATABASE_UNSAFE"  # phase media: the database is not recognisably a scratch database
+    REPLAY_FAILED = "REPLAY_FAILED"  # the purge ledger could not be replayed on the restored database (nothing was changed)
 
 
 @dataclass(frozen=True)
@@ -93,6 +97,7 @@ class RestoreRunReport:
     database: DbRestoreReport | None
     media: MediaRestoreReport | None
     phase: RestorePhase = RestorePhase.ALL
+    replay: PurgeReplayReport | None = None  # present only when a purge ledger was given
 
     @property
     def ok(self) -> bool:
@@ -114,6 +119,7 @@ class RestoreRunReport:
             "failure": None if self.failure is None else self.failure.value,
             "database": None if self.database is None else json.loads(self.database.report_bytes()),
             "media": None if self.media is None else json.loads(self.media.report_bytes()),
+            "replay": None if self.replay is None else self.replay.to_dict(),
         }
         return canonical_line(document)
 
@@ -143,8 +149,13 @@ async def restore_run(
     repository_head: Callable[[], str] = resolve_expected_head,
     max_consecutive_unavailable: int = MAX_CONSECUTIVE_UNAVAILABLE,
     phase: RestorePhase = RestorePhase.ALL,
+    purge_ledger: PurgeLedgerFile | None = None,
 ) -> RestoreRunReport:
-    """Restore the sealed run `run_id` into the scratch database and the destination bucket (module docstring)."""
+    """Restore the sealed run `run_id` into the scratch database and the destination bucket (module docstring).
+
+    `purge_ledger` (archive cleanup AC-3): what was deleted for good. The media step then treats a purged object that the backup no longer
+    has as expected, and after the media step has succeeded the ledger is replayed on the restored database (the rows of the purged photos go).
+    """
     validate_run_id(run_id)
 
     def failed(step: RunStep, failure: ChainFailure, database_report: DbRestoreReport | None = None) -> RestoreRunReport:
@@ -212,7 +223,18 @@ async def restore_run(
         retry=retry,
         sleep=sleep,
         max_consecutive_unavailable=max_consecutive_unavailable,
+        purged_keys=frozenset() if purge_ledger is None else purge_ledger.purged_keys,
     )
-    step = RunStep.DONE if media_report.ok else RunStep.MEDIA
-    return RestoreRunReport(run_id, step, None, db_report, media_report, phase)
+    if not media_report.ok:
+        return RestoreRunReport(run_id, RunStep.MEDIA, None, db_report, media_report, phase)
+
+    # -- purge replay ---------------------------------------------------------------------------------------
+    if purge_ledger is None:
+        return RestoreRunReport(run_id, RunStep.DONE, None, db_report, media_report, phase)
+    try:
+        replay = await replay_purge(database, purge_ledger, connect=connect)
+    except PurgeReplayError:
+        logger.info("restore stopped: run=%s step=%s failure=%s", run_id, RunStep.REPLAY.value, ChainFailure.REPLAY_FAILED.value)
+        return RestoreRunReport(run_id, RunStep.REPLAY, ChainFailure.REPLAY_FAILED, db_report, media_report, phase)
+    return RestoreRunReport(run_id, RunStep.DONE, None, db_report, media_report, phase, replay)
 
