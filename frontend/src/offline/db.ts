@@ -1,7 +1,8 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import type { OutboxOp } from './opTypes';
 
 export const OFFLINE_DB_NAME = 'plan-estimate-offline';
-export const OFFLINE_DB_VERSION = 1;
+export const OFFLINE_DB_VERSION = 2;
 
 export interface CachedRead {
   /** `<owner>|<path>`: the copies of two owners never meet. */
@@ -20,6 +21,8 @@ export interface MetaRecord {
 interface OfflineDb extends DBSchema {
   readCache: { key: string; value: CachedRead; indexes: { 'by-saved': number } };
   meta: { key: string; value: MetaRecord };
+  /** Stage 19C: the changes made without a signal, in the order they were made (`seq`). */
+  outbox: { key: number; value: OutboxOp };
 }
 
 let opened: Promise<IDBPDatabase<OfflineDb>> | null = null;
@@ -29,10 +32,13 @@ export function offlineDb(): Promise<IDBPDatabase<OfflineDb>> | null {
   if (typeof indexedDB === 'undefined') return null;
   if (!opened) {
     opened = openDB<OfflineDb>(OFFLINE_DB_NAME, OFFLINE_DB_VERSION, {
-      upgrade(db) {
-        const reads = db.createObjectStore('readCache', { keyPath: 'key' });
-        reads.createIndex('by-saved', 'savedAt');
-        db.createObjectStore('meta', { keyPath: 'key' });
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          const reads = db.createObjectStore('readCache', { keyPath: 'key' });
+          reads.createIndex('by-saved', 'savedAt');
+          db.createObjectStore('meta', { keyPath: 'key' });
+        }
+        if (oldVersion < 2) db.createObjectStore('outbox', { keyPath: 'seq', autoIncrement: true });
       },
     }).catch((error: unknown) => {
       opened = null; // try again next time (a private window, a full disk)

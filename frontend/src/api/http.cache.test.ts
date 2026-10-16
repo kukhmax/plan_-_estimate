@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { freshIndexedDb } from '../test/fakeIdb';
-import { getConnectionState, resetConnectionForTests } from '../offline/connection';
+import { getConnectionState, reportNetworkSuccess, resetConnectionForTests } from '../offline/connection';
+import { resetSyncStateForTests } from '../offline/outboxState';
 import { loadRead, setOfflineOwner } from '../offline/readCache';
 import { ApiError, READ_TIMEOUT_MS, apiRequest } from './http';
 
@@ -14,6 +15,7 @@ describe('apiRequest and the copies kept on the phone (Stage 19B)', () => {
   beforeEach(async () => {
     localStorage.clear();
     resetConnectionForTests();
+    resetSyncStateForTests();
     await freshIndexedDb();
     await setOfflineOwner('owner-1');
     vi.stubGlobal('fetch', vi.fn());
@@ -55,16 +57,18 @@ describe('apiRequest and the copies kept on the phone (Stage 19B)', () => {
     expect(getConnectionState().servedFrom).toBeNull();
   });
 
-  it('the first answer of the server after the signal returns clears the marks', async () => {
+  it('when the signal returns (the probe sees the server) the next answer is the server\'s and the marks go', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ items: [], total: 0 }));
     await apiRequest(ROOMS);
     await flush();
     vi.mocked(fetch).mockRejectedValueOnce(new TypeError('x'));
     await apiRequest(ROOMS);
     expect(getConnectionState().offline).toBe(true);
+    expect(getConnectionState().servedFrom).not.toBeNull();
 
-    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [], total: 0 }));
-    await apiRequest(ROOMS);
+    reportNetworkSuccess(); // what the watch does when /api/health answers
+    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [{ id: 'r1' }], total: 1 }));
+    expect(await apiRequest(ROOMS)).toEqual({ items: [{ id: 'r1' }], total: 1 });
 
     expect(getConnectionState()).toEqual({ offline: false, servedFrom: null });
   });
@@ -94,17 +98,14 @@ describe('apiRequest and the copies kept on the phone (Stage 19B)', () => {
     await expect(apiRequest('/api/calendar')).rejects.toBeInstanceOf(TypeError); // needs the server
   });
 
-  it('never keeps or serves a write', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(json({ id: 'r2' }, 201));
-    await apiRequest(ROOMS, { method: 'POST', body: '{}' });
-    await flush();
-    expect(await loadRead(ROOMS)).toBeNull();
-
+  it('never keeps or serves a write of a kind that needs the server', async () => {
+    const archive = `/api/projects/${P}/archive`; // not one of the changes that can be made without a signal
     vi.mocked(fetch).mockResolvedValueOnce(json({ items: [], total: 0 }));
     await apiRequest(ROOMS);
     await flush();
     vi.mocked(fetch).mockRejectedValueOnce(new TypeError('x'));
-    await expect(apiRequest(ROOMS, { method: 'POST', body: '{}' })).rejects.toBeInstanceOf(TypeError);
+    await expect(apiRequest(archive, { method: 'POST' })).rejects.toBeInstanceOf(TypeError);
+    expect(await loadRead(archive)).toBeNull();
   });
 
   it('a read that does not answer in time gives the saved copy (a weak signal hangs instead of failing)', async () => {
@@ -144,7 +145,7 @@ describe('apiRequest and the copies kept on the phone (Stage 19B)', () => {
 
   it('still raises ApiError for a failed write answer with its code', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ detail: { code: 'X', message: 'no' } }, 422));
-    await expect(apiRequest(ROOMS, { method: 'POST', body: '{}' })).rejects.toMatchObject({ status: 422, code: 'X' });
+    await expect(apiRequest(ROOMS, { method: 'POST', body: '{}' })).rejects.toMatchObject({ status: 422, code: 'X' }); // the server said no: nothing is kept
     await expect(Promise.reject(new ApiError('a', 1))).rejects.toBeInstanceOf(ApiError);
   });
 });

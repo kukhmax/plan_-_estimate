@@ -1,6 +1,11 @@
-import { reportNetworkFailure, reportNetworkSuccess, reportServedFromCache } from '../offline/connection';
+import { getConnectionState, reportNetworkFailure, reportNetworkSuccess, reportServedFromCache } from '../offline/connection';
 import { isCacheablePath } from '../offline/cacheRules';
+import { newId } from '../offline/ids';
+import { listOps } from '../offline/outbox';
+import { getOutboxCounts } from '../offline/outboxState';
+import { queueWrite } from '../offline/queueWrite';
 import { loadRead, saveRead } from '../offline/readCache';
+import { matchWrite, overlayRead, resolveFromOutbox } from '../offline/writeRules';
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -103,10 +108,32 @@ function errorMessage(payload: unknown, status: number): string {
 
 /** A read of the cached kinds that gets no answer in this time is given up: the saved copy (if any) is shown instead (Stage 19B). */
 export const READ_TIMEOUT_MS = 12_000;
+/** A write that gets no answer in this time is kept on the phone and sent later (Stage 19C); it is safe to send again. */
+export const WRITE_TIMEOUT_MS = 20_000;
 
 /** `fetch` rejects with a `TypeError` when the network cannot be reached (no signal, a refused connection). */
 function isNetworkError(error: unknown): boolean {
   return error instanceof TypeError;
+}
+
+/** The waiting changes of the owner laid over an answer (or a saved copy), so the screens show what the owner left (Stage 19C). */
+async function withWaitingChanges(path: string, data: unknown): Promise<unknown> {
+  if (getOutboxCounts().pending === 0) return data;
+  return overlayRead(path, data, await listOps());
+}
+
+/** A saved copy (with the waiting changes laid over it), or the record the phone made itself; `null` when the phone knows nothing. */
+async function readFromPhone(path: string): Promise<{ value: unknown } | null> {
+  const saved = await loadRead(path);
+  if (saved) {
+    reportServedFromCache(saved.savedAt);
+    return { value: await withWaitingChanges(path, saved.data) };
+  }
+  if (getOutboxCounts().pending > 0) {
+    const made = resolveFromOutbox(path, await listOps());
+    if (made !== undefined) return { value: made };
+  }
+  return null;
 }
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -114,34 +141,68 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const token = localStorage.getItem('access_token');
   const method = (init.method ?? 'GET').toUpperCase();
   const cacheable = method === 'GET' && isCacheablePath(path);
+  // a write of the kinds that can be made without a signal (Stage 19C)
+  const write = method === 'GET' ? null : matchWrite(method, path);
+  let requestBody = init.body;
+  let writeBody: Record<string, unknown> | null = null;
+  if (write && typeof init.body === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(init.body);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        writeBody = parsed as Record<string, unknown>;
+        if (write.action === 'create' && writeBody.id === undefined) {
+          // the id is chosen here, so that sending the same request again (after a lost answer) is safe
+          writeBody = { ...writeBody, id: newId() };
+          requestBody = JSON.stringify(writeBody);
+        }
+      }
+    } catch {
+      writeBody = null; // not JSON: sent as it is, never kept
+    }
+  }
+  const keepable = write !== null && (write.action === 'delete' || write.action === 'archive' || write.action === 'restore' || writeBody !== null);
 
-  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  if (requestBody && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  // while the server cannot be reached, or older changes are still waiting, a new change goes behind them (the order is kept)
+  if (write && keepable && (getConnectionState().offline || getOutboxCounts().pending > 0)) {
+    const kept = await queueWrite(write, method as 'POST' | 'PUT' | 'PATCH' | 'DELETE', path, writeBody);
+    if (kept) return kept.result as T;
+  }
+
+  // the server is known to be out of reach: a read is answered from the phone at once, not after a wait for a hanging request
+  // (the connection watch looks at the server every 15 s and puts things right when the signal is back)
+  if (cacheable && getConnectionState().offline) {
+    const kept = await readFromPhone(path);
+    if (kept) return kept.value as T;
+  }
 
   let controller: AbortController | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let timedOut = false;
-  if (cacheable && !init.signal) {
+  if ((cacheable || write) && !init.signal) {
     controller = new AbortController();
     timer = setTimeout(() => {
       timedOut = true;
       controller?.abort();
-    }, READ_TIMEOUT_MS);
+    }, write ? WRITE_TIMEOUT_MS : READ_TIMEOUT_MS);
   }
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${path}`, controller ? { ...init, headers, signal: controller.signal } : { ...init, headers });
+    response = await fetch(`${API_BASE}${path}`, { ...init, body: requestBody, headers, ...(controller ? { signal: controller.signal } : {}) });
   } catch (error) {
     clearTimeout(timer);
     if (timedOut || isNetworkError(error)) {
       reportNetworkFailure();
       if (cacheable) {
-        const saved = await loadRead(path);
-        if (saved) {
-          reportServedFromCache(saved.savedAt);
-          return saved.data as T;
-        }
+        const kept = await readFromPhone(path);
+        if (kept) return kept.value as T;
+      }
+      if (write && keepable) {
+        const kept = await queueWrite(write, method as 'POST' | 'PUT' | 'PATCH' | 'DELETE', path, writeBody);
+        if (kept) return kept.result as T;
       }
     }
     throw error;
@@ -159,6 +220,9 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     return undefined as T;
   }
   const data = (await response.json()) as T;
-  if (cacheable) void saveRead(path, data); // keeps its own failures (warned, never thrown)
+  if (cacheable) {
+    void saveRead(path, data); // the copy is what the server said; the waiting changes are laid over it when it is read
+    return (await withWaitingChanges(path, data)) as T;
+  }
   return data;
 }

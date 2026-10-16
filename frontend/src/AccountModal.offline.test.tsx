@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AccountModal } from './components/AccountModal';
 import { I18nProvider } from './hooks/useI18n';
+import { addOp, listOps } from './offline/outbox';
+import { resetSyncStateForTests } from './offline/outboxState';
 import { loadRead, saveRead, setOfflineOwner } from './offline/readCache';
 import { freshIndexedDb } from './test/fakeIdb';
 
@@ -14,6 +16,7 @@ const view = () => render(<I18nProvider><AccountModal user={user} isDevAuth={fal
 describe('"Wyczyść dane offline" in the account window (Stage 19B)', () => {
   beforeEach(async () => {
     localStorage.clear();
+    resetSyncStateForTests();
     await freshIndexedDb();
     await setOfflineOwner('owner-1');
     await saveRead('/api/projects', { items: [] });
@@ -38,6 +41,24 @@ describe('"Wyczyść dane offline" in the account window (Stage 19B)', () => {
     fireEvent.click(screen.getByLabelText('clear-offline-cancel'));
     expect(screen.getByLabelText('clear-offline-button')).toBeInTheDocument();
     await waitFor(async () => expect(await loadRead('/api/projects')).not.toBeNull());
+  });
+
+  it('warns when changes made without a signal have not been sent yet, and removes them too when confirmed', async () => {
+    await addOp({ ownerId: 'owner-1', createdAt: 1, method: 'POST', path: '/api/projects/p/notes', body: { body: 'x' }, kind: 'note.create', entityId: 'n', label: 'x' });
+    view();
+    fireEvent.click(screen.getByLabelText('clear-offline-button'));
+    expect(await screen.findByLabelText('clear-offline-pending')).toHaveTextContent('zmiany niewysłane na serwer zostaną utracone (1)');
+
+    fireEvent.click(screen.getByLabelText('clear-offline-confirm'));
+
+    expect(await screen.findByText('Dane offline usunięto.')).toBeInTheDocument();
+    expect(await listOps()).toEqual([]);
+  });
+
+  it('gives no such warning when nothing waits', () => {
+    view();
+    fireEvent.click(screen.getByLabelText('clear-offline-button'));
+    expect(screen.queryByLabelText('clear-offline-pending')).toBeNull();
   });
 
   it('speaks Russian', () => {

@@ -11,7 +11,9 @@ import { ProjectOpenRequest, ProjectWorkspace } from './components/ProjectWorksp
 import { AccountModal } from './components/AccountModal';
 import { AppMenu, AppMenuItem } from './components/AppMenu';
 import { ConnectionBanner } from './components/ConnectionBanner';
+import { SyncStrip } from './components/SyncStrip';
 import { purgeStaleReads } from './offline/readCache';
+import { startSync } from './offline/sync';
 import { startConnectionWatch } from './offline/watch';
 
 type Section = 'clients' | 'projects' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge';
@@ -40,7 +42,12 @@ const AppContent: React.FC = () => {
   // Stage 19B: the connection is watched while the application is open; copies not refreshed for 30 days are dropped
   useEffect(() => {
     void purgeStaleReads();
-    return startConnectionWatch();
+    const stopWatch = startConnectionWatch();
+    const stopSync = startSync(); // Stage 19C: what was changed without a signal is sent when it returns
+    return () => {
+      stopWatch();
+      stopSync();
+    };
   }, []);
 
   const choose = (section: Section) => {
@@ -141,6 +148,7 @@ const AppContent: React.FC = () => {
         </header>
 
         {!isLoading && user && <ConnectionBanner />}
+        {!isLoading && user && <SyncStrip />}
 
         {isLoading && (
           <div

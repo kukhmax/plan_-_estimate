@@ -2973,6 +2973,13 @@
     "count": "Znaków: {used} / {max}"
   },
   "offline": {
+    "sync_pending": "Zmiany czekające na wysłanie: {n}.",
+    "sync_sending": "Wysyłam zmiany z telefonu…",
+    "sync_failed": "Serwer odrzucił zmiany: {n}. Wymagają uwagi.",
+    "sync_sent": "Wysłano zmian: {n}. Odśwież widok, aby zobaczyć dane z serwera.",
+    "sync_refresh": "Odśwież",
+    "sync_login": "Zaloguj się ponownie: otwórz aplikację z Telegrama.",
+    "clear_pending": "Uwaga: zmiany niewysłane na serwer zostaną utracone ({n}).",
     "banner_offline_copy": "Brak połączenia — pokazuję dane zapisane na telefonie (z {time}).",
     "banner_offline": "Brak połączenia. To, co wymaga serwera, jest chwilowo niedostępne.",
     "banner_copy": "Pokazane dane są z pamięci telefonu (z {time}). Odśwież ekran, gdy wróci połączenie.",

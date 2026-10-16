@@ -1,4 +1,5 @@
 import { offlineDb, type CachedRead } from './db';
+import { setOutboxCounts } from './outboxState';
 
 const OWNER_KEY = 'offline_owner';
 export const READ_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days without being saved again (Q10)
@@ -54,6 +55,21 @@ export async function loadRead(path: string): Promise<{ data: unknown; savedAt: 
   }
 }
 
+/** The saved copies whose path starts with `prefix` (the list of a kind of record and the records under it). */
+export async function loadReadsByPrefix(prefix: string): Promise<Array<{ path: string; data: unknown; savedAt: number }>> {
+  const owner = currentOfflineOwner();
+  const db = offlineDb();
+  if (!owner || !db) return [];
+  try {
+    const range = IDBKeyRange.bound(keyOf(owner, prefix), `${keyOf(owner, prefix)}\uffff`);
+    const records = await (await db).getAll('readCache', range);
+    return records.map((record) => ({ path: record.path, data: record.data, savedAt: record.savedAt }));
+  } catch (error) {
+    warn('copies could not be listed', error);
+    return [];
+  }
+}
+
 export async function countSavedReads(): Promise<number> {
   const owner = currentOfflineOwner();
   const db = offlineDb();
@@ -75,6 +91,8 @@ export async function clearOfflineData(): Promise<void> {
     const handle = await db;
     await handle.clear('readCache');
     await handle.clear('meta');
+    await handle.clear('outbox');
+    setOutboxCounts({ pending: 0, failed: 0 });
   } catch (error) {
     warn('the offline data could not be cleared', error);
   }

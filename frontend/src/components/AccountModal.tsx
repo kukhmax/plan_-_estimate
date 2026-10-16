@@ -4,6 +4,7 @@ import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { User } from '../types/auth';
 import { ExecutorProfileModal } from './ExecutorProfileModal';
 import { Ico } from './Ico';
+import { useOutboxCounts } from '../offline/outboxState';
 import { clearOfflineData } from '../offline/readCache';
 
 interface AccountModalProps {
@@ -16,6 +17,7 @@ export function AccountModal({ user, isDevAuth, onClose }: AccountModalProps) {
   const { t } = useI18n();
   const [showProfile, setShowProfile] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const { pending, failed } = useOutboxCounts();
   const [cleared, setCleared] = useState(false);
 
   // Escape and the Telegram BackButton close the top-most layer: the profile screen first, then this dialog.
@@ -146,6 +148,11 @@ export function AccountModal({ user, isDevAuth, onClose }: AccountModalProps) {
             {confirmClear ? (
               <div className="space-y-2">
                 <p className="text-sm font-semibold break-words" style={{ color: 'var(--tg-theme-text-color)' }}>{t.offline.clear_confirm}</p>
+                {pending + failed > 0 && (
+                  <p role="alert" aria-label="clear-offline-pending" className="text-xs font-semibold text-red-700 break-words">
+                    {t.offline.clear_pending.replace('{n}', String(pending + failed))}
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <button type="button" aria-label="clear-offline-cancel" onClick={() => setConfirmClear(false)} className="flex-1 min-h-10 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium">
                     <Ico>✖️</Ico>{t.common.cancel}
