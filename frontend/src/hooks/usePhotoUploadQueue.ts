@@ -5,6 +5,7 @@ import { getConnectionState, subscribeConnection } from '../offline/connection';
 import { offlineDb } from '../offline/db';
 import { getOutboxCounts, subscribeOutbox } from '../offline/outboxState';
 import { idbPhotoStore, loadStoredPhotos } from '../offline/photoStore';
+import { makeThumbnail } from '../offline/thumbnail';
 import { onOfflineDataCleared } from '../offline/readCache';
 import { signInAgain } from '../offline/sync';
 import { PHOTO_QUEUE_LIMIT_BYTES, PHOTO_QUEUE_WARN_BYTES, PhotoUploadQueue, QueueItem, queueBytes } from '../utils/photoUploadQueue';
@@ -27,6 +28,7 @@ export function getPhotoUploadQueue(): PhotoUploadQueue {
       store: offlineDb() ? idbPhotoStore : undefined,
       canStart: () => !getConnectionState().offline && getOutboxCounts().pending === 0,
       refreshSession: signInAgain,
+      thumbnail: makeThumbnail,
       onDone: (item) => doneListeners.forEach((listener) => listener(item)),
       onRefetch: (what, item) => refetchListeners.forEach((listener) => listener(what, item)),
       // The gate closed or the quota is full: refresh the shared status so every section hides its buttons.
@@ -85,6 +87,8 @@ export interface PhotoUploadQueueView {
   retryAsNew: (id: string) => void;
   dismiss: (id: string) => void;
   dismissDone: () => void;
+  /** Tries to start the waiting photos now (the sync screen's button). */
+  kick: () => void;
   /** Bytes taken by the photos still waiting on the phone, and the limit (Q3: 200 MB, a warning from 80 %). */
   usedBytes: number;
   limitBytes: number;
@@ -132,6 +136,7 @@ export function usePhotoUploadQueue(projectId?: string): PhotoUploadQueueView {
     retryAsNew: useCallback((id: string) => queue.retryAsNew(id), [queue]),
     dismiss: useCallback((id: string) => queue.dismiss(id), [queue]),
     dismissDone: useCallback(() => queue.dismissDone(), [queue]),
+    kick: useCallback(() => queue.kick(), [queue]),
     usedBytes,
     limitBytes: PHOTO_QUEUE_LIMIT_BYTES,
     nearlyFull: usedBytes >= PHOTO_QUEUE_WARN_BYTES,

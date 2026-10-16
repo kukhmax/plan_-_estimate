@@ -48,8 +48,9 @@ function fakeStore(over: Partial<PhotoQueueStore> = {}) {
   const records = new Map<string, StoredPhoto>();
   const files = new Map<string, File>();
   const store: PhotoQueueStore = {
-    put: vi.fn(async (item: QueueItem, f: File) => {
+    put: vi.fn(async (item: QueueItem, f: File, thumb: string | null) => {
       records.set(item.id, {
+        thumb,
         id: item.id, ownerId: 'o', uploadId: item.uploadId, target: item.target, source: item.source, name: f.name, type: f.type,
         lastModified: 0, size: f.size, createdAt: records.size, state: 'queued', attempt: item.attempt, error: item.error,
       });
@@ -399,5 +400,45 @@ describe('PhotoUploadQueue on the phone (Stage 19D)', () => {
       expect(refreshSession).toHaveBeenCalledTimes(1);
       expect(states(queue)).toEqual(['failed']);
     });
+  });
+});
+
+describe('the small picture of a waiting photo (Stage 19E)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('is drawn when the photo is kept, and the row of a restored photo shows it', async () => {
+    const { queue, records } = setup({ canStart: () => false, thumbnail: async () => 'data:image/jpeg;base64,AAAA' });
+    const { items } = queue.enqueue([file('1.jpg')], target, 'CAMERA');
+    await tick();
+    expect(records.get(items[0].id)?.thumb).toBe('data:image/jpeg;base64,AAAA');
+
+    const again = setup({ canStart: () => false });
+    again.queue.restore([records.get(items[0].id) as StoredPhoto]);
+    expect(again.queue.getItems()[0].previewUrl).toBe('data:image/jpeg;base64,AAAA');
+  });
+
+  it('a photo that cannot be drawn is kept all the same, and the restored row has no picture', async () => {
+    const { queue, records } = setup({ canStart: () => false, thumbnail: async () => { throw new Error('no canvas'); } });
+    const { items } = queue.enqueue([file('1.jpg')], target, 'CAMERA');
+    await tick();
+    expect(records.get(items[0].id)).toMatchObject({ thumb: null, name: '1.jpg' });
+    expect(queue.getItems()[0].saveFailed).toBe(false);
+
+    const again = setup({ canStart: () => false });
+    again.queue.restore([records.get(items[0].id) as StoredPhoto]);
+    expect(again.queue.getItems()[0].previewUrl).toBeNull();
+  });
+
+  it('a photo refused at once is not drawn', async () => {
+    const thumbnail = vi.fn(async () => 'data:image/jpeg;base64,AAAA');
+    const { queue } = setup({ thumbnail });
+    queue.enqueue([file('x.gif', 10, 'image/gif')], target, 'GALLERY');
+    await tick();
+    expect(thumbnail).not.toHaveBeenCalled();
   });
 });

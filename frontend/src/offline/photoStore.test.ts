@@ -29,7 +29,7 @@ describe('the photos kept on the phone (Stage 19D)', () => {
   });
 
   it('keeps a photo and gives back the same bytes, name, type and date', async () => {
-    await idbPhotoStore.put(item('a'), photo());
+    await idbPhotoStore.put(item('a'), photo(), null);
     const back = await idbPhotoStore.loadFile('a');
     expect(back).toMatchObject({ name: 'IMG_1.jpg', type: 'image/jpeg', lastModified: 1234, size: 3 });
     expect(new Uint8Array(await bytesOf(back!))).toEqual(new Uint8Array([1, 2, 3]));
@@ -38,8 +38,13 @@ describe('the photos kept on the phone (Stage 19D)', () => {
     expect(record).toMatchObject({ id: 'a', ownerId: 'owner-1', uploadId: 'up-a', state: 'queued', attempt: 0, size: 3, target: { surfaceId: 's1' } });
   });
 
+  it('keeps the small picture with the photo', async () => {
+    await idbPhotoStore.put(item('a'), photo(), 'data:image/jpeg;base64,AAAA');
+    expect((await loadStoredPhotos())[0].thumb).toBe('data:image/jpeg;base64,AAAA');
+  });
+
   it('a change of state rewrites the record only, not the bytes', async () => {
-    await idbPhotoStore.put(item('a'), photo());
+    await idbPhotoStore.put(item('a'), photo(), null);
     await idbPhotoStore.update('a', { attempt: 2, state: 'failed', uploadId: 'up-new' });
     const [record] = await loadStoredPhotos();
     expect(record).toMatchObject({ attempt: 2, state: 'failed', uploadId: 'up-new', name: 'IMG_1.jpg' });
@@ -49,7 +54,7 @@ describe('the photos kept on the phone (Stage 19D)', () => {
   });
 
   it('removing a photo removes its bytes too', async () => {
-    await idbPhotoStore.put(item('a'), photo());
+    await idbPhotoStore.put(item('a'), photo(), null);
     await idbPhotoStore.remove('a');
     expect(await loadStoredPhotos()).toEqual([]);
     expect(await idbPhotoStore.loadFile('a')).toBeNull();
@@ -58,21 +63,21 @@ describe('the photos kept on the phone (Stage 19D)', () => {
   });
 
   it('shows an owner only his own photos', async () => {
-    await idbPhotoStore.put(item('a'), photo());
+    await idbPhotoStore.put(item('a'), photo(), null);
     localStorage.setItem('offline_owner', 'owner-2'); // another signed-in owner without the wipe (defence in depth)
     expect(await loadStoredPhotos()).toEqual([]);
   });
 
   it('refuses to keep a photo while nobody is signed in', async () => {
     localStorage.clear();
-    await expect(idbPhotoStore.put(item('a'), photo())).rejects.toThrow();
+    await expect(idbPhotoStore.put(item('a'), photo(), null)).rejects.toThrow();
   });
 
   it('"clear offline data" and a change of owner remove the photos and tell the queue', async () => {
     const cleared = vi.fn();
     const off = onOfflineDataCleared(cleared);
-    await idbPhotoStore.put(item('a'), photo());
-    await idbPhotoStore.put(item('b'), photo('b.jpg'));
+    await idbPhotoStore.put(item('a'), photo(), null);
+    await idbPhotoStore.put(item('b'), photo('b.jpg'), null);
 
     await clearOfflineData();
     expect(await loadStoredPhotos()).toEqual([]);
@@ -80,7 +85,7 @@ describe('the photos kept on the phone (Stage 19D)', () => {
     expect(await db.count('photoFiles')).toBe(0);
     expect(cleared).toHaveBeenCalledTimes(1);
 
-    await idbPhotoStore.put(item('c'), photo());
+    await idbPhotoStore.put(item('c'), photo(), null);
     await setOfflineOwner('owner-2');
     expect(await loadStoredPhotos()).toEqual([]);
     expect(cleared).toHaveBeenCalledTimes(2);

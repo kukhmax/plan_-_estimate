@@ -13,6 +13,7 @@ import { formatMetric } from '../utils/format';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
+import { PendingMark } from './PendingMark';
 
 interface RoomListProps {
   projectId: string;
@@ -427,6 +428,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                         {t.common.archived_badge}
                       </span>
                     )}
+                    <PendingMark record={room} id={room.id} />
                   </div>
                   {/* Stage 14E.5: corner photo button (C-1); nothing without a project photo context. */}
                   <PhotoCardButton context="ROOM" targetId={room.id} />

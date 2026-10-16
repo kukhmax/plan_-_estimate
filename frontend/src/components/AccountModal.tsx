@@ -12,9 +12,11 @@ interface AccountModalProps {
   user: User;
   isDevAuth: boolean;
   onClose: () => void;
+  /** Opens the screen of what waits on the phone (Stage 19E). */
+  onOpenSync?: () => void;
 }
 
-export function AccountModal({ user, isDevAuth, onClose }: AccountModalProps) {
+export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountModalProps) {
   const { t } = useI18n();
   const [showProfile, setShowProfile] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -148,6 +150,16 @@ export function AccountModal({ user, isDevAuth, onClose }: AccountModalProps) {
           {/* Stage 19B: what the phone keeps for work without a signal can be removed here (the objects stay on the server) */}
           <div className="mt-4 space-y-2 border-t border-slate-200 pt-3" aria-label="offline-data">
             <p className="text-xs break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>{t.offline.clear_note}</p>
+            {onOpenSync && (
+              <button
+                type="button"
+                aria-label="open-sync-screen"
+                onClick={onOpenSync}
+                className="w-full min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold break-words"
+              >
+                <Ico>🔄</Ico>{t.offline.sync_screen_title}{pending + failed + waitingPhotos > 0 ? ` (${pending + failed + waitingPhotos})` : ''}
+              </button>
+            )}
             {confirmClear ? (
               <div className="space-y-2">
                 <p className="text-sm font-semibold break-words" style={{ color: 'var(--tg-theme-text-color)' }}>{t.offline.clear_confirm}</p>

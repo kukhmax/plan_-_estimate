@@ -815,3 +815,14 @@ describe('OpeningList — owner walkthrough layout and reveal sides', () => {
     expect((actions.previousElementSibling as HTMLElement).className).toContain('basis-40');
   });
 });
+
+describe('OpeningList: an opening only the phone knows (Stage 19E)', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('is marked', async () => {
+    vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({ items: [{ ...openingDoor, _pending: true }, openingWindow], total: 2 });
+    renderOpenings();
+    expect(await screen.findByLabelText(`pending-mark-${openingDoor.id}`)).toHaveTextContent('Czeka na wysłanie');
+    expect(screen.queryByLabelText(`pending-mark-${openingWindow.id}`)).toBeNull();
+  });
+});

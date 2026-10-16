@@ -9,6 +9,7 @@ import {
 import { Inspection, InspectionTarget } from '../types/inspection';
 import { QualityLevelValue, SubstrateValue } from '../types/checklist';
 import { Ico } from './Ico';
+import { PendingMark } from './PendingMark';
 
 export interface InspectionListProps {
   projectId: string;
@@ -133,7 +134,7 @@ function InspectionCard({
           type="button"
           aria-label={t.inspections.reopen}
           className="min-h-10 rounded-lg border border-blue-600 px-3 text-blue-700 disabled:opacity-50"
-          disabled={busy}
+          disabled={busy || inspection._pending}
           onClick={handleReopen}
         >
           <Ico>🔁</Ico>{t.inspections.reopen}
@@ -152,7 +153,7 @@ function InspectionCard({
         type="button"
         aria-label={inspection.is_archived ? t.inspections.restore : t.inspections.archive}
         className="min-h-10 rounded-lg border border-neutral-300 px-3 text-neutral-700 disabled:opacity-50"
-        disabled={busy}
+        disabled={busy || inspection._pending} // only the server can archive an inspection: it is sent first
         onClick={inspection.is_archived ? handleRestore : handleArchive}
       >
         {inspection.is_archived ? t.inspections.restore : t.inspections.archive}
@@ -176,6 +177,11 @@ function InspectionCard({
           {isCompleted ? t.inspections.status_completed : t.inspections.status_draft}
         </span>
       </div>
+      {inspection._pending && (
+        <div className="mt-1.5">
+          <PendingMark record={inspection} id={inspection.id} />
+        </div>
+      )}
       <p className="mt-1 text-xs text-neutral-600">
         {t.inspections.quality_target}: {qualityLabel(inspection.quality_target)}
         {isCompleted && inspection.completed_at

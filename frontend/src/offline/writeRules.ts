@@ -348,7 +348,7 @@ function optimisticExecution(op: OutboxOp, ids: Ids, saved: ReadonlyArray<{ path
     const work = isObject(laid) && Array.isArray(laid.planned_works) ? (laid.planned_works as unknown[]).find((w) => isObject(w) && w.occurrence_key === ids.occurrence) : undefined;
     if (isObject(work) && isObject(work.execution)) current = work.execution;
   }
-  return { occurrence_key: ids.occurrence, ...movedExecution(current, op) };
+  return { occurrence_key: ids.occurrence, ...movedExecution(current, op), _pending: true };
 }
 
 export function labelOf(match: WriteMatch, body: Record<string, unknown> | null): string {

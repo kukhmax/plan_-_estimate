@@ -558,3 +558,14 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
     });
   });
 });
+
+describe('RoomList: a room only the phone knows (Stage 19E)', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('is marked "Czeka na wysłanie"; a room the server has is not', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [{ ...room, _pending: true }, { ...room, id: 'other', name: 'Kuchnia' }], total: 2 });
+    renderRooms();
+    expect(await screen.findByLabelText(`pending-mark-${room.id}`)).toHaveTextContent('Czeka na wysłanie');
+    expect(screen.queryByLabelText('pending-mark-other')).toBeNull();
+  });
+});

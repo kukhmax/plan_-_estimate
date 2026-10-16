@@ -181,3 +181,14 @@ describe('formatNoteTime', () => {
     expect(formatNoteTime('not a date', 'pl')).toBe('not a date');
   });
 });
+
+describe('ProjectNotes: a note only the phone knows (Stage 19E)', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('is marked, the others are not', async () => {
+    vi.mocked(notesApi.fetchProjectNotes).mockResolvedValue({ items: [{ ...NEWER, _pending: true }, OLDER], total: 2 });
+    renderNotes();
+    expect(await screen.findByLabelText('pending-mark-n2')).toHaveTextContent('Czeka na wysłanie');
+    expect(screen.queryByLabelText('pending-mark-n1')).toBeNull();
+  });
+});

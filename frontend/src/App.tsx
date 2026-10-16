@@ -11,6 +11,7 @@ import { ProjectOpenRequest, ProjectWorkspace } from './components/ProjectWorksp
 import { AccountModal } from './components/AccountModal';
 import { AppMenu, AppMenuItem } from './components/AppMenu';
 import { ConnectionBanner } from './components/ConnectionBanner';
+import { SyncScreen } from './components/SyncScreen';
 import { SyncStrip } from './components/SyncStrip';
 import { purgeStaleReads } from './offline/readCache';
 import { startSync } from './offline/sync';
@@ -34,6 +35,7 @@ const AppContent: React.FC = () => {
   const [projectsNavToken, setProjectsNavToken] = useState(0);
   const [showAccount, setShowAccount] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showSync, setShowSync] = useState(false); // Stage 19E: the screen of what waits on the phone
   const [priceNavToken, setPriceNavToken] = useState(0);
   const [openRequest, setOpenRequest] = useState<ProjectOpenRequest | null>(
     target?.projectId ? { token: 1, projectId: target.projectId, view: 'project' } : null,
@@ -148,7 +150,7 @@ const AppContent: React.FC = () => {
         </header>
 
         {!isLoading && user && <ConnectionBanner />}
-        {!isLoading && user && <SyncStrip />}
+        {!isLoading && user && <SyncStrip onOpen={() => setShowSync(true)} />}
 
         {isLoading && (
           <div
@@ -197,19 +199,19 @@ const AppContent: React.FC = () => {
         {!isLoading && user && (
           <>
             {activeSection === 'clients' ? (
-              <ClientList onOpenEstimate={openEstimatesOf} backSuspended={showAccount || menuOpen} />
+              <ClientList onOpenEstimate={openEstimatesOf} backSuspended={showAccount || menuOpen || showSync} />
             ) : activeSection === 'projects' ? (
-              <ProjectWorkspace resetSignal={projectsNavToken} backSuspended={showAccount || menuOpen} openRequest={openRequest} />
+              <ProjectWorkspace resetSignal={projectsNavToken} backSuspended={showAccount || menuOpen || showSync} openRequest={openRequest} />
             ) : activeSection === 'calendar' ? (
-              <CalendarScreen backSuspended={showAccount || menuOpen} onOpenProject={openProjectOf} />
+              <CalendarScreen backSuspended={showAccount || menuOpen || showSync} onOpenProject={openProjectOf} />
             ) : activeSection === 'archive' ? (
               <ArchiveScreen />
             ) : activeSection === 'documents' ? (
               <SentDocuments />
             ) : activeSection === 'knowledge' ? (
-              <KnowledgeBase backSuspended={showAccount || menuOpen} />
+              <KnowledgeBase backSuspended={showAccount || menuOpen || showSync} />
             ) : (
-              <PriceBook resetSignal={priceNavToken} backSuspended={showAccount || menuOpen} />
+              <PriceBook resetSignal={priceNavToken} backSuspended={showAccount || menuOpen || showSync} />
             )}
           </>
         )}
@@ -234,8 +236,14 @@ const AppContent: React.FC = () => {
           user={user}
           isDevAuth={isDevAuth}
           onClose={() => setShowAccount(false)}
+          onOpenSync={() => {
+            setShowAccount(false);
+            setShowSync(true);
+          }}
         />
       )}
+
+      {showSync && user && <SyncScreen onClose={() => setShowSync(false)} />}
     </div>
   );
 };

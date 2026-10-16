@@ -88,6 +88,8 @@ export interface StoredPhoto {
   size: number;
   createdAt: number;
   state: 'queued' | 'failed';
+  /** A small picture (data URL) so that the row shows the photo after a restart; null where it could not be drawn. */
+  thumb?: string | null;
   /** POSTs started for the current uploadId; above 0 means the server may have the photo already. */
   attempt: number;
   error: PhotoErrorInfo | null;
@@ -97,7 +99,7 @@ export type StoredPhotoPatch = Partial<Pick<StoredPhoto, 'uploadId' | 'state' | 
 
 /** Where unfinished photos rest between sessions (IndexedDB in the application, a fake in tests). */
 export interface PhotoQueueStore {
-  put(item: QueueItem, file: File): Promise<void>;
+  put(item: QueueItem, file: File, thumb: string | null): Promise<void>;
   update(id: string, patch: StoredPhotoPatch): Promise<void>;
   remove(id: string): Promise<void>;
   loadFile(id: string): Promise<File | null>;
@@ -131,6 +133,8 @@ export interface PhotoQueueOptions {
   /** The token expired: sign in again; true when a new token is in place. */
   refreshSession?: () => Promise<boolean>;
   limitBytes?: number;
+  /** Draws the small picture kept with a waiting photo (Stage 19E); nothing is drawn without it. */
+  thumbnail?: (file: File) => Promise<string | null>;
 }
 
 export interface EnqueueResult {
@@ -277,7 +281,7 @@ export class PhotoUploadQueue {
         state: record.state,
         progress: 0,
         attempt: record.attempt,
-        previewUrl: null,
+        previewUrl: record.thumb ?? null, // a data URL: needs no revoking
         error: record.error,
         result: null,
         notBefore: 0,
@@ -444,7 +448,15 @@ export class PhotoUploadQueue {
 
   private keep(item: QueueItem, file: File): void {
     this.storeStep(
-      (store) => store.put(item, file),
+      async (store) => {
+        let thumb: string | null = null;
+        try {
+          thumb = (await this.options.thumbnail?.(file)) ?? null;
+        } catch {
+          thumb = null; // the small picture is a convenience: the photo is kept without it
+        }
+        await store.put(item, file, thumb);
+      },
       () => {
         if (this.find(item.id)) this.patch(item.id, { saveFailed: true });
       },

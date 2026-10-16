@@ -28,6 +28,7 @@ import { formatWaitHours } from '../utils/waitFormat';
 import { displayCounts, ExecutionBulkSheet, nothingReason } from './ExecutionBulkSheet';
 import { ExecutionStatusBadge } from './ExecutionStatusBadge';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
+import { PendingMark } from './PendingMark';
 import { PhotoEntryButton } from './PhotoEntryButton';
 import { PhotoSection } from './PhotoSection';
 import { ReminderSheet } from './ReminderSheet';
@@ -250,6 +251,7 @@ export function SurfaceExecutionView({
                 started_at: result.started_at,
                 completed_at: result.completed_at,
                 ready_after: result.ready_after,
+                _pending: result._pending, // marked until the server has the status (Stage 19E)
               },
             }
             : w,
@@ -461,6 +463,7 @@ export function SurfaceExecutionView({
                     {t.execution.completed_recorded.replace('{value}', formatRecordedDateTime(execution.completed_at, locale))}
                   </p>
                 )}
+                <PendingMark record={execution} id={key} />
                 {execution?.ready_after && (
                   <div aria-label={`execution-ready-${key}`} className="rounded-lg border border-[var(--tg-control-border-color)] px-2 py-1 space-y-0.5">
                     <p className="text-xs font-semibold text-[var(--tg-theme-text-color)] break-words">

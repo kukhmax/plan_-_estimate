@@ -23,7 +23,7 @@ function requireDb() {
 }
 
 export const idbPhotoStore: PhotoQueueStore = {
-  async put(item: QueueItem, file: File): Promise<void> {
+  async put(item: QueueItem, file: File, thumb: string | null): Promise<void> {
     const owner = currentOfflineOwner();
     if (!owner) throw new Error('no signed-in owner to keep the photo for');
     const bytes = await bytesOfFile(file);
@@ -37,6 +37,7 @@ export const idbPhotoStore: PhotoQueueStore = {
       type: file.type,
       lastModified: file.lastModified,
       size: file.size,
+      thumb,
       createdAt: Date.now(),
       state: item.state === 'failed' ? 'failed' : 'queued',
       attempt: item.attempt,

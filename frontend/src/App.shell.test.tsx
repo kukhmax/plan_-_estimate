@@ -4,6 +4,9 @@ import App from './App';
 import { chooseSection, openAccountDialog, openMenu } from './test/menu';
 import * as api from './api/auth';
 import * as priceItemsApi from './api/priceItems';
+import { act } from '@testing-library/react';
+import { resetSyncStateForTests, setOutboxCounts } from './offline/outboxState';
+import { resetPhotoUploadQueue } from './hooks/usePhotoUploadQueue';
 
 vi.mock('./api/auth', async () => {
   const actual = await vi.importActual<typeof import('./api/auth')>('./api/auth');
@@ -361,5 +364,42 @@ describe('App shell — the main menu (Stage 16K.1)', () => {
     expect(screen.queryByRole('button', { name: 'open-menu' })).toBeNull();
     // the language switch still works on the error screen
     expect(screen.getByRole('button', { name: 'lang-ru' })).toBeInTheDocument();
+  });
+});
+
+describe('App shell — the screen of what waits on the phone (Stage 19E)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_DEV_MOCK_AUTH', 'true');
+    delete (window as any).Telegram;
+    localStorage.clear();
+    resetSyncStateForTests();
+    resetPhotoUploadQueue();
+  });
+
+  it('opens from the strip and closes on its button', async () => {
+    mockDevAuth();
+    render(<App />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument());
+    expect(screen.queryByLabelText('sync-open')).toBeNull(); // nothing waits: no strip
+
+    act(() => setOutboxCounts({ pending: 2, failed: 0 }));
+    fireEvent.click(screen.getByLabelText('sync-open'));
+    expect(await screen.findByRole('dialog', { name: 'sync-screen' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('sync-close'));
+    expect(screen.queryByRole('dialog', { name: 'sync-screen' })).toBeNull();
+  });
+
+  it('opens from the account window, which gives way to it', async () => {
+    mockDevAuth();
+    render(<App />);
+    await openAccountDialog();
+    fireEvent.click(await screen.findByLabelText('open-sync-screen'));
+
+    expect(await screen.findByRole('dialog', { name: 'sync-screen' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('clear-offline-button')).toBeNull(); // the account window is closed
   });
 });

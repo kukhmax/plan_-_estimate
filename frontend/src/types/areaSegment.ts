@@ -14,6 +14,8 @@ export interface AreaSegmentType {
   label: string | null;
   area: string | number | null;
   is_archived: boolean;
+  /** Made on the phone and not yet accepted by the server (Stage 19E): the screens mark it. */
+  _pending?: boolean;
   created_at: string;
   updated_at: string;
 }

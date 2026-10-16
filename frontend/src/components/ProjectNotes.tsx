@@ -5,6 +5,7 @@ import { MAX_NOTE_LENGTH, type ProjectNote } from '../types/projectNote';
 import { localizeApiError } from '../utils/apiErrors';
 import { formatNoteTime } from '../utils/noteFormat';
 import { Ico } from './Ico';
+import { PendingMark } from './PendingMark';
 
 interface ProjectNotesProps {
   projectId: string;
@@ -148,6 +149,7 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
         <ul aria-label="notes-list" className="space-y-2">
           {notes.map((note) => (
             <li key={note.id} aria-label={`note-${note.id}`} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+              <PendingMark record={note} id={note.id} />
               <p aria-label={`note-time-${note.id}`} className="text-xs font-semibold text-slate-500">
                 {formatNoteTime(note.created_at, locale)}
                 {note.updated_at !== note.created_at && formatNoteTime(note.updated_at, locale) !== formatNoteTime(note.created_at, locale) && (

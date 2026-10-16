@@ -13,6 +13,7 @@ vi.mock('../api/photos', async () => {
   return { ...actual, uploadPhoto: vi.fn(), fetchPhoto: vi.fn() };
 });
 vi.mock('./usePhotoStorage', () => ({ refreshPhotoStorage: vi.fn() }));
+vi.mock('../offline/thumbnail', () => ({ makeThumbnail: vi.fn(async () => 'data:image/jpeg;base64,TT') }));
 import { fetchPhoto, uploadPhoto } from '../api/photos';
 
 // Stage 19D end to end on the phone's storage: a photo taken without a signal survives the closing of the application,
@@ -66,6 +67,21 @@ describe('photos across a restart of the application (Stage 19D)', () => {
     expect(sent.file.size).toBe(3);
     expect(getPhotoUploadQueue().getItems()[0].state).toBe('done');
     expect(await loadStoredPhotos()).toEqual([]); // sent: nothing is left on the phone
+  });
+
+  it('after the restart the row of a waiting photo still shows what the photo is (the small picture kept with it, Stage 19E)', async () => {
+    reportNetworkFailure();
+    await act(async () => {
+      getPhotoUploadQueue().enqueue([jpeg()], target, 'CAMERA');
+    });
+    await settle();
+    expect((await loadStoredPhotos())[0].thumb).toBe('data:image/jpeg;base64,TT');
+
+    resetPhotoUploadQueue();
+    await act(async () => {
+      await restorePhotoQueue();
+    });
+    expect(getPhotoUploadQueue().getItems()[0].previewUrl).toBe('data:image/jpeg;base64,TT');
   });
 
   it('waits for the changes made before it (the wall the photo belongs to) to reach the server', async () => {

@@ -19,6 +19,7 @@ import { formatMetric } from '../utils/format';
 import { localizeApiError } from '../utils/apiErrors';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
+import { PendingMark } from './PendingMark';
 
 interface OpeningListProps {
   projectId: string;
@@ -343,6 +344,7 @@ export function OpeningList({
                       {t.common.archived_badge}
                     </span>
                   )}
+                  <PendingMark record={opening} id={opening.id} />
                 </div>
 
                 <div className="text-slate-500 mt-1 space-x-2">

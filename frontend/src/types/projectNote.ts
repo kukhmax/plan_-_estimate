@@ -5,6 +5,8 @@ export interface ProjectNote {
   body: string;
   created_at: string;
   updated_at: string;
+  /** Made on the phone and not yet accepted by the server (Stage 19E): the screens mark it. */
+  _pending?: boolean;
 }
 
 export interface ProjectNoteList {

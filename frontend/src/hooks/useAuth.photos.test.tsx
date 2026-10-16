@@ -32,6 +32,7 @@ describe('signing in puts back the photos kept on the phone (Stage 19D)', () => 
         networkRetries: 0, busyRetried: false, verify: false, authRetried: false, saveFailed: false,
       },
       new File([new Uint8Array([1, 2, 3])], 'IMG.jpg', { type: 'image/jpeg' }),
+      null,
     );
     reportNetworkFailure(); // the application is opened in the basement: the photo waits
 

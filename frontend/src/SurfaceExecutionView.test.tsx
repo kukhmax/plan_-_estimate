@@ -261,3 +261,27 @@ describe('transitions', () => {
     expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('execution: a status only the phone knows (Stage 19E)', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('is marked on the work until the server has it', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(
+      plan([work('k-a', 0, { status: 'IN_PROGRESS', started_at: STARTED, completed_at: null, ready_after: null, _pending: true }), work('k-b', 1, NS)]),
+    );
+    renderView();
+    await screen.findByLabelText('execution-card-k-a');
+    expect(within(card('k-a')).getByLabelText('pending-mark-k-a')).toHaveTextContent('Czeka na wysłanie');
+    expect(within(card('k-b')).queryByLabelText('pending-mark-k-b')).toBeNull();
+  });
+
+  it('a status marked now (answered by the phone) is marked at once', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(plan([work('k-a', 0, NS)]));
+    vi.mocked(workPlansApi.transitionWorkExecution).mockResolvedValue(
+      response('k-a', { status: 'IN_PROGRESS', started_at: STARTED, completed_at: null, ready_after: null, _pending: true }),
+    );
+    renderView();
+    fireEvent.click(await screen.findByLabelText('execution-start-k-a'));
+    expect(await screen.findByLabelText('pending-mark-k-a')).toBeInTheDocument();
+  });
+});

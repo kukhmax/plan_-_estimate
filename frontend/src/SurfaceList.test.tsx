@@ -1586,3 +1586,51 @@ describe('Wall rows and cards (Stage 18G)', () => {
     expect(screen.getByLabelText(`duplicate-surface-${WALL_A.id}`)).toHaveTextContent('Дублировать стену');
   });
 });
+
+describe('SurfaceList: a wall only the phone knows (Stage 19E, Q5 (b))', () => {
+  beforeEach(() => localStorage.clear());
+
+  const waiting: SurfaceType = { ...surface, width: 3.73, height: 2.68, _pending: true };
+
+  it('shows the typed width × height as a preview marked "~" in the row, and the mark', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [waiting], total: 1 });
+    renderSurfaces({ initiallyOpen: false });
+    const row = await screen.findByLabelText(`surface-row-${surface.id}`);
+    expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).toHaveTextContent('~10.00 m²');
+    expect(within(row).getByLabelText(`pending-mark-${surface.id}`)).toHaveTextContent('Czeka na wysłanie');
+  });
+
+  it('in the card replaces the empty gross / deduction / net rows by the preview and says the server will count it', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [waiting], total: 1 });
+    renderSurfaces();
+    const preview = await screen.findByLabelText(`surface-preview-${surface.id}`);
+    expect(preview).toHaveTextContent('~10.00 m²');
+    expect(preview).toHaveTextContent('Powierzchnię policzy serwer po synchronizacji.');
+    expect(screen.getByLabelText(`pending-mark-${surface.id}`)).toBeInTheDocument();
+    expect(screen.queryByText(/= /)).toBeNull();
+  });
+
+  it('once the server has the wall its own numbers are shown, with no mark', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [{ ...surface, width: 3.73, height: 2.68, gross_area: '9.996', net_area: '9.996' }], total: 1 });
+    renderSurfaces({ initiallyOpen: false });
+    const row = await screen.findByLabelText(`surface-row-${surface.id}`);
+    expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).toHaveTextContent('10.00 m²');
+    expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).not.toHaveTextContent('~');
+    expect(screen.queryByLabelText(`pending-mark-${surface.id}`)).toBeNull();
+  });
+
+  it('a wall the server has, without an area, is not given a "~" preview (only the phone\'s own walls are)', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [{ ...surface, width: 3.73, height: 2.68 }], total: 1 });
+    renderSurfaces({ initiallyOpen: false });
+    const row = await screen.findByLabelText(`surface-row-${surface.id}`);
+    expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).not.toHaveTextContent('~');
+    expect(screen.queryByLabelText(`pending-mark-${surface.id}`)).toBeNull();
+  });
+
+  it('a waiting wall without dimensions shows no invented number', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [{ ...surface, _pending: true }], total: 1 });
+    renderSurfaces({ initiallyOpen: false });
+    const row = await screen.findByLabelText(`surface-row-${surface.id}`);
+    expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).toHaveTextContent('—');
+  });
+});

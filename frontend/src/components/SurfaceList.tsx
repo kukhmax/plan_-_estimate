@@ -29,7 +29,9 @@ import { SurfaceExecutionView } from './SurfaceExecutionView';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
+import { PendingMark } from './PendingMark';
 import { SurfaceRowButton } from './SurfaceRowButton';
+import { previewArea } from '../offline/preview';
 
 /** Header type-pill: a single neutral style legible against any card tint
  * (WALL cards no longer share one fixed background — see surfaceColorTint). */
@@ -710,6 +712,8 @@ export function SurfaceList({
             const hasDimensions = surface.width !== null && surface.width !== undefined &&
                                   surface.height !== null && surface.height !== undefined;
             const isWall = surface.surface_type === 'WALL';
+            // a wall only the phone knows has no area from the server yet: its typed width × height is shown, marked "~" (Q5 (b))
+            const waitingArea = surface._pending && surface.gross_area == null ? previewArea(surface.width, surface.height) : null;
             const isOpeningsOpen = !!expandedOpenings[surface.id];
             const isOptionsOpen = !!expandedOptions[surface.id];
             const isWorkPlanOpen = activeWorkPlanSurfaceId === surface.id;
@@ -734,8 +738,9 @@ export function SurfaceList({
                     surfaceId={surface.id}
                     name={displayName}
                     typeLabel={typeLabel(surface.surface_type)}
-                    area={hasDimensions ? `${formatMetric(surface.net_area ?? surface.gross_area)} ${t.common.unit_m2}` : '—'}
+                    area={waitingArea ? `~${waitingArea} ${t.common.unit_m2}` : hasDimensions ? `${formatMetric(surface.net_area ?? surface.gross_area)} ${t.common.unit_m2}` : '—'}
                     archivedLabel={surface.is_archived ? t.common.archived_badge : null}
+                    pending={surface._pending}
                     className={`${tint.bg} border ${tint.border} rounded-xl px-3 py-1.5 min-h-10 w-full flex items-center gap-2 shadow-sm`}
                     onOpen={() => toggleCard(surface.id)}
                   />
@@ -764,6 +769,7 @@ export function SurfaceList({
                             {t.common.archived_badge}
                           </span>
                         )}
+                        <PendingMark record={surface} id={surface.id} />
                       </>
                     );
                     // a wall card folds back into its one-line row by a tap on its name
@@ -839,7 +845,13 @@ export function SurfaceList({
 
                 {isWall ? (
                   <>
-                    {hasDimensions ? (
+                    {waitingArea ? (
+                      // a wall only the phone knows: the typed width × height, marked "~" (owner decision Q5 (b))
+                      <p aria-label={`surface-preview-${surface.id}`} className="bg-sky-50 border border-sky-200 rounded-xl p-3 text-xs text-sky-900 break-words">
+                        <strong className="text-sm">~{waitingArea} {t.common.unit_m2}</strong>
+                        <span className="block mt-0.5">{t.offline.area_after_sync}</span>
+                      </p>
+                    ) : hasDimensions ? (
                       <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-[11px] text-slate-500">{t.surfaces.gross_area}</span>

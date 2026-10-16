@@ -46,6 +46,8 @@ export interface PlannedWorkExecutionRead {
   started_at: string | null;
   completed_at: string | null;
   ready_after: string | null;
+  /** Made on the phone and not yet accepted by the server (Stage 19E): the screens mark it. */
+  _pending?: boolean;
 }
 
 /** Response of PATCH …/occurrences/{occurrence_key}/execution. */

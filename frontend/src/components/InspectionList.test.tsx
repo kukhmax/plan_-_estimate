@@ -194,3 +194,21 @@ describe('InspectionList', () => {
     );
   });
 });
+
+describe('InspectionList: an inspection only the phone knows (Stage 19E)', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('is marked, can be opened and resumed, but cannot be archived or reopened until the server has it', async () => {
+    vi.mocked(inspectionsApi.fetchInspections).mockResolvedValue({ items: [{ ...roomInspection, _pending: true }], total: 1 });
+    renderList(roomTarget);
+    expect(await screen.findByLabelText(`pending-mark-${roomInspection.id}`)).toHaveTextContent('Czeka na wysłanie');
+    expect(screen.getByLabelText('Kontynuuj')).toBeEnabled();
+    expect(screen.getByLabelText('Archiwizuj')).toBeDisabled();
+  });
+
+  it('a completed one that is waiting cannot be reopened', async () => {
+    vi.mocked(inspectionsApi.fetchInspections).mockResolvedValue({ items: [{ ...wallInspection, _pending: true }], total: 1 });
+    renderList(wallTarget);
+    expect(await screen.findByLabelText('Wznów')).toBeDisabled();
+  });
+});

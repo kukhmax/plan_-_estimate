@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountModal } from './components/AccountModal';
 import { I18nProvider } from './hooks/useI18n';
 import { getPhotoUploadQueue, resetPhotoUploadQueue } from './hooks/usePhotoUploadQueue';
@@ -90,5 +90,30 @@ describe('"Wyczyść dane offline" in the account window (Stage 19B)', () => {
     localStorage.setItem('locale', 'ru');
     view();
     expect(screen.getByLabelText('clear-offline-button')).toHaveTextContent('Очистить офлайн-данные');
+  });
+});
+
+describe('the account window leads to the screen of what waits (Stage 19E)', () => {
+  beforeEach(async () => {
+    localStorage.clear();
+    resetSyncStateForTests();
+    await freshIndexedDb();
+    await setOfflineOwner('owner-1');
+  });
+
+  it('has the button, with the count of what waits, and opens the screen through the host', async () => {
+    await addOp({ ownerId: 'owner-1', createdAt: 1, method: 'POST', path: '/api/projects/p/notes', body: { body: 'x' }, kind: 'note.create', entityId: 'n', label: 'x' });
+    const open = vi.fn();
+    render(<I18nProvider><AccountModal user={user} isDevAuth={false} onClose={() => {}} onOpenSync={open} /></I18nProvider>);
+    const button = await screen.findByLabelText('open-sync-screen');
+    await waitFor(() => expect(button).toHaveTextContent('Synchronizacja (1)'));
+    expect(button.className).toMatch(/min-h-11/);
+    fireEvent.click(button);
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not drawn when the host gives no way to open it', () => {
+    view();
+    expect(screen.queryByLabelText('open-sync-screen')).toBeNull();
   });
 });

@@ -24,6 +24,7 @@ import { SurfaceExecutionView } from './SurfaceExecutionView';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
+import { PendingMark } from './PendingMark';
 import { SurfaceRowButton } from './SurfaceRowButton';
 
 interface AreaSegmentListProps {
@@ -634,6 +635,7 @@ export function AreaSegmentList({
                             {segment.label}
                           </span>
                         )}
+                        <PendingMark record={segment} id={segment.id} />
                       </div>
                       <p className="text-slate-500 mt-0.5">
                         {formatMetric(segment.width)} × {formatMetric(segment.height)} {t.common.unit_m} ={' '}

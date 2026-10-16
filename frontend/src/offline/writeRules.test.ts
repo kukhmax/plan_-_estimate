@@ -319,8 +319,8 @@ describe('the status of a planned work marked without a signal', () => {
     const start = transition('IN_PROGRESS', 'NOT_STARTED', '2026-10-16T08:00:00.000Z');
     const finish = transition('COMPLETED', 'IN_PROGRESS', '2026-10-16T09:00:00.000Z');
     const saved = [{ path: planPath, data: savedPlan(NOT_STARTED) }];
-    expect(optimisticResult(start, saved, [start])).toEqual({ occurrence_key: K, status: 'IN_PROGRESS', started_at: '2026-10-16T08:00:00.000Z', completed_at: null, ready_after: null });
-    expect(optimisticResult(finish, saved, [start, finish])).toEqual({ occurrence_key: K, status: 'COMPLETED', started_at: '2026-10-16T08:00:00.000Z', completed_at: '2026-10-16T09:00:00.000Z', ready_after: null });
+    expect(optimisticResult(start, saved, [start])).toEqual({ occurrence_key: K, status: 'IN_PROGRESS', started_at: '2026-10-16T08:00:00.000Z', completed_at: null, ready_after: null, _pending: true });
+    expect(optimisticResult(finish, saved, [start, finish])).toEqual({ occurrence_key: K, status: 'COMPLETED', started_at: '2026-10-16T08:00:00.000Z', completed_at: '2026-10-16T09:00:00.000Z', ready_after: null, _pending: true });
   });
 
   it('the answer to a change is not changed by the changes made after it', () => {
