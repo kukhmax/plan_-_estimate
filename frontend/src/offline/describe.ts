@@ -21,3 +21,33 @@ export const ALL_KINDS: readonly OutboxKind[] = [
   'segment.create', 'segment.update', 'segment.archive', 'segment.restore',
   'answers.put', 'inspection.create', 'execution.transition',
 ];
+
+/**
+ * The words of a waiting change on the sync screen. The outbox keeps the label as it was made ("IN_PROGRESS", "FLOOR 300 × 400", "CONCRETE"),
+ * so the codes (work status, plane, substrate, opening type) are turned into the user's language here, at display time — also for the
+ * changes already waiting on a phone.
+ */
+export interface LabelWords {
+  status: Record<string, string>;
+  inspections: Record<string, string>;
+  openings: Record<string, string>;
+  planes: { floor: string; ceiling: string };
+}
+
+export function describeLabel(label: string, words: LabelWords): string {
+  const codes: Record<string, string | undefined> = {
+    ...Object.fromEntries(Object.entries(words.status)),
+    FLOOR: words.planes.floor,
+    CEILING: words.planes.ceiling,
+    DOOR: words.openings.door,
+    WINDOW: words.openings.window,
+    OTHER: words.openings.other,
+  };
+  return label
+    .split(' ')
+    .map((token) => {
+      if (!/^[A-Z][A-Z_]+$/.test(token)) return token;
+      return codes[token] ?? words.inspections[`substrate_${token.toLowerCase()}`] ?? token;
+    })
+    .join(' ');
+}

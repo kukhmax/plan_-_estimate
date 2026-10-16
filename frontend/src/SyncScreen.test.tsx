@@ -51,6 +51,20 @@ describe('the screen "Synchronizacja" (Stage 19E)', () => {
     expect(section).toHaveTextContent(/Zrobiono: /);
   });
 
+  it('shows the codes of a work status and of a substrate in words (not IN_PROGRESS / CONCRETE)', async () => {
+    await make('execution.transition', 'IN_PROGRESS');
+    await make('execution.transition', 'COMPLETED');
+    await make('inspection.create', 'CONCRETE');
+    await make('segment.create', 'FLOOR 300 × 400');
+    view();
+    const section = await screen.findByLabelText('sync-waiting');
+    expect(section).toHaveTextContent('Status pracy: W trakcie');
+    expect(section).toHaveTextContent('Status pracy: Wykonano');
+    expect(section).toHaveTextContent('Nowe badanie podłoża: Beton');
+    expect(section).toHaveTextContent('Podłoga 300 × 400');
+    expect(section.textContent).not.toMatch(/IN_PROGRESS|COMPLETED|CONCRETE|FLOOR/);
+  });
+
   it('puts what the server refused first, with the reason in words (never the server\'s English) and keeps the rest apart', async () => {
     const a = await make('room.create', 'Salon');
     await make('note.create', 'Notatka');

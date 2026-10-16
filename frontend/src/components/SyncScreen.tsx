@@ -3,7 +3,7 @@ import { useI18n } from '../hooks/useI18n';
 import { usePhotoUploadQueue } from '../hooks/usePhotoUploadQueue';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { useConnection } from '../offline/connection';
-import { refusalReason } from '../offline/describe';
+import { describeLabel, refusalReason } from '../offline/describe';
 import type { OutboxOp } from '../offline/opTypes';
 import { listOps, removeOp, updateOp } from '../offline/outbox';
 import { askForSending, useOutboxCounts, useSyncInfo } from '../offline/outboxState';
@@ -54,7 +54,14 @@ export function SyncScreen({ onClose }: { onClose: () => void }) {
 
   const label = (op: OutboxOp) => {
     const kind = (o.kinds as Record<string, string>)[op.kind] ?? op.kind;
-    return op.label ? `${kind}: ${op.label}` : kind;
+    if (!op.label) return kind;
+    const words = describeLabel(op.label, {
+      status: t.execution.status,
+      inspections: t.inspections as unknown as Record<string, string>,
+      openings: t.openings as unknown as Record<string, string>,
+      planes: { floor: t.area_segments.floor, ceiling: t.area_segments.ceiling },
+    });
+    return `${kind}: ${words}`;
   };
   const madeAt = (op: OutboxOp) => o.sync_made_at.replace('{time}', formatRecordedDateTime(new Date(op.createdAt).toISOString(), locale));
 
