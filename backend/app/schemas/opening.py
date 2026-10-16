@@ -6,9 +6,11 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.domain.rules.room_geometry import calculate_opening_area, calculate_reveal
 from app.models.opening import OpeningType
+from app.schemas.client_id import ClientId
 
 
 class OpeningCreate(BaseModel):
+    id: ClientId
     opening_type: OpeningType
     name: str | None = Field(default=None, max_length=255)
     width: Decimal = Field(

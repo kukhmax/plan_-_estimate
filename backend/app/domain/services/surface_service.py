@@ -18,6 +18,7 @@ from app.domain.rules.room_geometry import (
     matches_canonical_wall_set,
 )
 from app.domain.services.canonical_planes import find_active_plane_surface
+from app.domain.services.client_ids import find_repeat
 from app.models.opening import Opening
 from app.models.project import Project
 from app.models.room import Room
@@ -197,6 +198,16 @@ class SurfaceService:
     ) -> Surface:
         await self._ensure_room_owned(project_id, room_id, owner_id)
 
+        repeat = await find_repeat(
+            self.db, Surface, payload.id,
+            {"room_id": room_id, "name": payload.name, "surface_type": payload.surface_type, "description": payload.description,
+             "position": payload.position, "width": payload.width, "height": payload.height},
+        )
+        if repeat is not None:
+            if repeat.surface_type == SurfaceType.WALL and repeat.width is not None and repeat.height is not None:
+                repeat.deduction_area = Decimal("0.000")
+            return repeat
+
         if payload.surface_type in (SurfaceType.FLOOR, SurfaceType.CEILING):
             existing = await find_active_plane_surface(
                 self.db, room_id, payload.surface_type
@@ -207,6 +218,7 @@ class SurfaceService:
                 )
 
         surface = Surface(
+            **({"id": payload.id} if payload.id is not None else {}),
             room_id=room_id,
             name=payload.name,
             surface_type=payload.surface_type,

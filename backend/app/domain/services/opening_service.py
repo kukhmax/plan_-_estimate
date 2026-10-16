@@ -13,6 +13,7 @@ from app.domain.exceptions import (
     RoomNotFoundError,
     SurfaceNotFoundError,
 )
+from app.domain.services.client_ids import find_repeat
 from app.models.opening import Opening, OpeningType
 from app.models.project import Project
 from app.models.room import Room
@@ -118,6 +119,15 @@ class OpeningService:
                 f"Openings can only be attached to WALL surfaces, got {surface.surface_type.value}"
             )
 
+        # a repeat of a request that already succeeded must not be counted against the wall twice
+        repeat = await find_repeat(
+            self.db, Opening, payload.id,
+            {"surface_id": surface_id, "opening_type": payload.opening_type, "name": payload.name, "width": payload.width,
+             "height": payload.height, "quantity": payload.quantity, "description": payload.description},
+        )
+        if repeat is not None:
+            return repeat
+
         new_opening_area = (
             payload.width * payload.height * Decimal(payload.quantity)
         ).quantize(Decimal("0.001"))
@@ -133,6 +143,7 @@ class OpeningService:
                 )
 
         opening = Opening(
+            **({"id": payload.id} if payload.id is not None else {}),
             surface_id=surface_id,
             opening_type=payload.opening_type,
             name=payload.name,

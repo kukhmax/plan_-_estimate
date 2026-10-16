@@ -916,3 +916,9 @@ class ProjectNoteInvalidError(Exception):
     """The words of a note are empty or too long (Stage 18)."""
 
     code = "NOTE_INVALID"
+
+
+class ClientIdConflictError(Exception):
+    """An id chosen by the client is already used by a different record (Stage 19C)."""
+
+    code = "CLIENT_ID_CONFLICT"

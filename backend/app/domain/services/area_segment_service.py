@@ -19,6 +19,7 @@ from app.domain.rules.room_geometry import (
     calculate_segment_area,
 )
 from app.domain.services.canonical_planes import find_active_plane_surface
+from app.domain.services.client_ids import find_repeat
 from app.models.area_segment import AreaOperation, AreaPlane, AreaSegment
 from app.models.project import Project
 from app.models.room import Room
@@ -195,6 +196,14 @@ class AreaSegmentService:
     ) -> AreaSegment:
         await self._ensure_room_owned(project_id, room_id, owner_id)
 
+        repeat = await find_repeat(
+            self.db, AreaSegment, payload.id,
+            {"room_id": room_id, "plane": payload.plane, "operation": payload.operation, "width": payload.width,
+             "height": payload.height, "label": payload.label},
+        )
+        if repeat is not None:
+            return repeat
+
         surface_id = await self._resolve_plane_surface(
             room_id, payload.plane, payload.surface_id
         )
@@ -205,6 +214,7 @@ class AreaSegmentService:
         )
 
         segment = AreaSegment(
+            **({"id": payload.id} if payload.id is not None else {}),
             room_id=room_id,
             surface_id=surface_id,
             plane=payload.plane,

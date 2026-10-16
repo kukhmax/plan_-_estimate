@@ -11,6 +11,7 @@ from app.domain.exceptions import (
     ProjectNotFoundError,
 )
 from app.models.project import Project
+from app.domain.services.client_ids import find_repeat
 from app.models.project_note import MAX_NOTE_LENGTH, ProjectNote
 
 
@@ -65,10 +66,16 @@ class ProjectNoteService:
             )
         ).scalar_one()
 
-    async def create_note(self, owner_id: uuid.UUID, project_id: uuid.UUID, body: str) -> ProjectNote:
+    async def create_note(
+        self, owner_id: uuid.UUID, project_id: uuid.UUID, body: str, *, client_id: uuid.UUID | None = None
+    ) -> ProjectNote:
         await self._ensure_project(owner_id, project_id)
+        text = _clean(body)
+        repeat = await find_repeat(self.db, ProjectNote, client_id, {"owner_id": owner_id, "project_id": project_id, "body": text})
+        if repeat is not None:
+            return repeat
         now = datetime.now(UTC)
-        note = ProjectNote(owner_id=owner_id, project_id=project_id, body=_clean(body), created_at=now, updated_at=now)
+        note = ProjectNote(id=client_id or uuid.uuid4(), owner_id=owner_id, project_id=project_id, body=text, created_at=now, updated_at=now)
         self.db.add(note)
         await self.db.commit()
         await self.db.refresh(note)

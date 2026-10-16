@@ -14,6 +14,7 @@ from app.models.user import User
 from app.schemas.project_note import (
     ProjectNoteListResponse,
     ProjectNoteRead,
+    ProjectNoteCreate,
     ProjectNoteWrite,
 )
 
@@ -45,12 +46,12 @@ async def list_notes(
 @router.post("/projects/{project_id}/notes", response_model=ProjectNoteRead, status_code=status.HTTP_201_CREATED, summary="Write a note")
 async def create_note(
     project_id: uuid.UUID,
-    payload: ProjectNoteWrite,
+    payload: ProjectNoteCreate,
     current_user: User = Depends(get_current_user),
     service: ProjectNoteService = Depends(get_project_note_service),
 ) -> ProjectNoteRead:
     try:
-        note = await service.create_note(current_user.id, project_id, payload.body)
+        note = await service.create_note(current_user.id, project_id, payload.body, client_id=payload.id)
     except FAILURES as exc:
         raise _http_error(exc) from exc
     return ProjectNoteRead.model_validate(note)

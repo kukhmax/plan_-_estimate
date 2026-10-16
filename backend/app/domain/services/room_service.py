@@ -27,6 +27,7 @@ from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
 from app.domain.services.canonical_planes import ensure_canonical_plane_surfaces
+from app.domain.services.client_ids import find_repeat
 from app.schemas.room import (
     OpeningGroupRead,
     ProjectSummaryRead,
@@ -547,7 +548,16 @@ class RoomService:
     ) -> Room:
         await self._ensure_project_owned(project_id, owner_id)
 
+        repeat = await find_repeat(
+            self.db, Room, payload.id,
+            {"project_id": project_id, "name": payload.name, "description": payload.description, "length": payload.length, "width": payload.width, "height": payload.height},
+        )
+        if repeat is not None:
+            await self._attach_calculations(repeat)
+            return repeat
+
         room = Room(
+            **({"id": payload.id} if payload.id is not None else {}),
             project_id=project_id,
             name=payload.name,
             description=payload.description,

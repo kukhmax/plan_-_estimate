@@ -6,9 +6,11 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.domain.rules.room_geometry import calculate_segment_area
 from app.models.area_segment import AreaOperation, AreaPlane
+from app.schemas.client_id import ClientId
 
 
 class AreaSegmentCreate(BaseModel):
+    id: ClientId
     plane: AreaPlane
     operation: AreaOperation
     surface_id: uuid.UUID | None = Field(

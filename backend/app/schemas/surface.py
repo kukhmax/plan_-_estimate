@@ -9,9 +9,11 @@ from app.domain.rules.room_geometry import (
     calculate_wall_net_area,
 )
 from app.models.surface import SurfaceType
+from app.schemas.client_id import ClientId
 
 
 class SurfaceCreate(BaseModel):
+    id: ClientId
     name: str = Field(min_length=1, max_length=255)
     surface_type: SurfaceType
     description: str | None = Field(default=None, max_length=4096)

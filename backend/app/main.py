@@ -1,7 +1,8 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.endpoints.area_segments import router as area_segments_router
@@ -19,6 +20,7 @@ from app.api.v1.endpoints.documents import router as documents_router
 from app.api.v1.endpoints.knowledge import router as knowledge_router
 from app.domain.knowledge.catalog import load_knowledge_catalog
 from app.domain.calendar.messages import load_texts
+from app.domain.exceptions import ClientIdConflictError
 from app.domain.services.calendar_dispatcher import start_dispatcher
 from app.core.database import async_session_maker
 from app.api.v1.endpoints.executor_profile import router as executor_profile_router
@@ -80,6 +82,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
+@app.exception_handler(ClientIdConflictError)
+async def client_id_conflict_handler(_request: Request, exc: ClientIdConflictError) -> JSONResponse:
+    """An id chosen by the phone (Stage 19C) is taken by another record: the phone moves the operation to "needs attention"."""
+    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": {"code": exc.code, "message": str(exc)}})
+
 
 app.include_router(health_router, prefix="/api", tags=["health"])
 app.include_router(auth_router, prefix="/api", tags=["auth"])
