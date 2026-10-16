@@ -113,13 +113,36 @@ const AppContent: React.FC = () => {
           style={{ backgroundColor: 'var(--tg-theme-bg-color)', borderBottom: '1px solid var(--tg-theme-secondary-bg-color)' }}
         >
           <div className="flex items-center gap-1 min-w-0">
+            <h1 className="text-lg font-bold tracking-tight truncate" style={{ color: 'var(--tg-theme-text-color)' }}>
+              {t.app.title}
+            </h1>
+          </div>
+          {/* Language switcher (small, by the owner's request) and the menu button: both in the right corner, the menu button last */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex gap-0.5 shrink-0 rounded-lg p-0.5" style={{ backgroundColor: 'var(--tg-theme-secondary-bg-color)' }}>
+              {(['pl', 'ru'] as const).map((lang) => (
+                <button
+                  key={lang}
+                  aria-label={`lang-${lang}`}
+                  onClick={() => setLocale(lang)}
+                  className="min-h-9 min-w-9 text-xs px-2 rounded-md font-semibold uppercase transition"
+                  style={
+                    locale === lang
+                      ? { backgroundColor: 'var(--tg-theme-button-color)', color: 'var(--tg-theme-button-text-color)' }
+                      : { color: 'var(--tg-theme-hint-color)' }
+                  }
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
             {!isLoading && user && (
               <button
                 type="button"
                 aria-label="open-menu"
                 aria-expanded={menuOpen}
                 onClick={() => setMenuOpen(true)}
-                className="min-h-11 min-w-11 -ml-2.5 shrink-0 flex items-center justify-center rounded-xl"
+                className="min-h-11 min-w-11 -mr-2.5 shrink-0 flex items-center justify-center rounded-xl"
                 style={{ color: 'var(--tg-theme-text-color)' }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
@@ -127,27 +150,6 @@ const AppContent: React.FC = () => {
                 </svg>
               </button>
             )}
-            <h1 className="text-lg font-bold tracking-tight truncate" style={{ color: 'var(--tg-theme-text-color)' }}>
-              {t.app.title}
-            </h1>
-          </div>
-          {/* Language switcher: small by the owner's request, in the right corner */}
-          <div className="flex gap-0.5 shrink-0 rounded-lg p-0.5" style={{ backgroundColor: 'var(--tg-theme-secondary-bg-color)' }}>
-            {(['pl', 'ru'] as const).map((lang) => (
-              <button
-                key={lang}
-                aria-label={`lang-${lang}`}
-                onClick={() => setLocale(lang)}
-                className="min-h-9 min-w-9 text-xs px-2 rounded-md font-semibold uppercase transition"
-                style={
-                  locale === lang
-                    ? { backgroundColor: 'var(--tg-theme-button-color)', color: 'var(--tg-theme-button-text-color)' }
-                    : { color: 'var(--tg-theme-hint-color)' }
-                }
-              >
-                {lang}
-              </button>
-            ))}
           </div>
         </header>
 

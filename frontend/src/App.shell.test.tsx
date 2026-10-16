@@ -121,6 +121,14 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     expect(header).toContainElement(screen.getByRole('button', { name: 'open-menu' }));
     expect(header).toContainElement(screen.getByRole('button', { name: 'lang-pl' }));
     expect(header).toContainElement(screen.getByRole('button', { name: 'lang-ru' }));
+    // The language switcher sits left of the menu button, and the menu button is the last control in the right corner.
+    const buttons = Array.from(header.querySelectorAll('button')).map((button) => button.getAttribute('aria-label'));
+    expect(buttons).toEqual(['lang-pl', 'lang-ru', 'open-menu']);
+    // The panel slides in from the right.
+    fireEvent.click(screen.getByRole('button', { name: 'open-menu' }));
+    expect(screen.getByRole('dialog', { name: 'main-menu' })).toHaveClass('right-0');
+    expect(screen.getByRole('dialog', { name: 'main-menu' })).not.toHaveClass('left-0');
+    fireEvent.click(screen.getByRole('button', { name: 'close-menu' }));
     // No second title line and no footer any more.
     expect(screen.queryByText(/Telegram Mini App/)).not.toBeInTheDocument();
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();

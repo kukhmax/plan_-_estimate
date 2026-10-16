@@ -30,7 +30,7 @@ interface AppMenuProps {
 }
 
 /**
- * The main menu: a panel that slides in from the left. It is the only way to move between the top-level sections, so
+ * The main menu: a panel that slides in from the right (the menu button is in the right corner of the header). It is the only way to move between the top-level sections, so
  * it closes on a choice, on a tap outside, on Escape and on the Telegram BackButton.
  */
 export function AppMenu({ open, title, accountLabel, items, onClose, onOpenAccount }: AppMenuProps) {
@@ -64,7 +64,7 @@ export function AppMenu({ open, title, accountLabel, items, onClose, onOpenAccou
         role="dialog"
         aria-modal="true"
         aria-label="main-menu"
-        className="app-menu-panel absolute inset-y-0 left-0 w-[85%] max-w-xs flex flex-col shadow-xl overflow-y-auto overscroll-contain"
+        className="app-menu-panel absolute inset-y-0 right-0 w-[85%] max-w-xs flex flex-col shadow-xl overflow-y-auto overscroll-contain"
         style={{ backgroundColor: 'var(--tg-theme-bg-color)', color: 'var(--tg-theme-text-color)' }}
       >
         <div className="flex items-center justify-between gap-2 px-4 py-2 min-h-14">

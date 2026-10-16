@@ -99,10 +99,10 @@ input:-webkit-autofill:focus {
   transition: background-color 9999s ease-in-out 0s;
 }
 
-/* The main menu slides in from the left; people who asked the system for less motion get it at once. */
+/* The main menu slides in from the right; people who asked the system for less motion get it at once. */
 @keyframes app-menu-in {
   from {
-    transform: translateX(-100%);
+    transform: translateX(100%);
   }
   to {
     transform: translateX(0);
