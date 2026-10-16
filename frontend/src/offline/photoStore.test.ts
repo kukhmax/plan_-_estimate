@@ -8,7 +8,7 @@ import { clearOfflineData, onOfflineDataCleared, setOfflineOwner } from './readC
 const item = (id: string, over: Partial<QueueItem> = {}): QueueItem => ({
   id, uploadId: `up-${id}`, file: null, name: 'x.jpg', size: 3, target: { projectId: 'p1', context: 'SURFACE', surfaceId: 's1' },
   source: 'CAMERA', state: 'queued', progress: 0, attempt: 0, previewUrl: null, error: null, result: null, notBefore: 0,
-  networkRetries: 0, busyRetried: false, verify: false, authRetried: false, saveFailed: false, ...over,
+  networkRetries: 0, busyRetried: false, verify: false, authRetried: false, saveFailed: false, refusedAtOnce: false, ...over,
 });
 
 const photo = (name = 'IMG_1.jpg') => new File([new Uint8Array([1, 2, 3])], name, { type: 'image/jpeg', lastModified: 1234 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OutboxKind, OutboxOp } from './opTypes';
-import { labelOf, matchWrite, optimisticResult, overlayRead, resolveFromOutbox } from './writeRules';
+import { archivedPoolFrom, labelOf, matchWrite, optimisticResult, overlayRead, resolveFromOutbox } from './writeRules';
 
 const P = '11111111-1111-4111-8111-111111111111';
 const R = '22222222-2222-4222-8222-222222222222';
@@ -341,5 +341,64 @@ describe('the status of a planned work marked without a signal', () => {
 
   it('is named by its status', () => {
     expect(labelOf(matchWrite('PATCH', executionPath)!, { status: 'COMPLETED' })).toBe('COMPLETED');
+  });
+});
+
+// --- Stage 19F: found by the adversarial check — restoring a record the list does not carry ------------------------------------------
+
+describe('a waiting "restore" of a record that the list being read hides (Stage 19F)', () => {
+  const room = (id: string, name: string, archived = false) => ({ id, name, is_archived: archived, project_id: P });
+  const A = '00000000-0000-4000-8000-00000000000a';
+  const B = '00000000-0000-4000-8000-00000000000b';
+  const C = '00000000-0000-4000-8000-00000000000c';
+  const restore = (id: string) => op('room.restore', 'POST', `${roomsPath}/${id}/restore`, null, id);
+  const archive = (id: string) => op('room.archive', 'POST', `${roomsPath}/${id}/archive`, null, id);
+  const ids = (data: unknown) => (data as { items: Array<{ id: string }> }).items.map((x) => x.id);
+
+  it('a room archived on the server comes back into the list of active rooms, in its own place (from the saved list that shows archived)', () => {
+    const active = list(room(A, 'A'), room(C, 'C'));
+    const withArchived = list(room(A, 'A'), room(B, 'B', true), room(C, 'C'));
+    const shown = overlayRead(roomsPath, active, [restore(B)], archivedPoolFrom(withArchived));
+    expect(ids(shown)).toEqual([A, B, C]);
+    expect((shown as { items: Array<Record<string, unknown>> }).items[1]).toMatchObject({ id: B, is_archived: false, _pending: true });
+    expect((shown as { total: number }).total).toBe(3);
+  });
+
+  it('without that saved list the list is left as it is (nothing is invented)', () => {
+    expect(ids(overlayRead(roomsPath, list(room(A, 'A')), [restore(B)]))).toEqual([A]);
+  });
+
+  it('a room made, archived and restored offline is in the list again, where it was made', () => {
+    const made = op('room.create', 'POST', roomsPath, { id: NEW, name: 'New' }, NEW);
+    const shown = overlayRead(roomsPath, list(room(A, 'A'), room(C, 'C')), [made, archive(NEW), restore(NEW)]);
+    expect(ids(shown)).toEqual([A, C, NEW]);
+  });
+
+  it('it goes back after the records that preceded it in the SERVER order, even when others were made or restored meanwhile', () => {
+    const withArchived = list(room(A, 'A'), room(B, 'B', true), room(C, 'C'));
+    const made = op('room.create', 'POST', roomsPath, { id: NEW, name: 'New' }, NEW);
+    const shown = overlayRead(roomsPath, list(room(A, 'A'), room(C, 'C')), [made, archive(NEW), restore(B), restore(NEW)], archivedPoolFrom(withArchived));
+    expect(ids(shown)).toEqual([A, B, C, NEW]);
+  });
+
+  it('a change made to the room while it was archived is kept when it is restored', () => {
+    const withArchived = list(room(A, 'A'), room(B, 'B', true));
+    const rename = op('room.update', 'PATCH', `${roomsPath}/${B}`, { name: 'Renamed' }, B);
+    const shown = overlayRead(roomsPath, list(room(A, 'A')), [rename, restore(B)], archivedPoolFrom(withArchived)) as { items: Array<Record<string, unknown>> };
+    expect(shown.items[1]).toMatchObject({ id: B, name: 'Renamed', is_archived: false });
+  });
+
+  it('the list that shows archived records is not given the pool (it has the record already)', () => {
+    const withArchived = list(room(A, 'A'), room(B, 'B', true));
+    const shown = overlayRead(`${roomsPath}?include_archived=true`, withArchived, [restore(B)], archivedPoolFrom(withArchived));
+    expect(ids(shown)).toEqual([A, B]);
+    expect((shown as { items: Array<Record<string, unknown>> }).items[1]).toMatchObject({ is_archived: false });
+  });
+
+  it('builds the pool from a saved list: the archived records and the order of all', () => {
+    const pool = archivedPoolFrom(list(room(A, 'A'), room(B, 'B', true), room(C, 'C')));
+    expect([...pool.records.keys()]).toEqual([B]);
+    expect(pool.order).toEqual([A, B, C]);
+    expect(archivedPoolFrom(null).order).toEqual([]);
   });
 });

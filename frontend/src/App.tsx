@@ -14,6 +14,7 @@ import { ConnectionBanner } from './components/ConnectionBanner';
 import { SyncScreen } from './components/SyncScreen';
 import { SyncStrip } from './components/SyncStrip';
 import { purgeStaleReads } from './offline/readCache';
+import { requestPersistentStorage } from './offline/persist';
 import { startSync } from './offline/sync';
 import { startConnectionWatch } from './offline/watch';
 
@@ -46,6 +47,7 @@ const AppContent: React.FC = () => {
     void purgeStaleReads();
     const stopWatch = startConnectionWatch();
     const stopSync = startSync(); // Stage 19C: what was changed without a signal is sent when it returns
+    void requestPersistentStorage(); // Stage 19F: ask the browser not to clear what waits on the phone
     return () => {
       stopWatch();
       stopSync();

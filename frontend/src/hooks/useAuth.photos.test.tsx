@@ -29,7 +29,7 @@ describe('signing in puts back the photos kept on the phone (Stage 19D)', () => 
       {
         id: 'q1', uploadId: 'up-1', file: null, name: 'IMG.jpg', size: 3, target: { projectId: 'p1', context: 'SURFACE', surfaceId: 's1' },
         source: 'CAMERA', state: 'queued', progress: 0, attempt: 0, previewUrl: null, error: null, result: null, notBefore: 0,
-        networkRetries: 0, busyRetried: false, verify: false, authRetried: false, saveFailed: false,
+        networkRetries: 0, busyRetried: false, verify: false, authRetried: false, saveFailed: false, refusedAtOnce: false,
       },
       new File([new Uint8Array([1, 2, 3])], 'IMG.jpg', { type: 'image/jpeg' }),
       null,

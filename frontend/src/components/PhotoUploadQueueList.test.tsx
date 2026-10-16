@@ -27,6 +27,7 @@ function item(over: Partial<QueueItem> = {}): QueueItem {
     verify: false,
     authRetried: false,
     saveFailed: false,
+    refusedAtOnce: false,
     ...over,
   };
 }

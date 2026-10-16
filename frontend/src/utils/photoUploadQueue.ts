@@ -73,6 +73,8 @@ export interface QueueItem {
   authRetried: boolean;
   /** The photo could not be written to the phone's storage: it is sent in this session only. */
   saveFailed: boolean;
+  /** Refused by the local checks (format, size) before anything was kept: such a row takes no room of the queue. */
+  refusedAtOnce: boolean;
 }
 
 /** What the phone keeps about an unfinished photo (its bytes are stored next to it, under the same id). */
@@ -148,7 +150,7 @@ export interface EnqueueResult {
 /** Bytes taken by the photos that still have to be sent (a failed one stays until the owner closes it). */
 export function queueBytes(items: readonly QueueItem[]): number {
   return items
-    .filter((item) => item.state === 'queued' || item.state === 'uploading' || item.state === 'processing' || item.state === 'failed')
+    .filter((item) => item.state === 'queued' || item.state === 'uploading' || item.state === 'processing' || (item.state === 'failed' && !item.refusedAtOnce))
     .reduce((sum, item) => sum + item.size, 0);
 }
 
@@ -290,6 +292,7 @@ export class PhotoUploadQueue {
         verify: record.attempt > 0,
         authRetried: false,
         saveFailed: false,
+        refusedAtOnce: false,
       }));
     if (back.length === 0) return;
     this.items = [...back, ...this.items];
@@ -402,15 +405,16 @@ export class PhotoUploadQueue {
       verify: false,
       authRetried: false,
       saveFailed: false,
+      refusedAtOnce: false,
     };
     // Local advisory checks: no request is made for an obviously unusable file. An empty MIME (some
     // WebViews omit it for camera files) is left to the server, which never trusts the MIME anyway.
     const type = file.type.toLowerCase();
     if (type !== '' && !PHOTO_ACCEPTED_TYPES.includes(type)) {
-      return { ...base, state: 'failed', error: classifyPhotoError(new ApiError('unsupported', 415, 'PHOTO_UNSUPPORTED_FORMAT')) };
+      return { ...base, state: 'failed', refusedAtOnce: true, error: classifyPhotoError(new ApiError('unsupported', 415, 'PHOTO_UNSUPPORTED_FORMAT')) };
     }
     if (file.size > PHOTO_MAX_UPLOAD_BYTES) {
-      return { ...base, state: 'failed', error: classifyPhotoError(new ApiError('too large', 413, 'PHOTO_TOO_LARGE')) };
+      return { ...base, state: 'failed', refusedAtOnce: true, error: classifyPhotoError(new ApiError('too large', 413, 'PHOTO_TOO_LARGE')) };
     }
     return { ...base, previewUrl: this.previews.create(file) };
   }

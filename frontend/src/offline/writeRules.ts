@@ -230,8 +230,42 @@ function overlayExecution(op: OutboxOp, ids: Ids, base: string, data: Json): Jso
   };
 }
 
+/**
+ * What a waiting "restore" needs to put a record back into a list that hides archived records: the records themselves (taken out of
+ * the list by an "archive" laid over it, or archived on the server and known from the saved list that shows them) and the order
+ * of the whole list, so that a record returns to the place it has in the server's order.
+ */
+export interface ArchivedPool {
+  records: Map<string, Json>;
+  order: string[];
+}
+
+/** The pool from a saved list that shows archived records (`?include_archived=true`). */
+export function archivedPoolFrom(data: unknown): ArchivedPool {
+  const pool: ArchivedPool = { records: new Map(), order: [] };
+  if (!isObject(data) || !Array.isArray(data.items)) return pool;
+  for (const item of data.items as unknown[]) {
+    if (!isObject(item) || typeof item.id !== 'string') continue;
+    pool.order.push(item.id);
+    if (item.is_archived === true) pool.records.set(item.id, item);
+  }
+  return pool;
+}
+
+const idsOf = (items: unknown[]): string[] => items.flatMap((item) => (isObject(item) && typeof item.id === 'string' ? [item.id] : []));
+
+/** Puts a record back after the nearest of the records that precede it in the full order which is in the list (at the start when none is). */
+function insertBack(items: unknown[], record: Json, id: string, order: string[]): unknown[] {
+  const preceding = order.slice(0, Math.max(0, order.indexOf(id))).reverse();
+  for (const before of preceding) {
+    const at = items.findIndex((item) => isObject(item) && item.id === before);
+    if (at >= 0) return [...items.slice(0, at + 1), record, ...items.slice(at + 1)];
+  }
+  return [record, ...items];
+}
+
 /** One waiting change laid over what a GET returned (or would return). Pure; a path it is not about is returned as it came. */
-function applyOp(op: OutboxOp, path: string, data: unknown): unknown {
+function applyOp(op: OutboxOp, path: string, data: unknown, pool: ArchivedPool): unknown {
   const match = matchOp(op);
   if (!match || !isObject(data)) return data;
   const [base, query = ''] = path.split('?');
@@ -253,15 +287,33 @@ function applyOp(op: OutboxOp, path: string, data: unknown): unknown {
   if (base === def.listPath(match.ids) && Array.isArray(data.items)) {
     const items = data.items as unknown[];
     const same = (item: unknown) => isObject(item) && item.id === id;
+    // the order of the whole list: the saved list that shows archived records when there is one, then what this list shows
+    for (const known of idsOf(items)) if (!pool.order.includes(known)) pool.order.push(known);
     switch (match.action) {
       case 'create':
         if (items.some(same)) return data;
+        if (!pool.order.includes(id)) pool.order.push(id);
         return withItems(data, def.newestFirst ? [newRecord(def, op, match.ids), ...items] : [...items, newRecord(def, op, match.ids)]);
-      case 'update':
-      case 'restore':
+      case 'update': {
+        // a record taken out of the list (archived) is changed there too, so that a later restore brings it back as it was left
+        const away = pool.records.get(id);
+        if (away && !items.some(same)) pool.records.set(id, changeRecord(away, 'update', op));
         return withItems(data, items.map((item) => (same(item) ? changeRecord(item as Json, match.action, op) : item)));
-      case 'archive':
-        return withItems(data, includeArchived ? items.map((item) => (same(item) ? changeRecord(item as Json, 'archive', op) : item)) : items.filter((item) => !same(item)));
+      }
+      case 'restore': {
+        if (items.some(same)) return withItems(data, items.map((item) => (same(item) ? changeRecord(item as Json, match.action, op) : item)));
+        // a list that hides archived records does not carry it: it comes back from where it was taken out (or from the saved archived list)
+        const archived = includeArchived ? undefined : pool.records.get(id);
+        if (!archived) return data;
+        pool.records.delete(id);
+        return withItems(data, insertBack(items, changeRecord(archived, 'restore', op), id, pool.order));
+      }
+      case 'archive': {
+        if (includeArchived) return withItems(data, items.map((item) => (same(item) ? changeRecord(item as Json, 'archive', op) : item)));
+        const at = items.findIndex(same);
+        if (at >= 0) pool.records.set(id, changeRecord(items[at] as Json, 'archive', op));
+        return withItems(data, items.filter((item) => !same(item)));
+      }
       case 'delete':
         return withItems(data, items.filter((item) => !same(item)));
       default:
@@ -277,9 +329,10 @@ function applyOp(op: OutboxOp, path: string, data: unknown): unknown {
 }
 
 /** A GET answer with every waiting change of the owner laid over it, in the order the changes were made. */
-export function overlayRead(path: string, data: unknown, ops: readonly OutboxOp[]): unknown {
+export function overlayRead(path: string, data: unknown, ops: readonly OutboxOp[], archived?: ArchivedPool): unknown {
+  const pool: ArchivedPool = { records: new Map(archived?.records), order: [...(archived?.order ?? [])] };
   let result = data;
-  for (const op of ops) if (op.status === 'pending') result = applyOp(op, path, result);
+  for (const op of ops) if (op.status === 'pending') result = applyOp(op, path, result, pool);
   return result;
 }
 

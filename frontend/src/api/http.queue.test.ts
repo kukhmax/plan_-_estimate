@@ -197,3 +197,34 @@ describe('apiRequest: changes made without a signal (Stage 19C)', () => {
     expect(getConnectionState().offline).toBe(false);
   });
 });
+
+describe('apiRequest: restoring offline a room that was archived on the server (Stage 19F)', () => {
+  beforeEach(async () => {
+    localStorage.clear();
+    resetConnectionForTests();
+    resetSyncStateForTests();
+    await freshIndexedDb();
+    await setOfflineOwner('owner-1');
+    vi.stubGlobal('fetch', vi.fn());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('the active list shows it again, between its neighbours, as the server would', async () => {
+    const room = (id: string, name: string, archived = false) => ({ id, name, is_archived: archived, project_id: P });
+    const A = '00000000-0000-4000-8000-00000000000a';
+    const B = '00000000-0000-4000-8000-00000000000b';
+    const C = '00000000-0000-4000-8000-00000000000c';
+    await saveRead(ROOMS, { items: [room(A, 'A'), room(C, 'C')], total: 2 });
+    await saveRead(`${ROOMS}?include_archived=true`, { items: [room(A, 'A'), room(B, 'B', true), room(C, 'C')], total: 3 });
+    reportNetworkFailure();
+
+    await send(`${ROOMS}/${B}/restore`, 'POST');
+
+    const active = (await send(ROOMS, 'GET')) as unknown as { items: Array<{ id: string }> };
+    expect(active.items.map((x) => x.id)).toEqual([A, B, C]);
+    const all = (await send(`${ROOMS}?include_archived=true`, 'GET')) as unknown as { items: Array<{ id: string; is_archived: boolean }> };
+    expect(all.items.map((x) => [x.id, x.is_archived])).toEqual([[A, false], [B, false], [C, false]]);
+  });
+});

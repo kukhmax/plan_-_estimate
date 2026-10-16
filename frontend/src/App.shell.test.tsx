@@ -403,3 +403,20 @@ describe('App shell — the screen of what waits on the phone (Stage 19E)', () =
     expect(screen.queryByLabelText('clear-offline-button')).toBeNull(); // the account window is closed
   });
 });
+
+describe('App shell — the data waiting on the phone is protected (Stage 19F)', () => {
+  it('asks the browser to keep it as soon as the application starts', async () => {
+    vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_DEV_MOCK_AUTH', 'true');
+    delete (window as any).Telegram;
+    localStorage.clear();
+    const persist = vi.fn(async () => true);
+    Object.defineProperty(navigator, 'storage', { configurable: true, value: { persist, persisted: async () => false } });
+    mockDevAuth();
+    render(<App />);
+    await waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
+    Object.defineProperty(navigator, 'storage', { configurable: true, value: undefined });
+  });
+});

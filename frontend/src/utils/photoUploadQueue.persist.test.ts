@@ -218,11 +218,12 @@ describe('PhotoUploadQueue on the phone (Stage 19D)', () => {
       expect(queue.enqueue([file('3.jpg', 7 * MB)], target, 'GALLERY').rejected).toBe(0);
     });
 
-    it('a photo the checks refuse does not use up the room', async () => {
+    it('a photo the checks refuse does not use up the room, even while its row stays', async () => {
       const { queue } = setup({ canStart: () => false, limitBytes: 5 * MB });
       const result = queue.enqueue([file('big.jpg', 30_000_000), file('ok.jpg', 4 * MB)], target, 'GALLERY');
       expect(result.rejected).toBe(0);
       expect(queue.getItems().map((i) => i.state)).toEqual(['failed', 'queued']);
+      expect(queueBytes(queue.getItems())).toBe(4 * MB); // the refused 30 MB one counts for nothing
     });
   });
 

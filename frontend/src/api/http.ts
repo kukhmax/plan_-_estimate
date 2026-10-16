@@ -5,7 +5,7 @@ import { listOps } from '../offline/outbox';
 import { drainNow, getOutboxCounts } from '../offline/outboxState';
 import { queueWrite } from '../offline/queueWrite';
 import { loadRead, saveRead } from '../offline/readCache';
-import { matchWrite, overlayRead, resolveFromOutbox } from '../offline/writeRules';
+import { archivedPoolFrom, matchWrite, overlayRead, resolveFromOutbox, type ArchivedPool } from '../offline/writeRules';
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -119,7 +119,13 @@ function isNetworkError(error: unknown): boolean {
 /** The waiting changes of the owner laid over an answer (or a saved copy), so the screens show what the owner left (Stage 19C). */
 async function withWaitingChanges(path: string, data: unknown): Promise<unknown> {
   if (getOutboxCounts().pending === 0) return data;
-  return overlayRead(path, data, await listOps());
+  const ops = await listOps();
+  // a list that hides archived records cannot give a waiting "restore" its record: the saved list that shows them does
+  let archived: ArchivedPool | undefined;
+  if (!path.includes('?') && ops.some((op) => op.status === 'pending' && op.kind.endsWith('.restore'))) {
+    archived = archivedPoolFrom((await loadRead(`${path}?include_archived=true`))?.data);
+  }
+  return overlayRead(path, data, ops, archived);
 }
 
 /** A saved copy (with the waiting changes laid over it), or the record the phone made itself; `null` when the phone knows nothing. */
