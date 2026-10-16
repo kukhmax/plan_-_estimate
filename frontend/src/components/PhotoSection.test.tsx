@@ -23,6 +23,8 @@ vi.mock('../api/photos', async () => {
     restorePhotoAttachment: vi.fn(),
     trashPhotoAttachment: vi.fn(),
     untrashPhotoAttachment: vi.fn(),
+    fetchPhotoPurgePreview: vi.fn(),
+    purgePhotoAttachment: vi.fn(),
     createPhotoAnnotation: vi.fn(),
     deletePhotoAnnotation: vi.fn(),
   };
@@ -37,6 +39,8 @@ import {
   restorePhotoAttachment,
   trashPhotoAttachment,
   untrashPhotoAttachment,
+  fetchPhotoPurgePreview,
+  purgePhotoAttachment,
   uploadPhoto,
 } from '../api/photos';
 
@@ -89,6 +93,8 @@ beforeEach(() => {
   vi.mocked(restorePhotoAttachment).mockReset();
   vi.mocked(trashPhotoAttachment).mockReset();
   vi.mocked(untrashPhotoAttachment).mockReset();
+  vi.mocked(fetchPhotoPurgePreview).mockReset();
+  vi.mocked(purgePhotoAttachment).mockReset();
   vi.mocked(uploadPhoto).mockReset().mockImplementation(
     (params) =>
       new Promise<PhotoUploadResponse>((resolve, reject) => {
@@ -1089,5 +1095,130 @@ describe('PhotoSection — the trash of archived photos (archive cleanup AC-1)',
     fireEvent.click(await screen.findByRole('button', { name: 'Kosz' }));
     await screen.findByRole('list');
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('PhotoSection — deleting a photo from the trash for good (archive cleanup AC-2)', () => {
+  const trashed = () => makeItem({ attachment: { archived_at: '2026-06-23T12:00:00Z', trashed_at: '2026-06-23T13:00:00Z' } });
+  const previewOf = (item: ReturnType<typeof makeItem>, over: Partial<import('../types/photo').PhotoPurgePreview> = {}) => ({
+    attachment_id: item.attachment.id, trashed: true, can_purge: true, annotations: 2, other_attachments: 0, deletes_files: true, files: 3,
+    bytes: 2_500_000, may_be_in_backups: true, blockers: [], ...over,
+  });
+
+  const openTrashViewer = async (item: ReturnType<typeof makeItem>) => {
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([]));
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item));
+    const view = renderSection();
+    fireEvent.click(await screen.findByRole('button', { name: 'Opcje zdjęć' }));
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([item]));
+    fireEvent.click(screen.getByRole('button', { name: 'Pokaż archiwum' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Kosz' }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /23\.06\.2026/ }))[0]);
+    await screen.findByRole('dialog');
+    return view;
+  };
+
+  it('shows what will be deleted before anything is: files with their size, markers, the backups and Telegram notes', async () => {
+    const item = trashed();
+    vi.mocked(fetchPhotoPurgePreview).mockResolvedValue(previewOf(item));
+    await openTrashViewer(item);
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge' }));
+    const panel = await screen.findByRole('alertdialog', { name: 'Co zostanie usunięte' });
+    expect(panel).toHaveTextContent('Pliki zdjęcia: 3 (2.5 MB)');
+    expect(panel).toHaveTextContent('Znaczniki na zdjęciu: 2.');
+    expect(panel).toHaveTextContent('kopii zapasowej');
+    expect(panel).toHaveTextContent('Telegramie nie zostaną usunięte');
+    expect(panel).toHaveTextContent('Tej operacji nie można cofnąć.');
+    expect(fetchPhotoPurgePreview).toHaveBeenCalledWith(PROJECT_ID, item.attachment.id);
+    expect(purgePhotoAttachment).not.toHaveBeenCalled();
+  });
+
+  it('"Anuluj" closes the panel and deletes nothing', async () => {
+    const item = trashed();
+    vi.mocked(fetchPhotoPurgePreview).mockResolvedValue(previewOf(item));
+    await openTrashViewer(item);
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge' }));
+    await screen.findByRole('alertdialog', { name: 'Co zostanie usunięte' });
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge-cancel' }));
+    expect(screen.queryByRole('alertdialog', { name: 'Co zostanie usunięte' })).toBeNull();
+    expect(purgePhotoAttachment).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'photo-purge' })).toBeInTheDocument();
+  });
+
+  it('confirming deletes the photo, removes it from the list and changes no badge count', async () => {
+    const item = trashed();
+    vi.mocked(fetchPhotoPurgePreview).mockResolvedValue(previewOf(item));
+    vi.mocked(purgePhotoAttachment).mockResolvedValue({ purged: true, deleted_files: true, storage_pending: false });
+    const { onCountAdjust } = await openTrashViewer(item);
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge' }));
+    await screen.findByRole('alertdialog', { name: 'Co zostanie usunięte' });
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge-confirm' }));
+    await waitFor(() => expect(purgePhotoAttachment).toHaveBeenCalledWith(PROJECT_ID, item.attachment.id));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText('Kosz jest pusty.')).toBeInTheDocument();
+    expect(onCountAdjust).not.toHaveBeenCalled();
+    expect(screen.queryByText(/pliki zostaną usunięte z magazynu/i)).toBeNull();
+  });
+
+  it('a photo that a protocol points to cannot be deleted: the protocols are named and the button is off', async () => {
+    const item = trashed();
+    vi.mocked(fetchPhotoPurgePreview).mockResolvedValue(previewOf(item, {
+      can_purge: false, blockers: [{ kind: 'CONCEALED_WORKS', protocol_id: 'p1', status: 'ISSUED' }, { kind: 'ACCEPTANCE', protocol_id: 'p2', status: 'DRAFT' }],
+    }));
+    await openTrashViewer(item);
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('zdjęcie jest dowodem w protokole');
+    expect(alert).toHaveTextContent('Protokół odbioru robót zanikających');
+    expect(alert).toHaveTextContent('Protokół odbioru');
+    expect(screen.getByRole('button', { name: 'photo-purge-confirm' })).toBeDisabled();
+    expect(screen.queryByText('Tej operacji nie można cofnąć.')).toBeNull();
+  });
+
+  it('a file used somewhere else stays: the panel says only this use is removed', async () => {
+    const item = trashed();
+    vi.mocked(fetchPhotoPurgePreview).mockResolvedValue(previewOf(item, { other_attachments: 1, deletes_files: false, files: 0, bytes: 0, may_be_in_backups: false }));
+    await openTrashViewer(item);
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge' }));
+    const panel = await screen.findByRole('alertdialog', { name: 'Co zostanie usunięte' });
+    expect(panel).toHaveTextContent('plik zostanie');
+    expect(panel).not.toHaveTextContent('Pliki zdjęcia');
+    expect(panel).not.toHaveTextContent('kopii zapasowej');
+  });
+
+  it('when the storage did not answer the photo is gone and the section says its files follow later', async () => {
+    const item = trashed();
+    vi.mocked(fetchPhotoPurgePreview).mockResolvedValue(previewOf(item));
+    vi.mocked(purgePhotoAttachment).mockResolvedValue({ purged: true, deleted_files: true, storage_pending: true });
+    await openTrashViewer(item);
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge' }));
+    await screen.findByRole('alertdialog', { name: 'Co zostanie usunięte' });
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge-confirm' }));
+    expect(await screen.findByText(/pliki zostaną usunięte z magazynu/)).toBeInTheDocument();
+  });
+
+  it('a refusal by the server (a protocol appeared meanwhile) is shown and the photo stays', async () => {
+    const item = trashed();
+    vi.mocked(fetchPhotoPurgePreview).mockResolvedValue(previewOf(item));
+    vi.mocked(purgePhotoAttachment).mockRejectedValue(new ApiError('blocked', 409, 'PHOTO_PURGE_BLOCKED'));
+    await openTrashViewer(item);
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge' }));
+    await screen.findByRole('alertdialog', { name: 'Co zostanie usunięte' });
+    fireEvent.click(screen.getByRole('button', { name: 'photo-purge-confirm' }));
+    expect(await screen.findByText('Nie można usunąć: zdjęcie jest w protokole.')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('there is no way to delete for good outside the trash view', async () => {
+    const archived = makeItem({ attachment: { archived_at: '2026-06-23T12:00:00Z' } });
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([]));
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(archived));
+    renderSection();
+    fireEvent.click(await screen.findByRole('button', { name: 'Opcje zdjęć' }));
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([archived]));
+    fireEvent.click(screen.getByRole('button', { name: 'Pokaż archiwum' }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /23\.06\.2026/ }))[0]);
+    await screen.findByRole('dialog');
+    expect(screen.queryByRole('button', { name: 'photo-purge' })).toBeNull();
   });
 });

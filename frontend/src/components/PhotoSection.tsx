@@ -331,7 +331,8 @@ export function PhotoSection({
     );
   };
 
-  const handleAttachmentRemoved = (attachment: PhotoAttachmentRead, action: PhotoAttachmentChange) => {
+  const handleAttachmentRemoved = (attachment: PhotoAttachmentRead, action: PhotoAttachmentChange, detail?: { storagePending: boolean }) => {
+    if (action === 'purged') setPickerNote(detail?.storagePending ? t.photos.section.purged_pending : null);
     const remaining = items.filter((entry) => entry.attachment.id !== attachment.id);
     setItems(remaining);
     const {

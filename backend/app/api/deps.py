@@ -284,6 +284,21 @@ def get_photo_runtime() -> PhotoRuntime:
     return _photo_runtime
 
 
+_media_purger = None
+
+
+def get_media_purger():
+    """The process-wide purger of stored photo objects (archive cleanup AC-2): a separate port from the storage (which cannot delete).
+    Disabled while the storage backend is not S3; tests override this dependency."""
+    from app.core.s3_media_purger import S3MediaPurger
+    from app.domain.services.media_purger import DisabledMediaPurger
+
+    global _media_purger
+    if _media_purger is None:
+        _media_purger = S3MediaPurger.from_settings(settings) if settings.MEDIA_STORAGE_BACKEND == "s3" else DisabledMediaPurger()
+    return _media_purger
+
+
 _document_issuer = None
 
 

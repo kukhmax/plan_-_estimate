@@ -9,6 +9,8 @@ import {
   PhotoCategory,
   PhotoCounts,
   PhotoDetailResponse,
+  PhotoPurgePreview,
+  PhotoPurgeResult,
   PhotoListParams,
   PhotoListResponse,
   PhotoStorageStatus,
@@ -88,6 +90,14 @@ export function trashPhotoAttachment(projectId: string, attachmentId: string): P
 
 export function untrashPhotoAttachment(projectId: string, attachmentId: string): Promise<PhotoAttachmentRead> {
   return apiRequest(`${attachmentPath(projectId, attachmentId)}/untrash`, { method: 'POST' });
+}
+
+export function fetchPhotoPurgePreview(projectId: string, attachmentId: string): Promise<PhotoPurgePreview> {
+  return apiRequest(`${attachmentPath(projectId, attachmentId)}/purge-preview`);
+}
+
+export function purgePhotoAttachment(projectId: string, attachmentId: string): Promise<PhotoPurgeResult> {
+  return apiRequest(`${attachmentPath(projectId, attachmentId)}/purge`, { method: 'POST' });
 }
 
 export function archivePhoto(projectId: string, assetId: string): Promise<PhotoAssetRead> {

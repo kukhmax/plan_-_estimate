@@ -83,6 +83,12 @@ function byCode(code: string): PhotoErrorInfo | null {
       return info(code, 'not_found', { refetch: 'list' });
     case 'PHOTO_ATTACHMENT_DUPLICATE':
       return info(code, 'duplicate_attachment');
+    case 'PHOTO_PURGE_BLOCKED':
+      return info(code, 'purge_blocked');
+    case 'PHOTO_PURGE_NOT_TRASHED':
+      return info(code, 'purge_not_trashed', { refetch: 'list' });
+    case 'PHOTO_PURGE_CONFLICT':
+      return info(code, 'purge_conflict');
     case 'PHOTO_ATTACHMENT_NOT_ARCHIVED':
       // The photo was restored elsewhere while the screen was open: the list must be read again.
       return info(code, 'not_archived', { refetch: 'list' });

@@ -218,3 +218,30 @@ export interface PhotoTarget {
   /** Category sent with the upload when the host suggests one (Realizacja: by the work's status); never part of the identity. */
   category?: PhotoCategory;
 }
+
+/** Archive cleanup AC-2: what the final deletion of a photo in the trash would remove (GET .../purge-preview, no side effects). */
+export interface PhotoPurgeBlocker {
+  kind: 'CONCEALED_WORKS' | 'DOWNTIME' | 'ACCEPTANCE';
+  protocol_id: string;
+  status: string;
+}
+
+export interface PhotoPurgePreview {
+  attachment_id: string;
+  trashed: boolean;
+  can_purge: boolean;
+  annotations: number;
+  other_attachments: number;
+  deletes_files: boolean;
+  files: number;
+  bytes: number;
+  may_be_in_backups: boolean;
+  blockers: PhotoPurgeBlocker[];
+}
+
+export interface PhotoPurgeResult {
+  purged: boolean;
+  deleted_files: boolean;
+  /** The storage did not answer: the photo is gone from the application, its files are removed by a retry. */
+  storage_pending: boolean;
+}

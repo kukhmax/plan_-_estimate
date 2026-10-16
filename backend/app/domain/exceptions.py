@@ -620,6 +620,28 @@ class PhotoAttachmentNotArchivedError(Exception):
     code = "PHOTO_ATTACHMENT_NOT_ARCHIVED"
 
 
+class PhotoPurgeNotTrashedError(Exception):
+    """Only an attachment that is in the trash can be deleted for good (archive cleanup AC-2)."""
+
+    code = "PHOTO_PURGE_NOT_TRASHED"
+
+
+class PhotoPurgeBlockedError(Exception):
+    """A protocol still points to the photo: evidence is not deleted (archive cleanup AC-2). `blockers` names the protocols."""
+
+    code = "PHOTO_PURGE_BLOCKED"
+
+    def __init__(self, blockers: list) -> None:
+        super().__init__("a protocol still points to this photo")
+        self.blockers = blockers
+
+
+class PhotoPurgeConflictError(Exception):
+    """The photo changed while it was being deleted (another attachment of the same file appeared): nothing was deleted."""
+
+    code = "PHOTO_PURGE_CONFLICT"
+
+
 class PhotoContextNotSupportedError(Exception):
     """The attachment context exists in the schema but is not enabled yet
     (INSPECTION / FINDING are enabled since Stage 14F.2, WORK since Stage 14H.1;

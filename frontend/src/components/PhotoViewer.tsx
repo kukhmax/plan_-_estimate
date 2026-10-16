@@ -6,8 +6,10 @@ import {
   createPhotoAnnotation,
   deletePhotoAnnotation,
   fetchPhoto,
+  fetchPhotoPurgePreview,
   patchPhotoAnnotation,
   patchPhotoAttachment,
+  purgePhotoAttachment,
   restorePhotoAttachment,
 } from '../api/photos';
 import { usePhotoBackRegistration } from '../hooks/PhotoBackContext';
@@ -20,10 +22,12 @@ import {
   PhotoCategory,
   PhotoDetailResponse,
   PhotoListItem,
+  PhotoPurgePreview,
 } from '../types/photo';
 import { formatCapturedAt, formatUploadedAt, isCapturedMuchOlderThanUpload } from '../utils/photoCaption';
 import { OUTLINE_POINT_BUDGET, OutlinePoint, outlineFromStroke } from '../utils/outline';
 import { PhotoErrorKey, classifyPhotoError } from '../utils/photoErrors';
+import { formatSize } from '../utils/documentFormat';
 import { hapticNotify } from '../utils/telegramHaptics';
 import { PhotoFullscreen } from './PhotoFullscreen';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, ExpandIcon, PinIcon } from './PhotoIcons';
@@ -43,7 +47,7 @@ const DEFAULT_MARKER_LIMIT = 10;
 const URL_REFRESH_MARGIN_MS = 30_000;
 
 /** What the viewer did to the attachment: archive, restore, put it in the trash (AC-1) or take it out of the trash. */
-export type PhotoAttachmentChange = 'archived' | 'restored' | 'trashed' | 'untrashed';
+export type PhotoAttachmentChange = 'archived' | 'restored' | 'trashed' | 'untrashed' | 'purged';
 
 interface PhotoViewerProps {
   projectId: string;
@@ -56,7 +60,8 @@ interface PhotoViewerProps {
   onIndexChange: (index: number) => void;
   onClose: () => void;
   onAttachmentUpdated: (attachment: PhotoAttachmentRead) => void;
-  onAttachmentRemoved: (attachment: PhotoAttachmentRead, action: PhotoAttachmentChange) => void;
+  /** `detail.storagePending` (only for 'purged'): the files of the deleted photo are removed from the storage by a retry. */
+  onAttachmentRemoved: (attachment: PhotoAttachmentRead, action: PhotoAttachmentChange, detail?: { storagePending: boolean }) => void;
   /** The photo vanished meanwhile: the host should refetch its list. */
   onRefresh?: () => void;
   /** The number of point markers on an attachment changed (the grid shows it on the tile). */
@@ -115,6 +120,8 @@ export function PhotoViewer({
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  // Archive cleanup AC-2: the panel "what will be deleted" of the final deletion (opened from the trash view)
+  const [purge, setPurge] = useState<{ state: 'loading' | 'ready'; preview: PhotoPurgePreview | null } | null>(null);
   const [error, setError] = useState<PhotoErrorKey | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -168,6 +175,7 @@ export function PhotoViewer({
   // A different attachment: no stale messages or confirmation.
   useEffect(() => {
     setConfirmArchive(false);
+    setPurge(null);
     setError(null);
     setSaved(false);
     setMarkMode(false);
@@ -418,7 +426,50 @@ export function PhotoViewer({
     if (x >= 0 && x <= 1 && y >= 0 && y <= 1) void placeMarker(x, y);
   };
 
-  const changeArchiveState = async (action: PhotoAttachmentChange) => {
+  const openPurge = async () => {
+    if (!attachment) return;
+    setError(null);
+    setPurge({ state: 'loading', preview: null });
+    try {
+      const preview = await fetchPhotoPurgePreview(projectId, attachment.id);
+      setPurge({ state: 'ready', preview });
+    } catch (caught) {
+      const info = classifyPhotoError(caught);
+      setPurge(null);
+      if (info.refetch === 'list') {
+        onRefresh?.();
+        onClose();
+      } else {
+        setError(info.key);
+        hapticNotify('error');
+      }
+    }
+  };
+
+  const confirmPurge = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await purgePhotoAttachment(projectId, attachment.id);
+      hapticNotify('success');
+      setPurge(null);
+      onAttachmentRemoved(attachment, 'purged', { storagePending: result.storage_pending });
+    } catch (caught) {
+      const info = classifyPhotoError(caught);
+      if (info.refetch === 'list') {
+        onRefresh?.();
+        onClose();
+      } else {
+        setError(info.key);
+        setPurge(null);
+        hapticNotify('error');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changeArchiveState = async (action: Exclude<PhotoAttachmentChange, 'purged'>) => {
     setBusy(true);
     setError(null);
     try {
@@ -707,9 +758,65 @@ export function PhotoViewer({
                 <Ico>♻️</Ico>{t.photos.viewer.restore}
               </button>
               {trashView ? (
-                <button type="button" aria-label="photo-untrash" className={`${secondaryButton} w-full`} disabled={disabled} onClick={() => void changeArchiveState('untrashed')}>
-                  <Ico>🗃️</Ico>{t.photos.viewer.untrash}
-                </button>
+                purge ? (
+                  <div role="alertdialog" aria-label={t.photos.viewer.purge_title} className="space-y-3 rounded-xl border border-red-300 p-3">
+                    <p className="break-words text-sm font-semibold">{t.photos.viewer.purge_title}</p>
+                    {purge.state === 'loading' || !purge.preview ? (
+                      <p role="status" className="break-words text-sm text-[var(--tg-theme-hint-color)]">{t.photos.viewer.purge_loading}</p>
+                    ) : (
+                      <div className="space-y-2 break-words text-sm">
+                        {purge.preview.deletes_files ? (
+                          <p>{t.photos.viewer.purge_files.replace('{files}', String(purge.preview.files)).replace('{size}', formatSize(purge.preview.bytes))}</p>
+                        ) : (
+                          <p>{t.photos.viewer.purge_file_kept}</p>
+                        )}
+                        {purge.preview.annotations > 0 && (
+                          <p>{t.photos.viewer.purge_markers.replace('{count}', String(purge.preview.annotations))}</p>
+                        )}
+                        {purge.preview.may_be_in_backups && <p className="text-[var(--tg-theme-hint-color)]">{t.photos.viewer.purge_backups}</p>}
+                        <p className="text-[var(--tg-theme-hint-color)]">{t.photos.viewer.purge_telegram}</p>
+                        {purge.preview.blockers.length > 0 ? (
+                          <div role="alert" className="space-y-1 text-[var(--tg-theme-destructive-text-color)]">
+                            <p className="font-semibold">{t.photos.viewer.purge_blocked_title}</p>
+                            <ul className="list-disc pl-5">
+                              {purge.preview.blockers.map((blocker) => (
+                                <li key={blocker.protocol_id}>
+                                  {(t.photos.viewer as Record<string, string>)[`purge_blocker_${blocker.kind}`] ?? blocker.kind}
+                                </li>
+                              ))}
+                            </ul>
+                            <p>{t.photos.viewer.purge_blocked_hint}</p>
+                          </div>
+                        ) : (
+                          <p className="font-semibold">{t.photos.viewer.purge_irreversible}</p>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-2">
+                      <button type="button" aria-label="photo-purge-cancel" className={`${primaryButton} w-full`} disabled={busy} onClick={() => setPurge(null)}>
+                        <Ico>✖️</Ico>{t.photos.viewer.cancel}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="photo-purge-confirm"
+                        className="min-h-11 w-full rounded-xl border border-red-600 bg-red-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                        disabled={busy || purge.state !== 'ready' || !purge.preview?.can_purge}
+                        onClick={() => void confirmPurge()}
+                      >
+                        <Ico>🗑️</Ico>{t.photos.viewer.purge_confirm}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <button type="button" aria-label="photo-untrash" className={`${secondaryButton} w-full`} disabled={disabled} onClick={() => void changeArchiveState('untrashed')}>
+                      <Ico>🗃️</Ico>{t.photos.viewer.untrash}
+                    </button>
+                    <button type="button" aria-label="photo-purge" className="min-h-11 w-full rounded-xl border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50" disabled={disabled} onClick={() => void openPurge()}>
+                      <Ico>🗑️</Ico>{t.photos.viewer.purge}
+                    </button>
+                  </>
+                )
               ) : (
                 <>
                   <button type="button" aria-label="photo-trash" className={`${secondaryButton} w-full`} disabled={disabled} onClick={() => void changeArchiveState('trashed')}>
