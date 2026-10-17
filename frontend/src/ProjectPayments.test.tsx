@@ -264,6 +264,17 @@ describe('ProjectPayments — "Faktury i zaliczki" (IA-2)', () => {
       expect(paymentsApi.fetchPayments).toHaveBeenCalledTimes(2);
     });
 
+    it('tells the owner that the due day becomes a reminder of the calendar (IA-5), on an invoice only', async () => {
+      renderScreen();
+      await screen.findByLabelText('payments-list');
+      fireEvent.click(screen.getByLabelText('payment-add'));
+      expect(screen.getByLabelText('payment-due-hint')).toHaveTextContent('O terminie przypomnimy w kalendarzu: 3 dni wcześniej i w dniu terminu');
+      fireEvent.click(screen.getByLabelText('payment-cancel'));
+      fireEvent.click(screen.getByLabelText('payments-tab-client'));
+      fireEvent.click(screen.getByLabelText('payment-add'));
+      expect(screen.queryByLabelText('payment-due-hint')).toBeNull();
+    });
+
     it('refuses a due date before the date of issue', async () => {
       renderScreen();
       await screen.findByLabelText('payments-list');

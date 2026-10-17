@@ -39,6 +39,7 @@ from app.domain.exceptions import (
     ReminderNotFoundError,
     ScheduleOccurrenceNotFoundError,
 )
+from app.domain.rules.payment_totals import PAID, Entry, invoice_standings
 from app.domain.rules.work_execution_rules import derive_ready_after
 from app.models.acceptance_protocol import AcceptanceProtocol, AcceptanceStatus
 from app.models.adjacent_work import AdjacentWork
@@ -49,6 +50,7 @@ from app.models.contract import Contract, ContractStatus
 from app.models.downtime_episode import DowntimeEpisode, DowntimeStatus
 from app.models.price_item import PriceItem
 from app.models.project import Project
+from app.models.project_payment import ProjectPayment
 from app.models.reminder import Reminder, ReminderOrigin, ReminderStatus
 from app.models.room import Room
 from app.models.surface import Surface
@@ -249,7 +251,21 @@ class CalendarService:
                 select(AdjacentWork).where(AdjacentWork.project_id == project_id, AdjacentWork.is_archived.is_(False))
             )).scalars()
         )
+        events += await self._invoice_events(project_id)
         return events
+
+    async def _invoice_events(self, project_id: uuid.UUID) -> list[ev.CalendarEvent]:
+        """The due days of the invoices of the settlements that are still to be paid (IA-5): not archived, with a term, not paid in full.
+        An invoice that is paid, archived or without a term gives nothing, so its waiting reminder is cancelled by the next reconciliation."""
+        rows = (await self.db.execute(select(ProjectPayment).where(ProjectPayment.project_id == project_id))).scalars().all()
+        standings = invoice_standings(
+            (Entry(r.id, r.kind, r.amount_gross, r.due_on, r.settles_id, r.is_archived) for r in rows), datetime.now(UTC).date()
+        )
+        return ev.invoice_events(
+            ev.InvoiceDue(project_id, r.id, r.due_on, r.number or r.title)
+            for r in rows
+            if r.kind == "INVOICE" and not r.is_archived and r.due_on is not None and standings[r.id].state != PAID
+        )
 
     # --- the queue -------------------------------------------------------------------------------------------------------------------
 

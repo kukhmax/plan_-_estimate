@@ -5,7 +5,7 @@ it fails), the files of its photos leave the storage through the ledger, a failu
 retry finishes it; another object and another owner are never touched.
 """
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -28,6 +28,7 @@ from app.models.photo_attachment import PhotoAttachment
 from app.models.project import Project
 from app.models.project_payment import ProjectFinance, ProjectPayment
 from app.models.purge_ledger import PurgeLedger
+from app.models.reminder import Reminder
 from app.models.room import Room
 from app.models.surface import Surface
 from tests import test_stage14c4_photos_api as c4
@@ -288,3 +289,16 @@ async def test_the_settlement_records_are_counted_in_the_preview_and_go_with_the
     assert preview["payments"] == 3 and preview["can_purge"] is True  # the archived one counts, and nothing holds the object
     assert (await http.post(f"{base_of(api)}/purge")).status_code == 200
     assert await count(api.db, ProjectPayment) == 0 and await count(api.db, ProjectFinance) == 0
+
+
+async def test_the_reminders_of_an_invoice_go_with_the_object(api, http, purger):
+    from app.domain.services.calendar_service import CalendarService
+
+    api.db.add(ProjectPayment(owner_id=api.me, project_id=api.project, kind="INVOICE", title="FV", amount_gross=10, occurred_on=NOW.date(), due_on=NOW.date() + timedelta(days=10)))
+    await api.db.commit()
+    await CalendarService(api.db).reconcile_owner(api.me)
+    await api.db.commit()
+    assert await count(api.db, Reminder) == 2  # IA-5: 3 days ahead and the day itself
+    await archive(http, api)  # archiving an object cancels its reminders; they are rows still
+    assert (await http.post(f"{base_of(api)}/purge")).status_code == 200
+    assert await count(api.db, Reminder) == 0 and await count(api.db, ProjectPayment) == 0

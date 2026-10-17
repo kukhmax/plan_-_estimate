@@ -2966,6 +2966,7 @@
       "payment_term": {
         "advance": "Termin wpłaty zaliczki (§ 6)"
       },
+      "invoice_due": "Termin zapłaty faktury: {what}",
       "adjacent_work": {
         "from": "Początek prac innego wykonawcy w obiekcie",
         "to": "Koniec prac innego wykonawcy w obiekcie"
@@ -3061,6 +3062,7 @@
       "DOWNTIME_TERM": "Przestój (§ 10)",
       "WITHDRAWAL_END": "Odstąpienie konsumenta (§ 20)",
       "PAYMENT_TERM": "Zaliczka (§ 6)",
+      "INVOICE_DUE": "Termin zapłaty faktury (Faktury i zaliczki)",
       "ADJACENT_WORK": "Prace innych wykonawców",
       "PRICE_VALIDITY_END": "Ważność cen (§ 4)"
     }
@@ -3100,6 +3102,7 @@
       "date_money": "Data wpłaty",
       "date_expense": "Data zakupu",
       "due": "Termin płatności",
+      "due_hint": "O terminie przypomnimy w kalendarzu: 3 dni wcześniej i w dniu terminu (do wyłączenia w ustawieniach kalendarza). Po opłaceniu w całości przypomnienie znika.",
       "number": "Numer",
       "counterparty": "Sklep / dostawca",
       "document_kind": "Dokument",

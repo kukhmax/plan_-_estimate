@@ -25,6 +25,7 @@ from app.domain.rules.payment_totals import (
     invoice_standings,
     summarize,
 )
+from app.domain.services.calendar_service import CalendarService
 from app.domain.services.client_ids import find_repeat
 from app.models.estimate import Estimate, EstimateStatus
 from app.models.project import Project
@@ -97,6 +98,12 @@ class PaymentService:
             .order_by(ProjectPayment.occurred_on.desc(), ProjectPayment.created_at.desc(), ProjectPayment.id.desc())
         )).scalars())
 
+    async def _calendar_follows(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> None:
+        """A change of a record can move, add or take away the due day of an invoice (IA-5): the reminders follow at once. A fault in the
+        calendar is logged and never undoes the record (the periodic reconciliation brings the queue right again)."""
+        await self.db.flush()
+        await CalendarService(self.db).reconcile_project_guarded(owner_id, project_id)
+
     # -- the rules of a kind --------------------------------------------------------
 
     async def _check(self, owner_id: uuid.UUID, project_id: uuid.UUID, own_id: uuid.UUID, kind: str, f: dict[str, Any]) -> None:
@@ -167,6 +174,7 @@ class PaymentService:
         now = datetime.now(UTC)
         row = ProjectPayment(id=new_id, owner_id=owner_id, project_id=project_id, kind=kind, created_at=now, updated_at=now, **fields)
         self.db.add(row)
+        await self._calendar_follows(owner_id, project_id)
         await self.db.commit()
         await self.db.refresh(row)
         return row
@@ -187,6 +195,7 @@ class PaymentService:
         for name in EDITABLE:
             setattr(row, name, merged[name])
         row.updated_at = datetime.now(UTC)
+        await self._calendar_follows(owner_id, project_id)
         await self.db.commit()
         await self.db.refresh(row)
         return row
@@ -195,6 +204,7 @@ class PaymentService:
         row = await self._get(owner_id, project_id, payment_id)
         row.is_archived = archived
         row.updated_at = datetime.now(UTC)
+        await self._calendar_follows(owner_id, project_id)
         await self.db.commit()
         await self.db.refresh(row)
         return row

@@ -59,6 +59,7 @@ def all_title_keys() -> set[str]:
         + ev.concealed_events([ev.ConcealedDates(P, "a", day)])
         + ev.downtime_events(ev.DowntimeDates(P, day, day))
         + ev.adjacent_events([ev.AdjacentPeriod(P, "x", day, day)])
+        + ev.invoice_events([ev.InvoiceDue(P, uuid.uuid4(), day, "FV 1/2026")])
     )
     return {event.title_key for event in built}
 
@@ -67,7 +68,10 @@ def test_every_event_the_application_makes_has_its_words_in_both_languages_and_t
     texts = load_texts()
     assert all_title_keys() == set(texts.titles)  # nothing missing, nothing left over
     for entry in (*texts.titles.values(), *texts.frame.values()):
-        assert entry["pl"].strip() and entry["ru"].strip() and "{" not in entry["pl"].replace("{n}", "") and "{" not in entry["ru"].replace("{n}", "")
+        # the only words a text may carry: a number ({n}) and what an invoice is called ({what}, IA-5)
+        for language in ("pl", "ru"):
+            assert entry[language].strip() and "{" not in entry[language].replace("{n}", "").replace("{what}", "")
+        assert ("{what}" in entry["pl"]) == ("{what}" in entry["ru"])  # in both languages or in neither
 
 
 def test_the_placeholders_are_the_same_in_both_languages():

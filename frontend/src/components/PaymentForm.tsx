@@ -208,6 +208,7 @@ export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCanc
           <label htmlFor="payment-due" className={label}>{text.fields.due}</label>
           <input id="payment-due" aria-label="payment-due" type="date" value={due} onChange={(event) => setDue(event.target.value)} className={field} />
           {errors.includes('due') && <p role="alert" className="text-xs text-red-600 mt-1">{text.errors.due}</p>}
+          <p aria-label="payment-due-hint" className="text-xs text-[var(--tg-theme-hint-color)] mt-1 break-words">{text.fields.due_hint}</p>
         </div>
       )}
 

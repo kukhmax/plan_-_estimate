@@ -15,6 +15,7 @@
     "calendar.event.downtime_term.need_by": {"pl": "Termin usunięcia przeszkody wyznaczony Zamawiającemu (§ 10)", "ru": "Срок устранения препятствия, назначенный заказчику (§ 10)"},
     "calendar.event.withdrawal_end": {"pl": "Koniec 14-dniowego terminu odstąpienia konsumenta (§ 20)", "ru": "Конец 14-дневного срока отказа потребителя (§ 20)"},
     "calendar.event.payment_term.advance": {"pl": "Termin wpłaty zaliczki (§ 6)", "ru": "Срок внесения аванса (§ 6)"},
+    "calendar.event.invoice_due": {"pl": "Termin zapłaty faktury: {what}", "ru": "Срок оплаты фактуры: {what}"},
     "calendar.event.adjacent_work.from": {"pl": "Początek prac innego wykonawcy w obiekcie", "ru": "Начало работ другого подрядчика на объекте"},
     "calendar.event.adjacent_work.to": {"pl": "Koniec prac innego wykonawcy w obiekcie", "ru": "Окончание работ другого подрядчика на объекте"},
     "calendar.event.price_validity_end": {"pl": "Koniec ważności cen jednostkowych (§ 4)", "ru": "Конец срока действия единичных цен (§ 4)"}

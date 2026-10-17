@@ -40,13 +40,17 @@ export function todayIso(now: Date = new Date()): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-/** The words of an event: its key `calendar.event.<kind>[.<part>]` walks the dictionary; an own reminder has its own words. */
-export function eventTitle(events: Record<string, unknown>, item: Pick<AgendaItem, 'title' | 'title_key' | 'kind'>): string {
+/**
+ * The words of an event: its key `calendar.event.<kind>[.<part>]` walks the dictionary; an own reminder has its own words. A text may name
+ * what the event is about (`{what}`: the invoice, IA-5); a word the event does not carry leaves its place empty, never a stray brace.
+ */
+export function eventTitle(events: Record<string, unknown>, item: Pick<AgendaItem, 'title' | 'title_key' | 'kind'> & { params?: AgendaItem['params'] }): string {
   if (item.title) return item.title;
   const path = (item.title_key ?? '').replace(/^calendar\.event\./, '').split('.');
   let node: unknown = events;
   for (const part of path) {
     node = node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined;
   }
-  return typeof node === 'string' ? node : item.kind;
+  if (typeof node !== 'string') return item.kind;
+  return node.replace(/\{(\w+)\}/g, (_match, name: string) => String(item.params?.[name] ?? ''));
 }

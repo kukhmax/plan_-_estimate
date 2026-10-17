@@ -6,6 +6,7 @@ by a day (a term, a start) goes into **one digest**, the ends of breaks of one r
 """
 import json
 import uuid
+from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, tzinfo
@@ -90,7 +91,11 @@ def _context(view: ReminderView) -> str:
 def _title(view: ReminderView, lang: str, texts: Texts) -> str:
     if view.origin == "USER":
         return f"{texts.frame['own_prefix'][lang]} {view.title}"
-    return texts.titles[view.title_key or ""][lang] if view.title_key in texts.titles else (view.title_key or view.kind)
+    if view.title_key not in texts.titles:
+        return view.title_key or view.kind
+    text = texts.titles[view.title_key or ""][lang]
+    # a title may carry what the fact is about (IA-5: the invoice); a missing word leaves the place empty, never a stray brace
+    return text.format_map(defaultdict(str, {name: str(value) for name, value in view.params.items()})) if "{" in text else text
 
 
 def _when(view: ReminderView, lang: str, texts: Texts) -> str:

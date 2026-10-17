@@ -36,6 +36,7 @@ class EventKind(StrEnum):
     DOWNTIME_TERM = "DOWNTIME_TERM"  # the end of the next working day after the notice / the term set to remove an obstacle (§ 10)
     WITHDRAWAL_END = "WITHDRAWAL_END"  # the end of the consumer's right to withdraw (§ 20)
     PAYMENT_TERM = "PAYMENT_TERM"  # the advance is due (§ 6)
+    INVOICE_DUE = "INVOICE_DUE"  # an invoice of the settlements of the object is due (the owner's own register, IA-5)
     ADJACENT_WORK = "ADJACENT_WORK"  # another contractor works in the object (the period of the protocol)
     PRICE_VALIDITY_END = "PRICE_VALIDITY_END"  # the unit prices stop to bind (§ 4)
     USER = "USER"  # an own reminder (the Remind button, Stage 18E)
@@ -44,10 +45,14 @@ class EventKind(StrEnum):
 # Which kinds send a message by default (Q1, 2026-10-11); the owner switches the rest on in the settings. The calendar shows all of them.
 PUSH_BY_DEFAULT: frozenset[EventKind] = frozenset(
     {EventKind.BREAK_END, EventKind.WORK_START, EventKind.WORK_END, EventKind.OBJECT_START, EventKind.OBJECT_END,
-     EventKind.DELIVERY_DEADLINE, EventKind.ACCEPTANCE_TERM, EventKind.CONCEALED_TERM, EventKind.DOWNTIME_TERM, EventKind.USER}
+     EventKind.DELIVERY_DEADLINE, EventKind.ACCEPTANCE_TERM, EventKind.CONCEALED_TERM, EventKind.DOWNTIME_TERM, EventKind.USER,
+     EventKind.INVOICE_DUE}
 )
-# How many days ahead of the day a reminder is also due; zero is the day itself. Only the delivery deadline is announced early.
-LEAD_DAYS: Mapping[EventKind, tuple[int, ...]] = {EventKind.DELIVERY_DEADLINE: (7, 3, 1, 0), EventKind.OBJECT_START: (1, 0)}
+# How many days ahead of the day a reminder is also due; zero is the day itself. The delivery deadline, the start of the works and the
+# due date of an invoice (3 days to ask the client, then the day itself) are announced early.
+LEAD_DAYS: Mapping[EventKind, tuple[int, ...]] = {
+    EventKind.DELIVERY_DEADLINE: (7, 3, 1, 0), EventKind.OBJECT_START: (1, 0), EventKind.INVOICE_DUE: (3, 0),
+}
 DEFAULT_LEAD_DAYS: tuple[int, ...] = (0,)
 
 
@@ -284,3 +289,30 @@ def adjacent_events(periods: Iterable[AdjacentPeriod]) -> list[CalendarEvent]:
                 events.append(CalendarEvent(EventKind.ADJACENT_WORK, _key(EventKind.ADJACENT_WORK, item.project_id, item.ref, part), item.project_id,
                                             ref=part, on=day, params={"adjacent": item.ref}))
     return events
+
+
+# --- the invoices of the settlements (IA-5) ------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class InvoiceDue:
+    """An invoice issued to the client that is still to be paid: the term the owner wrote on it."""
+
+    project_id: uuid.UUID
+    payment_id: uuid.UUID
+    due_on: date
+    what: str  # how the owner names it: its number, else what it is for
+
+
+MAX_WHAT_LENGTH = 60
+
+
+def invoice_events(invoices: Iterable[InvoiceDue]) -> list[CalendarEvent]:
+    """The day an unpaid invoice is due. The caller gives only the invoices that are still open (not paid in full, not archived)."""
+    return [
+        CalendarEvent(
+            EventKind.INVOICE_DUE, _key(EventKind.INVOICE_DUE, item.project_id, item.payment_id), item.project_id, on=item.due_on,
+            params={"what": item.what.strip()[:MAX_WHAT_LENGTH]},
+        )
+        for item in invoices
+    ]

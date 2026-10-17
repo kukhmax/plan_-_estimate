@@ -33,6 +33,7 @@ const AGENDA: Agenda = {
     ITEM('i-break', '2026-10-13', { kind: 'BREAK_END', title_key: 'calendar.event.break_end', at: '2026-10-13T08:30:00Z', on: null, room_name: 'Łazienka', surface_name: 'Ściana A' }),
     ITEM('i-appear', '2026-10-15', { kind: 'ACCEPTANCE_TERM', title_key: 'calendar.event.acceptance_term.appearance', ref: 'appearance', sends: true }),
     ITEM('i-pay', '2026-10-16', { kind: 'PAYMENT_TERM', title_key: 'calendar.event.payment_term.advance', ref: 'advance', sends: false }),
+    ITEM('i-inv', '2026-10-16', { kind: 'INVOICE_DUE', title_key: 'calendar.event.invoice_due', params: { what: 'FV 7/2026' }, sends: true }),
     ITEM('r-1', '2026-10-17', { source: 'REMINDER', kind: 'USER', title_key: null, title: 'Zadzwonić do klienta', on: null, at: '2026-10-17T07:00:00Z', reminder_id: 'rem-1' }),
   ],
 };
@@ -63,6 +64,17 @@ beforeEach(() => {
 });
 
 describe('the sections', () => {
+  it('shows the due day of an invoice with its name, in the language of the screen (IA-5)', async () => {
+    screenOf();
+    expect(await screen.findByLabelText('calendar-item-i-inv')).toHaveTextContent('Termin zapłaty faktury: FV 7/2026');
+  });
+
+  it('shows it in Russian too', async () => {
+    localStorage.setItem('locale', 'ru');
+    screenOf();
+    expect(await screen.findByLabelText('calendar-item-i-inv')).toHaveTextContent('Срок оплаты фактуры: FV 7/2026');
+  });
+
   it('puts the overdue works first, then today, then the days ahead', async () => {
     screenOf();
     const overdue = await screen.findByLabelText('calendar-overdue');
