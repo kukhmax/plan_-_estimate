@@ -151,3 +151,12 @@ class ClientRead(BaseModel):
 class ClientListResponse(BaseModel):
     items: list[ClientRead]
     total: int
+
+
+class ClientDeletePreview(BaseModel):
+    """What the final deletion of a client would meet (archive cleanup AC-5a); computed by the server, no side effects."""
+
+    client_id: uuid.UUID
+    archived: bool
+    projects: int  # objects of the client, archived ones included: they block the deletion
+    can_delete: bool

@@ -64,3 +64,20 @@ export async function restoreClient(id: string): Promise<ClientType> {
   if (!resp.ok) throw new Error(`Failed to restore client: ${resp.status}`);
   return resp.json();
 }
+
+/** What deleting an archived client for good would meet (archive cleanup AC-5a): the server counts its objects (archived ones included). */
+export interface ClientDeletePreview {
+  client_id: string;
+  archived: boolean;
+  projects: number;
+  can_delete: boolean;
+}
+
+export function fetchClientDeletePreview(id: string): Promise<ClientDeletePreview> {
+  return apiRequest(`/api/clients/${id}/delete-preview`);
+}
+
+/** Only an archived client without objects; refused with 409 CLIENT_HAS_PROJECTS / CLIENT_NOT_ARCHIVED otherwise. */
+export function deleteClient(id: string): Promise<void> {
+  return apiRequest(`/api/clients/${id}`, { method: 'DELETE' });
+}

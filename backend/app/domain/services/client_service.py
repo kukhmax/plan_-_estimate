@@ -4,8 +4,9 @@ from typing import Optional
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.exceptions import ClientNotFoundError
+from app.domain.exceptions import ClientHasProjectsError, ClientNotArchivedError, ClientNotFoundError
 from app.models.client import Client, ClientType
+from app.models.project import Project
 from app.schemas.client import ClientCreate, ClientUpdate
 
 
@@ -121,3 +122,38 @@ class ClientService:
         await self.db.commit()
         await self.db.refresh(client)
         return client
+
+    async def delete_preview(self, client_id: uuid.UUID, owner_user_id: uuid.UUID) -> tuple[Client, int]:
+        """What the final deletion of a client would meet: the client and the number of its objects (archived ones included)."""
+        client = await self.get_client(client_id, owner_user_id)
+        return client, await self._count_projects(client.id, owner_user_id)
+
+    async def _count_projects(self, client_id: uuid.UUID, owner_user_id: uuid.UUID) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(Project)
+            .where(Project.client_id == client_id, Project.owner_id == owner_user_id)
+        )
+        return int((await self.db.execute(stmt)).scalar_one())
+
+    async def delete_client(self, client_id: uuid.UUID, owner_user_id: uuid.UUID) -> None:
+        """Delete an ARCHIVED client that has no objects (archive cleanup AC-5a). A client owns no files, so nothing else is removed.
+
+        The client row is locked first: creating an object for this client takes a share lock on the same row, so an object
+        cannot appear between the count and the deletion.
+        """
+        stmt = (
+            select(Client)
+            .where(Client.id == client_id, Client.owner_user_id == owner_user_id)
+            .with_for_update()
+        )
+        client = (await self.db.execute(stmt)).scalar_one_or_none()
+        if client is None:
+            raise ClientNotFoundError(f"Client {client_id} not found")
+        if not client.is_archived:
+            raise ClientNotArchivedError(f"Client {client_id} is not archived")
+        projects = await self._count_projects(client.id, owner_user_id)
+        if projects > 0:
+            raise ClientHasProjectsError(projects)
+        await self.db.delete(client)
+        await self.db.commit()

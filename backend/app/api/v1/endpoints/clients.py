@@ -4,10 +4,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_client_service, get_current_user
-from app.domain.exceptions import ClientNotFoundError
+from app.domain.exceptions import ClientHasProjectsError, ClientNotArchivedError, ClientNotFoundError
 from app.domain.services.client_service import ClientService
 from app.models.user import User
-from app.schemas.client import ClientCreate, ClientListResponse, ClientRead, ClientUpdate
+from app.schemas.client import ClientCreate, ClientDeletePreview, ClientListResponse, ClientRead, ClientUpdate
 
 router = APIRouter()
 
@@ -123,3 +123,56 @@ async def restore_client(
     except ClientNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
     return ClientRead.model_validate(client)
+
+
+@router.get(
+    "/clients/{client_id}/delete-preview",
+    response_model=ClientDeletePreview,
+    status_code=status.HTTP_200_OK,
+    summary="What deleting the client for good would meet (no side effects)",
+)
+async def client_delete_preview(
+    client_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    client_service: ClientService = Depends(get_client_service),
+) -> ClientDeletePreview:
+    try:
+        client, projects = await client_service.delete_preview(client_id, owner_user_id=current_user.id)
+    except ClientNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    return ClientDeletePreview(
+        client_id=client.id,
+        archived=client.is_archived,
+        projects=projects,
+        can_delete=client.is_archived and projects == 0,
+    )
+
+
+@router.delete(
+    "/clients/{client_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an archived client that has no objects, for good (archive cleanup AC-5a)",
+)
+async def delete_client(
+    client_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    client_service: ClientService = Depends(get_client_service),
+) -> None:
+    try:
+        await client_service.delete_client(client_id, owner_user_id=current_user.id)
+    except ClientNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    except ClientNotArchivedError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CLIENT_NOT_ARCHIVED", "message": "Only an archived client can be deleted"},
+        )
+    except ClientHasProjectsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "CLIENT_HAS_PROJECTS",
+                "message": "The client still has objects",
+                "projects": exc.projects,
+            },
+        )

@@ -5,11 +5,13 @@ import { I18nProvider } from '../hooks/useI18n';
 import * as clientsApi from '../api/clients';
 import * as projectsApi from '../api/projects';
 import * as photosApi from '../api/photos';
+import * as structureApi from '../api/archiveStructure';
 import { ClientType } from '../types/client';
 import { ProjectType } from '../types/project';
 
 vi.mock('../api/clients', () => ({ fetchClients: vi.fn(), restoreClient: vi.fn() }));
 vi.mock('../api/projects', () => ({ fetchProjects: vi.fn(), restoreProject: vi.fn() }));
+vi.mock('../api/archiveStructure', () => ({ fetchArchivedStructure: vi.fn() }));
 vi.mock('../api/photos', async () => ({
   ...(await vi.importActual<typeof import('../api/photos')>('../api/photos')),
   fetchPhotoArchive: vi.fn(),
@@ -38,6 +40,7 @@ describe('ArchiveScreen (Stage 16K.5)', () => {
       items: [client('c1'), client('c2', { client_type: 'COMPANY', company_name: 'Budex sp. z o.o.', first_name: null, last_name: null }), client('c3', { is_archived: false, first_name: 'Active', last_name: 'Client' })],
       total: 3,
     });
+    vi.mocked(structureApi.fetchArchivedStructure).mockResolvedValue({ rooms: [], surfaces: [], rooms_total: 0, surfaces_total: 0 });
     vi.mocked(photosApi.fetchPhotoArchive).mockResolvedValue({ items: [], archived_total: 2, trashed_total: 1, urls_expire_at: null });
     vi.mocked(projectsApi.fetchProjects).mockResolvedValue({
       items: [project('p1'), project('p2', { name: 'Dom pod Krakowem', city: 'Kraków' }), project('p3', { name: 'In work', is_archived: false })],

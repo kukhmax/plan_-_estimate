@@ -5,6 +5,18 @@ class ClientNotFoundError(Exception):
     """Raised when a client is not found for the requesting owner."""
 
 
+class ClientNotArchivedError(Exception):
+    """A client can be deleted for good only from the archive (archive cleanup AC-5a)."""
+
+
+class ClientHasProjectsError(Exception):
+    """The client still has objects (archived ones included): they are deleted or given to another client first (AC-5a)."""
+
+    def __init__(self, projects: int) -> None:
+        super().__init__(f"client still has {projects} project(s)")
+        self.projects = projects
+
+
 class ProjectNotFoundError(Exception):
     """Raised when a project is not found for the requesting owner."""
 
