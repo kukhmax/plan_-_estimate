@@ -5,11 +5,13 @@ import {
   issueEstimateDocument,
   issuePhotoReport,
   issueProductionPlan,
+  issueSettlement,
   issueTechCard,
   listDocuments,
   previewContractPdf,
   previewEstimatePdf,
   previewProductionPlanPdf,
+  previewSettlementPdf,
   previewTechCardPdf,
 } from './documents';
 
@@ -81,6 +83,20 @@ describe('documents API', () => {
     await previewTechCardPdf('p1');
     call = lastCall();
     expect(call.url).toBe('/api/projects/p1/documents/tech-card/preview');
+    expect(call.init.method).toBe('POST');
+  });
+
+  it('issues the statement of settlements of the whole object and previews its working version (IA-6a)', async () => {
+    respond(202, {});
+    await issueSettlement('p1');
+    let call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents');
+    expect(JSON.parse(String(call.init.body))).toEqual({ kind: 'SETTLEMENT' });
+    vi.mocked(fetch).mockClear();
+    respond(200, { sent: true, pages: 1, byte_size: 10 });
+    await previewSettlementPdf('p1');
+    call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents/settlement/preview');
     expect(call.init.method).toBe('POST');
   });
 

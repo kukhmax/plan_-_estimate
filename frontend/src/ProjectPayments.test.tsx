@@ -122,6 +122,24 @@ describe('ProjectPayments — "Faktury i zaliczki" (IA-2)', () => {
     });
   });
 
+  describe('the statement for the client (IA-6a)', () => {
+    it('is a button only when the screen can lead to the statement, and tapping it leads there', async () => {
+      const lead = vi.fn();
+      render(<I18nProvider><ProjectPayments projectId={projectId} onOpenStatement={lead} /></I18nProvider>);
+      const button = await screen.findByLabelText('payments-statement');
+      expect(button).toHaveTextContent('Rozliczenie dla klienta (PDF)');
+      expect(button.className).toContain('min-h-11');
+      fireEvent.click(button);
+      expect(lead).toHaveBeenCalledTimes(1);
+    });
+
+    it('is not shown without a way to it', async () => {
+      renderScreen();
+      await screen.findByLabelText('payments-summary');
+      expect(screen.queryByLabelText('payments-statement')).toBeNull();
+    });
+  });
+
   describe('the agreed amount', () => {
     it('offers the amount of the accepted estimate as a suggestion that becomes the value only when tapped, and saves it', async () => {
       renderScreen();

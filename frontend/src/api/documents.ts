@@ -56,6 +56,16 @@ export function previewTechCardPdf(projectId: string): Promise<DocumentPreviewRe
   return apiRequest(`${base(projectId)}/documents/tech-card/preview`, { method: 'POST' });
 }
 
+/** The numbered statement of settlements (Rozliczenie) for the client (the server refuses it while the object has no invoice and no payment). */
+export function issueSettlement(projectId: string): Promise<IssuedDocument> {
+  return apiRequest(`${base(projectId)}/documents`, { method: 'POST', body: JSON.stringify({ kind: 'SETTLEMENT' }) });
+}
+
+/** The working version of the statement (watermark, no number) to the owner's chat. */
+export function previewSettlementPdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/settlement/preview`, { method: 'POST' });
+}
+
 /** The numbered production plan of the whole object (the server refuses it while no surface has a planned work). */
 export function issueProductionPlan(projectId: string): Promise<IssuedDocument> {
   return apiRequest(`${base(projectId)}/documents`, { method: 'POST', body: JSON.stringify({ kind: 'PRODUCTION_PLAN' }) });

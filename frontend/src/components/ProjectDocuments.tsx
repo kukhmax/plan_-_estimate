@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchPhotoReportSummary, issuePhotoReport, listDocuments } from '../api/documents';
 import { useI18n } from '../hooks/useI18n';
-import { ProductionPlanSection, TechCardSection } from './TechCardSection';
+import { ProductionPlanSection, SettlementSection, TechCardSection } from './TechCardSection';
 import type { IssuedDocument, PhotoReportSummary, UnpricedWork } from '../types/document';
 import { documentErrorText } from '../utils/documentErrors';
 import { documentKindLabel, formatIssued, formatSize } from '../utils/documentFormat';
@@ -13,7 +13,7 @@ const POLL_MS = 2500;
 const MAX_POLLS = 72; // three minutes
 
 /** The piece of the documents of an object shown on a screen of its own (Stage 16K.6). */
-export type DocumentsPart = 'tech_card' | 'plan' | 'photo_report' | 'journal';
+export type DocumentsPart = 'tech_card' | 'plan' | 'settlement' | 'photo_report' | 'journal';
 
 interface ProjectDocumentsProps {
   projectId: string;
@@ -213,6 +213,7 @@ export function ProjectDocuments({ projectId, part, onOpenInspection, onOpenEsti
 
       {open && !loadFailed && shows('tech_card') && <TechCardSection projectId={projectId} onIssued={() => void reloadJournal()} />}
       {open && !loadFailed && shows('plan') && <ProductionPlanSection projectId={projectId} onIssued={() => void reloadJournal()} />}
+      {open && !loadFailed && shows('settlement') && <SettlementSection projectId={projectId} onIssued={() => void reloadJournal()} />}
 
       {open && summary && shows('photo_report') && (
         <section aria-label="photo-report-card" className="space-y-2">

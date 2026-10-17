@@ -12,6 +12,8 @@ import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 
 interface ProjectPaymentsProps {
   projectId: string;
+  /** Opens the statement of settlements for the client (the documents of the object); without it the button is not shown. */
+  onOpenStatement?: () => void;
 }
 
 const TABS: PaymentTab[] = ['invoices', 'client', 'materials'];
@@ -29,7 +31,7 @@ const secondary = 'flex-1 min-h-11 px-3 py-2 text-sm rounded-xl border border-sl
  * "Faktury i zaliczki" (a backlog item, not a roadmap stage): what the client was invoiced and paid, and what the owner spent on materials.
  * A register for reference: nothing here issues an invoice. Every sum is the server's; the phone only shows them.
  */
-export function ProjectPayments({ projectId }: ProjectPaymentsProps) {
+export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsProps) {
   const { t } = useI18n();
   const text = t.payments;
   const [list, setList] = useState<PaymentList | null>(null);
@@ -101,6 +103,11 @@ export function ProjectPayments({ projectId }: ProjectPaymentsProps) {
       {list && (
         <>
           <SummaryCard projectId={projectId} list={list} onChanged={load} />
+          {onOpenStatement && (
+            <button type="button" aria-label="payments-statement" onClick={onOpenStatement} className={secondary.replace('flex-1', 'w-full')}>
+              <Ico>🧾</Ico>{text.statement_button}
+            </button>
+          )}
           {items.some((item) => item._pending) && (
             <p aria-label="payments-pending-note" className="text-xs text-sky-900 bg-sky-50 border border-sky-100 rounded-xl px-3 py-2 break-words">
               {text.pending_totals}

@@ -356,6 +356,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     ({
       tech_card: t.documents.kind_tech_card,
       plan: t.documents.kind_production_plan,
+      settlement: t.documents.kind_settlement,
       photo_report: t.documents.photo_report,
       journal: t.documents.journal_title,
     })[section];
@@ -882,7 +883,16 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           {/* Stage 13F-PRE: the totals of the object, a screen of its own (the last tile of the hub). */}
           {objectSection === 'notes' && <ProjectNotes projectId={selectedProject.id} />}
 
-          {objectSection === 'payments' && <ProjectPayments projectId={selectedProject.id} />}
+          {objectSection === 'payments' && (
+            <ProjectPayments
+              projectId={selectedProject.id}
+              onOpenStatement={() => {
+                setLegalSection(null);
+                setDocumentsSection('settlement');
+                setObjectSection('documents');
+              }}
+            />
+          )}
 
           {objectSection === 'summary' && <ProjectSummaryCard projectId={selectedProject.id} refreshToken={summaryToken} />}
 

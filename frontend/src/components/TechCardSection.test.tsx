@@ -3,13 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as documentsApi from '../api/documents';
 import { ApiError } from '../api/http';
 import { I18nProvider } from '../hooks/useI18n';
-import { ProductionPlanSection, TechCardSection } from './TechCardSection';
+import { ProductionPlanSection, SettlementSection, TechCardSection } from './TechCardSection';
 
 vi.mock('../api/documents', () => ({
   issueTechCard: vi.fn(),
   previewTechCardPdf: vi.fn(),
   issueProductionPlan: vi.fn(),
   previewProductionPlanPdf: vi.fn(),
+  issueSettlement: vi.fn(),
+  previewSettlementPdf: vi.fn(),
 }));
 
 const onIssued = vi.fn();
@@ -180,5 +182,67 @@ describe('ProductionPlanSection (Stage 16D.2)', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'preview-production-plan' })); });
     expect(documentsApi.previewProductionPlanPdf).toHaveBeenCalledTimes(1);
     await act(async () => { finish(); });
+  });
+});
+
+describe('SettlementSection (IA-6a)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+  afterEach(cleanup);
+
+  const renderStatement = () => render(<I18nProvider><SettlementSection projectId="p1" onIssued={onIssued} /></I18nProvider>);
+
+  it('says what the statement is and that the expenses are not in it, with two full-width touch-sized actions', () => {
+    renderStatement();
+    expect(screen.getByText('Rozliczenie dla klienta')).toBeInTheDocument();
+    expect(screen.getByText(/Wydatki na materiały nie trafiają do tego dokumentu/)).toBeInTheDocument();
+    for (const name of ['preview-settlement', 'send-settlement']) {
+      const button = screen.getByRole('button', { name });
+      expect(button.className).toContain('min-h-11');
+      expect(button.className).toContain('w-full');
+    }
+  });
+
+  it('sends the working version to the chat and nothing else', async () => {
+    vi.mocked(documentsApi.previewSettlementPdf).mockResolvedValue({ sent: true, pages: 1, byte_size: 9000 });
+    renderStatement();
+    await press('preview-settlement');
+    expect(documentsApi.previewSettlementPdf).toHaveBeenCalledWith('p1');
+    expect(await screen.findByLabelText('settlement-note')).toHaveTextContent('Wersja robocza wysłana do czatu z botem');
+    expect(documentsApi.issueSettlement).not.toHaveBeenCalled();
+    expect(documentsApi.issueTechCard).not.toHaveBeenCalled();
+    expect(onIssued).not.toHaveBeenCalled();
+  });
+
+  it('starts the numbered statement and tells the journal to follow it', async () => {
+    vi.mocked(documentsApi.issueSettlement).mockResolvedValue({} as never);
+    renderStatement();
+    await press('send-settlement');
+    expect(documentsApi.issueSettlement).toHaveBeenCalledWith('p1');
+    expect(documentsApi.previewSettlementPdf).not.toHaveBeenCalled();
+    expect(onIssued).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers an empty object with the words of its code, in both languages, and no list of missing surfaces', async () => {
+    vi.mocked(documentsApi.issueSettlement).mockRejectedValue(new ApiError('Request failed', 422, 'SETTLEMENT_EMPTY', { code: 'SETTLEMENT_EMPTY' }));
+    renderStatement();
+    await press('send-settlement');
+    expect(await screen.findByLabelText('settlement-error')).toHaveTextContent('Obiekt nie ma jeszcze faktur ani wpłat do rozliczenia');
+    expect(screen.queryByLabelText('settlement-missing')).toBeNull();
+    expect(onIssued).not.toHaveBeenCalled();
+    cleanup();
+    localStorage.setItem('locale', 'ru');
+    renderStatement();
+    await press('send-settlement');
+    expect(await screen.findByLabelText('settlement-error')).toHaveTextContent('В объекте пока нет фактур и оплат для расчёта');
+  });
+
+  it('works only on its own button: a card or a plan never calls the statement', async () => {
+    vi.mocked(documentsApi.previewTechCardPdf).mockResolvedValue({ sent: true, pages: 1, byte_size: 1 });
+    renderSection();
+    await press('preview-tech-card');
+    expect(documentsApi.previewSettlementPdf).not.toHaveBeenCalled();
   });
 });

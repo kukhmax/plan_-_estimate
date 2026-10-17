@@ -44,6 +44,7 @@ from app.domain.documents.photo_report_document import PhotoReportDocumentServic
 from app.domain.documents.production_plan_document import ProductionPlanDocumentService
 from app.domain.documents.registry import DocumentKind, get_template
 from app.domain.documents.renderer import DocumentRenderer, RenderedPdf
+from app.domain.documents.settlement_document import SettlementDocumentService
 from app.domain.documents.tech_card_document import TechCardDocumentService
 from app.domain.exceptions import (
     AcceptanceGateError,
@@ -225,6 +226,37 @@ class DocumentIssuer:
             "Karta-technologiczna-wersja-robocza.pdf",
             rendered.pdf,
             f"WERSJA ROBOCZA — Karta technologiczna — {project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
+    async def start_settlement(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> Reservation:
+        """A numbered statement of settlements (Rozliczenie): checked now (refused with a stable code while the object has no invoice and no
+        payment, or the executor profile is empty), so a number is never given to an empty statement; the slow part runs in the background."""
+        self._ensure_capacity()
+        owner_id = user.id
+        document = await SettlementDocumentService(db).build(owner_id, project_id, working=False, issued_on=self._today())
+        project = await self._project(db, owner_id, project_id)
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.SETTLEMENT,
+            title=document.layout.meta.title,
+            template_version=get_template(DocumentKind.SETTLEMENT).version,
+            client_id=project.client_id,
+        )
+        return self._launch(reservation)
+
+    async def preview_settlement(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version (watermark, no number, no journal row) to the owner's chat; it never refuses for missing data."""
+        owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
+        document = await SettlementDocumentService(db).build(owner_id, project_id, working=True, issued_on=self._today())
+        project = await self._project(db, owner_id, project_id)
+        rendered = await self.renderer.render(SettlementDocumentService.html(document))
+        await self.delivery.send_document(
+            chat_id,
+            "Rozliczenie-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — Rozliczenie — {project.name}",
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
@@ -839,6 +871,11 @@ class DocumentIssuer:
             return await self.renderer.render(protocol.document_html)
         if document.kind == IssuedDocumentKind.PRODUCTION_PLAN.value:
             return await ProductionPlanDocumentService(db).render(
+                document.owner_id, document.project_id, self.renderer,
+                working=False, issued_on=issued_on, number=document.number, sequence=document.project_seq,
+            )
+        if document.kind == IssuedDocumentKind.SETTLEMENT.value:
+            return await SettlementDocumentService(db).render(
                 document.owner_id, document.project_id, self.renderer,
                 working=False, issued_on=issued_on, number=document.number, sequence=document.project_seq,
             )

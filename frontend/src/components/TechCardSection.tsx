@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { issueProductionPlan, issueTechCard, previewProductionPlanPdf, previewTechCardPdf } from '../api/documents';
+import { issueProductionPlan, issueSettlement, issueTechCard, previewProductionPlanPdf, previewSettlementPdf, previewTechCardPdf } from '../api/documents';
 import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import type { TechCardMissingItem } from '../types/document';
@@ -12,7 +12,7 @@ interface DocumentSectionProps {
   onIssued: () => void;
 }
 
-type SectionKind = 'tech-card' | 'production-plan';
+type SectionKind = 'tech-card' | 'production-plan' | 'settlement';
 
 /** The surfaces the server named in `TECH_CARD_INCOMPLETE`, if that is what the error was. */
 function missingItems(error: unknown): TechCardMissingItem[] {
@@ -30,10 +30,17 @@ function missingItems(error: unknown): TechCardMissingItem[] {
 function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSectionProps & { kind: SectionKind }) {
   const { t } = useI18n();
   const text = t.documents;
-  const isCard = sectionKind === 'tech-card';
-  const words = isCard
-    ? { title: text.tech_card, hint: text.tech_card_hint, preview: text.tech_card_preview, send: text.tech_card_send, previewOk: text.tech_card_preview_ok }
-    : { title: text.production_plan, hint: text.production_plan_hint, preview: text.production_plan_preview, send: text.production_plan_send, previewOk: text.production_plan_preview_ok };
+  const words =
+    sectionKind === 'tech-card'
+      ? { title: text.tech_card, hint: text.tech_card_hint, preview: text.tech_card_preview, send: text.tech_card_send, previewOk: text.tech_card_preview_ok }
+      : sectionKind === 'settlement'
+        ? { title: text.settlement, hint: text.settlement_hint, preview: text.settlement_preview, send: text.settlement_send, previewOk: text.settlement_preview_ok }
+        : { title: text.production_plan, hint: text.production_plan_hint, preview: text.production_plan_preview, send: text.production_plan_send, previewOk: text.production_plan_preview_ok };
+  // looked up only when a button is tapped (a screen that mocks part of the api never reaches the others)
+  const preview = () =>
+    sectionKind === 'tech-card' ? previewTechCardPdf(projectId) : sectionKind === 'settlement' ? previewSettlementPdf(projectId) : previewProductionPlanPdf(projectId);
+  const issue = () =>
+    sectionKind === 'tech-card' ? issueTechCard(projectId) : sectionKind === 'settlement' ? issueSettlement(projectId) : issueProductionPlan(projectId);
   const [busy, setBusy] = useState<'preview' | 'issue' | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,10 +62,10 @@ function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSec
     setMissing([]);
     try {
       if (kind === 'preview') {
-        await (isCard ? previewTechCardPdf(projectId) : previewProductionPlanPdf(projectId));
+        await preview();
         if (alive.current) setNote(words.previewOk);
       } else {
-        await (isCard ? issueTechCard(projectId) : issueProductionPlan(projectId));
+        await issue();
         if (alive.current) onIssued();
       }
     } catch (err) {
@@ -126,4 +133,9 @@ export function TechCardSection(props: DocumentSectionProps) {
 /** Stage 16D.2 — the production plan: the order of the works, the technological breaks, the works of other contractors. */
 export function ProductionPlanSection(props: DocumentSectionProps) {
   return <DocumentSection {...props} kind="production-plan" />;
+}
+
+/** IA-6a — the statement of settlements "Rozliczenie" for the client: what was invoiced and what was paid; never the owner's expenses. */
+export function SettlementSection(props: DocumentSectionProps) {
+  return <DocumentSection {...props} kind="settlement" />;
 }

@@ -40,6 +40,7 @@ class IssuedDocumentKind(str, enum.Enum):
     DECISION_PROTOCOL = "DECISION_PROTOCOL"
     DOWNTIME_NOTICE = "DOWNTIME_NOTICE"
     DOWNTIME_PROTOCOL = "DOWNTIME_PROTOCOL"
+    SETTLEMENT = "SETTLEMENT"  # Rozliczenie: what was invoiced to the client and what the client paid (IA-6a)
 
 
 class IssuedDocumentStatus(str, enum.Enum):
@@ -78,7 +79,7 @@ class IssuedDocument(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("kind IN ('ESTIMATE', 'PHOTO_REPORT', 'TECH_CARD', 'PRODUCTION_PLAN', 'CONTRACT', 'HANDOVER_PROTOCOL', 'CONCEALED_WORKS_PROTOCOL', 'FINAL_PROTOCOL', 'DECISION_PROTOCOL', 'DOWNTIME_NOTICE', 'DOWNTIME_PROTOCOL')", name="ck_issued_documents_kind"),
+        CheckConstraint("kind IN ('ESTIMATE', 'PHOTO_REPORT', 'TECH_CARD', 'PRODUCTION_PLAN', 'CONTRACT', 'HANDOVER_PROTOCOL', 'CONCEALED_WORKS_PROTOCOL', 'FINAL_PROTOCOL', 'DECISION_PROTOCOL', 'DOWNTIME_NOTICE', 'DOWNTIME_PROTOCOL', 'SETTLEMENT')", name="ck_issued_documents_kind"),
         CheckConstraint("status IN ('PENDING', 'SENT', 'FAILED')", name="ck_issued_documents_status"),
         CheckConstraint("project_seq >= 1", name="ck_issued_documents_seq_positive"),
         CheckConstraint("length(number) > 0", name="ck_issued_documents_number_not_empty"),

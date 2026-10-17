@@ -384,7 +384,7 @@ describe('ProjectDocuments — one piece on its own screen (Stage 16K.6)', () =>
     vi.mocked(documentsApi.listDocuments).mockResolvedValue({ items: [doc({ kind: 'CONTRACT', number: 'UMOWA/2026/10/08/1200', title: 'Umowa' })], total: 1 });
   });
 
-  function renderPart(part: 'tech_card' | 'plan' | 'photo_report' | 'journal') {
+  function renderPart(part: 'tech_card' | 'plan' | 'settlement' | 'photo_report' | 'journal') {
     return render(<I18nProvider><ProjectDocuments projectId="p1" part={part} onOpenInspection={onOpenInspection} onOpenEstimate={onOpenEstimate} /></I18nProvider>);
   }
 
@@ -412,6 +412,15 @@ describe('ProjectDocuments — one piece on its own screen (Stage 16K.6)', () =>
     renderPart('plan');
     expect(await screen.findByLabelText('production-plan-card')).toBeInTheDocument();
     expect(screen.queryByLabelText('tech-card-card')).toBeNull();
+  });
+
+  it('the statement of settlements shows its own section and neither the journal nor another document (IA-6a)', async () => {
+    renderPart('settlement');
+    expect(await screen.findByLabelText('settlement-card')).toBeInTheDocument();
+    expect(screen.queryByLabelText('tech-card-card')).toBeNull();
+    expect(screen.queryByLabelText('production-plan-card')).toBeNull();
+    expect(screen.queryByLabelText('document-journal')).toBeNull();
+    expect(documentsApi.listDocuments).not.toHaveBeenCalled();
   });
 
   it('the photo report shows the report only: no journal, no card of the technological map', async () => {

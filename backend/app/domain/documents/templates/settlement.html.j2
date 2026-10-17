@@ -1,0 +1,54 @@
+{% extends "_layout.html.j2" %}
+{% block body %}
+<div class="settlement">
+{% if doc.working %}<p class="notice">{{ t('settlement.working_note') }}</p>{% endif %}
+<div class="object">
+  <div class="role">{{ t('estimate.object') }}</div>
+  <div><strong>{{ doc.object_name }}</strong></div>
+  {% for line in doc.object_lines %}<div>{{ line }}</div>{% endfor %}
+</div>
+<p class="as-of">{{ t('settlement.as_of', date=(doc.as_of | date)) }}</p>
+
+<h2>{{ t('settlement.invoices') }}</h2>
+{% if doc.invoices %}
+<table class="invoices">
+  <thead>
+    <tr><th class="no">{{ t('settlement.col_number') }}</th><th>{{ t('settlement.col_title') }}</th><th class="day">{{ t('settlement.col_issued') }}</th><th class="day">{{ t('settlement.col_due') }}</th><th class="num">{{ t('settlement.col_gross') }}</th><th class="num">{{ t('settlement.col_paid') }}</th><th class="num">{{ t('settlement.col_left') }}</th><th class="state">{{ t('settlement.col_state') }}</th></tr>
+  </thead>
+  <tbody>
+    {% for i in doc.invoices %}
+    <tr><td class="no">{{ i.number }}</td><td>{{ i.title }}</td><td class="day">{{ i.issued_on | date }}</td><td class="day">{% if i.due_on %}{{ i.due_on | date }}{% else %}—{% endif %}</td><td class="num">{{ i.gross }}</td><td class="num">{{ i.settled }}</td><td class="num">{{ i.remaining }}</td><td class="state">{{ i.state }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">{{ t('settlement.no_invoices') }}</p>
+{% endif %}
+
+<h2>{{ t('settlement.payments') }}</h2>
+{% if doc.money %}
+<table class="payments">
+  <thead>
+    <tr><th class="day">{{ t('settlement.col_date') }}</th><th>{{ t('settlement.col_kind') }}</th><th>{{ t('settlement.col_title') }}</th><th>{{ t('settlement.col_invoice') }}</th><th class="num">{{ t('settlement.col_amount') }}</th></tr>
+  </thead>
+  <tbody>
+    {% for m in doc.money %}
+    <tr><td class="day">{{ m.day | date }}</td><td>{{ m.kind }}</td><td>{{ m.title }}</td><td>{% if m.invoice %}{{ m.invoice }}{% else %}—{% endif %}</td><td class="num">{{ m.amount }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">{{ t('settlement.no_payments') }}</p>
+{% endif %}
+
+<h2>{{ t('settlement.summary') }}</h2>
+<table class="totals">
+  {% if doc.totals.agreed %}<tr><td>{{ t('settlement.agreed') }}</td><td class="num">{{ doc.totals.agreed }}</td></tr>{% endif %}
+  <tr><td>{{ t('settlement.invoiced') }}</td><td class="num">{{ doc.totals.invoiced }}</td></tr>
+  <tr><td>{{ t('settlement.received') }}</td><td class="num">{{ doc.totals.received }}</td></tr>
+  <tr><td>{{ t('settlement.unpaid') }}</td><td class="num">{{ doc.totals.unpaid }}</td></tr>
+  {% if doc.totals.left %}<tr class="grand"><td>{{ doc.totals.left_label }}</td><td class="num">{{ doc.totals.left }}</td></tr>{% endif %}
+</table>
+<p class="disclaimer">{{ t('settlement.disclaimer') }}</p>
+</div>
+{% endblock %}

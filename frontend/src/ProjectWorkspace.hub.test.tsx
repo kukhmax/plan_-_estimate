@@ -56,7 +56,14 @@ vi.mock('./components/ProjectAcceptance', () => ({ ProjectAcceptance: stub('acce
 vi.mock('./components/ProjectDecisions', () => ({ ProjectDecisions: stub('decisions') }));
 vi.mock('./components/ProjectDowntime', () => ({ ProjectDowntime: stub('downtime') }));
 vi.mock('./components/ProjectSummaryCard', () => ({ ProjectSummaryCard: stub('summary') }));
-vi.mock('./components/ProjectPayments', () => ({ ProjectPayments: ({ projectId }: { projectId: string }) => <div aria-label="stub-payments">{projectId}</div> }));
+vi.mock('./components/ProjectPayments', () => ({
+  ProjectPayments: ({ projectId, onOpenStatement }: { projectId: string; onOpenStatement?: () => void }) => (
+    <div aria-label="stub-payments">
+      {projectId}
+      <button type="button" aria-label="stub-open-statement" onClick={onOpenStatement} />
+    </div>
+  ),
+}));
 vi.mock('./components/ProjectNotes', () => ({ ProjectNotes: ({ projectId }: { projectId: string }) => <div aria-label="stub-notes">{projectId}</div> }));
 vi.mock('./components/RoomList', () => ({ RoomList: stub('rooms') }));
 
@@ -226,6 +233,18 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(screen.queryByLabelText('stub-payments')).toBeNull();
   });
 
+  it('the statement button of the settlements leads to the statement of the documents, and Back to the documents list (IA-6a)', async () => {
+    renderWorkspace();
+    await openHub();
+    fireEvent.click(screen.getByLabelText('object-tile-payments'));
+    fireEvent.click(screen.getByLabelText('stub-open-statement'));
+    expect(screen.queryByLabelText('stub-payments')).toBeNull();
+    expect(screen.getByLabelText('stub-documents-settlement')).toBeInTheDocument();
+    expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Dokumenty PDF/Rozliczenie');
+    act(() => backClick?.());
+    expect(await screen.findByLabelText('documents-menu')).toBeInTheDocument();
+  });
+
   it('the Notes button on the card in the list opens the notes of that object, with its breadcrumb and a way back (Stage 18)', async () => {
     renderWorkspace();
     fireEvent.click(await screen.findByLabelText(`notes-project-${project.id}`));
@@ -237,16 +256,16 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(screen.queryByLabelText('stub-notes')).toBeNull();
   });
 
-  it('the documents tile opens a list of four rows, none of the pieces is open yet (16K.6)', async () => {
+  it('the documents tile opens a list of five rows, none of the pieces is open yet (16K.6, IA-6a)', async () => {
     renderWorkspace();
     await openHub();
     fireEvent.click(screen.getByLabelText('object-tile-documents'));
     const menu = screen.getByLabelText('documents-menu');
     expect(Array.from(menu.children).map((row) => row.getAttribute('aria-label'))).toEqual([
-      'docs-tile-tech_card', 'docs-tile-plan', 'docs-tile-photo_report', 'docs-tile-journal',
+      'docs-tile-tech_card', 'docs-tile-plan', 'docs-tile-settlement', 'docs-tile-photo_report', 'docs-tile-journal',
     ]);
     expect(Array.from(menu.children).map((row) => row.textContent?.replace('›', '').replace(/\p{Extended_Pictographic}️?/gu, '').trim())).toEqual([
-      'Karta technologiczna', 'Plan produkcji prac', 'Raport fotograficzny', 'Wysłane dokumenty',
+      'Karta technologiczna', 'Plan produkcji prac', 'Rozliczenie', 'Raport fotograficzny', 'Wysłane dokumenty',
     ]);
     for (const row of Array.from(menu.children)) expect(row.className).toContain('min-h-14');
     expect(document.querySelectorAll('[aria-label^="stub-documents"]')).toHaveLength(0);
@@ -256,6 +275,7 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
   it.each([
     ['tech_card', 'Karta technologiczna'],
     ['plan', 'Plan produkcji prac'],
+    ['settlement', 'Rozliczenie'],
     ['photo_report', 'Raport fotograficzny'],
     ['journal', 'Wysłane dokumenty'],
   ])('the row "%s" opens that piece of the documents alone, the breadcrumb and Back lead to the list', async (part, title) => {
