@@ -16,6 +16,7 @@ import {
   coefficientOptionName,
 } from '../utils/coefficientLabels';
 import { Ico } from './Ico';
+import { coefficientLook } from '../utils/coefficientLook';
 
 // Stage 12G: above this additive total the modal shows a non-blocking hint.
 const HIGH_TOTAL_WARNING_THRESHOLD = '50';
@@ -266,9 +267,10 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
                   : activeOptions.find((o) => o.id === currentSelectedId) ?? null;
               const isExpanded = expandedGroupId === group.id;
               const panelId = `coefficient-group-panel-${group.id}`;
+              const look = coefficientLook(group.code);
 
               return (
-                <div key={group.id} className="rounded-lg border border-slate-200">
+                <div key={group.id} data-testid={`coefficient-group-card-${group.id}`} className={`rounded-lg border ${look.card}`}>
                   <div className="flex items-stretch">
                     <button
                       type="button"
@@ -276,8 +278,15 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
                       aria-expanded={isExpanded}
                       aria-controls={panelId}
                       onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
-                      className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-slate-50 active:bg-slate-100"
+                      className={`flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left ${look.row}`}
                     >
+                      <span
+                        aria-hidden="true"
+                        data-testid={`coefficient-group-icon-${group.id}`}
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg leading-none select-none ${look.badge}`}
+                      >
+                        {look.icon}
+                      </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-semibold text-slate-800 break-words">
                           {groupName}

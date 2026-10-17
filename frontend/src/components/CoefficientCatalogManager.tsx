@@ -20,6 +20,7 @@ import {
   coefficientOptionName,
 } from '../utils/coefficientLabels';
 import { Ico } from './Ico';
+import { coefficientLook } from '../utils/coefficientLook';
 
 export const CoefficientCatalogManager: React.FC = () => {
   const { t, locale } = useI18n();
@@ -277,11 +278,13 @@ export const CoefficientCatalogManager: React.FC = () => {
           const isEditing = editingGroupId === group.id;
           const isExpanded = expandedGroupId === group.id;
           const panelId = `coefficient-catalog-group-panel-${group.id}`;
+          const look = coefficientLook(group.code);
 
           return (
             <div
               key={group.id}
-              className="bg-white rounded-xl border border-slate-200 shadow-sm"
+              data-testid={`coefficient-catalog-group-card-${group.id}`}
+              className={`rounded-xl border shadow-sm ${look.card}`}
             >
               <button
                 type="button"
@@ -289,8 +292,15 @@ export const CoefficientCatalogManager: React.FC = () => {
                 aria-expanded={isExpanded}
                 aria-controls={panelId}
                 onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
-                className="flex w-full min-h-[44px] items-center gap-2 rounded-xl p-4 text-left hover:bg-slate-50 active:bg-slate-100"
+                className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl p-4 text-left ${look.row}`}
               >
+                <span
+                  aria-hidden="true"
+                  data-testid={`coefficient-catalog-group-icon-${group.id}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl leading-none select-none ${look.badge}`}
+                >
+                  {look.icon}
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="min-w-0 text-base font-bold text-slate-900 break-words">

@@ -125,6 +125,21 @@ describe('CoefficientAssignmentModal', () => {
     expect(coefficientsApi.fetchCoefficientGroups).toHaveBeenCalledWith({ archived: 'active' });
   });
 
+  it('shows each group with an icon and the colour of its own, and the groups of the application differ from each other', async () => {
+    const seed = { ...groups[0], id: 'grp-seed', code: 'DOSTEP_DO_POWIERZCHNI', display_name: 'Dostęp do powierzchni' };
+    const other = { ...groups[1], id: 'grp-other', code: 'ORGANIZACJA_PRACY', display_name: 'Organizacja pracy' };
+    vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({ items: [seed, other], total: 2 });
+    renderModal();
+    await screen.findByTestId('coefficient-group-toggle-grp-seed');
+    expect(screen.getByTestId('coefficient-group-icon-grp-seed')).toHaveTextContent('🚧');
+    expect(screen.getByTestId('coefficient-group-icon-grp-other')).toHaveTextContent('🗓️');
+    expect(screen.getByTestId('coefficient-group-card-grp-seed').className).toContain('bg-orange-50');
+    expect(screen.getByTestId('coefficient-group-card-grp-other').className).toContain('bg-emerald-50');
+    expect(screen.getByTestId('coefficient-group-icon-grp-seed')).toHaveAttribute('aria-hidden', 'true');
+    // the icon takes no name from the group: the button is still found and opened by its text
+    expect(screen.getByRole('button', { name: /Dostęp do powierzchni/ })).toBe(screen.getByTestId('coefficient-group-toggle-grp-seed'));
+  });
+
   it('combines options from different groups additively and previews the effective price', async () => {
     const { props } = renderModal();
     await choose('grp-height', /wysoka/);

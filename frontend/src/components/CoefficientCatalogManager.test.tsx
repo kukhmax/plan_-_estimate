@@ -72,6 +72,21 @@ describe('CoefficientCatalogManager', () => {
     });
   });
 
+  it('shows each group with an icon and a colour of its own, a group of the owner too', async () => {
+    const seed = { ...group, id: 'grp-seed', code: 'WYSOKOSC_PRACY', display_name: 'Wysokość pracy' };
+    const custom = { ...group, id: 'grp-custom', code: 'CUSTOM_A1B2C3D4E5F6', display_name: 'Moja grupa', options: [] };
+    vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({ items: [seed, custom], total: 2 });
+    renderManager();
+    await screen.findByText('Wysokość pracy');
+    expect(screen.getByTestId('coefficient-catalog-group-icon-grp-seed')).toHaveTextContent('🪜');
+    expect(screen.getByTestId('coefficient-catalog-group-card-grp-seed').className).toContain('bg-sky-50');
+    expect(screen.getByTestId('coefficient-catalog-group-icon-grp-custom')).toHaveTextContent(/\S/);
+    expect(screen.getByTestId('coefficient-catalog-group-card-grp-custom').className).not.toContain('bg-sky-50');
+    // the icon is decoration: the group is still named and opened by its name, and the toggle keeps its touch target
+    expect(screen.getByTestId('coefficient-catalog-group-icon-grp-seed')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByTestId('coefficient-catalog-group-toggle-grp-seed').className).toContain('min-h-[44px]');
+  });
+
   it('creates an option, normalizing a Polish decimal comma', async () => {
     vi.mocked(coefficientsApi.createCoefficientOption).mockResolvedValue(group.options[0]);
     renderManager();
