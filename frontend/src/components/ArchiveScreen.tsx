@@ -4,6 +4,7 @@ import { ApiError } from '../api/http';
 import { fetchClients, restoreClient } from '../api/clients';
 import { fetchProjects, restoreProject } from '../api/projects';
 import { restoreRoom } from '../api/rooms';
+import { fetchRoomPurgePreview, fetchSurfacePurgePreview, purgeRoom, purgeSurface } from '../api/structurePurge';
 import { restoreSurface } from '../api/surfaces';
 import { useI18n } from '../hooks/useI18n';
 import { ClientType } from '../types/client';
@@ -11,6 +12,7 @@ import { ProjectType } from '../types/project';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { ArchiveClientDelete } from './ArchiveClientDelete';
 import { ArchiveProjectDelete } from './ArchiveProjectDelete';
+import { ArchiveStructureDelete } from './ArchiveStructureDelete';
 import { ArchivePhotos } from './ArchivePhotos';
 import { Ico } from './Ico';
 
@@ -46,6 +48,7 @@ export function ArchiveScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const [deletingStructureId, setDeletingStructureId] = useState<string | null>(null);
   // changes when an object is deleted: its photos went with it, so the photo tab reads its lists again
   const [photosKey, setPhotosKey] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
@@ -145,6 +148,7 @@ export function ArchiveScreen() {
           setError(null);
           setDeletingClientId(null);
           setDeletingProjectId(null);
+          setDeletingStructureId(null);
         }}
         className={`min-h-11 px-4 text-sm font-semibold rounded-xl transition ${
           tab === value ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -161,6 +165,32 @@ export function ArchiveScreen() {
       {busyId === id ? text.restoring : text.restore}
     </button>
   );
+
+  const deleteStructureButton = (ariaLabel: string, id: string) => (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      disabled={busyId !== null}
+      onClick={() => {
+        setNotice(null);
+        setError(null);
+        setDeletingStructureId(id);
+      }}
+      className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-red-300 text-red-700 transition disabled:opacity-50"
+    >
+      <Ico>🗑️</Ico>{text.client_delete}
+    </button>
+  );
+
+  // a room / surface was deleted for good: it leaves its list, the number goes down, and the photo tab reads its lists again
+  const afterStructureDeleted = (kind: 'rooms' | 'surfaces', id: string, storagePending: number) => {
+    setDeletingStructureId(null);
+    if (kind === 'rooms') setRooms((current) => (current ? current.filter((entry) => entry.id !== id) : current));
+    else setSurfaces((current) => (current ? current.filter((entry) => entry.id !== id) : current));
+    setStructureTotals((current) => (current ? { ...current, [kind]: Math.max(0, current[kind] - 1) } : current));
+    setNotice(storagePending > 0 ? text.structure_deleted_pending : kind === 'rooms' ? text.structure_deleted_room : text.structure_deleted_surface);
+    setPhotosKey((value) => value + 1);
+  };
 
   const retry = (onRetry: () => void, ariaLabel: string, message: string) => (
     <div className="space-y-2">
@@ -298,6 +328,18 @@ export function ArchiveScreen() {
                   <p className="font-semibold text-slate-900 text-sm break-words">{room.name}</p>
                   <p className="text-xs text-slate-500 break-words">{text.of_object.replace('{name}', room.project_name)}</p>
                   {restoreButton('rooms', room.id, `restore-room-${room.id}`)}
+                  {deletingStructureId === room.id ? (
+                    <ArchiveStructureDelete
+                      kind="ROOM"
+                      name={room.name}
+                      load={() => fetchRoomPurgePreview(room.project_id, room.id)}
+                      run={() => purgeRoom(room.project_id, room.id)}
+                      onCancel={() => setDeletingStructureId(null)}
+                      onDeleted={(result) => afterStructureDeleted('rooms', room.id, result.storage_pending)}
+                    />
+                  ) : (
+                    deleteStructureButton(`delete-room-${room.id}`, room.id)
+                  )}
                 </li>
               ))}
             </ul>
@@ -325,6 +367,18 @@ export function ArchiveScreen() {
                     {text.of_room.replace('{project}', surface.project_name).replace('{room}', surface.room_name)}
                   </p>
                   {restoreButton('surfaces', surface.id, `restore-surface-${surface.id}`)}
+                  {deletingStructureId === surface.id ? (
+                    <ArchiveStructureDelete
+                      kind="SURFACE"
+                      name={getSurfaceDisplayName({ name: surface.name, surface_type: surface.surface_type }, surfaceLabels)}
+                      load={() => fetchSurfacePurgePreview(surface.project_id, surface.room_id, surface.id)}
+                      run={() => purgeSurface(surface.project_id, surface.room_id, surface.id)}
+                      onCancel={() => setDeletingStructureId(null)}
+                      onDeleted={(result) => afterStructureDeleted('surfaces', surface.id, result.storage_pending)}
+                    />
+                  ) : (
+                    deleteStructureButton(`delete-surface-${surface.id}`, surface.id)
+                  )}
                 </li>
               ))}
             </ul>

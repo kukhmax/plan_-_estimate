@@ -20,6 +20,12 @@ vi.mock('../api/projects', () => ({
 vi.mock('../api/archiveStructure', () => ({ fetchArchivedStructure: vi.fn() }));
 vi.mock('../api/rooms', () => ({ restoreRoom: vi.fn() }));
 vi.mock('../api/surfaces', () => ({ restoreSurface: vi.fn() }));
+vi.mock('../api/structurePurge', () => ({
+  fetchRoomPurgePreview: vi.fn(),
+  purgeRoom: vi.fn(),
+  fetchSurfacePurgePreview: vi.fn(),
+  purgeSurface: vi.fn(),
+}));
 vi.mock('../api/photos', async () => ({
   ...(await vi.importActual<typeof import('../api/photos')>('../api/photos')),
   fetchPhotoArchive: vi.fn(),
@@ -32,6 +38,8 @@ import { ProjectPurgePreview } from '../api/projects';
 import { ProjectType } from '../types/project';
 import { restoreRoom } from '../api/rooms';
 import { restoreSurface } from '../api/surfaces';
+import { fetchRoomPurgePreview, fetchSurfacePurgePreview, purgeRoom, purgeSurface } from '../api/structurePurge';
+import { StructurePurgePreview } from '../api/structurePurge';
 
 const P1 = '11111111-1111-4111-8111-111111111111';
 const R1 = '22222222-2222-4222-8222-222222222222';
@@ -407,6 +415,158 @@ describe('ArchiveScreen: deleting an archived object for good (archive cleanup A
     await openPanel();
     expect(await screen.findByText('Помещения: 3')).toBeInTheDocument();
     expect(screen.getByText('Я понимаю, что это действие нельзя отменить.')).toBeInTheDocument();
+  });
+});
+
+describe('ArchiveScreen: deleting an archived room or surface for good (archive cleanup AC-4b)', () => {
+  const room = (over: Partial<StructurePurgePreview> = {}): StructurePurgePreview => ({
+    kind: 'ROOM', target_id: R1, name: 'Salon', archived: true, can_purge: true, surfaces: 4, openings: 2, inspections: 1, photos: 7, photo_files: 6,
+    bytes: 3 * 1024 * 1024, annotations: 3, estimate_lines: 0, may_be_in_backups: true, blockers: [], ...over,
+  });
+  const surface = (over: Partial<StructurePurgePreview> = {}): StructurePurgePreview => ({
+    ...room({ kind: 'SURFACE', target_id: 's1', name: 'Ściana 1', surfaces: 0, openings: 1, inspections: 0, photos: 2, photo_files: 2, annotations: 0 }), ...over,
+  });
+
+  it('a room: the server counts what goes, the deletion waits for the tick, then the room leaves the list', async () => {
+    vi.mocked(fetchRoomPurgePreview).mockResolvedValue(room());
+    vi.mocked(purgeRoom).mockResolvedValue({ purged: true, photo_files: 6, storage_pending: 0 });
+    renderScreen();
+    await openTab('rooms');
+    fireEvent.click(await screen.findByLabelText(`delete-room-${R1}`));
+    const lines = await screen.findByLabelText('structure-delete-lines');
+    expect(fetchRoomPurgePreview).toHaveBeenCalledWith(P1, R1);
+    expect(screen.getByText(/Z pomieszczenia „Salon” zostanie usunięte na zawsze/)).toBeInTheDocument();
+    for (const expected of ['Powierzchnie: 4', 'Otwory: 2', 'Badania: 1', 'Zdjęcia: 7; pliki w magazynie: 6 (3.1 MB)', 'Znaczniki na zdjęciach: 3']) {
+      expect(within(lines).getByText(expected, { exact: false })).toBeInTheDocument();
+    }
+    const confirm = screen.getByLabelText('structure-delete-confirm');
+    expect(confirm).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('structure-delete-understood'));
+    expect(confirm).not.toBeDisabled();
+    fireEvent.click(confirm);
+    await waitFor(() => expect(purgeRoom).toHaveBeenCalledWith(P1, R1));
+    await waitFor(() => expect(screen.queryByLabelText(`archived-room-${R1}`)).toBeNull());
+    expect(screen.getByLabelText('archive-count-rooms')).toHaveTextContent('(1)');
+    expect(screen.getByRole('status')).toHaveTextContent('Pomieszczenie usunięte.');
+    await waitFor(() => expect(vi.mocked(fetchPhotoArchive).mock.calls.length).toBeGreaterThan(1)); // its photos went with it
+  });
+
+  it('a surface: named in the current language, deleted in its room and object', async () => {
+    vi.mocked(fetchSurfacePurgePreview).mockResolvedValue(surface());
+    vi.mocked(purgeSurface).mockResolvedValue({ purged: true, photo_files: 2, storage_pending: 0 });
+    renderScreen();
+    await openTab('surfaces');
+    fireEvent.click(await screen.findByLabelText('delete-surface-s1'));
+    expect(await screen.findByText(/Z powierzchni „Ściana 1” zostanie usunięte na zawsze/)).toBeInTheDocument();
+    expect(fetchSurfacePurgePreview).toHaveBeenCalledWith(P1, 'room-9', 's1');
+    fireEvent.click(screen.getByLabelText('structure-delete-understood'));
+    fireEvent.click(screen.getByLabelText('structure-delete-confirm'));
+    await waitFor(() => expect(purgeSurface).toHaveBeenCalledWith(P1, 'room-9', 's1'));
+    await waitFor(() => expect(screen.queryByLabelText('archived-surface-s1')).toBeNull());
+    expect(screen.getByLabelText('archived-surface-s2')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Powierzchnia usunięta.');
+  });
+
+  it('a document that is not archived holds it: the reasons are told, no tick, no confirm button', async () => {
+    vi.mocked(fetchRoomPurgePreview).mockResolvedValue(room({
+      can_purge: false,
+      blockers: [{ kind: 'ACCEPTANCE', protocol_id: 'a', status: 'DRAFT' }, { kind: 'ADJACENT_WORK', protocol_id: 'b', status: 'ACTIVE' }, { kind: 'CONCEALED_WORKS', protocol_id: 'c', status: 'ISSUED' }],
+    }));
+    renderScreen();
+    await openTab('rooms');
+    fireEvent.click(await screen.findByLabelText(`delete-room-${R1}`));
+    const alert = await screen.findByRole('alert');
+    for (const expected of ['protokół odbioru', 'prace sąsiednich branż', 'protokół robót zanikających', 'Zarchiwizuj ten dokument']) {
+      expect(alert).toHaveTextContent(expected);
+    }
+    expect(screen.queryByLabelText('structure-delete-confirm')).toBeNull();
+    expect(screen.queryByLabelText('structure-delete-understood')).toBeNull();
+    expect(purgeRoom).not.toHaveBeenCalled();
+  });
+
+  it('"Anuluj" deletes nothing; the estimate lines that stay are said', async () => {
+    vi.mocked(fetchSurfacePurgePreview).mockResolvedValue(surface({ estimate_lines: 5 }));
+    renderScreen();
+    await openTab('surfaces');
+    fireEvent.click(await screen.findByLabelText('delete-surface-s1'));
+    expect(await screen.findByText(/Pozycje kosztorysów: 5/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('structure-delete-cancel'));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(purgeSurface).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('archived-surface-s1')).toBeInTheDocument();
+  });
+
+  it('the files that are still in the storage are said', async () => {
+    vi.mocked(fetchRoomPurgePreview).mockResolvedValue(room());
+    vi.mocked(purgeRoom).mockResolvedValue({ purged: true, photo_files: 6, storage_pending: 6 });
+    renderScreen();
+    await openTab('rooms');
+    fireEvent.click(await screen.findByLabelText(`delete-room-${R1}`));
+    fireEvent.click(await screen.findByLabelText('structure-delete-understood'));
+    fireEvent.click(screen.getByLabelText('structure-delete-confirm'));
+    expect(await screen.findByText('Usunięte. Pliki zdjęć w magazynie zostaną usunięte przy ponowieniu.')).toBeInTheDocument();
+  });
+
+  it('a photo that appeared meanwhile: nothing is deleted, the owner is told, the count is read again and the tick is taken back', async () => {
+    vi.mocked(fetchRoomPurgePreview).mockResolvedValue(room());
+    vi.mocked(purgeRoom).mockRejectedValue(new ApiError('changed', 409, 'STRUCTURE_PURGE_CONFLICT'));
+    renderScreen();
+    await openTab('rooms');
+    fireEvent.click(await screen.findByLabelText(`delete-room-${R1}`));
+    fireEvent.click(await screen.findByLabelText('structure-delete-understood'));
+    fireEvent.click(screen.getByLabelText('structure-delete-confirm'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nic nie usunięto');
+    expect(vi.mocked(fetchRoomPurgePreview).mock.calls.length).toBe(2);
+    expect(screen.getByLabelText('structure-delete-understood')).not.toBeChecked();
+    expect(screen.getByLabelText(`archived-room-${R1}`)).toBeInTheDocument();
+  });
+
+  it('a document that appeared meanwhile turns the panel into the blocked state; another failure keeps the room', async () => {
+    vi.mocked(fetchRoomPurgePreview).mockResolvedValueOnce(room());
+    vi.mocked(fetchRoomPurgePreview).mockResolvedValueOnce(room({ can_purge: false, blockers: [{ kind: 'DOWNTIME', protocol_id: 'z', status: 'NOTICED' }] }));
+    vi.mocked(purgeRoom).mockRejectedValueOnce(new ApiError('held', 409, 'STRUCTURE_PURGE_BLOCKED'));
+    renderScreen();
+    await openTab('rooms');
+    fireEvent.click(await screen.findByLabelText(`delete-room-${R1}`));
+    fireEvent.click(await screen.findByLabelText('structure-delete-understood'));
+    fireEvent.click(screen.getByLabelText('structure-delete-confirm'));
+    expect(await screen.findByText('przestój')).toBeInTheDocument();
+    expect(screen.queryByLabelText('structure-delete-confirm')).toBeNull();
+  });
+
+  it('another failure keeps the room and says the deletion did not work', async () => {
+    vi.mocked(fetchRoomPurgePreview).mockResolvedValue(room());
+    vi.mocked(purgeRoom).mockRejectedValue(new ApiError('boom', 0, 'NETWORK_ERROR'));
+    renderScreen();
+    await openTab('rooms');
+    fireEvent.click(await screen.findByLabelText(`delete-room-${R1}`));
+    fireEvent.click(await screen.findByLabelText('structure-delete-understood'));
+    fireEvent.click(screen.getByLabelText('structure-delete-confirm'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się usunąć.');
+    expect(screen.getByLabelText(`archived-room-${R1}`)).toBeInTheDocument();
+  });
+
+  it('the deletion cannot be confirmed before the server has answered', async () => {
+    let answer: (value: StructurePurgePreview) => void = () => undefined;
+    vi.mocked(fetchSurfacePurgePreview).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    renderScreen();
+    await openTab('surfaces');
+    fireEvent.click(await screen.findByLabelText('delete-surface-s1'));
+    expect(screen.getByRole('status')).toHaveTextContent('Sprawdzanie…');
+    fireEvent.click(screen.getByLabelText('structure-delete-confirm'));
+    expect(purgeSurface).not.toHaveBeenCalled();
+    answer(surface());
+    await waitFor(() => expect(screen.getByLabelText('structure-delete-understood')).toBeInTheDocument());
+  });
+
+  it('the Russian texts of the deletion of a room', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(fetchRoomPurgePreview).mockResolvedValue(room());
+    renderScreen();
+    await openTab('rooms');
+    fireEvent.click(await screen.findByLabelText(`delete-room-${R1}`));
+    expect(await screen.findByText(/Из помещения «Salon» будет удалено навсегда/)).toBeInTheDocument();
+    expect(screen.getByText('Поверхности: 4')).toBeInTheDocument();
   });
 });
 

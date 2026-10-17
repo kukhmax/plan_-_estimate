@@ -984,3 +984,25 @@ class ProjectPurgeConflictError(Exception):
     """The object changed while it was being deleted (a photo was added meanwhile); nothing was deleted (archive cleanup AC-5b)."""
 
     code = "PROJECT_PURGE_CONFLICT"
+
+
+class StructureNotArchivedError(Exception):
+    """A room or a surface can be deleted for good only from the archive (archive cleanup AC-4b)."""
+
+    code = "STRUCTURE_NOT_ARCHIVED"
+
+
+class StructurePurgeBlockedError(Exception):
+    """A document of the object that is not archived still points to the room / surface (or to one of its photos) (archive cleanup AC-4b)."""
+
+    code = "STRUCTURE_PURGE_BLOCKED"
+
+    def __init__(self, blockers: list) -> None:
+        super().__init__("a document still points to this room / surface")
+        self.blockers = blockers
+
+
+class StructurePurgeConflictError(Exception):
+    """The room / surface changed while it was being deleted (a photo was added meanwhile); nothing was deleted (archive cleanup AC-4b)."""
+
+    code = "STRUCTURE_PURGE_CONFLICT"

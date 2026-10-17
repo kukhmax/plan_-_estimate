@@ -79,3 +79,19 @@ def object_blockers(documents: Iterable[DocumentRef]) -> list[Blocker]:
         for ref in documents
         if ref.status in OBJECT_BLOCKING_STATUSES.get(ref.kind, frozenset())
     ]
+
+
+# -- the final deletion of a room or a surface (archive cleanup AC-4b) ---------------------------------------------------------------------
+
+def structure_blockers(documents: Iterable[DocumentRef]) -> list[Blocker]:
+    """The documents that still point to the room / surface and so forbid deleting it: every one that is not ARCHIVED (a draft, an issued
+    protocol, a notice, a work of an adjacent trade that is in force). The caller gives only the documents that point to it. An archived
+    document keeps its snapshot and no longer holds anything -- the same rule as for the photos of a protocol (AC-2)."""
+    seen: set[tuple[str, uuid.UUID]] = set()
+    found: list[Blocker] = []
+    for ref in documents:
+        if ref.status == BLOCKING_EXCEPT_STATUS or (ref.kind, ref.id) in seen:
+            continue
+        seen.add((ref.kind, ref.id))
+        found.append(Blocker(ref.kind, ref.id, ref.status))
+    return found

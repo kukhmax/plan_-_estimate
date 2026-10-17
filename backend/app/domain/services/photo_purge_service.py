@@ -174,6 +174,10 @@ class PhotoPurgeService:
     async def _count(self, model: type, *conditions) -> int:
         return (await self.db.execute(select(func.count()).select_from(model).where(*conditions))).scalar_one()
 
+    async def protocol_refs(self, project_id: uuid.UUID) -> list[ProtocolRef]:
+        """The protocols of the object that point to photos (used by the deletion of a room / surface too)."""
+        return await self._protocol_refs(project_id)
+
     async def _protocol_refs(self, project_id: uuid.UUID) -> list[ProtocolRef]:
         refs: list[ProtocolRef] = []
         for row in (await self.db.execute(select(ConcealedWorksProtocol).where(ConcealedWorksProtocol.project_id == project_id))).scalars():
