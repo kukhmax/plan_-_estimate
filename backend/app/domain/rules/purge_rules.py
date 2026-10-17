@@ -48,3 +48,34 @@ def photo_blockers(attachment_id: uuid.UUID, protocols: Iterable[ProtocolRef]) -
         for ref in protocols
         if ref.status != BLOCKING_EXCEPT_STATUS and wanted in ref.photo_ids
     ]
+
+
+# -- the final deletion of an object (archive cleanup AC-5b) ----------------------------------------------------------------------------
+
+# What an object keeps once a document has gone out to the client: an issued or signed contract, an issued protocol, a downtime notice
+# that was given or closed. They are evidence (the warranty, a dispute over quality), so such an object is only archived, never deleted.
+# DRAFT and ARCHIVED documents do not block: they are deleted with the object. The set is the owner's decision Q2 of the plan.
+OBJECT_BLOCKING_STATUSES: dict[str, frozenset[str]] = {
+    "CONTRACT": frozenset({"ISSUED", "SIGNED"}),
+    "HANDOVER": frozenset({"ISSUED"}),
+    "CONCEALED_WORKS": frozenset({"ISSUED"}),
+    "DECISION": frozenset({"ISSUED"}),
+    "ACCEPTANCE": frozenset({"ISSUED"}),
+    "DOWNTIME": frozenset({"NOTICED", "CLOSED"}),
+}
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentRef:
+    kind: str  # a key of OBJECT_BLOCKING_STATUSES
+    id: uuid.UUID
+    status: str
+
+
+def object_blockers(documents: Iterable[DocumentRef]) -> list[Blocker]:
+    """The documents of an object that forbid deleting it (an unknown kind blocks nothing: the caller names only the known kinds)."""
+    return [
+        Blocker(ref.kind, ref.id, ref.status)
+        for ref in documents
+        if ref.status in OBJECT_BLOCKING_STATUSES.get(ref.kind, frozenset())
+    ]

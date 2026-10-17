@@ -10,6 +10,7 @@ import { ClientType } from '../types/client';
 import { ProjectType } from '../types/project';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { ArchiveClientDelete } from './ArchiveClientDelete';
+import { ArchiveProjectDelete } from './ArchiveProjectDelete';
 import { ArchivePhotos } from './ArchivePhotos';
 import { Ico } from './Ico';
 
@@ -44,6 +45,9 @@ export function ArchiveScreen() {
   const [structureFailed, setStructureFailed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  // changes when an object is deleted: its photos went with it, so the photo tab reads its lists again
+  const [photosKey, setPhotosKey] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,6 +144,7 @@ export function ArchiveScreen() {
           setNotice(null);
           setError(null);
           setDeletingClientId(null);
+          setDeletingProjectId(null);
         }}
         className={`min-h-11 px-4 text-sm font-semibold rounded-xl transition ${
           tab === value ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -187,7 +192,7 @@ export function ArchiveScreen() {
       {error && <p role="alert" className="text-sm text-red-600 break-words">{error}</p>}
 
       {/* the photos load by themselves (and stay mounted, so the count of the tab is there before it is opened) */}
-      <ArchivePhotos active={tab === 'photos'} onTotals={setPhotoTotals} />
+      <ArchivePhotos key={photosKey} active={tab === 'photos'} onTotals={setPhotoTotals} />
 
       {tab !== 'photos' && !structureTab && loadFailed && retry(() => void load(), 'archive-retry', text.error_load)}
       {structureTab && structureFailed && retry(() => void load(), 'archive-retry', text.error_load)}
@@ -247,6 +252,35 @@ export function ArchiveScreen() {
                 <p className="font-semibold text-slate-900 text-sm break-words">{project.name}</p>
                 <p className="text-xs text-slate-500 break-words">{[project.address, project.city].filter(Boolean).join(', ')}</p>
                 {restoreButton('projects', project.id, `restore-project-${project.id}`)}
+                {deletingProjectId === project.id ? (
+                  <ArchiveProjectDelete
+                    projectId={project.id}
+                    projectName={project.name}
+                    onCancel={() => setDeletingProjectId(null)}
+                    onDeleted={(result) => {
+                      setDeletingProjectId(null);
+                      setProjects((current) => (current ? current.filter((entry) => entry.id !== project.id) : current));
+                      setNotice(result.storage_pending > 0 ? text.project_deleted_pending : text.project_deleted);
+                      // the rooms, surfaces and photos of the object went with it: read the lists again
+                      setPhotosKey((value) => value + 1);
+                      void load();
+                    }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={`delete-project-${project.id}`}
+                    disabled={busyId !== null}
+                    onClick={() => {
+                      setNotice(null);
+                      setError(null);
+                      setDeletingProjectId(project.id);
+                    }}
+                    className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-red-300 text-red-700 transition disabled:opacity-50"
+                  >
+                    <Ico>🗑️</Ico>{text.project_delete}
+                  </button>
+                )}
               </li>
             ))}
           </ul>

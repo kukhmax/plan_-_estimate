@@ -11,7 +11,12 @@ vi.mock('../api/clients', () => ({
   fetchClientDeletePreview: vi.fn(),
   deleteClient: vi.fn(),
 }));
-vi.mock('../api/projects', () => ({ fetchProjects: vi.fn(), restoreProject: vi.fn() }));
+vi.mock('../api/projects', () => ({
+  fetchProjects: vi.fn(),
+  restoreProject: vi.fn(),
+  fetchProjectPurgePreview: vi.fn(),
+  purgeProject: vi.fn(),
+}));
 vi.mock('../api/archiveStructure', () => ({ fetchArchivedStructure: vi.fn() }));
 vi.mock('../api/rooms', () => ({ restoreRoom: vi.fn() }));
 vi.mock('../api/surfaces', () => ({ restoreSurface: vi.fn() }));
@@ -22,7 +27,9 @@ vi.mock('../api/photos', async () => ({
 import { fetchArchivedStructure } from '../api/archiveStructure';
 import { deleteClient, fetchClientDeletePreview, fetchClients, restoreClient } from '../api/clients';
 import { fetchPhotoArchive } from '../api/photos';
-import { fetchProjects } from '../api/projects';
+import { fetchProjectPurgePreview, fetchProjects, purgeProject } from '../api/projects';
+import { ProjectPurgePreview } from '../api/projects';
+import { ProjectType } from '../types/project';
 import { restoreRoom } from '../api/rooms';
 import { restoreSurface } from '../api/surfaces';
 
@@ -252,3 +259,154 @@ describe('ArchiveScreen: deleting an archived client for good (archive cleanup A
     expect(screen.getByText('Это действие нельзя отменить.')).toBeInTheDocument();
   });
 });
+
+describe('ArchiveScreen: deleting an archived object for good (archive cleanup AC-5b)', () => {
+  const project = (id: string, name = 'Mieszkanie Mokotów'): ProjectType => ({
+    id, owner_id: 'x', client_id: null, name, address: 'ul. Dobra 10', city: 'Warszawa', postal_code: '00-001', description: null,
+    status: 'PLANNING', is_archived: true, created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z',
+  } as ProjectType);
+  const full = (over: Partial<ProjectPurgePreview> = {}): ProjectPurgePreview => ({
+    project_id: 'p1', name: 'Mieszkanie Mokotów', archived: true, can_purge: true, rooms: 3, surfaces: 14, openings: 5, inspections: 2, estimates: 1,
+    documents: 4, sent_documents: 0, photos: 12, photo_files: 11, bytes: 5 * 1024 * 1024, annotations: 6, may_be_in_backups: true, blockers: [], ...over,
+  });
+  const openPanel = async () => {
+    fireEvent.click(await screen.findByLabelText('archive-tab-projects'));
+    fireEvent.click(await screen.findByLabelText('delete-project-p1'));
+  };
+
+  beforeEach(() => {
+    vi.mocked(fetchProjects).mockResolvedValue({ items: [project('p1'), project('p2', 'Dom')], total: 2 });
+  });
+
+  it('shows what the server counted, and the deletion waits for the tick and the button', async () => {
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValue(full({ sent_documents: 2 }));
+    // after the deletion the server no longer has the object: the lists that are read again do not hold it
+    vi.mocked(purgeProject).mockImplementation(async () => {
+      vi.mocked(fetchProjects).mockResolvedValue({ items: [project('p2', 'Dom')], total: 1 });
+      return { purged: true, photo_files: 11, storage_pending: 0 };
+    });
+    renderScreen();
+    await openPanel();
+    const lines = await screen.findByLabelText('project-delete-lines');
+    expect(fetchProjectPurgePreview).toHaveBeenCalledWith('p1');
+    for (const expected of ['Pomieszczenia: 3', 'Powierzchnie: 14', 'Otwory: 5', 'Badania: 2', 'Kosztorysy: 1', 'Umowy i protokoły: 4', 'Zdjęcia: 12; pliki w magazynie: 11 (5.2 MB)', 'Znaczniki na zdjęciach: 6']) {
+      expect(within(lines).getByText(expected, { exact: false })).toBeInTheDocument();
+    }
+    expect(screen.getByText(/Wysłane dokumenty: 2/)).toBeInTheDocument();
+    expect(screen.getByText(/osobny krok właściciela/)).toBeInTheDocument();
+    const confirm = screen.getByLabelText('project-delete-confirm');
+    expect(confirm).toBeDisabled();
+    fireEvent.click(confirm);
+    expect(purgeProject).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByLabelText('project-delete-understood'));
+    expect(confirm).not.toBeDisabled();
+    fireEvent.click(confirm);
+    await waitFor(() => expect(purgeProject).toHaveBeenCalledWith('p1'));
+    await waitFor(() => expect(screen.queryByLabelText('archived-project-p1')).toBeNull());
+    expect(screen.getByLabelText('archived-project-p2')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Obiekt usunięty.');
+    // the lists are read again: the rooms and the photos of the object went with it
+    await waitFor(() => expect(vi.mocked(fetchArchivedStructure).mock.calls.length).toBeGreaterThan(1));
+    await waitFor(() => expect(vi.mocked(fetchPhotoArchive).mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it('the files that are still in the storage are said, so the owner knows a retry follows', async () => {
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValue(full());
+    vi.mocked(purgeProject).mockResolvedValue({ purged: true, photo_files: 11, storage_pending: 11 });
+    renderScreen();
+    await openPanel();
+    fireEvent.click(await screen.findByLabelText('project-delete-understood'));
+    fireEvent.click(screen.getByLabelText('project-delete-confirm'));
+    expect(await screen.findByText('Obiekt usunięty. Pliki zdjęć w magazynie zostaną usunięte przy ponowieniu.')).toBeInTheDocument();
+  });
+
+  it('an object held by an issued or signed document cannot be deleted: the reasons are told, no tick, no confirm button', async () => {
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValue(full({
+      can_purge: false,
+      blockers: [{ kind: 'CONTRACT', protocol_id: 'a', status: 'SIGNED' }, { kind: 'DOWNTIME', protocol_id: 'b', status: 'NOTICED' }],
+    }));
+    renderScreen();
+    await openPanel();
+    expect(await screen.findByRole('alert')).toHaveTextContent('wydana lub podpisana umowa');
+    expect(screen.getByRole('alert')).toHaveTextContent('zgłoszony lub zamknięty przestój');
+    expect(screen.getByRole('alert')).toHaveTextContent('można tylko zarchiwizować');
+    expect(screen.queryByLabelText('project-delete-confirm')).toBeNull();
+    expect(screen.queryByLabelText('project-delete-understood')).toBeNull();
+    expect(purgeProject).not.toHaveBeenCalled();
+  });
+
+  it('"Anuluj" deletes nothing', async () => {
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValue(full());
+    renderScreen();
+    await openPanel();
+    fireEvent.click(await screen.findByLabelText('project-delete-cancel'));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(purgeProject).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('archived-project-p1')).toBeInTheDocument();
+  });
+
+  it('an object that is not archived (the server says so) cannot be confirmed', async () => {
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValue(full({ archived: false, can_purge: false }));
+    renderScreen();
+    await openPanel();
+    fireEvent.click(await screen.findByLabelText('project-delete-understood'));
+    expect(screen.getByLabelText('project-delete-confirm')).toBeDisabled();
+  });
+
+  it('a photo that appeared meanwhile: nothing is deleted, the owner is told, the count is read again and the tick is taken back', async () => {
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValue(full());
+    vi.mocked(purgeProject).mockRejectedValue(new ApiError('changed', 409, 'PROJECT_PURGE_CONFLICT'));
+    renderScreen();
+    await openPanel();
+    fireEvent.click(await screen.findByLabelText('project-delete-understood'));
+    fireEvent.click(screen.getByLabelText('project-delete-confirm'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nic nie usunięto');
+    expect(vi.mocked(fetchProjectPurgePreview).mock.calls.length).toBe(2);
+    expect(screen.getByLabelText('project-delete-understood')).not.toBeChecked();
+    expect(screen.getByLabelText('archived-project-p1')).toBeInTheDocument();
+  });
+
+  it('a document issued meanwhile turns the panel into the blocked state', async () => {
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValueOnce(full());
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValueOnce(full({ can_purge: false, blockers: [{ kind: 'ACCEPTANCE', protocol_id: 'z', status: 'ISSUED' }] }));
+    vi.mocked(purgeProject).mockRejectedValue(new ApiError('held', 409, 'PROJECT_PURGE_BLOCKED'));
+    renderScreen();
+    await openPanel();
+    fireEvent.click(await screen.findByLabelText('project-delete-understood'));
+    fireEvent.click(screen.getByLabelText('project-delete-confirm'));
+    expect(await screen.findByText('wydany protokół odbioru')).toBeInTheDocument();
+    expect(screen.queryByLabelText('project-delete-confirm')).toBeNull();
+  });
+
+  it('another failure keeps the object and says the deletion did not work', async () => {
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValue(full());
+    vi.mocked(purgeProject).mockRejectedValue(new ApiError('boom', 0, 'NETWORK_ERROR'));
+    renderScreen();
+    await openPanel();
+    fireEvent.click(await screen.findByLabelText('project-delete-understood'));
+    fireEvent.click(screen.getByLabelText('project-delete-confirm'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się usunąć obiektu.');
+    expect(screen.getByLabelText('archived-project-p1')).toBeInTheDocument();
+  });
+
+  it('an empty object says it is empty', async () => {
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValue(full({
+      rooms: 0, surfaces: 0, openings: 0, inspections: 0, estimates: 0, documents: 0, photos: 0, photo_files: 0, bytes: 0, annotations: 0, may_be_in_backups: false,
+    }));
+    renderScreen();
+    await openPanel();
+    expect(await screen.findByText(/Obiekt jest pusty/)).toBeInTheDocument();
+    expect(screen.queryByText(/osobny krok właściciela/)).toBeNull();
+  });
+
+  it('the Russian texts of the deletion of an object', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(fetchProjectPurgePreview).mockResolvedValue(full({ blockers: [] }));
+    renderScreen();
+    await openPanel();
+    expect(await screen.findByText('Помещения: 3')).toBeInTheDocument();
+    expect(screen.getByText('Я понимаю, что это действие нельзя отменить.')).toBeInTheDocument();
+  });
+});
+

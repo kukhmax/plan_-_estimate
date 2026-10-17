@@ -962,3 +962,25 @@ class ClientIdConflictError(Exception):
     """An id chosen by the client is already used by a different record (Stage 19C)."""
 
     code = "CLIENT_ID_CONFLICT"
+
+
+class ProjectNotArchivedError(Exception):
+    """An object can be deleted for good only from the archive (archive cleanup AC-5b)."""
+
+    code = "PROJECT_NOT_ARCHIVED"
+
+
+class ProjectPurgeBlockedError(Exception):
+    """An issued / signed document of the object forbids deleting it (archive cleanup AC-5b). `blockers` names the documents."""
+
+    code = "PROJECT_PURGE_BLOCKED"
+
+    def __init__(self, blockers: list) -> None:
+        super().__init__("an issued document of this object forbids deleting it")
+        self.blockers = blockers
+
+
+class ProjectPurgeConflictError(Exception):
+    """The object changed while it was being deleted (a photo was added meanwhile); nothing was deleted (archive cleanup AC-5b)."""
+
+    code = "PROJECT_PURGE_CONFLICT"
