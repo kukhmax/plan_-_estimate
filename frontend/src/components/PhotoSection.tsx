@@ -87,6 +87,7 @@ function buildTarget(
     surfaceId: context === 'SURFACE' || context === 'WORK' ? targetId : undefined,
     openingId: context === 'OPENING' ? targetId : undefined,
     occurrenceKey: context === 'WORK' ? occurrenceKey : undefined,
+    paymentId: context === 'PAYMENT' ? targetId : undefined,
     category: context === 'WORK' ? category : undefined,
   };
 }
@@ -144,7 +145,9 @@ export function PhotoSection({
                 : { context, findingId: targetId }
               : context === 'WORK'
                 ? { context, surfaceId: targetId, occurrenceKey }
-                : {
+                : context === 'PAYMENT'
+                  ? { context, paymentId: targetId }
+                  : {
                     context,
                     surfaceId: context === 'SURFACE' ? targetId : undefined,
                     openingId: context === 'OPENING' ? targetId : undefined,

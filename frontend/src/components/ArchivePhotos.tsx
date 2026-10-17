@@ -85,6 +85,8 @@ export function ArchivePhotos({ active, onTotals }: ArchivePhotosProps) {
         const kind = place.opening_type === 'DOOR' ? t.openings.door : place.opening_type === 'WINDOW' ? t.openings.window : t.openings.other;
         segments.push(place.opening_name ? `${kind} (${place.opening_name})` : kind);
       }
+      // a receipt or an invoice: the object, then the settlements, then the record it belongs to (IA-3)
+      if (place.payment_title) segments.push(t.payments.title, place.payment_title);
       // the segments the context does not have are left out (an object photo has no room), not shown as unknown
       const known = segments.filter((segment): segment is string => Boolean(segment && segment.trim()));
       return buildCaptionLine(buildLocationPath(known, t.photos.caption), item.asset, t.photos.caption);

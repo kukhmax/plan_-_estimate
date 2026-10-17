@@ -29,7 +29,7 @@ import {
 } from '../api/photos';
 
 const OTHER_PROJECT = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
-const NO_PLACE: PhotoPlace = { room_name: null, surface_name: null, surface_type: null, opening_type: null, opening_name: null };
+const NO_PLACE: PhotoPlace = { room_name: null, surface_name: null, surface_type: null, opening_type: null, opening_name: null, payment_title: null, payment_kind: null };
 
 function archived(
   over: { project_id?: string; project_name?: string; place?: Partial<PhotoPlace>; trashed?: boolean; annotation_count?: number } = {},
@@ -195,5 +195,27 @@ describe('ArchivePhotos (archive cleanup AC-3a)', () => {
     expect(screen.getByRole('button', { name: 'Архив (1)' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Корзина (0)' })).toBeInTheDocument();
     expect(within(screen.getByLabelText('archive-photos')).getByText(/Откройте фото, чтобы восстановить его/)).toBeInTheDocument();
+  });
+
+  it('names a receipt by its object, the settlements and its record: no room, no surface (IA-3)', async () => {
+    vi.mocked(fetchPhotoArchive).mockResolvedValue(
+      page([
+        archived({
+          place: { room_name: null, surface_name: null, surface_type: null, payment_title: 'Farba i grunt', payment_kind: 'EXPENSE' },
+        }),
+      ]),
+    );
+    renderPhotos();
+    expect(await screen.findByRole('button', { name: /Mieszkanie Mokotów → Faktury i zaliczki → Farba i grunt → 23\.06\.2026/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Salon/ })).toBeNull();
+  });
+
+  it('says the same in Russian (IA-3)', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(fetchPhotoArchive).mockResolvedValue(
+      page([archived({ place: { room_name: null, surface_name: null, surface_type: null, payment_title: 'Краска', payment_kind: 'EXPENSE' } })]),
+    );
+    renderPhotos();
+    expect(await screen.findByRole('button', { name: /Mieszkanie Mokotów → Фактуры и авансы → Краска/ })).toBeInTheDocument();
   });
 });

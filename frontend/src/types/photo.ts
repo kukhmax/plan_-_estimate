@@ -15,8 +15,8 @@ export const PHOTO_CATEGORIES = [
 ] as const;
 export type PhotoCategory = (typeof PHOTO_CATEGORIES)[number];
 
-// The site contexts of the 14E UI, the inspection evidence of 14F and the execution evidence (WORK) of 14H.
-export const PHOTO_CONTEXTS = ['PROJECT', 'ROOM', 'SURFACE', 'OPENING', 'INSPECTION', 'FINDING', 'WORK'] as const;
+// The site contexts of the 14E UI, the inspection evidence of 14F, the execution evidence (WORK) of 14H and the receipts and invoices (PAYMENT) of the settlements (IA-3).
+export const PHOTO_CONTEXTS = ['PROJECT', 'ROOM', 'SURFACE', 'OPENING', 'INSPECTION', 'FINDING', 'WORK', 'PAYMENT'] as const;
 export type PhotoContext = (typeof PHOTO_CONTEXTS)[number];
 
 export type PhotoCaptureSource = 'CAMERA' | 'GALLERY';
@@ -56,6 +56,8 @@ export interface PhotoAttachmentRead {
   /** Execution evidence (Stage 14H.1): a WORK photo names its surface and the Stage 13 occurrence of the plan, plus the operation snapshotted when it was taken. */
   occurrence_key: string | null;
   price_item_id: string | null;
+  /** A receipt or an invoice photographed for a settlement record (IA-3). */
+  payment_id?: string | null;
   category: PhotoCategory;
   caption: string | null;
   include_in_report: boolean;
@@ -82,6 +84,9 @@ export interface PhotoPlace {
   surface_type: SurfaceTypeValue | null;
   opening_type: OpeningTypeValue | null;
   opening_name: string | null;
+  /** A photo of a receipt or an invoice (IA-3): the record it belongs to. */
+  payment_title?: string | null;
+  payment_kind?: string | null;
 }
 
 /** A photo of the archive / trash page, with the object it belongs to. */
@@ -177,6 +182,8 @@ export interface PhotoCounts {
   inspection_surfaces: Record<string, number>;
   /** The same for an inspection of a whole floor / ceiling (no surface): room id → plane → count (Stage 14H.6). */
   inspection_planes: Record<string, Record<string, number>>;
+  /** Photos of receipts and invoices per settlement record (IA-3); never part of the site numbers above. */
+  payments?: Record<string, number>;
 }
 
 export interface PhotoListParams {
@@ -194,6 +201,8 @@ export interface PhotoListParams {
   lineageId?: string;
   /** WORK: with `surfaceId`, one occurrence of the surface's work plan (without it: every occurrence of the surface, detached ones included). */
   occurrenceKey?: string;
+  /** PAYMENT: the photos of one settlement record. */
+  paymentId?: string;
   /** Only the site contexts (object, room, surface, opening): the object-wide list, without inspection evidence. */
   siteOnly?: boolean;
   category?: PhotoCategory;
@@ -221,6 +230,7 @@ export interface PhotoAttachPayload {
   question_id?: string;
   finding_id?: string;
   occurrence_key?: string;
+  payment_id?: string;
   category?: PhotoCategory;
   caption?: string | null;
   include_in_report?: boolean;
@@ -241,6 +251,8 @@ export interface PhotoTarget {
   lineageId?: string;
   /** WORK: the planned work (with `surfaceId`) the photo documents. */
   occurrenceKey?: string;
+  /** PAYMENT: the settlement record whose receipt or invoice this is. */
+  paymentId?: string;
   /** Category sent with the upload when the host suggests one (Realizacja: by the work's status); never part of the identity. */
   category?: PhotoCategory;
 }

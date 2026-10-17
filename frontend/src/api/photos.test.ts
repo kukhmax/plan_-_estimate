@@ -90,6 +90,8 @@ describe('photos JSON API', () => {
       surface_id: 'S1',
       occurrence_key: 'K1',
     });
+    await fetchPhotos(PROJECT, { context: 'PAYMENT', paymentId: 'P1', archived: false });
+    expect(Object.fromEntries(new URLSearchParams(lastCall().url.split('?')[1]))).toEqual({ context: 'PAYMENT', payment_id: 'P1', archived: 'false' });
     await fetchPhotos(PROJECT, { siteOnly: true });
     expect(Object.fromEntries(new URLSearchParams(lastCall().url.split('?')[1]))).toEqual({ site_only: 'true' });
     await fetchPhotos(PROJECT, { siteOnly: false });

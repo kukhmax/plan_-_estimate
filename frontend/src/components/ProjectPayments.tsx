@@ -6,6 +6,7 @@ import { localizeApiError } from '../utils/apiErrors';
 import { formatDay, formatMoney, positiveAmount, tabOf, toInput, type PaymentTab } from '../utils/paymentFormat';
 import { Ico } from './Ico';
 import { PaymentForm } from './PaymentForm';
+import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 
 interface ProjectPaymentsProps {
   projectId: string;
@@ -181,15 +182,20 @@ function PaymentCard({ payment, busy, onEdit, onArchive }: { payment: Payment; b
   if (payment.kind === 'EXPENSE' && payment.document_kind) meta.push(text.document_kind[payment.document_kind]);
   return (
     <li aria-label={`payment-${payment.id}`} className={`bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2 ${payment.is_archived ? 'opacity-70' : ''}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-slate-500">{text.kind[payment.kind]}</span>
-        {payment.is_archived && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">{t.common.archived_badge}</span>}
-        {payment.state && !payment.is_archived && (
-          <span aria-label={`payment-state-${payment.id}`} className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATE_STYLE[payment.state]}`}>
-            {text.state[payment.state]}
-          </span>
-        )}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <span className="text-xs font-semibold text-slate-500">{text.kind[payment.kind]}</span>
+          {payment.is_archived && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">{t.common.archived_badge}</span>}
+          {payment.state && !payment.is_archived && (
+            <span aria-label={`payment-state-${payment.id}`} className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATE_STYLE[payment.state]}`}>
+              {text.state[payment.state]}
+            </span>
+          )}
+        </div>
+        {/* the receipt or the invoice of the record: the photos of the object's own pipeline (IA-3) */}
+        <PhotoCardButton context="PAYMENT" targetId={payment.id} />
       </div>
+      <PhotoCardPanel context="PAYMENT" targetId={payment.id} locationSegments={[text.title, payment.title]} />
       <p className="text-sm font-semibold text-slate-900 break-words">{payment.title}</p>
       <p aria-label={`payment-amount-${payment.id}`} className="text-lg font-bold text-slate-900 break-words">{formatMoney(payment.amount_gross)}</p>
       <p className="text-xs text-slate-600 break-words">{meta.join(' · ')}</p>

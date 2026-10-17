@@ -5,7 +5,7 @@ import { PhotoContext, PhotoCounts } from '../types/photo';
 // Badge counts for the open project (contract §9): one request per workspace load, optimistic adjustments after
 // upload / archive / restore, refetch on demand.
 
-export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {} };
+export const EMPTY_PHOTO_COUNTS: PhotoCounts = { project: 0, rooms: {}, surfaces: {}, openings: {}, room_totals: {}, inspections: {}, findings: {}, lineages: {}, questions: {}, works: {}, work_surfaces: {}, inspection_surfaces: {}, inspection_planes: {}, payments: {} };
 
 /** Extra identity of an evidence target: the checklist question of a question-level photo and the lineage of a finding (Stage 14F), the planned work of a WORK photo (Stage 14H). */
 export interface PhotoCountScope {
@@ -42,6 +42,7 @@ export function photoCountFor(counts: PhotoCounts, context: PhotoContext, target
     // `targetId` is the surface: one planned work (its key) or, without a key, every execution photo of the surface.
     return scope.occurrenceKey ? (counts.works?.[scope.occurrenceKey] ?? 0) : (counts.work_surfaces?.[targetId] ?? 0);
   }
+  if (context === 'PAYMENT') return counts.payments?.[targetId] ?? 0; // receipts and invoices of a settlement record (IA-3)
   const bucket = context === 'ROOM' ? counts.rooms : context === 'SURFACE' ? counts.surfaces : counts.openings;
   return bucket[targetId] ?? 0;
 }
@@ -104,6 +105,10 @@ export function adjustPhotoCounts(
       work_surfaces: bump(counts.work_surfaces ?? {}, targetId, delta),
       ...(scope.occurrenceKey ? { works: bump(counts.works ?? {}, scope.occurrenceKey, delta) } : {}),
     };
+  }
+  if (context === 'PAYMENT') {
+    // A receipt never enters the site numbers of the object, a room or a surface.
+    return { ...counts, payments: bump(counts.payments ?? {}, targetId, delta) };
   }
   const key = context === 'ROOM' ? 'rooms' : context === 'SURFACE' ? 'surfaces' : 'openings';
   const owningRoom = context === 'ROOM' ? targetId : roomId;

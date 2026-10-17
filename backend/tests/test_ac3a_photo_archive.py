@@ -68,7 +68,10 @@ async def test_a_project_photo_has_no_place(api, http):
     made = await upload(api, context="PROJECT")
     await http.post(f"{base_of(api)}/photo-attachments/{made['attachment']['id']}/archive")
     place = (await archive(http))["items"][0]["place"]
-    assert place == {"room_name": None, "surface_name": None, "surface_type": None, "opening_type": None, "opening_name": None}
+    assert place == {
+        "room_name": None, "surface_name": None, "surface_type": None, "opening_type": None, "opening_name": None,
+        "payment_title": None, "payment_kind": None,
+    }
 
 
 async def test_the_trash_view_lists_only_the_trash_and_the_archive_view_leaves_it_out(api, http):

@@ -13,6 +13,8 @@ class PhotoPlaceRead(BaseModel):
     surface_type: str | None = None
     opening_type: str | None = None
     opening_name: str | None = None
+    payment_title: str | None = None  # IA-3: a photo of a receipt / an invoice: the record it belongs to
+    payment_kind: str | None = None
 
 
 class ArchivedPhotoItem(PhotoListItem):

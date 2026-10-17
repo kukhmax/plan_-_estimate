@@ -20,6 +20,7 @@ from app.models.opening import Opening
 from app.models.photo_asset import PhotoAsset, PhotoAssetStatus
 from app.models.photo_attachment import PhotoAttachment, PhotoAttachmentContext
 from app.models.project import Project
+from app.models.project_payment import ProjectPayment
 from app.models.room import Room
 from app.models.surface import Surface
 
@@ -36,6 +37,9 @@ class PhotoPlace:
     surface_type: str | None = None
     opening_type: str | None = None
     opening_name: str | None = None
+    # IA-3: the settlement record (a receipt or an invoice) a PAYMENT photo documents.
+    payment_title: str | None = None
+    payment_kind: str | None = None
 
 
 @dataclass(frozen=True)
@@ -124,6 +128,11 @@ class PhotoArchiveService:
         if opening_ids:
             openings = {o.id: o for o in (await self.db.execute(select(Opening).where(Opening.id.in_(opening_ids)))).scalars()}
 
+        payment_ids = {a.payment_id for a in attachments if a.payment_id}
+        payments: dict[uuid.UUID, ProjectPayment] = {}
+        if payment_ids:
+            payments = {p.id: p for p in (await self.db.execute(select(ProjectPayment).where(ProjectPayment.id.in_(payment_ids)))).scalars()}
+
         finding_ids = {a.finding_id for a in attachments if a.finding_id}
         finding_inspection: dict[uuid.UUID, uuid.UUID] = {}
         if finding_ids:
@@ -180,7 +189,10 @@ class PhotoArchiveService:
             rid, sid = room_id_of(a), surface_id_of(a)
             surface = surfaces.get(sid) if sid else None
             opening = openings.get(a.opening_id) if a.opening_id else None
+            payment = payments.get(a.payment_id) if a.payment_id else None
             result[a.id] = PhotoPlace(
+                payment_title=payment.title if payment else None,
+                payment_kind=payment.kind if payment else None,
                 room_name=rooms.get(rid) if rid else None,
                 surface_name=surface.name if surface else None,
                 surface_type=surface.surface_type.value if surface else None,

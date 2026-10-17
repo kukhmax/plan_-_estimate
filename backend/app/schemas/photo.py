@@ -66,6 +66,8 @@ class PhotoAttachmentRead(BaseModel):
     # (`occurrence_key`, no FK) plus the snapshot of the occurrence's operation (`price_item_id`, so a detached work stays labelled).
     occurrence_key: uuid.UUID | None
     price_item_id: uuid.UUID | None
+    # IA-3: a PAYMENT photo names the settlement record (a receipt or an invoice) it documents.
+    payment_id: uuid.UUID | None = None
     category: PhotoCategory
     caption: str | None
     include_in_report: bool
@@ -201,6 +203,8 @@ class PhotoAttachRequest(BaseModel):
     finding_id: uuid.UUID | None = None
     # WORK (14H.1): with `surface_id`; the server derives `price_item_id` from the plan's current occurrence.
     occurrence_key: uuid.UUID | None = None
+    # PAYMENT (IA-3): a settlement record of the object.
+    payment_id: uuid.UUID | None = None
     category: PhotoCategory | None = None
     caption: str | None = None
     include_in_report: StrictBool = False
@@ -231,6 +235,8 @@ class PhotoCountsResponse(BaseModel):
     inspection_surfaces: dict[uuid.UUID, int]
     # Stage 14H.6: the same for an inspection of a whole floor / ceiling (no surface): room id -> plane (FLOOR / CEILING) -> count.
     inspection_planes: dict[uuid.UUID, dict[str, int]]
+    # IA-3: photos of receipts and invoices per settlement record; they never enter `project`, `rooms` or `surfaces`.
+    payments: dict[uuid.UUID, int] = {}
 
 
 class PhotoStorageStatus(BaseModel):

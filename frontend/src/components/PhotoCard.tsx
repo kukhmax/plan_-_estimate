@@ -89,7 +89,7 @@ export function PhotoCardPanel({
       defaultCategory={defaultCategory}
       excludeKeys={excludeKeys}
       roomId={roomId}
-      allowUpload={allowUpload ?? (context === 'SURFACE' || context === 'INSPECTION' || context === 'FINDING' || context === 'WORK')}
+      allowUpload={allowUpload ?? (context === 'SURFACE' || context === 'INSPECTION' || context === 'FINDING' || context === 'WORK' || context === 'PAYMENT')}
       locationLabel={
         locationLabel ?? (aggregated ? photos.resolveLocation : buildLocationPath(locationSegments, t.photos.caption))
       }

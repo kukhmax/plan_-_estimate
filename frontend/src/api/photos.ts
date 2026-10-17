@@ -38,6 +38,7 @@ function listQuery(params: PhotoListParams): string {
   if (params.findingId) query.set('finding_id', params.findingId);
   if (params.lineageId) query.set('lineage', params.lineageId);
   if (params.occurrenceKey) query.set('occurrence_key', params.occurrenceKey);
+  if (params.paymentId) query.set('payment_id', params.paymentId);
   if (params.siteOnly) query.set('site_only', 'true');
   if (params.category) query.set('category', params.category);
   if (params.includeInReport !== undefined) query.set('include_in_report', String(params.includeInReport));
@@ -182,6 +183,7 @@ export function buildUploadFormData(params: UploadPhotoParams): FormData {
   if (params.context === 'INSPECTION' && params.inspectionId) form.append('inspection_id', params.inspectionId);
   if (params.context === 'INSPECTION' && params.inspectionId && params.questionId) form.append('question_id', params.questionId);
   if (params.context === 'FINDING' && params.findingId) form.append('finding_id', params.findingId);
+  if (params.context === 'PAYMENT' && params.paymentId) form.append('payment_id', params.paymentId);
   if (params.category) form.append('category', params.category);
   if (params.caption) form.append('caption', params.caption);
   if (params.includeInReport !== undefined) form.append('include_in_report', params.includeInReport ? 'true' : 'false');

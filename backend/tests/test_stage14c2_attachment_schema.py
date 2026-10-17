@@ -39,6 +39,7 @@ from app.models.photo_attachment import (
 )
 from app.models.price_item import PriceItem
 from app.models.project import Project
+from app.models.project_payment import ProjectPayment
 from app.models.room import Room
 from app.models.surface import Surface
 from tests.test_estimates import _make_opening, _make_price_item, _make_project, _make_room, _make_surface, _make_user
@@ -96,7 +97,7 @@ def test_revision_chain_and_single_head():
     config.set_main_option("script_location", str(BACKEND / "alembic"))
     # Stage 14E.2 added 0033, 14F.1 0034, 14G.1 0035, 14G.4 0036, 15C 0037 and 15F 0038 on top; 0032 must stay 0033's direct parent (single linear chain).
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["0058_project_payments"]
+    assert scripts.get_heads() == ["0059_payment_photos"]
     assert scripts.get_revision("0034_finding_lineage").down_revision == "0033_photo_capture_source"
     assert scripts.get_revision("0033_photo_capture_source").down_revision == "0032_photo_attachments"
 
@@ -104,10 +105,12 @@ def test_revision_chain_and_single_head():
 def test_enum_values_are_exact():
     module = load_migration()
     assert module.CONTEXTS == ("PROJECT", "ROOM", "SURFACE", "OPENING", "INSPECTION", "FINDING", "WORK")
+    # IA-3 (0059) added the ninth context to the model; this migration (0032) keeps the seven it made
+    assert PhotoAttachmentContext.PAYMENT.value == "PAYMENT"
     assert module.CATEGORIES == (
         "GENERAL", "BEFORE", "DEFECT", "PREPARATION", "IN_PROGRESS", "HIDDEN_WORK", "AFTER", "DAMAGE",
     )
-    assert tuple(m.value for m in PhotoAttachmentContext) == module.CONTEXTS
+    assert tuple(m.value for m in PhotoAttachmentContext if m is not PhotoAttachmentContext.PAYMENT) == module.CONTEXTS
     assert tuple(m.value for m in PhotoCategory) == module.CATEGORIES
 
 
@@ -117,8 +120,9 @@ def test_upgrade_matches_model_and_downgrade_removes_only_the_table():
     run_op(engine, lambda m: m.upgrade())
     insp = inspect(engine)
     model = Base.metadata.tables["photo_attachments"]
-    # what 0056 (archive cleanup AC-1, the trash) added later: this migration (0032) must match the model without it
-    later_columns, later_indexes = {"trashed_at"}, {"ix_photo_attachments_project_trashed"}
+    # what 0056 (archive cleanup AC-1, the trash) and 0059 (IA-3, the receipts) added later: this migration (0032) must match the model without it
+    later_columns = {"trashed_at", "payment_id"}
+    later_indexes = {"ix_photo_attachments_project_trashed", "ix_photo_attachments_payment_id", "uq_photo_att_payment_active"}
 
     columns = {c["name"]: c for c in insp.get_columns("photo_attachments")}
     assert set(columns) == set(model.columns.keys()) - later_columns
@@ -155,6 +159,8 @@ def test_upgrade_matches_model_and_downgrade_removes_only_the_table():
     Base.metadata.create_all(model_engine)
     assert migrated_indexes == {k: v for k, v in _index_sql(model_engine).items() if k not in later_indexes}
     for name, _cols, predicate in ACTIVE_UNIQUE_INDEXES:
+        if name in later_indexes:
+            continue  # 0059's index: the table 0032 made does not have it yet
         assert migrated_indexes[name].endswith(f"WHERE {predicate} AND archived_at IS NULL")
 
     def table_sql(e):
@@ -172,8 +178,14 @@ def test_upgrade_matches_model_and_downgrade_removes_only_the_table():
         f"CONSTRAINT ck_photo_attachments_context_targets CHECK ({_normalize(CONTEXT_TARGETS_CHECK)})",
         "CONSTRAINT ck_photo_attachments_position_nonneg CHECK (position >= 0)",
     ]
-    assert _normalize(load_migration().CONTEXT_TARGETS_CHECK) == _normalize(CONTEXT_TARGETS_CHECK)
-    for fragment in fragments:
+    # the model's CHECK moved on with 0059 (the ninth context; test_ia3_payment_photos_migration pins the two together);
+    # the table 0032 made keeps the branches it made, and the same position check
+    old_check = _normalize(load_migration().CONTEXT_TARGETS_CHECK)
+    assert "payment_id" not in old_check
+    for fragment in (
+        f"CONSTRAINT ck_photo_attachments_context_targets CHECK ({old_check})",
+        "CONSTRAINT ck_photo_attachments_position_nonneg CHECK (position >= 0)",
+    ):
         assert fragment in migrated_table
 
     run_op(engine, lambda m: m.downgrade())
@@ -220,6 +232,8 @@ def test_rendered_postgresql_ddl():
     assert "CONSTRAINT ck_photo_attachments_context_targets CHECK" in up
     assert "CONSTRAINT ck_photo_attachments_position_nonneg CHECK (position >= 0)" in up
     for name, _cols, predicate in ACTIVE_UNIQUE_INDEXES:
+        if name == "uq_photo_att_payment_active":
+            continue  # 0059's, checked in test_ia3_payment_photos_migration.py
         assert re.search(
             rf"CREATE UNIQUE INDEX {name} ON photo_attachments \([^)]*\) "
             rf"WHERE {re.escape(predicate)} AND archived_at IS NULL",
@@ -257,6 +271,9 @@ async def world(db, tg: int = 7001) -> SimpleNamespace:
     db.add(finding)
     await db.commit()
     price_item = await _make_price_item(db, user.id)
+    payment = ProjectPayment(owner_id=user.id, project_id=project.id, kind="EXPENSE", title="Farba", amount_gross=10, occurred_on=datetime.now(timezone.utc).date())
+    db.add(payment)
+    await db.commit()
     asset = raw_asset(user, project, status=PhotoAssetStatus.READY)
     asset2 = raw_asset(user, project, status=PhotoAssetStatus.READY)
     db.add_all([asset, asset2])
@@ -265,7 +282,7 @@ async def world(db, tg: int = 7001) -> SimpleNamespace:
         user_id=user.id, project_id=project.id, room_id=room.id, surface_id=surface.id,
         opening_id=opening.id, template_id=template.id, question_id=question.id,
         question2_id=question2.id, inspection_id=inspection.id, finding_id=finding.id,
-        price_item_id=price_item.id, asset_id=asset.id, asset2_id=asset2.id,
+        price_item_id=price_item.id, asset_id=asset.id, asset2_id=asset2.id, payment_id=payment.id,
     )
 
 
@@ -278,6 +295,7 @@ def targets(w) -> dict[PhotoAttachmentContext, dict]:
         C.INSPECTION: {"inspection_id": w.inspection_id},
         C.FINDING: {"finding_id": w.finding_id},
         C.WORK: {"surface_id": w.surface_id, "occurrence_key": uuid.UUID(int=42), "price_item_id": w.price_item_id},
+        C.PAYMENT: {"payment_id": w.payment_id},
     }
 
 
@@ -335,6 +353,23 @@ INVALID_SHAPES = [
     ("work without occurrence_key", C.WORK, lambda w: {"surface_id": w.surface_id, "price_item_id": w.price_item_id}),
     ("work without price_item", C.WORK, lambda w: {"surface_id": w.surface_id, "occurrence_key": uuid.uuid4()}),
     ("work without surface", C.WORK, lambda w: {"occurrence_key": uuid.uuid4(), "price_item_id": w.price_item_id}),
+    ("payment without payment", C.PAYMENT, lambda w: {}),
+    ("payment with room", C.PAYMENT, lambda w: {"payment_id": w.payment_id, "room_id": w.room_id}),
+    ("payment with surface", C.PAYMENT, lambda w: {"payment_id": w.payment_id, "surface_id": w.surface_id}),
+    ("payment with occurrence_key", C.PAYMENT, lambda w: {"payment_id": w.payment_id, "occurrence_key": uuid.uuid4()}),
+    ("project with payment", C.PROJECT, lambda w: {"payment_id": w.payment_id}),
+    ("room with payment", C.ROOM, lambda w: {"room_id": w.room_id, "payment_id": w.payment_id}),
+    ("surface with payment", C.SURFACE, lambda w: {"surface_id": w.surface_id, "payment_id": w.payment_id}),
+    ("opening with payment", C.OPENING, lambda w: {"opening_id": w.opening_id, "payment_id": w.payment_id}),
+    ("inspection with payment", C.INSPECTION, lambda w: {"inspection_id": w.inspection_id, "payment_id": w.payment_id}),
+    ("finding with payment", C.FINDING, lambda w: {"finding_id": w.finding_id, "payment_id": w.payment_id}),
+    (
+        "work with payment",
+        C.WORK,
+        lambda w: {
+            "surface_id": w.surface_id, "occurrence_key": uuid.uuid4(), "price_item_id": w.price_item_id, "payment_id": w.payment_id,
+        },
+    ),
     (
         "work with room",
         C.WORK,

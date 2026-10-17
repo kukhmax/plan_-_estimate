@@ -158,6 +158,17 @@ describe('ProjectPhotosProvider', () => {
       expect(result.current!.counts.project).toBe(COUNTS.project);
     });
 
+    it('+1 for the record when a photo of a receipt finishes, never for the site numbers (IA-3)', async () => {
+      const { result } = setup();
+      await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));
+      holdConfirmation();
+      await finishUpload({ projectId: 'p1', context: 'PAYMENT', paymentId: 'pay1' });
+      expect(result.current!.counts.payments).toEqual({ pay1: 1 });
+      expect(result.current!.counts.surfaces).toEqual(COUNTS.surfaces);
+      expect(result.current!.counts.room_totals).toEqual(COUNTS.room_totals);
+      expect(result.current!.counts.project).toBe(COUNTS.project);
+    });
+
     it('then confirms with the server, whose numbers replace the optimistic ones', async () => {
       const { result } = setup();
       await waitFor(() => expect(result.current?.counts).toEqual(COUNTS));

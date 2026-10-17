@@ -1232,3 +1232,64 @@ describe('PhotoSection — deleting a photo from the trash for good (archive cle
     expect(screen.queryByRole('button', { name: 'photo-purge' })).toBeNull();
   });
 });
+
+describe('PhotoSection — receipts and invoices of a settlement record (IA-3)', () => {
+  const PAYMENT_ID = 'payment-1';
+  const receipt = (over: Record<string, unknown> = {}) =>
+    makeItem({ attachment: { context: 'PAYMENT', room_id: null, surface_id: null, payment_id: PAYMENT_ID, ...over } });
+
+  it('asks the server for the photos of that record only, in the normal view and in the archive', async () => {
+    renderSection({ context: 'PAYMENT', targetId: PAYMENT_ID, roomId: undefined });
+    await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(1));
+    expect(lastListParams()).toEqual({ context: 'PAYMENT', paymentId: PAYMENT_ID, archived: false, limit: 30 });
+    fireEvent.click(await screen.findByRole('button', { name: 'Opcje zdjęć' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pokaż archiwum' }));
+    await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(2));
+    expect(lastListParams()).toMatchObject({ context: 'PAYMENT', paymentId: PAYMENT_ID, archived: true });
+  });
+
+  it('uploads a photo onto its record and sends no other target', async () => {
+    renderSection({ context: 'PAYMENT', targetId: PAYMENT_ID, roomId: undefined });
+    await screen.findByRole('button', { name: 'Z galerii' });
+    await act(async () => pickGallery([file('r.jpg')]));
+    await waitFor(() => expect(uploads).toHaveLength(1));
+    expect(uploads[0].params).toMatchObject({ context: 'PAYMENT', paymentId: PAYMENT_ID, source: 'GALLERY' });
+    for (const other of ['roomId', 'surfaceId', 'openingId', 'inspectionId', 'findingId', 'occurrenceKey']) {
+      expect(uploads[0].params[other]).toBeUndefined();
+    }
+  });
+
+  it('an upload for one record shows under that record, not under another record or under a surface', async () => {
+    const { getPhotoUploadQueue } = await import('../hooks/usePhotoUploadQueue');
+    const view = (props: Partial<SectionProps>) =>
+      render(
+        <I18nProvider>
+          <PhotoSection projectId={PROJECT_ID} context="PAYMENT" targetId={PAYMENT_ID} allowUpload locationLabel="x" {...props} />
+        </I18nProvider>,
+      );
+    const mine = view({});
+    const other = view({ targetId: 'payment-2' });
+    const surface = view({ context: 'SURFACE', targetId: SURFACE_ID });
+    await waitFor(() => expect(fetchPhotos).toHaveBeenCalledTimes(3));
+    await act(async () => {
+      getPhotoUploadQueue().enqueue([file('e.jpg')], { projectId: PROJECT_ID, context: 'PAYMENT', paymentId: PAYMENT_ID }, 'GALLERY');
+    });
+    expect(within(mine.container).queryAllByText('e.jpg')).toHaveLength(1);
+    expect(within(other.container).queryAllByText('e.jpg')).toHaveLength(0);
+    expect(within(surface.container).queryAllByText('e.jpg')).toHaveLength(0);
+  });
+
+  it('archiving a receipt corrects the count of its record only', async () => {
+    const photo = receipt();
+    vi.mocked(fetchPhotos).mockResolvedValue(listPage([photo]));
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(photo));
+    vi.mocked(archivePhotoAttachment).mockResolvedValue({ ...photo.attachment, archived_at: 'x' });
+    const { onCountAdjust } = renderSection({ context: 'PAYMENT', targetId: PAYMENT_ID, roomId: undefined });
+    fireEvent.click((await screen.findAllByRole('button', { name: /23\.06\.2026/ }))[0]);
+    await screen.findByRole('dialog');
+    await screen.findAllByRole('img');
+    fireEvent.click(screen.getByRole('button', { name: 'Archiwizuj' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archiwizuj' }));
+    await waitFor(() => expect(onCountAdjust).toHaveBeenCalledWith('PAYMENT', PAYMENT_ID, -1, undefined, expect.anything()));
+  });
+});

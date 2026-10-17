@@ -50,6 +50,7 @@ class PhotoAttachmentContext(str, enum.Enum):
     INSPECTION = "INSPECTION"  # schema only until Stage 14F
     FINDING = "FINDING"  # schema only until Stage 14F
     WORK = "WORK"  # schema only until Stage 14H
+    PAYMENT = "PAYMENT"  # a receipt or an invoice photographed for a settlement record (IA-3)
 
 
 class PhotoCategory(str, enum.Enum):
@@ -65,29 +66,33 @@ class PhotoCategory(str, enum.Enum):
 
 MAX_CAPTION_LENGTH = 1000
 
-# Contract §5 / 14A §15.3 -- portable SQL (SQLite + PostgreSQL), no num_nonnulls.
-CONTEXT_TARGETS_CHECK = (
-    "(context = 'PROJECT' AND room_id IS NULL AND surface_id IS NULL AND opening_id IS NULL"
-    " AND inspection_id IS NULL AND question_id IS NULL AND finding_id IS NULL"
-    " AND occurrence_key IS NULL AND price_item_id IS NULL)"
-    " OR (context = 'ROOM' AND room_id IS NOT NULL AND surface_id IS NULL AND opening_id IS NULL"
-    " AND inspection_id IS NULL AND question_id IS NULL AND finding_id IS NULL"
-    " AND occurrence_key IS NULL AND price_item_id IS NULL)"
-    " OR (context = 'SURFACE' AND surface_id IS NOT NULL AND room_id IS NULL AND opening_id IS NULL"
-    " AND inspection_id IS NULL AND question_id IS NULL AND finding_id IS NULL"
-    " AND occurrence_key IS NULL AND price_item_id IS NULL)"
-    " OR (context = 'OPENING' AND opening_id IS NOT NULL AND room_id IS NULL AND surface_id IS NULL"
-    " AND inspection_id IS NULL AND question_id IS NULL AND finding_id IS NULL"
-    " AND occurrence_key IS NULL AND price_item_id IS NULL)"
-    " OR (context = 'INSPECTION' AND inspection_id IS NOT NULL AND room_id IS NULL AND surface_id IS NULL"
-    " AND opening_id IS NULL AND finding_id IS NULL AND occurrence_key IS NULL AND price_item_id IS NULL)"
-    " OR (context = 'FINDING' AND finding_id IS NOT NULL AND room_id IS NULL AND surface_id IS NULL"
-    " AND opening_id IS NULL AND inspection_id IS NULL AND question_id IS NULL"
-    " AND occurrence_key IS NULL AND price_item_id IS NULL)"
-    " OR (context = 'WORK' AND surface_id IS NOT NULL AND occurrence_key IS NOT NULL"
-    " AND price_item_id IS NOT NULL AND room_id IS NULL AND opening_id IS NULL"
-    " AND inspection_id IS NULL AND question_id IS NULL AND finding_id IS NULL)"
+# Contract §5 / 14A §15.3 -- portable SQL (SQLite + PostgreSQL), no num_nonnulls. One branch per context: the target columns the
+# context needs are NOT NULL, the ones it may carry are free, every other target column is NULL (IA-3 added `payment_id`).
+TARGET_COLUMNS = (
+    "room_id", "surface_id", "opening_id", "inspection_id", "question_id", "finding_id",
+    "occurrence_key", "price_item_id", "payment_id",
 )
+# context -> (required target columns, optional target columns)
+CONTEXT_SHAPES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
+    "PROJECT": ((), ()),
+    "ROOM": (("room_id",), ()),
+    "SURFACE": (("surface_id",), ()),
+    "OPENING": (("opening_id",), ()),
+    "INSPECTION": (("inspection_id",), ("question_id",)),
+    "FINDING": (("finding_id",), ()),
+    "WORK": (("surface_id", "occurrence_key", "price_item_id"), ()),
+    "PAYMENT": (("payment_id",), ()),
+}
+
+
+def _context_branch(context: str, required: tuple[str, ...], optional: tuple[str, ...]) -> str:
+    parts = [f"context = '{context}'"]
+    parts += [f"{column} IS NOT NULL" for column in required]
+    parts += [f"{column} IS NULL" for column in TARGET_COLUMNS if column not in required and column not in optional]
+    return "(" + " AND ".join(parts) + ")"
+
+
+CONTEXT_TARGETS_CHECK = " OR ".join(_context_branch(name, *shape) for name, shape in CONTEXT_SHAPES.items())
 
 # (index name, columns, predicate without the shared "archived_at IS NULL").
 ACTIVE_UNIQUE_INDEXES: tuple[tuple[str, tuple[str, ...], str], ...] = (
@@ -107,6 +112,7 @@ ACTIVE_UNIQUE_INDEXES: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ),
     ("uq_photo_att_finding_active", ("asset_id", "finding_id"), "context = 'FINDING'"),
     ("uq_photo_att_work_active", ("asset_id", "surface_id", "occurrence_key"), "context = 'WORK'"),
+    ("uq_photo_att_payment_active", ("asset_id", "payment_id"), "context = 'PAYMENT'"),
 )
 
 
@@ -156,6 +162,11 @@ class PhotoAttachment(Base):
     price_item_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("price_items.id", ondelete="RESTRICT"), nullable=True
     )
+    # IA-3: the settlement record (receipt / invoice of an expense, an invoice to the client) the photo documents. RESTRICT, like the others:
+    # a record with photos is archived, never erased under them; the object's own deletion removes the photos first.
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("project_payments.id", ondelete="RESTRICT"), nullable=True
+    )
     category: Mapped[PhotoCategory] = mapped_column(
         Enum(PhotoCategory, name="photocategory"), nullable=False, default=PhotoCategory.GENERAL
     )
@@ -191,5 +202,6 @@ class PhotoAttachment(Base):
         Index("ix_photo_attachments_opening_id", "opening_id"),
         Index("ix_photo_attachments_inspection_id", "inspection_id"),
         Index("ix_photo_attachments_finding_id", "finding_id"),
+        Index("ix_photo_attachments_payment_id", "payment_id"),
         Index("ix_photo_attachments_surface_occurrence", "surface_id", "occurrence_key"),
     )

@@ -52,6 +52,7 @@ from app.domain.exceptions import (
     MediaStorageError,
     MediaStorageUnavailable,
     OpeningNotFoundError,
+    PaymentNotFoundError,
     PhotoAnnotationLimitReachedError,
     PhotoAnnotationNotFoundError,
     PhotoAnnotationReadOnlyError,
@@ -137,7 +138,7 @@ FILE_FIELD = "file"
 SCALAR_FIELDS = frozenset(
     {
         "upload_id", "context", "room_id", "surface_id", "opening_id", "inspection_id", "question_id", "finding_id",
-        "occurrence_key", "category", "caption", "include_in_report", "source",
+        "occurrence_key", "payment_id", "category", "caption", "include_in_report", "source",
     }
 )
 ORIGINAL_NAME = "original"  # server-chosen workspace file name
@@ -165,6 +166,7 @@ _MESSAGES = {
     "INSPECTION_NOT_FOUND": "Inspection not found",
     "QUESTION_NOT_FOUND": "Checklist question not found",
     "FINDING_NOT_FOUND": "Inspection finding not found",
+    "PAYMENT_NOT_FOUND": "Settlement record not found",
     "WORK_OCCURRENCE_NOT_CURRENT": "This work is no longer part of the surface plan",
     "PHOTO_NOT_FOUND": "Photo not found",
     "PHOTO_ATTACHMENT_NOT_FOUND": "Photo attachment not found",
@@ -210,6 +212,8 @@ def _map_domain_error(exc: Exception) -> HTTPException:
         return _error(status.HTTP_404_NOT_FOUND, "QUESTION_NOT_FOUND")
     if isinstance(exc, InspectionFindingNotFoundError):
         return _error(status.HTTP_404_NOT_FOUND, "FINDING_NOT_FOUND")
+    if isinstance(exc, PaymentNotFoundError):
+        return _error(status.HTTP_404_NOT_FOUND, "PAYMENT_NOT_FOUND")
     if isinstance(exc, PhotoWorkOccurrenceNotCurrentError):
         return _error(status.HTTP_409_CONFLICT, "WORK_OCCURRENCE_NOT_CURRENT")
     if isinstance(exc, PhotoUploadIdConflictError):
@@ -251,6 +255,7 @@ _DOMAIN_ERRORS = (
     InspectionNotFoundError,
     ChecklistQuestionNotFoundError,
     InspectionFindingNotFoundError,
+    PaymentNotFoundError,
     PhotoWorkOccurrenceNotCurrentError,
     PhotoUploadIdConflictError,
     PhotoStorageQuotaExceededError,
@@ -322,6 +327,7 @@ def _build_request(
             question_id=_optional_uuid(scalars.get("question_id")),
             finding_id=_optional_uuid(scalars.get("finding_id")),
             occurrence_key=_optional_uuid(scalars.get("occurrence_key")),
+            payment_id=_optional_uuid(scalars.get("payment_id")),
         ),
         original_path=original_path,
         category=category,
@@ -537,6 +543,7 @@ async def list_photos(
     room_id: uuid.UUID | None = Query(default=None),
     surface_id: uuid.UUID | None = Query(default=None),
     opening_id: uuid.UUID | None = Query(default=None),
+    payment_id: uuid.UUID | None = Query(default=None, description="with context=PAYMENT: the photos of one settlement record"),
     inspection_id: uuid.UUID | None = Query(default=None),
     question_id: uuid.UUID | None = Query(default=None),
     finding_id: uuid.UUID | None = Query(default=None),
@@ -567,7 +574,7 @@ async def list_photos(
     runtime: PhotoRuntime = Depends(get_photo_runtime),
 ) -> PhotoListResponse:
     filters = PhotoListFilters(
-        context=context, room_id=room_id, surface_id=surface_id, opening_id=opening_id,
+        context=context, room_id=room_id, surface_id=surface_id, opening_id=opening_id, payment_id=payment_id,
         inspection_id=inspection_id, question_id=question_id, finding_id=finding_id, occurrence_key=occurrence_key,
         category=category, include_in_report=include_in_report, archived=archived, trashed=trashed, in_room_id=in_room_id,
         lineage_id=lineage, site_only=site_only,
@@ -614,7 +621,7 @@ async def photo_counts(
         project=counts.project, rooms=counts.rooms, surfaces=counts.surfaces, openings=counts.openings,
         room_totals=counts.room_totals, inspections=counts.inspections, findings=counts.findings,
         lineages=counts.lineages, questions=counts.questions, works=counts.works, work_surfaces=counts.work_surfaces,
-        inspection_surfaces=counts.inspection_surfaces, inspection_planes=counts.inspection_planes,
+        inspection_surfaces=counts.inspection_surfaces, inspection_planes=counts.inspection_planes, payments=counts.payments,
     )
 
 
@@ -673,6 +680,7 @@ async def attach_photo(
                 question_id=payload.question_id,
                 finding_id=payload.finding_id,
                 occurrence_key=payload.occurrence_key,
+                payment_id=payload.payment_id,
             ),
             category=payload.category,
             caption=payload.caption,

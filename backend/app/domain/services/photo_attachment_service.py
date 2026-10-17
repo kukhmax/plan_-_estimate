@@ -10,7 +10,8 @@ listing or asset archive (14C.3–14C.5). Exceptions are transport-neutral.
 
 Rules:
 - Enabled contexts: PROJECT / ROOM / SURFACE / OPENING (Stage 14C),
-  INSPECTION / FINDING (Stage 14F.2) and WORK (Stage 14H.1). INSPECTION may
+  INSPECTION / FINDING (Stage 14F.2), WORK (Stage 14H.1) and PAYMENT (IA-3: a receipt or an invoice photographed for a
+  settlement record of the object; the record must be of the same object and owner, an archived one is accepted). INSPECTION may
   carry an optional question of the inspection's own checklist template;
   FINDING names a finding, whose photos are grouped by the finding's lineage
   when read. WORK names a surface and a Stage 13 `occurrence_key` that must be
@@ -47,6 +48,7 @@ from app.domain.exceptions import (
     InspectionFindingNotFoundError,
     InspectionNotFoundError,
     OpeningNotFoundError,
+    PaymentNotFoundError,
     PhotoAssetNotFoundError,
     PhotoAttachmentDuplicateError,
     PhotoAttachmentNotArchivedError,
@@ -68,6 +70,7 @@ from app.models.photo_attachment import (
     PhotoAttachmentContext,
     PhotoCategory,
 )
+from app.models.project_payment import ProjectPayment
 from app.models.room import Room
 from app.models.surface import Surface
 from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
@@ -82,6 +85,7 @@ SUPPORTED_CONTEXTS: frozenset[PhotoAttachmentContext] = frozenset(
         PhotoAttachmentContext.INSPECTION,
         PhotoAttachmentContext.FINDING,
         PhotoAttachmentContext.WORK,
+        PhotoAttachmentContext.PAYMENT,
     }
 )
 
@@ -94,6 +98,7 @@ _REQUIRED_TARGET: dict[PhotoAttachmentContext, tuple[str, ...]] = {
     PhotoAttachmentContext.INSPECTION: ("inspection_id",),
     PhotoAttachmentContext.FINDING: ("finding_id",),
     PhotoAttachmentContext.WORK: ("surface_id", "occurrence_key"),
+    PhotoAttachmentContext.PAYMENT: ("payment_id",),
 }
 _OPTIONAL_TARGET: dict[PhotoAttachmentContext, tuple[str, ...]] = {
     PhotoAttachmentContext.INSPECTION: ("question_id",),
@@ -119,6 +124,8 @@ class AttachmentTarget:
     # that sets it on an incoming target is rejected (see `_check_target_shape`).
     occurrence_key: uuid.UUID | None = None
     price_item_id: uuid.UUID | None = None
+    # PAYMENT (IA-3): the settlement record of the object the receipt / invoice belongs to.
+    payment_id: uuid.UUID | None = None
 
     def ids(self) -> dict[str, uuid.UUID | None]:
         return {
@@ -130,6 +137,7 @@ class AttachmentTarget:
             "finding_id": self.finding_id,
             "occurrence_key": self.occurrence_key,
             "price_item_id": self.price_item_id,
+            "payment_id": self.payment_id,
         }
 
 
@@ -249,6 +257,15 @@ class PhotoAttachmentService:
             )
             if (await self.db.execute(stmt)).scalar_one_or_none() is None:
                 raise InspectionFindingNotFoundError(f"Finding {target.finding_id} not found")
+        elif context is PhotoAttachmentContext.PAYMENT:
+            # a settlement record of THIS object and owner; an archived record is accepted like any archived parent (C12)
+            stmt = select(ProjectPayment.id).where(
+                ProjectPayment.id == target.payment_id,
+                ProjectPayment.project_id == project_id,
+                ProjectPayment.owner_id == owner_id,
+            )
+            if (await self.db.execute(stmt)).scalar_one_or_none() is None:
+                raise PaymentNotFoundError(f"Payment {target.payment_id} not found")
         elif context is PhotoAttachmentContext.WORK:
             stmt = (
                 select(Surface.id)
@@ -343,6 +360,7 @@ class PhotoAttachmentService:
             finding_id=target.finding_id,
             occurrence_key=target.occurrence_key,
             price_item_id=target.price_item_id,
+            payment_id=target.payment_id,
             category=_validate_category(category),
             caption=normalize_caption(caption),
             include_in_report=_validate_include(include_in_report),
@@ -500,6 +518,7 @@ class PhotoAttachmentService:
             PhotoAttachment.occurrence_key.is_(None)
             if key.occurrence_key is None
             else PhotoAttachment.occurrence_key == key.occurrence_key,
+            PhotoAttachment.payment_id.is_(None) if key.payment_id is None else PhotoAttachment.payment_id == key.payment_id,
         )
         if key.exclude_id is not None:
             stmt = stmt.where(PhotoAttachment.id != key.exclude_id)
@@ -532,6 +551,7 @@ class _DuplicateKey:
     question_id: uuid.UUID | None
     finding_id: uuid.UUID | None
     occurrence_key: uuid.UUID | None
+    payment_id: uuid.UUID | None
     exclude_id: uuid.UUID | None
 
     @classmethod
@@ -546,5 +566,6 @@ class _DuplicateKey:
             question_id=attachment.question_id,
             finding_id=attachment.finding_id,
             occurrence_key=attachment.occurrence_key,
+            payment_id=attachment.payment_id,
             exclude_id=attachment.id,
         )
