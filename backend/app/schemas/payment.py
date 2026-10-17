@@ -25,6 +25,7 @@ VatRate = Annotated[Decimal, Field(ge=0, le=100, max_digits=5, decimal_places=2)
 
 Kind = Literal["INVOICE", "ADVANCE", "PAYMENT", "EXPENSE"]
 DocumentKind = Literal["RECEIPT", "INVOICE"]
+Category = Literal["MATERIALS", "TOOLS", "TRANSPORT", "SERVICES", "OTHER"]
 InvoiceState = Literal["PAID", "PARTIAL", "OVERDUE", "OPEN"]
 
 
@@ -43,6 +44,7 @@ class PaymentCreate(BaseModel):
     settles_id: uuid.UUID | None = None
     counterparty: str | None = Field(default=None, max_length=255)
     document_kind: DocumentKind | None = None
+    category: Category | None = None  # an expense only
     note: str | None = Field(default=None, max_length=4000)
 
 
@@ -61,6 +63,7 @@ class PaymentUpdate(BaseModel):
     settles_id: uuid.UUID | None = None
     counterparty: str | None = Field(default=None, max_length=255)
     document_kind: DocumentKind | None = None
+    category: Category | None = None
     note: str | None = Field(default=None, max_length=4000)
 
 
@@ -80,6 +83,7 @@ class PaymentRead(BaseModel):
     settles_id: uuid.UUID | None
     counterparty: str | None
     document_kind: DocumentKind | None
+    category: Category | None
     note: str | None
     is_archived: bool
     created_at: datetime
@@ -90,6 +94,13 @@ class PaymentRead(BaseModel):
     state: InvoiceState | None = None
 
 
+class CategoryTotalRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    category: Category | None  # null: the expenses that have none (made before the categories existed)
+    total: Out
+
+
 class PaymentSummary(BaseModel):
     invoiced: Out
     received: Out
@@ -97,6 +108,7 @@ class PaymentSummary(BaseModel):
     invoiced_unpaid: Out
     to_receive: Out | None
     result: Out
+    expenses_by_category: list[CategoryTotalRead]  # the parts of `expenses`: only the categories that have any
 
 
 class PaymentListResponse(BaseModel):

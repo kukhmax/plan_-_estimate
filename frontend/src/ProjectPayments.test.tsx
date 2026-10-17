@@ -4,7 +4,7 @@ import * as paymentsApi from './api/payments';
 import { ApiError } from './api/http';
 import { ProjectPayments } from './components/ProjectPayments';
 import { I18nProvider } from './hooks/useI18n';
-import type { Finance, Payment, PaymentList } from './types/payment';
+import type { Finance, Payment, PaymentCategory, PaymentList } from './types/payment';
 import { formatDay, formatMoney, optionalRate, positiveAmount, todayInPoland } from './utils/paymentFormat';
 
 vi.mock('./api/payments', () => ({
@@ -275,7 +275,7 @@ describe('ProjectPayments — "Faktury i zaliczki" (IA-2)', () => {
       expect(kind).toBe('INVOICE');
       expect(fields).toEqual({
         title: 'Etap 2', amount_gross: '1500.5', occurred_on: '2026-10-10', number: 'FV 2/2026', amount_net: null, vat_rate: null,
-        due_on: '2026-10-24', settles_id: null, counterparty: null, document_kind: null, note: null,
+        due_on: '2026-10-24', settles_id: null, counterparty: null, document_kind: null, category: null, note: null,
       });
       await waitFor(() => expect(screen.queryByLabelText('payment-form')).toBeNull());
       expect(screen.getByRole('status')).toHaveTextContent('Zapisano.');
@@ -438,6 +438,113 @@ describe('ProjectPayments — "Faktury i zaliczki" (IA-2)', () => {
       expect(fields).toMatchObject({
         title: 'Farba', counterparty: 'Castorama', document_kind: 'INVOICE', number: 'FV/55', amount_gross: '89.99', due_on: null, settles_id: null,
       });
+    });
+  });
+
+  describe('the category of an expense (IA-6b)', () => {
+    const TOOLS_EXPENSE = base({
+      id: 'exp2', kind: 'EXPENSE', title: 'Wiertarka', amount_gross: '300.00', counterparty: null, document_kind: 'RECEIPT', category: 'TOOLS', occurred_on: '2026-10-04',
+    });
+    const summaryWith = (parts: { category: PaymentCategory | null; total: string }[]) => ({
+      ...listOf([]).summary, expenses: '550.50', expenses_by_category: parts,
+    });
+
+    it('offers the five categories on a new expense with materials chosen, and sends the one that is chosen', async () => {
+      renderScreen();
+      await screen.findByLabelText('payments-list');
+      fireEvent.click(screen.getByLabelText('payments-tab-materials'));
+      fireEvent.click(screen.getByLabelText('payment-add'));
+      for (const name of ['MATERIALS', 'TOOLS', 'TRANSPORT', 'SERVICES', 'OTHER']) expect(screen.getByLabelText(`payment-category-${name}`)).toBeInTheDocument();
+      expect(screen.getByLabelText('payment-category-MATERIALS')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByLabelText('payment-category-TOOLS')).toHaveAttribute('aria-pressed', 'false');
+      fireEvent.click(screen.getByLabelText('payment-category-TRANSPORT'));
+      expect(screen.getByLabelText('payment-category-TRANSPORT')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByLabelText('payment-category-MATERIALS')).toHaveAttribute('aria-pressed', 'false');
+      type('payment-title', 'Dostawa');
+      type('payment-amount', '80');
+      fireEvent.click(screen.getByLabelText('payment-save'));
+      await waitFor(() => expect(paymentsApi.createPayment).toHaveBeenCalled());
+      expect(vi.mocked(paymentsApi.createPayment).mock.calls[0][3]).toMatchObject({ category: 'TRANSPORT' });
+    });
+
+    it('sends materials when nothing was tapped, and no category on an invoice or on money from the client', async () => {
+      renderScreen();
+      await screen.findByLabelText('payments-list');
+      fireEvent.click(screen.getByLabelText('payments-tab-materials'));
+      fireEvent.click(screen.getByLabelText('payment-add'));
+      type('payment-title', 'Farba');
+      type('payment-amount', '10');
+      fireEvent.click(screen.getByLabelText('payment-save'));
+      await waitFor(() => expect(paymentsApi.createPayment).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(paymentsApi.createPayment).mock.calls[0][3]).toMatchObject({ category: 'MATERIALS' });
+
+      fireEvent.click(await screen.findByLabelText('payments-tab-invoices'));
+      fireEvent.click(screen.getByLabelText('payment-add'));
+      expect(screen.queryByLabelText('payment-category')).toBeNull();
+      type('payment-title', 'Faktura');
+      type('payment-amount', '10');
+      fireEvent.click(screen.getByLabelText('payment-save'));
+      await waitFor(() => expect(paymentsApi.createPayment).toHaveBeenCalledTimes(2));
+      expect(vi.mocked(paymentsApi.createPayment).mock.calls[1][3]).toMatchObject({ category: null });
+    });
+
+    it('opens an expense with its own category, and an old expense with none keeps none until one is tapped', async () => {
+      vi.mocked(paymentsApi.fetchPayments).mockResolvedValue(listOf([EXPENSE, TOOLS_EXPENSE]));
+      renderScreen();
+      await screen.findByLabelText('payments-tabs');
+      fireEvent.click(screen.getByLabelText('payments-tab-materials'));
+      fireEvent.click(screen.getByLabelText('payment-edit-exp2'));
+      expect(screen.getByLabelText('payment-category-TOOLS')).toHaveAttribute('aria-pressed', 'true');
+      fireEvent.click(screen.getByLabelText('payment-cancel'));
+
+      fireEvent.click(screen.getByLabelText('payment-edit-exp1'));
+      for (const name of ['MATERIALS', 'TOOLS', 'TRANSPORT', 'SERVICES', 'OTHER']) expect(screen.getByLabelText(`payment-category-${name}`)).toHaveAttribute('aria-pressed', 'false');
+      fireEvent.click(screen.getByLabelText('payment-save'));
+      await waitFor(() => expect(paymentsApi.updatePayment).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(paymentsApi.updatePayment).mock.calls[0][2]).toMatchObject({ category: null });
+    });
+
+    it('names the category on the card of an expense and says nothing for one that has none', async () => {
+      vi.mocked(paymentsApi.fetchPayments).mockResolvedValue(listOf([EXPENSE, TOOLS_EXPENSE]));
+      renderScreen();
+      await screen.findByLabelText('payments-tabs');
+      fireEvent.click(screen.getByLabelText('payments-tab-materials'));
+      expect(within(screen.getByLabelText('payment-exp2')).getByText(/Narzędzia/)).toBeInTheDocument();
+      expect(within(screen.getByLabelText('payment-exp1')).queryByText(/Narzędzia|Materiały|Transport|Usługi|Inne/)).toBeNull();
+    });
+
+    it('shows the parts the server sent under the expenses, in its order and with its sums, and adds nothing', async () => {
+      vi.mocked(paymentsApi.fetchPayments).mockResolvedValue(listOf([EXPENSE, TOOLS_EXPENSE], {
+        summary: summaryWith([{ category: 'MATERIALS', total: '1.00' }, { category: 'TOOLS', total: '300.00' }, { category: null, total: '5.50' }]),
+      }));
+      renderScreen();
+      await screen.findByLabelText('payments-summary');
+      const parts = screen.getByLabelText('summary-expenses-parts');
+      expect(within(parts).getAllByRole('definition').map((node) => node.textContent?.replace(/\s/g, ' '))).toEqual([formatMoney('1.00'), formatMoney('300.00'), formatMoney('5.50')].map((value) => value.replace(/\s/g, ' ')));
+      expect(within(screen.getByLabelText('summary-expenses-MATERIALS')).getByText('Materiały')).toBeInTheDocument();
+      expect(within(screen.getByLabelText('summary-expenses-none')).getByText('Bez kategorii')).toBeInTheDocument();
+    });
+
+    it('shows no breakdown when no expense has a category, when there is no expense, or when the list was kept from before the categories', async () => {
+      for (const summary of [summaryWith([{ category: null, total: '250.50' }]), summaryWith([]), listOf([]).summary]) {
+        vi.mocked(paymentsApi.fetchPayments).mockResolvedValue(listOf([EXPENSE], { summary }));
+        const view = renderScreen();
+        await screen.findByLabelText('payments-summary');
+        expect(screen.queryByLabelText('summary-expenses-parts')).toBeNull();
+        view.unmount();
+      }
+    });
+
+    it('shows the categories in Russian', async () => {
+      localStorage.setItem('locale', 'ru');
+      vi.mocked(paymentsApi.fetchPayments).mockResolvedValue(listOf([TOOLS_EXPENSE], { summary: summaryWith([{ category: 'TOOLS', total: '300.00' }, { category: null, total: '1.00' }]) }));
+      renderScreen();
+      await screen.findByLabelText('payments-summary');
+      expect(within(screen.getByLabelText('summary-expenses-TOOLS')).getByText('Инструмент')).toBeInTheDocument();
+      expect(within(screen.getByLabelText('summary-expenses-none')).getByText('Без категории')).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText('payments-tab-materials'));
+      fireEvent.click(screen.getByLabelText('payment-add'));
+      expect(screen.getByLabelText('payment-category-MATERIALS')).toHaveTextContent('Материалы');
     });
   });
 

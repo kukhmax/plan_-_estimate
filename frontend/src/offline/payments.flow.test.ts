@@ -17,7 +17,7 @@ const json = (body: unknown, status = 200) => ({ ok: status < 400, status, json:
 
 const fields = (over: Partial<PaymentFields> = {}): PaymentFields => ({
   title: 'Farba', amount_gross: '89.99', occurred_on: '2026-10-17', number: null, amount_net: null, vat_rate: null, due_on: null, settles_id: null,
-  counterparty: 'Castorama', document_kind: 'RECEIPT', note: null, ...over,
+  counterparty: 'Castorama', document_kind: 'RECEIPT', category: 'MATERIALS', note: null, ...over,
 });
 
 /** A small server: it keeps the records by id (a second create of the same id answers with the one it has), as the real one does. */

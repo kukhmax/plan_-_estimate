@@ -141,7 +141,7 @@ async def test_the_summary_and_the_state_of_an_invoice_follow_the_payments_tied_
     data = await listing(async_client, t, p)
     states = {item["title"]: (item["state"], item["settled"], item["remaining"]) for item in data["items"] if item["kind"] == "INVOICE"}
     assert states == {"Spóźniona": ("OVERDUE", "0.00", "1000.00"), "Wkrótce": ("PARTIAL", "100.00", "400.00"), "Zapłacona": ("PAID", "200.00", "0.00")}
-    s = {name: Decimal(value) for name, value in data["summary"].items() if value is not None}
+    s = {name: Decimal(value) for name, value in data["summary"].items() if value is not None and name != "expenses_by_category"}
     assert (s["invoiced"], s["received"], s["expenses"]) == (Decimal("1700"), Decimal("1000"), Decimal("250.50"))
     assert (s["to_receive"], s["result"], s["invoiced_unpaid"]) == (Decimal("4000"), Decimal("749.50"), Decimal("1400"))
     assert Decimal(data["agreed_amount"]) == 5000

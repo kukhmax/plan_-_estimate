@@ -42,7 +42,18 @@ class PaymentDocumentKind(str, enum.Enum):
     INVOICE = "INVOICE"
 
 
+class ExpenseCategory(str, enum.Enum):
+    """What an expense was spent on (IA-6b); an expense made before the categories existed has none."""
+
+    MATERIALS = "MATERIALS"
+    TOOLS = "TOOLS"
+    TRANSPORT = "TRANSPORT"
+    SERVICES = "SERVICES"
+    OTHER = "OTHER"
+
+
 MONEY_IN_KINDS = (PaymentKind.ADVANCE.value, PaymentKind.PAYMENT.value)
+CATEGORIES_SQL = ", ".join(f"'{category.value}'" for category in ExpenseCategory)
 
 
 def _now() -> datetime:
@@ -60,6 +71,8 @@ class ProjectPayment(Base):
         CheckConstraint("document_kind IS NULL OR document_kind IN ('RECEIPT', 'INVOICE')", name="ck_project_payments_document_kind"),
         CheckConstraint("document_kind IS NULL OR kind = 'EXPENSE'", name="ck_project_payments_document_kind_only_expense"),
         CheckConstraint("counterparty IS NULL OR kind = 'EXPENSE'", name="ck_project_payments_counterparty_only_expense"),
+        CheckConstraint(f"category IS NULL OR category IN ({CATEGORIES_SQL})", name="ck_project_payments_category"),
+        CheckConstraint("category IS NULL OR kind = 'EXPENSE'", name="ck_project_payments_category_only_expense"),
         CheckConstraint("due_on IS NULL OR kind = 'INVOICE'", name="ck_project_payments_due_only_invoice"),
         CheckConstraint("settles_id IS NULL OR kind IN ('ADVANCE', 'PAYMENT')", name="ck_project_payments_settles_only_money_in"),
         CheckConstraint("settles_id IS NULL OR settles_id <> id", name="ck_project_payments_settles_not_self"),
@@ -81,6 +94,7 @@ class ProjectPayment(Base):
     settles_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("project_payments.id", ondelete="SET NULL"), nullable=True)
     counterparty: Mapped[str | None] = mapped_column(String(255), nullable=True)
     document_kind: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(16), nullable=True)  # an expense only (IA-6b)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)

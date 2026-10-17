@@ -34,7 +34,7 @@ from app.models.project_payment import ProjectFinance, ProjectPayment
 MONEY_IN = ("ADVANCE", "PAYMENT")
 # the columns an update may change (the kind and the owner never change)
 EDITABLE = (
-    "title", "number", "amount_gross", "amount_net", "vat_rate", "occurred_on", "due_on", "settles_id", "counterparty", "document_kind", "note",
+    "title", "number", "amount_gross", "amount_net", "vat_rate", "occurred_on", "due_on", "settles_id", "counterparty", "document_kind", "category", "note",
 )
 
 
@@ -62,7 +62,9 @@ class FinanceView:
 
 
 def _entry(row: ProjectPayment) -> Entry:
-    return Entry(id=row.id, kind=row.kind, amount_gross=row.amount_gross, due_on=row.due_on, settles_id=row.settles_id, is_archived=row.is_archived)
+    return Entry(
+        id=row.id, kind=row.kind, amount_gross=row.amount_gross, due_on=row.due_on, settles_id=row.settles_id, is_archived=row.is_archived, category=row.category
+    )
 
 
 def _clean_text(value: str | None, *, required: bool = False) -> str | None:
@@ -113,6 +115,8 @@ class PaymentService:
             raise PaymentInvalidError("only an invoice has a due date")
         if (f["counterparty"] is not None or f["document_kind"] is not None) and kind != "EXPENSE":
             raise PaymentInvalidError("only an expense has a shop / supplier and a kind of document")
+        if f["category"] is not None and kind != "EXPENSE":
+            raise PaymentInvalidError("only an expense has a category")
         if f["settles_id"] is not None:
             if kind not in MONEY_IN:
                 raise PaymentInvalidError("only an advance or a payment can settle an invoice")
@@ -164,6 +168,7 @@ class PaymentService:
             "settles_id": data.get("settles_id"),
             "counterparty": _clean_text(data.get("counterparty")),
             "document_kind": data.get("document_kind"),
+            "category": data.get("category"),
             "note": _clean_text(data.get("note")),
         }
         new_id = client_id or uuid.uuid4()

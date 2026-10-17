@@ -1,6 +1,9 @@
 /** The settlement records of an object (invoices and advances); mirrors backend `schemas/payment.py`. Money arrives as strings with two places. */
 export type PaymentKind = 'INVOICE' | 'ADVANCE' | 'PAYMENT' | 'EXPENSE';
 export type PaymentDocumentKind = 'RECEIPT' | 'INVOICE';
+/** What an expense was spent on (IA-6b); the words of the backend `ExpenseCategory`. */
+export type PaymentCategory = 'MATERIALS' | 'TOOLS' | 'TRANSPORT' | 'SERVICES' | 'OTHER';
+export const PAYMENT_CATEGORIES: readonly PaymentCategory[] = ['MATERIALS', 'TOOLS', 'TRANSPORT', 'SERVICES', 'OTHER'];
 export type InvoiceState = 'PAID' | 'PARTIAL' | 'OVERDUE' | 'OPEN';
 
 export interface Payment {
@@ -17,6 +20,8 @@ export interface Payment {
   settles_id: string | null;
   counterparty: string | null;
   document_kind: PaymentDocumentKind | null;
+  /** An expense only; an expense made before the categories existed has none (a list kept on the phone from before may lack the field). */
+  category?: PaymentCategory | null;
   note: string | null;
   is_archived: boolean;
   created_at: string;
@@ -36,6 +41,8 @@ export interface PaymentSummary {
   invoiced_unpaid: string;
   to_receive: string | null;
   result: string;
+  /** The parts of `expenses`, only the categories that have any (null: the ones with no category); a list kept from before may lack it. */
+  expenses_by_category?: { category: PaymentCategory | null; total: string }[];
 }
 
 export interface PaymentList {
@@ -70,6 +77,7 @@ export interface PaymentFields {
   settles_id: string | null;
   counterparty: string | null;
   document_kind: PaymentDocumentKind | null;
+  category: PaymentCategory | null;
   note: string | null;
 }
 

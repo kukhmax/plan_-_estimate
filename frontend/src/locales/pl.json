@@ -3101,6 +3101,8 @@
     "remaining": "Pozostało",
     "kind": { "INVOICE": "Faktura", "ADVANCE": "Zaliczka", "PAYMENT": "Wpłata", "EXPENSE": "Wydatek" },
     "document_kind": { "RECEIPT": "Paragon", "INVOICE": "Faktura" },
+    "category": { "MATERIALS": "Materiały", "TOOLS": "Narzędzia", "TRANSPORT": "Transport", "SERVICES": "Usługi", "OTHER": "Inne" },
+    "category_none": "Bez kategorii",
     "state": { "PAID": "Opłacona", "PARTIAL": "Częściowo", "OVERDUE": "Po terminie", "OPEN": "Do zapłaty" },
     "fields": {
       "title": "Za co",
@@ -3113,6 +3115,7 @@
       "due_hint": "O terminie przypomnimy w kalendarzu: 3 dni wcześniej i w dniu terminu (do wyłączenia w ustawieniach kalendarza). Po opłaceniu w całości przypomnienie znika.",
       "number": "Numer",
       "counterparty": "Sklep / dostawca",
+      "category": "Na co wydano",
       "document_kind": "Dokument",
       "net": "Kwota netto, zł (dla informacji)",
       "vat": "VAT, % (dla informacji)",

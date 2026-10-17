@@ -143,7 +143,7 @@ const ENTITIES: Record<Exclude<Entity, 'answers' | 'execution'>, EntityDef> = {
     itemPath: () => null,
     fromParent: (ids) => ({ project_id: ids.project }),
     defaults: {
-      number: null, amount_net: null, vat_rate: null, due_on: null, settles_id: null, counterparty: null, document_kind: null,
+      number: null, amount_net: null, vat_rate: null, due_on: null, settles_id: null, counterparty: null, document_kind: null, category: null,
       note: null, settled: null, remaining: null, state: null,
     },
     newestFirst: true,

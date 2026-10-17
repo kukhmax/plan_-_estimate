@@ -7,7 +7,9 @@ import {
   MAX_NOTE_LENGTH,
   MAX_NUMBER_LENGTH,
   MAX_TITLE_LENGTH,
+  PAYMENT_CATEGORIES,
   type Payment,
+  type PaymentCategory,
   type PaymentDocumentKind,
   type PaymentFields,
   type PaymentKind,
@@ -53,6 +55,8 @@ export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCanc
   const [number, setNumber] = useState(payment?.number ?? '');
   const [counterparty, setCounterparty] = useState(payment?.counterparty ?? '');
   const [documentKind, setDocumentKind] = useState<PaymentDocumentKind>(payment?.document_kind ?? 'RECEIPT');
+  // a new expense is for materials until another is tapped (the usual case, no tap); an old one without a category keeps none
+  const [category, setCategory] = useState<PaymentCategory | null>(payment ? (payment.category ?? null) : 'MATERIALS');
   const [net, setNet] = useState(toInput(payment?.amount_net));
   const [vat, setVat] = useState(toInput(payment?.vat_rate));
   const [settles, setSettles] = useState(payment?.settles_id ?? '');
@@ -95,6 +99,7 @@ export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCanc
       settles_id: (kind === 'ADVANCE' || kind === 'PAYMENT') && settles !== '' ? settles : null,
       counterparty: kind === 'EXPENSE' && counterparty.trim() !== '' ? counterparty.trim() : null,
       document_kind: kind === 'EXPENSE' ? documentKind : null,
+      category: kind === 'EXPENSE' ? category : null,
       note: note.trim() !== '' ? note.trim() : null,
     };
     setBusy(true);
@@ -219,6 +224,19 @@ export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCanc
             {(['RECEIPT', 'INVOICE'] as const).map((value) => (
               <button key={value} type="button" aria-pressed={documentKind === value} aria-label={`payment-document-${value}`} onClick={() => setDocumentKind(value)} className={segment(documentKind === value)}>
                 {text.document_kind[value]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {kind === 'EXPENSE' && (
+        <div>
+          <span className={label}>{text.fields.category}</span>
+          <div role="group" aria-label="payment-category" className="flex flex-wrap gap-2">
+            {PAYMENT_CATEGORIES.map((value) => (
+              <button key={value} type="button" aria-pressed={category === value} aria-label={`payment-category-${value}`} onClick={() => setCategory(value)} className={`${segment(category === value)} flex-none`}>
+                {text.category[value]}
               </button>
             ))}
           </div>

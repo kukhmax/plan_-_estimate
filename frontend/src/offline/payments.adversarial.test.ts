@@ -74,7 +74,7 @@ function makeServer(world: World, chaos: () => 'ok' | 'drop' | 'lost' | 'error')
 
 const fields = (title: string, amount: string): PaymentFields => ({
   title, amount_gross: amount, occurred_on: '2026-10-17', number: null, amount_net: null, vat_rate: null, due_on: null, settles_id: null,
-  counterparty: null, document_kind: null, note: null,
+  counterparty: null, document_kind: null, category: null, note: null,
 });
 const key = (id: string, title: string, amount: string, archived: boolean) => `${id}|${title}|${Number(amount).toFixed(2)}|${archived ? 'A' : '-'}`;
 const norm = (rs: World, archivedToo: boolean) => rs.filter((r) => archivedToo || !r.archived).map((r) => key(r.id, r.title, r.amount, r.archived)).sort();

@@ -194,6 +194,7 @@ function PaymentCard({ payment, busy, onEdit, onArchive }: { payment: Payment; b
   if (payment.number) meta.push(`${text.fields.number}: ${payment.number}`);
   if (payment.counterparty) meta.push(payment.counterparty);
   if (payment.kind === 'EXPENSE' && payment.document_kind) meta.push(text.document_kind[payment.document_kind]);
+  if (payment.kind === 'EXPENSE' && payment.category) meta.push(text.category[payment.category]);
   return (
     <li aria-label={`payment-${payment.id}`} className={`bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2 ${payment.is_archived ? 'opacity-70' : ''}`}>
       <div className="flex items-center justify-between gap-2">
@@ -283,6 +284,8 @@ function SummaryCard({ projectId, list, onChanged }: { projectId: string; list: 
     void persist(amount);
   };
 
+  // the parts of the expenses by what they were spent on: shown once at least one expense has a category (all of them without one is no breakdown)
+  const parts = (summary.expenses_by_category ?? []).some((part) => part.category !== null) ? (summary.expenses_by_category ?? []) : [];
   const rows: { key: string; label: string; value: string | null; negative?: boolean }[] = [
     { key: 'agreed', label: text.summary.agreed, value: list.agreed_amount },
     { key: 'invoiced', label: text.summary.invoiced, value: summary.invoiced },
@@ -305,6 +308,16 @@ function SummaryCard({ projectId, list, onChanged }: { projectId: string; list: 
           </div>
         ))}
       </dl>
+      {parts.length > 0 && (
+        <dl aria-label="summary-expenses-parts" className="space-y-1 text-xs border-t border-slate-100 pt-2">
+          {parts.map((part) => (
+            <div key={part.category ?? 'none'} aria-label={`summary-expenses-${part.category ?? 'none'}`} className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <dt className="text-slate-500 min-w-0 break-words">{part.category === null ? text.category_none : text.category[part.category]}</dt>
+              <dd className="font-semibold text-slate-800 break-words">{formatMoney(part.total)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
       {!editing ? (
         <>

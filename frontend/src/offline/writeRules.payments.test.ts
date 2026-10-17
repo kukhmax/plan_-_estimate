@@ -69,6 +69,12 @@ describe('a record made on the phone, laid over the list the server gave', () =>
     });
   });
 
+  it('carries the category that was chosen, and has none when none was sent (IA-6b)', () => {
+    const shown = overlayRead(paymentsPath, list(), [create(NEW, { category: 'TRANSPORT' }), create(A, { kind: 'INVOICE' })]);
+    expect(items(shown).find((item) => item.id === NEW)).toMatchObject({ category: 'TRANSPORT' });
+    expect(items(shown).find((item) => item.id === A)).toMatchObject({ category: null });
+  });
+
   it('leaves the summary and the agreed amount as the server said (nothing is counted on the phone)', () => {
     const shown = overlayRead(paymentsPath, list(record(A)), [create(NEW, { amount_gross: '500.00' })]) as Record<string, unknown>;
     expect(shown.summary).toEqual({ invoiced: '1000.00' });
@@ -97,6 +103,12 @@ describe('a change of a record', () => {
   it('lays the typed fields over the record and marks it', () => {
     const shown = overlayRead(paymentsPath, list(record(A)), [update(A, { title: 'Faktura końcowa', note: 'do 14 dni' })]);
     expect(items(shown)[0]).toMatchObject({ id: A, title: 'Faktura końcowa', note: 'do 14 dni', _pending: true });
+  });
+
+  it('lays a new category over an expense, and clears it with null, without touching what the server derived (IA-6b)', () => {
+    const expense = record(A, { kind: 'EXPENSE', category: 'MATERIALS', due_on: null, settled: null, remaining: null, state: null });
+    expect(items(overlayRead(paymentsPath, list(expense), [update(A, { category: 'TOOLS' })]))[0]).toMatchObject({ category: 'TOOLS', _pending: true });
+    expect(items(overlayRead(paymentsPath, list(expense), [update(A, { category: null })]))[0]).toMatchObject({ category: null, _pending: true });
   });
 
   it('keeps what the server derived when neither the amount nor the due date changed', () => {

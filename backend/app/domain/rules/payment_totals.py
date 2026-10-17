@@ -13,6 +13,9 @@ INVOICE = "INVOICE"
 MONEY_IN = ("ADVANCE", "PAYMENT")
 EXPENSE = "EXPENSE"
 
+# what an expense can be spent on, in the order the summary lists them (the same words as `ExpenseCategory`); an expense without one is last
+CATEGORIES = ("MATERIALS", "TOOLS", "TRANSPORT", "SERVICES", "OTHER")
+
 ZERO = Decimal("0.00")  # every sum starts from two places, so an empty total is "0.00" and not "0"
 
 PAID = "PAID"
@@ -29,6 +32,13 @@ class Entry:
     due_on: date | None
     settles_id: object | None
     is_archived: bool
+    category: str | None = None  # an expense only (IA-6b)
+
+
+@dataclass(frozen=True, slots=True)
+class CategoryTotal:
+    category: str | None  # None: the expenses that have no category (made before the categories existed)
+    total: Decimal
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +56,7 @@ class Summary:
     invoiced_unpaid: Decimal  # the unpaid rest of the invoices that payments are tied to (payments tied to nothing settle nothing)
     to_receive: Decimal | None  # the agreed amount less what was received; None without an agreed amount
     result: Decimal  # received less expenses: a cash result, not a profit in the accounting sense
+    expenses_by_category: tuple[CategoryTotal, ...] = ()  # the parts of `expenses`, only the categories that have any, in the order of CATEGORIES
 
 
 def invoice_standings(entries: Iterable[Entry], today: date) -> dict[object, InvoiceStanding]:
@@ -80,6 +91,12 @@ def summarize(entries: Iterable[Entry], agreed: Decimal | None, today: date) -> 
     invoiced = sum((e.amount_gross for e in live if e.kind == INVOICE), zero)
     received = sum((e.amount_gross for e in live if e.kind in MONEY_IN), zero)
     expenses = sum((e.amount_gross for e in live if e.kind == EXPENSE), zero)
+    bucket: dict[str | None, Decimal] = {}
+    for e in live:
+        if e.kind == EXPENSE:
+            key = e.category if e.category in CATEGORIES else None
+            bucket[key] = bucket.get(key, zero) + e.amount_gross
+    parts = tuple(CategoryTotal(name, bucket[name]) for name in (*CATEGORIES, None) if name in bucket)
     standings = invoice_standings(entries, today)
     unpaid = sum((standings[e.id].remaining for e in live if e.kind == INVOICE), zero)
     return Summary(
@@ -89,4 +106,5 @@ def summarize(entries: Iterable[Entry], agreed: Decimal | None, today: date) -> 
         invoiced_unpaid=unpaid,
         to_receive=None if agreed is None else agreed - received,
         result=received - expenses,
+        expenses_by_category=parts,
     )
