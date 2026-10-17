@@ -3,9 +3,10 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { SentDocuments } from './SentDocuments';
 import { I18nProvider } from '../hooks/useI18n';
 import * as documentsApi from '../api/documents';
+import { ApiError } from '../api/http';
 import type { OwnerDocument } from '../types/document';
 
-vi.mock('../api/documents', () => ({ listAllDocuments: vi.fn() }));
+vi.mock('../api/documents', () => ({ listAllDocuments: vi.fn(), deleteDocument: vi.fn() }));
 
 const doc = (n: number, overrides: Partial<OwnerDocument> = {}): OwnerDocument => ({
   id: `d${n}`, project_id: `p${n}`, kind: 'ESTIMATE', source_id: null, source_version: null, title: `Dokument ${n}`,
@@ -117,5 +118,80 @@ describe('SentDocuments (Stage 16K.5)', () => {
     expect(screen.getByLabelText('sent-documents-more').className).toContain('min-h-11');
     expect(screen.getByText(/Mieszkanie na Mokotowie/).parentElement?.className).toContain('break-words');
     expect(screen.getByText('KOSZ/2026/10/01/1200-2').className).toContain('break-all');
+  });
+
+  describe('deleting a row of the journal (DJ-1)', () => {
+    const open = async (items = [doc(2), doc(1)]) => {
+      vi.mocked(documentsApi.listAllDocuments).mockResolvedValue({ items, total: items.length });
+      vi.mocked(documentsApi.deleteDocument).mockResolvedValue(undefined);
+      renderScreen();
+      await screen.findByLabelText('sent-documents-list');
+    };
+
+    it('offers the button on a sent and on a failed row and not on one that is still being made', async () => {
+      await open([doc(1), doc(2, { status: 'FAILED', error_code: 'INTERRUPTED' }), doc(3, { status: 'PENDING' })]);
+      expect(screen.getByLabelText('journal-delete-KOSZ/2026/10/01/1200')).toBeInTheDocument();
+      expect(screen.getByLabelText('journal-delete-KOSZ/2026/10/02/1200')).toBeInTheDocument();
+      expect(screen.queryByLabelText('journal-delete-KOSZ/2026/10/03/1200')).toBeNull();
+      expect(screen.getByLabelText('journal-delete-KOSZ/2026/10/01/1200').className).toContain('min-h-11');
+    });
+
+    it('asks first, says what goes and what stays, and sends nothing before the tick and the confirmation', async () => {
+      await open();
+      fireEvent.click(screen.getByLabelText('journal-delete-KOSZ/2026/10/01/1200'));
+      const dialog = await screen.findByRole('alertdialog');
+      expect(dialog).toHaveTextContent('Usunąć wpis z dziennika?');
+      expect(dialog).toHaveTextContent('Kosztorys KOSZ/2026/10/01/1200');
+      expect(dialog).toHaveTextContent('Sam dokument');
+      expect(dialog).toHaveTextContent('plik PDF w czacie z botem zostają');
+      const confirm = within(dialog).getByLabelText('journal-delete-confirm');
+      expect(confirm).toBeDisabled();
+      expect(documentsApi.deleteDocument).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByLabelText('journal-delete-understood'));
+      expect(confirm).toBeEnabled();
+    });
+
+    it('deletes on the route of the row\'s own object, takes the row off the list and the number down', async () => {
+      await open();
+      fireEvent.click(screen.getByLabelText('journal-delete-KOSZ/2026/10/01/1200'));
+      const dialog = await screen.findByRole('alertdialog');
+      fireEvent.click(within(dialog).getByLabelText('journal-delete-understood'));
+      fireEvent.click(within(dialog).getByLabelText('journal-delete-confirm'));
+      await waitFor(() => expect(documentsApi.deleteDocument).toHaveBeenCalledWith('p1', 'd1'));
+      await waitFor(() => expect(screen.queryByLabelText('document-KOSZ/2026/10/01/1200')).toBeNull());
+      expect(screen.getByLabelText('document-KOSZ/2026/10/02/1200')).toBeInTheDocument();
+      expect(screen.getByLabelText('sent-documents-shown')).toHaveTextContent('Pokazano 1 z 1');
+      expect(screen.getByRole('status')).toHaveTextContent('Wpis usunięty z dziennika.');
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+
+    it('cancel closes the question and sends nothing', async () => {
+      await open();
+      fireEvent.click(screen.getByLabelText('journal-delete-KOSZ/2026/10/01/1200'));
+      fireEvent.click(await screen.findByLabelText('journal-delete-cancel'));
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(documentsApi.deleteDocument).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('document-KOSZ/2026/10/01/1200')).toBeInTheDocument();
+    });
+
+    it('says why when the server refuses (the document is still being made) and keeps the row', async () => {
+      await open();
+      vi.mocked(documentsApi.deleteDocument).mockRejectedValue(new ApiError('x', 409, 'DOCUMENT_IN_PROGRESS'));
+      fireEvent.click(screen.getByLabelText('journal-delete-KOSZ/2026/10/01/1200'));
+      const dialog = await screen.findByRole('alertdialog');
+      fireEvent.click(within(dialog).getByLabelText('journal-delete-understood'));
+      fireEvent.click(within(dialog).getByLabelText('journal-delete-confirm'));
+      expect(await within(dialog).findByText(/jest jeszcze przygotowywany/)).toBeInTheDocument();
+      expect(screen.getByLabelText('document-KOSZ/2026/10/01/1200')).toBeInTheDocument();
+      expect(within(dialog).getByLabelText('journal-delete-confirm')).toBeEnabled();
+    });
+
+    it('speaks Russian', async () => {
+      localStorage.setItem('locale', 'ru');
+      await open();
+      expect(screen.getByLabelText('journal-delete-KOSZ/2026/10/01/1200')).toHaveTextContent('Удалить из журнала…');
+      fireEvent.click(screen.getByLabelText('journal-delete-KOSZ/2026/10/01/1200'));
+      expect(await screen.findByRole('alertdialog')).toHaveTextContent('Удалить запись из журнала?');
+    });
   });
 });

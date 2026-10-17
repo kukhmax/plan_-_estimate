@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchPhotoReportSummary, issuePhotoReport, listDocuments } from '../api/documents';
+import { deleteDocument, fetchPhotoReportSummary, issuePhotoReport, listDocuments } from '../api/documents';
 import { useI18n } from '../hooks/useI18n';
 import { ProductionPlanSection, SettlementSection, TechCardSection } from './TechCardSection';
 import type { IssuedDocument, PhotoReportSummary, UnpricedWork } from '../types/document';
@@ -8,6 +8,7 @@ import { documentKindLabel, formatIssued, formatSize } from '../utils/documentFo
 import { priceItemLabel } from '../utils/executionFormat';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { Ico } from './Ico';
+import { JournalRowDelete } from './JournalRowDelete';
 
 const POLL_MS = 2500;
 const MAX_POLLS = 72; // three minutes
@@ -68,6 +69,8 @@ export function ProjectDocuments({ projectId, part, onOpenInspection, onOpenEsti
   const [withProject, setWithProject] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [journalNotice, setJournalNotice] = useState<string | null>(null);
   const alive = useRef(true);
 
   useEffect(() => {
@@ -330,6 +333,7 @@ export function ProjectDocuments({ projectId, part, onOpenInspection, onOpenEsti
       {open && !loadFailed && shows('journal') && (summary !== null || documents.length > 0) && (
         <section aria-label="document-journal" className="space-y-2">
           <h4 className="text-sm font-semibold text-slate-900 break-words">{text.journal_title}</h4>
+          {journalNotice && <p role="status" className="text-sm text-emerald-700 break-words">{journalNotice}</p>}
           {documents.length === 0 ? (
             <p className="text-sm text-slate-600">{text.journal_empty}</p>
           ) : (
@@ -363,6 +367,31 @@ export function ProjectDocuments({ projectId, part, onOpenInspection, onOpenEsti
                   {document.status === 'FAILED' && (
                     <p className="text-xs text-red-700 break-words">{documentErrorText(text.errors, document.error_code ?? undefined)}</p>
                   )}
+                  {document.status !== 'PENDING' &&
+                    (deletingId === document.id ? (
+                      <JournalRowDelete
+                        name={`${kindLabel(document)} ${document.number}`}
+                        run={() => deleteDocument(projectId, document.id)}
+                        onCancel={() => setDeletingId(null)}
+                        onDeleted={() => {
+                          setDeletingId(null);
+                          setDocuments((current) => current.filter((entry) => entry.id !== document.id));
+                          setJournalNotice(text.journal_deleted);
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label={`journal-delete-${document.number}`}
+                        onClick={() => {
+                          setJournalNotice(null);
+                          setDeletingId(document.id);
+                        }}
+                        className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-red-300 text-red-700 transition"
+                      >
+                        <Ico>🗑️</Ico>{text.journal_delete}
+                      </button>
+                    ))}
                 </li>
               ))}
             </ul>

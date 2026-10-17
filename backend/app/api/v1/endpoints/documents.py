@@ -6,7 +6,7 @@ screen follows with `GET`. Ownership always comes from the authenticated user.
 """
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_document_issuer
@@ -23,6 +23,7 @@ from app.domain.exceptions import (
     DocumentRenderTimeoutError,
     DocumentTooLargeError,
     EstimateNotFoundError,
+    DocumentInProgressError,
     IssuedDocumentNotFoundError,
     ProjectNotFoundError,
 )
@@ -57,6 +58,8 @@ def _http_error(exc: Exception) -> HTTPException:
         return _error("ESTIMATE_NOT_FOUND", "Estimate not found", status.HTTP_404_NOT_FOUND)
     if isinstance(exc, IssuedDocumentNotFoundError):
         return _error("DOCUMENT_NOT_FOUND", "Document not found", status.HTTP_404_NOT_FOUND)
+    if isinstance(exc, DocumentInProgressError):
+        return _error(exc.code, "The document is still being made", status.HTTP_409_CONFLICT)
     if isinstance(exc, DocumentDataError):
         return _error(exc.reason, str(exc), status.HTTP_422_UNPROCESSABLE_ENTITY, details=exc.details)
     if isinstance(exc, DocumentQueueFullError):
@@ -162,6 +165,24 @@ async def get_document(
     except IssuedDocumentNotFoundError as exc:
         raise _http_error(exc) from exc
     return IssuedDocumentRead.model_validate(row)
+
+
+@router.delete(
+    "/projects/{project_id}/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete one row of the journal of the sent documents (only the row: the document and the PDF in the chat stay; 409 while it is being made)",
+)
+async def delete_document(
+    project_id: uuid.UUID,
+    document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    try:
+        await IssuedDocumentService(db).delete(current_user.id, project_id, document_id)
+    except (IssuedDocumentNotFoundError, DocumentInProgressError) as exc:
+        raise _http_error(exc) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(

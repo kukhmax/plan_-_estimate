@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { listAllDocuments } from '../api/documents';
+import { deleteDocument, listAllDocuments } from '../api/documents';
 import { useI18n } from '../hooks/useI18n';
 import type { OwnerDocument } from '../types/document';
 import { documentErrorText } from '../utils/documentErrors';
 import { documentKindLabel, formatIssued, formatSize } from '../utils/documentFormat';
+import { Ico } from './Ico';
+import { JournalRowDelete } from './JournalRowDelete';
 
 const PAGE = 30;
 
 /**
- * The journal of everything sent to the owner's chat, over all objects, newest first (Stage 16K.5). Read only: a document
- * is made on the screen of its object; here it is only found again (number, kind, object, date, how it ended).
+ * The journal of everything sent to the owner's chat, over all objects, newest first (Stage 16K.5). A document is made on the screen of its
+ * object; here it is found again (number, kind, object, date, how it ended) and, since DJ-1, a row can be deleted: only the line of the journal
+ * (the document and the PDF in the chat stay), and not while the document is still being made.
  */
 export function SentDocuments() {
   const { t, locale } = useI18n();
@@ -19,6 +22,8 @@ export function SentDocuments() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const alive = useRef(true);
 
   useEffect(() => {
@@ -62,6 +67,7 @@ export function SentDocuments() {
         {own.refresh}
       </button>
 
+      {notice && <p role="status" className="text-sm text-emerald-700 break-words">{notice}</p>}
       {failed && <p role="alert" className="text-sm text-red-600 break-words">{own.error_load}</p>}
       {loading && items.length === 0 && !failed && <p className="text-sm text-slate-500">{text.loading}</p>}
       {!loading && !failed && items.length === 0 && (
@@ -102,6 +108,32 @@ export function SentDocuments() {
               {document.status === 'FAILED' && (
                 <p className="text-xs text-red-700 break-words">{documentErrorText(text.errors, document.error_code ?? undefined)}</p>
               )}
+              {document.status !== 'PENDING' &&
+                (deletingId === document.id ? (
+                  <JournalRowDelete
+                    name={`${documentKindLabel(text, document.kind)} ${document.number}`}
+                    run={() => deleteDocument(document.project_id, document.id)}
+                    onCancel={() => setDeletingId(null)}
+                    onDeleted={() => {
+                      setDeletingId(null);
+                      setItems((current) => current.filter((entry) => entry.id !== document.id));
+                      setTotal((current) => Math.max(0, current - 1));
+                      setNotice(text.journal_deleted);
+                    }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={`journal-delete-${document.number}`}
+                    onClick={() => {
+                      setNotice(null);
+                      setDeletingId(document.id);
+                    }}
+                    className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-red-300 text-red-700 transition"
+                  >
+                    <Ico>🗑️</Ico>{text.journal_delete}
+                  </button>
+                ))}
             </li>
           ))}
         </ul>

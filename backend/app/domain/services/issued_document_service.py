@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.documents.formatting import POLAND
 from app.domain.documents.registry import TEMPLATES, DocumentKind
-from app.domain.exceptions import IssuedDocumentNotFoundError, ProjectNotFoundError
+from app.domain.exceptions import DocumentInProgressError, IssuedDocumentNotFoundError, ProjectNotFoundError
 from app.models.issued_document import (
     IssuedDocument,
     IssuedDocumentKind,
@@ -184,6 +184,16 @@ class IssuedDocumentService:
         if document is None:
             raise IssuedDocumentNotFoundError(f"Document {document_id} not found")
         return document
+
+    async def delete(self, owner_id: uuid.UUID, project_id: uuid.UUID, document_id: uuid.UUID) -> None:
+        """Delete one row of the journal (DJ-1). Only the row: the document it recorded (an estimate, a contract, a protocol ...) stays where it is, and
+        the PDF that went to the chat stays in the chat (no file is kept here). A row whose attempt is still running is refused: the background
+        render writes its result into it. A stale attempt has ended by now (`get` ends it first), so it can be deleted."""
+        row = await self.get(owner_id, project_id, document_id)
+        if row.status == IssuedDocumentStatus.PENDING.value:
+            raise DocumentInProgressError(f"Document {document_id} is still being made")
+        await self.db.delete(row)
+        await self.db.commit()
 
     async def list_for_project(self, owner_id: uuid.UUID, project_id: uuid.UUID, *, limit: int = 100) -> list[IssuedDocument]:
         """Newest first. Raises ProjectNotFoundError for a project that is not the owner's."""

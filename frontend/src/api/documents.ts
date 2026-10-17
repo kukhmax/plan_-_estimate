@@ -56,6 +56,11 @@ export function previewTechCardPdf(projectId: string): Promise<DocumentPreviewRe
   return apiRequest(`${base(projectId)}/documents/tech-card/preview`, { method: 'POST' });
 }
 
+/** Deletes one row of the journal of the sent documents (DJ-1): only the row; the document and the PDF in the chat stay. 409 `DOCUMENT_IN_PROGRESS` while it is being made. */
+export function deleteDocument(projectId: string, documentId: string): Promise<void> {
+  return apiRequest(`${base(projectId)}/documents/${documentId}`, { method: 'DELETE' });
+}
+
 /** The numbered statement of settlements (Rozliczenie) for the client (the server refuses it while the object has no invoice and no payment). */
 export function issueSettlement(projectId: string): Promise<IssuedDocument> {
   return apiRequest(`${base(projectId)}/documents`, { method: 'POST', body: JSON.stringify({ kind: 'SETTLEMENT' }) });

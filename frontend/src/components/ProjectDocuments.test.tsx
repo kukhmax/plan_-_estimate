@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as documentsApi from '../api/documents';
 import { ApiError } from '../api/http';
@@ -14,6 +14,7 @@ vi.mock('../api/documents', () => ({
   previewTechCardPdf: vi.fn(),
   issueProductionPlan: vi.fn(),
   previewProductionPlanPdf: vi.fn(),
+  deleteDocument: vi.fn(),
 }));
 
 const SALON = 'r-salon';
@@ -429,6 +430,25 @@ describe('ProjectDocuments — one piece on its own screen (Stage 16K.6)', () =>
     expect(await screen.findByLabelText('send-photo-report')).toBeInTheDocument();
     expect(screen.queryByLabelText('document-journal')).toBeNull();
     expect(documentsApi.fetchPhotoReportSummary).toHaveBeenCalledWith('p1');
+  });
+
+  it('a row of the journal of the object can be deleted after the question, and a running one cannot (DJ-1)', async () => {
+    vi.mocked(documentsApi.listDocuments).mockResolvedValue({
+      items: [doc({ id: 'd2', number: 'KOSZ/2026/10/08/2000', project_seq: 2, status: 'PENDING' }), doc()], total: 2,
+    });
+    vi.mocked(documentsApi.deleteDocument).mockResolvedValue(undefined);
+    renderPart('journal');
+    await screen.findByLabelText('document-journal');
+    expect(screen.queryByLabelText('journal-delete-KOSZ/2026/10/08/2000')).toBeNull();
+    fireEvent.click(await screen.findByLabelText('journal-delete-KOSZ/2026/10/08/1953'));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(documentsApi.deleteDocument).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByLabelText('journal-delete-understood'));
+    fireEvent.click(within(dialog).getByLabelText('journal-delete-confirm'));
+    await waitFor(() => expect(documentsApi.deleteDocument).toHaveBeenCalledWith('p1', 'd1'));
+    await waitFor(() => expect(screen.queryByLabelText('document-KOSZ/2026/10/08/1953')).toBeNull());
+    expect(screen.getByLabelText('document-KOSZ/2026/10/08/2000')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Wpis usunięty z dziennika.');
   });
 
   it('the journal shows what was sent for this object only, no report and no cards', async () => {

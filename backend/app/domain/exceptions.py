@@ -867,6 +867,12 @@ class IssuedDocumentNotFoundError(Exception):
     """A document of the journal that does not exist, or is not this owner's / this project's (Stage 15F)."""
 
 
+class DocumentInProgressError(Exception):
+    """The document is still being made and sent: its journal row is not deleted until the attempt has ended (journal deletion, DJ-1)."""
+
+    code = "DOCUMENT_IN_PROGRESS"
+
+
 # ---------------------------------------------------------------------------
 # Stage 15C — executor profile.
 # ---------------------------------------------------------------------------
