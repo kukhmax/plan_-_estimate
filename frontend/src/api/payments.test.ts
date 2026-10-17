@@ -5,7 +5,8 @@ function respond(status: number, body: unknown) {
   vi.mocked(fetch).mockResolvedValueOnce({ ok: status < 400, status, json: vi.fn().mockResolvedValue(body) } as unknown as Response);
 }
 const lastCall = () => {
-  const [url, init] = vi.mocked(fetch).mock.calls.at(-1) as [string, RequestInit | undefined];
+  const calls = vi.mocked(fetch).mock.calls;
+  const [url, init] = calls[calls.length - 1] as [string, RequestInit | undefined];
   return { url, init: init ?? {} };
 };
 
