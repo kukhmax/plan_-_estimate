@@ -81,6 +81,51 @@ export interface PaymentFields {
   note: string | null;
 }
 
+/** One archived record in the archive of all objects (IA-7); `photos` are its receipt / invoice photos, which go with it. */
+export interface ArchivedPaymentItem {
+  id: string;
+  project_id: string;
+  project_name: string;
+  kind: PaymentKind;
+  title: string;
+  number: string | null;
+  amount_gross: string;
+  occurred_on: string;
+  counterparty: string | null;
+  category: PaymentCategory | null;
+  photos: number;
+}
+
+export interface ArchivedPayments {
+  items: ArchivedPaymentItem[];
+  /** The list holds the first 200; the total is whole. */
+  total: number;
+}
+
+/** What deleting an archived record for good would remove, counted by the server (IA-7). */
+export interface PaymentPurgePreview {
+  target_id: string;
+  kind: PaymentKind;
+  title: string;
+  archived: boolean;
+  can_purge: boolean;
+  /** Of an invoice: the payments that settled it stay (the money is theirs) and lose the link. */
+  tied_payments: number;
+  photos: number;
+  /** File sets (original, display, thumbnail) that leave the storage: those no other photo still uses. */
+  photo_files: number;
+  bytes: number;
+  annotations: number;
+  may_be_in_backups: boolean;
+}
+
+export interface PaymentPurgeResult {
+  purged: boolean;
+  photo_files: number;
+  /** File sets still to be removed from the storage: a retry finishes them. */
+  storage_pending: number;
+}
+
 /** Same limits as the backend schema. */
 export const MAX_TITLE_LENGTH = 500;
 export const MAX_NUMBER_LENGTH = 64;

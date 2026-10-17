@@ -32,7 +32,7 @@
   },
   "archive": {
     "title": "Archiwum",
-    "intro": "Zarchiwizowani klienci, obiekty, pomieszczenia, powierzchnie i zdjęcia. Tutaj można je przywrócić.",
+    "intro": "Zarchiwizowani klienci, obiekty, pomieszczenia, powierzchnie, wpisy rozliczeń (faktury, zaliczki, wydatki) i zdjęcia. Tutaj można je przywrócić.",
     "clients_tab": "Klienci",
     "projects_tab": "Obiekty",
     "empty_clients": "Brak zarchiwizowanych klientów.",
@@ -115,7 +115,16 @@
     "structure_deleted_surface": "Powierzchnia usunięta.",
     "structure_deleted_pending": "Usunięte. Pliki zdjęć w magazynie zostaną usunięte przy ponowieniu.",
     "structure_delete_error": "Nie udało się usunąć.",
-    "structure_delete_conflict": "Zmieniło się w trakcie usuwania (np. dodano zdjęcie). Nic nie usunięto: spróbuj ponownie."
+    "structure_delete_conflict": "Zmieniło się w trakcie usuwania (np. dodano zdjęcie). Nic nie usunięto: spróbuj ponownie.",
+    "payments_tab": "Faktury i zaliczki",
+    "empty_payments": "Brak zarchiwizowanych wpisów rozliczeń.",
+    "restored_payment": "Wpis przywrócony.",
+    "payment_photos": "Zdjęcia: {count}",
+    "payment_delete_title": "Usunąć wpis na zawsze?",
+    "payment_delete_intro": "Wpis „{name}” zostanie usunięty na zawsze.",
+    "payment_delete_nothing": "Nie ma tu nic więcej: ani zdjęć, ani powiązanych wpłat.",
+    "payment_delete_tied": "Wpłaty i zaliczki powiązane z tą fakturą: {count} — zostają (pieniądze są ich), tracą tylko powiązanie z fakturą",
+    "payment_deleted": "Wpis usunięty."
   },
   "sentDocuments": {
     "intro": "Wszystkie dokumenty wysłane do czatu z botem, ze wszystkich obiektów, od najnowszych.",

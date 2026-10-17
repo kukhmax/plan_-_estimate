@@ -1012,6 +1012,18 @@ class PaymentNotFoundError(Exception):
     """A settlement record that does not exist, is not on this object or is not this owner's (invoices and advances, IA-1)."""
 
 
+class PaymentNotArchivedError(Exception):
+    """Only an archived settlement record can be deleted for good (IA-7): the archive is the reversible step before it."""
+
+    code = "PAYMENT_NOT_ARCHIVED"
+
+
+class PaymentPurgeConflictError(Exception):
+    """The record changed while it was being deleted (a photo was added meanwhile); nothing was deleted (IA-7)."""
+
+    code = "PAYMENT_PURGE_CONFLICT"
+
+
 class PaymentInvalidError(Exception):
     """A settlement record that breaks a rule of its kind (a field of another kind, a settled invoice that is not one ...) (IA-1)."""
 

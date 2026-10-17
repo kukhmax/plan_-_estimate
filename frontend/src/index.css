@@ -30,6 +30,8 @@
 
 html {
   color-scheme: light;
+  /* the canvas follows the Telegram theme too: below a short screen it is the colour of the page, not white (dark theme) */
+  background-color: var(--tg-theme-bg-color);
 }
 
 html[data-color-scheme='dark'] {

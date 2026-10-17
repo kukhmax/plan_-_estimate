@@ -1,4 +1,4 @@
-import type { Finance, Payment, PaymentFields, PaymentKind, PaymentList } from '../types/payment';
+import type { ArchivedPayments, Finance, Payment, PaymentFields, PaymentKind, PaymentList, PaymentPurgePreview, PaymentPurgeResult } from '../types/payment';
 import { apiRequest } from './http';
 
 const basePath = (projectId: string) => `/api/projects/${projectId}/payments`;
@@ -25,6 +25,20 @@ export function archivePayment(projectId: string, paymentId: string): Promise<Pa
 
 export function restorePayment(projectId: string, paymentId: string): Promise<Payment> {
   return apiRequest(`${basePath(projectId)}/${paymentId}/restore`, { method: 'POST' });
+}
+
+/** The archived records of all objects in work, with the object (IA-7); restoring uses the route of the record. */
+export function fetchArchivedPayments(): Promise<ArchivedPayments> {
+  return apiRequest('/api/archive/payments');
+}
+
+export function fetchPaymentPurgePreview(projectId: string, paymentId: string): Promise<PaymentPurgePreview> {
+  return apiRequest(`${basePath(projectId)}/${paymentId}/purge-preview`);
+}
+
+/** Only an archived record can be deleted for good; its photos go with it. */
+export function purgePayment(projectId: string, paymentId: string): Promise<PaymentPurgeResult> {
+  return apiRequest(`${basePath(projectId)}/${paymentId}/purge`, { method: 'POST' });
 }
 
 export function fetchFinance(projectId: string): Promise<Finance> {
