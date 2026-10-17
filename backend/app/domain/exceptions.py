@@ -1006,3 +1006,13 @@ class StructurePurgeConflictError(Exception):
     """The room / surface changed while it was being deleted (a photo was added meanwhile); nothing was deleted (archive cleanup AC-4b)."""
 
     code = "STRUCTURE_PURGE_CONFLICT"
+
+
+class PaymentNotFoundError(Exception):
+    """A settlement record that does not exist, is not on this object or is not this owner's (invoices and advances, IA-1)."""
+
+
+class PaymentInvalidError(Exception):
+    """A settlement record that breaks a rule of its kind (a field of another kind, a settled invoice that is not one ...) (IA-1)."""
+
+    code = "PAYMENT_INVALID"

@@ -26,6 +26,7 @@ from app.models.photo_annotation import PhotoAnnotation
 from app.models.photo_asset import PhotoAsset
 from app.models.photo_attachment import PhotoAttachment
 from app.models.project import Project
+from app.models.project_payment import ProjectFinance, ProjectPayment
 from app.models.purge_ledger import PurgeLedger
 from app.models.room import Room
 from app.models.surface import Surface
@@ -275,3 +276,15 @@ async def test_the_deletion_needs_a_signed_in_user(api, purger):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as anonymous:
         assert (await anonymous.get(f"{base_of(api)}/purge-preview")).status_code in (401, 403)
         assert (await anonymous.post(f"{base_of(api)}/purge")).status_code in (401, 403)
+
+
+async def test_the_settlement_records_are_counted_in_the_preview_and_go_with_the_object(api, http, purger):
+    for kind in ("INVOICE", "ADVANCE", "EXPENSE"):
+        api.db.add(ProjectPayment(owner_id=api.me, project_id=api.project, kind=kind, title="x", amount_gross=10, occurred_on=NOW.date(), is_archived=(kind == "EXPENSE")))
+    api.db.add(ProjectFinance(project_id=api.project, owner_id=api.me, agreed_amount=1000))
+    await api.db.commit()
+    await archive(http, api)
+    preview = (await http.get(f"{base_of(api)}/purge-preview")).json()
+    assert preview["payments"] == 3 and preview["can_purge"] is True  # the archived one counts, and nothing holds the object
+    assert (await http.post(f"{base_of(api)}/purge")).status_code == 200
+    assert await count(api.db, ProjectPayment) == 0 and await count(api.db, ProjectFinance) == 0

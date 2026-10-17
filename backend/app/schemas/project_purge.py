@@ -20,6 +20,7 @@ class ProjectPurgePreview(BaseModel):
     estimates: int
     documents: int  # contracts and protocols of every kind, drafts and archived ones included
     sent_documents: int  # documents given to the client: their copies in Telegram chats stay
+    payments: int  # settlement records of the object (invoices, money from the client, expenses): they go with it
     photos: int
     photo_files: int  # file sets (original, display, thumbnail) removed from the storage
     bytes: int

@@ -29,6 +29,7 @@ from app.domain.services.adjacent_work_service import AdjacentWorkService
 from app.domain.services.acceptance_service import AcceptanceService
 from app.domain.services.decision_service import DecisionService
 from app.domain.services.calendar_service import CalendarService
+from app.domain.services.payment_service import PaymentService
 from app.domain.services.project_note_service import ProjectNoteService
 from app.domain.services.downtime_service import DowntimeService
 from app.domain.services.concealed_service import ConcealedService
@@ -150,6 +151,12 @@ async def get_calendar_service(
     db: AsyncSession = Depends(get_db),
 ) -> CalendarService:
     return CalendarService(db)
+
+
+async def get_payment_service(
+    db: AsyncSession = Depends(get_db),
+) -> PaymentService:
+    return PaymentService(db)
 
 
 async def get_project_note_service(

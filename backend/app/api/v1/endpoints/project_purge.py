@@ -72,7 +72,7 @@ async def project_purge_preview(
     return ProjectPurgePreview(
         project_id=preview.project_id, name=preview.name, archived=preview.archived, can_purge=preview.can_purge,
         rooms=preview.rooms, surfaces=preview.surfaces, openings=preview.openings, inspections=preview.inspections,
-        estimates=preview.estimates, documents=preview.documents, sent_documents=preview.sent_documents, photos=preview.photos,
+        estimates=preview.estimates, documents=preview.documents, sent_documents=preview.sent_documents, payments=preview.payments, photos=preview.photos,
         photo_files=preview.photo_files, bytes=preview.bytes, annotations=preview.annotations,
         may_be_in_backups=preview.photo_files > 0,
         blockers=[PurgeBlockerRead(kind=b.kind, protocol_id=b.protocol_id, status=b.status) for b in preview.blockers],

@@ -45,6 +45,7 @@ from app.models.photo_annotation import PhotoAnnotation
 from app.models.photo_asset import PhotoAsset
 from app.models.photo_attachment import PhotoAttachment
 from app.models.project import Project
+from app.models.project_payment import ProjectPayment
 from app.models.purge_ledger import PENDING, PurgeLedger
 from app.models.room import Room
 from app.models.surface import Surface
@@ -74,6 +75,7 @@ class ProjectPurgePreview:
     estimates: int
     documents: int  # contracts and protocols of every kind (drafts and archived ones included)
     sent_documents: int  # rows of the journal of documents given to the client
+    payments: int  # settlement records (invoices, money from the client, expenses), archived ones included
     photos: int  # attachments
     photo_files: int  # file sets (3 objects each) that leave the storage
     bytes: int
@@ -139,6 +141,7 @@ class ProjectPurgeService:
             estimates=await self._count(Estimate, Estimate.project_id == project_id),
             documents=len(documents),
             sent_documents=await self._count(IssuedDocument, IssuedDocument.project_id == project_id),
+            payments=await self._count(ProjectPayment, ProjectPayment.project_id == project_id),
             photos=await self._count(PhotoAttachment, PhotoAttachment.project_id == project_id),
             photo_files=int(sizes[0]),
             bytes=int(sizes[1]),
