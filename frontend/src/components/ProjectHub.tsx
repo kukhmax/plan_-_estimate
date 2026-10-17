@@ -48,17 +48,18 @@ export function ProjectHub({ onOpenEstimates, onOpenSection }: ProjectHubProps) 
   return (
     <nav aria-label="object-hub" className="grid grid-cols-1 gap-3">
       <HubTile accent icon="🧮" ariaLabel="open-estimates" label={t.estimates.title} onOpen={onOpenEstimates} />
-      <HubTile icon="🚪" ariaLabel="object-tile-rooms" label={t.rooms.title} onOpen={() => onOpenSection('rooms')} />
+      <HubTile tone="green" icon="🚪" ariaLabel="object-tile-rooms" label={t.rooms.title} onOpen={() => onOpenSection('rooms')} />
       <HubTile
+        tone="sky"
         icon="📷"
         ariaLabel="object-tile-photos"
         label={t.photos.section.project_title}
         count={photos ? totalPhotoCount(photos.counts) : undefined}
         onOpen={() => onOpenSection('photos')}
       />
-      <HubTile icon="📄" ariaLabel="object-tile-documents" label={t.documents.title} onOpen={() => onOpenSection('documents')} />
-      <HubTile icon="⚖️" ariaLabel="object-tile-legal" label={t.objectHub.legal} onOpen={() => onOpenSection('legal')} />
-      <HubTile icon="💰" ariaLabel="object-tile-payments" label={t.payments.title} onOpen={() => onOpenSection('payments')} />
+      <HubTile tone="pink" icon="📄" ariaLabel="object-tile-documents" label={t.documents.title} onOpen={() => onOpenSection('documents')} />
+      <HubTile tone="slate" icon="⚖️" ariaLabel="object-tile-legal" label={t.objectHub.legal} onOpen={() => onOpenSection('legal')} />
+      <HubTile tone="yellow" icon="💰" ariaLabel="object-tile-payments" label={t.payments.title} onOpen={() => onOpenSection('payments')} />
       <HubTile icon="📊" ariaLabel="object-tile-summary" label={t.object_summary.title} onOpen={() => onOpenSection('summary')} />
     </nav>
   );

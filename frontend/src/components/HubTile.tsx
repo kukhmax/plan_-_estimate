@@ -1,3 +1,14 @@
+/** The soft colours of the tiles of the object (the owner's choice, 2026-10-18): a tile of its own colour is found by the eye before it is read. */
+export type HubTileTone = 'green' | 'sky' | 'pink' | 'slate' | 'yellow';
+
+const TONES: Record<HubTileTone, string> = {
+  green: 'bg-green-100 border-green-300 hover:bg-green-200 active:bg-green-300',
+  sky: 'bg-sky-100 border-sky-300 hover:bg-sky-200 active:bg-sky-300',
+  pink: 'bg-pink-100 border-pink-300 hover:bg-pink-200 active:bg-pink-300',
+  slate: 'bg-slate-200 border-slate-300 hover:bg-slate-300 active:bg-slate-400',
+  yellow: 'bg-yellow-100 border-yellow-300 hover:bg-yellow-200 active:bg-yellow-300',
+};
+
 interface HubTileProps {
   label: string;
   ariaLabel: string;
@@ -5,21 +16,26 @@ interface HubTileProps {
   /** A small number on the right (photos). */
   count?: number;
   accent?: boolean;
+  /** A soft background colour; without it the tile is white. `accent` (the estimate) wins. */
+  tone?: HubTileTone;
   /** A decorative emoji before the label. */
   icon?: string;
 }
 
 /** One large full-width tile of a hub (the object, the price, the documents, the agreement and protocols): 56 px, wraps long names. */
-export function HubTile({ label, ariaLabel, onOpen, count, accent = false, icon }: HubTileProps) {
+export function HubTile({ label, ariaLabel, onOpen, count, accent = false, tone, icon }: HubTileProps) {
   return (
     <button
       type="button"
       aria-label={ariaLabel}
+      data-tone={accent ? 'accent' : (tone ?? 'white')}
       onClick={onOpen}
       className={
         accent
           ? 'w-full min-h-14 bg-amber-500 border border-amber-600 rounded-2xl px-4 py-3 shadow-md flex items-center justify-between gap-3 text-left hover:bg-amber-400 active:bg-amber-600 transition'
-          : 'w-full min-h-14 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between gap-3 text-left hover:bg-slate-50 transition'
+          : `w-full min-h-14 border rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between gap-3 text-left transition ${
+              tone ? TONES[tone] : 'bg-white border-slate-200 hover:bg-slate-50'
+            }`
       }
     >
       <span className={`font-bold text-sm break-words min-w-0 flex items-center gap-2.5 ${accent ? 'text-slate-950' : 'text-slate-900'}`}>
@@ -28,7 +44,7 @@ export function HubTile({ label, ariaLabel, onOpen, count, accent = false, icon 
       </span>
       <span className="flex items-center gap-2 shrink-0">
         {count !== undefined && (
-          <span aria-label={`${ariaLabel}-count`} className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold">
+          <span aria-label={`${ariaLabel}-count`} className={`text-xs px-2 py-0.5 rounded-full font-semibold ${tone ? 'bg-white/70 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>
             {count}
           </span>
         )}
