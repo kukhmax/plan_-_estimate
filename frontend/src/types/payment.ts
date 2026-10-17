@@ -25,6 +25,8 @@ export interface Payment {
   settled: string | null;
   remaining: string | null;
   state: InvoiceState | null;
+  /** Made on the phone and not yet accepted by the server (Stage 19E): the screens mark it, and what the server derives is empty. */
+  _pending?: boolean;
 }
 
 export interface PaymentSummary {

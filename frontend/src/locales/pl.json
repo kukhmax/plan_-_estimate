@@ -3081,6 +3081,7 @@
     "empty_materials": "Brak wydatków na materiały. Dodaj pierwszy.",
     "show_archived": "Pokaż zarchiwizowane wpisy",
     "saved": "Zapisano.",
+    "pending_totals": "Sumy nie obejmują wpisów czekających na wysłanie — policzy je serwer po synchronizacji.",
     "archived": "Wpis zarchiwizowany.",
     "restored": "Wpis przywrócony.",
     "save_error": "Nie udało się zapisać wpisu.",
@@ -3143,6 +3144,7 @@
       "label": "Umówiona kwota za cały obiekt, zł",
       "suggestion": "Z kosztorysu (wersja {version}): {amount}",
       "clear": "Wyczyść kwotę",
+      "needs_connection": "Umówioną kwotę zmienisz, gdy wróci zasięg.",
       "save_error": "Nie udało się zapisać kwoty."
     }
   },
@@ -3236,7 +3238,11 @@
       "segment.restore": "Przywrócenie prostokąta",
       "answers.put": "Odpowiedzi z badania podłoża",
       "inspection.create": "Nowe badanie podłoża",
-      "execution.transition": "Status pracy"
+      "execution.transition": "Status pracy",
+      "payment.create": "Nowy wpis rozliczeń",
+      "payment.update": "Zmiana wpisu rozliczeń",
+      "payment.archive": "Archiwizacja wpisu rozliczeń",
+      "payment.restore": "Przywrócenie wpisu rozliczeń"
     }
   }
 }

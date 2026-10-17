@@ -20,6 +20,7 @@ export const ALL_KINDS: readonly OutboxKind[] = [
   'opening.create', 'opening.update', 'opening.archive', 'opening.restore',
   'segment.create', 'segment.update', 'segment.archive', 'segment.restore',
   'answers.put', 'inspection.create', 'execution.transition',
+  'payment.create', 'payment.update', 'payment.archive', 'payment.restore',
 ];
 
 /**

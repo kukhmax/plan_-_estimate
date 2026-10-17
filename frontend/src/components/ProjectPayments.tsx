@@ -4,8 +4,10 @@ import { useI18n } from '../hooks/useI18n';
 import type { Finance, InvoiceState, Payment, PaymentList } from '../types/payment';
 import { localizeApiError } from '../utils/apiErrors';
 import { formatDay, formatMoney, positiveAmount, tabOf, toInput, type PaymentTab } from '../utils/paymentFormat';
+import { useConnection } from '../offline/connection';
 import { Ico } from './Ico';
 import { PaymentForm } from './PaymentForm';
+import { PendingMark } from './PendingMark';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 
 interface ProjectPaymentsProps {
@@ -99,6 +101,11 @@ export function ProjectPayments({ projectId }: ProjectPaymentsProps) {
       {list && (
         <>
           <SummaryCard projectId={projectId} list={list} onChanged={load} />
+          {items.some((item) => item._pending) && (
+            <p aria-label="payments-pending-note" className="text-xs text-sky-900 bg-sky-50 border border-sky-100 rounded-xl px-3 py-2 break-words">
+              {text.pending_totals}
+            </p>
+          )}
 
           <div role="tablist" aria-label="payments-tabs" className="grid grid-cols-3 gap-2">
             {TABS.map((id) => (
@@ -185,6 +192,7 @@ function PaymentCard({ payment, busy, onEdit, onArchive }: { payment: Payment; b
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 min-w-0">
           <span className="text-xs font-semibold text-slate-500">{text.kind[payment.kind]}</span>
+          <PendingMark record={payment} id={payment.id} />
           {payment.is_archived && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">{t.common.archived_badge}</span>}
           {payment.state && !payment.is_archived && (
             <span aria-label={`payment-state-${payment.id}`} className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATE_STYLE[payment.state]}`}>
@@ -202,7 +210,8 @@ function PaymentCard({ payment, busy, onEdit, onArchive }: { payment: Payment; b
       {payment.kind === 'INVOICE' && (
         <div className="text-xs text-slate-600 space-y-0.5">
           {payment.due_on && <p>{text.fields.due}: {formatDay(payment.due_on)}</p>}
-          <p aria-label={`payment-settled-${payment.id}`}>{text.settled}: {formatMoney(payment.settled)} · {text.remaining}: {formatMoney(payment.remaining)}</p>
+          {/* what is settled and what is left is the server's to count: a waiting invoice has none yet */}
+          {payment.settled !== null && <p aria-label={`payment-settled-${payment.id}`}>{text.settled}: {formatMoney(payment.settled)} · {text.remaining}: {formatMoney(payment.remaining)}</p>}
         </div>
       )}
       {payment.note && <p className="text-xs text-slate-600 whitespace-pre-wrap break-words">{payment.note}</p>}
@@ -227,6 +236,8 @@ function SummaryCard({ projectId, list, onChanged }: { projectId: string; list: 
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // the agreed amount is the server's (the estimate suggests it, the totals follow it): it is changed with a signal only
+  const { offline } = useConnection();
 
   const open = async () => {
     setEditing(true);
@@ -289,9 +300,12 @@ function SummaryCard({ projectId, list, onChanged }: { projectId: string; list: 
       </dl>
 
       {!editing ? (
-        <button type="button" aria-label="agreed-edit" onClick={() => void open()} className={secondary.replace('flex-1', 'w-full')}>
-          <Ico>✏️</Ico>{list.agreed_amount === null ? text.agreed.set : text.agreed.change}
-        </button>
+        <>
+          <button type="button" aria-label="agreed-edit" disabled={offline} onClick={() => void open()} className={secondary.replace('flex-1', 'w-full')}>
+            <Ico>✏️</Ico>{list.agreed_amount === null ? text.agreed.set : text.agreed.change}
+          </button>
+          {offline && <p aria-label="agreed-offline" className="text-xs text-slate-500 break-words">{text.agreed.needs_connection}</p>}
+        </>
       ) : (
         <form aria-label="agreed-form" onSubmit={submit} noValidate className="space-y-2">
           <label htmlFor="agreed-amount" className="block text-xs font-semibold text-slate-600">{text.agreed.label}</label>

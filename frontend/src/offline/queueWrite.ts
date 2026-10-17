@@ -15,7 +15,7 @@ export async function queueWrite(
 ): Promise<{ result: unknown } | null> {
   const ownerId = currentOfflineOwner();
   if (!ownerId) return null;
-  const idKeys = { note: 'note', room: 'room', surface: 'surface', opening: 'opening', segment: 'segment', answers: 'inspection', inspection: 'inspection', execution: 'occurrence' } as const;
+  const idKeys = { note: 'note', room: 'room', surface: 'surface', opening: 'opening', segment: 'segment', answers: 'inspection', inspection: 'inspection', execution: 'occurrence', payment: 'payment' } as const;
   const entityId = match.action === 'create' ? ((body?.id as string | undefined) ?? null) : (match.ids[idKeys[match.entity]] ?? null);
   const op = await addOp({
     ownerId,

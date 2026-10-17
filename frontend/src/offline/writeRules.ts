@@ -12,9 +12,9 @@ const P = `/api/projects/(?<project>${U})`;
 const R = `${P}/rooms/(?<room>${U})`;
 const S = `${R}/surfaces/(?<surface>${U})`;
 
-export type Entity = 'note' | 'room' | 'surface' | 'opening' | 'segment' | 'answers' | 'inspection' | 'execution';
+export type Entity = 'note' | 'room' | 'surface' | 'opening' | 'segment' | 'answers' | 'inspection' | 'execution' | 'payment';
 export type Action = 'create' | 'update' | 'archive' | 'restore' | 'delete' | 'replace' | 'transition';
-export type Ids = Partial<Record<'project' | 'room' | 'surface' | 'opening' | 'segment' | 'note' | 'inspection' | 'occurrence', string>>;
+export type Ids = Partial<Record<'project' | 'room' | 'surface' | 'opening' | 'segment' | 'note' | 'inspection' | 'occurrence' | 'payment', string>>;
 
 interface Rule {
   kind: OutboxKind;
@@ -56,6 +56,11 @@ const RULES: readonly Rule[] = [
   // Stage 19C.3: starting an inspection, and the status of a planned work (it carries the moment of the tap)
   rule('inspection.create', 'POST', `${R}/inspections`, 'inspection', 'create'),
   rule('execution.transition', 'PATCH', `${S}/work-plan/occurrences/(?<occurrence>${U})/execution`, 'execution', 'transition'),
+  // IA-4: the settlement records of an object (a record is archived, never erased)
+  rule('payment.create', 'POST', `${P}/payments`, 'payment', 'create'),
+  rule('payment.update', 'PATCH', `${P}/payments/(?<payment>${U})`, 'payment', 'update'),
+  rule('payment.archive', 'POST', `${P}/payments/(?<payment>${U})/archive`, 'payment', 'archive'),
+  rule('payment.restore', 'POST', `${P}/payments/(?<payment>${U})/restore`, 'payment', 'restore'),
 ];
 
 const BY_KIND = new Map(RULES.map((r) => [r.kind, r]));
@@ -131,6 +136,19 @@ const ENTITIES: Record<Exclude<Entity, 'answers' | 'execution'>, EntityDef> = {
     defaults: { surface_id: null, plane: null, quality_target: null, notes: null, status: 'DRAFT', completed_at: null, answers: [] },
     idKey: 'inspection',
   },
+  // a record the phone made carries what the owner typed; what the server derives from the other records of the object (the state of an
+  // invoice, what is settled and what is left) is empty until it answers
+  payment: {
+    listPath: (ids) => `/api/projects/${ids.project}/payments`,
+    itemPath: () => null,
+    fromParent: (ids) => ({ project_id: ids.project }),
+    defaults: {
+      number: null, amount_net: null, vat_rate: null, due_on: null, settles_id: null, counterparty: null, document_kind: null,
+      note: null, settled: null, remaining: null, state: null,
+    },
+    newestFirst: true,
+    idKey: 'payment',
+  },
   segment: {
     listPath: (ids) => `/api/projects/${ids.project}/rooms/${ids.room}/area-segments`,
     itemPath: (ids, id) => `/api/projects/${ids.project}/rooms/${ids.room}/area-segments/${id}`,
@@ -171,14 +189,19 @@ const DERIVED_BY_SIZE: Partial<Record<Entity, readonly string[]>> = {
   surface: ['gross_area', 'net_area'],
   opening: ['single_area', 'total_area', 'reveal_single_length', 'reveal_single_area', 'reveal_total_length', 'reveal_total_area'],
   segment: ['area'],
+  // IA-4: an invoice's standing follows its amount and its due date (it is the server that counts it)
+  payment: ['settled', 'remaining', 'state'],
 };
+/** The fields that make the derived ones stale; for a settlement record they are not sizes. */
+const STALE_WHEN: Partial<Record<Entity, readonly string[]>> = { payment: ['amount_gross', 'due_on'] };
 
 function changeRecord(record: Json, action: Action, op: OutboxOp): Json {
   const stamp = { updated_at: iso(op.createdAt), _pending: true };
   if (action === 'update') {
     const body = op.body ?? {};
     const derived = DERIVED_BY_SIZE[matchOp(op)?.entity as Entity] ?? [];
-    const stale = SIZE_FIELDS.some((field) => field in body) ? Object.fromEntries(derived.map((field) => [field, null])) : {};
+    const entity = matchOp(op)?.entity as Entity;
+    const stale = (STALE_WHEN[entity] ?? SIZE_FIELDS).some((field) => field in body) ? Object.fromEntries(derived.map((field) => [field, null])) : {};
     return { ...record, ...body, ...stale, ...stamp };
   }
   if (action === 'archive') return { ...record, is_archived: true, ...stamp };
@@ -438,6 +461,8 @@ export function labelOf(match: WriteMatch, body: Record<string, unknown> | null)
       return [String(body?.plane ?? ''), String(body?.substrate ?? '')].filter(Boolean).join(' ');
     case 'execution':
       return String(body?.status ?? '');
+    case 'payment':
+      return text(body?.title);
     default:
       return '';
   }

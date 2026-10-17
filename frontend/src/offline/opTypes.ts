@@ -7,7 +7,9 @@ export type OutboxKind =
   | 'segment.create' | 'segment.update' | 'segment.archive' | 'segment.restore'
   | 'answers.put'
   | 'inspection.create'
-  | 'execution.transition';
+  | 'execution.transition'
+  // IA-4: the settlement records of an object (invoices, money from the client, expenses on materials)
+  | 'payment.create' | 'payment.update' | 'payment.archive' | 'payment.restore';
 
 export interface OutboxError {
   status: number;

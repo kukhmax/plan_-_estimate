@@ -5,6 +5,7 @@ import * as checklistsApi from '../api/checklists';
 import * as clientsApi from '../api/clients';
 import * as inspectionsApi from '../api/inspections';
 import * as openingsApi from '../api/openings';
+import * as paymentsApi from '../api/payments';
 import * as notesApi from '../api/projectNotes';
 import * as projectsApi from '../api/projects';
 import * as roomsApi from '../api/rooms';
@@ -19,6 +20,7 @@ vi.mock('../api/checklists', () => ({ fetchChecklistTemplates: vi.fn(), fetchChe
 vi.mock('../api/clients', () => ({ fetchClients: vi.fn() }));
 vi.mock('../api/inspections', () => ({ fetchInspections: vi.fn(), fetchInspection: vi.fn(), fetchInspectionAnswers: vi.fn() }));
 vi.mock('../api/openings', () => ({ fetchOpenings: vi.fn() }));
+vi.mock('../api/payments', () => ({ fetchPayments: vi.fn() }));
 vi.mock('../api/projectNotes', () => ({ fetchProjectNotes: vi.fn() }));
 vi.mock('../api/projects', () => ({ fetchProject: vi.fn() }));
 vi.mock('../api/rooms', () => ({ fetchRoom: vi.fn(), fetchRooms: vi.fn(), fetchProjectSummary: vi.fn() }));
@@ -37,6 +39,7 @@ describe('"Przygotuj do pracy offline" (Stage 19B)', () => {
     vi.mocked(projectsApi.fetchProject).mockResolvedValue({} as never);
     vi.mocked(roomsApi.fetchProjectSummary).mockResolvedValue({} as never);
     vi.mocked(notesApi.fetchProjectNotes).mockImplementation(() => ok());
+    vi.mocked(paymentsApi.fetchPayments).mockImplementation(() => ok());
     vi.mocked(clientsApi.fetchClients).mockImplementation(() => ok());
     vi.mocked(checklistsApi.fetchChecklistTemplates).mockImplementation(() => ok([{ id: 't1' }, { id: 't2' }]));
     vi.mocked(checklistsApi.fetchChecklistTemplate).mockResolvedValue({} as never);
@@ -65,6 +68,9 @@ describe('"Przygotuj do pracy offline" (Stage 19B)', () => {
     expect(projectsApi.fetchProject).toHaveBeenCalledWith(P);
     expect(roomsApi.fetchProjectSummary).toHaveBeenCalledWith(P);
     expect(notesApi.fetchProjectNotes).toHaveBeenCalledWith(P);
+    // the settlements of the object (IA-4): the list that hides archived records and the one that shows them
+    expect(paymentsApi.fetchPayments).toHaveBeenCalledWith(P);
+    expect(paymentsApi.fetchPayments).toHaveBeenCalledWith(P, true);
     expect(clientsApi.fetchClients).toHaveBeenCalledWith({ include_archived: true });
     expect(checklistsApi.fetchChecklistTemplate).toHaveBeenCalledTimes(2);
     // starting an inspection without a signal asks for the templates of ONE substrate (Stage 19C.3): every list is kept

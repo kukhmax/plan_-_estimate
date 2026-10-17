@@ -4,6 +4,7 @@ import { fetchClients } from '../api/clients';
 import { ApiError } from '../api/http';
 import { fetchInspection, fetchInspectionAnswers, fetchInspections } from '../api/inspections';
 import { fetchOpenings } from '../api/openings';
+import { fetchPayments } from '../api/payments';
 import { fetchProjectNotes } from '../api/projectNotes';
 import { fetchProject } from '../api/projects';
 import { fetchProjectSummary, fetchRoom, fetchRooms } from '../api/rooms';
@@ -71,6 +72,9 @@ export async function prepareProjectOffline(
   await step(() => fetchProject(projectId));
   await step(() => fetchProjectSummary(projectId));
   await step(() => fetchProjectNotes(projectId));
+  // the settlements of the object (IA-4): the list that hides archived records and the one that shows them (a waiting restore needs the second)
+  await step(() => fetchPayments(projectId));
+  await step(() => fetchPayments(projectId, true));
   await step(() => fetchClients({ include_archived: true }));
   const templates = await step(() => fetchChecklistTemplates());
   // starting an inspection asks for the templates of one substrate, then for the template itself (Stage 19C.3)

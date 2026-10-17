@@ -11,6 +11,8 @@ describe('isCacheablePath (Stage 19B)', () => {
     `/api/projects/${P}`,
     `/api/projects/${P}/summary`,
     `/api/projects/${P}/notes`,
+    `/api/projects/${P}/payments`, // IA-4: the settlements of the object, with and without the archived ones
+    `/api/projects/${P}/payments?include_archived=true`,
     `/api/projects/${P}/rooms`,
     `/api/projects/${P}/rooms?include_archived=true`,
     `/api/projects/${P}/rooms/${R}`,
@@ -29,6 +31,8 @@ describe('isCacheablePath (Stage 19B)', () => {
   it.each([
     `/api/projects/${P}/photos`,
     `/api/projects/${P}/photos/counts`,
+    `/api/projects/${P}/finance`, // the agreed amount needs the server
+    `/api/projects/${P}/payments/${R}`,
     `/api/projects/${P}/documents`,
     `/api/projects/${P}/estimates`,
     `/api/projects/${P}/contracts`,
