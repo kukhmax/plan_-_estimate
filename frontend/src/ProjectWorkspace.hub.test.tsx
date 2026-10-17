@@ -56,6 +56,7 @@ vi.mock('./components/ProjectAcceptance', () => ({ ProjectAcceptance: stub('acce
 vi.mock('./components/ProjectDecisions', () => ({ ProjectDecisions: stub('decisions') }));
 vi.mock('./components/ProjectDowntime', () => ({ ProjectDowntime: stub('downtime') }));
 vi.mock('./components/ProjectSummaryCard', () => ({ ProjectSummaryCard: stub('summary') }));
+vi.mock('./components/ProjectPayments', () => ({ ProjectPayments: ({ projectId }: { projectId: string }) => <div aria-label="stub-payments">{projectId}</div> }));
 vi.mock('./components/ProjectNotes', () => ({ ProjectNotes: ({ projectId }: { projectId: string }) => <div aria-label="stub-notes">{projectId}</div> }));
 vi.mock('./components/RoomList', () => ({ RoomList: stub('rooms') }));
 
@@ -117,21 +118,21 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     vi.mocked(photosApi.fetchPhotos).mockResolvedValue({ items: [], total: 0, limit: 30, offset: 0 } as never);
   });
 
-  it('is six large tiles after the card of the object: the estimate first, then rooms, photos, documents, agreement and protocols, the summary last', async () => {
+  it('is seven large tiles after the card of the object: the estimate first, then rooms, photos, documents, agreement and protocols, invoices and advances, the summary last', async () => {
     renderWorkspace();
     await openHub();
     expect(screen.getByLabelText('project-detail')).toBeInTheDocument();
     const hub = screen.getByLabelText('object-hub');
     const tiles = Array.from(hub.children) as HTMLElement[];
     expect(tiles.map((tile) => tile.getAttribute('aria-label'))).toEqual([
-      'open-estimates', 'object-tile-rooms', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal', 'object-tile-summary',
+      'open-estimates', 'object-tile-rooms', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal', 'object-tile-payments', 'object-tile-summary',
     ]);
     expect(tiles.map((tile) => tile.textContent?.replace(/[›\d]/g, '').replace(/\p{Extended_Pictographic}️?/gu, '').trim())).toEqual([
-      'Kosztorys', 'Pomieszczenia', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Podsumowanie obiektu',
+      'Kosztorys', 'Pomieszczenia', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Faktury i zaliczki', 'Podsumowanie obiektu',
     ]);
     for (const tile of tiles) expect(tile.className).toContain('min-h-14');
     // every tile starts with its own decorative icon, hidden from the accessible name (Stage 18G)
-    expect(tiles.map((tile) => tile.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['🧮', '🚪', '📷', '📄', '⚖️', '📊']);
+    expect(tiles.map((tile) => tile.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['🧮', '🚪', '📷', '📄', '⚖️', '💰', '📊']);
     expect(screen.getByRole('button', { name: 'open-estimates' })).toBeInTheDocument();
     expect(tiles[0].className).toContain('bg-amber-500');
     // the number of the photos of the whole object is on its tile
@@ -196,7 +197,7 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Zdjęcia obiektu');
   });
 
-  it('the object screen offers "Przygotuj do pracy offline" under the tiles, outside the hub of six (Stage 19B)', async () => {
+  it('the object screen offers "Przygotuj do pracy offline" under the tiles, outside the hub of seven (Stage 19B)', async () => {
     renderWorkspace();
     await openHub();
     const button = screen.getByLabelText('prepare-offline-button');
@@ -211,6 +212,18 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(screen.getByLabelText('stub-summary')).toBeInTheDocument();
     expect(screen.queryByLabelText('stub-rooms')).toBeNull();
     expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Podsumowanie obiektu');
+  });
+
+  it('the invoices tile opens the settlements of the object on a screen of its own, with a way back (IA-2)', async () => {
+    renderWorkspace();
+    await openHub();
+    fireEvent.click(screen.getByLabelText('object-tile-payments'));
+    expect(screen.getByLabelText('stub-payments')).toHaveTextContent(project.id);
+    expect(screen.queryByLabelText('object-hub')).toBeNull();
+    expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Faktury i zaliczki');
+    act(() => backClick?.());
+    expect(await screen.findByLabelText('object-hub')).toBeInTheDocument();
+    expect(screen.queryByLabelText('stub-payments')).toBeNull();
   });
 
   it('the Notes button on the card in the list opens the notes of that object, with its breadcrumb and a way back (Stage 18)', async () => {

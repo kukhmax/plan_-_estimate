@@ -418,4 +418,16 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
       expect(Object.keys(ru.documents.errors)).toContain(code);
     }
   });
+
+  it('has identical settlements key structure in PL and RU, a text for the code the backend sends and a word for every kind and state (IA-2)', () => {
+    expect(keySet(pl.payments)).toEqual(keySet(ru.payments));
+    expect(Object.keys(pl.errors)).toContain('PAYMENT_INVALID');
+    expect(Object.keys(ru.errors)).toContain('PAYMENT_INVALID');
+    for (const dictionary of [pl.payments, ru.payments]) {
+      expect(Object.keys(dictionary.kind).sort()).toEqual(['ADVANCE', 'EXPENSE', 'INVOICE', 'PAYMENT']);
+      expect(Object.keys(dictionary.state).sort()).toEqual(['OPEN', 'OVERDUE', 'PAID', 'PARTIAL']);
+      expect(Object.keys(dictionary.document_kind).sort()).toEqual(['INVOICE', 'RECEIPT']);
+      expect(Object.keys(dictionary.tabs).sort()).toEqual(['client', 'invoices', 'materials']);
+    }
+  });
 });

@@ -46,6 +46,7 @@ import { ProjectRepresentatives } from './ProjectRepresentatives';
 import type { UnpricedWork } from '../types/document';
 import { inspectionTargetOf } from '../utils/unpricedTarget';
 import { ProjectSummaryCard } from './ProjectSummaryCard';
+import { ProjectPayments } from './ProjectPayments';
 import { DocumentsMenu, DocumentsSection, LegalMenu, LegalSection, ObjectPhotos, ObjectSection, ProjectHub } from './ProjectHub';
 import { PrepareOfflineButton } from './PrepareOfflineButton';
 import { ProjectNotes } from './ProjectNotes';
@@ -346,6 +347,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       photos: t.photos.section.project_title,
       documents: t.documents.title,
       legal: t.objectHub.legal,
+      payments: t.payments.title,
       summary: t.object_summary.title,
       notes: t.notes.title,
     })[section];
@@ -879,6 +881,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
 
           {/* Stage 13F-PRE: the totals of the object, a screen of its own (the last tile of the hub). */}
           {objectSection === 'notes' && <ProjectNotes projectId={selectedProject.id} />}
+
+          {objectSection === 'payments' && <ProjectPayments projectId={selectedProject.id} />}
 
           {objectSection === 'summary' && <ProjectSummaryCard projectId={selectedProject.id} refreshToken={summaryToken} />}
 
