@@ -54,7 +54,13 @@ INFRA=$(git diff --name-only HEAD "origin/$BR" -- Caddyfile backend/Dockerfile b
 MIG=$(git diff --name-only HEAD "origin/$BR" -- backend/alembic | grep -v '__pycache__' || true)
 [ -z "$MIG" ] || fail "G0" "в релизе есть изменения миграций (этот скрипт — только для выкладки БЕЗ миграций): $MIG"
 COMPDIFF=$(git diff HEAD "origin/$BR" -- docker-compose.prod.yml | grep -E '^[+-][^+-]' | grep -v '^+ *#' || true)
-[ "$COMPDIFF" = '+      DATA_STRICT_READ: ${DATA_STRICT_READ:-false}' ] || fail "G0" "docker-compose.prod.yml должен получить ровно одну переменную DATA_STRICT_READ, а изменено: $COMPDIFF"
+if [ -z "$COMPDIFF" ]; then
+  # повторный запуск: код этого шага уже на VM, переменная в compose уже есть
+  grep -q '^      DATA_STRICT_READ: ${DATA_STRICT_READ:-false}$' docker-compose.prod.yml || fail "G0" "docker-compose.prod.yml не меняется релизом, но и переменной DATA_STRICT_READ в нём нет"
+  echo "повторный запуск: код шага EN-2b-1 уже на VM (compose с DATA_STRICT_READ на месте)"
+else
+  [ "$COMPDIFF" = '+      DATA_STRICT_READ: ${DATA_STRICT_READ:-false}' ] || fail "G0" "docker-compose.prod.yml должен получить ровно одну переменную DATA_STRICT_READ, а изменено: $COMPDIFF"
+fi
 ENVDIFF=$(git diff HEAD "origin/$BR" -- .env.production.example | grep -E '^-[^-]' || true)
 [ -z "$ENVDIFF" ] || fail "G0" ".env.production.example: строки удалены или изменены: $ENVDIFF"
 BADALL=$(git diff --name-only HEAD "origin/$BR" | grep -Ev '^(backend/app/|backend/tests/|docker-compose\.prod\.yml$|\.env\.production\.example$|docs/)' || true)
@@ -75,7 +81,11 @@ fail1() { restore; fail "$1" "$2 (код на VM возвращён на $PREV, 
 git checkout -q -B "$BR" "origin/$BR" || fail1 "G1" "переключение на $BR не удалось"
 NEW=$(git rev-parse --short HEAD); echo "HEAD: $NEW (ветка $BR)"
 PC config --quiet || fail1 "G1" "docker compose config не прошёл"
-docker tag "$(docker inspect -f '{{.Image}}' plan_estimate_backend)" plan-estimate-backend:pre-en2b1 || fail1 "G1" "тег pre-en2b1 backend"
+if docker image inspect plan-estimate-backend:pre-en2b1 > /dev/null 2>&1; then
+  echo "тег pre-en2b1 уже есть (образ ДО этого шага, запасной): не перезаписываю"
+else
+  docker tag "$(docker inspect -f '{{.Image}}' plan_estimate_backend)" plan-estimate-backend:pre-en2b1 || fail1 "G1" "тег pre-en2b1 backend"
+fi
 PC build backend > /tmp/build_en2b1.log 2>&1 || { tail -n 30 /tmp/build_en2b1.log; fail1 "G1" "сборка не удалась (старая версия продолжает работать)"; }
 ok "G1 (сборка backend, тег pre-en2b1)"
 
