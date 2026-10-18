@@ -53,6 +53,10 @@ class KeyRing:
     def owner(self, owner_id: UUID) -> OwnerKey | None:
         return self._owners.get(owner_id)
 
+    def forget_owner(self, owner_id: UUID) -> None:
+        """Drop the cached active key of an owner (EN-3b: its data key was changed); the keys already unwrapped stay to read old values."""
+        self._owners.pop(owner_id, None)
+
     def known(self) -> frozenset[str]:
         return frozenset(self._deks)
 
