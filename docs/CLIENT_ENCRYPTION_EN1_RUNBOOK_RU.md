@@ -1,6 +1,6 @@
 # EN-1: страница-тест «Test zabezpieczeń» — runbook
 
-Статус: **подготовлено 2026-10-18, на production не применялось.** Ветка `backlog-client-encryption`, скрипт `docs/CLIENT_ENCRYPTION_EN1_DEPLOY_RU.sh` (проверен на заглушках `docker` / `curl` поверх настоящего git). План: `docs/CLIENT_DATA_ENCRYPTION_PLAN_RU.md` (раздел 5 и шаг EN-1).
+Статус: **подготовлено 2026-10-18, на production не применялось.** Ветка `backlog-client-encryption`, скрипт `docs/CLIENT_ENCRYPTION_EN1_DEPLOY_RU.sh` (проверен на заглушках `docker` / `curl` поверх настоящего git: 1 полный проход и 19 отказов, каждый останавливается на своём шаге; реальные `package.json` и `package-lock.json` ветки проходят проверку G0). План: `docs/CLIENT_DATA_ENCRYPTION_PLAN_RU.md` (раздел 5 и шаг EN-1).
 
 ## 1. Что это и зачем
 
@@ -16,7 +16,7 @@
 ```
 cd ~/apps/plan_-_estimate && git fetch -q origin backlog-client-encryption && git show origin/backlog-client-encryption:docs/CLIENT_ENCRYPTION_EN1_DEPLOY_RU.sh > ~/deploy_en1.sh && bash ~/deploy_en1.sh
 ```
-G0 (проверки; в релизе только `frontend/src`, `package.json` с **ровно одной** новой строкой `hash-wasm`, запись в `package-lock.json`, docs; backend, Docker, compose, Caddy не изменены) → G1 (сборка frontend, старая версия работает) → **ворота B: `ВЫКЛАДКА ДА`** → G2 (backend тот же контейнер, healthy, база на `0061`, данные те же) → G3 (frontend: маркеры страницы, кусок Argon2 отдаётся) → G4 (кнопка Telegram). Откат: образ `pre-en1` (скрипт печатает команду).
+G0 (проверки; в релизе только `frontend/src`, `package.json` с **ровно одной** новой строкой `hash-wasm`, запись в `package-lock.json`, docs; backend, Docker, compose, Caddy не изменены) → G1 (сборка frontend, старая версия работает) → **ворота B: `ВЫКЛАДКА ДА`** → G2 (frontend: маркеры страницы, кусок Argon2 отдаётся) → G3 (после пересоздания frontend: backend тот же контейнер, healthy, база на `0061`, данные те же) → G4 (кнопка Telegram). Откат: образ `pre-en1` (скрипт печатает команду).
 
 ## 3. Что сделать на телефоне (5–10 минут)
 

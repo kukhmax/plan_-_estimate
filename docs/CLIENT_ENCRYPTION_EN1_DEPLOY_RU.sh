@@ -78,7 +78,7 @@ echo "  • Простой интерфейса при пересоздании 
 echo "  • Откат безопасен образом (backend и база не менялись): retag pre-en1 и up --no-deps --no-build frontend. Команда напечатается при любом отказе."
 echo "  • Отказ на этих воротах возвращает код на $PREV; production не меняется."
 echo
-echo "Чтобы пересоздать backend и frontend, введите ТОЧНО:  ВЫКЛАДКА ДА"
+echo "Чтобы пересоздать frontend, введите ТОЧНО:  ВЫКЛАДКА ДА"
 printf '> '
 read -r ANSWER < "${DEPLOYEN_TTY:-/dev/tty}" || { restore; fail "B" "нет терминала для подтверждения: запустите скрипт в обычной SSH-сессии (код на VM возвращён на $PREV)"; }
 [ "$ANSWER" = "ВЫКЛАДКА ДА" ] || { echo; restore; echo "Остановлено на воротах B (введено: '$ANSWER'). Production не менялся: работает прежняя версия; код на VM возвращён на $PREV."; exit 1; }
@@ -86,34 +86,34 @@ ok "B (подтверждено вами)"
 
 ROLLALL="Откат (backend и база не менялись): 1) docker tag plan-estimate-frontend:pre-en1 plan-estimate-frontend:latest   2) $COMPOSE up -d --no-deps --no-build frontend   3) git checkout -q -B $PREV $PREV_SHA"
 
-echo; echo "################ G2: backend не тронут ################"
-[ "$(docker inspect -f '{{.Id}}' plan_estimate_backend)" = "$BACKEND_ID" ] || fail "G2" "контейнер backend был пересоздан: этого выкладка делать не должна. $ROLLALL"
-[ "$(docker inspect -f '{{.State.Health.Status}}' plan_estimate_backend)" = "healthy" ] || fail "G2" "backend не healthy. $ROLLALL"
-AL2=$(docker exec plan_estimate_backend alembic current 2>/dev/null); has '0061_expense_category' "$AL2" || fail "G2" "alembic не 0061: $AL2. $ROLLALL"
-CFG=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(str(s.CALENDAR_DISPATCHER_ENABLED).lower(), s.CALENDAR_WEB_APP_URL)")
-[ "$CFG" = "$LOOP_ENV https://$DOMAIN" ] || fail "G2" "настройки календаря в контейнере: '$CFG', ожидалось '$LOOP_ENV https://$DOMAIN'. $ROLLALL"
-AFTER=$(docker exec plan_estimate_postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Atc '$Q'" | tr '\n' ' ')
-[ "$AFTER" = "$BEFORE" ] || fail "G2" "данные изменились: было $BEFORE стало $AFTER. $ROLLALL"
-H=$(curl -fsS https://plan-estimate.pl/api/health) && has '"status":"ok"' "$H" || fail "G2" "health не ok. $ROLLALL"
-ok "G2 (backend тот же контейнер, healthy, база на 0061, цикл календаря как был: $LOOP_ENV, данные те же)"
-
-echo; echo "################ G3: frontend ################"
-PC up -d --no-deps frontend || fail "G3" "up frontend не удался. $ROLLALL"
+echo; echo "################ G2: frontend ################"
+PC up -d --no-deps frontend || fail "G2" "up frontend не удался. $ROLLALL"
 sleep 8
-[ "$(docker inspect -f '{{.State.Running}}' plan_estimate_frontend)" = "true" ] || fail "G3" "frontend не запущен. $ROLLALL"
-NOTRUN=$(PC ps --format '{{.Name}} {{.State}}' | grep -v ' running' || true); [ -z "$NOTRUN" ] || { PC ps; fail "G3" "не все контейнеры running. $ROLLALL"; }
-PAGE=$(curl -fsS https://plan-estimate.pl/) && has "assets/index-" "$PAGE" || fail "G3" "главная страница не отдаёт сборку. $ROLLALL"
-grep -q 'bg-gray-50' <<<"$PAGE" && fail "G3" "в выданной странице всё ещё есть класс bg-gray-50 у body (светлый фон в тёмной теме). $ROLLALL"
+[ "$(docker inspect -f '{{.State.Running}}' plan_estimate_frontend)" = "true" ] || fail "G2" "frontend не запущен. $ROLLALL"
+NOTRUN=$(PC ps --format '{{.Name}} {{.State}}' | grep -v ' running' || true); [ -z "$NOTRUN" ] || { PC ps; fail "G2" "не все контейнеры running. $ROLLALL"; }
+PAGE=$(curl -fsS https://plan-estimate.pl/) && has "assets/index-" "$PAGE" || fail "G2" "главная страница не отдаёт сборку. $ROLLALL"
+grep -q 'bg-gray-50' <<<"$PAGE" && fail "G2" "в выданной странице всё ещё есть класс bg-gray-50 у body (светлый фон в тёмной теме). $ROLLALL"
 JS=$(grep -o 'assets/index-[^"]*\.js' <<<"$PAGE" | head -1)
 BUNDLE=$( [ -n "$JS" ] && curl -fsS "https://plan-estimate.pl/$JS" || true )
 for MARK in plan-estimate-offline CHANGES_WAITING sync-screen show-calendar object-tile-payments data-tone journal-delete-understood security-probe probe-run-all show-security 'Test zabezpieczeń' 'Тест защиты' argon2id aes256gcm_roundtrip; do
-  has "$MARK" "$BUNDLE" || fail "G3" "в выданной сборке нет '$MARK'. $ROLLALL"
+  has "$MARK" "$BUNDLE" || fail "G2" "в выданной сборке нет '$MARK'. $ROLLALL"
 done
-H=$(curl -fsS https://plan-estimate.pl/api/health) && has '"status":"ok"' "$H" || fail "G3" "health не ok. $ROLLALL"
+H=$(curl -fsS https://plan-estimate.pl/api/health) && has '"status":"ok"' "$H" || fail "G2" "health не ok. $ROLLALL"
 ARGON=$(grep -o 'index\.esm-[A-Za-z0-9_-]*\.js' <<<"$BUNDLE" | head -1)
-[ -n "$ARGON" ] || fail "G3" "в сборке нет ссылки на кусок с Argon2 (hash-wasm). $ROLLALL"
-curl -fsS -o /dev/null "https://plan-estimate.pl/assets/$ARGON" || fail "G3" "кусок с Argon2 ($ARGON) не отдаётся. $ROLLALL"
-ok "G3 (frontend: страница «Test zabezpieczeń» в меню, кусок с Argon2 отдаётся, прежние экраны на месте)"
+[ -n "$ARGON" ] || fail "G2" "в сборке нет ссылки на кусок с Argon2 (hash-wasm). $ROLLALL"
+curl -fsS -o /dev/null "https://plan-estimate.pl/assets/$ARGON" || fail "G2" "кусок с Argon2 ($ARGON) не отдаётся. $ROLLALL"
+ok "G2 (frontend: страница «Test zabezpieczeń» в меню, кусок с Argon2 отдаётся, прежние экраны на месте)"
+
+echo; echo "################ G3: backend не тронут ################"
+[ "$(docker inspect -f '{{.Id}}' plan_estimate_backend)" = "$BACKEND_ID" ] || fail "G3" "контейнер backend был пересоздан: этого выкладка делать не должна. $ROLLALL"
+[ "$(docker inspect -f '{{.State.Health.Status}}' plan_estimate_backend)" = "healthy" ] || fail "G3" "backend не healthy. $ROLLALL"
+AL2=$(docker exec plan_estimate_backend alembic current 2>/dev/null); has '0061_expense_category' "$AL2" || fail "G3" "alembic не 0061: $AL2. $ROLLALL"
+CFG=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(str(s.CALENDAR_DISPATCHER_ENABLED).lower(), s.CALENDAR_WEB_APP_URL)")
+[ "$CFG" = "$LOOP_ENV https://$DOMAIN" ] || fail "G3" "настройки календаря в контейнере: '$CFG', ожидалось '$LOOP_ENV https://$DOMAIN'. $ROLLALL"
+AFTER=$(docker exec plan_estimate_postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Atc '$Q'" | tr '\n' ' ')
+[ "$AFTER" = "$BEFORE" ] || fail "G3" "данные изменились: было $BEFORE стало $AFTER. $ROLLALL"
+H=$(curl -fsS https://plan-estimate.pl/api/health) && has '"status":"ok"' "$H" || fail "G3" "health не ok. $ROLLALL"
+ok "G3 (backend тот же контейнер, healthy, база на 0061, цикл календаря как был: $LOOP_ENV, данные те же)"
 
 echo; echo "################ G4: кнопка меню Telegram ################"
 set -a; source .env.production; set +a
