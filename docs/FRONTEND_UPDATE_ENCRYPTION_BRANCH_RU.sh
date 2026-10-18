@@ -38,7 +38,12 @@ echo "сборка сейчас: ${JS0:-неизвестно}"
 ok "U0"
 
 echo; echo "################ U1: сборка (старый frontend работает) ################"
-docker tag "$(docker inspect -f '{{.Image}}' plan_estimate_frontend)" "plan-estimate-frontend:pre-$OLD" || fail "U1" "тег pre-$OLD"
+RERUN=no
+if docker image inspect "plan-estimate-frontend:pre-$OLD" > /dev/null 2>&1; then
+  RERUN=yes; echo "повторный запуск: тег pre-$OLD уже есть (запасной образ ДО обновления): не перезаписываю"
+else
+  docker tag "$(docker inspect -f '{{.Image}}' plan_estimate_frontend)" "plan-estimate-frontend:pre-$OLD" || fail "U1" "тег pre-$OLD"
+fi
 ROLLF="Откат frontend:  docker tag plan-estimate-frontend:pre-$OLD plan-estimate-frontend:latest && docker compose --env-file .env.production -p plan-estimate -f docker-compose.prod.yml up -d --no-deps --no-build frontend"
 git checkout -q --detach origin/backlog-client-encryption || fail "U1" "переключение на origin/backlog-client-encryption не удалось"
 NEW=$(git rev-parse --short HEAD)
@@ -54,8 +59,9 @@ NOTRUN=$(PC ps --format '{{.Name}} {{.State}}' | grep -v ' running' || true); [ 
 PAGE=$(curl -fsS https://plan-estimate.pl/) && has "assets/index-" "$PAGE" || fail "U2" "главная страница не отдаёт сборку. $ROLLF"
 JS=$(grep -o 'assets/index-[^"]*\.js' <<<"$PAGE" | head -1)
 [ -n "$JS" ] || fail "U2" "в странице нет файла сборки. $ROLLF"
-[ "$JS" != "$JS0" ] || fail "U2" "файл сборки не изменился ($JS): браузер/прокси отдаёт старую версию или сборка та же. $ROLLF"
-curl -fsS "https://plan-estimate.pl/$JS" | grep -q 'delete-document-' || fail "U2" "в выданной сборке нет вкладки архива документов (сборка не от этой ветки?). $ROLLF"
+[ "$JS" != "$JS0" ] || [ "$RERUN" = yes ] || fail "U2" "файл сборки не изменился ($JS): браузер/прокси отдаёт старую версию или сборка та же. $ROLLF"
+BUNDLE=$(curl -fsS "https://plan-estimate.pl/$JS") || fail "U2" "сборка $JS не скачалась. $ROLLF"
+has 'delete-document-' "$BUNDLE" || fail "U2" "в выданной сборке нет вкладки архива документов (сборка не от этой ветки?). $ROLLF"
 H=$(curl -fsS https://plan-estimate.pl/api/health) && has '"status":"ok"' "$H" || fail "U2" "health не ok. $ROLLF"
 git merge -q --ff-only origin/backlog-client-encryption || fail "U2" "frontend уже обновлён, но ветку backlog-client-encryption на VM перевести на $NEW не удалось (git merge --ff-only origin/backlog-client-encryption вручную)"
 ok "U2 (сборка $JS; ветка на VM = $NEW)"
