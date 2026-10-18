@@ -250,6 +250,14 @@ async function probeKeyStorage(id: 'secure_storage' | 'device_storage', storage:
     marks.push(`remove=${removed.error ?? removed.value}`);
     const after = await viaCallback<string>((done) => storage.getItem(key, done));
     marks.push(`after_remove=${after.error ?? (after.value ? 'STILL_THERE' : 'gone')}`);
+    // What Telegram really answers after the removal: the raw value (JSON shows null / "" / "null" apart) and whether it offers a restore.
+    marks.push(`after_raw=${JSON.stringify(after.value ?? null)}`);
+    if (after.extra !== undefined) marks.push(`after_can_restore=${String(after.extra)}`);
+    if (storage.restoreItem && after.extra === true) {
+      const restoreItem = storage.restoreItem.bind(storage);
+      const restored = await viaCallback<string>((done) => restoreItem(key, done));
+      marks.push(`restore=${restored.error ?? JSON.stringify(restored.value ?? null)}`);
+    }
     const good = !set.error && got.value === value && !removed.error && !after.value;
     return { status: good ? 'ok' : 'error', detail: marks.join('; ') };
   });

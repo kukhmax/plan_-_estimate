@@ -2941,6 +2941,14 @@ Frontend: modal repair path (an archived option dropped on Zastosuj) and the +50
 
 > Planned scope for the existing canonical **Stage 14**. No new canonical stage number is created and the canonical Stage 0–20 order is unchanged. This is future roadmap intent, **not** functionality implemented during Stage 5.
 
+
+### Client data encryption, EN-1: the measured results of the phone and the sharper probe (2026-10-18; branch `backlog-client-encryption`; not a roadmap stage)
+
+**EN-1 deployed by the owner (version f2e1937, all gates PASS, backend and database untouched)**, the report of the phone (Telegram Android 13.0.2, Bot API 9.6, Android 16): WebCrypto AES-GCM ok; PBKDF2 100k = 37 ms, 300k = 52 ms, 600k = 105 ms; Argon2id 19 MiB t2 = 82 ms, 64 MiB t3 = 323 ms; CloudStorage ok, a value of 1024 and 4096 characters accepted, 4097 refused (`DATA_TOO_LONG`); SecureStorage and DeviceStorage write and read the value back (`canRestore=null` on SecureStorage) but **a read after the removal still answers a value (`after_remove=STILL_THERE`) -- unexplained**; biometrics **not available** on this phone (`available=false`, both taps answer `WebAppBiometricManagerBiometricsNotAvailable`); the three markers were written and read back within one session (the reinstall / new-phone test is still to do).
+**Conclusion for V2:** the KDF is not a bottleneck (Argon2id 64 MiB t3 in 0.3 s); the wrapped owner key with its salt fits in CloudStorage (<= 4096 characters); biometrics cannot be a requirement; whether SecureStorage / DeviceStorage forget a removed value is to be settled.
+**Probe refined (this commit):** after the removal the probe now prints the raw answer (`after_raw=` as JSON, so `null`, `""` and the string `"null"` are told apart), `after_can_restore=` and, when Telegram offers it, the result of `restoreItem`. Tests: `security/probe.test.ts` 40 (two new), the page and App tests unchanged; tsc and the whole `npm run build` pass. Not pushed, not deployed (needs the owner's "push" and the frontend deploy script).
+**Deferred:** the reinstall / new-phone marker test; EN-2a (V1 base) waits for the owner's explicit "da".
+
 ### Photo attachments
 - Attachment context: Project / Room, `WALL` surface, `FLOOR`, `CEILING`.
 - Capture methods: camera capture and gallery/file upload.

@@ -267,6 +267,22 @@ describe('SecureStorage and DeviceStorage', () => {
     const result = await probeSecureStorage(app({ SecureStorage: stuck }));
     expect(result.status).toBe('error');
     expect(result.detail).toContain('after_remove=STILL_THERE');
+    expect(result.detail).toContain('after_raw="probe-');
+  });
+
+  it('prints the raw answer after the removal, so an empty string and "null" are told apart', async () => {
+    const odd = keystore({ getItem: (_k, cb) => cb(null, 'null', false), removeItem: (_k, cb) => cb?.(null, true) });
+    const result = await probeDeviceStorage(app({ DeviceStorage: odd }));
+    expect(result.detail).toContain('after_raw="null"');
+    expect(result.detail).toContain('after_can_restore=false');
+  });
+
+  it('tries restoreItem when the answer after the removal offers it', async () => {
+    const restoreItem = vi.fn((_k: string, cb?: (error: string | null, value?: string) => void) => cb?.(null, 'restored'));
+    const storage = keystore({ getItem: (_k, cb) => cb(null, undefined, true), removeItem: (_k, cb) => cb?.(null, true), restoreItem });
+    const result = await probeSecureStorage(app({ SecureStorage: storage }));
+    expect(restoreItem).toHaveBeenCalledTimes(1);
+    expect(result.detail).toContain('restore="restored"');
   });
 });
 
