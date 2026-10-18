@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from app.core.config import settings
 from app.models.estimate import Estimate, EstimateStatus
 from app.models.project_payment import ProjectPayment
 from tests.test_clients import OTHER_USER, VALID_USER, auth_header, get_token
@@ -288,6 +289,8 @@ async def test_every_route_needs_a_signed_in_user(async_client):
     ],
 )
 async def test_the_database_refuses_what_the_service_refuses(async_client, db_session, bad):
+    if bad == {"title": "  "} and settings.DATA_KEK.get_secret_value():
+        pytest.skip("a sealed title is never blank in the column: the blank title is refused by the service before it is sealed (EN-2b-3)")
     t = await owner(async_client)
     p = await project_of(async_client, t)
     from sqlalchemy import select

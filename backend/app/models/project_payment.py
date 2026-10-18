@@ -21,13 +21,13 @@ from sqlalchemy import (
     Index,
     Numeric,
     String,
-    Text,
     Uuid,
     false,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.encrypted_text import EncryptedText
 
 
 class PaymentKind(str, enum.Enum):
@@ -84,18 +84,18 @@ class ProjectPayment(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     project_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
-    title: Mapped[str] = mapped_column(String(500), nullable=False)  # what it is for
-    number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    title: Mapped[str] = mapped_column(EncryptedText("project_payments.title"), nullable=False)  # what it is for
+    number: Mapped[str | None] = mapped_column(EncryptedText("project_payments.number"), nullable=True)
     amount_gross: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     amount_net: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     vat_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
     due_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     settles_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("project_payments.id", ondelete="SET NULL"), nullable=True)
-    counterparty: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    counterparty: Mapped[str | None] = mapped_column(EncryptedText("project_payments.counterparty"), nullable=True)
     document_kind: Mapped[str | None] = mapped_column(String(8), nullable=True)
     category: Mapped[str | None] = mapped_column(String(16), nullable=True)  # an expense only (IA-6b)
-    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(EncryptedText("project_payments.note"), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now, onupdate=_now)
