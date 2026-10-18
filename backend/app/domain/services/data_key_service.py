@@ -32,6 +32,7 @@ class DataKeyService:
             ring.disable()
             return False
         ring.enable()
+        ring.strict = settings.DATA_STRICT_READ
         known = ring.known()
         statement = select(DataKey).where(DataKey.wrapped_by == WrappedBy.SERVER_KEK.value)
         if known:

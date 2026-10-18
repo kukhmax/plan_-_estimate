@@ -1,16 +1,21 @@
-from collections.abc import AsyncGenerator
-from datetime import datetime, timezone
+import base64
 import hashlib
 import hmac
 import json
+import os
+from collections.abc import AsyncGenerator
+from datetime import datetime, timezone
+
 import pytest
 from httpx import ASGITransport, AsyncClient
+from pydantic import SecretStr
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 from app.core.database import Base, get_db
+from app.core.key_ring import ring, set_owner_key
 from app.main import app
 
 # Stage 14D.2D.4: opt-in PostgreSQL 16 proof fixtures (inert unless a test requests them).
@@ -47,6 +52,22 @@ def setup_test_settings():
     settings.APP_ENV = "development"  # test_auth.py leaves "production" behind; the startup of the application (EN-2a) reads it
     settings.ENVIRONMENT = "development"
     settings.JWT_SECRET_KEY = "test-jwt-secret-key-for-unit-testing"
+
+
+def fresh_kek() -> SecretStr:
+    return SecretStr(base64.b64encode(os.urandom(32)).decode())
+
+
+@pytest.fixture
+def encryption_on():
+    """The encryption of the client data switched on (EN-2a): a new key of the server, an empty ring, no owner key in force."""
+    settings.DATA_KEK = fresh_kek()
+    ring.disable()
+    set_owner_key(None)
+    yield
+    settings.DATA_KEK = SecretStr("")
+    ring.disable()
+    set_owner_key(None)
 
 
 @pytest.fixture

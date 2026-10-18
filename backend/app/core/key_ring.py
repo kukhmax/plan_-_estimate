@@ -25,6 +25,7 @@ class KeyRing:
         self._deks: dict[str, bytes] = {}
         self._owners: dict[UUID, OwnerKey] = {}
         self._enabled = False
+        self.strict = False  # a value without the prefix in an encrypted column is refused (EN-2b-1, after the re-encoding)
 
     @property
     def enabled(self) -> bool:
@@ -35,6 +36,7 @@ class KeyRing:
 
     def disable(self) -> None:
         self._enabled = False
+        self.strict = False
         self._deks.clear()
         self._owners.clear()
 

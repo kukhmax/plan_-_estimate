@@ -1,6 +1,4 @@
 """EN-2a -- the personal data of the clients is stored as ciphertext and served as it was: clients, objects, persons of an object, notes."""
-import base64
-import os
 import uuid
 
 import pytest
@@ -14,25 +12,11 @@ from app.core.key_ring import owner_key_in_force, ring, set_owner_key
 from app.domain.services.data_key_service import DataKeyService
 from app.models.client import Client, ClientType
 from app.models.data_key import DataKey
+from tests.conftest import fresh_kek
 from tests.test_ac4a_archive_structure_and_ac5a_client_delete import archive, structure
 from tests.test_clients import OTHER_USER, VALID_USER, auth_header, get_token
 from tests.test_projects import create_project, project_payload
 from tests.test_rooms import create_room
-
-
-def fresh_kek() -> SecretStr:
-    return SecretStr(base64.b64encode(os.urandom(32)).decode())
-
-
-@pytest.fixture
-def encryption_on():
-    settings.DATA_KEK = fresh_kek()
-    ring.disable()
-    set_owner_key(None)
-    yield
-    settings.DATA_KEK = SecretStr("")
-    ring.disable()
-    set_owner_key(None)
 
 
 async def raw(db, table: str, column: str) -> list[str | None]:

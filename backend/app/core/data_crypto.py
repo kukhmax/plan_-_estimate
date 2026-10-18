@@ -42,6 +42,12 @@ class DataDecryptError(DataCryptoError):
     code = "DATA_DECRYPT_FAILED"
 
 
+class DataPlainValueError(DataCryptoError):
+    """Strict read: a value of an encrypted column is not ciphertext (the re-encoding missed it, or someone wrote to the database directly)."""
+
+    code = "DATA_PLAIN_VALUE_REFUSED"
+
+
 class DataEncryptionContextMissingError(DataCryptoError):
     """A value was to be written encrypted but no owner key is in force (a write outside of an authenticated request or a job of an owner)."""
 

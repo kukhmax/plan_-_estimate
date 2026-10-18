@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     # refuses to start without it. Losing it loses the data it protects.
     DATA_KEK: SecretStr = SecretStr("")
     DATA_KEK_VERSION: int = Field(default=1, ge=1)
+    # EN-2b-1: after the re-encoding command reports no plain value, the owner switches this on; a plain value in an encrypted column is then refused.
+    DATA_STRICT_READ: bool = False
 
     # JWT Session Configuration
     JWT_SECRET_KEY: str = "insecure-dev-secret-change-in-production"
