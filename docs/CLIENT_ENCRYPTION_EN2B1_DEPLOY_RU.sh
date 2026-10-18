@@ -112,7 +112,9 @@ done
 LOG=$(docker logs plan_estimate_backend --tail 120 2>&1)
 has "Running upgrade" "$LOG" && fail "G2" "в логе применяется миграция, а в этом релизе их быть не должно. $ROLLALL"
 grep -qE "Traceback|KnowledgeCatalogError|CalendarTextsError|DATA_KEK" <<<"$LOG" && { tail -40 <<<"$LOG"; fail "G2" "в логе ошибка. $ROLLALL"; }
-has "Application startup complete" "$LOG" || fail "G2" "нет Application startup complete. $ROLLALL"
+# весь лог контейнера, а не последние строки: при повторном запуске образ тот же, контейнер не пересоздаётся, и строка запуска остаётся выше потока запросов
+STARTED=$(docker logs plan_estimate_backend 2>&1 | grep -c "Application startup complete" || true)
+[ "${STARTED:-0}" -ge 1 ] || fail "G2" "в логе контейнера нет Application startup complete. $ROLLALL"
 AL2=$(docker exec plan_estimate_backend alembic current 2>/dev/null); has '0062_data_keys' "$AL2" || fail "G2" "alembic не 0062: $AL2. $ROLLALL"
 STRICT=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(str(s.DATA_STRICT_READ).lower())")
 [ "$STRICT" = "false" ] || fail "G2" "строгое чтение уже включено ($STRICT), а на этом шаге оно должно быть выключено. $ROLLALL"
