@@ -21,6 +21,25 @@ def server_kek() -> bytes | None:
     return data_crypto.parse_kek(text) if text.strip() else None
 
 
+def previous_kek() -> bytes | None:
+    """The OLD key of the server while a rotation is under way (EN-3a), or None. A configured but invalid one is an error."""
+    text = settings.DATA_KEK_PREVIOUS.get_secret_value()
+    return data_crypto.parse_kek(text) if text.strip() else None
+
+
+def unwrap_data_key(row: DataKey, kek: bytes, previous: bytes | None = None) -> bytes:
+    """The data key of a row: by the current key of the server, else (during a rotation) by the previous one. The row's `kek_version` says which
+    to try first; the authentication tag of the wrapping decides, so a wrong guess costs nothing. Raises `DataDecryptError` when neither opens it."""
+    candidates = [kek] if previous is None else ([kek, previous] if row.kek_version == settings.DATA_KEK_VERSION else [previous, kek])
+    for index, candidate in enumerate(candidates):
+        try:
+            return data_crypto.unwrap_key(candidate, row.wrapped_dek, row.key_id)
+        except data_crypto.DataDecryptError:
+            if index == len(candidates) - 1:
+                raise
+    raise data_crypto.DataDecryptError("a data key did not unwrap")  # unreachable: the loop returns or raises
+
+
 class DataKeyService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -33,12 +52,13 @@ class DataKeyService:
             return False
         ring.enable()
         ring.strict = settings.DATA_STRICT_READ
+        previous = previous_kek()
         known = ring.known()
         statement = select(DataKey).where(DataKey.wrapped_by == WrappedBy.SERVER_KEK.value)
         if known:
             statement = statement.where(DataKey.key_id.not_in(known))
         for row in (await self.db.execute(statement)).scalars():
-            ring.add(row.key_id, data_crypto.unwrap_key(kek, row.wrapped_dek, row.key_id))
+            ring.add(row.key_id, unwrap_data_key(row, kek, previous))
         return True
 
     async def owner_key(self, owner_id: uuid.UUID) -> OwnerKey:
@@ -71,12 +91,12 @@ class DataKeyService:
                 row = await self._active_row(owner_id)
                 if row is None:
                     raise
-                key = OwnerKey(row.key_id, data_crypto.unwrap_key(kek, row.wrapped_dek, row.key_id))
+                key = OwnerKey(row.key_id, unwrap_data_key(row, kek, previous_kek()))
             else:
                 await self.db.commit()
                 key = OwnerKey(key_id, dek)
         else:
-            key = OwnerKey(row.key_id, data_crypto.unwrap_key(kek, row.wrapped_dek, row.key_id))
+            key = OwnerKey(row.key_id, unwrap_data_key(row, kek, previous_kek()))
         ring.set_owner(owner_id, key)
         return key
 

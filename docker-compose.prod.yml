@@ -40,6 +40,7 @@ services:
       # refuses to start without it; losing it loses the data it protects (docs/CLIENT_DATA_ENCRYPTION_PLAN_RU.md).
       DATA_KEK: ${DATA_KEK:-}
       DATA_KEK_VERSION: ${DATA_KEK_VERSION:-1}
+      DATA_KEK_PREVIOUS: ${DATA_KEK_PREVIOUS:-}
       # EN-2b-1: switched on by the owner (in .env.production) only after the re-encoding command reports no plain value.
       DATA_STRICT_READ: ${DATA_STRICT_READ:-false}
 
