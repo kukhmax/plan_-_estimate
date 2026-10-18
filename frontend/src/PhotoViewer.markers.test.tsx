@@ -72,6 +72,40 @@ beforeEach(() => {
   vi.mocked(deletePhotoAnnotation).mockReset();
 });
 
+describe('PhotoViewer — a receipt or an invoice takes no markers (PAYMENT)', () => {
+  it('has no "add marker" button and no counter, and tapping the picture opens the full-screen view', async () => {
+    const item = makeItem({ attachment: { context: 'PAYMENT' } });
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item));
+    setup({ items: [item] });
+    const image = await ready();
+    expect(screen.queryByRole('button', { name: 'Dodaj znacznik' })).toBeNull();
+    expect(screen.queryByText(/^Znaczniki:/)).toBeNull();
+    fireEvent.click(image);
+    expect(screen.getByRole('dialog', { name: 'Zdjęcie na pełnym ekranie' })).toBeInTheDocument();
+    expect(createPhotoAnnotation).not.toHaveBeenCalled();
+  });
+
+  it('draws no marker even when the server holds one for it, and the full-screen view offers no placing', async () => {
+    const item = makeItem({ attachment: { context: 'PAYMENT' } });
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item, { annotations: [makeMarker(item.attachment.id)] }));
+    setup({ items: [item] });
+    const image = await ready();
+    expect(screen.queryByTestId('photo-marker')).toBeNull();
+    fireEvent.click(image);
+    const full = screen.getByRole('dialog', { name: 'Zdjęcie na pełnym ekranie' });
+    expect(within(full).queryByRole('button', { name: 'Dodaj znacznik' })).toBeNull();
+    expect(within(full).queryByTestId('photo-marker')).toBeNull();
+  });
+
+  it('a photo of the site (not a payment) still has the button', async () => {
+    const item = makeItem({ attachment: { context: 'ROOM' } });
+    vi.mocked(fetchPhoto).mockResolvedValue(detailFor(item));
+    setup({ items: [item] });
+    await ready();
+    expect(addButton()).toBeInTheDocument();
+  });
+});
+
 describe('PhotoViewer — markers on the picture', () => {
   it('draws only the markers of THIS attachment (the same file attached elsewhere has its own set), in display order', async () => {
     const item = makeItem();

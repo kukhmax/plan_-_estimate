@@ -186,9 +186,11 @@ export function PhotoViewer({
   }, [attachment?.id]);
 
   const attachmentId = attachment?.id;
+  // A photo of a receipt or an invoice (PAYMENT) takes no point markers: nothing on it is to be pointed at.
+  const markersAllowed = attachment?.context !== 'PAYMENT';
   const markers = useMemo(
-    () => (detail && attachmentId ? detail.annotations.filter((marker) => marker.attachment_id === attachmentId) : []),
-    [detail, attachmentId],
+    () => (detail && attachmentId && markersAllowed ? detail.annotations.filter((marker) => marker.attachment_id === attachmentId) : []),
+    [detail, attachmentId, markersAllowed],
   );
 
   // The draft follows the stored caption (another attachment, or the saved value coming back).
@@ -280,8 +282,8 @@ export function PhotoViewer({
   const atMarkerLimit = markers.length >= markerLimit;
   const selectedMarker = markers.find((marker) => marker.id === selectedMarkerId) ?? null;
   const imageShown = loadState === 'ready' && !!detail?.display_url && !imageFailed;
-  const showMarkerControls = imageShown && (!markersReadOnly || markers.length > 0);
-  const placing = markMode; // the switch is not offered on a read only photo, and placeMarker refuses it anyway
+  const showMarkerControls = markersAllowed && imageShown && (!markersReadOnly || markers.length > 0);
+  const placing = markMode && markersAllowed; // the switch is not offered on a read only photo, and placeMarker refuses it anyway
 
   const commitMarkers = (forAttachmentId: string, next: PhotoAnnotationRead[]) => {
     if (detail) {
@@ -313,7 +315,7 @@ export function PhotoViewer({
   };
 
   const placeMarker = async (x: number, y: number) => {
-    if (markerBusy || markersReadOnly) return;
+    if (markerBusy || markersReadOnly || !markersAllowed) return;
     if (atMarkerLimit) {
       setMarkerError('marker_limit');
       hapticNotify('error');
@@ -863,7 +865,7 @@ export function PhotoViewer({
           markers={markers}
           selectedMarkerId={drawingMarker ? drawingMarker.id : selectedMarkerId}
           onMarkerSelect={(marker) => setSelectedMarkerId(marker.id)}
-          canPlaceMarkers={!markersReadOnly && (markMode || !atMarkerLimit)}
+          canPlaceMarkers={markersAllowed && !markersReadOnly && (markMode || !atMarkerLimit)}
           placing={placing}
           onPlacingChange={setMarkMode}
           onPlace={(x, y) => void placeMarker(x, y)}
