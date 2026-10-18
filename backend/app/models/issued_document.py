@@ -24,6 +24,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON as GenericJSON
 
 from app.core.database import Base
+from app.core.encrypted_text import EncryptedText
 
 _JSONVariant = JSONB().with_variant(GenericJSON(), "sqlite")
 
@@ -59,7 +60,7 @@ class IssuedDocument(Base):
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     source_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     source_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(EncryptedText("issued_documents.title"), nullable=False)
     number: Mapped[str] = mapped_column(String(64), nullable=False)
     project_seq: Mapped[int] = mapped_column(Integer, nullable=False)
     template_version: Mapped[str] = mapped_column(String(16), nullable=False)

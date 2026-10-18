@@ -1,7 +1,7 @@
 """The re-encoding of the plain values of the encrypted columns (EN-2b-1; docs/CLIENT_ENCRYPTION_EN2B1_RUNBOOK_RU.md).
 
 EN-2a writes ciphertext and reads plain text as it is; the values written before it stay open. This service turns them into ciphertext:
-the list of the columns comes from the models themselves (every `EncryptedText` column), so a column added later is covered without a change here.
+the list of the columns comes from the models themselves (every `EncryptedText` / `EncryptedJSON` column), so a column added later is covered without a change here.
 It works in batches, each in its own transaction, and can be stopped and started again (a value that is already ciphertext is skipped).
 A value is replaced only if it is still what was read (compare-and-swap): a record the owner changed in the meantime is skipped and found by the next run.
 It writes with plain SQL, so `updated_at` of a record does not move. It never prints a value or a key: only counts.
@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import app.models  # noqa: F401  (registers every table)
 from app.core import data_crypto
 from app.core.database import Base
-from app.core.encrypted_text import EncryptedText
+from app.core.encrypted_text import EncryptedColumnType
 from app.core.key_ring import ring
 from app.domain.services.data_key_service import DataKeyService
 
@@ -52,7 +52,7 @@ def encrypted_columns() -> list[EncryptedColumn]:
     for table in Base.metadata.sorted_tables:
         owner = "owner_id" if "owner_id" in table.c else "owner_user_id" if "owner_user_id" in table.c else None
         for column in table.columns:
-            if isinstance(column.type, EncryptedText):
+            if isinstance(column.type, EncryptedColumnType):
                 assert owner is not None, f"{table.name} has encrypted columns and no owner column"
                 names = (table.name, column.name, owner)
                 assert all(IDENT.match(n) for n in names), names

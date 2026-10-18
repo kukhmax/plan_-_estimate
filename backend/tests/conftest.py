@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 from app.core.database import Base, get_db
-from app.core.key_ring import ring, set_owner_key
+from app.core.key_ring import OwnerKey, ring, set_owner_key
 from app.main import app
 
 # Stage 14D.2D.4: opt-in PostgreSQL 16 proof fixtures (inert unless a test requests them).
@@ -64,6 +64,25 @@ def encryption_on():
     settings.DATA_KEK = fresh_kek()
     ring.disable()
     set_owner_key(None)
+    yield
+    settings.DATA_KEK = SecretStr("")
+    ring.disable()
+    set_owner_key(None)
+
+
+@pytest.fixture(autouse=True)
+def _whole_suite_encrypted():
+    """EN_TEST_ENCRYPTION=1 runs EVERY test with the encryption of the client data on (EN-2b-2): a key of the server, and a fixed key of the owner for the
+    writes that tests make straight through the ORM (a request puts the key of its own owner in force). The default run is unchanged."""
+    if not os.environ.get("EN_TEST_ENCRYPTION"):
+        yield
+        return
+    dek = os.urandom(32)
+    settings.DATA_KEK = fresh_kek()
+    ring.disable()
+    ring.enable()
+    ring.add("suite", dek)
+    set_owner_key(OwnerKey("suite", dek))
     yield
     settings.DATA_KEK = SecretStr("")
     ring.disable()

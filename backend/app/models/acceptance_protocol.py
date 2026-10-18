@@ -19,6 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON as GenericJSON
 
 from app.core.database import Base
+from app.core.encrypted_text import EncryptedJSON, EncryptedText
 
 _JSONVariant = JSONB().with_variant(GenericJSON(), "sqlite")
 
@@ -42,20 +43,20 @@ class AcceptanceProtocol(Base):
     customer_absent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     notified_on: Mapped[date | None] = mapped_column(Date, nullable=True)  # the first call to the acceptance
     renotified_on: Mapped[date | None] = mapped_column(Date, nullable=True)  # the second call, with an additional term (contract § 14 ust. 5)
-    attendees: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)
+    attendees: Mapped[list] = mapped_column(EncryptedJSON("acceptance_protocols.attendees"), nullable=False, default=list)
     room_ids: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)  # the rooms in scope
-    conditions_note: Mapped[str | None] = mapped_column(Text, nullable=True)  # the conditions agreed before the work (S4)
+    conditions_note: Mapped[str | None] = mapped_column(EncryptedText("acceptance_protocols.conditions_note"), nullable=True)  # the conditions agreed before the work (S4)
     instrument_keys: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)  # keys of the catalogue of instruments
-    surfaces: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)  # per surface: assessed + remarks
+    surfaces: Mapped[dict] = mapped_column(EncryptedJSON("acceptance_protocols.surfaces"), nullable=False, default=dict)  # per surface: assessed + remarks
     batches: Mapped[str | None] = mapped_column(Text, nullable=True)
     instructions_given: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     amount_due: Mapped[str | None] = mapped_column(String(16), nullable=True)  # "1234.50", the owner's number
     amount_retained: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(EncryptedText("acceptance_protocols.notes"), nullable=True)
     # what an issued protocol freezes
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    snapshot: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
-    document_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    snapshot: Mapped[dict | None] = mapped_column(EncryptedJSON("acceptance_protocols.snapshot"), nullable=True)
+    document_html: Mapped[str | None] = mapped_column(EncryptedText("acceptance_protocols.document_html"), nullable=True)
     contract_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     contract_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))

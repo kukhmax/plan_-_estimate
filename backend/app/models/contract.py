@@ -9,12 +9,13 @@ import enum
 import uuid
 from datetime import UTC, date, datetime
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, Uuid, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON as GenericJSON
 
 from app.core.database import Base
+from app.core.encrypted_text import EncryptedJSON, EncryptedText
 
 _JSONVariant = JSONB().with_variant(GenericJSON(), "sqlite")
 
@@ -34,12 +35,12 @@ class Contract(Base):
     project_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default=ContractStatus.DRAFT.value)
-    answers: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
+    answers: Mapped[dict] = mapped_column(EncryptedJSON("contracts.answers"), nullable=False, default=dict)
     questionnaire_version: Mapped[int] = mapped_column(Integer, nullable=False)
     # what an issued contract freezes (16E.2): the time, the conditions, the exact page, the estimate that priced it
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    snapshot: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
-    document_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    snapshot: Mapped[dict | None] = mapped_column(EncryptedJSON("contracts.snapshot"), nullable=True)
+    document_html: Mapped[str | None] = mapped_column(EncryptedText("contracts.document_html"), nullable=True)
     estimate_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     estimate_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     signed_on: Mapped[date | None] = mapped_column(Date, nullable=True)  # the day written under the signatures (16E.4)

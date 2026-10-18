@@ -10,12 +10,13 @@ import enum
 import uuid
 from datetime import UTC, date, datetime
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, Uuid, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON as GenericJSON
 
 from app.core.database import Base
+from app.core.encrypted_text import EncryptedJSON, EncryptedText
 
 _JSONVariant = JSONB().with_variant(GenericJSON(), "sqlite")
 
@@ -36,14 +37,14 @@ class HandoverProtocol(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default=HandoverStatus.DRAFT.value)
     held_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     held_time: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "HH:MM", optional
-    attendees: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)
-    rooms: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
-    meters: Mapped[str | None] = mapped_column(Text, nullable=True)  # readings of the meters, free text
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attendees: Mapped[list] = mapped_column(EncryptedJSON("handover_protocols.attendees"), nullable=False, default=list)
+    rooms: Mapped[dict] = mapped_column(EncryptedJSON("handover_protocols.rooms"), nullable=False, default=dict)
+    meters: Mapped[str | None] = mapped_column(EncryptedText("handover_protocols.meters"), nullable=True)  # readings of the meters, free text
+    notes: Mapped[str | None] = mapped_column(EncryptedText("handover_protocols.notes"), nullable=True)
     # what an issued protocol freezes (16F.2): the time, the snapshot, the exact page and the contract it was made under
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    snapshot: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
-    document_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    snapshot: Mapped[dict | None] = mapped_column(EncryptedJSON("handover_protocols.snapshot"), nullable=True)
+    document_html: Mapped[str | None] = mapped_column(EncryptedText("handover_protocols.document_html"), nullable=True)
     contract_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     contract_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))

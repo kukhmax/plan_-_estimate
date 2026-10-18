@@ -26,20 +26,46 @@ from app.domain.contracts.answers import effective_answers
 from app.domain.contracts.catalog import load_contract_catalog
 from app.domain.contracts.gate import load_gate_data
 from app.domain.documents import formatting
-from app.domain.documents.acceptance_document import build_acceptance_document, render_acceptance_html, title_of as acceptance_title
-from app.domain.documents.acceptance_document import snapshot_of as acceptance_snapshot_of
-from app.domain.documents.concealed_works_document import build_concealed_document, render_concealed_html
-from app.domain.documents.concealed_works_document import snapshot_of as concealed_snapshot_of
-from app.domain.documents.contract_document import build_contract_document, render_contract_html, snapshot_of
-from app.domain.documents.decision_document import build_decision_document, render_decision_html
+from app.domain.documents.acceptance_document import (
+    build_acceptance_document,
+    render_acceptance_html,
+)
+from app.domain.documents.acceptance_document import (
+    snapshot_of as acceptance_snapshot_of,
+)
+from app.domain.documents.acceptance_document import title_of as acceptance_title
+from app.domain.documents.concealed_works_document import (
+    build_concealed_document,
+    render_concealed_html,
+)
+from app.domain.documents.concealed_works_document import (
+    snapshot_of as concealed_snapshot_of,
+)
+from app.domain.documents.contract_document import (
+    build_contract_document,
+    render_contract_html,
+    snapshot_of,
+)
+from app.domain.documents.decision_document import (
+    build_decision_document,
+    render_decision_html,
+)
 from app.domain.documents.decision_document import snapshot_of as decision_snapshot_of
 from app.domain.documents.delivery import DocumentDelivery
 from app.domain.documents.downtime_document import (
-    build_notice_document, build_protocol_document, notice_snapshot_of, protocol_snapshot_of, render_notice_html, render_protocol_html,
+    build_notice_document,
+    build_protocol_document,
+    notice_snapshot_of,
+    protocol_snapshot_of,
+    render_notice_html,
+    render_protocol_html,
 )
-from app.domain.documents.handover_document import build_handover_document, render_handover_html
-from app.domain.documents.handover_document import snapshot_of as handover_snapshot_of
 from app.domain.documents.estimate_document import EstimateDocumentService
+from app.domain.documents.handover_document import (
+    build_handover_document,
+    render_handover_html,
+)
+from app.domain.documents.handover_document import snapshot_of as handover_snapshot_of
 from app.domain.documents.photo_report_document import PhotoReportDocumentService
 from app.domain.documents.production_plan_document import ProductionPlanDocumentService
 from app.domain.documents.registry import DocumentKind, get_template
@@ -56,23 +82,35 @@ from app.domain.exceptions import (
     DecisionGateError,
     DecisionNotEditableError,
     DocumentDataError,
-    DowntimeGateError,
-    DowntimeNotEditableError,
     DocumentDeliveryError,
     DocumentQueueFullError,
     DocumentRenderError,
+    DowntimeGateError,
+    DowntimeNotEditableError,
     HandoverGateError,
     HandoverNotEditableError,
     IssuedDocumentNotFoundError,
 )
-from app.domain.protocols.sources import load_acceptance_sources, load_concealed_sources, load_decision_sources, load_downtime_sources, load_handover_sources
-from app.domain.services.acceptance_service import AcceptanceService, data_of as acceptance_data
-from app.domain.services.decision_service import DecisionService, data_of as decision_data
-from app.domain.services.downtime_service import DowntimeService, data_of as downtime_data
-from app.domain.services.concealed_service import ConcealedService, data_of as concealed_data
+from app.domain.protocols.sources import (
+    load_acceptance_sources,
+    load_concealed_sources,
+    load_decision_sources,
+    load_downtime_sources,
+    load_handover_sources,
+)
+from app.domain.services.acceptance_service import AcceptanceService
+from app.domain.services.acceptance_service import data_of as acceptance_data
+from app.domain.services.concealed_service import ConcealedService
+from app.domain.services.concealed_service import data_of as concealed_data
 from app.domain.services.contract_service import ContractService
+from app.domain.services.data_key_service import DataKeyService
+from app.domain.services.decision_service import DecisionService
+from app.domain.services.decision_service import data_of as decision_data
+from app.domain.services.downtime_service import DowntimeService
+from app.domain.services.downtime_service import data_of as downtime_data
 from app.domain.services.executor_profile_service import ExecutorProfileService
-from app.domain.services.handover_service import HandoverService, _data as handover_data
+from app.domain.services.handover_service import HandoverService
+from app.domain.services.handover_service import _data as handover_data
 from app.domain.services.issued_document_service import (
     IssuedDocumentService,
     Reservation,
@@ -781,6 +819,7 @@ class DocumentIssuer:
         code = "INTERNAL_ERROR"
         try:
             async with self.session_factory() as db:
+                await DataKeyService(db).put_in_force(owner_id)  # the content of the document is ciphertext: the key of this owner for this task
                 journal = IssuedDocumentService(db, clock=self.clock)
                 try:
                     document = await journal.get(owner_id, project_id, document_id)
