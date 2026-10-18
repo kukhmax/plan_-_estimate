@@ -235,6 +235,9 @@ export async function probeCloudLimits(tg: TelegramWebApp | undefined = telegram
   });
 }
 
+/** Telegram for Android answers a key that is not there with the string "null" (not null, not ""): that is "nothing stored", on every storage. */
+export const isMissing = (value: string | null | undefined): boolean => !value || value === 'null';
+
 async function probeKeyStorage(id: 'secure_storage' | 'device_storage', storage: TelegramKeyStorage | undefined, name: string): Promise<ProbeResult> {
   return timed(id, async () => {
     if (!storage) return { status: 'unsupported', detail: `${name}=absent` };
@@ -249,7 +252,7 @@ async function probeKeyStorage(id: 'secure_storage' | 'device_storage', storage:
     const removed = await viaCallback<boolean>((done) => storage.removeItem(key, done));
     marks.push(`remove=${removed.error ?? removed.value}`);
     const after = await viaCallback<string>((done) => storage.getItem(key, done));
-    marks.push(`after_remove=${after.error ?? (after.value ? 'STILL_THERE' : 'gone')}`);
+    marks.push(`after_remove=${after.error ?? (isMissing(after.value) ? 'gone' : 'STILL_THERE')}`);
     // What Telegram really answers after the removal: the raw value (JSON shows null / "" / "null" apart) and whether it offers a restore.
     marks.push(`after_raw=${JSON.stringify(after.value ?? null)}`);
     if (after.extra !== undefined) marks.push(`after_can_restore=${String(after.extra)}`);
@@ -258,7 +261,7 @@ async function probeKeyStorage(id: 'secure_storage' | 'device_storage', storage:
       const restored = await viaCallback<string>((done) => restoreItem(key, done));
       marks.push(`restore=${restored.error ?? JSON.stringify(restored.value ?? null)}`);
     }
-    const good = !set.error && got.value === value && !removed.error && !after.value;
+    const good = !set.error && got.value === value && !removed.error && isMissing(after.value);
     return { status: good ? 'ok' : 'error', detail: marks.join('; ') };
   });
 }
@@ -337,7 +340,7 @@ export async function markerAction(kind: StorageKind, action: MarkerResult['acti
     if (action === 'read') {
       const got = await viaCallback<string>((cb) => storage.getItem(MARKER_KEY, cb));
       if (got.error) return { kind, action, status: 'error', detail: got.error };
-      return { kind, action, status: got.value ? 'ok' : 'denied', detail: got.value ? got.value : 'empty' };
+      return { kind, action, status: isMissing(got.value) ? 'denied' : 'ok', detail: isMissing(got.value) ? 'empty' : got.value ?? 'empty' };
     }
     const removed = await viaCallback<boolean>((cb) => storage.removeItem(MARKER_KEY, cb));
     return { kind, action, status: removed.error ? 'error' : 'ok', detail: removed.error ?? 'removed' };

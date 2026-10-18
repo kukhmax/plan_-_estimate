@@ -270,9 +270,16 @@ describe('SecureStorage and DeviceStorage', () => {
     expect(result.detail).toContain('after_raw="probe-');
   });
 
-  it('prints the raw answer after the removal, so an empty string and "null" are told apart', async () => {
-    const odd = keystore({ getItem: (_k, cb) => cb(null, 'null', false), removeItem: (_k, cb) => cb?.(null, true) });
-    const result = await probeDeviceStorage(app({ DeviceStorage: odd }));
+  it('takes the string "null" of Telegram for Android as "nothing stored" and still prints the raw answer', async () => {
+    const map = new Map<string, string>();
+    const android = keystore({
+      setItem: (k, v, cb) => (map.set(k, v), cb?.(null, true)),
+      getItem: (k, cb) => cb(null, map.get(k) ?? 'null', false),
+      removeItem: (k, cb) => (map.delete(k), cb?.(null, true)),
+    });
+    const result = await probeDeviceStorage(app({ DeviceStorage: android }));
+    expect(result.status).toBe('ok');
+    expect(result.detail).toContain('after_remove=gone');
     expect(result.detail).toContain('after_raw="null"');
     expect(result.detail).toContain('after_can_restore=false');
   });
@@ -332,6 +339,11 @@ describe('the marker that shows what survives a reinstall', () => {
     expect(await markerAction(kind, 'read', tg)).toMatchObject({ status: 'ok', detail: written.detail });
     expect(await markerAction(kind, 'clear', tg)).toMatchObject({ status: 'ok', detail: 'removed' });
     expect(stores[kind].map.size).toBe(0);
+  });
+
+  it('the string "null" of Telegram for Android is "nothing there" too', async () => {
+    const android = keystore({ getItem: (_k, cb) => cb(null, 'null', false) });
+    expect(await markerAction('device', 'read', app({ DeviceStorage: android }))).toMatchObject({ status: 'denied', detail: 'empty' });
   });
 
   it('an empty read is not an error but "nothing there" (the marker did not survive)', async () => {
