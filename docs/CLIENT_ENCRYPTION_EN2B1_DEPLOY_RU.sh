@@ -64,9 +64,9 @@ DOMAIN=$(grep -E '^APP_DOMAIN=' .env.production | head -1 | cut -d= -f2-)
 LOOP_ENV=$(grep -E '^CALENDAR_DISPATCHER_ENABLED=' .env.production | head -1 | cut -d= -f2- | tr 'A-Z' 'a-z')
 [ -n "$LOOP_ENV" ] || LOOP_ENV=false
 echo "домен приложения: $DOMAIN; цикл сообщений календаря в .env.production: $LOOP_ENV (после выкладки должен быть таким же)"
-Q="select count(*) from clients; select count(*) from projects; select count(*) from project_representatives; select count(*) from project_notes; select count(*) from issued_documents; select count(*) from photo_attachments; select count(*) from photo_assets; select count(*) from purge_ledger; select count(*) from project_payments; select count(*) from data_keys;"
+Q="select count(*) from clients; select count(*) from projects; select count(*) from project_representatives; select count(*) from project_notes; select count(*) from issued_documents; select count(*) from photo_attachments; select count(*) from photo_assets; select count(*) from purge_ledger; select count(*) from project_payments;"
 BEFORE=$(docker exec plan_estimate_postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Atc '$Q'" | tr '\n' ' ')
-echo "данные до: клиенты/объекты/представители/заметки/документы/привязки фото/файлы фото/реестр удалений/записи расчётов/ключи = $BEFORE"
+echo "данные до: клиенты/объекты/представители/заметки/документы/привязки фото/файлы фото/реестр удалений/записи расчётов = $BEFORE; ключей данных: $KEYS"
 echo "приходит:"; git log --oneline HEAD.."origin/$BR" | head -40
 ok "G0"
 
@@ -144,7 +144,10 @@ echo "--- проверка: все шифртексты расшифровыва
 docker exec plan_estimate_backend python -m app.cli.reencode_data verify || fail "G3" "verify нашёл открытые или нерасшифровываемые значения. $ROLLR"
 AFTER=$(docker exec plan_estimate_postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Atc '$Q'" | tr '\n' ' ')
 [ "$AFTER" = "$BEFORE" ] || fail "G3" "число строк изменилось: было $BEFORE стало $AFTER. $ROLLR"
-ok "G3 (все значения зашифрованы и расшифровываются, число строк то же)"
+KEYS2=$(PSQL "select count(*) from data_keys")
+[ "$KEYS2" -ge "$KEYS" ] || fail "G3" "ключей данных стало меньше: было $KEYS стало $KEYS2. $ROLLR"
+[ "$KEYS2" = "$KEYS" ] || echo "ключей данных было $KEYS, стало $KEYS2: команда создала ключ владельцу, у которого были записи, но не было ключа (штатно)"
+ok "G3 (все значения зашифрованы и расшифровываются, число строк то же, ключей данных: $KEYS2)"
 
 echo; echo "################ ВОРОТА S: строгое чтение ################"
 echo "Что произойдёт: в .env.production добавляется строка DATA_STRICT_READ=true, backend пересоздаётся (30–60 секунд). С этого момента открытое значение в зашифрованной колонке ОТКЛОНЯЕТСЯ (ошибка DATA_PLAIN_VALUE_REFUSED) — защита от пропущенных или записанных мимо приложения значений."
