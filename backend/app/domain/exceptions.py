@@ -1034,3 +1034,23 @@ class PaymentInvalidError(Exception):
     """A settlement record that breaks a rule of its kind (a field of another kind, a settled invoice that is not one ...) (IA-1)."""
 
     code = "PAYMENT_INVALID"
+
+
+class ArchivedDocumentNotFoundError(Exception):
+    """A contract / protocol that does not exist, is not this owner's or is of an unknown kind (archive of documents, AC-6)."""
+
+
+class ArchivedDocumentNotArchivedError(Exception):
+    """Only an archived contract or protocol can be deleted for good (AC-6): the archive is the reversible step before it."""
+
+    code = "DOCUMENT_RECORD_NOT_ARCHIVED"
+
+
+class ArchivedDocumentInUseError(Exception):
+    """A contract that protocols or downtime episodes (not archived) still refer to cannot be deleted for good (AC-6)."""
+
+    code = "DOCUMENT_RECORD_IN_USE"
+
+    def __init__(self, dependents: int) -> None:
+        super().__init__(f"{dependents} protocol(s) still refer to this contract")
+        self.dependents = dependents

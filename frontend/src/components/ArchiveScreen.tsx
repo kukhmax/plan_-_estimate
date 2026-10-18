@@ -3,24 +3,29 @@ import { ArchivedRoomItem, ArchivedSurfaceItem, fetchArchivedStructure } from '.
 import { ApiError } from '../api/http';
 import { fetchClients, restoreClient } from '../api/clients';
 import { fetchProjects, restoreProject } from '../api/projects';
+import { fetchArchivedDocuments } from '../api/archivedDocuments';
 import { fetchArchivedPayments, restorePayment } from '../api/payments';
 import { restoreRoom } from '../api/rooms';
 import { fetchRoomPurgePreview, fetchSurfacePurgePreview, purgeRoom, purgeSurface } from '../api/structurePurge';
 import { restoreSurface } from '../api/surfaces';
 import { useI18n } from '../hooks/useI18n';
 import { ClientType } from '../types/client';
+import type { ArchivedDocumentItem } from '../types/archivedDocument';
 import type { ArchivedPaymentItem } from '../types/payment';
 import { ProjectType } from '../types/project';
+import { archivedDocumentKindLabel } from '../utils/archivedDocumentFormat';
+import { formatIssued } from '../utils/documentFormat';
 import { formatDay, formatMoney } from '../utils/paymentFormat';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { ArchiveClientDelete } from './ArchiveClientDelete';
+import { ArchiveDocumentDelete } from './ArchiveDocumentDelete';
 import { ArchivePaymentDelete } from './ArchivePaymentDelete';
 import { ArchiveProjectDelete } from './ArchiveProjectDelete';
 import { ArchiveStructureDelete } from './ArchiveStructureDelete';
 import { ArchivePhotos } from './ArchivePhotos';
 import { Ico } from './Ico';
 
-type ArchiveTab = 'clients' | 'projects' | 'rooms' | 'surfaces' | 'payments' | 'photos';
+type ArchiveTab = 'clients' | 'projects' | 'rooms' | 'surfaces' | 'payments' | 'documents' | 'photos';
 type RestoreKind = 'clients' | 'projects' | 'rooms' | 'surfaces' | 'payments';
 
 function clientName(client: ClientType): string {
@@ -38,7 +43,7 @@ const restoreButtonClass =
  * is here. An archived client can also be deleted for good (AC-5a), after the server has checked it has no objects.
  */
 export function ArchiveScreen() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const text = t.archive;
   const [tab, setTab] = useState<ArchiveTab>('clients');
   const [clients, setClients] = useState<ClientType[] | null>(null);
@@ -49,6 +54,10 @@ export function ArchiveScreen() {
   const [paymentsTotal, setPaymentsTotal] = useState(0);
   const [paymentsFailed, setPaymentsFailed] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<ArchivedDocumentItem[] | null>(null);
+  const [documentsTotal, setDocumentsTotal] = useState(0);
+  const [documentsFailed, setDocumentsFailed] = useState(false);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
   const [structureTotals, setStructureTotals] = useState<{ rooms: number; surfaces: number } | null>(null);
   const [photoTotals, setPhotoTotals] = useState<{ archived: number; trashed: number } | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -66,6 +75,7 @@ export function ArchiveScreen() {
     setLoadFailed(false);
     setStructureFailed(false);
     setPaymentsFailed(false);
+    setDocumentsFailed(false);
     try {
       const [clientData, projectData] = await Promise.all([fetchClients({ include_archived: true }), fetchProjects(true)]);
       setClients(clientData.items.filter((client) => client.is_archived));
@@ -89,6 +99,14 @@ export function ArchiveScreen() {
       setPaymentsTotal(found.total);
     } catch {
       setPaymentsFailed(true);
+    }
+    // and the contracts and protocols: apart too
+    try {
+      const found = await fetchArchivedDocuments();
+      setDocuments(found.items);
+      setDocumentsTotal(found.total);
+    } catch {
+      setDocumentsFailed(true);
     }
   }, []);
 
@@ -154,6 +172,8 @@ export function ArchiveScreen() {
         return structureTotals?.surfaces;
       case 'payments':
         return payments === null ? undefined : paymentsTotal;
+      case 'documents':
+        return documents === null ? undefined : documentsTotal;
       default:
         return photoTotals ? photoTotals.archived + photoTotals.trashed : undefined;
     }
@@ -176,6 +196,7 @@ export function ArchiveScreen() {
           setDeletingProjectId(null);
           setDeletingStructureId(null);
           setDeletingPaymentId(null);
+          setDeletingDocumentId(null);
         }}
         className={`min-h-11 px-4 text-sm font-semibold rounded-xl transition ${
           tab === value ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -230,7 +251,7 @@ export function ArchiveScreen() {
 
   const structureTab = tab === 'rooms' || tab === 'surfaces';
   const waitingFor =
-    tab === 'clients' ? clients : tab === 'projects' ? projects : tab === 'rooms' ? rooms : tab === 'surfaces' ? surfaces : tab === 'payments' ? payments : [];
+    tab === 'clients' ? clients : tab === 'projects' ? projects : tab === 'rooms' ? rooms : tab === 'surfaces' ? surfaces : tab === 'payments' ? payments : tab === 'documents' ? documents : [];
 
   return (
     <section aria-label="archive-section" className="w-full mt-4 space-y-3">
@@ -243,6 +264,7 @@ export function ArchiveScreen() {
         {tabButton('rooms', text.rooms_tab)}
         {tabButton('surfaces', text.surfaces_tab)}
         {tabButton('payments', text.payments_tab)}
+        {tabButton('documents', text.documents_tab)}
         {tabButton('photos', text.photos_tab)}
       </div>
 
@@ -253,10 +275,11 @@ export function ArchiveScreen() {
       <ArchivePhotos key={photosKey} active={tab === 'photos'} onTotals={setPhotoTotals} />
 
       {tab === 'payments' && paymentsFailed && retry(() => void load(), 'archive-retry', text.error_load)}
-      {tab !== 'photos' && tab !== 'payments' && !structureTab && loadFailed && retry(() => void load(), 'archive-retry', text.error_load)}
+      {tab === 'documents' && documentsFailed && retry(() => void load(), 'archive-retry', text.error_load)}
+      {tab !== 'photos' && tab !== 'payments' && tab !== 'documents' && !structureTab && loadFailed && retry(() => void load(), 'archive-retry', text.error_load)}
       {structureTab && structureFailed && retry(() => void load(), 'archive-retry', text.error_load)}
 
-      {tab !== 'photos' && !(tab === 'payments' ? paymentsFailed : structureTab ? structureFailed : loadFailed) && waitingFor === null && (
+      {tab !== 'photos' && !(tab === 'payments' ? paymentsFailed : tab === 'documents' ? documentsFailed : structureTab ? structureFailed : loadFailed) && waitingFor === null && (
         <p className="text-sm text-slate-500">{t.clients.loading}</p>
       )}
 
@@ -475,6 +498,66 @@ export function ArchiveScreen() {
             {paymentsTotal > payments.length && (
               <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">
                 {text.structure_shown.replace('{shown}', String(payments.length)).replace('{total}', String(paymentsTotal))}
+              </p>
+            )}
+          </>
+        )
+      )}
+
+      {!documentsFailed && tab === 'documents' && documents !== null && (
+        documents.length === 0 ? (
+          <p aria-label="archive-empty-documents" className="text-sm text-slate-400 text-center py-6">{text.empty_documents}</p>
+        ) : (
+          <>
+            <ul aria-label="archive-documents-list" className="space-y-2">
+              {documents.map((entry) => {
+                const meta = [
+                  (entry.kind === 'CONTRACT' ? text.document_version : text.document_sequence).replace('{n}', String(entry.ordinal)),
+                ];
+                if (entry.number) meta.push(text.document_number.replace('{number}', entry.number));
+                return (
+                  <li key={`${entry.kind}-${entry.id}`} aria-label={`archived-document-${entry.id}`} className={rowClass}>
+                    <p className="font-semibold text-slate-900 text-sm break-words">{archivedDocumentKindLabel(text, entry.kind)}</p>
+                    <p className="text-xs text-slate-500 break-words">{meta.join(' · ')}</p>
+                    <p className="text-xs text-slate-500 break-words">{text.of_object.replace('{name}', entry.project_name)}</p>
+                    <p className="text-xs text-slate-500 break-words">
+                      {entry.issued_at ? text.document_issued.replace('{date}', formatIssued(entry.issued_at, locale)) : text.document_draft}
+                      {' · '}
+                      {text.document_archived.replace('{date}', formatIssued(entry.archived_at, locale))}
+                    </p>
+                    {deletingDocumentId === entry.id ? (
+                      <ArchiveDocumentDelete
+                        document={entry}
+                        onCancel={() => setDeletingDocumentId(null)}
+                        onDeleted={() => {
+                          setDeletingDocumentId(null);
+                          setDocuments((current) => (current ? current.filter((item) => item.id !== entry.id) : current));
+                          setDocumentsTotal((current) => Math.max(0, current - 1));
+                          setNotice(text.document_deleted);
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label={`delete-document-${entry.id}`}
+                        disabled={busyId !== null}
+                        onClick={() => {
+                          setNotice(null);
+                          setError(null);
+                          setDeletingDocumentId(entry.id);
+                        }}
+                        className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-red-300 text-red-700 transition disabled:opacity-50"
+                      >
+                        <Ico>🗑️</Ico>{text.client_delete}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {documentsTotal > documents.length && (
+              <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">
+                {text.structure_shown.replace('{shown}', String(documents.length)).replace('{total}', String(documentsTotal))}
               </p>
             )}
           </>
