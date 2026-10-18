@@ -43,7 +43,7 @@ FREE=$(df --output=avail -BG / | tail -1 | tr -dc '0-9'); [ "$FREE" -ge 5 ] || f
 LASTRUN=$(ls -1t "$R/data/encrypted" 2>/dev/null | head -1)
 [ -n "$LASTRUN" ] || fail "G0" "нет ни одного запуска бэкапа в $R/data/encrypted: сначала A9 (раздел 2 runbook)"
 AGE_H=$(( ( $(date +%s) - $(stat -c %Y "$R/data/encrypted/$LASTRUN") ) / 3600 ))
-[ "$AGE_H" -le 24 ] || fail "G0" "последний бэкап $LASTRUN старше суток (${AGE_H} ч): сначала свежий A9 (BACKUP_BRANCH=<ветка> BACKUP_HEAD=0061_expense_category bash ~/backup_a9.sh, в НОВОЙ сессии)"
+[ "$AGE_H" -le 24 ] || fail "G0" "последний бэкап $LASTRUN старше суток (${AGE_H} ч): сначала свежий A9 (BACKUP_BRANCH=main BACKUP_HEAD=0061_expense_category bash ~/backup_a9.sh, в НОВОЙ сессии)"
 echo "последний бэкап: $LASTRUN (${AGE_H} ч назад)"
 # ключ сервера: есть в .env.production, это base64 ровно 32 байт; сам ключ НЕ печатается
 KEKTXT=$(grep -E '^DATA_KEK=' .env.production | head -1 | cut -d= -f2-)

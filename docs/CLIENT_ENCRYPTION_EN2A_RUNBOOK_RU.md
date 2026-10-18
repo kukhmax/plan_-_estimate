@@ -23,7 +23,7 @@
 
 ## 3. Порядок
 
-1. Свежий бэкап A9 под текущую голову (не старше суток): `BACKUP_BRANCH=backlog-client-encryption BACKUP_HEAD=0061_expense_category bash ~/backup_a9.sh` (в **новой** SSH-сессии, потом закрыть её).
+1. Свежий бэкап A9 под текущую голову (не старше суток): `BACKUP_BRANCH=main BACKUP_HEAD=0061_expense_category bash ~/backup_a9.sh` (в **новой** SSH-сессии, потом закрыть её).
 2. Создать ключ (раздел 2), сохранить обе копии.
 3. Запуск (в **новой** SSH-сессии): 
    `cd ~/apps/plan_-_estimate && git fetch -q origin backlog-client-encryption && git show origin/backlog-client-encryption:docs/CLIENT_ENCRYPTION_EN2A_DEPLOY_RU.sh > ~/deploy_en2a.sh && bash ~/deploy_en2a.sh`
