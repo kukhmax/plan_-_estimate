@@ -55,15 +55,15 @@ class ArchiveStructureService:
             Project.is_archived.is_(False),
             Room.is_archived.is_(True),
         )
-        rooms = (
-            await self.db.execute(
-                select(Room, Project.name)
-                .join(Project, Room.project_id == Project.id)
-                .where(*rooms_where)
-                .order_by(Project.name, Room.name, Room.id)
-                .limit(LIMIT)
-            )
-        ).all()
+        # The name of an object is ciphertext in the database (EN-2a): the order is made here, after the decryption.
+        rooms = sorted(
+            (
+                await self.db.execute(
+                    select(Room, Project.name).join(Project, Room.project_id == Project.id).where(*rooms_where)
+                )
+            ).all(),
+            key=lambda row: (row[1] or "", row[0].name, str(row[0].id)),
+        )[:LIMIT]
         rooms_total = (
             await self.db.execute(select(func.count()).select_from(Room).join(Project, Room.project_id == Project.id).where(*rooms_where))
         ).scalar_one()
@@ -74,16 +74,17 @@ class ArchiveStructureService:
             Room.is_archived.is_(False),
             Surface.is_archived.is_(True),
         )
-        surfaces = (
-            await self.db.execute(
-                select(Surface, Room.name, Project.id, Project.name)
-                .join(Room, Surface.room_id == Room.id)
-                .join(Project, Room.project_id == Project.id)
-                .where(*surfaces_where)
-                .order_by(Project.name, Room.name, Surface.name, Surface.id)
-                .limit(LIMIT)
-            )
-        ).all()
+        surfaces = sorted(
+            (
+                await self.db.execute(
+                    select(Surface, Room.name, Project.id, Project.name)
+                    .join(Room, Surface.room_id == Room.id)
+                    .join(Project, Room.project_id == Project.id)
+                    .where(*surfaces_where)
+                )
+            ).all(),
+            key=lambda row: (row[3] or "", row[1], row[0].name, str(row[0].id)),
+        )[:LIMIT]
         surfaces_total = (
             await self.db.execute(
                 select(func.count())

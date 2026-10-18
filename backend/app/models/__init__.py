@@ -9,6 +9,7 @@ from app.models.checklist import (
     Substrate,
 )
 from app.models.client import Client
+from app.models.data_key import DataKey, WrappedBy
 from app.models.estimate import (
     Estimate,
     EstimateLine,
@@ -86,6 +87,8 @@ from app.models.work_recommendation import (
 )
 
 __all__ = [
+    "DataKey",
+    "WrappedBy",
     "AcceptanceProtocol",
     "AcceptanceStatus",
     "DecisionProtocol",

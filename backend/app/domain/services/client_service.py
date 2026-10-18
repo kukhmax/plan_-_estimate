@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import ClientHasProjectsError, ClientNotArchivedError, ClientNotFoundError
@@ -28,25 +28,24 @@ class ClientService:
         if not include_archived:
             stmt = stmt.where(Client.is_archived.is_(False))
 
-        if search:
-            pattern = f"%{search}%"
-            stmt = stmt.where(
-                or_(
-                    Client.first_name.ilike(pattern),
-                    Client.last_name.ilike(pattern),
-                    Client.company_name.ilike(pattern),
-                    Client.phone.ilike(pattern),
-                )
-            )
-
-        count_stmt = select(func.count()).select_from(stmt.subquery())
-        count_result = await self.db.execute(count_stmt)
-        total = count_result.scalar_one()
-
         stmt = stmt.order_by(Client.created_at.desc())
         result = await self.db.execute(stmt)
         items = list(result.scalars().all())
 
+        if search:
+            # The fields are ciphertext in the database (EN-2a), so the search runs here, on the decrypted clients of the owner.
+            needle = search.casefold()
+            items = [
+                client
+                for client in items
+                if any(
+                    needle in value.casefold()
+                    for value in (client.first_name, client.last_name, client.company_name, client.phone)
+                    if value
+                )
+            ]
+
+        total = len(items)
         return items, total
 
     async def get_client(self, client_id: uuid.UUID, owner_user_id: uuid.UUID) -> Client:

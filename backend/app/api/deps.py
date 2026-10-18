@@ -16,6 +16,7 @@ from app.domain.services.auth_service import TelegramAuthService
 from app.domain.services.checklist_service import ChecklistService
 from app.domain.services.client_service import ClientService
 from app.domain.services.communication_service import CommunicationService
+from app.domain.services.data_key_service import DataKeyService
 from app.domain.services.estimate_service import EstimateService
 from app.domain.services.inspection_service import InspectionService
 from app.domain.services.media_storage import MediaStorage
@@ -78,6 +79,8 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # The personal data of the owner is encrypted (EN-2a): the keys are loaded and the key of this owner is put in force for the request.
+    await DataKeyService(db).put_in_force(user.id)
     return user
 
 

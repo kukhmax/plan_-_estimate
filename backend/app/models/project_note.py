@@ -6,10 +6,11 @@ document (it never leaves the application). `created_at` is the moment it was wr
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Text, Uuid
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.encrypted_text import EncryptedText
 
 MAX_NOTE_LENGTH = 4000
 
@@ -28,6 +29,6 @@ class ProjectNote(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     owner_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     project_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    body: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str] = mapped_column(EncryptedText("project_notes.body"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now, onupdate=_now)

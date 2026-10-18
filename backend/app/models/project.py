@@ -2,10 +2,11 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, String, Uuid
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.encrypted_text import EncryptedText
 
 
 class ProjectStatus(str, enum.Enum):
@@ -34,11 +35,11 @@ class Project(Base):
         nullable=True,
         index=True,
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    address: Mapped[str] = mapped_column(String(512), nullable=False)
-    city: Mapped[str] = mapped_column(String(255), nullable=False)
-    postal_code: Mapped[str] = mapped_column(String(20), nullable=False)
-    description: Mapped[str | None] = mapped_column(String(4096), nullable=True)
+    name: Mapped[str] = mapped_column(EncryptedText("projects.name"), nullable=False)
+    address: Mapped[str] = mapped_column(EncryptedText("projects.address"), nullable=False)
+    city: Mapped[str] = mapped_column(EncryptedText("projects.city"), nullable=False)
+    postal_code: Mapped[str] = mapped_column(EncryptedText("projects.postal_code"), nullable=False)
+    description: Mapped[str | None] = mapped_column(EncryptedText("projects.description"), nullable=True)
     status: Mapped[ProjectStatus] = mapped_column(
         Enum(ProjectStatus, name="projectstatus"),
         nullable=False,

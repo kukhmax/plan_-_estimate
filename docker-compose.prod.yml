@@ -36,6 +36,11 @@ services:
       TELEGRAM_AUTH_MAX_AGE_SECONDS: ${TELEGRAM_AUTH_MAX_AGE_SECONDS:-86400}
       MOCK_TELEGRAM_AUTH: "false"
 
+      # Encryption of the personal data of the clients (EN-2a): base64 of 32 bytes, only here and in the owner's password manager. The backend
+      # refuses to start without it; losing it loses the data it protects (docs/CLIENT_DATA_ENCRYPTION_PLAN_RU.md).
+      DATA_KEK: ${DATA_KEK:-}
+      DATA_KEK_VERSION: ${DATA_KEK_VERSION:-1}
+
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-10080}

@@ -44,6 +44,7 @@ TEST_BOT_TOKEN = "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
 def setup_test_settings():
     settings.TELEGRAM_BOT_TOKEN = TEST_BOT_TOKEN
     settings.MOCK_TELEGRAM_AUTH = True
+    settings.APP_ENV = "development"  # test_auth.py leaves "production" behind; the startup of the application (EN-2a) reads it
     settings.ENVIRONMENT = "development"
     settings.JWT_SECRET_KEY = "test-jwt-secret-key-for-unit-testing"
 

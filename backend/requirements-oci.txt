@@ -1,5 +1,6 @@
 # Stage 14D.6A -- the Oracle Cloud Infrastructure SDK and EVERYTHING it adds to requirements.txt, fully pinned.
 # cffi and pycparser moved to requirements.txt with the PDF engine (Stage 15B: WeasyPrint needs them; the versions are the same).
+# cryptography moved to requirements.txt with the encryption of the data of the clients (EN-2a; the same version).
 # Used only by Dockerfile.uploader (a layer on top of the backup image); never by the web image or the
 # local-only `backup` image. Resolved on 2026-10-05 against requirements.txt (Python 3.12): installing
 # requirements.txt first changes none of its pins, and `pip check` is clean. Install with --no-deps.
@@ -10,7 +11,6 @@ asn1crypto==1.5.1
 attrs==26.1.0
 circuitbreaker==2.1.3
 crc32c==2.8
-cryptography==50.0.2
 frozenlist==1.8.0
 multidict==6.9.1
 oci==2.187.1

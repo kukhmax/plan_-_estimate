@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     TELEGRAM_AUTH_MAX_AGE_SECONDS: int = 86400  # 24 hours
     MOCK_TELEGRAM_AUTH: bool = False
 
+    # Encryption of the personal data of the clients (EN-2a). DATA_KEK: base64 of 32 random bytes (`openssl rand -base64 32`), kept ONLY in the
+    # environment and, separately from the backups, in the owner's password manager. Empty = encryption off (development, tests); production
+    # refuses to start without it. Losing it loses the data it protects.
+    DATA_KEK: SecretStr = SecretStr("")
+    DATA_KEK_VERSION: int = Field(default=1, ge=1)
+
     # JWT Session Configuration
     JWT_SECRET_KEY: str = "insecure-dev-secret-change-in-production"
     JWT_ALGORITHM: str = "HS256"

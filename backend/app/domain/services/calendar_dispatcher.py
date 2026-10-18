@@ -41,6 +41,7 @@ from app.domain.exceptions import (
     MessageDeliveryError,
     MessageUnavailableError,
 )
+from app.domain.services.data_key_service import DataKeyService
 from app.domain.services.calendar_service import CalendarService
 from app.models.project import Project
 from app.models.reminder import Reminder, ReminderOrigin, ReminderStatus
@@ -91,6 +92,7 @@ class CalendarDispatcher:
     async def reconcile_all(self, now: datetime | None = None) -> int:
         """Bring the queue of every owner in step with the data (the periodic pass; the statuses and the archive do it at once)."""
         async with self._sessions() as db:
+            await DataKeyService(db).prepare()  # the names of the objects are ciphertext: the keys must be in the ring before they are read
             owners = (await db.execute(select(Project.owner_id).distinct())).scalars().all()
         done = 0
         for owner_id in owners:
@@ -107,6 +109,7 @@ class CalendarDispatcher:
         now = now or datetime.now(UTC)
         report = TickReport()
         async with self._sessions() as db:
+            await DataKeyService(db).prepare()
             report.recovered = await self._recover_stale(db, now)
             claimed = await self._claim(db, now, report)
         for owner_id, ids in claimed.items():

@@ -14,6 +14,7 @@ from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, St
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.encrypted_text import EncryptedText
 
 
 class RepresentativeSide(str, enum.Enum):
@@ -30,10 +31,10 @@ class ProjectRepresentative(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     project_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     side: Mapped[str] = mapped_column(String(32), nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(EncryptedText("project_representatives.name"), nullable=False)
     role_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    phone: Mapped[str | None] = mapped_column(EncryptedText("project_representatives.phone"), nullable=True)
+    email: Mapped[str | None] = mapped_column(EncryptedText("project_representatives.email"), nullable=True)
     may_accept_and_sign: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(

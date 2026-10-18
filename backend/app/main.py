@@ -22,6 +22,8 @@ from app.domain.knowledge.catalog import load_knowledge_catalog
 from app.domain.calendar.messages import load_texts
 from app.domain.exceptions import ClientIdConflictError
 from app.domain.services.calendar_dispatcher import start_dispatcher
+from app.domain.services.data_key_service import DataKeyService
+from app.core.data_crypto import DataCryptoError
 from app.core.database import async_session_maker
 from app.api.v1.endpoints.executor_profile import router as executor_profile_router
 from app.api.v1.endpoints.archive_structure import router as archive_structure_router
@@ -65,6 +67,12 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     load_knowledge_catalog()
     # Stage 18D: the texts of the reminders are a file like the knowledge base: a wrong one stops the start.
     load_texts()
+    # EN-2a: the personal data of the clients is encrypted; production does not start without the key of the server, and a wrong key stops
+    # the start at once (the keys already in the database are unwrapped here) instead of failing at the first request.
+    if settings.is_production and not settings.DATA_KEK.get_secret_value().strip():
+        raise RuntimeError("DATA_KEK is not set: production does not start without the key that protects the data of the clients")
+    async with async_session_maker() as db:
+        await DataKeyService(db).prepare()
     # Stage 18D: the loop that sends the reminders; off unless CALENDAR_DISPATCHER_ENABLED, and not started without a bot token.
     loop = start_dispatcher(settings, async_session_maker)
     try:
@@ -96,6 +104,12 @@ app.add_middleware(
 async def client_id_conflict_handler(_request: Request, exc: ClientIdConflictError) -> JSONResponse:
     """An id chosen by the phone (Stage 19C) is taken by another record: the phone moves the operation to "needs attention"."""
     return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": {"code": exc.code, "message": str(exc)}})
+
+
+@app.exception_handler(DataCryptoError)
+async def data_crypto_error_handler(_request: Request, exc: DataCryptoError) -> JSONResponse:
+    """EN-2a: a value that does not decrypt, or a key that is not loaded, is a structured error with a code and never a value or a key."""
+    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": {"code": exc.code, "message": exc.code}})
 
 
 app.include_router(health_router, prefix="/api", tags=["health"])
