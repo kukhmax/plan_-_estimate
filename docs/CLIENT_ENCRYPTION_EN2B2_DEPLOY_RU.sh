@@ -43,7 +43,7 @@ FREE=$(df --output=avail -BG / | tail -1 | tr -dc '0-9'); [ "$FREE" -ge 5 ] || f
 LASTRUN=$(ls -1t "$R/data/encrypted" 2>/dev/null | head -1)
 [ -n "$LASTRUN" ] || fail "G0" "нет ни одного запуска бэкапа в $R/data/encrypted: сначала A9"
 AGE_H=$(( ( $(date +%s) - $(stat -c %Y "$R/data/encrypted/$LASTRUN") ) / 3600 ))
-[ "$AGE_H" -le 24 ] || fail "G0" "последний бэкап $LASTRUN старше суток (${AGE_H} ч): сначала свежий A9 (cd ~/apps/plan_-_estimate && BACKUP_BRANCH=backlog-client-encryption BACKUP_HEAD=0062_data_keys bash ~/backup_a9.sh, в НОВОЙ сессии)"
+[ "$AGE_H" -le 24 ] || fail "G0" "последний бэкап $LASTRUN старше суток (${AGE_H} ч). Свежий бэкап ПОД ГОЛОВУ 0062 нельзя сделать из ветки backlog-client-encryption (она уже заканчивается миграцией 0063: образы бэкапа обязаны совпасть с базой). Сообщите мне: добавлю закрепление коммита для бэкапа"
 echo "последний бэкап: $LASTRUN (${AGE_H} ч назад)"
 KEKTXT=$(grep -E '^DATA_KEK=' .env.production | head -1 | cut -d= -f2-)
 [ -n "$KEKTXT" ] && [ "$(printf '%s' "$KEKTXT" | base64 -d 2>/dev/null | wc -c)" = "32" ] || fail "G0" "DATA_KEK в .env.production отсутствует или не base64 из 32 байт (ключ НЕ МЕНЯТЬ и не удалять)"
