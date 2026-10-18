@@ -5,6 +5,7 @@ import { ArchiveScreen } from './components/ArchiveScreen';
 import { ClientList } from './components/ClientList';
 import { PriceBook } from './components/PriceBook';
 import { SentDocuments } from './components/SentDocuments';
+import { SecurityProbe } from './components/SecurityProbe';
 import { CalendarScreen } from './components/CalendarScreen';
 import { KnowledgeBase } from './components/KnowledgeBase';
 import { ProjectOpenRequest, ProjectWorkspace } from './components/ProjectWorkspace';
@@ -18,7 +19,7 @@ import { requestPersistentStorage } from './offline/persist';
 import { startSync } from './offline/sync';
 import { startConnectionWatch } from './offline/watch';
 
-type Section = 'clients' | 'projects' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge';
+type Section = 'clients' | 'projects' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge' | 'security';
 
 /** The button of a reminder message opens the Mini App with `?open=calendar` or `?open=project:<id>` (Stage 18D / 18E). */
 function openTarget(search: string): { section: Section; projectId?: string } | null {
@@ -80,6 +81,7 @@ const AppContent: React.FC = () => {
     { id: 'show-archive', label: t.navigation.archive, active: activeSection === 'archive', onSelect: () => choose('archive') },
     { id: 'show-documents', label: t.navigation.documents, active: activeSection === 'documents', onSelect: () => choose('documents') },
     { id: 'show-knowledge', label: t.navigation.knowledge, active: activeSection === 'knowledge', onSelect: () => choose('knowledge') },
+    { id: 'show-security', label: t.navigation.security, active: activeSection === 'security', onSelect: () => choose('security') },
   ];
 
   return (
@@ -214,6 +216,8 @@ const AppContent: React.FC = () => {
               <SentDocuments />
             ) : activeSection === 'knowledge' ? (
               <KnowledgeBase backSuspended={showAccount || menuOpen || showSync} />
+            ) : activeSection === 'security' ? (
+              <SecurityProbe />
             ) : (
               <PriceBook resetSignal={priceNavToken} backSuspended={showAccount || menuOpen || showSync} />
             )}

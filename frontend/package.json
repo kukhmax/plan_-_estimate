@@ -10,6 +10,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "hash-wasm": "4.12.0",
     "idb": "8.0.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

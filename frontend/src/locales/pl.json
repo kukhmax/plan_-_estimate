@@ -142,7 +142,8 @@
     "archive": "Archiwum",
     "documents": "Wysłane dokumenty",
     "knowledge": "Baza wiedzy",
-    "calendar": "Kalendarz"
+    "calendar": "Kalendarz",
+    "security": "Test zabezpieczeń"
   },
   "errors": {
     "reveal_work_requires_opening": "Prace na ościeżach dodaj w konkretnym otworze (Prace na ościeżach), a nie w planie ściany.",
@@ -3273,5 +3274,54 @@
       "payment.archive": "Archiwizacja wpisu rozliczeń",
       "payment.restore": "Przywrócenie wpisu rozliczeń"
     }
+  },
+  "securityProbe": {
+    "title": "Test zabezpieczeń (EN-1)",
+    "intro": "Sprawdza na TYM telefonie, co potrafi Telegram i przeglądarka: bezpieczne magazyny kluczy, biometrię, szyfrowanie i szybkość liczenia. Nie dotyka danych klientów i niczego nie wysyła na serwer. Uruchom, a potem skopiuj raport i wyślij go.",
+    "run_all": "Uruchom testy",
+    "running": "Trwa test…",
+    "running_one": "liczy…",
+    "not_run": "nie uruchomiono",
+    "status": {
+      "ok": "działa",
+      "unsupported": "brak",
+      "error": "błąd",
+      "timeout": "brak odpowiedzi",
+      "denied": "odmowa / pusto"
+    },
+    "checks": {
+      "environment": "Telegram i telefon",
+      "webcrypto": "Szyfrowanie AES-256-GCM (przeglądarka)",
+      "pbkdf2": "PBKDF2 — szybkość",
+      "argon2": "Argon2id — szybkość",
+      "cloud_storage": "CloudStorage Telegrama",
+      "cloud_limits": "CloudStorage — rozmiar wartości",
+      "secure_storage": "SecureStorage (bezpieczny magazyn)",
+      "device_storage": "DeviceStorage (magazyn urządzenia)",
+      "biometric": "Biometria (odcisk / twarz)"
+    },
+    "biometric_title": "Biometria — wymaga dotknięcia",
+    "biometric_hint": "Telefon pokaże własne pytanie. Wynik trafia do raportu.",
+    "biometric_access": "Poproś o dostęp do biometrii",
+    "biometric_authenticate": "Sprawdź odcisk / twarz",
+    "markers_title": "Znacznik — co przetrwa przeinstalowanie",
+    "markers_hint": "Zapisz znacznik teraz. Potem przeinstaluj Telegram albo otwórz tę stronę na innym telefonie i odczytaj znacznik: zobaczysz, który magazyn go zachował.",
+    "storage": {
+      "cloud": "CloudStorage (chmura Telegrama)",
+      "secure": "SecureStorage (bezpieczny magazyn)",
+      "device": "DeviceStorage (magazyn urządzenia)"
+    },
+    "marker_write": "Zapisz znacznik",
+    "marker_read": "Odczytaj znacznik",
+    "marker_clear": "Usuń znacznik",
+    "marker_action": {
+      "write": "zapis",
+      "read": "odczyt",
+      "clear": "usunięcie"
+    },
+    "report_title": "Raport do wysłania",
+    "copy": "Kopiuj raport",
+    "copied": "Skopiowano. Wklej raport do czatu.",
+    "copy_manual": "Nie udało się skopiować automatycznie: zaznacz tekst raportu i skopiuj go ręcznie."
   }
 }

@@ -37,6 +37,38 @@ export interface TelegramHapticFeedback {
   notificationOccurred?: (type: 'error' | 'success' | 'warning') => void;
 }
 
+/** What the Mini App sees of the storages of Telegram (EN-1 spike): each is optional, the older clients of Telegram do not have them. */
+type StorageCallback<T> = (error: string | null, value?: T, extra?: unknown) => void;
+
+export interface TelegramCloudStorage {
+  setItem: (key: string, value: string, callback?: StorageCallback<boolean>) => void;
+  getItem: (key: string, callback: StorageCallback<string>) => void;
+  removeItem: (key: string, callback?: StorageCallback<boolean>) => void;
+  getKeys: (callback: StorageCallback<string[]>) => void;
+}
+
+/** DeviceStorage and SecureStorage (Bot API 9.0): the same shape; the secure one lives in the Keychain / Keystore of the phone. */
+export interface TelegramKeyStorage {
+  setItem: (key: string, value: string, callback?: StorageCallback<boolean>) => void;
+  getItem: (key: string, callback: StorageCallback<string>) => void;
+  removeItem: (key: string, callback?: StorageCallback<boolean>) => void;
+  clear?: (callback?: StorageCallback<boolean>) => void;
+  restoreItem?: (key: string, callback?: StorageCallback<string>) => void;
+}
+
+export interface TelegramBiometricManager {
+  isInited: boolean;
+  isBiometricAvailable: boolean;
+  biometricType: 'finger' | 'face' | 'unknown';
+  isAccessRequested: boolean;
+  isAccessGranted: boolean;
+  isBiometricTokenSaved: boolean;
+  deviceId: string;
+  init: (callback?: () => void) => void;
+  requestAccess: (params: { reason?: string }, callback?: (granted: boolean) => void) => void;
+  authenticate: (params: { reason?: string }, callback?: (success: boolean, token?: string) => void) => void;
+}
+
 export interface TelegramWebApp {
   initData: string;
   initDataUnsafe: {
@@ -53,6 +85,11 @@ export interface TelegramWebApp {
   viewportHeight: number;
   viewportStableHeight: number;
   BackButton?: TelegramBackButton;
+  CloudStorage?: TelegramCloudStorage;
+  DeviceStorage?: TelegramKeyStorage;
+  SecureStorage?: TelegramKeyStorage;
+  BiometricManager?: TelegramBiometricManager;
+  isVersionAtLeast?: (version: string) => boolean;
   HapticFeedback?: TelegramHapticFeedback;
   ready: () => void;
   expand: () => void;
