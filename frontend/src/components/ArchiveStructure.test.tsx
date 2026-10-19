@@ -421,7 +421,8 @@ describe('ArchiveScreen: deleting an archived object for good (archive cleanup A
 describe('ArchiveScreen: deleting an archived room or surface for good (archive cleanup AC-4b)', () => {
   const room = (over: Partial<StructurePurgePreview> = {}): StructurePurgePreview => ({
     kind: 'ROOM', target_id: R1, name: 'Salon', archived: true, can_purge: true, surfaces: 4, openings: 2, inspections: 1, photos: 7, photo_files: 6,
-    bytes: 3 * 1024 * 1024, annotations: 3, estimate_lines: 0, may_be_in_backups: true, blockers: [], ...over,
+    bytes: 3 * 1024 * 1024, annotations: 3, estimate_lines: 0, answers: 0, findings: 0, risks: 0, recommendations: 0, may_be_in_backups: true,
+    blockers: [], ...over,
   });
   const surface = (over: Partial<StructurePurgePreview> = {}): StructurePurgePreview => ({
     ...room({ kind: 'SURFACE', target_id: 's1', name: 'Ściana 1', surfaces: 0, openings: 1, inspections: 0, photos: 2, photo_files: 2, annotations: 0 }), ...over,

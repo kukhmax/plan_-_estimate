@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArchivedRoomItem, ArchivedSurfaceItem, fetchArchivedStructure } from '../api/archiveStructure';
+import { ArchivedInspectionItem, fetchArchivedInspections } from '../api/archiveInspections';
 import { ApiError } from '../api/http';
+import { restoreInspection } from '../api/inspections';
 import { fetchClients, restoreClient } from '../api/clients';
 import { fetchProjects, restoreProject } from '../api/projects';
 import { fetchArchivedDocuments } from '../api/archivedDocuments';
 import { fetchArchivedPayments, restorePayment } from '../api/payments';
 import { restoreRoom } from '../api/rooms';
-import { fetchRoomPurgePreview, fetchSurfacePurgePreview, purgeRoom, purgeSurface } from '../api/structurePurge';
+import {
+  fetchInspectionPurgePreview,
+  fetchRoomPurgePreview,
+  fetchSurfacePurgePreview,
+  purgeInspection,
+  purgeRoom,
+  purgeSurface,
+} from '../api/structurePurge';
 import { restoreSurface } from '../api/surfaces';
 import { useI18n } from '../hooks/useI18n';
 import { ClientType } from '../types/client';
@@ -25,8 +34,8 @@ import { ArchiveStructureDelete } from './ArchiveStructureDelete';
 import { ArchivePhotos } from './ArchivePhotos';
 import { Ico } from './Ico';
 
-type ArchiveTab = 'clients' | 'projects' | 'rooms' | 'surfaces' | 'payments' | 'documents' | 'photos';
-type RestoreKind = 'clients' | 'projects' | 'rooms' | 'surfaces' | 'payments';
+type ArchiveTab = 'clients' | 'projects' | 'rooms' | 'surfaces' | 'inspections' | 'payments' | 'documents' | 'photos';
+type RestoreKind = 'clients' | 'projects' | 'rooms' | 'surfaces' | 'inspections' | 'payments';
 
 function clientName(client: ClientType): string {
   if (client.client_type === 'COMPANY') return client.company_name ?? '—';
@@ -39,7 +48,7 @@ const restoreButtonClass =
 
 /**
  * The archive (Stage 16K.5): what the owner put away — clients, objects, and (archive cleanup AC-4a) rooms and surfaces of all
- * objects, and the photos — in one place, with the way back. The lists of clients and objects show only what is in work; "restore"
+ * objects, the inspections (AC-7), and the photos — in one place, with the way back. The lists of clients and objects show only what is in work; "restore"
  * is here. An archived client can also be deleted for good (AC-5a), after the server has checked it has no objects.
  */
 export function ArchiveScreen() {
@@ -50,6 +59,10 @@ export function ArchiveScreen() {
   const [projects, setProjects] = useState<ProjectType[] | null>(null);
   const [rooms, setRooms] = useState<ArchivedRoomItem[] | null>(null);
   const [surfaces, setSurfaces] = useState<ArchivedSurfaceItem[] | null>(null);
+  const [inspections, setInspections] = useState<ArchivedInspectionItem[] | null>(null);
+  const [inspectionsTotal, setInspectionsTotal] = useState(0);
+  const [inspectionsFailed, setInspectionsFailed] = useState(false);
+  const [deletingInspectionId, setDeletingInspectionId] = useState<string | null>(null);
   const [payments, setPayments] = useState<ArchivedPaymentItem[] | null>(null);
   const [paymentsTotal, setPaymentsTotal] = useState(0);
   const [paymentsFailed, setPaymentsFailed] = useState(false);
@@ -74,6 +87,7 @@ export function ArchiveScreen() {
   const load = useCallback(async () => {
     setLoadFailed(false);
     setStructureFailed(false);
+    setInspectionsFailed(false);
     setPaymentsFailed(false);
     setDocumentsFailed(false);
     try {
@@ -92,7 +106,15 @@ export function ArchiveScreen() {
     } catch {
       setStructureFailed(true);
     }
-    // apart again: the settlement records failing must not hide the rest
+    // apart again: the inspections failing must not hide the rooms and surfaces
+    try {
+      const found = await fetchArchivedInspections();
+      setInspections(found.items);
+      setInspectionsTotal(found.total);
+    } catch {
+      setInspectionsFailed(true);
+    }
+    // and the settlement records: apart too
     try {
       const found = await fetchArchivedPayments();
       setPayments(found.items);
@@ -135,6 +157,13 @@ export function ArchiveScreen() {
         setPayments((current) => (current ? current.filter((entry) => entry.id !== id) : current));
         setPaymentsTotal((current) => Math.max(0, current - 1));
         setNotice(text.restored_payment);
+      } else if (kind === 'inspections') {
+        const inspection = inspections?.find((entry) => entry.id === id);
+        if (!inspection) return;
+        await restoreInspection(inspection.project_id, inspection.room_id, inspection.id);
+        setInspections((current) => (current ? current.filter((entry) => entry.id !== id) : current));
+        setInspectionsTotal((current) => Math.max(0, current - 1));
+        setNotice(text.restored_inspection);
       } else if (kind === 'rooms') {
         const room = rooms?.find((entry) => entry.id === id);
         if (!room) return;
@@ -170,6 +199,8 @@ export function ArchiveScreen() {
         return structureTotals?.rooms;
       case 'surfaces':
         return structureTotals?.surfaces;
+      case 'inspections':
+        return inspections === null ? undefined : inspectionsTotal;
       case 'payments':
         return payments === null ? undefined : paymentsTotal;
       case 'documents':
@@ -195,6 +226,7 @@ export function ArchiveScreen() {
           setDeletingClientId(null);
           setDeletingProjectId(null);
           setDeletingStructureId(null);
+          setDeletingInspectionId(null);
           setDeletingPaymentId(null);
           setDeletingDocumentId(null);
         }}
@@ -251,7 +283,19 @@ export function ArchiveScreen() {
 
   const structureTab = tab === 'rooms' || tab === 'surfaces';
   const waitingFor =
-    tab === 'clients' ? clients : tab === 'projects' ? projects : tab === 'rooms' ? rooms : tab === 'surfaces' ? surfaces : tab === 'payments' ? payments : tab === 'documents' ? documents : [];
+    tab === 'clients' ? clients : tab === 'projects' ? projects : tab === 'rooms' ? rooms : tab === 'surfaces' ? surfaces
+      : tab === 'inspections' ? inspections : tab === 'payments' ? payments : tab === 'documents' ? documents : [];
+
+  // where the inspection was made: the wall by its name, the floor / ceiling, or the room itself
+  const inspectionTitle = (item: ArchivedInspectionItem): string => {
+    if (item.surface_id && item.surface_name && item.surface_type) {
+      return getSurfaceDisplayName({ name: item.surface_name, surface_type: item.surface_type }, surfaceLabels);
+    }
+    if (item.plane === 'FLOOR') return t.surfaces.floor;
+    if (item.plane === 'CEILING') return t.surfaces.ceiling;
+    return t.inspections.inspect_room;
+  };
+  const substrateText = (value: string): string => String((t.inspections as Record<string, unknown>)[`substrate_${value.toLowerCase()}`] ?? value);
 
   return (
     <section aria-label="archive-section" className="w-full mt-4 space-y-3">
@@ -263,6 +307,7 @@ export function ArchiveScreen() {
         {tabButton('projects', text.projects_tab)}
         {tabButton('rooms', text.rooms_tab)}
         {tabButton('surfaces', text.surfaces_tab)}
+        {tabButton('inspections', text.inspections_tab)}
         {tabButton('payments', text.payments_tab)}
         {tabButton('documents', text.documents_tab)}
         {tabButton('photos', text.photos_tab)}
@@ -274,12 +319,13 @@ export function ArchiveScreen() {
       {/* the photos load by themselves (and stay mounted, so the count of the tab is there before it is opened) */}
       <ArchivePhotos key={photosKey} active={tab === 'photos'} onTotals={setPhotoTotals} />
 
+      {tab === 'inspections' && inspectionsFailed && retry(() => void load(), 'archive-retry', text.error_load)}
       {tab === 'payments' && paymentsFailed && retry(() => void load(), 'archive-retry', text.error_load)}
       {tab === 'documents' && documentsFailed && retry(() => void load(), 'archive-retry', text.error_load)}
-      {tab !== 'photos' && tab !== 'payments' && tab !== 'documents' && !structureTab && loadFailed && retry(() => void load(), 'archive-retry', text.error_load)}
+      {tab !== 'photos' && tab !== 'payments' && tab !== 'documents' && tab !== 'inspections' && !structureTab && loadFailed && retry(() => void load(), 'archive-retry', text.error_load)}
       {structureTab && structureFailed && retry(() => void load(), 'archive-retry', text.error_load)}
 
-      {tab !== 'photos' && !(tab === 'payments' ? paymentsFailed : tab === 'documents' ? documentsFailed : structureTab ? structureFailed : loadFailed) && waitingFor === null && (
+      {tab !== 'photos' && !(tab === 'payments' ? paymentsFailed : tab === 'documents' ? documentsFailed : tab === 'inspections' ? inspectionsFailed : structureTab ? structureFailed : loadFailed) && waitingFor === null && (
         <p className="text-sm text-slate-500">{t.clients.loading}</p>
       )}
 
@@ -437,6 +483,69 @@ export function ArchiveScreen() {
             {structureTotals && structureTotals.surfaces > surfaces.length && (
               <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">
                 {text.structure_shown.replace('{shown}', String(surfaces.length)).replace('{total}', String(structureTotals.surfaces))}
+              </p>
+            )}
+          </>
+        )
+      )}
+
+      {!inspectionsFailed && tab === 'inspections' && inspections !== null && (
+        inspections.length === 0 ? (
+          <p aria-label="archive-empty-inspections" className="text-sm text-slate-400 text-center py-6">{text.empty_inspections}</p>
+        ) : (
+          <>
+            <ul aria-label="archive-inspections-list" className="space-y-2">
+              {inspections.map((inspection) => (
+                <li key={inspection.id} aria-label={`archived-inspection-${inspection.id}`} className={rowClass}>
+                  <p className="font-semibold text-slate-900 text-sm break-words">{inspectionTitle(inspection)}</p>
+                  <p className="text-xs text-slate-500 break-words">
+                    {[
+                      text.inspection_substrate.replace('{substrate}', substrateText(inspection.substrate)),
+                      inspection.status === 'COMPLETED' ? t.inspections.status_completed : t.inspections.status_draft,
+                      formatIssued(inspection.created_at, locale),
+                    ].join(' · ')}
+                  </p>
+                  <p className="text-xs text-slate-500 break-words">
+                    {text.of_room.replace('{project}', inspection.project_name).replace('{room}', inspection.room_name)}
+                  </p>
+                  {restoreButton('inspections', inspection.id, `restore-inspection-${inspection.id}`)}
+                  {deletingInspectionId === inspection.id ? (
+                    <ArchiveStructureDelete
+                      kind="INSPECTION"
+                      name={inspectionTitle(inspection)}
+                      load={() => fetchInspectionPurgePreview(inspection.project_id, inspection.room_id, inspection.id)}
+                      run={() => purgeInspection(inspection.project_id, inspection.room_id, inspection.id)}
+                      onCancel={() => setDeletingInspectionId(null)}
+                      onDeleted={(result) => {
+                        setDeletingInspectionId(null);
+                        setInspections((current) => (current ? current.filter((entry) => entry.id !== inspection.id) : current));
+                        setInspectionsTotal((current) => Math.max(0, current - 1));
+                        setNotice(result.storage_pending > 0 ? text.structure_deleted_pending : text.inspection_deleted);
+                        // its photos went with it: the photo tab reads its lists again
+                        setPhotosKey((value) => value + 1);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={`delete-inspection-${inspection.id}`}
+                      disabled={busyId !== null}
+                      onClick={() => {
+                        setNotice(null);
+                        setError(null);
+                        setDeletingInspectionId(inspection.id);
+                      }}
+                      className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-red-300 text-red-700 transition disabled:opacity-50"
+                    >
+                      <Ico>🗑️</Ico>{text.client_delete}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {inspectionsTotal > inspections.length && (
+              <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">
+                {text.structure_shown.replace('{shown}', String(inspections.length)).replace('{total}', String(inspectionsTotal))}
               </p>
             )}
           </>

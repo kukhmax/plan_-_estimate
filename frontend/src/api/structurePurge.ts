@@ -1,9 +1,9 @@
 import { apiRequest } from './http';
 
-// The final deletion of an archived room or surface (archive cleanup AC-4b): the server counts what goes and what holds it.
+// The final deletion of an archived room, surface or inspection (archive cleanup AC-4b, AC-7): the server counts what goes and what holds it.
 
 export interface StructurePurgePreview {
-  kind: 'ROOM' | 'SURFACE';
+  kind: 'ROOM' | 'SURFACE' | 'INSPECTION';
   target_id: string;
   name: string;
   archived: boolean;
@@ -19,6 +19,11 @@ export interface StructurePurgePreview {
   annotations: number;
   /** Lines of the estimates that name it: they stay as a record and lose the link. */
   estimate_lines: number;
+  /** What hangs on the inspections that go (of a room / surface: all of theirs). */
+  answers: number;
+  findings: number;
+  risks: number;
+  recommendations: number;
   may_be_in_backups: boolean;
   /** `kind` is a kind of document that is not archived and still points to it: CONCEALED_WORKS | ACCEPTANCE | DOWNTIME | ADJACENT_WORK. */
   blockers: Array<{ kind: string; protocol_id: string; status: string }>;
@@ -48,4 +53,14 @@ export function fetchSurfacePurgePreview(projectId: string, roomId: string, surf
 
 export function purgeSurface(projectId: string, roomId: string, surfaceId: string): Promise<StructurePurgeResult> {
   return apiRequest(`${surfacePath(projectId, roomId, surfaceId)}/purge`, { method: 'POST' });
+}
+
+const inspectionPath = (projectId: string, roomId: string, inspectionId: string) => `${roomPath(projectId, roomId)}/inspections/${inspectionId}`;
+
+export function fetchInspectionPurgePreview(projectId: string, roomId: string, inspectionId: string): Promise<StructurePurgePreview> {
+  return apiRequest(`${inspectionPath(projectId, roomId, inspectionId)}/purge-preview`);
+}
+
+export function purgeInspection(projectId: string, roomId: string, inspectionId: string): Promise<StructurePurgeResult> {
+  return apiRequest(`${inspectionPath(projectId, roomId, inspectionId)}/purge`, { method: 'POST' });
 }

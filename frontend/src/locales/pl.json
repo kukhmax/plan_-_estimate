@@ -34,7 +34,7 @@
   },
   "archive": {
     "title": "Archiwum",
-    "intro": "Zarchiwizowani klienci, obiekty, pomieszczenia, powierzchnie, wpisy rozliczeń (faktury, zaliczki, wydatki) i zdjęcia. Tutaj można je przywrócić.",
+    "intro": "Zarchiwizowani klienci, obiekty, pomieszczenia, powierzchnie, badania podłoża, wpisy rozliczeń (faktury, zaliczki, wydatki) i zdjęcia. Tutaj można je przywrócić.",
     "clients_tab": "Klienci",
     "projects_tab": "Obiekty",
     "empty_clients": "Brak zarchiwizowanych klientów.",
@@ -148,7 +148,19 @@
     "document_delete_nothing": "Usuwa się tylko ten zapis. Nic więcej nie jest z nim związane.",
     "document_delete_blocked": "Do tej umowy odnosi się niezarchiwizowanych protokołów: {count}. Najpierw zarchiwizuj je lub usuń.",
     "document_delete_in_use": "Do tej umowy odnoszą się protokoły. Nic nie usunięto: najpierw zarchiwizuj je lub usuń.",
-    "document_deleted": "Zapis usunięty."
+    "document_deleted": "Zapis usunięty.",
+    "inspections_tab": "Badania",
+    "empty_inspections": "Brak zarchiwizowanych badań.",
+    "restored_inspection": "Badanie przywrócone.",
+    "inspection_substrate": "Podłoże: {substrate}",
+    "inspection_delete_title": "Usunąć badanie na zawsze?",
+    "inspection_delete_intro": "Z badania „{name}” zostanie usunięte na zawsze:",
+    "inspection_delete_answers": "Odpowiedzi: {count}",
+    "inspection_delete_findings": "Ustalenia: {count}",
+    "inspection_delete_risks": "Ryzyka: {count}",
+    "inspection_delete_recommendations": "Zalecane prace: {count}",
+    "inspection_delete_nothing": "Nie ma tu nic więcej: ani odpowiedzi, ani ustaleń, ani zdjęć.",
+    "inspection_deleted": "Badanie usunięte."
   },
   "sentDocuments": {
     "intro": "Wszystkie dokumenty wysłane do czatu z botem, ze wszystkich obiektów, od najnowszych.",

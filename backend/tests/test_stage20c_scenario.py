@@ -4,6 +4,10 @@ from decimal import ROUND_HALF_UP, Decimal
 import pytest
 from sqlalchemy import text
 
+from app.api import deps
+from app.domain.services.media_purger import InMemoryMediaPurger
+from app.domain.services.media_storage import InMemoryMediaStorage
+from app.main import app
 from tests.test_stage15f2_api import use_issuer  # noqa: F401
 from tests.test_stage15f2_issuing import Delivery, issuer
 from tests.stage20_world import (
@@ -115,7 +119,16 @@ async def test_the_documents_of_the_object_open_as_drafts_with_their_blockers_na
     assert refused.status_code in (409, 422) and refused.status_code < 500
 
 
-async def test_the_object_goes_to_the_archive_and_is_deleted_for_good_with_nothing_left_behind(async_client, db_session, world):
+@pytest.fixture
+def in_memory_purger():
+    """The process keeps one purger once it is built (`deps.get_media_purger`); a test that deletes photos names its own, so the result
+    does not depend on which test ran before it (an earlier test with the S3 backend switched on had left a purger without an endpoint)."""
+    app.dependency_overrides[deps.get_media_purger] = lambda: InMemoryMediaPurger(InMemoryMediaStorage())
+    yield
+    app.dependency_overrides.pop(deps.get_media_purger, None)
+
+
+async def test_the_object_goes_to_the_archive_and_is_deleted_for_good_with_nothing_left_behind(async_client, db_session, world, in_memory_purger):
     pid = world.first("project_id")
     h = world.token
     assert (await async_client.post(f"/api/projects/{pid}/archive", headers=h)).status_code == 200

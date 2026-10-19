@@ -1,6 +1,6 @@
-"""The final deletion of an archived room or an archived surface (archive cleanup AC-4b).
+"""The final deletion of an archived room, an archived surface or an archived inspection (archive cleanup AC-4b; the inspection: AC-7).
 
-Only an ARCHIVED room / surface can be deleted (there is no trash: the archive is the reversible step) and not one that a document of the
+Only an ARCHIVED room / surface / inspection can be deleted (there is no trash: the archive is the reversible step) and not one that a document of the
 object still points to: a protocol of concealed works that names the surface, an acceptance protocol or a downtime notice that names the room
 (or the surface), a work of an adjacent trade that names the room, a photo that such a document uses as evidence. A document that is ARCHIVED
 holds nothing (`purge_rules.structure_blockers`). The estimates are snapshots (their lines only lose the link to the surface): they do not hold.
@@ -8,7 +8,8 @@ holds nothing (`purge_rules.structure_blockers`). The estimates are snapshots (t
 The order is the one of an object (AC-5b) and of a photo (AC-2): (1) ONE transaction deletes the markers and attachments of every photo that
 lives in the room / surface (its openings, its inspections and their findings too), the file rows that no other photo still uses, writes one ledger
 row (`PENDING`) per file set removed, cancels the waiting calendar reminders about it and deletes the room / surface itself -- the database removes
-everything below it by `ON DELETE CASCADE`; all or nothing; (2) only then the objects leave the storage and the ledger rows become `DONE`
+everything below it by `ON DELETE CASCADE` (of an inspection: its answers, findings, risks, recommended works and applied phrases; no document
+points to an inspection, so only a photo of it that a protocol uses as evidence can hold it); all or nothing; (2) only then the objects leave the storage and the ledger rows become `DONE`
 (`PhotoPurgeService.retry_pending`, also run before every deletion). A photo added meanwhile makes a foreign key `RESTRICT` refuse: the
 transaction rolls back and nothing is lost.
 """
@@ -22,6 +23,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import (
+    InspectionNotFoundError,
     RoomNotFoundError,
     StructureNotArchivedError,
     StructurePurgeBlockedError,
@@ -36,7 +38,7 @@ from app.models.adjacent_work import AdjacentWork
 from app.models.concealed_works_protocol import ConcealedWorksProtocol
 from app.models.downtime_episode import DowntimeEpisode
 from app.models.estimate import Estimate, EstimateLine
-from app.models.inspection import Inspection, InspectionFinding
+from app.models.inspection import Inspection, InspectionAnswer, InspectionFinding
 from app.models.opening import Opening
 from app.models.photo_annotation import PhotoAnnotation
 from app.models.photo_asset import PhotoAsset
@@ -44,8 +46,10 @@ from app.models.photo_attachment import PhotoAttachment
 from app.models.project import Project
 from app.models.purge_ledger import PENDING, PurgeLedger
 from app.models.reminder import Reminder, ReminderStatus
+from app.models.risk import Risk
 from app.models.room import Room
 from app.models.surface import Surface
+from app.models.work_recommendation import WorkRecommendation
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +59,7 @@ class _Scope:
     """What the deletion reaches: the room (or none for a surface) and everything below it."""
 
     project_id: uuid.UUID
-    kind: str  # ROOM | SURFACE
+    kind: str  # ROOM | SURFACE | INSPECTION
     room_ids: frozenset[uuid.UUID]
     surface_ids: frozenset[uuid.UUID]
     opening_ids: frozenset[uuid.UUID]
@@ -78,6 +82,11 @@ class StructurePurgePreview:
     annotations: int
     estimate_lines: int  # lines of the estimates that name it: they stay as a record and lose the link
     blockers: list[Blocker]
+    # what hangs on the inspections that go (of a room / surface: all of theirs)
+    answers: int = 0
+    findings: int = 0
+    risks: int = 0
+    recommendations: int = 0
 
     @property
     def can_purge(self) -> bool:
@@ -119,7 +128,28 @@ class StructurePurgeService:
             raise SurfaceNotFoundError(f"Surface {surface_id} not found")
         return surface
 
-    async def _scope(self, project_id: uuid.UUID, kind: str, room_ids: set[uuid.UUID], surface_ids: set[uuid.UUID]) -> _Scope:
+    async def _inspection(
+        self, owner_id: uuid.UUID, project_id: uuid.UUID, room_id: uuid.UUID, inspection_id: uuid.UUID, *, lock: bool = False
+    ) -> Inspection:
+        await self._room(owner_id, project_id, room_id)
+        stmt = select(Inspection).where(Inspection.id == inspection_id, Inspection.room_id == room_id)
+        if lock:
+            stmt = stmt.with_for_update()
+        inspection = (await self.db.execute(stmt)).scalar_one_or_none()
+        if inspection is None:
+            raise InspectionNotFoundError(f"Inspection {inspection_id} not found")
+        return inspection
+
+    async def _scope(
+        self, project_id: uuid.UUID, kind: str, room_ids: set[uuid.UUID], surface_ids: set[uuid.UUID], inspection_ids: set[uuid.UUID] | None = None
+    ) -> _Scope:
+        if kind == "INSPECTION":
+            ids = set(inspection_ids or ())
+            found = set((await self.db.execute(select(InspectionFinding.id).where(InspectionFinding.inspection_id.in_(ids)))).scalars()) if ids else set()
+            return _Scope(
+                project_id=project_id, kind=kind, room_ids=frozenset(), surface_ids=frozenset(), opening_ids=frozenset(),
+                inspection_ids=frozenset(ids), finding_ids=frozenset(found),
+            )
         if kind == "ROOM":
             surface_ids = set((await self.db.execute(select(Surface.id).where(Surface.room_id.in_(room_ids)))).scalars())
         opening_ids = set((await self.db.execute(select(Opening.id).where(Opening.surface_id.in_(surface_ids)))).scalars()) if surface_ids else set()
@@ -186,6 +216,18 @@ class StructurePurgeService:
         scope = await self._scope(project_id, "SURFACE", set(), {surface.id})
         return await self._preview(scope, surface.id, surface.name, surface.is_archived)
 
+    async def preview_inspection(
+        self, owner_id: uuid.UUID, project_id: uuid.UUID, room_id: uuid.UUID, inspection_id: uuid.UUID
+    ) -> StructurePurgePreview:
+        inspection = await self._inspection(owner_id, project_id, room_id, inspection_id)
+        scope = await self._scope(project_id, "INSPECTION", set(), set(), {inspection.id})
+        return await self._preview(scope, inspection.id, inspection.substrate.value, inspection.is_archived)
+
+    async def _count(self, model, column, ids: frozenset[uuid.UUID]) -> int:
+        if not ids:
+            return 0
+        return int((await self.db.execute(select(func.count()).select_from(model).where(column.in_(ids)))).scalar_one())
+
     async def _preview(self, scope: _Scope, target_id: uuid.UUID, name: str, archived: bool) -> StructurePurgePreview:
         attachments = list((await self.db.execute(self._attachments_in(scope))).scalars())
         released, _ = await self._released_assets(attachments)
@@ -211,6 +253,10 @@ class StructurePurgeService:
             photos=len(attachments), photo_files=len(released),
             bytes=sum(a.byte_size + a.display_byte_size + a.thumbnail_byte_size for a in released), annotations=annotations,
             estimate_lines=lines, blockers=structure_blockers(await self._documents(scope, attachments)),
+            answers=await self._count(InspectionAnswer, InspectionAnswer.inspection_id, scope.inspection_ids),
+            findings=len(scope.finding_ids),
+            risks=await self._count(Risk, Risk.inspection_id, scope.inspection_ids),
+            recommendations=await self._count(WorkRecommendation, WorkRecommendation.inspection_id, scope.inspection_ids),
         )
 
     async def _released_assets(self, attachments: list[PhotoAttachment]) -> tuple[list[PhotoAsset], set[uuid.UUID]]:
@@ -243,6 +289,16 @@ class StructurePurgeService:
             raise StructureNotArchivedError("only an archived surface can be deleted for good")
         scope = await self._scope(project_id, "SURFACE", set(), {surface.id})
         return await self._purge(owner_id, scope, delete(Surface).where(Surface.id == surface.id, Surface.room_id == room_id))
+
+    async def purge_inspection(
+        self, owner_id: uuid.UUID, project_id: uuid.UUID, room_id: uuid.UUID, inspection_id: uuid.UUID
+    ) -> StructurePurgeOutcome:
+        await PhotoPurgeService(self.db, self.purger).retry_pending(owner_id)
+        inspection = await self._inspection(owner_id, project_id, room_id, inspection_id, lock=True)
+        if not inspection.is_archived:
+            raise StructureNotArchivedError("only an archived inspection can be deleted for good")
+        scope = await self._scope(project_id, "INSPECTION", set(), set(), {inspection.id})
+        return await self._purge(owner_id, scope, delete(Inspection).where(Inspection.id == inspection.id, Inspection.room_id == room_id))
 
     async def _purge(self, owner_id: uuid.UUID, scope: _Scope, delete_target) -> StructurePurgeOutcome:
         attachments = list((await self.db.execute(self._attachments_in(scope))).scalars())
@@ -287,7 +343,7 @@ class StructurePurgeService:
             await self.db.commit()
         except IntegrityError:
             await self.db.rollback()
-            raise StructurePurgeConflictError("the room / surface changed while it was being deleted") from None
+            raise StructurePurgeConflictError("the room / surface / inspection changed while it was being deleted") from None
 
         await PhotoPurgeService(self.db, self.purger).retry_pending(owner_id)
         pending = await self.db.execute(

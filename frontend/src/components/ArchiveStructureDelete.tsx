@@ -6,18 +6,18 @@ import { formatSize } from '../utils/documentFormat';
 import { Ico } from './Ico';
 
 interface ArchiveStructureDeleteProps {
-  kind: 'ROOM' | 'SURFACE';
-  /** The name shown in the question (a surface in the current language: "Ściana 1"). */
+  kind: 'ROOM' | 'SURFACE' | 'INSPECTION';
+  /** The name shown in the question (a surface in the current language: "Ściana 1"; an inspection: where it was made). */
   name: string;
   load: () => Promise<StructurePurgePreview>;
   run: () => Promise<StructurePurgeResult>;
-  /** The room / surface is gone: the host takes it out of its list. */
+  /** The room / surface / inspection is gone: the host takes it out of its list. */
   onDeleted: (result: StructurePurgeResult) => void;
   onCancel: () => void;
 }
 
 /**
- * The confirmation of deleting an archived room or surface for good (archive cleanup AC-4b). The server counts what goes (below it,
+ * The confirmation of deleting an archived room, surface or inspection for good (archive cleanup AC-4b, AC-7). The server counts what goes (below it,
  * photos and their files) and what holds it (a document that is not archived and still points to it) before anything is asked;
  * nothing is deleted until the owner has read it, ticked "I understand" and confirmed.
  */
@@ -80,7 +80,11 @@ export function ArchiveStructureDelete({ kind, name, load, run, onDeleted, onCan
     };
     line(text.project_delete_surfaces, preview.surfaces);
     line(text.project_delete_openings, preview.openings);
-    line(text.project_delete_inspections, preview.inspections);
+    if (kind !== 'INSPECTION') line(text.project_delete_inspections, preview.inspections);
+    line(text.inspection_delete_answers, preview.answers);
+    line(text.inspection_delete_findings, preview.findings);
+    line(text.inspection_delete_risks, preview.risks);
+    line(text.inspection_delete_recommendations, preview.recommendations);
     if (preview.photos > 0) {
       lines.push(
         text.project_delete_photos
@@ -91,8 +95,8 @@ export function ArchiveStructureDelete({ kind, name, load, run, onDeleted, onCan
     }
     line(text.project_delete_markers, preview.annotations);
   }
-  const title = kind === 'ROOM' ? text.room_delete_title : text.surface_delete_title;
-  const intro = (kind === 'ROOM' ? text.room_delete_intro : text.surface_delete_intro).replace('{name}', name);
+  const title = kind === 'ROOM' ? text.room_delete_title : kind === 'SURFACE' ? text.surface_delete_title : text.inspection_delete_title;
+  const intro = (kind === 'ROOM' ? text.room_delete_intro : kind === 'SURFACE' ? text.surface_delete_intro : text.inspection_delete_intro).replace('{name}', name);
 
   return (
     <div role="alertdialog" aria-label={title} className="space-y-3 rounded-xl border border-red-300 p-3">
@@ -122,7 +126,7 @@ export function ArchiveStructureDelete({ kind, name, load, run, onDeleted, onCan
                   ))}
                 </ul>
               ) : (
-                <p>{text.structure_delete_nothing}</p>
+                <p>{kind === 'INSPECTION' ? text.inspection_delete_nothing : text.structure_delete_nothing}</p>
               )}
               {preview.estimate_lines > 0 && (
                 <p className="text-slate-500">{text.structure_delete_estimates.replace('{count}', String(preview.estimate_lines))}</p>

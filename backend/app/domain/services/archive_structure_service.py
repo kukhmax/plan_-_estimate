@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.inspection import Inspection
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface
@@ -43,6 +44,21 @@ class ArchivedStructure:
     surfaces: list[ArchivedSurface]
     rooms_total: int
     surfaces_total: int
+
+
+@dataclass(frozen=True)
+class ArchivedInspection:
+    inspection: Inspection
+    room_name: str
+    surface: Surface | None
+    project_id: uuid.UUID
+    project_name: str
+
+
+@dataclass(frozen=True)
+class ArchivedInspections:
+    items: list[ArchivedInspection]
+    total: int
 
 
 class ArchiveStructureService:
@@ -103,4 +119,41 @@ class ArchiveStructureService:
             ],
             rooms_total=int(rooms_total),
             surfaces_total=int(surfaces_total),
+        )
+
+    async def list_archived_inspections(self, owner_id: uuid.UUID) -> ArchivedInspections:
+        """The archived inspections (Badania podłoża) of the rooms in work of the objects in work, newest first.
+
+        An inspection of an archived room (or object) comes back with it, so it is not listed apart. Restoring is done by the route of the
+        inspection; deleting it for good by `StructurePurgeService`.
+        """
+        where = (
+            Project.owner_id == owner_id,
+            Project.is_archived.is_(False),
+            Room.is_archived.is_(False),
+            Inspection.is_archived.is_(True),
+        )
+        rows = (
+            await self.db.execute(
+                select(Inspection, Room.name, Surface, Project.id, Project.name)
+                .join(Room, Inspection.room_id == Room.id)
+                .join(Project, Room.project_id == Project.id)
+                .outerjoin(Surface, Inspection.surface_id == Surface.id)
+                .where(*where)
+                .order_by(Inspection.created_at.desc(), Inspection.id.asc())
+                .limit(LIMIT)
+            )
+        ).all()
+        total = (
+            await self.db.execute(
+                select(func.count()).select_from(Inspection).join(Room, Inspection.room_id == Room.id)
+                .join(Project, Room.project_id == Project.id).where(*where)
+            )
+        ).scalar_one()
+        return ArchivedInspections(
+            items=[
+                ArchivedInspection(inspection=i, room_name=room_name, surface=surface, project_id=project_id, project_name=project_name)
+                for i, room_name, surface, project_id, project_name in rows
+            ],
+            total=int(total),
         )

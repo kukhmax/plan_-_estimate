@@ -65,12 +65,16 @@ def test_inspection_route_family_registered_under_api_prefix() -> None:
         COMMUNICATIONS_PATH,
         COMMUNICATION_PATH,
         COMMUNICATIONS_EVALUATE_PATH,
+        # Archive cleanup AC-7: the archived inspections and their deletion for good.
+        "/api/archive/inspections",
+        f"{INSPECTION_PATH}/purge-preview",
+        f"{INSPECTION_PATH}/purge",
     }
     assert {p for p in _paths() if "/inspections" in p} == expected
 
 
 def test_inspection_route_family_has_no_duplicate_endpoints() -> None:
-    assert len([p for p in _paths() if "/inspections" in p]) == 11
+    assert len([p for p in _paths() if "/inspections" in p]) == 14
 
 
 def test_inspection_methods_match_frontend_contract() -> None:
