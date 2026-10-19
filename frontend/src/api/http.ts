@@ -106,6 +106,14 @@ function errorMessage(payload: unknown, status: number): string {
   return `Request failed (${status})`;
 }
 
+export const ACCESS_LOST_EVENT = 'pe:access-lost';
+
+/** Closed registration: the administrator blocked this account (or closed the registration) while the application was open. */
+function announceAccessLost(code: string, detail: unknown): void {
+  const contact = detail && typeof detail === 'object' && 'contact' in detail && typeof detail.contact === 'string' ? detail.contact : '';
+  window.dispatchEvent(new CustomEvent(ACCESS_LOST_EVENT, { detail: { code, contact } }));
+}
+
 /** A read of the cached kinds that gets no answer in this time is given up: the saved copy (if any) is shown instead (Stage 19B). */
 export const READ_TIMEOUT_MS = 12_000;
 /** A write that gets no answer in this time is kept on the phone and sent later (Stage 19C); it is safe to send again. */
@@ -237,6 +245,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     const payload: unknown = await response.json().catch(() => null);
     const detail = readDetail(payload);
     const code = typeof detail === 'string' ? domainErrorCodeFromMessage(detail) : structuredCode(detail);
+    if (response.status === 403 && (code === 'ACCESS_DENIED' || code === 'ACCESS_BLOCKED')) announceAccessLost(code, detail);
     throw new ApiError(errorMessage(payload, response.status), response.status, code, detail);
   }
   // 204 No Content (e.g. DELETE) has no body to parse.

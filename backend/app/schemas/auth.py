@@ -19,6 +19,7 @@ class UserRead(BaseModel):
     language_code: str | None = None
     created_at: datetime
     updated_at: datetime
+    is_admin: bool = False  # closed registration: may open the screen of the access list
 
 
 class TelegramAuthResponse(BaseModel):

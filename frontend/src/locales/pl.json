@@ -21,7 +21,9 @@
       "telegram_signature_invalid": "Nie udało się potwierdzić autentyczności danych Telegram.",
       "telegram_auth_expired": "Dane logowania Telegram wygasły. Otwórz aplikację ponownie.",
       "backend_unavailable": "Serwer autoryzacji jest niedostępny. Spróbuj ponownie później.",
-      "request_failed": "Nie udało się zalogować. Spróbuj ponownie."
+      "request_failed": "Nie udało się zalogować. Spróbuj ponownie.",
+      "access_denied": "Dostęp do aplikacji jest zamknięty dla tego konta.",
+      "access_blocked": "Dostęp do aplikacji dla tego konta został zablokowany."
     }
   },
   "objectHub": {
@@ -165,6 +167,7 @@
     "documents": "Wysłane dokumenty",
     "knowledge": "Baza wiedzy",
     "calendar": "Kalendarz",
+    "access": "Dostęp",
     "security": "Test zabezpieczeń"
   },
   "errors": {
@@ -3296,6 +3299,37 @@
       "payment.archive": "Archiwizacja wpisu rozliczeń",
       "payment.restore": "Przywrócenie wpisu rozliczeń"
     }
+  },
+  "access": {
+    "title": "Dostęp do aplikacji",
+    "intro": "Tylko osoby z tej listy mogą korzystać z aplikacji. Nowa osoba otwiera bota i trafia do „Oczekujących”; Ty decydujesz, czy ją dopuścić.",
+    "registration_closed": "Rejestracja zamknięta",
+    "hint_closed": "Wchodzą tylko osoby ze statusem „Aktywne”. Pozostałe widzą komunikat o braku dostępu i Twój kontakt.",
+    "hint_open": "Każdy, kto otworzy bota, dostaje własne, odrębne konto (dane różnych osób nie są widoczne dla innych).",
+    "contact_label": "Kontakt pokazywany osobom bez dostępu",
+    "contact_hint": "Np. imię i @nazwa w Telegramie",
+    "save": "Zapisz",
+    "saved": "Zapisano.",
+    "pending": "Oczekujące",
+    "active": "Aktywne",
+    "blocked": "Zablokowane",
+    "empty": "Brak wpisów.",
+    "admit": "Dopuść",
+    "block": "Zablokuj",
+    "unblock": "Odblokuj",
+    "remove": "Usuń z listy",
+    "admin_badge": "Administrator",
+    "no_name": "(bez nazwy)",
+    "requested": "Prośba: {date}",
+    "error_load": "Nie udało się wczytać listy dostępu.",
+    "error_save": "Nie udało się zapisać zmiany.",
+    "retry": "Ponów próbę",
+    "denied_title": "Brak dostępu",
+    "denied_text": "Dostęp do tej aplikacji jest zamknięty. Jeśli to Twoja pierwsza próba, Twoja prośba została zapisana — poczekaj, aż właściciel Cię dopuści.",
+    "blocked_title": "Dostęp zablokowany",
+    "blocked_text": "Dostęp do tej aplikacji dla tego konta został zablokowany.",
+    "contact_intro": "Kontakt",
+    "try_again": "Sprawdź ponownie"
   },
   "securityProbe": {
     "title": "Test zabezpieczeń (EN-1)",

@@ -8,6 +8,7 @@ from app.core.security import (
     create_access_token,
     validate_telegram_init_data,
 )
+from app.domain.services.access_service import AccessService
 from app.models.user import User
 
 
@@ -53,6 +54,9 @@ class TelegramAuthService:
 
         telegram_user_id = user_data["id"]
 
+        # Closed registration: an account that is not admitted gets no user row, no key and no token (AccessDeniedError).
+        entry = await AccessService(self.db).admit_login(telegram_user_id, user_data)
+
         # Provision or update existing user
         stmt = select(User).where(User.telegram_user_id == telegram_user_id)
         result = await self.db.execute(stmt)
@@ -77,5 +81,6 @@ class TelegramAuthService:
         await self.db.commit()
         await self.db.refresh(user)
 
+        user.is_admin = entry.is_admin  # not a column: only what the answer tells the application
         token = create_access_token(user.id)
         return user, token, is_dev_auth

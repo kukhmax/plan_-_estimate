@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { I18nProvider, useI18n } from './hooks/useI18n';
+import { AccessScreen } from './components/AccessScreen';
 import { ArchiveScreen } from './components/ArchiveScreen';
 import { ClientList } from './components/ClientList';
 import { PriceBook } from './components/PriceBook';
@@ -19,7 +20,7 @@ import { requestPersistentStorage } from './offline/persist';
 import { startSync } from './offline/sync';
 import { startConnectionWatch } from './offline/watch';
 
-type Section = 'clients' | 'projects' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge' | 'security';
+type Section = 'clients' | 'projects' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge' | 'access' | 'security';
 
 /** The button of a reminder message opens the Mini App with `?open=calendar` or `?open=project:<id>` (Stage 18D / 18E). */
 function openTarget(search: string): { section: Section; projectId?: string } | null {
@@ -30,7 +31,7 @@ function openTarget(search: string): { section: Section; projectId?: string } | 
 }
 
 const AppContent: React.FC = () => {
-  const { user, isDevAuth, isLoading, error, retry } = useAuth();
+  const { user, isDevAuth, isLoading, error, accessContact, retry } = useAuth();
   const { t, locale, setLocale } = useI18n();
   const [target] = useState(() => openTarget(typeof window === 'undefined' ? '' : window.location.search));
   const [activeSection, setActiveSection] = useState<Section>(target?.section ?? 'clients');
@@ -81,6 +82,9 @@ const AppContent: React.FC = () => {
     { id: 'show-archive', label: t.navigation.archive, active: activeSection === 'archive', onSelect: () => choose('archive') },
     { id: 'show-documents', label: t.navigation.documents, active: activeSection === 'documents', onSelect: () => choose('documents') },
     { id: 'show-knowledge', label: t.navigation.knowledge, active: activeSection === 'knowledge', onSelect: () => choose('knowledge') },
+    ...(user?.is_admin
+      ? [{ id: 'show-access', label: t.navigation.access, active: activeSection === 'access', onSelect: () => choose('access') }]
+      : []),
     { id: 'show-security', label: t.navigation.security, active: activeSection === 'security', onSelect: () => choose('security') },
   ];
 
@@ -173,7 +177,35 @@ const AppContent: React.FC = () => {
           </div>
         )}
 
-        {!isLoading && error && (
+        {!isLoading && (error === 'access_denied' || error === 'access_blocked') && (
+          <div
+            role="alert"
+            aria-label="access-denied"
+            className="w-full rounded-2xl p-6 border border-amber-200 shadow-sm text-center space-y-3"
+            style={{ backgroundColor: 'var(--tg-theme-secondary-bg-color)' }}
+          >
+            <h2 className="text-lg font-semibold break-words">
+              {error === 'access_blocked' ? t.access.blocked_title : t.access.denied_title}
+            </h2>
+            <p className="text-sm break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>
+              {error === 'access_blocked' ? t.access.blocked_text : t.access.denied_text}
+            </p>
+            {accessContact && (
+              <p aria-label="access-contact-text" className="text-sm font-semibold break-words">
+                {t.access.contact_intro}: {accessContact}
+              </p>
+            )}
+            <button
+              onClick={retry}
+              className="w-full min-h-11 px-4 py-2 text-sm font-medium rounded-xl transition"
+              style={{ backgroundColor: 'var(--tg-theme-button-color)', color: 'var(--tg-theme-button-text-color)' }}
+            >
+              {t.access.try_again}
+            </button>
+          </div>
+        )}
+
+        {!isLoading && error && error !== 'access_denied' && error !== 'access_blocked' && (
           <div
             className="w-full rounded-2xl p-6 border border-red-100 shadow-sm text-center"
             style={{
@@ -216,6 +248,8 @@ const AppContent: React.FC = () => {
               <SentDocuments />
             ) : activeSection === 'knowledge' ? (
               <KnowledgeBase backSuspended={showAccount || menuOpen || showSync} />
+            ) : activeSection === 'access' && user.is_admin ? (
+              <AccessScreen />
             ) : activeSection === 'security' ? (
               <SecurityProbe />
             ) : (

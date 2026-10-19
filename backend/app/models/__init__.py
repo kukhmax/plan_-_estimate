@@ -1,3 +1,4 @@
+from app.models.access_entry import AccessEntry, AccessSetting, AccessStatus
 from app.models.area_segment import AreaOperation, AreaPlane, AreaSegment
 from app.models.checklist import (
     AnswerType,
@@ -87,6 +88,9 @@ from app.models.work_recommendation import (
 )
 
 __all__ = [
+    "AccessEntry",
+    "AccessSetting",
+    "AccessStatus",
     "DataKey",
     "WrappedBy",
     "AcceptanceProtocol",

@@ -46,3 +46,6 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+    # Closed registration: not a column. The authentication of a request sets it from the access list (`AccessService`); the answers carry it.
+    is_admin = False

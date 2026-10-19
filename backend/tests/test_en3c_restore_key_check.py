@@ -63,7 +63,7 @@ async def a_backup(db) -> uuid.UUID:
     """What a restored backup holds: an owner with a data key, a client and an object, sealed; plus the alembic table the restore brings."""
     await db.execute(text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL)"))
     await db.execute(text("DELETE FROM alembic_version"))
-    await db.execute(text("INSERT INTO alembic_version VALUES ('0064_encrypted_payments')"))
+    await db.execute(text("INSERT INTO alembic_version VALUES ('0065_access_control')"))
     user = User(telegram_user_id=860001, first_name="Owner")
     db.add(user)
     await db.flush()
@@ -111,7 +111,7 @@ async def test_a_backup_is_read_with_the_saved_key(db_session, keys):
     await a_backup(db_session)
     report = await check()
     assert report.passed and report.keys.total == 1 and report.keys.current == 1 and report.undecryptable == 0 and report.plain == 0 and report.ciphertext > 0
-    assert report.wrong_key_opens is False and report.revision == "0064_encrypted_payments"
+    assert report.wrong_key_opens is False and report.revision == "0065_access_control"
 
 
 async def test_a_wrong_key_opens_nothing_and_the_check_fails(db_session, keys):

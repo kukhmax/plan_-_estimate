@@ -6,6 +6,8 @@ export class TelegramAuthRequestError extends Error {
   constructor(
     public readonly code: string | null,
     public readonly status: number,
+    /** closed registration: the contact text the administrator set, shown to a refused person */
+    public readonly contact: string | null = null,
   ) {
     super('Telegram authentication request failed');
     this.name = 'TelegramAuthRequestError';
@@ -17,6 +19,13 @@ function readErrorCode(payload: unknown): string | null {
   const detail = payload.detail;
   if (typeof detail !== 'object' || detail === null || !('code' in detail)) return null;
   return typeof detail.code === 'string' ? detail.code : null;
+}
+
+function readContact(payload: unknown): string | null {
+  if (typeof payload !== 'object' || payload === null || !('detail' in payload)) return null;
+  const detail = payload.detail;
+  if (typeof detail !== 'object' || detail === null || !('contact' in detail)) return null;
+  return typeof detail.contact === 'string' && detail.contact.trim() ? detail.contact : null;
 }
 
 export async function loginWithTelegram(initData: string): Promise<TelegramAuthResponse> {
@@ -36,7 +45,7 @@ export async function loginWithTelegram(initData: string): Promise<TelegramAuthR
 
   if (!response.ok) {
     const errorData: unknown = await response.json().catch(() => null);
-    throw new TelegramAuthRequestError(readErrorCode(errorData), response.status);
+    throw new TelegramAuthRequestError(readErrorCode(errorData), response.status, readContact(errorData));
   }
 
   return response.json();

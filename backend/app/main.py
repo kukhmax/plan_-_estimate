@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.endpoints.area_segments import router as area_segments_router
+from app.api.v1.endpoints.access import router as access_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.calendar import router as calendar_router
 from app.api.v1.endpoints.project_notes import router as project_notes_router
@@ -115,6 +116,7 @@ async def data_crypto_error_handler(_request: Request, exc: DataCryptoError) -> 
 
 app.include_router(health_router, prefix="/api", tags=["health"])
 app.include_router(auth_router, prefix="/api", tags=["auth"])
+app.include_router(access_router, prefix="/api", tags=["access"])
 app.include_router(clients_router, prefix="/api", tags=["clients"])
 app.include_router(projects_router, prefix="/api", tags=["projects"])
 app.include_router(rooms_router, prefix="/api", tags=["rooms"])

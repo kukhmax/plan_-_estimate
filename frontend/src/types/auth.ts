@@ -7,6 +7,8 @@ export interface User {
   language_code: string | null;
   created_at: string;
   updated_at: string;
+  /** closed registration: may open the screen of the access list */
+  is_admin?: boolean;
 }
 
 export interface TelegramAuthResponse {

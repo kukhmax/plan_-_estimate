@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import get_auth_service, get_current_user
+from app.api.deps import access_denied_http, get_auth_service, get_current_user
 from app.core.security import (
     ExpiredDataError,
     InvalidSignatureError,
@@ -8,6 +8,7 @@ from app.core.security import (
     MockAuthDisabledError,
     MockAuthDisallowedError,
 )
+from app.domain.exceptions import AccessDeniedError
 from app.domain.services.auth_service import TelegramAuthService
 from app.models.user import User
 from app.schemas.auth import TelegramAuthRequest, TelegramAuthResponse, UserRead
@@ -28,6 +29,8 @@ async def auth_telegram(
     """Thin API route delegating to TelegramAuthService."""
     try:
         user, token, is_dev_auth = await auth_service.authenticate(payload.init_data)
+    except AccessDeniedError as e:
+        raise access_denied_http(e)
     except MockAuthDisallowedError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

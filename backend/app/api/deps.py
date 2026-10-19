@@ -11,6 +11,8 @@ from app.core.database import get_db
 from app.core.s3_media_storage import create_media_storage
 from app.core.security import decode_access_token
 from app.domain.photos.image_processing import ImagePipelineConfig, ImageProcessor
+from app.domain.exceptions import AccessDeniedError
+from app.domain.services.access_service import AccessService
 from app.domain.services.area_segment_service import AreaSegmentService
 from app.domain.services.auth_service import TelegramAuthService
 from app.domain.services.checklist_service import ChecklistService
@@ -68,9 +70,10 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    stmt = select(User).where(User.id == user_id)
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
+    # One statement: the user and the facts of the access check (closed registration), so a request pays no query for it.
+    stmt = select(User, *AccessService.fact_columns()).where(User.id == user_id)
+    row = (await db.execute(stmt)).one_or_none()
+    user = row[0] if row else None
 
     if not user:
         raise HTTPException(
@@ -79,8 +82,34 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Closed registration: a block or the closing of the registration takes effect at once, not when the token expires.
+    try:
+        user.is_admin = await AccessService(db).judge(row[1], row[2], row[3])
+    except AccessDeniedError as error:
+        raise access_denied_http(error)
+
     # The personal data of the owner is encrypted (EN-2a): the keys are loaded and the key of this owner is put in force for the request.
     await DataKeyService(db).put_in_force(user.id)
+    return user
+
+
+def access_denied_http(error: AccessDeniedError) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": "ACCESS_BLOCKED" if error.blocked else "ACCESS_DENIED",
+            "message": "Access to the application is closed for this account",
+            "contact": error.contact,
+        },
+    )
+
+
+async def require_admin(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "ACCESS_ADMIN_ONLY", "message": "Only the administrator may manage access"},
+        )
     return user
 
 

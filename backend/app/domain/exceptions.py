@@ -1054,3 +1054,28 @@ class ArchivedDocumentInUseError(Exception):
     def __init__(self, dependents: int) -> None:
         super().__init__(f"{dependents} protocol(s) still refer to this contract")
         self.dependents = dependents
+
+
+class AccessDeniedError(Exception):
+    """The account may not enter: the registration is closed and it is not admitted, or it is blocked (closed registration)."""
+
+    def __init__(self, contact: str, blocked: bool = False) -> None:
+        super().__init__("access denied")
+        self.contact = contact
+        self.blocked = blocked
+
+
+class AccessAdminOnlyError(Exception):
+    """The screen of the access list is for the administrator."""
+
+
+class AccessEntryNotFoundError(Exception):
+    """No such row in the access list."""
+
+
+class AccessAdminProtectedError(Exception):
+    """An administrator is changed only by the command line (`python -m app.cli.access`), never through the screen."""
+
+
+class AccessSettingsInvalidError(Exception):
+    """The contact text is too long."""
