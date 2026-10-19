@@ -443,7 +443,7 @@ function CommunicationCard({
           type="button"
           aria-expanded={expanded}
           aria-label={`${text} — ${expanded ? t.communication.hide_why : t.communication.why}`}
-          className="min-h-10 self-start rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700"
+          className="min-h-11 self-start rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700"
           onClick={() => onToggle(app.id)}
         >
           {expanded ? t.communication.hide_why : t.communication.why}

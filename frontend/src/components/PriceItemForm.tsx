@@ -214,7 +214,7 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
             placeholder={t.pricebook.display_name}
             value={form.display_name}
             onChange={(e) => handleFormChange('display_name', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
           <p className="text-xs text-slate-400 mt-1">{t.pricebook.name_required_hint}</p>
         </div>
@@ -235,7 +235,7 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
               aria-label={`${idPrefix}-category`}
               value={form.category}
               onChange={(e) => handleFormChange('category', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
             >
               {PRICE_CATEGORIES.filter(
                 (value) => value === form.category || !excludedCategories?.includes(value),
@@ -255,7 +255,7 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
               aria-label={`${idPrefix}-unit`}
               value={form.unit}
               onChange={(e) => handleFormChange('unit', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm"
+              className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-2 text-sm"
             >
               {PRICE_UNITS.map((value) => (
                 <option key={value} value={value}>{unitLabel(value)}</option>
@@ -271,7 +271,7 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
               aria-label={`${idPrefix}-scope`}
               value={form.price_scope}
               onChange={(e) => handleFormChange('price_scope', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm"
+              className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-2 text-sm"
             >
               {PRICE_SCOPES.map((value) => (
                 <option key={value} value={value}>{scopeLabel(value)}</option>
@@ -305,7 +305,7 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
               placeholder={t.pricebook.price_placeholder}
               value={form.price}
               onChange={(e) => handleFormChange('price', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
             />
           )}
           {formPriceError && (
@@ -323,7 +323,7 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
             aria-label={`${idPrefix}-quality`}
             value={form.quality_level}
             onChange={(e) => handleFormChange('quality_level', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           >
             <option value="">{t.pricebook.quality_none}</option>
             <optgroup label={t.pricebook.quality_group_s}>

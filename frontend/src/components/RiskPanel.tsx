@@ -349,7 +349,7 @@ function RiskCard({
         type="button"
         aria-expanded={expanded}
         aria-label={`${title} — ${t.risk.details}`}
-        className="min-h-10 self-start rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700"
+        className="min-h-11 self-start rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700"
         onClick={() => onToggle(risk.id)}
       >
         {expanded ? t.risk.hide_details : t.risk.details}

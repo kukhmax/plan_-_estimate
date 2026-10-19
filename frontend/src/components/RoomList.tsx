@@ -215,13 +215,13 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
           type="button"
           aria-label="add-room"
           onClick={startCreate}
-          className="min-h-10 px-3 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
+          className="min-h-11 px-3 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
         >
           <Ico>➕</Ico>{t.rooms.add}
         </button>
       </div>
 
-      <label className="flex items-center gap-1.5 text-sm text-slate-600 mb-3 cursor-pointer">
+      <label className="flex items-center gap-2 min-h-11 text-sm text-slate-600 mb-3 cursor-pointer">
         <input
           aria-label="show-archived-rooms"
           type="checkbox"
@@ -247,7 +247,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
             placeholder={t.rooms.name}
             value={form.name}
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
 
           <div
@@ -259,7 +259,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
               type="button"
               aria-label="room-shape-rectangle"
               onClick={() => setRoomShape('RECTANGLE')}
-              className={`rounded-lg px-2.5 py-1.5 min-h-10 text-xs font-semibold transition ${
+              className={`rounded-lg px-2.5 py-1.5 min-h-11 text-xs font-semibold transition ${
                 roomShape === 'RECTANGLE'
                   ? 'bg-white text-blue-700 shadow-sm'
                   : 'text-slate-600 hover:bg-slate-200'
@@ -271,7 +271,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
               type="button"
               aria-label="room-shape-custom"
               onClick={() => setRoomShape('CUSTOM')}
-              className={`rounded-lg px-2.5 py-1.5 min-h-10 text-xs font-semibold transition ${
+              className={`rounded-lg px-2.5 py-1.5 min-h-11 text-xs font-semibold transition ${
                 roomShape === 'CUSTOM'
                   ? 'bg-white text-blue-700 shadow-sm'
                   : 'text-slate-600 hover:bg-slate-200'
@@ -290,7 +290,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   placeholder="500"
                   value={form.length}
                   onValueChange={(meters) => setForm((current) => ({ ...current, length: meters }))}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 min-h-11 text-xs"
                 />
               </div>
               <div>
@@ -300,7 +300,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   placeholder="400"
                   value={form.width}
                   onValueChange={(meters) => setForm((current) => ({ ...current, width: meters }))}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 min-h-11 text-xs"
                 />
               </div>
               <div>
@@ -310,7 +310,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   placeholder="270"
                   value={form.height}
                   onValueChange={(meters) => setForm((current) => ({ ...current, height: meters }))}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 min-h-11 text-xs"
                 />
               </div>
             </div>
@@ -324,7 +324,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   placeholder="270"
                   value={customHeight}
                   onValueChange={(meters) => setCustomHeight(meters)}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 min-h-11 text-xs"
                 />
               </div>
             </div>
@@ -343,14 +343,14 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
             <button
               type="button"
               onClick={closeForm}
-              className="min-h-10 px-3 py-1 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
+              className="min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
             >
               <Ico>✖️</Ico>{t.common.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="min-h-10 px-3 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+              className="min-h-11 px-3 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
             >
               <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
             </button>
@@ -460,7 +460,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                     type="button"
                     aria-label={`open-room-${room.id}`}
                     onClick={() => onOpenRoom(room)}
-                    className="col-span-2 min-h-10 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition sm:col-auto"
+                    className="col-span-2 min-h-11 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition sm:col-auto"
                   >
                     <Ico>📂</Ico>{t.common.open}
                   </button>
@@ -468,7 +468,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                     type="button"
                     aria-label={`edit-room-${room.id}`}
                     onClick={() => startEdit(room)}
-                    className="min-h-10 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                    className="min-h-11 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                   >
                     <Ico>✏️</Ico>{t.common.edit}
                   </button>
@@ -476,7 +476,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                     type="button"
                     aria-label={`${room.is_archived ? 'restore' : 'archive'}-room-${room.id}`}
                     onClick={() => void changeArchiveState(room)}
-                    className="min-h-10 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                    className="min-h-11 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
                   >
                     <Ico>{room.is_archived ? '♻️' : '🗃️'}</Ico>{room.is_archived ? t.common.restore : t.common.archive}
                   </button>

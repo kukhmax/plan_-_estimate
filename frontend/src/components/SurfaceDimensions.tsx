@@ -63,7 +63,7 @@ export function SurfaceDimensions({ surfaceId, width, height, readOnly = false, 
   };
 
   const secondary =
-    'min-h-10 px-3 py-1 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition';
+    'min-h-11 px-3 py-1 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition';
 
   if (editing) {
     return (
@@ -92,10 +92,10 @@ export function SurfaceDimensions({ surfaceId, width, height, readOnly = false, 
         </div>
         {error && <p role="alert" className="text-xs text-red-600 font-medium break-words">{error}</p>}
         <div className="flex gap-2 flex-wrap">
-          <button type="submit" disabled={saving} aria-label={`dimensions-save-${surfaceId}`} className="min-h-10 px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
+          <button type="submit" disabled={saving} aria-label={`dimensions-save-${surfaceId}`} className="min-h-11 px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
             <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
           </button>
-          <button type="button" disabled={saving} aria-label={`dimensions-cancel-${surfaceId}`} onClick={close} className="min-h-10 px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">
+          <button type="button" disabled={saving} aria-label={`dimensions-cancel-${surfaceId}`} onClick={close} className="min-h-11 px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">
             <Ico>✖️</Ico>{t.common.cancel}
           </button>
         </div>

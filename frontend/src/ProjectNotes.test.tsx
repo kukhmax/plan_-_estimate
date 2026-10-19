@@ -169,7 +169,7 @@ describe('ProjectNotes (Stage 18)', () => {
     expect(screen.getByLabelText('note-delete-n2')).toHaveTextContent('Удалить');
     expect(screen.getByLabelText('note-body-n2').className).toContain('break-words');
     expect(screen.getByLabelText('note-body-n2').className).toContain('whitespace-pre-wrap');
-    for (const label of ['note-add', 'note-edit-n2', 'note-delete-n2']) expect(screen.getByLabelText(label).className).toContain('min-h-10');
+    for (const label of ['note-add', 'note-edit-n2', 'note-delete-n2']) expect(screen.getByLabelText(label).className).toContain('min-h-11');
     expect(screen.getByLabelText('note-time-n2').textContent).toMatch(/15\.10\.2026/);
   });
 });

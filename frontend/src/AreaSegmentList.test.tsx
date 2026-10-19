@@ -753,7 +753,7 @@ describe('AreaSegmentList plane inspection in Opcje (13F-PRE)', () => {
     renderAreaSegments(vi.fn(), vi.fn());
     fireEvent.click(await screen.findByLabelText('options-toggle-ceiling'));
     for (const label of ['add-ceiling-rectangle', 'add-ceiling-subtraction', 'inspect-ceiling', 'options-toggle-ceiling']) {
-      expect(screen.getByLabelText(label).className).toContain('min-h-10');
+      expect(screen.getByLabelText(label).className).toContain('min-h-11');
       expect(screen.getByLabelText(label).className).toMatch(/\bpy-1\b/);
     }
     expect(screen.getByLabelText('inspect-ceiling').className).toContain('bg-emerald-50');
@@ -922,7 +922,7 @@ describe('Floor and ceiling rows (Stage 18H)', () => {
     expect(screen.getByLabelText('surface-row-area-plane-ceiling')).toHaveTextContent('20.00 m²');
     expect(screen.getByLabelText('surface-row-plane-floor')).toHaveTextContent('Podłoga');
     expect(screen.getByLabelText('surface-row-photos-plane-floor')).toHaveTextContent('4');
-    expect(ceiling.className).toContain('min-h-10');
+    expect(ceiling.className).toContain('min-h-11');
     // no card behind the rows
     expect(screen.queryByLabelText('options-toggle-ceiling')).toBeNull();
     expect(screen.queryByLabelText('inspect-ceiling')).toBeNull();
@@ -997,7 +997,7 @@ describe('AreaSegmentList: the rows of the rectangles (owner request, Stage 19)'
     expect(buttons?.className).toMatch(/flex-wrap/);
     expect(buttons).not.toBe(numbers?.parentElement); // not in the same line as the numbers
     for (const label of [`edit-segment-${floorAdd.id}`, `copy-segment-${floorAdd.id}`, `archive-segment-${floorAdd.id}`]) {
-      expect(within(row).getByLabelText(label).className).toMatch(/min-h-9/);
+      expect(within(row).getByLabelText(label).className).toMatch(/min-h-11/);
     }
   });
 

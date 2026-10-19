@@ -108,8 +108,8 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
 
   const counter = (used: number) => text.count.replace('{used}', String(used)).replace('{max}', String(MAX_NOTE_LENGTH));
   const field = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 bg-white min-h-24';
-  const primary = 'w-full min-h-10 px-4 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50';
-  const secondary = 'flex-1 min-h-10 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50';
+  const primary = 'w-full min-h-11 px-4 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50';
+  const secondary = 'flex-1 min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50';
 
   return (
     <section aria-label="project-notes" className="space-y-3">
@@ -174,7 +174,7 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
                       type="submit"
                       aria-label={`note-edit-save-${note.id}`}
                       disabled={busy || editText.trim() === ''}
-                      className="flex-1 min-h-10 px-3 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                      className="flex-1 min-h-11 px-3 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50"
                     >
                       <Ico>💾</Ico>{t.common.save}
                     </button>
@@ -195,7 +195,7 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
                           aria-label={`note-delete-confirm-${note.id}`}
                           disabled={busy}
                           onClick={() => void remove(note.id)}
-                          className="flex-1 min-h-10 px-3 py-1 text-sm bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 disabled:opacity-50"
+                          className="flex-1 min-h-11 px-3 py-1 text-sm bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 disabled:opacity-50"
                         >
                           <Ico>🗑️</Ico>{text.confirm_yes}
                         </button>

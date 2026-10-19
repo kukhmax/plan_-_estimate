@@ -10,6 +10,7 @@ from app.models.checklist import (
     Substrate,
 )
 from app.models.client import Client
+from app.models.communication import CommunicationApplication, CommunicationCategory, CommunicationPhrase
 from app.models.data_key import DataKey, WrappedBy
 from app.models.estimate import (
     Estimate,
@@ -88,6 +89,9 @@ from app.models.work_recommendation import (
 )
 
 __all__ = [
+    "CommunicationApplication",
+    "CommunicationCategory",
+    "CommunicationPhrase",
     "AccessEntry",
     "AccessSetting",
     "AccessStatus",

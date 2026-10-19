@@ -900,7 +900,7 @@ class ReminderNotFoundError(Exception):
 
 
 class ReminderInvalidError(Exception):
-    """An own reminder that cannot be made: `code` is TITLE_REQUIRED, TITLE_TOO_LONG, IN_THE_PAST or CLOSE_STATUS_INVALID."""
+    """An own reminder that cannot be made: `code` is TITLE_REQUIRED, TITLE_TOO_LONG, IN_THE_PAST, CLOSE_STATUS_INVALID, ROOM_NOT_IN_PROJECT or SURFACE_NOT_IN_ROOM."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)

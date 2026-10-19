@@ -133,7 +133,7 @@ function InspectionCard({
         <button
           type="button"
           aria-label={t.inspections.reopen}
-          className="min-h-10 rounded-lg border border-blue-600 px-3 text-blue-700 disabled:opacity-50"
+          className="min-h-11 rounded-lg border border-blue-600 px-3 text-blue-700 disabled:opacity-50"
           disabled={busy || inspection._pending}
           onClick={handleReopen}
         >
@@ -143,7 +143,7 @@ function InspectionCard({
         <button
           type="button"
           aria-label={t.inspections.resume}
-          className="min-h-10 rounded-lg border border-blue-600 px-3 text-blue-700"
+          className="min-h-11 rounded-lg border border-blue-600 px-3 text-blue-700"
           onClick={() => onOpen(inspection.id)}
         >
           <Ico>▶️</Ico>{t.inspections.resume}
@@ -152,7 +152,7 @@ function InspectionCard({
       <button
         type="button"
         aria-label={inspection.is_archived ? t.inspections.restore : t.inspections.archive}
-        className="min-h-10 rounded-lg border border-neutral-300 px-3 text-neutral-700 disabled:opacity-50"
+        className="min-h-11 rounded-lg border border-neutral-300 px-3 text-neutral-700 disabled:opacity-50"
         disabled={busy || inspection._pending} // only the server can archive an inspection: it is sent first
         onClick={inspection.is_archived ? handleRestore : handleArchive}
       >
@@ -249,7 +249,7 @@ export function InspectionList({
         </button>
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-neutral-700">
+      <label className="flex items-center gap-2 min-h-11 text-sm text-neutral-700">
         <input
           type="checkbox"
           checked={showArchived}

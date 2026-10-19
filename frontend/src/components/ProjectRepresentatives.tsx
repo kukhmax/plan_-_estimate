@@ -264,7 +264,7 @@ export function ProjectRepresentatives({ projectId }: ProjectRepresentativesProp
               )}
               {person.phone && (
                 <p className="text-xs text-slate-600 break-words">
-                  <a href={telHref(person.phone)} aria-label={`call-${person.id}`} className="inline-block py-1.5 -my-1.5 text-blue-700 underline underline-offset-2">
+                  <a href={telHref(person.phone)} aria-label={`call-${person.id}`} className="inline-block py-3.5 -my-3.5 text-blue-700 underline underline-offset-2">
                     {person.phone}
                   </a>
                 </p>

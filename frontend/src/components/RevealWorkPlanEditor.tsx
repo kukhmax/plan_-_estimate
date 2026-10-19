@@ -538,7 +538,7 @@ export function RevealWorkPlanEditor({
                             aria-label={`reveal-move-up-${occurrence.draftKey}`}
                             onClick={() => handleMoveOccurrenceUp(index)}
                             disabled={saving || index === 0}
-                            className="min-h-[44px] min-w-[36px] px-1 flex items-center justify-center text-sm font-bold text-slate-700 disabled:opacity-30"
+                            className="min-h-[44px] min-w-[44px] px-1 flex items-center justify-center text-sm font-bold text-slate-700 disabled:opacity-30"
                             title={t.work_plan.move_up}
                           >
                             ↑
@@ -548,7 +548,7 @@ export function RevealWorkPlanEditor({
                             aria-label={`reveal-move-down-${occurrence.draftKey}`}
                             onClick={() => handleMoveOccurrenceDown(index)}
                             disabled={saving || index === draftOccurrences.length - 1}
-                            className="min-h-[44px] min-w-[36px] px-1 flex items-center justify-center text-sm font-bold text-slate-700 disabled:opacity-30"
+                            className="min-h-[44px] min-w-[44px] px-1 flex items-center justify-center text-sm font-bold text-slate-700 disabled:opacity-30"
                             title={t.work_plan.move_down}
                           >
                             ↓

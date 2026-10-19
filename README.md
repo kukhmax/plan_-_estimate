@@ -4,7 +4,7 @@
 
 Интерфейс — на польском и русском (PL/RU), клиентские документы (смета, договор, протоколы) — по умолчанию на польском.
 
-> **Статус на 2026-10-18.** Дорожная карта (Stage 0–19) выполнена и работает на боевом сервере; остался Stage 20 — общий аудит MVP. Дополнительно сделано и принято шифрование данных клиентов (вариант «V1», см. [раздел 4](#4-шифрование-данных-клиентов-как-это-работает)) и несколько задач из бэклога (расчёты по объекту, удаление архивных материалов). Список того, что **запланировано, но не сделано**, — в [разделе 6](#6-что-запланировано-но-не-сделано).
+> **Статус на 2026-10-19.** Дорожная карта (Stage 0–19) выполнена и работает на боевом сервере; идёт Stage 20 — общий аудит MVP (план и отчёт: [`docs/STAGE_20_MVP_AUDIT_PLAN_RU.md`](docs/STAGE_20_MVP_AUDIT_PLAN_RU.md), [`docs/STAGE_20_AUDIT_REPORT_RU.md`](docs/STAGE_20_AUDIT_REPORT_RU.md)). Дополнительно сделано и принято шифрование данных клиентов (вариант «V1», см. [раздел 4](#4-шифрование-данных-клиентов-как-это-работает)), закрытая регистрация и несколько задач из бэклога (расчёты по объекту, удаление архивных материалов). Список того, что **запланировано, но не сделано**, — в [разделе 6](#6-что-запланировано-но-не-сделано).
 
 ---
 
@@ -208,8 +208,8 @@ EN_TEST_ENCRYPTION=1 backend/.venv/bin/pytest backend/tests
 |---|---|---|
 | Приложение | `ENVIRONMENT=production`, `APP_ENV=production`, `DEBUG=false`, `APP_DOMAIN` | |
 | База | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | |
-| Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_AUTH_MAX_AGE_SECONDS`, `MOCK_TELEGRAM_AUTH=false` | |
-| Сессии | `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRE_MINUTES` | |
+| Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_AUTH_MAX_AGE_SECONDS`, `MOCK_TELEGRAM_AUTH=false` | токен — от @BotFather; **backend в боевой среде не запустится**, если токен не похож на настоящий, а также при `MOCK_TELEGRAM_AUTH=true` или `DEBUG=true` |
+| Сессии | `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRE_MINUTES` | секрет — `openssl rand -hex 32`; **backend в боевой среде не запустится**, если секрет короче 32 знаков или похож на заглушку из примера |
 | **Шифрование** | **`DATA_KEK`**, `DATA_KEK_VERSION`, `DATA_KEK_PREVIOUS`, `DATA_STRICT_READ` | **без `DATA_KEK` backend в боевой среде не стартует**; подробно — [раздел 4](#4-шифрование-данных-клиентов-как-это-работает) |
 | Фото | `MEDIA_STORAGE_BACKEND`, `MEDIA_S3_*`, `PHOTO_UPLOADS_ENABLED`, `PHOTO_*` | загрузка выключена, пока вы её не включите |
 | Календарь | `CALENDAR_DISPATCHER_ENABLED` | отправка напоминаний включается явно |

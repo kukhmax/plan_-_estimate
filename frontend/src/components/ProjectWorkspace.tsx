@@ -731,7 +731,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             placeholder={t.projects.name}
             value={form.name}
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
           <input
             aria-label="project-address"
@@ -740,7 +740,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             placeholder={t.projects.address}
             value={form.address}
             onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
           <div className="grid grid-cols-2 gap-2">
             <input
@@ -750,7 +750,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               placeholder={t.projects.city}
               value={form.city}
               onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
             />
             <input
               aria-label="project-postal-code"
@@ -759,7 +759,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               placeholder={t.projects.postal_code}
               value={form.postal_code}
               onChange={(event) => setForm((current) => ({ ...current, postal_code: event.target.value }))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
             />
           </div>
           <select
@@ -769,7 +769,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               ...current,
               status: event.target.value as ProjectStatus,
             }))}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           >
             {(['PLANNING', 'IN_PROGRESS', 'COMPLETED'] as const).map((value) => (
               <option key={value} value={value}>{statusLabel(value)}</option>
@@ -779,7 +779,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             aria-label="project-client"
             value={form.client_id}
             onChange={(event) => setForm((current) => ({ ...current, client_id: event.target.value }))}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           >
             <option value="">{t.projects.no_client}</option>
             {clients.map((client) => (
@@ -799,14 +799,14 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             <button
               type="button"
               onClick={closeForm}
-              className="px-3 py-1.5 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
+              className="min-h-11 px-3 py-1.5 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
             >
               <Ico>✖️</Ico>{t.common.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+              className="min-h-11 px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
             >
               <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
             </button>
@@ -1009,7 +1009,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                   type="button"
                   aria-label="edit-room-detail"
                   onClick={() => startEditRoom(selectedRoom)}
-                  className="min-h-10 text-xs px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                  className="min-h-11 text-xs px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                 >
                   <Ico>✏️</Ico>{t.common.edit}
                 </button>
@@ -1146,7 +1146,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                         }
                       : () => startEditRoom(selectedRoom)
                   }
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 font-semibold rounded-xl hover:bg-blue-100 transition"
+                  className="inline-flex items-center gap-1.5 min-h-11 px-3 py-1.5 bg-blue-50 text-blue-700 font-semibold rounded-xl hover:bg-blue-100 transition"
                 >
                   + {roomMeasurementMode === 'CUSTOM'
                     ? t.rooms.start_wall_measurement
@@ -1181,7 +1181,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                 placeholder={t.rooms.name}
                 value={roomForm.name}
                 onChange={(e) => setRoomForm((cur) => ({ ...cur, name: e.target.value }))}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
               />
               <div className="grid grid-cols-3 gap-2">
                 <div>
@@ -1191,7 +1191,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     placeholder="500"
                     value={roomForm.length}
                     onValueChange={(meters) => setRoomForm((cur) => ({ ...cur, length: meters }))}
-                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 min-h-11 text-xs"
                   />
                 </div>
                 <div>
@@ -1201,7 +1201,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     placeholder="400"
                     value={roomForm.width}
                     onValueChange={(meters) => setRoomForm((cur) => ({ ...cur, width: meters }))}
-                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 min-h-11 text-xs"
                   />
                 </div>
                 <div>
@@ -1211,7 +1211,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     placeholder="270"
                     value={roomForm.height}
                     onValueChange={(meters) => setRoomForm((cur) => ({ ...cur, height: meters }))}
-                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 min-h-11 text-xs"
                   />
                 </div>
               </div>
@@ -1230,14 +1230,14 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                 <button
                   type="button"
                   onClick={() => setShowRoomForm(false)}
-                  className="px-3 py-1.5 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  className="min-h-11 px-3 py-1.5 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
                 >
                   <Ico>✖️</Ico>{t.common.cancel}
                 </button>
                 <button
                   type="submit"
                   disabled={savingRoom}
-                  className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+                  className="min-h-11 px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   <Ico>💾</Ico>{savingRoom ? t.common.saving : t.common.save}
                 </button>
@@ -1319,7 +1319,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     type="button"
                     aria-label={`open-project-${project.id}`}
                     onClick={() => openProject(project)}
-                    className="min-h-10 px-3 py-1 text-sm rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                    className="min-h-11 px-3 py-1 text-sm rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
                   >
                     <Ico>📂</Ico>{t.common.open}
                   </button>
@@ -1327,7 +1327,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     type="button"
                     aria-label={`notes-project-${project.id}`}
                     onClick={() => openProject(project, 'notes')}
-                    className="min-h-10 px-3 py-1 text-sm rounded-xl bg-amber-50 text-amber-800 font-semibold hover:bg-amber-100 transition"
+                    className="min-h-11 px-3 py-1 text-sm rounded-xl bg-amber-50 text-amber-800 font-semibold hover:bg-amber-100 transition"
                   >
                     <Ico>📝</Ico>{t.notes.title}
                   </button>
@@ -1335,7 +1335,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     type="button"
                     aria-label={`edit-project-${project.id}`}
                     onClick={() => startEdit(project)}
-                    className="min-h-10 px-3 py-1 text-sm rounded-xl bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
+                    className="min-h-11 px-3 py-1 text-sm rounded-xl bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
                   >
                     <Ico>✏️</Ico>{t.common.edit}
                   </button>
@@ -1343,7 +1343,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     type="button"
                     aria-label={`${project.is_archived ? 'restore' : 'archive'}-project-${project.id}`}
                     onClick={() => void changeArchiveState(project)}
-                    className="min-h-10 px-3 py-1 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-semibold hover:bg-slate-100 transition"
+                    className="min-h-11 px-3 py-1 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-semibold hover:bg-slate-100 transition"
                   >
                     <Ico>{project.is_archived ? '♻️' : '🗃️'}</Ico>{project.is_archived ? t.common.restore : t.common.archive}
                   </button>

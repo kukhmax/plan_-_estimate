@@ -536,7 +536,7 @@ function RecommendationCard({
           <button
             type="button"
             aria-label={`${title} — ${t.recommendations.fallback_button}`}
-            className="min-h-10 self-start rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 disabled:opacity-50"
+            className="min-h-11 self-start rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 disabled:opacity-50"
             disabled={pending}
             onClick={() => onOpenFallback(recommendation.id)}
           >
@@ -551,7 +551,7 @@ function RecommendationCard({
             type="button"
             aria-expanded={optionsOpen}
             aria-label={`${title} — ${t.recommendations.options}`}
-            className="min-h-10 self-start rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700"
+            className="min-h-11 self-start rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700"
             onClick={() => onToggleOptions(recommendation.id)}
           >
             {optionsOpen ? t.recommendations.hide_options : t.recommendations.options}
@@ -563,7 +563,7 @@ function RecommendationCard({
                 <button
                   type="button"
                   aria-label={`${title} — ${t.recommendations.dismiss}`}
-                  className="min-h-10 rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 disabled:opacity-50"
+                  className="min-h-11 rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 disabled:opacity-50"
                   disabled={pending}
                   onClick={() => onDismiss(recommendation.id)}
                 >
@@ -574,7 +574,7 @@ function RecommendationCard({
                 <button
                   type="button"
                   aria-label={`${title} — ${t.recommendations.reconsider}`}
-                  className="min-h-10 rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 disabled:opacity-50"
+                  className="min-h-11 rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 disabled:opacity-50"
                   disabled={pending}
                   onClick={() => onReconsider(recommendation.id)}
                 >

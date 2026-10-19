@@ -192,7 +192,7 @@ export function EstimateList({ projectId, onOpenEstimate }: EstimateListProps) {
                 type="button"
                 aria-label={isDraft ? 'open-draft-estimate' : `open-estimate-${estimate.version}`}
                 onClick={() => onOpenEstimate(estimate)}
-                className={`min-h-10 px-3 py-2 text-xs font-semibold rounded-xl transition ${
+                className={`min-h-11 px-3 py-2 text-xs font-semibold rounded-xl transition ${
                   isDraft
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'

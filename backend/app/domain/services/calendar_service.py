@@ -395,6 +395,7 @@ class CalendarService:
             raise ReminderInvalidError("TOO_MANY")
         if project_id is not None:
             await self._project(owner_id, project_id)
+        await self._place_of_reminder(project_id, room_id, surface_id)
         prefs = await self.prefs(owner_id)
         row = Reminder(
             owner_id=owner_id, project_id=project_id, room_id=room_id, surface_id=surface_id, occurrence_key=occurrence_key,
@@ -404,6 +405,22 @@ class CalendarService:
         self.db.add(row)
         await self.db.commit()
         return row
+
+    async def _place_of_reminder(self, project_id: uuid.UUID | None, room_id: uuid.UUID | None, surface_id: uuid.UUID | None) -> None:
+        """The room of a reminder is a room of ITS object and the surface a surface of that room (the message names them: an id of another
+        owner's room must never get there). The object itself was checked to be the owner's."""
+        if room_id is not None:
+            found = None
+            if project_id is not None:
+                found = (await self.db.execute(select(Room.id).where(Room.id == room_id, Room.project_id == project_id))).scalar_one_or_none()
+            if found is None:
+                raise ReminderInvalidError("ROOM_NOT_IN_PROJECT")
+        if surface_id is not None:
+            found = None
+            if room_id is not None:
+                found = (await self.db.execute(select(Surface.id).where(Surface.id == surface_id, Surface.room_id == room_id))).scalar_one_or_none()
+            if found is None:
+                raise ReminderInvalidError("SURFACE_NOT_IN_ROOM")
 
     async def cancel_reminder(self, owner_id: uuid.UUID, reminder_id: uuid.UUID) -> Reminder:
         row = (await self.db.execute(select(Reminder).where(Reminder.id == reminder_id, Reminder.owner_id == owner_id))).scalar_one_or_none()

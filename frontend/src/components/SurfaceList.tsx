@@ -561,7 +561,7 @@ export function SurfaceList({
                   autoFocus
                   value={customWall.width}
                   onValueChange={(meters) => setCustomWall((cur) => ({ ...cur, width: meters }))}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+                  className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
                 />
               </div>
               <div>
@@ -572,7 +572,7 @@ export function SurfaceList({
                     placeholder="270"
                     value={customWall.height}
                     onValueChange={(meters) => setCustomWall((cur) => ({ ...cur, height: meters }))}
-                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+                    className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
                   />
                 ) : (
                   <input
@@ -586,7 +586,7 @@ export function SurfaceList({
               </div>
             </div>
 
-            <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
+            <label className="flex items-center min-h-11 gap-1.5 text-xs text-slate-500 cursor-pointer">
               <input
                 aria-label="custom-wall-different-height"
                 type="checkbox"
@@ -606,7 +606,7 @@ export function SurfaceList({
               type="submit"
               aria-label="add-custom-wall"
               disabled={saving}
-              className="w-full px-3 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+              className="w-full min-h-11 px-3 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
             >
               {saving ? t.common.saving : t.surfaces.add_wall}
             </button>
@@ -614,7 +614,7 @@ export function SurfaceList({
         </div>
       )}
 
-      <label className="flex items-center gap-1.5 text-sm text-slate-600 mb-3 cursor-pointer">
+      <label className="flex items-center gap-2 min-h-11 text-sm text-slate-600 mb-3 cursor-pointer">
         <input
           aria-label="show-archived-surfaces"
           type="checkbox"
@@ -640,7 +640,7 @@ export function SurfaceList({
             placeholder={t.surfaces.name}
             value={form.name}
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
           <select
             aria-label="surface-type"
@@ -649,7 +649,7 @@ export function SurfaceList({
               ...current,
               surface_type: event.target.value as SurfaceTypeValue,
             }))}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           >
             {(['WALL', 'CEILING', 'FLOOR', 'OTHER'] as const).map((value) => (
               <option key={value} value={value}>{typeLabel(value)}</option>
@@ -664,7 +664,7 @@ export function SurfaceList({
                 placeholder="500"
                 value={form.width}
                 onValueChange={(meters) => setForm((current) => ({ ...current, width: meters }))}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
               />
             </div>
             <div>
@@ -674,7 +674,7 @@ export function SurfaceList({
                 placeholder="270"
                 value={form.height}
                 onValueChange={(meters) => setForm((current) => ({ ...current, height: meters }))}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
               />
             </div>
           </div>
@@ -692,14 +692,14 @@ export function SurfaceList({
             <button
               type="button"
               onClick={closeForm}
-              className="min-h-10 px-3 py-1 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
+              className="min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
             >
               <Ico>✖️</Ico>{t.common.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="min-h-10 px-3 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+              className="min-h-11 px-3 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
             >
               <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
             </button>
@@ -750,7 +750,7 @@ export function SurfaceList({
                     area={waitingArea ? `~${waitingArea} ${t.common.unit_m2}` : hasDimensions ? `${formatMetric(surface.net_area ?? surface.gross_area)} ${t.common.unit_m2}` : '—'}
                     archivedLabel={surface.is_archived ? t.common.archived_badge : null}
                     pending={surface._pending}
-                    className={`${tint.bg} border ${tint.border} rounded-xl px-3 py-1.5 min-h-10 w-full flex items-center gap-2 shadow-sm`}
+                    className={`${tint.bg} border ${tint.border} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
                     onOpen={() => toggleCard(surface.id)}
                   />
                 </li>
@@ -788,7 +788,7 @@ export function SurfaceList({
                         aria-label={`card-collapse-${surface.id}`}
                         aria-expanded={true}
                         onClick={() => toggleCard(surface.id)}
-                        className="min-w-0 flex-1 min-h-10 flex items-center gap-2 flex-wrap text-left"
+                        className="min-w-0 flex-1 min-h-11 flex items-center gap-2 flex-wrap text-left"
                       >
                         {headerContent}
                       </button>
@@ -805,7 +805,7 @@ export function SurfaceList({
                     aria-label={`options-toggle-${surface.id}`}
                     aria-expanded={isOptionsOpen}
                     onClick={() => toggleOptions(surface.id)}
-                    className="shrink-0 max-w-[40%] min-h-10 px-3 py-1 text-sm leading-tight break-words rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
+                    className="shrink-0 max-w-[40%] min-h-11 px-3 py-1 text-sm leading-tight break-words rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
                   >
                     <Ico>{isOptionsOpen ? '🔼' : '⚙️'}</Ico>
                     {isWall
@@ -822,7 +822,7 @@ export function SurfaceList({
                     type="button"
                     aria-label={`inspect-surface-${surface.id}`}
                     onClick={() => onInspectSurface(surface.id, displayName)}
-                    className={`w-full min-h-10 py-1 text-sm rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold hover:bg-emerald-100 transition ${INSPECT_BUTTON_WITH_BADGE}`}
+                    className={`w-full min-h-11 py-1 text-sm rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold hover:bg-emerald-100 transition ${INSPECT_BUTTON_WITH_BADGE}`}
                   >
                     <span className="min-w-0 break-words"><Ico>🔬</Ico>{t.inspections.inspect_wall}</span>
                     <InspectionPhotoBadge surfaceId={surface.id} />
@@ -915,7 +915,7 @@ export function SurfaceList({
                       aria-expanded={isWorkPlanOpen}
                       aria-controls={`work-plan-editor-${surface.id}`}
                       onClick={() => toggleWorkPlan(surface.id)}
-                      className="w-full min-h-10 text-sm px-3 py-1 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+                      className="w-full min-h-11 text-sm px-3 py-1 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
                     >
                       <Ico>🛠️</Ico>
                       {t.surfaces.work_types_quality}
@@ -942,7 +942,7 @@ export function SurfaceList({
                       aria-label={`execution-${surface.id}`}
                       aria-expanded={isExecutionOpen}
                       onClick={() => toggleExecution(surface.id)}
-                      className={`w-full min-h-10 py-1 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
+                      className={`w-full min-h-11 py-1 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
                     >
                       <span className="min-w-0 break-words"><Ico>🏗️</Ico>{t.execution.open}</span>
                       <ExecutionPhotoBadge surfaceId={surface.id} />
@@ -974,7 +974,7 @@ export function SurfaceList({
                                 type="button"
                                 aria-label={`add-opening-${surface.id}-DOOR`}
                                 onClick={() => quickAddOpening(surface.id, 'DOOR')}
-                                className="min-h-10 w-full text-xs px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
+                                className="min-h-11 w-full text-xs px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition"
                               >
                                 <Ico>🚪</Ico>{t.openings.door}
                               </button>
@@ -982,7 +982,7 @@ export function SurfaceList({
                                 type="button"
                                 aria-label={`add-opening-${surface.id}-WINDOW`}
                                 onClick={() => quickAddOpening(surface.id, 'WINDOW')}
-                                className="min-h-10 w-full text-xs px-2 py-1 rounded-lg bg-sky-50 text-sky-800 font-semibold hover:bg-sky-100 transition"
+                                className="min-h-11 w-full text-xs px-2 py-1 rounded-lg bg-sky-50 text-sky-800 font-semibold hover:bg-sky-100 transition"
                               >
                                 <Ico>🪟</Ico>{t.openings.window}
                               </button>
@@ -990,7 +990,7 @@ export function SurfaceList({
                                 type="button"
                                 aria-label={`add-opening-${surface.id}-OTHER`}
                                 onClick={() => quickAddOpening(surface.id, 'OTHER')}
-                                className="min-h-10 w-full text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition"
+                                className="min-h-11 w-full text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition"
                               >
                                 <Ico>⬜</Ico>{t.openings.other}
                               </button>
@@ -998,7 +998,7 @@ export function SurfaceList({
                                 type="button"
                                 aria-label={`toggle-openings-${surface.id}`}
                                 onClick={() => toggleOpenings(surface.id)}
-                                className={`min-h-10 w-full text-xs px-2 py-1 rounded-lg font-semibold transition ${
+                                className={`min-h-11 w-full text-xs px-2 py-1 rounded-lg font-semibold transition ${
                                   isOpeningsOpen
                                     ? 'bg-slate-200 text-slate-800'
                                     : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
@@ -1013,7 +1013,7 @@ export function SurfaceList({
                             type="button"
                             aria-label={`edit-surface-${surface.id}`}
                             onClick={() => startEdit(surface)}
-                            className="min-h-10 w-full text-xs px-2 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                            className="min-h-11 w-full text-xs px-2 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                           >
                             <Ico>✏️</Ico>{t.common.edit}
                           </button>
@@ -1022,7 +1022,7 @@ export function SurfaceList({
                               type="button"
                               aria-label={`duplicate-surface-${surface.id}`}
                               onClick={() => void handleDuplicateWall(surface)}
-                              className="min-h-10 w-full text-xs px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100 transition"
+                              className="min-h-11 w-full text-xs px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100 transition"
                             >
                               <Ico>📑</Ico>{t.surfaces.duplicate_wall}
                             </button>
@@ -1031,7 +1031,7 @@ export function SurfaceList({
                             type="button"
                             aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
                             onClick={() => void changeArchiveState(surface)}
-                            className="min-h-10 w-full text-xs px-2 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                            className="min-h-11 w-full text-xs px-2 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
                           >
                             <Ico>{surface.is_archived ? '♻️' : '🗃️'}</Ico>{surface.is_archived ? t.common.restore : t.common.archive}
                           </button>
@@ -1055,7 +1055,7 @@ export function SurfaceList({
                           aria-label={`options-toggle-bottom-${surface.id}`}
                           aria-expanded={isOptionsOpen}
                           onClick={() => toggleOptions(surface.id)}
-                          className="w-full min-h-10 text-sm px-3 py-1 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
+                          className="w-full min-h-11 text-sm px-3 py-1 rounded-xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
                         >
                           <Ico>🔼</Ico>
                           {t.surfaces.hide_openings_and_options}
@@ -1079,7 +1079,7 @@ export function SurfaceList({
                       aria-expanded={isWorkPlanOpen}
                       aria-controls={`work-plan-editor-${surface.id}`}
                       onClick={() => toggleWorkPlan(surface.id)}
-                      className="w-full min-h-10 text-sm px-3 py-1 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
+                      className="w-full min-h-11 text-sm px-3 py-1 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
                     >
                       <Ico>🛠️</Ico>
                       {t.surfaces.work_types_quality}
@@ -1101,7 +1101,7 @@ export function SurfaceList({
                       aria-label={`execution-${surface.id}`}
                       aria-expanded={isExecutionOpen}
                       onClick={() => toggleExecution(surface.id)}
-                      className={`w-full min-h-10 py-1 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
+                      className={`w-full min-h-11 py-1 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
                     >
                       <span className="min-w-0 break-words"><Ico>🏗️</Ico>{t.execution.open}</span>
                       <ExecutionPhotoBadge surfaceId={surface.id} />
@@ -1124,7 +1124,7 @@ export function SurfaceList({
                           type="button"
                           aria-label={`edit-surface-${surface.id}`}
                           onClick={() => startEdit(surface)}
-                          className="min-h-10 px-3 py-1 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                          className="min-h-11 px-3 py-1 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
                         >
                           <Ico>✏️</Ico>{t.common.edit}
                         </button>
@@ -1132,7 +1132,7 @@ export function SurfaceList({
                           type="button"
                           aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
                           onClick={() => void changeArchiveState(surface)}
-                          className="min-h-10 px-3 py-1 text-xs rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                          className="min-h-11 px-3 py-1 text-xs rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
                         >
                           <Ico>{surface.is_archived ? '♻️' : '🗃️'}</Ico>{surface.is_archived ? t.common.restore : t.common.archive}
                         </button>

@@ -546,7 +546,7 @@ export function InspectionFlow({
         <button
           type="button"
           aria-label={t.common.back}
-          className="min-h-10 rounded-lg border border-neutral-300 px-3 text-neutral-700"
+          className="min-h-11 min-w-11 rounded-lg border border-neutral-300 px-3 text-neutral-700"
           onClick={handleBack}
         >
           ←
@@ -961,7 +961,7 @@ function QuestionField({
                   key={option.id}
                   type="button"
                   aria-label={resolveKey(t, option.label_key)}
-                  className={`min-h-10 rounded-full border px-3 text-sm font-medium ${
+                  className={`min-h-11 rounded-full border px-3 text-sm font-medium ${
                     selected
                       ? 'border-blue-600 bg-blue-50 text-blue-800'
                       : 'border-neutral-300 bg-white text-neutral-800'

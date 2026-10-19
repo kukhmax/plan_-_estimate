@@ -223,7 +223,7 @@ const AppContent: React.FC = () => {
             </p>
             <button
               onClick={retry}
-              className="px-4 py-2 text-sm font-medium rounded-xl transition"
+              className="min-h-11 px-4 py-2 text-sm font-medium rounded-xl transition"
               style={{
                 backgroundColor: 'var(--tg-theme-button-color)',
                 color: 'var(--tg-theme-button-text-color)',

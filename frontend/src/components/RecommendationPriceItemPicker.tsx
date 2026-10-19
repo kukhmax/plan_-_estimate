@@ -80,7 +80,7 @@ export function RecommendationPriceItemPicker({
         <button
           type="button"
           aria-label={t.recommendations.picker_cancel}
-          className="min-h-10 px-3 text-sm font-medium text-neutral-600"
+          className="min-h-11 px-3 text-sm font-medium text-neutral-600"
           onClick={onCancel}
           disabled={disabled}
         >

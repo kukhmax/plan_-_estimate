@@ -468,7 +468,7 @@ describe('CommunicationPanel (Stage 8C)', () => {
     const list = screen.getByText(UNEVEN_PHRASE).closest('ul');
     expect(list).not.toBeNull();
     expect(list).toHaveClass('flex-col');
-    expect(screen.getByLabelText(/.*Dlaczego\?/)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(/.*Dlaczego\?/)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(/.*Kopiuj/)).toHaveClass('min-h-11');
     // The chip row is a wrapping flex so long translations never overflow.
     const chipRow = screen.getByText('Wyjaśnienie stanu').closest('div');

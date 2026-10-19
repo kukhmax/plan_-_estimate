@@ -24,7 +24,7 @@ describe('PrepareOfflineButton (Stage 19B)', () => {
     view();
     const button = screen.getByLabelText('prepare-offline-button');
     expect(button).toHaveTextContent('Przygotuj do pracy offline');
-    expect(button.className).toContain('min-h-10');
+    expect(button.className).toContain('min-h-11');
     expect(screen.getByLabelText('prepare-offline')).toHaveTextContent('Zapisuje na telefonie obiekt');
     await waitFor(() => expect(prepare.lastPrepared).toHaveBeenCalledWith('p1'));
   });

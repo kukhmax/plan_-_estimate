@@ -773,7 +773,7 @@ export function SurfaceWorkPlanEditor({
                             aria-label={`move-up-occurrence-${occurrence.draftKey}`}
                             onClick={() => handleMoveOccurrenceUp(index)}
                             disabled={saving || index === 0}
-                            className="min-h-[44px] min-w-[36px] px-1 flex items-center justify-center text-sm font-bold text-[var(--tg-theme-text-color)] disabled:opacity-30"
+                            className="min-h-[44px] min-w-[44px] px-1 flex items-center justify-center text-sm font-bold text-[var(--tg-theme-text-color)] disabled:opacity-30"
                             title={t.work_plan.move_up}
                           >
                             ↑
@@ -783,7 +783,7 @@ export function SurfaceWorkPlanEditor({
                             aria-label={`move-down-occurrence-${occurrence.draftKey}`}
                             onClick={() => handleMoveOccurrenceDown(index)}
                             disabled={saving || index === draftOccurrences.length - 1}
-                            className="min-h-[44px] min-w-[36px] px-1 flex items-center justify-center text-sm font-bold text-[var(--tg-theme-text-color)] disabled:opacity-30"
+                            className="min-h-[44px] min-w-[44px] px-1 flex items-center justify-center text-sm font-bold text-[var(--tg-theme-text-color)] disabled:opacity-30"
                             title={t.work_plan.move_down}
                           >
                             ↓

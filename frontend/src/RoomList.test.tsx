@@ -349,9 +349,9 @@ describe('RoomList', () => {
     expect(actions).toHaveClass('sm:flex');
 
     // Every action keeps a practical ~44px touch target.
-    expect(screen.getByLabelText(`open-room-${room.id}`)).toHaveClass('min-h-10');
-    expect(screen.getByLabelText(`edit-room-${room.id}`)).toHaveClass('min-h-10');
-    expect(screen.getByLabelText(`archive-room-${room.id}`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`open-room-${room.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`edit-room-${room.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`archive-room-${room.id}`)).toHaveClass('min-h-11');
 
     // The measurements line wraps instead of overflowing the viewport.
     expect(screen.getByText(/5\.00 × 4\.00 × 2\.70 m/)).toBeInTheDocument();

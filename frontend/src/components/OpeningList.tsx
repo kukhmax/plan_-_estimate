@@ -296,7 +296,7 @@ export function OpeningList({
         </h5>
       </div>
 
-      <label className="flex items-center gap-1.5 text-xs text-slate-500 mb-2 cursor-pointer">
+      <label className="flex items-center min-h-11 gap-1.5 text-xs text-slate-500 mb-2 cursor-pointer">
         <input
           aria-label={`show-archived-openings-${surfaceId}`}
           type="checkbox"
@@ -456,7 +456,7 @@ export function OpeningList({
                 aria-label="opening-type"
                 value={form.opening_type}
                 onChange={(e) => handleTypeChange(e.target.value as OpeningTypeValue)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
               >
                 {(['DOOR', 'WINDOW', 'OTHER'] as const).map((type) => (
                   <option key={type} value={type}>
@@ -477,7 +477,7 @@ export function OpeningList({
                 required
                 value={form.quantity}
                 onChange={(e) => setForm((cur) => ({ ...cur, quantity: e.target.value }))}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
               />
             </div>
           </div>
@@ -491,7 +491,7 @@ export function OpeningList({
                 placeholder="90"
                 value={form.width}
                 onValueChange={(meters) => setForm((cur) => ({ ...cur, width: meters }))}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
               />
             </div>
             <div>
@@ -502,13 +502,13 @@ export function OpeningList({
                 placeholder="200"
                 value={form.height}
                 onValueChange={(meters) => setForm((cur) => ({ ...cur, height: meters }))}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
               />
             </div>
           </div>
 
           {!editingId && isDefaultable(form.opening_type) && (
-            <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
+            <label className="flex items-center min-h-11 gap-1.5 text-xs text-slate-500 cursor-pointer">
               <input
                 aria-label="set-opening-default"
                 type="checkbox"
@@ -540,7 +540,7 @@ export function OpeningList({
           {/* Reveal (ościeże) — only for WINDOW and DOOR */}
           {form.opening_type !== 'OTHER' && (
             <div className="pt-1 border-t border-slate-200/60 space-y-2">
-              <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+              <label className="flex items-center min-h-11 gap-2 text-xs font-medium text-slate-700 cursor-pointer">
                 <input
                   aria-label={`reveal-toggle-${surfaceId}`}
                   type="checkbox"
@@ -558,7 +558,7 @@ export function OpeningList({
                       placeholder="15"
                       value={form.reveal_depth}
                       onValueChange={(meters) => setForm((cur) => ({ ...cur, reveal_depth: meters }))}
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                      className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
                     />
                   </div>
                   <div>
@@ -570,7 +570,7 @@ export function OpeningList({
                         ['reveal_top', t.reveals.side_top],
                         ['reveal_bottom', t.reveals.side_bottom],
                       ] as const).map(([field, label]) => (
-                        <label key={field} className="flex items-center gap-1 text-xs text-slate-600 cursor-pointer">
+                        <label key={field} className="flex items-center min-h-11 gap-1 text-xs text-slate-600 cursor-pointer">
                           <input
                             aria-label={`reveal-${field.replace('reveal_', '')}`}
                             type="checkbox"
@@ -598,7 +598,7 @@ export function OpeningList({
               placeholder={t.openings.name}
               value={form.name}
               onChange={(e) => setForm((cur) => ({ ...cur, name: e.target.value }))}
-              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+              className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
             />
             <textarea
               aria-label="opening-description"
@@ -620,14 +620,14 @@ export function OpeningList({
             <button
               type="button"
               onClick={closeForm}
-              className="px-2.5 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
+              className="min-h-11 px-3 py-1 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
             >
               <Ico>✖️</Ico>{t.common.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-3 py-1 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              className="min-h-11 px-3 py-1 text-sm bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
             >
               <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
             </button>

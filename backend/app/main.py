@@ -57,6 +57,7 @@ from app.api.v1.endpoints.work_recommendations import router as work_recommendat
 from app.api.v1.endpoints.workflow_templates import router as workflow_templates_router
 from app.api.upload_guard import sweep_stale_photo_temp
 from app.core.config import settings
+from app.core.startup_checks import ensure_production_configuration
 
 
 
@@ -73,6 +74,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # the start at once (the keys already in the database are unwrapped here) instead of failing at the first request.
     if settings.is_production and not settings.DATA_KEK.get_secret_value().strip():
         raise RuntimeError("DATA_KEK is not set: production does not start without the key that protects the data of the clients")
+    # Stage 20E: production does not start with a weak session secret, a wrong bot token, mock sign-in or debug on.
+    ensure_production_configuration(settings)
     async with async_session_maker() as db:
         await DataKeyService(db).prepare()
     # Stage 18D: the loop that sends the reminders; off unless CALENDAR_DISPATCHER_ENABLED, and not started without a bot token.

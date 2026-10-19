@@ -172,13 +172,13 @@ describe('SurfaceList', () => {
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     expandOptions(surface.id);
-    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toHaveClass('min-h-10');
-    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toHaveClass('min-h-10');
-    expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toHaveClass('min-h-10');
-    expect(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`)).toHaveClass('min-h-10');
-    expect(screen.getByLabelText(`add-opening-${surface.id}-OTHER`)).toHaveClass('min-h-10');
-    expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toHaveClass('min-h-10');
-    expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`add-opening-${surface.id}-OTHER`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toHaveClass('min-h-11');
+    expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveClass('min-h-11');
   });
 
   it('re-reads the walls when the room size is corrected, and not when it is unchanged', async () => {
@@ -611,7 +611,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     const bottomToggle = screen.getByLabelText(`options-toggle-bottom-${surface.id}`);
     expect(bottomToggle).toBeInTheDocument();
     expect(bottomToggle).toHaveTextContent('Ukryj otwory i opcje');
-    expect(bottomToggle.className).toContain('min-h-10');
+    expect(bottomToggle.className).toContain('min-h-11');
     expect(bottomToggle.className).toContain('w-full');
 
     // Reuses the exact same toggle handler/state as the top action — no
@@ -755,7 +755,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     expect(screen.getByLabelText(`work-plan-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByText('Rodzaje prac i jakość')).toBeInTheDocument();
-    expect(screen.getByLabelText(`work-plan-${surface.id}`)).toHaveClass('min-h-10');
+    expect(screen.getByLabelText(`work-plan-${surface.id}`)).toHaveClass('min-h-11');
   });
 
   it('opens and closes the exact wall WorkPlan independently from Opcje', async () => {
@@ -1094,7 +1094,7 @@ describe('SurfaceList — compact upper-right Opcje (Stage 10G.4 follow-up)', ()
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [measuredWallWithDeduction()], total: 1 });
     renderSurfaces();
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
-    expect(screen.getByLabelText(`options-toggle-${surface.id}`).className).toContain('min-h-10');
+    expect(screen.getByLabelText(`options-toggle-${surface.id}`).className).toContain('min-h-11');
   });
 
   it('no duplicate full-width Opcje button remains on the card', async () => {
@@ -1372,7 +1372,7 @@ describe('Realizacja entry (Stage 13H.5)', () => {
 
     const execution = await screen.findByLabelText(`execution-${surface.id}`);
     expect(execution).toHaveTextContent('Realizacja');
-    expect(execution).toHaveClass('min-h-10');
+    expect(execution).toHaveClass('min-h-11');
     fireEvent.click(execution);
     expect(await screen.findByLabelText(`execution-view-${surface.id}`)).toBeInTheDocument();
     expect(await screen.findByLabelText('execution-status-key-1')).toHaveTextContent('W trakcie');
@@ -1517,7 +1517,7 @@ describe('Wall rows and cards (Stage 18G)', () => {
     expect(screen.queryByLabelText(`options-toggle-${WALL_A.id}`)).toBeNull();
     expect(screen.queryByText(/Powierzchnia brutto/)).toBeNull();
     expect(screen.queryByLabelText(`work-plan-${WALL_A.id}`)).toBeNull();
-    expect(row.className).toContain('min-h-10');
+    expect(row.className).toContain('min-h-11');
   });
 
   it('a tap opens the card of that wall only, and a tap on its name folds it back', async () => {
@@ -1549,7 +1549,7 @@ describe('Wall rows and cards (Stage 18G)', () => {
     const inspect = screen.getByLabelText(`inspect-surface-${WALL_A.id}`);
     expect(screen.queryByLabelText(`add-opening-${WALL_A.id}-DOOR`)).toBeNull(); // Opcje is still closed
     expect(inspect.className).toContain('bg-emerald-50');
-    expect(inspect.className).toContain('min-h-10');
+    expect(inspect.className).toContain('min-h-11');
     expect(inspect.compareDocumentPosition(screen.getByLabelText(`work-plan-${WALL_A.id}`)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(inspect);
     expect(onInspect).toHaveBeenCalledWith(WALL_A.id, 'Ściana 1');
@@ -1647,7 +1647,7 @@ describe('SurfaceList: changing the size right on the card (owner request, Stage
     renderSurfaces();
     const button = await screen.findByLabelText(`edit-dimensions-${surface.id}`);
     expect(button).toHaveTextContent('Edytuj');
-    expect(button.className).toMatch(/min-h-10/);
+    expect(button.className).toMatch(/min-h-11/);
     expect(screen.getByText(/1\.95 × 2\.60 m/)).toBeInTheDocument();
     expect(screen.queryByLabelText(`dimensions-form-${surface.id}`)).toBeNull();
   });

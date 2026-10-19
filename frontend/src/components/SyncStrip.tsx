@@ -77,7 +77,7 @@ export function SyncStrip({ onOpen }: { onOpen?: () => void } = {}) {
             type="button"
             aria-label="sync-refresh"
             onClick={() => window.location.reload()}
-            className="min-h-10 px-3 py-1 text-xs rounded-xl bg-emerald-600 text-white font-semibold"
+            className="min-h-11 px-3 py-1 text-xs rounded-xl bg-emerald-600 text-white font-semibold"
           >
             <Ico>🔄</Ico>
             {o.sync_refresh}

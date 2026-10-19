@@ -452,7 +452,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
                 <a
                   href={toTelHref(c.phone)}
                   aria-label={`call-${c.id}`}
-                  className="inline-block max-w-full py-1.5 -my-1.5 text-blue-700 underline underline-offset-2 [overflow-wrap:anywhere]"
+                  className="inline-block max-w-full py-3 -my-3 text-blue-700 underline underline-offset-2 [overflow-wrap:anywhere]"
                 >
                   {c.phone}
                 </a>
@@ -465,7 +465,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
                   type="button"
                   aria-label={`copy-email-${c.id}`}
                   onClick={() => handleCopyEmail(c)}
-                  className="inline-block max-w-full py-1.5 -my-1.5 text-blue-700 underline underline-offset-2 [overflow-wrap:anywhere] text-left"
+                  className="inline-block max-w-full py-3 -my-3 text-blue-700 underline underline-offset-2 [overflow-wrap:anywhere] text-left"
                 >
                   {c.email}
                 </button>
@@ -487,7 +487,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`open-telegram-${c.id}`}
-                  className="inline-block max-w-full py-1.5 -my-1.5 text-blue-700 underline underline-offset-2 [overflow-wrap:anywhere]"
+                  className="inline-block max-w-full py-3 -my-3 text-blue-700 underline underline-offset-2 [overflow-wrap:anywhere]"
                 >
                   {c.telegram_username}
                 </a>

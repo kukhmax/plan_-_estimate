@@ -50,7 +50,7 @@ export function PrepareOfflineButton({ projectId }: PrepareOfflineButtonProps) {
         aria-label="prepare-offline-button"
         disabled={running || offline}
         onClick={() => void start()}
-        className="w-full min-h-10 px-4 py-1 text-sm rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold hover:bg-emerald-100 transition disabled:opacity-50"
+        className="w-full min-h-11 px-4 py-1 text-sm rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold hover:bg-emerald-100 transition disabled:opacity-50"
       >
         <Ico>📥</Ico>
         {o.prepare_button}

@@ -91,10 +91,10 @@ describe('RoomList action row on a narrow phone', () => {
     expect(actions).toHaveClass('grid', 'grid-cols-2');
     expect(actions).not.toHaveClass('grid-cols-3');
     const open = screen.getByLabelText('open-room-room-1');
-    expect(open).toHaveClass('col-span-2', 'min-h-10');
+    expect(open).toHaveClass('col-span-2', 'min-h-11');
     for (const label of ['edit-room-room-1', 'archive-room-room-1']) {
       const button = screen.getByLabelText(label);
-      expect(button).toHaveClass('min-h-10', 'min-w-0', 'break-words');
+      expect(button).toHaveClass('min-h-11', 'min-w-0', 'break-words');
     }
     expect(open).toHaveClass('break-words');
   });

@@ -428,7 +428,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
                       placeholder={t.pricebook.price_placeholder}
                       value={inlinePrice}
                       onChange={(e) => handleInlinePriceChange(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                      className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
                     />
                     {inlineError && (
                       <p role="alert" className="text-sm text-red-600 font-medium mt-1">

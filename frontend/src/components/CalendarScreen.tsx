@@ -155,7 +155,7 @@ export function CalendarScreen({ backSuspended = false, onOpenProject }: Calenda
         <span className="text-xs text-[var(--tg-theme-hint-color)]">{item.sends ? c.sends : c.calendar_only}</span>
         <div className="flex gap-2">
           {item.project_id && onOpenProject && (
-            <button type="button" aria-label={`calendar-open-${item.key}`} onClick={() => onOpenProject(item.project_id!)} className="min-h-11 px-3 text-sm font-semibold rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)]">
+            <button type="button" aria-label={`calendar-open-${item.key}`} onClick={() => onOpenProject(item.project_id!)} className="min-h-11 min-w-11 px-3 text-sm font-semibold rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)]">
               ›
             </button>
           )}

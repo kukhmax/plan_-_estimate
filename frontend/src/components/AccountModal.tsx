@@ -174,7 +174,7 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountMo
                   </p>
                 )}
                 <div className="flex gap-2">
-                  <button type="button" aria-label="clear-offline-cancel" onClick={() => setConfirmClear(false)} className="flex-1 min-h-10 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium">
+                  <button type="button" aria-label="clear-offline-cancel" onClick={() => setConfirmClear(false)} className="flex-1 min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium">
                     <Ico>✖️</Ico>{t.common.cancel}
                   </button>
                   <button
@@ -186,7 +186,7 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountMo
                         setCleared(true);
                       });
                     }}
-                    className="flex-1 min-h-10 px-3 py-1 text-sm rounded-xl bg-red-600 text-white font-semibold"
+                    className="flex-1 min-h-11 px-3 py-1 text-sm rounded-xl bg-red-600 text-white font-semibold"
                   >
                     <Ico>🗑️</Ico>{t.offline.clear_yes}
                   </button>
@@ -200,7 +200,7 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountMo
                   setCleared(false);
                   setConfirmClear(true);
                 }}
-                className="w-full min-h-10 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium"
+                className="w-full min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium"
               >
                 <Ico>🧹</Ico>{t.offline.clear_button}
               </button>
