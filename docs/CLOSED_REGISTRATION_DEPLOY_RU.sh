@@ -77,10 +77,17 @@ fail1() { restore; fail "$1" "$2 (код на VM возвращён на $PREV, 
 git checkout -q -B "$BR" "origin/$BR" || fail "G1" "переключение на $BR не удалось"
 NEW=$(git rev-parse --short HEAD); echo "HEAD: $NEW (ветка $BR)"
 PC config --quiet || fail1 "G1" "docker compose config не прошёл"
-if ! docker image inspect plan-estimate-backend:pre-access > /dev/null 2>&1; then
-  docker tag "$(docker inspect -f '{{.Image}}' plan_estimate_backend)"  plan-estimate-backend:pre-access  || fail1 "G1" "тег pre-access backend"
-  docker tag "$(docker inspect -f '{{.Image}}' plan_estimate_frontend)" plan-estimate-frontend:pre-access || fail1 "G1" "тег pre-access frontend"
-fi
+# теги для отката: образ работающего контейнера; если docker не находит его по номеру (бывает с хранилищем образов containerd), берётся образ по имени :latest — он ещё не пересобран
+tag_pre() {
+  local svc="$1" t="plan-estimate-$1:pre-access" cur
+  docker image inspect "$t" > /dev/null 2>&1 && return 0
+  cur=$(docker inspect -f '{{.Image}}' "plan_estimate_$svc" 2>/dev/null)
+  if [ -n "$cur" ] && docker image inspect "$cur" > /dev/null 2>&1; then docker tag "$cur" "$t" && return 0; fi
+  if docker image inspect "plan-estimate-$svc:latest" > /dev/null 2>&1; then docker tag "plan-estimate-$svc:latest" "$t" && return 0; fi
+  return 1
+}
+tag_pre backend || fail1 "G1" "нет образа backend для отката (тег pre-access)"
+if tag_pre frontend; then FRONT_ROLLBACK=yes; else FRONT_ROLLBACK=no; echo "ВНИМАНИЕ: образа frontend для отката нет (frontend — статические файлы; откат при необходимости: git checkout на прежний коммит и docker compose build frontend && up -d --no-deps frontend). Продолжаем: backend откатывается образом."; fi
 PC build backend frontend > /tmp/build_access.log 2>&1 || { tail -n 30 /tmp/build_access.log; fail1 "G1" "сборка не удалась (старая версия продолжает работать)"; }
 ok "G1 (сборка backend и frontend, теги pre-access)"
 
@@ -98,7 +105,11 @@ read -r ANSWER < "${DEPLOYACCESS_TTY:-/dev/tty}" || { restore; fail "B" "нет 
 [ "$ANSWER" = "ВЫКЛАДКА ДА" ] || { echo; restore; echo "Остановлено на воротах B (введено: '$ANSWER'). Production не менялся: работает прежняя версия; код на VM возвращён на $PREV."; exit 1; }
 ok "B (подтверждено вами)"
 
-ROLLALL="Откат (новые таблицы прежнему образу не мешают): 1) docker tag plan-estimate-backend:pre-access plan-estimate-backend:latest && docker tag plan-estimate-frontend:pre-access plan-estimate-frontend:latest   2) $COMPOSE up -d --no-deps --no-build backend frontend   3) git checkout -q -B $PREV $PREV_SHA"
+if [ "$FRONT_ROLLBACK" = yes ]; then
+  ROLLALL="Откат (новые таблицы прежнему образу не мешают): 1) docker tag plan-estimate-backend:pre-access plan-estimate-backend:latest && docker tag plan-estimate-frontend:pre-access plan-estimate-frontend:latest   2) $COMPOSE up -d --no-deps --no-build backend frontend   3) git checkout -q -B $PREV $PREV_SHA"
+else
+  ROLLALL="Откат (новые таблицы прежнему образу не мешают): 1) docker tag plan-estimate-backend:pre-access plan-estimate-backend:latest   2) $COMPOSE up -d --no-deps --no-build backend   3) git checkout -q -B $PREV $PREV_SHA && $COMPOSE build frontend && $COMPOSE up -d --no-deps frontend"
+fi
 
 echo; echo "################ G2: backend ################"
 PC up -d --no-deps backend || fail "G2" "up backend не удался. $ROLLALL"
