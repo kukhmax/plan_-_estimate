@@ -296,6 +296,10 @@ describe('ProjectWorkspace', () => {
     localStorage.clear();
     sessionStorage.clear();
     vi.mocked(documentsApi.listDocuments).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue({
+      photo_count: 0, project_photos: 0, limit: 60, over_limit: false, has_content: false, rooms: [], recommended_count: 0,
+      unpriced_works: [], unpriced_items: [], estimate_id: null, estimate_status: null,
+    } as never);
     vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [project], total: 1 });
     vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client], total: 1 });
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
@@ -1628,10 +1632,11 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     await waitFor(() => screen.getByLabelText('project-detail'));
     expect(screen.getByLabelText('open-estimates')).toBeInTheDocument();
     expect(screen.getByLabelText('open-estimates').textContent).toContain('Kosztorys');
-    // Owner walkthrough: a clearly accented primary entry, the first tile of the hub, >=44px.
+    // Owner walkthrough: a clearly accented primary entry, the second tile of the hub (the rooms are first, owner 2026-10-19), >=44px.
     expect(screen.getByLabelText('open-estimates').className).toContain('bg-amber-500');
     expect(screen.getByLabelText('open-estimates').className).toContain('min-h-14');
-    expect(screen.getByLabelText('object-hub').firstElementChild).toBe(screen.getByLabelText('open-estimates'));
+    expect(screen.getByLabelText('object-hub').children[1]).toBe(screen.getByLabelText('open-estimates'));
+    expect(screen.getByLabelText('object-hub').firstElementChild).toBe(screen.getByLabelText('object-tile-rooms'));
   });
 
   // K.2: the card of a client sends the owner straight to the estimates of one of his objects.

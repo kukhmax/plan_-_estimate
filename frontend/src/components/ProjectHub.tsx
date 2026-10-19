@@ -41,14 +41,14 @@ interface ProjectHubProps {
   onOpenSection: (section: ObjectSection) => void;
 }
 
-/** The tiles of an open object: the estimate first (it is what the contractor is paid by), then the work places. */
+/** The tiles of an open object: the rooms first (the work starts with measuring them; the owner's choice of 2026-10-19), then the estimate, then the other work places. */
 export function ProjectHub({ onOpenEstimates, onOpenSection }: ProjectHubProps) {
   const { t } = useI18n();
   const photos = useProjectPhotos();
   return (
     <nav aria-label="object-hub" className="grid grid-cols-1 gap-3">
-      <HubTile accent icon="🧮" ariaLabel="open-estimates" label={t.estimates.title} onOpen={onOpenEstimates} />
       <HubTile tone="green" icon="🚪" ariaLabel="object-tile-rooms" label={t.rooms.title} onOpen={() => onOpenSection('rooms')} />
+      <HubTile accent icon="🧮" ariaLabel="open-estimates" label={t.estimates.title} onOpen={onOpenEstimates} />
       <HubTile
         tone="sky"
         icon="📷"

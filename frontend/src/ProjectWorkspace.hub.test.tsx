@@ -125,23 +125,26 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     vi.mocked(photosApi.fetchPhotos).mockResolvedValue({ items: [], total: 0, limit: 30, offset: 0 } as never);
   });
 
-  it('is seven large tiles after the card of the object: the estimate first, then rooms, photos, documents, agreement and protocols, invoices and advances, the summary last', async () => {
+  it('is seven large tiles after the card of the object: the rooms first, then the estimate, photos, documents, agreement and protocols, invoices and advances, the summary last', async () => {
     renderWorkspace();
     await openHub();
     expect(screen.getByLabelText('project-detail')).toBeInTheDocument();
     const hub = screen.getByLabelText('object-hub');
     const tiles = Array.from(hub.children) as HTMLElement[];
     expect(tiles.map((tile) => tile.getAttribute('aria-label'))).toEqual([
-      'open-estimates', 'object-tile-rooms', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal', 'object-tile-payments', 'object-tile-summary',
+      'object-tile-rooms', 'open-estimates', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal', 'object-tile-payments', 'object-tile-summary',
     ]);
     expect(tiles.map((tile) => tile.textContent?.replace(/[›\d]/g, '').replace(/\p{Extended_Pictographic}️?/gu, '').trim())).toEqual([
-      'Kosztorys', 'Pomieszczenia', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Faktury i zaliczki', 'Podsumowanie obiektu',
+      'Pomieszczenia', 'Kosztorys', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Faktury i zaliczki', 'Podsumowanie obiektu',
     ]);
     for (const tile of tiles) expect(tile.className).toContain('min-h-14');
     // every tile starts with its own decorative icon, hidden from the accessible name (Stage 18G)
-    expect(tiles.map((tile) => tile.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['🧮', '🚪', '📷', '📄', '⚖️', '💰', '📊']);
+    expect(tiles.map((tile) => tile.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['🚪', '🧮', '📷', '📄', '⚖️', '💰', '📊']);
     expect(screen.getByRole('button', { name: 'open-estimates' })).toBeInTheDocument();
-    expect(tiles[0].className).toContain('bg-amber-500');
+    expect(tiles[1].className).toContain('bg-amber-500');
+    // the rooms tile has the wide dark-green border
+    expect(tiles[0].className).toContain('border-[3px]');
+    expect(tiles[0].className).toContain('border-green-800');
     // the number of the photos of the whole object is on its tile
     await waitFor(() => expect(screen.getByLabelText('object-tile-photos-count')).toHaveTextContent('4'));
   });

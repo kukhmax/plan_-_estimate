@@ -2,11 +2,11 @@
 export type HubTileTone = 'green' | 'sky' | 'pink' | 'slate' | 'yellow';
 
 const TONES: Record<HubTileTone, string> = {
-  green: 'bg-green-100 border-green-300 hover:bg-green-200 active:bg-green-300',
-  sky: 'bg-sky-100 border-sky-300 hover:bg-sky-200 active:bg-sky-300',
-  pink: 'bg-pink-100 border-pink-300 hover:bg-pink-200 active:bg-pink-300',
-  slate: 'bg-slate-200 border-slate-300 hover:bg-slate-300 active:bg-slate-400',
-  yellow: 'bg-yellow-100 border-yellow-300 hover:bg-yellow-200 active:bg-yellow-300',
+  green: 'border-[3px] bg-green-100 border-green-800 hover:bg-green-200 active:bg-green-300', // the rooms: first on the hub, with a wide dark-green border (the owner's choice of 2026-10-19)
+  sky: 'border bg-sky-100 border-sky-300 hover:bg-sky-200 active:bg-sky-300',
+  pink: 'border bg-pink-100 border-pink-300 hover:bg-pink-200 active:bg-pink-300',
+  slate: 'border bg-slate-200 border-slate-300 hover:bg-slate-300 active:bg-slate-400',
+  yellow: 'border bg-yellow-100 border-yellow-300 hover:bg-yellow-200 active:bg-yellow-300',
 };
 
 interface HubTileProps {
@@ -33,8 +33,8 @@ export function HubTile({ label, ariaLabel, onOpen, count, accent = false, tone,
       className={
         accent
           ? 'w-full min-h-14 bg-amber-500 border border-amber-600 rounded-2xl px-4 py-3 shadow-md flex items-center justify-between gap-3 text-left hover:bg-amber-400 active:bg-amber-600 transition'
-          : `w-full min-h-14 border rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between gap-3 text-left transition ${
-              tone ? TONES[tone] : 'bg-white border-slate-200 hover:bg-slate-50'
+          : `w-full min-h-14 rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between gap-3 text-left transition ${
+              tone ? TONES[tone] : 'border bg-white border-slate-200 hover:bg-slate-50'
             }`
       }
     >
