@@ -140,7 +140,7 @@ export function ObjectPhotos(): ReactNode {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos?.projectId]);
   return (
-    <article aria-label="project-photos" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+    <article aria-label="project-photos" className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{t.photos.section.project_title}</h3>
         <PhotoCardButton context="PROJECT" />

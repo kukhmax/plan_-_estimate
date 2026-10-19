@@ -28,7 +28,7 @@ interface KnowledgeBaseProps {
 }
 
 const SEARCH_DELAY_MS = 250;
-const CARD = 'bg-white border border-slate-200 rounded-2xl p-3 shadow-sm';
+const CARD = 'pe-card rounded-2xl p-3 shadow-sm';
 
 function fill(template: string, values: Record<string, string | number>): string {
   return Object.entries(values).reduce((text, [key, value]) => text.replace(`{${key}}`, String(value)), template);
@@ -139,7 +139,7 @@ function KnowledgeList({ title, onOpenEntry, onOpenSituation }: TitleProps & { o
         maxLength={100}
         autoComplete="off"
         enterKeyHint="search"
-        className="w-full min-h-12 px-3 text-base rounded-xl border border-slate-300 bg-white text-slate-900"
+        className="w-full min-h-12 px-3 text-base rounded-xl border border-slate-300 pe-surface text-slate-900"
       />
 
       {situations.length > 0 && !query && (

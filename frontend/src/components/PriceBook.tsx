@@ -335,7 +335,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
           aria-label="pricebook-category-filter"
           value={category}
           onChange={(e) => setCategory(e.target.value as PriceCategoryValue | '')}
-          className="min-h-11 border border-slate-200 rounded-xl px-2 py-2 text-sm bg-white"
+          className="min-h-11 border border-slate-200 rounded-xl px-2 py-2 text-sm pe-surface"
         >
           <option value="">{t.pricebook.all_categories}</option>
           {PRICE_CATEGORIES.map((value) => (
@@ -384,7 +384,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
             <li
               key={item.id}
               aria-label={`price-item-${item.id}`}
-              className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
+              className="pe-card rounded-2xl p-4 shadow-sm"
             >
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="font-semibold text-slate-900 text-sm break-words">

@@ -80,7 +80,7 @@ export function SentDocuments() {
             <li
               key={document.id}
               aria-label={`document-${document.number}`}
-              className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-1"
+              className="pe-card rounded-2xl p-3 shadow-sm space-y-1"
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="min-w-0 break-words text-sm font-semibold text-slate-900">{documentKindLabel(text, document.kind)}</span>

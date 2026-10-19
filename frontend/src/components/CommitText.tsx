@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export const FIELD = 'w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base bg-white text-slate-900';
+export const FIELD = 'w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base pe-surface text-slate-900';
 
 /** A text field that keeps what is typed and saves it when the field is left (one request per field, not per letter). */
 export function CommitText({

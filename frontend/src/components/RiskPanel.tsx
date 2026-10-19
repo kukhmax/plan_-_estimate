@@ -226,7 +226,7 @@ export function RiskPanel({ projectId, roomId, inspectionId }: RiskPanelProps) {
             className={`min-h-11 flex-1 rounded-lg border px-1 text-sm font-medium ${
               status === value
                 ? 'border-blue-600 bg-blue-50 text-blue-800'
-                : 'border-neutral-300 bg-white text-neutral-700'
+                : 'border-neutral-300 pe-surface text-neutral-700'
             }`}
             onClick={() => void switchStatus(value)}
           >
@@ -294,7 +294,7 @@ function RiskCard({
 
   return (
     <li
-      className={`flex flex-col gap-2 rounded-lg border bg-white p-3 text-sm ${
+      className={`flex flex-col gap-2 rounded-lg border pe-surface p-3 text-sm ${
         active ? 'border-neutral-200' : 'border-neutral-200 bg-neutral-50 opacity-80'
       }`}
     >
@@ -337,7 +337,7 @@ function RiskCard({
         <span
           className={`self-start rounded-full border px-2 py-0.5 text-xs ${
             active
-              ? 'border-neutral-300 bg-white text-neutral-700'
+              ? 'border-neutral-300 pe-surface text-neutral-700'
               : 'border-neutral-200 bg-neutral-50 text-neutral-500'
           }`}
         >

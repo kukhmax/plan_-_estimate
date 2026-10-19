@@ -295,7 +295,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
         <form
           aria-label="client-form"
           onSubmit={handleSubmit}
-          className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm space-y-3"
+          className="pe-card rounded-2xl p-4 mb-4 shadow-sm space-y-3"
         >
           <h3 className="font-semibold text-slate-900 text-sm">
             {editingClient ? t.clients.edit : t.clients.add_client}
@@ -534,7 +534,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
 
       {!showForm && (
         <>
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+          <div className="pe-card rounded-2xl p-4 shadow-sm space-y-2">
             {renderContact(selected)}
             {selected.notes && (
               <p aria-label={`client-notes-${selected.id}`} className="text-sm text-slate-600 whitespace-pre-wrap break-words">
@@ -591,7 +591,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
               <li
                 key={project.id}
                 aria-label={`client-object-${project.id}`}
-                className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm"
+                className="pe-card rounded-2xl p-3 shadow-sm"
               >
                 <p className="font-semibold text-slate-900 text-sm break-words">{project.name}</p>
                 <p className="text-xs text-slate-500 break-words">{statusLabel(project.status)}</p>
@@ -672,7 +672,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
                   setActionError(null);
                   setSelected(c);
                 }}
-                className="w-full min-h-12 bg-white border border-slate-200 rounded-2xl px-4 py-2 shadow-sm flex items-center justify-between gap-3 text-left"
+                className="w-full min-h-12 pe-card rounded-2xl px-4 py-2 shadow-sm flex items-center justify-between gap-3 text-left"
               >
                 <span className="font-semibold text-slate-900 text-sm break-words min-w-0">{displayName(c)}</span>
                 <span className="flex items-center gap-2 shrink-0">

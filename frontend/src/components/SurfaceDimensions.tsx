@@ -67,7 +67,7 @@ export function SurfaceDimensions({ surfaceId, width, height, readOnly = false, 
 
   if (editing) {
     return (
-      <form aria-label={`dimensions-form-${surfaceId}`} onSubmit={(event) => void submit(event)} className="space-y-2 rounded-xl border border-blue-200 bg-white p-2.5">
+      <form aria-label={`dimensions-form-${surfaceId}`} onSubmit={(event) => void submit(event)} className="space-y-2 rounded-xl border border-blue-200 pe-surface p-2.5">
         <div className="grid grid-cols-2 gap-2">
           <div className="min-w-0">
             <label className="block text-[11px] text-slate-500 mb-1">{t.surfaces.width}</label>

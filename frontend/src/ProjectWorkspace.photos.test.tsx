@@ -314,7 +314,7 @@ describe('ProjectWorkspace photos — the object card (view and edit everything)
     renderWorkspace();
     await openProject();
     const card = screen.getByLabelText('project-photos');
-    expect(card.className).toContain('bg-white');
+    expect(card.className).toContain('pe-card'); // the surface of the card follows the theme (light: white; dark: the Telegram surface)
     const title = within(card).getByRole('heading', { name: 'Zdjęcia obiektu' });
     expect(title.className).toContain('text-slate-900');
     expect(title.className).not.toContain('var(--tg-theme');

@@ -31,7 +31,7 @@ export function SurfaceRowButton({ surfaceId, rowKey, name, typeLabel, area, arc
     <button type="button" aria-label={`surface-row-${key}`} aria-expanded={false} onClick={onOpen} className={className}>
       <span className="min-w-0 flex-1 flex items-center gap-2 flex-wrap text-left">
         <span className="font-semibold text-slate-900 text-sm break-words">{name}</span>
-        {typeLabel && <span className="text-xs px-2 py-0.5 rounded-full bg-white/80 text-slate-700 font-medium">{typeLabel}</span>}
+        {typeLabel && <span className="text-xs px-2 py-0.5 rounded-full pe-pill font-medium">{typeLabel}</span>}
         {archivedLabel && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">{archivedLabel}</span>}
         <PendingMark record={{ _pending: pending }} id={key} />
       </span>

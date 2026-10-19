@@ -285,15 +285,15 @@ export function ProjectDowntime({ projectId }: ProjectDowntimeProps) {
       <button type="button" aria-label={`issue-downtime-${issueKey}`} disabled={busy || blockers.length > 0} onClick={() => void issue(issueKey)} className={`w-full ${BUTTON} text-white bg-sky-700 border-sky-700 hover:bg-sky-800`}>
         {issueKey === 'notice' ? text.issue_notice : text.issue_protocol}
       </button>
-      <button type="button" aria-label="close-downtime-form" disabled={busy} onClick={() => { setOpen(false); setConfirmFinish(false); }} className={`w-full ${BUTTON} text-slate-800 bg-white border-slate-300 hover:bg-slate-100`}><Ico>✖️</Ico>{text.close}</button>
-      <button type="button" aria-label="abandon-downtime" disabled={busy} onClick={() => void abandon()} className={`w-full ${BUTTON} text-red-800 bg-white border-red-300 hover:bg-red-50`}>
+      <button type="button" aria-label="close-downtime-form" disabled={busy} onClick={() => { setOpen(false); setConfirmFinish(false); }} className={`w-full ${BUTTON} text-slate-800 pe-surface border-slate-300 hover:bg-slate-100`}><Ico>✖️</Ico>{text.close}</button>
+      <button type="button" aria-label="abandon-downtime" disabled={busy} onClick={() => void abandon()} className={`w-full ${BUTTON} text-red-800 pe-surface border-red-300 hover:bg-red-50`}>
         {confirmFinish ? (issueKey === 'notice' ? text.abandon_confirm : text.finish_confirm) : issueKey === 'notice' ? text.abandon : text.finish_without}
       </button>
     </>
   );
 
   return (
-    <article aria-label="project-downtime" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+    <article aria-label="project-downtime" className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
       <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{text.title}</h3>
       <p className="text-xs text-slate-600 break-words">{text.intro}</p>
 
@@ -404,7 +404,7 @@ export function ProjectDowntime({ projectId }: ProjectDowntimeProps) {
                   <span className="block text-sm font-medium text-slate-900">{text.day_note}</span>
                   <CommitText label={`downtime-day-note-${day.date}`} value={day.note ?? ''} onCommit={(v) => save({ days: { [day.date]: { note: v.trim() === '' ? null : v } } })} />
                 </label>
-                <button type="button" aria-label={`downtime-day-remove-${day.date}`} onClick={() => save({ days: { [day.date]: null } })} className={`w-full ${BUTTON} text-red-800 bg-white border-red-300 hover:bg-red-50`}><Ico>🗑️</Ico>{text.day_remove}</button>
+                <button type="button" aria-label={`downtime-day-remove-${day.date}`} onClick={() => save({ days: { [day.date]: null } })} className={`w-full ${BUTTON} text-red-800 pe-surface border-red-300 hover:bg-red-50`}><Ico>🗑️</Ico>{text.day_remove}</button>
               </div>
             ))}
             <button type="button" aria-label="downtime-add-next-day" disabled={!episode.noticed_on} onClick={addNextDay} className={`w-full ${BUTTON} text-white bg-blue-600 border-blue-600 hover:bg-blue-700`}><Ico>➕</Ico>{text.add_next}</button>
@@ -455,7 +455,7 @@ export function ProjectDowntime({ projectId }: ProjectDowntimeProps) {
             {strangers.map((a, index) => (
               <div key={`${a.name}-${index}`} className="flex items-center justify-between gap-3 min-h-11 text-sm text-slate-900">
                 <span className="min-w-0 break-words">{a.name}{a.role ? ` · ${a.role}` : ''}</span>
-                <button type="button" aria-label={`downtime-extra-remove-${index}`} onClick={() => removeExtra(index)} className={`shrink-0 ${BUTTON} text-red-800 bg-white border-red-300`}><Ico>🗑️</Ico>{text.extra_remove}</button>
+                <button type="button" aria-label={`downtime-extra-remove-${index}`} onClick={() => removeExtra(index)} className={`shrink-0 ${BUTTON} text-red-800 pe-surface border-red-300`}><Ico>🗑️</Ico>{text.extra_remove}</button>
               </div>
             ))}
             <label className="block space-y-1 pt-1">

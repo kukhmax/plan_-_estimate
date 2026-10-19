@@ -427,7 +427,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
             type="button"
             onClick={onCancel}
             aria-label="coefficient-modal-cancel"
-            className="flex-1 min-h-[44px] px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 active:bg-slate-100"
+            className="flex-1 min-h-[44px] px-4 py-2 text-sm font-medium text-slate-700 pe-surface border border-slate-300 rounded-lg hover:bg-slate-50 active:bg-slate-100"
           >
             <Ico>✖️</Ico>{t.coefficients.cancel}
           </button>
@@ -480,7 +480,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
               <button
                 type="button"
                 onClick={() => setDescriptionSheet(null)}
-                className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="w-full min-h-[44px] rounded-lg border border-slate-300 pe-surface px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 <Ico>✖️</Ico>{t.coefficients.close}
               </button>

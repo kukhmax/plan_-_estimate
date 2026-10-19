@@ -26,7 +26,7 @@ const STATUS_STYLE: Record<ProbeStatus, string> = {
 const STATUS_ICON: Record<ProbeStatus, string> = { ok: '✅', unsupported: '➖', error: '❌', timeout: '⏱️', denied: '⚠️' };
 const STORAGES: StorageKind[] = ['cloud', 'secure', 'device'];
 
-const button = 'w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 disabled:opacity-50 transition break-words';
+const button = 'w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-slate-300 pe-surface text-slate-900 hover:bg-slate-50 disabled:opacity-50 transition break-words';
 const primary = 'w-full min-h-11 px-3 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition break-words';
 
 /**
@@ -106,7 +106,7 @@ export function SecurityProbe() {
         {AUTOMATIC_PROBES.map((id) => {
           const result = results[id];
           return (
-            <li key={id} aria-label={`probe-${id}`} className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-1">
+            <li key={id} aria-label={`probe-${id}`} className="pe-card rounded-2xl p-3 shadow-sm space-y-1">
               <div className="flex items-start justify-between gap-2">
                 <span className="min-w-0 break-words text-sm font-semibold text-slate-900">{text.checks[id]}</span>
                 {result ? (
@@ -130,7 +130,7 @@ export function SecurityProbe() {
         })}
       </ul>
 
-      <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2">
+      <div className="pe-card rounded-2xl p-3 shadow-sm space-y-2">
         <p className="text-sm font-semibold text-slate-900 break-words">{text.biometric_title}</p>
         <p className="text-xs text-slate-600 break-words">{text.biometric_hint}</p>
         <button type="button" aria-label="probe-biometric-access" disabled={busy !== null} onClick={() => void tap('access', 'biometric.request_access', () => askBiometricAccess())} className={button}>
@@ -142,7 +142,7 @@ export function SecurityProbe() {
         {lastTap && <p aria-label="probe-last-tap" className="text-xs text-slate-700 break-all">{lastTap}</p>}
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-3">
+      <div className="pe-card rounded-2xl p-3 shadow-sm space-y-3">
         <p className="text-sm font-semibold text-slate-900 break-words">{text.markers_title}</p>
         <p className="text-xs text-slate-600 break-words">{text.markers_hint}</p>
         {STORAGES.map((kind) => (
@@ -167,7 +167,7 @@ export function SecurityProbe() {
           readOnly
           value={report}
           rows={10}
-          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 bg-white"
+          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 pe-surface"
         />
         <button type="button" aria-label="probe-copy" onClick={() => void copy()} className={button}>
           <Ico>📋</Ico>{text.copy}

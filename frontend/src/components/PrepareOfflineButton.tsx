@@ -44,7 +44,7 @@ export function PrepareOfflineButton({ projectId }: PrepareOfflineButtonProps) {
   const o = t.offline;
 
   return (
-    <section aria-label="prepare-offline" className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2">
+    <section aria-label="prepare-offline" className="pe-card rounded-2xl p-3 shadow-sm space-y-2">
       <button
         type="button"
         aria-label="prepare-offline-button"

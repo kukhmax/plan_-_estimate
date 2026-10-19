@@ -99,7 +99,7 @@ export function KnowledgeBasis({ targets, name = 'knowledge-basis', heading, kin
           {entries.some((entry) => entry.status === 'DRAFT') && <p className="text-xs text-amber-900 break-words">{text.basis_draft}</p>}
           <ul className="space-y-2">
             {entries.map((entry) => (
-              <li key={entry.code} className="rounded-lg border border-slate-200 bg-white">
+              <li key={entry.code} className="rounded-lg border border-slate-200 pe-surface">
                 <button
                   type="button"
                   aria-label={`${name}-entry-${entry.code}`}

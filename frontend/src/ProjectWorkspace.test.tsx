@@ -362,7 +362,7 @@ describe('ProjectWorkspace', () => {
     await openObject(project.id, null);
 
     const card = await screen.findByLabelText('project-detail');
-    expect(card.className).toContain('bg-white');
+    expect(card.className).toContain('pe-card');
 
     const addressValue = within(card).getByText(/ul\. Dobra 10/);
     const statusValue = within(card).getByText('Planowanie');

@@ -3,7 +3,7 @@ import { decideAccess, fetchAccess, removeAccess, saveAccessSettings } from '../
 import { useI18n } from '../hooks/useI18n';
 import type { AccessEntry, AccessOverview, AccessStatus } from '../types/access';
 
-const button = 'w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 disabled:opacity-50 transition break-words';
+const button = 'w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-slate-300 pe-surface text-slate-900 hover:bg-slate-50 disabled:opacity-50 transition break-words';
 const primary = 'w-full min-h-11 px-3 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition break-words';
 const GROUPS: AccessStatus[] = ['PENDING', 'ACTIVE', 'BLOCKED'];
 
@@ -106,7 +106,7 @@ export function AccessScreen() {
                   setContact(event.target.value);
                   setSaved(false);
                 }}
-                className="w-full min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-base text-slate-900"
+                className="w-full min-h-11 rounded-xl border border-slate-300 pe-surface px-3 text-base text-slate-900"
               />
             </label>
             <button type="button" aria-label="access-save-contact" className={primary} disabled={busy || contact.trim() === overview.settings.contact} onClick={() => void saveContact()}>

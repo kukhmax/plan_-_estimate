@@ -50,7 +50,7 @@ function formFrom(work: AdjacentWork): FormState {
   };
 }
 
-const FIELD = 'w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base bg-white text-slate-900';
+const FIELD = 'w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base pe-surface text-slate-900';
 
 /**
  * Stage 16D.1 — works of other contractors on the object (electrics, plumbing, tiles, the developer's crew): who does what, in
@@ -187,7 +187,7 @@ export function ProjectAdjacentWorks({ projectId }: ProjectAdjacentWorksProps) {
   };
 
   return (
-    <article aria-label="project-adjacent-works" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+    <article aria-label="project-adjacent-works" className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{text.title}</h3>
         {editing === null && (
@@ -251,7 +251,7 @@ export function ProjectAdjacentWorks({ projectId }: ProjectAdjacentWorksProps) {
           <button type="submit" disabled={saving} className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition">
             <Ico>💾</Ico>{text.save}
           </button>
-          <button type="button" onClick={closeForm} disabled={saving} className="w-full min-h-11 px-3 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition">
+          <button type="button" onClick={closeForm} disabled={saving} className="w-full min-h-11 px-3 text-sm font-semibold text-slate-800 pe-surface border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition">
             <Ico>✖️</Ico>{text.cancel}
           </button>
         </form>
@@ -296,7 +296,7 @@ export function ProjectAdjacentWorks({ projectId }: ProjectAdjacentWorksProps) {
                   aria-label={`${work.is_archived ? 'restore' : 'archive'}-adjacent-work-${work.id}`}
                   disabled={busyId === work.id}
                   onClick={() => void toggleArchive(work)}
-                  className="min-h-11 px-4 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition"
+                  className="min-h-11 px-4 text-sm font-semibold text-slate-800 pe-surface border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition"
                 >
                   {work.is_archived ? text.restore : text.archive}
                 </button>

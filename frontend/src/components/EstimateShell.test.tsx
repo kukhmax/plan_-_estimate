@@ -1435,7 +1435,7 @@ describe('Line provenance in detail view (compact header — Stage 10G.2 final p
 
 describe('Surface card tint (stable, surface_id-based — Stage 10G.2 final polish)', () => {
   function getCardBgClass(labelText: string): string | undefined {
-    return screen.getByLabelText(labelText).className.split(' ').find((c) => c.startsWith('bg-'));
+    return screen.getByLabelText(labelText).className.split(' ').find((c) => c.startsWith('bg-') || c === 'pe-surface');
   }
 
   it('gives two lines with the SAME surface_id the SAME tint background class', async () => {
@@ -1497,7 +1497,7 @@ describe('Surface card tint (stable, surface_id-based — Stage 10G.2 final poli
     vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([manualLine]));
     renderShell(makeSummary(), MANUAL_KEY);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
-    expect(getCardBgClass('estimate-line-0')).toBe('bg-white');
+    expect(getCardBgClass('estimate-line-0')).toBe('pe-surface'); // the neutral card: white in the light theme, the Telegram surface in the dark one
   });
 });
 

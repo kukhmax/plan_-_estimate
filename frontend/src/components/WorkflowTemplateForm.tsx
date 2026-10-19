@@ -259,7 +259,7 @@ export function WorkflowTemplateForm({ mode, source, sourceName, onSaved, onCanc
 
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={onCancel} disabled={saving}
-          className="w-full min-h-11 px-3 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-60">
+          className="w-full min-h-11 px-3 rounded-xl border border-slate-300 pe-surface text-sm font-semibold text-slate-700 disabled:opacity-60">
           <Ico>✖️</Ico>{t.common.cancel}
         </button>
         <button type="submit" aria-label="process-form-submit" disabled={saving || archivedSteps > 0}

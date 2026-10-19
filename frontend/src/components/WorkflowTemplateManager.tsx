@@ -202,11 +202,11 @@ export function WorkflowTemplateManager() {
             setNotice(null);
             openDetail(null);
           }}
-          className="w-full min-h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 text-left"
+          className="w-full min-h-11 px-3 rounded-xl border border-slate-200 pe-surface text-sm font-semibold text-slate-700 text-left"
         >
           ← {t.processes.back}
         </button>
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
           <div className="space-y-1.5">
             <h3 className="text-base font-bold text-slate-900 break-words">{templateName(tpl)}</h3>
             <div className="flex flex-wrap gap-1.5">
@@ -229,7 +229,7 @@ export function WorkflowTemplateManager() {
           </dl>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+        <div className="pe-card rounded-2xl p-4 shadow-sm space-y-2">
           <h4 className="text-sm font-semibold text-slate-900">
             {t.processes.steps_title} ({tpl.steps.length})
           </h4>
@@ -288,7 +288,7 @@ export function WorkflowTemplateManager() {
               <p className="text-xs text-amber-900 break-words">{t.processes.archive_confirm_body}</p>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => setConfirmingArchive(false)} disabled={busy}
-                  className="w-full min-h-11 px-3 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-60">
+                  className="w-full min-h-11 px-3 rounded-xl border border-slate-300 pe-surface text-sm font-semibold text-slate-700 disabled:opacity-60">
                   <Ico>✖️</Ico>{t.common.cancel}
                 </button>
                 <button type="button" aria-label="process-archive-confirm-yes" onClick={() => void changeArchiveState(tpl, true)} disabled={busy}
@@ -306,24 +306,24 @@ export function WorkflowTemplateManager() {
               </button>
               <button type="button" aria-label="process-edit-steps" disabled={busy}
                 onClick={() => { setNotice(null); setEditingSteps(true); }}
-                className="w-full min-h-11 px-3 rounded-xl border border-blue-600 text-blue-700 bg-white text-sm font-semibold disabled:opacity-60">
+                className="w-full min-h-11 px-3 rounded-xl border border-blue-600 text-blue-700 pe-surface text-sm font-semibold disabled:opacity-60">
                 <Ico>✏️</Ico>{t.processes.edit_steps}
               </button>
               <button type="button" aria-label="process-duplicate" disabled={busy}
                 onClick={() => { setNotice(null); setFormMode('duplicate'); }}
-                className="w-full min-h-11 px-3 rounded-xl border border-blue-600 text-blue-700 bg-white text-sm font-semibold disabled:opacity-60">
+                className="w-full min-h-11 px-3 rounded-xl border border-blue-600 text-blue-700 pe-surface text-sm font-semibold disabled:opacity-60">
                 <Ico>📑</Ico>{t.processes.duplicate}
               </button>
               {tpl.is_archived ? (
                 <button type="button" aria-label="process-restore" disabled={busy}
                   onClick={() => void changeArchiveState(tpl, false)}
-                  className="w-full min-h-11 px-3 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 disabled:opacity-60">
+                  className="w-full min-h-11 px-3 rounded-xl border border-slate-300 pe-surface text-sm font-semibold text-slate-700 disabled:opacity-60">
                   {busy ? t.common.saving : t.processes.restore}
                 </button>
               ) : (
                 <button type="button" aria-label="process-archive" disabled={busy}
                   onClick={() => { setNotice(null); setConfirmingArchive(true); }}
-                  className="w-full min-h-11 px-3 rounded-xl border border-amber-400 bg-white text-sm font-semibold text-amber-800 disabled:opacity-60">
+                  className="w-full min-h-11 px-3 rounded-xl border border-amber-400 pe-surface text-sm font-semibold text-amber-800 disabled:opacity-60">
                   <Ico>🗃️</Ico>{t.processes.archive}
                 </button>
               )}
@@ -429,7 +429,7 @@ export function WorkflowTemplateManager() {
                     setNotice(null);
                     openDetail(tpl);
                   }}
-                  className="w-full min-h-11 text-left bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-1.5"
+                  className="w-full min-h-11 text-left pe-card rounded-2xl p-3 shadow-sm space-y-1.5"
                 >
                   <span className="block text-sm font-semibold text-slate-900 break-words">{templateName(tpl)}</span>
                   <span className="flex flex-wrap gap-1.5">

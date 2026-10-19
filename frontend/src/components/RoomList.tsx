@@ -235,7 +235,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
         <form
           aria-label="room-form"
           onSubmit={handleSubmit}
-          className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm space-y-3"
+          className="pe-card rounded-2xl p-4 mb-4 shadow-sm space-y-3"
         >
           <h4 className="font-semibold text-slate-900">
             {editingId ? t.rooms.edit : t.rooms.add}
@@ -261,7 +261,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
               onClick={() => setRoomShape('RECTANGLE')}
               className={`rounded-lg px-2.5 py-1.5 min-h-11 text-xs font-semibold transition ${
                 roomShape === 'RECTANGLE'
-                  ? 'bg-white text-blue-700 shadow-sm'
+                  ? 'pe-surface text-blue-700 shadow-sm'
                   : 'text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -273,7 +273,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
               onClick={() => setRoomShape('CUSTOM')}
               className={`rounded-lg px-2.5 py-1.5 min-h-11 text-xs font-semibold transition ${
                 roomShape === 'CUSTOM'
-                  ? 'bg-white text-blue-700 shadow-sm'
+                  ? 'pe-surface text-blue-700 shadow-sm'
                   : 'text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -418,7 +418,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
               <li
                 key={room.id}
                 aria-label={`room-item-${room.id}`}
-                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2.5"
+                className="pe-card rounded-2xl p-4 shadow-sm flex flex-col gap-2.5"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">

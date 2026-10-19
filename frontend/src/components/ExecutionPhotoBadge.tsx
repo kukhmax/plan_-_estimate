@@ -31,7 +31,7 @@ function CountBadge({ count, label, testId }: CountBadgeProps) {
       role="img"
       aria-label={label}
       title={label}
-      className="pointer-events-none inline-flex shrink-0 items-center gap-0.5 rounded-full border border-slate-300 bg-white px-1.5 py-0.5 text-xs font-semibold text-slate-700"
+      className="pointer-events-none inline-flex shrink-0 items-center gap-0.5 rounded-full border border-slate-300 pe-surface px-1.5 py-0.5 text-xs font-semibold text-slate-700"
     >
       <CameraIcon size={14} />
       <span aria-hidden="true">{count > BADGE_MAX_COUNT ? `${BADGE_MAX_COUNT}+` : count}</span>

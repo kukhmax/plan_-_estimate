@@ -600,7 +600,7 @@ export function InspectionFlow({
                 className={`min-h-14 rounded-lg border px-3 text-sm font-medium ${
                   substrate === value
                     ? 'border-blue-600 bg-blue-50 text-blue-800'
-                    : 'border-neutral-300 bg-white text-neutral-800'
+                    : 'border-neutral-300 pe-surface text-neutral-800'
                 }`}
                 onClick={() => setSubstrate(value)}
               >
@@ -611,7 +611,7 @@ export function InspectionFlow({
           <div className="flex gap-2">
             <button
               type="button"
-              className="min-h-11 flex-1 rounded-lg border border-neutral-300 bg-white px-3 font-medium text-neutral-700"
+              className="min-h-11 flex-1 rounded-lg border border-neutral-300 pe-surface px-3 font-medium text-neutral-700"
               onClick={() => setStep('substrate')}
             >
               <Ico>✖️</Ico>{t.common.cancel}
@@ -652,7 +652,7 @@ export function InspectionFlow({
                 className={`min-h-11 rounded-lg border text-sm font-semibold ${
                   quality === level
                     ? 'border-blue-600 bg-blue-50 text-blue-800'
-                    : 'border-neutral-300 bg-white text-neutral-800'
+                    : 'border-neutral-300 pe-surface text-neutral-800'
                 }`}
                 onClick={() => setQuality(level)}
               >
@@ -679,7 +679,7 @@ export function InspectionFlow({
           <div className="flex gap-2">
             <button
               type="button"
-              className="min-h-11 flex-1 rounded-lg border border-neutral-300 bg-white px-3 font-medium text-neutral-700"
+              className="min-h-11 flex-1 rounded-lg border border-neutral-300 pe-surface px-3 font-medium text-neutral-700"
               onClick={() => setStep('substrate')}
             >
               <Ico>⬅️</Ico>{t.common.back}
@@ -867,7 +867,7 @@ function QuestionField({
   const unit = question.unit_key ? resolveKey(t, question.unit_key) : null;
 
   return (
-    <fieldset className="rounded-lg border border-neutral-200 bg-white p-3">
+    <fieldset className="rounded-lg border border-neutral-200 pe-surface p-3">
       <legend className="px-1 text-sm font-medium text-neutral-900">{label}</legend>
       {photoInspectionId ? (
         <div className="mb-2 flex items-start justify-between gap-2">
@@ -938,7 +938,7 @@ function QuestionField({
                 className={`min-h-11 rounded-lg border px-3 text-sm font-medium ${
                   answer?.option_key === option.key
                     ? 'border-blue-600 bg-blue-50 text-blue-800'
-                    : 'border-neutral-300 bg-white text-neutral-800'
+                    : 'border-neutral-300 pe-surface text-neutral-800'
                 }`}
                 onClick={() => onChange({ option_key: option.key })}
               >
@@ -964,7 +964,7 @@ function QuestionField({
                   className={`min-h-11 rounded-full border px-3 text-sm font-medium ${
                     selected
                       ? 'border-blue-600 bg-blue-50 text-blue-800'
-                      : 'border-neutral-300 bg-white text-neutral-800'
+                      : 'border-neutral-300 pe-surface text-neutral-800'
                   }`}
                   onClick={() => {
                     const current = answer?.option_keys ?? [];
@@ -1074,7 +1074,7 @@ export function FindingRow({ finding, t }: { finding: InspectionFinding; t: Retu
     <li
       className={`rounded-md border px-3 py-2 text-sm ${
         isActive
-          ? 'border-neutral-200 bg-white text-neutral-900'
+          ? 'border-neutral-200 pe-surface text-neutral-900'
           : 'border-neutral-200 bg-neutral-100 text-neutral-500 line-through'
       }`}
     >

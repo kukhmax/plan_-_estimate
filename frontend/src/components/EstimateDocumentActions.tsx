@@ -81,7 +81,7 @@ export function EstimateDocumentActions({ projectId, estimateId, status }: Estim
   const running = busy || issued?.status === 'PENDING';
 
   return (
-    <div aria-label="estimate-documents" className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2">
+    <div aria-label="estimate-documents" className="pe-card rounded-2xl p-3 shadow-sm space-y-2">
       <button
         type="button"
         aria-label={isDraft ? 'estimate-preview-pdf' : 'estimate-send-pdf'}

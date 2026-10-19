@@ -224,7 +224,7 @@ export const CoefficientCatalogManager: React.FC = () => {
             onClick={() => setActiveTab('active')}
             className={`min-h-[44px] px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
               activeTab === 'active'
-                ? 'bg-white text-slate-900 shadow-sm'
+                ? 'pe-surface text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -235,7 +235,7 @@ export const CoefficientCatalogManager: React.FC = () => {
             onClick={() => setActiveTab('archived')}
             className={`min-h-[44px] px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
               activeTab === 'archived'
-                ? 'bg-white text-slate-900 shadow-sm'
+                ? 'pe-surface text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -267,7 +267,7 @@ export const CoefficientCatalogManager: React.FC = () => {
       )}
 
       {!loading && groups.length === 0 && (
-        <div className="py-8 text-center text-sm text-slate-500 bg-white rounded-xl border border-slate-200 p-6">
+        <div className="py-8 text-center text-sm text-slate-500 pe-surface rounded-xl border border-slate-200 p-6">
           {t.coefficients.no_groups}
         </div>
       )}
@@ -508,7 +508,7 @@ export const CoefficientCatalogManager: React.FC = () => {
       {/* Add Group Modal */}
       {isAddGroupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-4 space-y-4">
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto pe-surface rounded-2xl shadow-xl p-4 space-y-4">
             <h3 className="text-base font-bold text-slate-900">
               {t.coefficients.add_group}
             </h3>
@@ -565,7 +565,7 @@ export const CoefficientCatalogManager: React.FC = () => {
       {/* Add Option Modal */}
       {addingOptionGroupId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-4 space-y-4">
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto pe-surface rounded-2xl shadow-xl p-4 space-y-4">
             <h3 className="text-base font-bold text-slate-900">
               {t.coefficients.add_option}
             </h3>
@@ -648,7 +648,7 @@ export const CoefficientCatalogManager: React.FC = () => {
       {/* Edit Option Modal */}
       {editingOption && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-4 space-y-4">
+          <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto pe-surface rounded-2xl shadow-xl p-4 space-y-4">
             <h3 className="text-base font-bold text-slate-900">
               {t.coefficients.edit}
             </h3>

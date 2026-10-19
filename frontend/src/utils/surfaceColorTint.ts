@@ -14,18 +14,20 @@
 export interface SurfaceTint {
   bg: string;
   border: string;
+  /** `pe-tinted` + the accent of the hue: in the dark scheme the fill goes and only a stripe of the colour stays (usability U-1). */
+  extra: string;
 }
 
 const SURFACE_TINT_PALETTE: readonly SurfaceTint[] = [
-  { bg: 'bg-blue-50', border: 'border-blue-100' },
-  { bg: 'bg-emerald-50', border: 'border-emerald-100' },
-  { bg: 'bg-amber-50', border: 'border-amber-100' },
-  { bg: 'bg-rose-50', border: 'border-rose-100' },
-  { bg: 'bg-violet-50', border: 'border-violet-100' },
-  { bg: 'bg-teal-50', border: 'border-teal-100' },
+  { bg: 'bg-blue-50', border: 'border-blue-100', extra: 'pe-tinted pe-accent-blue' },
+  { bg: 'bg-emerald-50', border: 'border-emerald-100', extra: 'pe-tinted pe-accent-emerald' },
+  { bg: 'bg-amber-50', border: 'border-amber-100', extra: 'pe-tinted pe-accent-amber' },
+  { bg: 'bg-rose-50', border: 'border-rose-100', extra: 'pe-tinted pe-accent-rose' },
+  { bg: 'bg-violet-50', border: 'border-violet-100', extra: 'pe-tinted pe-accent-violet' },
+  { bg: 'bg-teal-50', border: 'border-teal-100', extra: 'pe-tinted pe-accent-teal' },
 ];
 
-const NEUTRAL_CARD_TINT: SurfaceTint = { bg: 'bg-white', border: 'border-slate-200' };
+const NEUTRAL_CARD_TINT: SurfaceTint = { bg: 'pe-surface', border: 'border-slate-200', extra: '' };
 
 // FNV-1a 32-bit — cheap, stable, well-distributed for short UUID strings.
 export function hashSurfaceId(surfaceId: string): number {

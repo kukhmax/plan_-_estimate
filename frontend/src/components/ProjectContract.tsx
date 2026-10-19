@@ -17,7 +17,7 @@ interface ProjectContractProps {
   projectId: string;
 }
 
-const FIELD = 'w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base bg-white text-slate-900';
+const FIELD = 'w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base pe-surface text-slate-900';
 const NUMERIC_KINDS = new Set(['NUMBER', 'PERCENT', 'DAYS', 'MONTHS']);
 
 function todayIso(): string {
@@ -425,7 +425,7 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
   };
 
   return (
-    <article aria-label="project-contract" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+    <article aria-label="project-contract" className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{text.title}</h3>
       </div>
@@ -468,7 +468,7 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
               {latest.status === 'SIGNED' && latest.signed_on && (
                 <p className="text-sm text-emerald-800 break-words">{text.signed_info.replace('{date}', latest.signed_on).replace('{version}', String(latest.estimate_version ?? ''))}</p>
               )}
-              <button type="button" aria-label="close-contract" disabled={busy} onClick={() => void closeLatest()} className="w-full min-h-11 px-3 text-sm font-semibold text-red-800 bg-white border border-red-300 rounded-xl hover:bg-red-50 disabled:opacity-60 transition break-words">
+              <button type="button" aria-label="close-contract" disabled={busy} onClick={() => void closeLatest()} className="w-full min-h-11 px-3 text-sm font-semibold text-red-800 pe-surface border border-red-300 rounded-xl hover:bg-red-50 disabled:opacity-60 transition break-words">
                 {confirmClose ? text.close_confirm : latest.status === 'SIGNED' ? text.close_signed : text.close_issued}
               </button>
             </>
@@ -568,10 +568,10 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
           <button type="button" aria-label="issue-contract" disabled={busy || !gate?.ready} onClick={() => void issue()} className="w-full min-h-11 px-3 text-sm font-semibold text-white bg-sky-700 rounded-xl hover:bg-sky-800 disabled:opacity-60 transition break-words">
             {text.issue}
           </button>
-          <button type="button" aria-label="close-contract-form" disabled={busy} onClick={() => setOpen(false)} className="w-full min-h-11 px-3 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition">
+          <button type="button" aria-label="close-contract-form" disabled={busy} onClick={() => setOpen(false)} className="w-full min-h-11 px-3 text-sm font-semibold text-slate-800 pe-surface border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition">
             <Ico>✖️</Ico>{text.close}
           </button>
-          <button type="button" aria-label="abandon-contract-draft" disabled={busy} onClick={() => void abandon()} className="w-full min-h-11 px-3 text-sm font-semibold text-red-800 bg-white border border-red-300 rounded-xl hover:bg-red-50 disabled:opacity-60 transition break-words">
+          <button type="button" aria-label="abandon-contract-draft" disabled={busy} onClick={() => void abandon()} className="w-full min-h-11 px-3 text-sm font-semibold text-red-800 pe-surface border border-red-300 rounded-xl hover:bg-red-50 disabled:opacity-60 transition break-words">
             {confirmAbandon ? text.abandon_confirm : text.abandon}
           </button>
         </form>

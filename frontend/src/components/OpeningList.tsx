@@ -456,7 +456,7 @@ export function OpeningList({
                 aria-label="opening-type"
                 value={form.opening_type}
                 onChange={(e) => handleTypeChange(e.target.value as OpeningTypeValue)}
-                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs pe-surface"
               >
                 {(['DOOR', 'WINDOW', 'OTHER'] as const).map((type) => (
                   <option key={type} value={type}>
@@ -477,7 +477,7 @@ export function OpeningList({
                 required
                 value={form.quantity}
                 onChange={(e) => setForm((cur) => ({ ...cur, quantity: e.target.value }))}
-                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs pe-surface"
               />
             </div>
           </div>
@@ -491,7 +491,7 @@ export function OpeningList({
                 placeholder="90"
                 value={form.width}
                 onValueChange={(meters) => setForm((cur) => ({ ...cur, width: meters }))}
-                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs pe-surface"
               />
             </div>
             <div>
@@ -502,7 +502,7 @@ export function OpeningList({
                 placeholder="200"
                 value={form.height}
                 onValueChange={(meters) => setForm((cur) => ({ ...cur, height: meters }))}
-                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs pe-surface"
               />
             </div>
           </div>
@@ -558,7 +558,7 @@ export function OpeningList({
                       placeholder="15"
                       value={form.reveal_depth}
                       onValueChange={(meters) => setForm((cur) => ({ ...cur, reveal_depth: meters }))}
-                      className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                      className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs pe-surface"
                     />
                   </div>
                   <div>
@@ -598,7 +598,7 @@ export function OpeningList({
               placeholder={t.openings.name}
               value={form.name}
               onChange={(e) => setForm((cur) => ({ ...cur, name: e.target.value }))}
-              className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+              className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs pe-surface"
             />
             <textarea
               aria-label="opening-description"
@@ -606,7 +606,7 @@ export function OpeningList({
               placeholder={t.openings.description}
               value={form.description}
               onChange={(e) => setForm((cur) => ({ ...cur, description: e.target.value }))}
-              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white min-h-12"
+              className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs pe-surface min-h-12"
             />
           </div>
 

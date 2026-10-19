@@ -422,7 +422,7 @@ export function RevealWorkPlanEditor({
     <section
       id={`reveal-work-editor-${openingId}`}
       aria-label={`reveal-work-editor-${openingId}`}
-      className="mt-2 w-full min-w-0 rounded-xl border border-slate-200 bg-white p-3 space-y-3"
+      className="mt-2 w-full min-w-0 rounded-xl border border-slate-200 pe-surface p-3 space-y-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
@@ -436,7 +436,7 @@ export function RevealWorkPlanEditor({
           aria-label={`close-reveal-work-${openingId}`}
           onClick={onClose}
           disabled={saving}
-          className="min-h-[44px] px-3 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold text-sm disabled:opacity-60"
+          className="min-h-[44px] px-3 rounded-xl border border-slate-300 pe-surface text-slate-700 font-semibold text-sm disabled:opacity-60"
         >
           <Ico>✖️</Ico>{t.common.close}
         </button>
@@ -776,7 +776,7 @@ export function RevealWorkPlanEditor({
                     placeholder={t.work_plan.picker_search}
                     value={pickerSearch}
                     onChange={(e) => setPickerSearch(e.target.value)}
-                    className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white text-slate-800"
+                    className="w-full min-h-[44px] rounded-xl border border-slate-300 px-3 py-2 text-sm pe-surface text-slate-800"
                   />
 
                   {filteredPickerItems.length === 0 ? (
@@ -833,7 +833,7 @@ export function RevealWorkPlanEditor({
           aria-label={`close-reveal-work-bottom-${openingId}`}
           onClick={onClose}
           disabled={saving}
-          className="w-full min-h-[44px] px-3 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold text-sm disabled:opacity-60"
+          className="w-full min-h-[44px] px-3 rounded-xl border border-slate-300 pe-surface text-slate-700 font-semibold text-sm disabled:opacity-60"
         >
           <Ico>✖️</Ico>{t.common.close}
         </button>

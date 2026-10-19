@@ -180,7 +180,7 @@ export function ProjectDocuments({ projectId, part, onOpenInspection, onOpenEsti
   };
 
   return (
-    <article aria-label="project-documents" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+    <article aria-label="project-documents" className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
       {part === undefined && (
       <div className="flex items-center justify-between gap-3">
         <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{text.title}</h3>

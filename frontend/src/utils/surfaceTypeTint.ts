@@ -21,19 +21,21 @@ export interface SurfaceTypeTint {
   bg: string;
   border: string;
   badge: string;
+  /** See `SurfaceTint.extra`. */
+  extra: string;
 }
 
-const NEUTRAL_BADGE = 'bg-white text-slate-700';
+const NEUTRAL_BADGE = 'pe-pill';
 
 const SURFACE_TYPE_TINT: Record<SurfaceTypeValue, SurfaceTypeTint> = {
   // Unused for card backgrounds now (WALL uses the per-id hash tint) but
   // kept as a sane fallback in case this helper is ever reused for WALL.
-  WALL: { bg: 'bg-blue-50', border: 'border-blue-100', badge: NEUTRAL_BADGE },
+  WALL: { bg: 'bg-blue-50', border: 'border-blue-100', badge: NEUTRAL_BADGE, extra: 'pe-tinted pe-accent-blue' },
   // Warm/sand tint.
-  FLOOR: { bg: 'bg-orange-50', border: 'border-orange-100', badge: NEUTRAL_BADGE },
+  FLOOR: { bg: 'bg-orange-50', border: 'border-orange-100', badge: NEUTRAL_BADGE, extra: 'pe-tinted pe-accent-orange' },
   // Cool gray-blue tint.
-  CEILING: { bg: 'bg-slate-100', border: 'border-slate-300', badge: NEUTRAL_BADGE },
-  OTHER: { bg: 'bg-white', border: 'border-slate-200', badge: NEUTRAL_BADGE },
+  CEILING: { bg: 'bg-slate-100', border: 'border-slate-300', badge: NEUTRAL_BADGE, extra: 'pe-tinted pe-accent-slate' },
+  OTHER: { bg: 'pe-surface', border: 'border-slate-200', badge: NEUTRAL_BADGE, extra: '' },
 };
 
 export function surfaceTypeTint(surfaceType: SurfaceTypeValue): SurfaceTypeTint {

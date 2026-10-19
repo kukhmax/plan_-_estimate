@@ -155,7 +155,7 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountMo
                 type="button"
                 aria-label="open-sync-screen"
                 onClick={onOpenSync}
-                className="w-full min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold break-words"
+                className="w-full min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-200 pe-surface text-slate-800 font-semibold break-words"
               >
                 <Ico>🔄</Ico>{t.offline.sync_screen_title}{pending + failed + waitingPhotos > 0 ? ` (${pending + failed + waitingPhotos})` : ''}
               </button>
@@ -174,7 +174,7 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountMo
                   </p>
                 )}
                 <div className="flex gap-2">
-                  <button type="button" aria-label="clear-offline-cancel" onClick={() => setConfirmClear(false)} className="flex-1 min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium">
+                  <button type="button" aria-label="clear-offline-cancel" onClick={() => setConfirmClear(false)} className="flex-1 min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 pe-surface text-slate-700 font-medium">
                     <Ico>✖️</Ico>{t.common.cancel}
                   </button>
                   <button
@@ -200,7 +200,7 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountMo
                   setCleared(false);
                   setConfirmClear(true);
                 }}
-                className="w-full min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium"
+                className="w-full min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 pe-surface text-slate-700 font-medium"
               >
                 <Ico>🧹</Ico>{t.offline.clear_button}
               </button>

@@ -64,7 +64,7 @@ export function ProjectSummaryCard({ projectId, refreshToken = 0 }: ProjectSumma
   return (
     <section
       aria-label="object-summary"
-      className="mt-4 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 text-xs"
+      className="mt-4 pe-card rounded-2xl p-4 shadow-sm space-y-3 text-xs"
     >
       <h3 className="text-base font-bold text-slate-900 break-words">{t.object_summary.title}</h3>
       {state === 'loading' && <p role="status" className="text-slate-500">{t.object_summary.loading}</p>}

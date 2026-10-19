@@ -346,7 +346,7 @@ export function AreaSegmentList({
             rowKey={`plane-${planeKey}`}
             name={displayName}
             area={hasPlaneArea ? `${formatMetric(totals.net)} ${t.common.unit_m2}` : '—'}
-            className={`${tint.bg} border ${tint.border} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
+            className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
             onOpen={() => togglePlane(plane)}
           />
         </div>
@@ -408,7 +408,7 @@ export function AreaSegmentList({
               className={`w-full min-h-11 px-3 py-1 text-sm rounded-xl border font-semibold transition ${
                 activeForm.alsoOpposite
                   ? 'bg-blue-600 border-blue-600 text-white'
-                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                  : 'pe-surface border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
             >
               <Ico>{activeForm.alsoOpposite ? '☑️' : '🔁'}</Ico>
@@ -452,7 +452,7 @@ export function AreaSegmentList({
       <section
         key={plane}
         aria-label={`${planeKey}-segments`}
-        className={`${tint.bg} border ${tint.border} rounded-2xl p-4 shadow-sm space-y-2.5`}
+        className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-2xl p-4 shadow-sm space-y-2.5`}
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h4 className="text-sm font-semibold text-slate-900">
@@ -471,7 +471,7 @@ export function AreaSegmentList({
             {hasPlaneArea && (
               // White background regardless of plane tint — a colored-on-colored
               // badge (e.g. FLOOR's own emerald tint) would lose contrast.
-              <span className="text-xs px-2 py-0.5 rounded-full bg-white text-emerald-700 font-semibold">
+              <span className="text-xs px-2 py-0.5 rounded-full pe-surface text-emerald-700 font-semibold">
                 {t.area_segments.total}: {formatMetric(totals.net)} {t.common.unit_m2}
               </span>
             )}

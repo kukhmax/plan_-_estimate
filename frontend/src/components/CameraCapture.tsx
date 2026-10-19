@@ -296,7 +296,7 @@ export function CameraCapture({ onDone, onCancel, onUseNativePicker, onCameraFai
                 releaseCamera();
                 onUseNativePicker();
               }}
-              className="min-h-11 w-full max-w-xs rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black"
+              className="min-h-11 w-full max-w-xs rounded-xl pe-surface px-3 py-2 text-sm font-semibold text-black"
             >
               {t.photos.camera.use_phone_picker}
             </button>
@@ -339,7 +339,7 @@ export function CameraCapture({ onDone, onCancel, onUseNativePicker, onCameraFai
           <div className="w-full max-w-xs space-y-3 rounded-2xl bg-neutral-900 p-4 text-center">
             <h2 className="break-words text-base font-semibold">{t.photos.camera.discard_title}</h2>
             <p className="break-words text-sm text-white/80">{t.photos.camera.discard_text.replace('{count}', String(shots.length))}</p>
-            <button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-11 w-full rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black">
+            <button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-11 w-full rounded-xl pe-surface px-3 py-2 text-sm font-semibold text-black">
               <Ico>✖️</Ico>{t.photos.camera.discard_keep}
             </button>
             <button

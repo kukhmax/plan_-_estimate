@@ -146,18 +146,18 @@ export function SyncScreen({ onClose }: { onClose: () => void }) {
                         <button type="button" aria-label={`sync-discard-yes-${op.seq}`} onClick={() => void discard(op)} className={`${button} border-red-600 bg-red-600 text-white`}>
                           {o.sync_discard_yes}
                         </button>
-                        <button type="button" aria-label={`sync-discard-no-${op.seq}`} onClick={() => setConfirming(null)} className={`${button} border-[var(--tg-control-border-color)] bg-white text-slate-800`}>
+                        <button type="button" aria-label={`sync-discard-no-${op.seq}`} onClick={() => setConfirming(null)} className={`${button} border-[var(--tg-control-border-color)] pe-surface text-slate-800`}>
                           {t.common.cancel}
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" aria-label={`sync-retry-${op.seq}`} onClick={() => void retry(op)} className={`${button} border-red-300 bg-white text-red-800`}>
+                      <button type="button" aria-label={`sync-retry-${op.seq}`} onClick={() => void retry(op)} className={`${button} border-red-300 pe-surface text-red-800`}>
                         <Ico>🔄</Ico>
                         {o.sync_retry}
                       </button>
-                      <button type="button" aria-label={`sync-discard-${op.seq}`} onClick={() => setConfirming(op.seq ?? null)} className={`${button} border-red-300 bg-white text-red-800`}>
+                      <button type="button" aria-label={`sync-discard-${op.seq}`} onClick={() => setConfirming(op.seq ?? null)} className={`${button} border-red-300 pe-surface text-red-800`}>
                         <Ico>🗑️</Ico>
                         {o.sync_discard}
                       </button>

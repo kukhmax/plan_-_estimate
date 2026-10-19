@@ -8,7 +8,7 @@ describe('HubTile: the soft colours of the tiles', () => {
   it('is white without a tone and amber when it is the accent, whatever tone it is given', () => {
     const { rerender } = render(<HubTile icon="x" ariaLabel="t" label="Plain" onOpen={() => {}} />);
     expect(screen.getByLabelText('t')).toHaveAttribute('data-tone', 'white');
-    expect(screen.getByLabelText('t').className).toContain('bg-white');
+    expect(screen.getByLabelText('t').className).toContain('pe-surface');
     rerender(<HubTile accent tone="green" icon="x" ariaLabel="t" label="Plain" onOpen={() => {}} />);
     expect(screen.getByLabelText('t')).toHaveAttribute('data-tone', 'accent');
     expect(screen.getByLabelText('t').className).toContain('bg-amber-500');
@@ -26,7 +26,7 @@ describe('HubTile: the soft colours of the tiles', () => {
     const tile = screen.getByLabelText('t');
     expect(tile).toHaveAttribute('data-tone', tone);
     expect(tile.className).toContain(background);
-    expect(tile.className).not.toContain('bg-white');
+    expect(tile.className).not.toContain('pe-surface');
     expect(tile.className).toContain('min-h-14');
   });
 
@@ -36,7 +36,7 @@ describe('HubTile: the soft colours of the tiles', () => {
     fireEvent.click(screen.getByLabelText('t'));
     expect(open).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText('t-count')).toHaveTextContent('3');
-    expect(screen.getByLabelText('t-count').className).toContain('bg-white/70');
+    expect(screen.getByLabelText('t-count').className).toContain('pe-pill');
   });
 });
 

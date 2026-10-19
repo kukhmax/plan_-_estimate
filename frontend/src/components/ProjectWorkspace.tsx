@@ -719,7 +719,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
         <form
           aria-label="project-form"
           onSubmit={handleSubmit}
-          className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm space-y-3"
+          className="pe-card rounded-2xl p-4 mb-4 shadow-sm space-y-3"
         >
           <h3 className="font-semibold text-slate-900">
             {editingId ? t.projects.edit : t.projects.add}
@@ -821,7 +821,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
         <>
           {objectSection === null && (
             <div className="space-y-3">
-            <article aria-label="project-detail" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+            <article aria-label="project-detail" className="pe-card rounded-2xl p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 {/* This card is an intentionally always-white surface (never
                     theme-aware) — its value text needs an explicit dark
@@ -991,7 +991,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           />
         ) : (
         <>
-          <article aria-label="room-detail" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+          <article aria-label="room-detail" className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="font-bold text-slate-900 text-base">{selectedRoom.name}</h2>
@@ -1025,14 +1025,14 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2 flex-wrap gap-1">
                   <span className="font-semibold text-slate-700">{t.rooms.calculations}:</span>
                   {selectedRoom.length && selectedRoom.width && selectedRoom.height && (
-                    <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    <span className="font-bold text-slate-900 pe-surface px-2 py-0.5 rounded border border-slate-200">
                       {formatMetric(selectedRoom.length)} × {formatMetric(selectedRoom.width)} × {formatMetric(selectedRoom.height)} {t.common.unit_m}
                     </span>
                   )}
                 </div>
 
                 {/* Primary Wall Finishing Result: Gross - Deductions = Net */}
-                <div className="bg-white border border-emerald-100 rounded-xl p-3 shadow-xs space-y-2">
+                <div className="pe-surface border border-emerald-100 rounded-xl p-3 shadow-xs space-y-2">
                   <div className="flex items-baseline justify-between flex-wrap gap-1">
                     <span className="text-slate-600 font-medium text-xs">{t.rooms.net_wall_area}</span>
                     <strong className="text-emerald-700 text-base sm:text-lg font-extrabold tracking-tight">
@@ -1059,19 +1059,19 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
 
                 {/* Secondary Plane Metrics: Floor, Ceiling, Perimeter */}
                 <div className="grid grid-cols-3 gap-2 text-slate-600">
-                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                  <div className="pe-surface p-2 rounded-lg border border-slate-100">
                     <span className="block text-slate-400 text-[11px]">{t.rooms.floor_area}</span>
                     <strong className="text-slate-800 text-xs sm:text-sm font-semibold">
                       {formatMetric(selectedRoom.calculations?.floor_area)} {t.common.unit_m2}
                     </strong>
                   </div>
-                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                  <div className="pe-surface p-2 rounded-lg border border-slate-100">
                     <span className="block text-slate-400 text-[11px]">{t.rooms.ceiling_area}</span>
                     <strong className="text-slate-800 text-xs sm:text-sm font-semibold">
                       {formatMetric(selectedRoom.calculations?.ceiling_area)} {t.common.unit_m2}
                     </strong>
                   </div>
-                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                  <div className="pe-surface p-2 rounded-lg border border-slate-100">
                     <span className="block text-slate-400 text-[11px]">{t.rooms.perimeter}</span>
                     <strong className="text-slate-800 text-xs sm:text-sm font-semibold">
                       {formatMetric(selectedRoom.calculations?.perimeter)} {t.common.unit_m}
@@ -1158,7 +1158,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
 
           {/* Stage 14E.6: every photo of the room — its surfaces and their openings included — for viewing and editing;
               photos are ADDED in the surface cards below. */}
-          <article aria-label="room-photos" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+          <article aria-label="room-photos" className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{t.photos.section.room_title}</h3>
               <PhotoCardButton context="ROOM" targetId={selectedRoom.id} />
@@ -1171,7 +1171,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             <form
               aria-label="room-edit-form"
               onSubmit={handleRoomSubmit}
-              className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3"
+              className="pe-card rounded-2xl p-4 shadow-sm space-y-3"
             >
               <h4 className="font-semibold text-slate-900 text-sm">{t.rooms.edit}</h4>
               <input
@@ -1296,7 +1296,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             <li
               key={project.id}
               aria-label={`project-item-${project.id}`}
-              className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
+              className="pe-card rounded-2xl p-4 shadow-sm"
             >
               <div className="space-y-3">
                 <div className="min-w-0">

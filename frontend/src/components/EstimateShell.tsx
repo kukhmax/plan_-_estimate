@@ -682,7 +682,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const headerSource: EstimateSummaryRead = detail ?? estimate;
 
   const header = (
-    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+    <div className="pe-card rounded-2xl p-4 shadow-sm space-y-2">
       <div className="flex items-center gap-2 flex-wrap min-w-0">
         <h2 className="font-bold text-slate-900 text-base shrink-0">
           {t.estimates.title} — {t.estimates.version} {headerSource.version}
@@ -820,7 +820,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
       // (padding/border/shadow) is reserved for the open panel below, so
       // three stacked actions don't each cost an extra card's worth of
       // height (Stage 10H.1 mobile density fix).
-      className={previewOpen ? 'bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2' : ''}
+      className={previewOpen ? 'pe-card rounded-2xl p-3 shadow-sm space-y-2' : ''}
     >
       {!previewOpen ? (
         <button
@@ -1053,7 +1053,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const manualLineSection = detail.status === 'DRAFT' && (
     <div
       aria-label="estimate-manual-line"
-      className={manualFormOpen ? 'bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2' : ''}
+      className={manualFormOpen ? 'pe-card rounded-2xl p-3 shadow-sm space-y-2' : ''}
     >
       {!manualFormOpen ? (
         <button
@@ -1074,7 +1074,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
               onChange={(e) => setManualDescription(e.target.value)}
               placeholder={t.estimates.manual_line_description_placeholder}
               rows={2}
-              className="w-full border border-slate-300 rounded-lg px-2 py-2 text-sm bg-white resize-none"
+              className="w-full border border-slate-300 rounded-lg px-2 py-2 text-sm pe-surface resize-none"
             />
           </label>
 
@@ -1084,7 +1084,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
               aria-label="manual-line-scope"
               value={manualScope}
               onChange={(e) => setManualScope(e.target.value as PriceScopeValue)}
-              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm pe-surface"
             >
               {MANUAL_LINE_SCOPES.map((scope) => (
                 <option key={scope} value={scope}>{scopeLabel(scope)}</option>
@@ -1098,7 +1098,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
               aria-label="manual-line-unit"
               value={manualUnit}
               onChange={(e) => setManualUnit(e.target.value as PriceUnitValue)}
-              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm pe-surface"
             >
               {PRICE_UNITS.map((unit) => (
                 <option key={unit} value={unit}>{t.pricebook.units[unit]}</option>
@@ -1114,7 +1114,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
               aria-label="manual-line-quantity"
               value={manualQuantity}
               onChange={(e) => setManualQuantity(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm pe-surface"
             />
           </label>
 
@@ -1137,7 +1137,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                 aria-label="manual-line-price"
                 value={manualUnitPrice}
                 onChange={(e) => setManualUnitPrice(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+                className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm pe-surface"
               />
             )}
           </div>
@@ -1182,7 +1182,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const finalizeSection = detail.status === 'DRAFT' && (
     <div
       aria-label="estimate-finalize"
-      className={finalizeConfirmOpen ? 'bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2' : ''}
+      className={finalizeConfirmOpen ? 'pe-card rounded-2xl p-3 shadow-sm space-y-2' : ''}
     >
       {!finalizeConfirmOpen ? (
         <button
@@ -1251,7 +1251,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
         {finalizeSection}
         <div
           aria-label="estimate-lines-empty"
-          className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1"
+          className="pe-card rounded-2xl p-5 shadow-sm space-y-1"
         >
           <p className="text-sm font-medium text-slate-700">{t.estimates.lines_empty_title}</p>
           <p className="text-xs text-slate-500">{t.estimates.lines_empty_description}</p>
@@ -1276,7 +1276,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           type="button"
           aria-label="estimate-detail-back"
           onClick={() => onGroupKeyChange(null)}
-          className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm text-left text-sm font-medium text-blue-600 hover:bg-slate-50 transition min-h-[44px]"
+          className="w-full pe-card rounded-2xl px-4 py-3 shadow-sm text-left text-sm font-medium text-blue-600 hover:bg-slate-50 transition min-h-[44px]"
         >
           {t.estimates.detail_back}
         </button>
@@ -1302,7 +1302,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
               <div
                 key={line.id}
                 aria-label={`estimate-line-${line.position}`}
-                className={`${tint.bg} border ${tint.border} rounded-2xl p-3 shadow-sm space-y-1.5`}
+                className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-2xl p-3 shadow-sm space-y-1.5`}
               >
                 <div className="flex items-start justify-between gap-1.5 flex-wrap min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
@@ -1450,7 +1450,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                               aria-label={`line-edit-quantity-${line.position}`}
                               value={editQuantity}
                               onChange={(e) => setEditQuantity(e.target.value)}
-                              className="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+                              className="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm pe-surface"
                             />
                             <span className="text-slate-400 shrink-0">{unitLabel(line.unit)}</span>
                           </div>
@@ -1475,7 +1475,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                               aria-label={`line-edit-price-${line.position}`}
                               value={editUnitPrice}
                               onChange={(e) => setEditUnitPrice(e.target.value)}
-                              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+                              className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm pe-surface"
                             />
                           )}
                         </div>
@@ -1641,7 +1641,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           return (
             <div
               key={group.key}
-              className={`${tint.bg} border ${tint.border} rounded-2xl shadow-sm p-3 space-y-1.5`}
+              className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-2xl shadow-sm p-3 space-y-1.5`}
             >
               {/* Stage 10G.3A polish — Opcje sits top-right, beside the
                   work title/header, per owner-approved placement. The
@@ -1820,7 +1820,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                           aria-label={`group-price-edit-value-${index}`}
                           value={groupUnitPrice}
                           onChange={(e) => setGroupUnitPrice(e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm bg-white"
+                          className="w-full border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm pe-surface"
                         />
                       )}
 

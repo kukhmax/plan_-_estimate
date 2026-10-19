@@ -107,13 +107,13 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
   };
 
   const counter = (used: number) => text.count.replace('{used}', String(used)).replace('{max}', String(MAX_NOTE_LENGTH));
-  const field = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 bg-white min-h-24';
+  const field = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 pe-surface min-h-24';
   const primary = 'w-full min-h-11 px-4 py-1 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50';
-  const secondary = 'flex-1 min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50';
+  const secondary = 'flex-1 min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 pe-surface text-slate-700 font-medium hover:bg-slate-50';
 
   return (
     <section aria-label="project-notes" className="space-y-3">
-      <form aria-label="note-form" onSubmit={add} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+      <form aria-label="note-form" onSubmit={add} className="pe-card rounded-2xl p-4 shadow-sm space-y-2">
         <textarea
           aria-label="note-input"
           value={draft}
@@ -148,7 +148,7 @@ export function ProjectNotes({ projectId }: ProjectNotesProps) {
       {!loading && !loadFailed && notes.length > 0 && (
         <ul aria-label="notes-list" className="space-y-2">
           {notes.map((note) => (
-            <li key={note.id} aria-label={`note-${note.id}`} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+            <li key={note.id} aria-label={`note-${note.id}`} className="pe-card rounded-2xl p-4 shadow-sm space-y-2">
               <PendingMark record={note} id={note.id} />
               <p aria-label={`note-time-${note.id}`} className="text-xs font-semibold text-slate-500">
                 {formatNoteTime(note.created_at, locale)}

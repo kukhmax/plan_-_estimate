@@ -42,7 +42,7 @@ function clientName(client: ClientType): string {
   return [client.first_name, client.last_name].filter(Boolean).join(' ') || '—';
 }
 
-const rowClass = 'bg-white border border-slate-200 rounded-2xl p-3 shadow-sm space-y-2';
+const rowClass = 'pe-card rounded-2xl p-3 shadow-sm space-y-2';
 const restoreButtonClass =
   'w-full min-h-11 px-3 text-sm font-semibold rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50';
 

@@ -198,7 +198,7 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
         ref={ref}
         aria-label={`${idPrefix}-form`}
         onSubmit={(e) => void handleSubmit(e)}
-        className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm space-y-3"
+        className="pe-card rounded-2xl p-4 mb-4 shadow-sm space-y-3"
       >
         <h3 className="font-semibold text-slate-900">
           {initialItem ? t.pricebook.edit_item : (titleOverride ?? t.pricebook.add_item)}

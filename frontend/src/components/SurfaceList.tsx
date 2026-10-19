@@ -36,7 +36,7 @@ import { previewArea } from '../offline/preview';
 
 /** Header type-pill: a single neutral style legible against any card tint
  * (WALL cards no longer share one fixed background — see surfaceColorTint). */
-const TYPE_BADGE_CLASS = 'bg-white text-slate-700';
+const TYPE_BADGE_CLASS = 'pe-surface text-slate-700';
 
 interface SurfaceListProps {
   projectId: string;
@@ -537,7 +537,7 @@ export function SurfaceList({
       {effectiveWallMode === 'CUSTOM' && (
         <div
           aria-label="custom-wall-entry"
-          className="bg-white border border-slate-200 rounded-2xl p-4 mb-3 shadow-sm"
+          className="pe-card rounded-2xl p-4 mb-3 shadow-sm"
         >
           <div className="flex items-center justify-between mb-1.5">
             <h4 className="text-sm font-semibold text-slate-900">{t.surfaces.custom_walls_title}</h4>
@@ -628,7 +628,7 @@ export function SurfaceList({
         <form
           aria-label="surface-form"
           onSubmit={handleSubmit}
-          className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm space-y-3"
+          className="pe-card rounded-2xl p-4 mb-4 shadow-sm space-y-3"
         >
           <h4 className="font-semibold text-slate-900">
             {editingId ? t.surfaces.edit : t.surfaces.add}
@@ -750,7 +750,7 @@ export function SurfaceList({
                     area={waitingArea ? `~${waitingArea} ${t.common.unit_m2}` : hasDimensions ? `${formatMetric(surface.net_area ?? surface.gross_area)} ${t.common.unit_m2}` : '—'}
                     archivedLabel={surface.is_archived ? t.common.archived_badge : null}
                     pending={surface._pending}
-                    className={`${tint.bg} border ${tint.border} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
+                    className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
                     onOpen={() => toggleCard(surface.id)}
                   />
                 </li>
@@ -761,7 +761,7 @@ export function SurfaceList({
               <li
                 key={surface.id}
                 aria-label={`surface-item-${surface.id}`}
-                className={`${tint.bg} border ${tint.border} rounded-2xl p-3 shadow-sm space-y-2`}
+                className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-2xl p-3 shadow-sm space-y-2`}
               >
                 {/* Header: name + badges (left) and compact Opcje (upper-right). */}
                 <div className="flex items-start justify-between gap-2">

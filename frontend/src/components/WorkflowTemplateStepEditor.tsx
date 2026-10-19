@@ -234,12 +234,12 @@ export function WorkflowTemplateStepEditor({ template, templateName, onSaved, on
   };
 
   const btn = 'min-h-11 px-3 rounded-xl text-sm font-semibold disabled:opacity-50';
-  const secondary = `${btn} border border-slate-300 bg-white text-slate-700`;
+  const secondary = `${btn} border border-slate-300 pe-surface text-slate-700`;
 
   return (
     <section aria-label={`process-steps-editor-${base.id}`} className="space-y-3">
       <button type="button" aria-label="steps-editor-back" onClick={requestClose} disabled={saving}
-        className="w-full min-h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 text-left">
+        className="w-full min-h-11 px-3 rounded-xl border border-slate-200 pe-surface text-sm font-semibold text-slate-700 text-left">
         ← {templateName}
       </button>
       <div className="space-y-1">
@@ -264,7 +264,7 @@ export function WorkflowTemplateStepEditor({ template, templateName, onSaved, on
           const wait = parseWait(step.wait);
           const isOpen = openKey === step.key;
           return (
-            <li key={step.key} aria-label={`steps-editor-row-${index}`} className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
+            <li key={step.key} aria-label={`steps-editor-row-${index}`} className="rounded-2xl border border-slate-200 pe-surface p-3 space-y-2">
               <div className="flex items-start gap-2">
                 <span className="shrink-0 text-sm font-semibold text-slate-400">{index + 1}.</span>
                 <span className="flex-1 min-w-0 text-sm font-medium text-slate-900 break-words">{itemName(item)}</span>
@@ -341,7 +341,7 @@ export function WorkflowTemplateStepEditor({ template, templateName, onSaved, on
                   ) : (
                     <button type="button" aria-label={`steps-editor-remove-${index}`}
                       onClick={() => (step.key.startsWith('new-') ? remove(step.key) : setConfirmRemoveKey(step.key))}
-                      className={`w-full ${btn} border border-red-300 bg-white text-red-700`}>
+                      className={`w-full ${btn} border border-red-300 pe-surface text-red-700`}>
                       <Ico>🗑️</Ico>{t.processes.remove_step}
                     </button>
                   )}
@@ -356,7 +356,7 @@ export function WorkflowTemplateStepEditor({ template, templateName, onSaved, on
         <StepItemPicker onPick={addItem} onCancel={() => setPickerOpen(false)} />
       ) : (
         <button type="button" aria-label="steps-editor-add" onClick={() => setPickerOpen(true)} disabled={saving}
-          className={`w-full ${btn} border border-blue-600 bg-white text-blue-700`}>
+          className={`w-full ${btn} border border-blue-600 pe-surface text-blue-700`}>
           <Ico>➕</Ico>{t.processes.add_step}
         </button>
       )}
@@ -443,7 +443,7 @@ function StepItemPicker({ onPick, onCancel }: { onPick: (item: PriceItem) => voi
     : items;
 
   return (
-    <div aria-label="steps-editor-picker" className="rounded-2xl border border-blue-200 bg-white p-3 space-y-2">
+    <div aria-label="steps-editor-picker" className="rounded-2xl border border-blue-200 pe-surface p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-semibold text-slate-900">{t.processes.picker_title}</span>
         <button type="button" onClick={onCancel} className="min-h-11 px-3 rounded-xl text-sm text-slate-600"><Ico>✖️</Ico>{t.common.cancel}</button>

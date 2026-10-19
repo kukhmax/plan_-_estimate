@@ -25,7 +25,7 @@ const STATE_STYLE: Record<InvoiceState, string> = {
 };
 
 const primary = 'w-full min-h-11 px-4 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50';
-const secondary = 'flex-1 min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50 disabled:opacity-50';
+const secondary = 'flex-1 min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-200 pe-surface text-slate-700 font-medium hover:bg-slate-50 disabled:opacity-50';
 
 /**
  * "Faktury i zaliczki" (a backlog item, not a roadmap stage): what the client was invoiced and paid, and what the owner spent on materials.
@@ -128,7 +128,7 @@ export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsP
                   setMessage(null);
                 }}
                 className={`min-h-11 px-1 py-2 text-xs font-semibold rounded-xl border break-words ${
-                  tab === id ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-700'
+                  tab === id ? 'bg-blue-600 border-blue-600 text-white' : 'pe-surface border-slate-200 text-slate-700'
                 }`}
               >
                 {text.tabs[id]}
@@ -196,7 +196,7 @@ function PaymentCard({ payment, busy, onEdit, onArchive }: { payment: Payment; b
   if (payment.kind === 'EXPENSE' && payment.document_kind) meta.push(text.document_kind[payment.document_kind]);
   if (payment.kind === 'EXPENSE' && payment.category) meta.push(text.category[payment.category]);
   return (
-    <li aria-label={`payment-${payment.id}`} className={`bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2 ${payment.is_archived ? 'opacity-70' : ''}`}>
+    <li aria-label={`payment-${payment.id}`} className={`pe-card rounded-2xl p-4 shadow-sm space-y-2 ${payment.is_archived ? 'opacity-70' : ''}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 min-w-0">
           <span className="text-xs font-semibold text-slate-500">{text.kind[payment.kind]}</span>
@@ -297,7 +297,7 @@ function SummaryCard({ projectId, list, onChanged }: { projectId: string; list: 
   ];
 
   return (
-    <article aria-label="payments-summary" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+    <article aria-label="payments-summary" className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
       <dl className="space-y-1.5 text-sm">
         {rows.map((row) => (
           <div key={row.key} aria-label={`summary-${row.key}`} className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -337,7 +337,7 @@ function SummaryCard({ projectId, list, onChanged }: { projectId: string; list: 
             value={value}
             placeholder="0,00"
             onChange={(event) => setValue(event.target.value)}
-            className="w-full min-h-11 border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 bg-white"
+            className="w-full min-h-11 border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 pe-surface"
           />
           {finance?.suggestion && (
             <button type="button" aria-label="agreed-suggestion" onClick={() => setValue(toInput(finance.suggestion?.amount))} className={secondary.replace('flex-1', 'w-full')}>

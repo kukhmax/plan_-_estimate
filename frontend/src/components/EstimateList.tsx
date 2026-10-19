@@ -123,7 +123,7 @@ export function EstimateList({ projectId, onOpenEstimate }: EstimateListProps) {
     return (
       <div
         aria-label="estimates-empty-state"
-        className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3"
+        className="pe-card rounded-2xl p-5 shadow-sm space-y-3"
       >
         <h3 className="font-semibold text-slate-900 text-sm">{t.estimates.empty_title}</h3>
         <p className="text-xs text-slate-500">{t.estimates.empty_description}</p>
@@ -151,7 +151,7 @@ export function EstimateList({ projectId, onOpenEstimate }: EstimateListProps) {
           <article
             key={estimate.id}
             aria-label={`estimate-version-${estimate.version}`}
-            className={`bg-white border rounded-2xl p-4 shadow-sm space-y-2.5 ${
+            className={`pe-surface border rounded-2xl p-4 shadow-sm space-y-2.5 ${
               isDraft ? 'border-blue-300' : 'border-slate-200'
             }`}
           >

@@ -318,7 +318,7 @@ export function CommunicationPanel({
             className={`min-h-11 flex-1 rounded-lg border px-1 text-sm font-medium ${
               status === value
                 ? 'border-blue-600 bg-blue-50 text-blue-800'
-                : 'border-neutral-300 bg-white text-neutral-700'
+                : 'border-neutral-300 pe-surface text-neutral-700'
             }`}
             onClick={() => void switchStatus(value)}
           >
@@ -412,7 +412,7 @@ function CommunicationCard({
 
   return (
     <li
-      className={`flex flex-col gap-2 rounded-lg border bg-white p-3 text-sm ${
+      className={`flex flex-col gap-2 rounded-lg border pe-surface p-3 text-sm ${
         active ? 'border-neutral-200' : 'border-neutral-200 bg-neutral-50 opacity-80'
       }`}
     >
@@ -454,7 +454,7 @@ function CommunicationCard({
           className={`min-h-11 self-start rounded-lg border px-3 text-sm font-medium ${
             copied
               ? 'border-green-700 bg-green-50 text-green-800'
-              : 'border-neutral-300 bg-white text-neutral-700'
+              : 'border-neutral-300 pe-surface text-neutral-700'
           }`}
           onClick={() => onCopy(app)}
         >

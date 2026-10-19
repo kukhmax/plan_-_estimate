@@ -45,7 +45,7 @@ function telHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, '')}`;
 }
 
-const FIELD = 'w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base bg-white text-slate-900';
+const FIELD = 'w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base pe-surface text-slate-900';
 
 /**
  * Stage 16B.2 — the persons of an object: who acts for each side and who may accept the work and sign the protocols. They are
@@ -159,7 +159,7 @@ export function ProjectRepresentatives({ projectId }: ProjectRepresentativesProp
   };
 
   return (
-    <article aria-label="project-representatives" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+    <article aria-label="project-representatives" className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{text.title}</h3>
         {editing === null && (
@@ -225,7 +225,7 @@ export function ProjectRepresentatives({ projectId }: ProjectRepresentativesProp
             type="button"
             onClick={closeForm}
             disabled={saving}
-            className="w-full min-h-11 px-3 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition"
+            className="w-full min-h-11 px-3 text-sm font-semibold text-slate-800 pe-surface border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition"
           >
             <Ico>✖️</Ico>{text.cancel}
           </button>
@@ -286,7 +286,7 @@ export function ProjectRepresentatives({ projectId }: ProjectRepresentativesProp
                   aria-label={`${person.is_archived ? 'restore' : 'archive'}-representative-${person.id}`}
                   disabled={busyId === person.id}
                   onClick={() => void toggleArchive(person)}
-                  className="min-h-11 px-4 text-sm font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition"
+                  className="min-h-11 px-4 text-sm font-semibold text-slate-800 pe-surface border border-slate-300 rounded-xl hover:bg-slate-100 disabled:opacity-60 transition"
                 >
                   {person.is_archived ? text.restore : text.archive}
                 </button>

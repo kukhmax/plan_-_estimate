@@ -82,7 +82,7 @@ export function PhotoFullscreen({
             <button
               type="button"
               onClick={onCancelDrawing}
-              className="flex min-h-11 min-w-0 items-center rounded-full bg-white px-4 text-xs font-semibold text-black"
+              className="flex min-h-11 min-w-0 items-center rounded-full pe-surface px-4 text-xs font-semibold text-black"
             >
               <span className="min-w-0 break-words">{t.photos.markers.outline_cancel}</span>
             </button>

@@ -26,6 +26,12 @@
   --tg-control-disabled-text-color: #94a3b8;
   --tg-viewport-height: 100vh;
   --tg-viewport-stable-height: 100vh;
+  /* the surfaces of the application (usability U-1): cards, panels, outline buttons; the light theme is the white card it always was */
+  --pe-surface: #ffffff;
+  --pe-border: #e2e8f0;
+  --pe-inner: #f8fafc;
+  --pe-text-muted: #64748b;
+  --pe-text-faint: #94a3b8;
 }
 
 html {
@@ -43,7 +49,45 @@ html[data-color-scheme='dark'] {
   --tg-control-focus-ring-color: rgba(106, 178, 242, 0.35);
   --tg-control-disabled-bg-color: #1c2733;
   --tg-control-disabled-text-color: #94a8bc;
+  --pe-surface: var(--tg-theme-secondary-bg-color);
+  --pe-border: rgba(148, 163, 184, 0.3);
+  --pe-inner: rgba(255, 255, 255, 0.04);
+  --pe-text-muted: #aab8c6;
+  --pe-text-faint: #8396ab;
   color-scheme: dark;
+}
+
+/* Surfaces. `components` layer: a utility written next to them (a colour, a border colour) still wins. */
+@layer components {
+  .pe-surface {
+    background-color: var(--pe-surface);
+  }
+  .pe-card {
+    background-color: var(--pe-surface);
+    border: 1px solid var(--pe-border);
+  }
+  .pe-card-inner {
+    background-color: var(--pe-inner);
+    border: 1px solid var(--pe-border);
+  }
+  /* a small label that sits on a coloured tile or card */
+  .pe-pill {
+    background-color: rgba(255, 255, 255, 0.75);
+    color: #334155;
+  }
+}
+
+html[data-color-scheme='dark'] .pe-pill {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: var(--tg-theme-text-color);
+}
+
+/* A card tinted by the surface it belongs to (wall, floor, ceiling): in the dark scheme the fill goes, only a 4 px stripe of the colour stays. */
+html[data-color-scheme='dark'] .pe-tinted {
+  background-color: var(--pe-surface) !important;
+  border-color: var(--pe-border) !important;
+  border-left-width: 4px;
+  border-left-color: var(--pe-tint-accent, transparent) !important;
 }
 
 body {
@@ -119,4 +163,30 @@ input:-webkit-autofill:focus {
   .app-menu-panel {
     animation: none;
   }
+}
+
+/* the stripe colour of a tinted card (the hue of its tint) */
+.pe-accent-blue {
+  --pe-tint-accent: #3b82f6;
+}
+.pe-accent-emerald {
+  --pe-tint-accent: #10b981;
+}
+.pe-accent-amber {
+  --pe-tint-accent: #f59e0b;
+}
+.pe-accent-rose {
+  --pe-tint-accent: #f43f5e;
+}
+.pe-accent-violet {
+  --pe-tint-accent: #8b5cf6;
+}
+.pe-accent-teal {
+  --pe-tint-accent: #14b8a6;
+}
+.pe-accent-orange {
+  --pe-tint-accent: #f97316;
+}
+.pe-accent-slate {
+  --pe-tint-accent: #94a3b8;
 }

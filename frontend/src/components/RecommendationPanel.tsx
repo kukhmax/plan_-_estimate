@@ -298,7 +298,7 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
             className={`min-h-11 flex-1 rounded-lg border px-1 text-sm font-medium ${
               activity === value
                 ? 'border-blue-600 bg-blue-50 text-blue-800'
-                : 'border-neutral-300 bg-white text-neutral-700'
+                : 'border-neutral-300 pe-surface text-neutral-700'
             }`}
             onClick={() => void switchActivity(value)}
           >
@@ -408,7 +408,7 @@ function RecommendationCard({
   const needsFallback = isPending && isActionableTarget && !canAcceptNormally;
 
   return (
-    <li className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3 text-sm">
+    <li className="flex flex-col gap-2 rounded-lg border border-neutral-200 pe-surface p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs font-semibold text-neutral-700">
           {statusLabel}
@@ -504,7 +504,7 @@ function RecommendationCard({
           <button
             type="button"
             aria-label={`${title} — ${t.recommendations.confirm_again_no}`}
-            className="min-h-11 rounded-lg border border-neutral-300 bg-white px-3 font-medium text-neutral-700 disabled:opacity-50"
+            className="min-h-11 rounded-lg border border-neutral-300 pe-surface px-3 font-medium text-neutral-700 disabled:opacity-50"
             disabled={pending}
             onClick={() => onCancelConfirmAgain(recommendation.id)}
           >

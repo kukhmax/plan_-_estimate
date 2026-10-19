@@ -34,7 +34,7 @@ export function HubTile({ label, ariaLabel, onOpen, count, accent = false, tone,
         accent
           ? 'w-full min-h-14 bg-amber-500 border border-amber-600 rounded-2xl px-4 py-3 shadow-md flex items-center justify-between gap-3 text-left hover:bg-amber-400 active:bg-amber-600 transition'
           : `w-full min-h-14 rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between gap-3 text-left transition ${
-              tone ? TONES[tone] : 'border bg-white border-slate-200 hover:bg-slate-50'
+              tone ? TONES[tone] : 'border pe-surface border-slate-200 hover:bg-slate-50'
             }`
       }
     >
@@ -44,7 +44,7 @@ export function HubTile({ label, ariaLabel, onOpen, count, accent = false, tone,
       </span>
       <span className="flex items-center gap-2 shrink-0">
         {count !== undefined && (
-          <span aria-label={`${ariaLabel}-count`} className={`text-xs px-2 py-0.5 rounded-full font-semibold ${tone ? 'bg-white/70 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>
+          <span aria-label={`${ariaLabel}-count`} className={`text-xs px-2 py-0.5 rounded-full font-semibold ${tone ? 'pe-pill' : 'bg-slate-100 text-slate-600'}`}>
             {count}
           </span>
         )}

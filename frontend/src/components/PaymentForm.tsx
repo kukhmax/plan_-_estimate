@@ -37,7 +37,7 @@ const HINTS: Record<PaymentTab, string[]> = {
 
 type FieldError = 'title' | 'amount' | 'net' | 'vat' | 'due';
 
-const field = 'w-full min-h-11 border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 bg-white';
+const field = 'w-full min-h-11 border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 pe-surface';
 const label = 'block text-xs font-semibold text-slate-600 mb-1';
 
 /**
@@ -118,7 +118,7 @@ export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCanc
   const hints = HINTS[tab];
   const segment = (active: boolean) =>
     `flex-1 min-h-11 px-3 py-2 text-sm rounded-xl border font-semibold break-words ${
-      active ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-700'
+      active ? 'bg-blue-600 border-blue-600 text-white' : 'pe-surface border-slate-200 text-slate-700'
     }`;
   const dayLabel = tab === 'invoices' ? text.fields.date_invoice : tab === 'materials' ? text.fields.date_expense : text.fields.date_money;
   const titleLabel = tab === 'materials' ? text.fields.title_expense : text.fields.title;
@@ -126,7 +126,7 @@ export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCanc
   const settleOptions = invoices.filter((invoice) => !invoice.is_archived || invoice.id === payment?.settles_id);
 
   return (
-    <form aria-label="payment-form" onSubmit={submit} noValidate className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+    <form aria-label="payment-form" onSubmit={submit} noValidate className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
       <h3 className="text-sm font-semibold text-slate-900 break-words">{heading}</h3>
 
       {tab === 'client' && !payment && (
@@ -301,7 +301,7 @@ export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCanc
         <button type="submit" aria-label="payment-save" disabled={busy} className="w-full min-h-11 px-4 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50">
           <Ico>{busy ? '⏳' : '💾'}</Ico>{busy ? t.common.saving : t.common.save}
         </button>
-        <button type="button" aria-label="payment-cancel" onClick={onCancel} className="w-full min-h-11 px-4 py-2 text-sm rounded-xl border border-slate-200 bg-white text-slate-700 font-medium">
+        <button type="button" aria-label="payment-cancel" onClick={onCancel} className="w-full min-h-11 px-4 py-2 text-sm rounded-xl border border-slate-200 pe-surface text-slate-700 font-medium">
           <Ico>✖️</Ico>{t.common.cancel}
         </button>
       </div>

@@ -71,7 +71,7 @@ export function RecommendationPriceItemPicker({
   return (
     <div
       aria-label={t.recommendations.picker_title}
-      className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3"
+      className="flex flex-col gap-2 rounded-lg border border-neutral-200 pe-surface p-3"
     >
       <div className="flex items-center justify-between gap-2">
         <h5 className="text-sm font-semibold text-neutral-900">
@@ -122,7 +122,7 @@ export function RecommendationPriceItemPicker({
                       className={`min-h-11 w-full rounded-lg border px-3 py-2 text-left text-sm disabled:opacity-50 ${
                         isSelected
                           ? 'border-blue-600 bg-blue-50'
-                          : 'border-neutral-200 bg-white'
+                          : 'border-neutral-200 pe-surface'
                       }`}
                     >
                       <div className="font-medium text-neutral-900 break-words">

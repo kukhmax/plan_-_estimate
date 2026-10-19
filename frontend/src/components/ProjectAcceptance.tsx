@@ -20,7 +20,7 @@ interface ProjectAcceptanceProps {
 }
 
 const BUTTON = 'min-h-11 px-3 text-sm font-semibold rounded-xl border transition disabled:opacity-60 break-words';
-const OFF = 'bg-white text-slate-900 border-slate-300 hover:bg-slate-50';
+const OFF = 'pe-surface text-slate-900 border-slate-300 hover:bg-slate-50';
 const ON = 'bg-slate-900 text-white border-slate-900';
 const CLASSES: RemarkClass[] = ['REMOVABLE', 'SIGNIFICANT'];
 const BADGE: Record<AcceptanceResult, string> = {
@@ -291,7 +291,7 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
   const standardLabel = (key: string) => catalogText.evaluation[key as keyof typeof catalogText.evaluation] ?? key;
 
   return (
-    <article aria-label="project-acceptance" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+    <article aria-label="project-acceptance" className="pe-card rounded-2xl p-4 shadow-sm space-y-3">
       <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{text.title}</h3>
       <p className="text-xs text-slate-600 break-words">{text.intro}</p>
 
@@ -371,7 +371,7 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
               {strangers.map((a, index) => (
                 <div key={`${a.name}-${index}`} className="flex items-center justify-between gap-3 min-h-11 text-sm text-slate-900">
                   <span className="min-w-0 break-words">{a.name}{a.role ? ` · ${a.role}` : ''}</span>
-                  <button type="button" aria-label={`acceptance-extra-remove-${index}`} onClick={() => removeExtra(index)} className={`shrink-0 ${BUTTON} text-red-800 bg-white border-red-300`}><Ico>🗑️</Ico>{text.extra_remove}</button>
+                  <button type="button" aria-label={`acceptance-extra-remove-${index}`} onClick={() => removeExtra(index)} className={`shrink-0 ${BUTTON} text-red-800 pe-surface border-red-300`}><Ico>🗑️</Ico>{text.extra_remove}</button>
                 </div>
               ))}
               <label className="block space-y-1 pt-1">
@@ -444,7 +444,7 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <button type="button" aria-label={`acceptance-remark-edit-${remark.id}`} onClick={() => openForm(surface, remark.id)} className={`${BUTTON} ${OFF}`}><Ico>✏️</Ico>{text.remark_edit}</button>
-                      <button type="button" aria-label={`acceptance-remark-remove-${remark.id}`} onClick={() => removeRemark(surface, remark.id)} className={`${BUTTON} text-red-800 bg-white border-red-300`}><Ico>🗑️</Ico>{text.remark_remove}</button>
+                      <button type="button" aria-label={`acceptance-remark-remove-${remark.id}`} onClick={() => removeRemark(surface, remark.id)} className={`${BUTTON} text-red-800 pe-surface border-red-300`}><Ico>🗑️</Ico>{text.remark_remove}</button>
                     </div>
                   </div>
                 ))}
@@ -486,7 +486,7 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
                       ))}
                     </fieldset>
                     <button type="button" aria-label="acceptance-remark-save" disabled={!formReady(form)} onClick={saveForm} className={`w-full ${BUTTON} text-white bg-blue-600 border-blue-600 hover:bg-blue-700`}><Ico>💾</Ico>{text.remark_save}</button>
-                    <button type="button" aria-label="acceptance-remark-cancel" onClick={() => setForm(null)} className={`w-full ${BUTTON} text-slate-800 bg-white border-slate-300 hover:bg-slate-100`}><Ico>✖️</Ico>{text.remark_cancel}</button>
+                    <button type="button" aria-label="acceptance-remark-cancel" onClick={() => setForm(null)} className={`w-full ${BUTTON} text-slate-800 pe-surface border-slate-300 hover:bg-slate-100`}><Ico>✖️</Ico>{text.remark_cancel}</button>
                   </div>
                 ) : (
                   <button type="button" aria-label={`acceptance-remark-add-${surface.id}`} onClick={() => openForm(surface, null)} className={`w-full ${BUTTON} text-slate-900 bg-slate-100 border-slate-300 hover:bg-slate-200`}><Ico>➕</Ico>{text.remark_add}</button>
@@ -554,8 +554,8 @@ export function ProjectAcceptance({ projectId }: ProjectAcceptanceProps) {
           {note && <p role="status" aria-label="acceptance-note" className="text-sm text-emerald-800 break-words">{note}</p>}
           <button type="button" aria-label="preview-acceptance" disabled={busy} onClick={() => void preview()} className={`w-full ${BUTTON} text-slate-900 bg-slate-100 border-slate-300 hover:bg-slate-200`}><Ico>👁️</Ico>{text.preview}</button>
           <button type="button" aria-label="issue-acceptance" disabled={busy || draft.blockers.length > 0} onClick={() => void issue()} className={`w-full ${BUTTON} text-white bg-sky-700 border-sky-700 hover:bg-sky-800`}>{text.issue}</button>
-          <button type="button" aria-label="close-acceptance-form" disabled={busy} onClick={() => setOpen(false)} className={`w-full ${BUTTON} text-slate-800 bg-white border-slate-300 hover:bg-slate-100`}><Ico>✖️</Ico>{text.close}</button>
-          <button type="button" aria-label="abandon-acceptance-draft" disabled={busy} onClick={() => void abandon()} className={`w-full ${BUTTON} text-red-800 bg-white border-red-300 hover:bg-red-50`}>{confirmAbandon ? text.abandon_confirm : text.abandon}</button>
+          <button type="button" aria-label="close-acceptance-form" disabled={busy} onClick={() => setOpen(false)} className={`w-full ${BUTTON} text-slate-800 pe-surface border-slate-300 hover:bg-slate-100`}><Ico>✖️</Ico>{text.close}</button>
+          <button type="button" aria-label="abandon-acceptance-draft" disabled={busy} onClick={() => void abandon()} className={`w-full ${BUTTON} text-red-800 pe-surface border-red-300 hover:bg-red-50`}>{confirmAbandon ? text.abandon_confirm : text.abandon}</button>
         </div>
       )}
 
