@@ -621,12 +621,11 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
 
   return (
     <section aria-label="clients-section" className="w-full mt-4">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{t.clients.title}</h2>
+      <div className="mb-3">
         <button
           aria-label="add-client"
           onClick={openCreate}
-          className="min-h-11 px-4 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
+          className="w-full min-h-11 px-4 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
         >
           <Ico>➕</Ico>{t.clients.add_client}
         </button>

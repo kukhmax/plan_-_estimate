@@ -189,8 +189,7 @@ export function CalendarScreen({ backSuspended = false, onOpenProject }: Calenda
 
   return (
     <section aria-label="calendar-section" className="w-full mt-4 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="min-w-0 text-lg font-bold text-[var(--tg-theme-text-color)] break-words">{c.title}</h2>
+      <div className="flex items-center justify-end gap-2">
         <button type="button" aria-label="calendar-open-settings" onClick={() => setView('settings')} className="shrink-0 min-h-11 px-3 text-sm font-semibold rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)]">
           <Ico>⚙️</Ico>{c.settings}
         </button>

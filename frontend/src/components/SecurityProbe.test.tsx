@@ -41,7 +41,7 @@ beforeEach(() => {
 describe('SecurityProbe (EN-1)', () => {
   it('shows the nine checks as "not run" before anything is started, and says it touches no client data', () => {
     renderScreen();
-    expect(screen.getByRole('heading', { name: 'Test zabezpieczeń (EN-1)' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Test zabezpieczeń (EN-1)' })).toBeNull(); // named by the header of the application (usability U-2)
     expect(screen.getByText(/Nie dotyka danych klientów/)).toBeInTheDocument();
     expect(within(screen.getByLabelText('probe-results')).getAllByRole('listitem')).toHaveLength(9);
     for (const id of probe.AUTOMATIC_PROBES) expect(screen.getByLabelText(`probe-${id}`)).toHaveTextContent('nie uruchomiono');
@@ -136,7 +136,7 @@ describe('SecurityProbe (EN-1)', () => {
   it('speaks Russian', () => {
     localStorage.setItem('locale', 'ru');
     renderScreen();
-    expect(screen.getByRole('heading', { name: 'Тест защиты (EN-1)' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Тест защиты (EN-1)' })).toBeNull();
     expect(screen.getByLabelText('probe-run-all')).toHaveTextContent('Запустить тесты');
     expect(screen.getByLabelText('probe-secure_storage')).toHaveTextContent('SecureStorage (защищённое хранилище)');
     expect(screen.getByLabelText('marker-cloud')).toHaveTextContent('CloudStorage (облако Telegram)');

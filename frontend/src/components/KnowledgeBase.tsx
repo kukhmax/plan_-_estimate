@@ -117,7 +117,6 @@ function KnowledgeList({ title, onOpenEntry, onOpenSituation }: TitleProps & { o
 
   return (
     <>
-      <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{text.title}</h2>
       <p className="text-sm text-[var(--tg-theme-hint-color)] break-words">{text.intro}</p>
       {disclaimer && meta?.disclaimer_status === 'APPROVED' && (
         <p aria-label="knowledge-disclaimer" className="text-xs text-slate-600 break-words bg-slate-50 border border-slate-200 rounded-xl p-2">

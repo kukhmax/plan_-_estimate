@@ -54,7 +54,6 @@ export function SentDocuments() {
 
   return (
     <section aria-label="sent-documents-section" className="w-full mt-4 space-y-3">
-      <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{text.journal_title}</h2>
       <p className="text-sm text-[var(--tg-theme-hint-color)] break-words">{own.intro}</p>
 
       <button

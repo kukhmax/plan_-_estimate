@@ -122,9 +122,8 @@ describe('PriceBook — list and cards', () => {
 
   it('keeps the price screen readable on a phone and in the dark theme (Stage 16K.4, 16K.6): theme title, 44 px tiles and controls', async () => {
     renderHub();
-    const title = await screen.findByRole('heading', { name: 'Cennik' });
-    expect(title.className).toContain('text-[var(--tg-theme-text-color)]');
-    expect(title.className).not.toContain('text-slate-900');
+    await screen.findByLabelText('pricebook-hub');
+    expect(screen.queryByRole('heading', { name: 'Cennik' })).toBeNull(); // the header of the application names the section (usability U-2)
     for (const name of ['pricebook-maintab-items', 'pricebook-maintab-coefficients', 'pricebook-maintab-processes']) {
       expect(screen.getByLabelText(name).className).toContain('min-h-14');
     }

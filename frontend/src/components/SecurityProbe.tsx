@@ -95,7 +95,6 @@ export function SecurityProbe() {
 
   return (
     <section aria-label="security-probe" className="w-full mt-4 space-y-3">
-      <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{text.title}</h2>
       <p className="text-sm text-[var(--tg-theme-hint-color)] break-words">{text.intro}</p>
 
       <button type="button" aria-label="probe-run-all" disabled={running !== null} onClick={() => void runAll()} className={primary}>

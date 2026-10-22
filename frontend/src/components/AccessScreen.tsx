@@ -65,10 +65,7 @@ export function AccessScreen() {
 
   return (
     <section aria-label="access-screen" className="w-full space-y-4">
-      <div>
-        <h2 className="break-words text-lg font-bold">{text.title}</h2>
-        <p className="break-words text-sm" style={{ color: 'var(--tg-theme-hint-color)' }}>{text.intro}</p>
-      </div>
+      <p className="break-words text-sm" style={{ color: 'var(--tg-theme-hint-color)' }}>{text.intro}</p>
 
       {failed === 'load' && (
         <div role="alert" className="space-y-2 rounded-xl border border-red-300 p-3">

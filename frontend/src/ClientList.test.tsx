@@ -121,15 +121,12 @@ describe('ClientList component', () => {
     });
   });
 
-  it('renders the section title with the theme-aware text color, not a hardcoded dark slate class (Stage 10H.1)', async () => {
-    // Regression: a hardcoded `text-slate-900` on page-level (non-card) text
-    // never adapts to Telegram's dark theme, where the page background is
-    // itself dark — the heading became invisible dark-on-dark.
+  it('does not repeat the section title (the header of the application names it, usability U-2) and offers the full-width main action', async () => {
     vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({ items: [], total: 0 });
     renderWithI18n(<ClientList />);
-    const heading = await screen.findByText('Klienci');
-    expect(heading.className).toContain('text-[var(--tg-theme-text-color)]');
-    expect(heading.className).not.toContain('text-slate-900');
+    const add = await screen.findByLabelText('add-client');
+    expect(screen.queryByRole('heading', { name: 'Klienci' })).toBeNull();
+    expect(add.className).toContain('w-full');
   });
 });
 

@@ -299,7 +299,6 @@ export function ArchiveScreen() {
 
   return (
     <section aria-label="archive-section" className="w-full mt-4 space-y-3">
-      <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)]">{text.title}</h2>
       <p className="text-sm text-[var(--tg-theme-hint-color)] break-words">{text.intro}</p>
 
       <div role="tablist" aria-label="archive-tabs" className="flex flex-wrap gap-2">

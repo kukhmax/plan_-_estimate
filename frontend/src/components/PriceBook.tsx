@@ -247,7 +247,6 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
     <section aria-label="price-book-section" className="w-full mt-4">
       {mainTab === null ? (
         <>
-          <h2 className="text-lg font-bold text-[var(--tg-theme-text-color)] mb-3">{t.pricebook.title}</h2>
           <nav aria-label="pricebook-hub" className="grid grid-cols-1 gap-3">
             <HubTile icon="🏷️" ariaLabel="pricebook-maintab-items" label={t.coefficients.tab_items} onOpen={() => setMainTab('items')} />
             <HubTile icon="🎚️" ariaLabel="pricebook-maintab-coefficients" label={t.coefficients.tab_coefficients} onOpen={() => setMainTab('coefficients')} />

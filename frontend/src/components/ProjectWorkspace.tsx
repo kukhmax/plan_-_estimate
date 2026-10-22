@@ -701,14 +701,15 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       {/* the title and "Edytuj" belong to the hub of the object; its other screens are named by the breadcrumb */}
       {!selectedRoom && !showEstimates && (!selectedProject || objectSection === null) && (
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <h2 className="min-w-0 break-words text-lg font-bold text-[var(--tg-theme-text-color)]">
-            {selectedProject ? selectedProject.name : t.projects.title}
-          </h2>
+          {/* the list of objects is named by the header of the application (usability U-2); an open object by its own name */}
+          {selectedProject && (
+            <h2 className="min-w-0 break-words text-lg font-bold text-[var(--tg-theme-text-color)]">{selectedProject.name}</h2>
+          )}
           <button
             type="button"
             aria-label={selectedProject ? 'edit-project-detail' : 'add-project'}
             onClick={() => selectedProject ? startEdit(selectedProject) : startCreate()}
-            className="min-h-11 px-4 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
+            className={`min-h-11 px-4 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition ${selectedProject ? '' : 'w-full'}`}
           >
             <Ico>{selectedProject ? '✏️' : '➕'}</Ico>{selectedProject ? t.common.edit : t.projects.add}
           </button>

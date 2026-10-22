@@ -88,6 +88,20 @@ const AppContent: React.FC = () => {
     { id: 'show-security', label: t.navigation.security, active: activeSection === 'security', onSelect: () => choose('security') },
   ];
 
+  // Usability U-2: the header names the open section (the screens below do not repeat it); before the sign-in it is the name of the application.
+  const sectionTitles: Record<Section, string> = {
+    clients: t.navigation.clients,
+    projects: t.navigation.projects,
+    calendar: t.navigation.calendar,
+    pricebook: t.navigation.pricebook,
+    archive: t.navigation.archive,
+    documents: t.navigation.documents,
+    knowledge: t.navigation.knowledge,
+    access: t.navigation.access,
+    security: t.navigation.security,
+  };
+  const headerTitle = !isLoading && user ? sectionTitles[activeSection === 'access' && !user.is_admin ? 'pricebook' : activeSection] : t.app.title;
+
   return (
     // overflow-x-clip, not -hidden: "hidden" makes this block a scroll container, the sticky header then sticks to it (it never
     // scrolls) and not to the screen -- the header scrolled away on the phone (Stage 17). Guarded by App.test.tsx.
@@ -120,7 +134,7 @@ const AppContent: React.FC = () => {
         >
           <div className="flex items-center gap-1 min-w-0">
             <h1 className="text-lg font-bold tracking-tight truncate" style={{ color: 'var(--tg-theme-text-color)' }}>
-              {t.app.title}
+              {headerTitle}
             </h1>
           </div>
           {/* Language switcher (small, by the owner's request) and the menu button: both in the right corner, the menu button last */}

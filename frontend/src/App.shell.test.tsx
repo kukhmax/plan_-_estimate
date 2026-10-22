@@ -108,6 +108,24 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     expect(screen.queryByRole('navigation', { name: 'main-navigation' })).not.toBeInTheDocument();
   });
 
+  it('U-2: the header names the open section and no heading on the screen repeats it', async () => {
+    mockDevAuth();
+    render(<App />);
+    const header = await screen.findByRole('banner', { name: 'app-header' });
+    await waitFor(() => expect(header).toHaveTextContent('Klienci'));
+    expect(screen.queryByRole('heading', { level: 2, name: 'Klienci' })).toBeNull();
+    for (const [item, title] of [
+      ['show-pricebook', 'Cennik'],
+      ['show-security', 'Test zabezpieczeń'],
+    ] as const) {
+      await chooseSection(item);
+      await waitFor(() => expect(header).toHaveTextContent(title));
+      expect(header).not.toHaveTextContent('Plan & Estimate');
+      // the same words are not a second heading of the screen
+      expect(screen.queryAllByRole('heading', { name: title }).filter((heading) => !header.contains(heading))).toEqual([]);
+    }
+  });
+
   it('B: the header is one compact row (logo, menu, language) and the account lives in the menu', async () => {
     mockDevAuth();
     render(<App />);
@@ -117,7 +135,7 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     );
 
     const header = screen.getByRole('banner', { name: 'app-header' });
-    expect(header).toHaveTextContent('Plan & Estimate');
+    expect(header).toHaveTextContent('Klienci'); // the header names the open section (usability U-2)
     expect(header).toContainElement(screen.getByRole('button', { name: 'open-menu' }));
     expect(header).toContainElement(screen.getByRole('button', { name: 'lang-pl' }));
     expect(header).toContainElement(screen.getByRole('button', { name: 'lang-ru' }));

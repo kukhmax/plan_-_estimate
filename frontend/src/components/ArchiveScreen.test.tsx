@@ -143,7 +143,8 @@ describe('ArchiveScreen (Stage 16K.5)', () => {
   it('is in Russian too', async () => {
     localStorage.setItem('locale', 'ru');
     renderScreen();
-    expect(await screen.findByRole('heading', { name: 'Архив' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('archive-section')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Архив' })).toBeNull(); // the header of the application names the section (usability U-2)
     expect(screen.getByLabelText('restore-client-c1')).toHaveTextContent('Восстановить');
     expect(screen.getByLabelText('archive-tab-projects')).toHaveTextContent('Объекты');
   });
