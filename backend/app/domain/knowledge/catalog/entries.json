@@ -582,6 +582,11 @@
         "text": "Próg w aplikacji (podpowiedź: >3% CM beton, >1% tynk gipsowy) zgadza się z kartą Atlas i praktyką; Knauf dopuszcza 4% dla swoich wyrobów.",
         "status": "OPEN"
       }
+    ],
+    "substrates": [
+      "CONCRETE",
+      "GYPSUM_PLASTER",
+      "CEMENT_LIME_PLASTER"
     ]
   },
   {
@@ -610,6 +615,14 @@
         "text": "Treść streszczona ze specyfikacji opartych na WTWiORB ITB (zeszyt 4) — wartości z tablic nie zostały odczytane; sprawdzić w wydaniu ITB.",
         "status": "OPEN"
       }
+    ],
+    "substrates": [
+      "CONCRETE",
+      "GYPSUM_PLASTER",
+      "CEMENT_LIME_PLASTER",
+      "GYPSUM_BOARD",
+      "PAINTED",
+      "OTHER"
     ]
   },
   {
@@ -633,6 +646,9 @@
         "status": "OPEN",
         "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
       }
+    ],
+    "substrates": [
+      "PAINTED"
     ]
   },
   {
@@ -662,6 +678,10 @@
         "text": "Status PN-70/B-10100 (wycofana) i wartości PN-B-10110 dla tynków gipsowych — potwierdzić w PKN.",
         "status": "OPEN"
       }
+    ],
+    "substrates": [
+      "GYPSUM_PLASTER",
+      "CEMENT_LIME_PLASTER"
     ]
   },
   {
@@ -696,6 +716,9 @@
         "text": "Wartość szczeliny na krawędziach (do 3 mm) podana tylko przez źródło wtórne — sprawdzić w dokumencie Polskiego Gipsu.",
         "status": "OPEN"
       }
+    ],
+    "substrates": [
+      "GYPSUM_BOARD"
     ]
   },
   {
@@ -721,6 +744,15 @@
         "status": "OPEN",
         "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
       }
+    ],
+    "substrates": [
+      "GYPSUM_BOARD"
+    ],
+    "qualities": [
+      "Q1",
+      "Q2",
+      "Q3",
+      "Q4"
     ]
   },
   {
@@ -744,6 +776,10 @@
         "status": "OPEN",
         "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
       }
+    ],
+    "substrates": [
+      "GYPSUM_PLASTER",
+      "GYPSUM_BOARD"
     ]
   },
   {
@@ -768,6 +804,9 @@
         "status": "OPEN",
         "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
       }
+    ],
+    "substrates": [
+      "PAINTED"
     ]
   },
   {
@@ -796,6 +835,10 @@
         "text": "Źródło jest artykułem branżowym, nie kartą techniczną — dopisać kartę wyrobu do usuwania/blokowania soli.",
         "status": "OPEN"
       }
+    ],
+    "substrates": [
+      "CONCRETE",
+      "CEMENT_LIME_PLASTER"
     ]
   },
   {
@@ -819,6 +862,9 @@
         "status": "OPEN",
         "text": "Treść przygotowana przez AI na podstawie wyszukiwania (bez dostępu do pełnych tekstów norm i ITB): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
       }
+    ],
+    "substrates": [
+      "CONCRETE"
     ]
   }
 ]

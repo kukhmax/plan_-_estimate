@@ -52,6 +52,7 @@ def _item(catalog: KnowledgeCatalog, entry: Entry) -> KnowledgeEntryListItem:
     return KnowledgeEntryListItem(
         code=entry.code, kind=source.kind, source=source.code, source_designation=source.designation, locator=entry.locator,
         title_pl=entry.title_pl, title_ru=entry.title_ru, status=entry.status, tags=list(entry.tags),
+        substrates=list(entry.substrates), qualities=list(entry.qualities),
     )
 
 

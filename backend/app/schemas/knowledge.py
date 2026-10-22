@@ -31,6 +31,9 @@ class KnowledgeEntryListItem(BaseModel):
     title_ru: str
     status: Literal["DRAFT", "APPROVED"]
     tags: list[str]
+    # where the entry applies (U-12: the "?" help at the substrate / quality fields picks its entries by these)
+    substrates: list[str] = []
+    qualities: list[str] = []
 
 
 class KnowledgeEntryList(BaseModel):

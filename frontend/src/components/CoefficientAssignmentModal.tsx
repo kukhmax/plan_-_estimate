@@ -16,6 +16,7 @@ import {
   coefficientOptionName,
 } from '../utils/coefficientLabels';
 import { Ico } from './Ico';
+import { FieldHelp } from './FieldHelp';
 import { coefficientLook } from '../utils/coefficientLook';
 
 // Stage 12G: above this additive total the modal shows a non-blocking hint.
@@ -194,6 +195,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
               {occurrenceName}
             </p>
           </div>
+          <FieldHelp name="coefficient" field={t.coefficients.modal_title} match={{ tag: 'wspolczynnik' }} />
           <button
             type="button"
             onClick={onCancel}

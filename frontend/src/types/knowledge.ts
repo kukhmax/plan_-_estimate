@@ -26,6 +26,9 @@ export interface KnowledgeEntryItem {
   title_ru: string;
   status: KnowledgeStatus;
   tags: string[];
+  /** Where the entry applies (backend enums: `CONCRETE` ..., `Q3` ...); the "?" help of a field picks its entries by these. */
+  substrates?: string[];
+  qualities?: string[];
 }
 
 export interface KnowledgeEntryList {

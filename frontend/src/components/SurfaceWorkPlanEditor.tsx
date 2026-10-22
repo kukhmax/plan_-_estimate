@@ -35,6 +35,7 @@ import { PriceItemForm } from './PriceItemForm';
 import { WorkflowTemplateApplySheet } from './WorkflowTemplateApplySheet';
 import { SurfaceTypeValue } from '../types/surface';
 import { Ico } from './Ico';
+import { FieldHelp } from './FieldHelp';
 
 interface SurfaceWorkPlanEditorProps {
   projectId: string;
@@ -745,8 +746,11 @@ export function SurfaceWorkPlanEditor({
             <p className="text-sm text-[var(--tg-theme-hint-color)]">{t.work_plan.no_plan}</p>
           )}
 
-          <label className="block text-sm font-medium text-[var(--tg-theme-text-color)]">
-            {t.inspections.substrate}
+          <div className="text-sm font-medium text-[var(--tg-theme-text-color)]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="min-w-0 break-words">{t.inspections.substrate}</span>
+              {substrate !== '' && <FieldHelp name="substrate" field={t.inspections.substrate} match={{ substrate }} />}
+            </div>
             <select
               aria-label={`work-plan-substrate-${surfaceId}`}
               value={substrate}
@@ -759,10 +763,13 @@ export function SurfaceWorkPlanEditor({
                 <option key={value} value={value}>{substrateLabel(value)}</option>
               ))}
             </select>
-          </label>
+          </div>
 
-          <label className="block text-sm font-medium text-[var(--tg-theme-text-color)]">
-            {t.inspections.quality_target}
+          <div className="text-sm font-medium text-[var(--tg-theme-text-color)]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="min-w-0 break-words">{t.inspections.quality_target}</span>
+              {substrate !== '' && <FieldHelp name="quality" field={t.inspections.quality_target} match={{ qualities: qualityLevels }} />}
+            </div>
             <select
               aria-label={`work-plan-quality-${surfaceId}`}
               value={qualityTarget ?? ''}
@@ -779,7 +786,7 @@ export function SurfaceWorkPlanEditor({
                 <option key={level} value={level}>{t.pricebook.quality[level]}</option>
               ))}
             </select>
-          </label>
+          </div>
 
           {/* Planned works draft */}
           <div className="space-y-2 min-w-0">

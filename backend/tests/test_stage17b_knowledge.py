@@ -262,7 +262,7 @@ async def test_the_list_is_titles_first_with_what_is_needed_to_choose(async_clie
     assert body["items"][2] == {
         "code": "ACT.1", "kind": "STATUTE", "source": "TEST_ACT", "source_designation": "Dz.U. TEST poz. 1", "locator": "art. 1",
         "title_pl": "Rękojmia za wady robót", "title_ru": "Ответственность за недостатки", "status": "APPROVED",
-        "tags": ["rekojmia", "odbior"],
+        "tags": ["rekojmia", "odbior"], "substrates": ["CONCRETE"], "qualities": ["S2"],
     }
     found = (await async_client.get("/api/knowledge/entries", params={"q": "rekojmia", "kind": "STATUTE"}, headers=headers)).json()
     assert [i["code"] for i in found["items"]] == ["ACT.1", "ACT.2"]

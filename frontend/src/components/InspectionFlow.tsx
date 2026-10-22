@@ -39,6 +39,7 @@ import { RiskPanel } from './RiskPanel';
 import { RecommendationPanel } from './RecommendationPanel';
 import { CommunicationPanel } from './CommunicationPanel';
 import { Ico } from './Ico';
+import { FieldHelp } from './FieldHelp';
 
 export interface InspectionFlowProps {
   projectId: string;
@@ -637,7 +638,10 @@ export function InspectionFlow({
 
       {step === 'quality' ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-neutral-600">{t.inspections.quality_hint}</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="min-w-0 text-sm text-neutral-600">{t.inspections.quality_hint}</p>
+            <FieldHelp name="quality" field={t.inspections.quality_target} match={{ qualities: shownQualityLevels }} />
+          </div>
           {qualityLevels === undefined ? (
             <p className="rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600">
               {t.inspections.quality_optional_hint}

@@ -51,3 +51,20 @@ export function fetchKnowledgeLinkIndex(): Promise<KnowledgeLinkIndex> {
 export function forgetKnowledgeLinkIndex(): void {
   linkIndex = null;
 }
+
+let entryIndex: Promise<KnowledgeEntryList> | null = null;
+
+/** Every title of the knowledge base, asked once and kept while the application is open: the "?" helps of a screen share it. */
+export function fetchKnowledgeEntryIndex(): Promise<KnowledgeEntryList> {
+  if (!entryIndex) {
+    entryIndex = listKnowledgeEntries().catch((error: unknown) => {
+      entryIndex = null;
+      throw error;
+    });
+  }
+  return entryIndex;
+}
+
+export function forgetKnowledgeEntryIndex(): void {
+  entryIndex = null;
+}

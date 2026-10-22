@@ -26,6 +26,11 @@ vi.mock('./api/priceItems', async (importOriginal) => {
   return { ...actual, fetchPriceItems: vi.fn(), createPriceItem: vi.fn() };
 });
 vi.mock('./api/coefficients', () => ({ fetchCoefficientGroups: vi.fn() }));
+// the "?" help of the fields asks the knowledge base; this test is about the template calls, so the help has no entries
+vi.mock('./api/knowledge', () => ({
+  fetchKnowledgeEntryIndex: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  fetchKnowledgeEntry: vi.fn(),
+}));
 
 const S = 's-1';
 

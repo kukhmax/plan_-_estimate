@@ -2996,7 +2996,9 @@
     "basis_risks": "Podstawa prawna dla tych ryzyk ({count})",
     "basis_phrases": "Dlaczego trzeba to powiedzieć klientowi ({count})",
     "basis_document": "Podstawa prawna dokumentu ({count})",
-    "basis_technical": "Podstawa techniczna ({count})"
+    "basis_technical": "Podstawa techniczna ({count})",
+    "help_open": "Wyjaśnienie: {field}",
+    "help_close": "Zamknij"
   },
   "calendar": {
     "title": "Kalendarz",
