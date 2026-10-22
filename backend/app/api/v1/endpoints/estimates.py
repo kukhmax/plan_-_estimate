@@ -58,6 +58,8 @@ def _regen_response(result) -> RegenerationPreviewResponse:
         updated=result.updated,
         preserved_manual=result.preserved_manual,
         changes=changes,
+        current_total=result.current_total,
+        projected_total=result.projected_total,
     )
 
 

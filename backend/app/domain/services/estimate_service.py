@@ -128,6 +128,9 @@ class RegenerationResult:
     preserved_manual: int = 0
     lines: list[EstimateLine] = field(default_factory=list)
     changes: list[LineChangeEntry] = field(default_factory=list)
+    # Usability U-8: the total of the estimate now and the one a regeneration would give (the preview only; None when no line is priced)
+    current_total: Decimal | None = None
+    projected_total: Decimal | None = None
 
 
 def _item_description(item: PriceItem) -> str:
@@ -1509,6 +1512,16 @@ class EstimateService:
                 existing_by_pwid[line.planned_work_id] = line
 
         net_area_cache: dict[uuid.UUID, Decimal | None] = {}
+        # Usability U-8: the amounts of the lines as a regeneration would leave them -- the manual lines as they are, a matched line with its
+        # overrides kept, a new line from the plan; a line no work matches is gone. The same formulas as `_do_regenerate`, nothing is written.
+        projected_amounts: list[Decimal | None] = [line.amount for line in estimate.lines if line.origin == LineOrigin.MANUAL]
+
+        def projected_amount(matched_line: EstimateLine | None, source_qty: Decimal | None, effective_price: Decimal | None) -> Decimal | None:
+            if matched_line is None:
+                return _compute_amount(source_qty if source_qty is not None else Decimal("0.000"), effective_price)
+            quantity = matched_line.quantity if matched_line.quantity_overridden else (source_qty if source_qty is not None else Decimal("0.000"))
+            unit_price = matched_line.unit_price if matched_line.price_override else effective_price
+            return _compute_amount(quantity, unit_price)
 
         surface_works = await self._load_surface_planned_works(estimate.project_id)
         reveal_works = await self._load_reveal_planned_works(estimate.project_id)
@@ -1525,6 +1538,7 @@ class EstimateService:
             base_price, effective_price, snapshot = _resolve_occurrence_pricing(
                 item, work.coefficient_options
             )
+            projected_amounts.append(projected_amount(matched.get(work.id), source_qty, effective_price))
 
             if work.id in matched:
                 line = matched[work.id]
@@ -1584,6 +1598,7 @@ class EstimateService:
             base_price, effective_price, snapshot = _resolve_occurrence_pricing(
                 item, work.coefficient_options
             )
+            projected_amounts.append(projected_amount(matched.get(work.id), source_qty, effective_price))
 
             if work.id in matched:
                 line = matched[work.id]
@@ -1662,6 +1677,9 @@ class EstimateService:
                 ))
 
         await self._enrich_change_provenance(result.changes)
+        result.current_total = estimate.total
+        priced = [amount for amount in projected_amounts if amount is not None]
+        result.projected_total = sum(priced, Decimal("0.00")) if priced else None
         # Intentionally no commit — read-only preview.
         return result
 

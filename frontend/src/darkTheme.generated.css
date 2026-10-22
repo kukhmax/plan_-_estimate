@@ -323,6 +323,9 @@ html[data-color-scheme='dark'] .hover\:bg-cyan-100:hover {
 html[data-color-scheme='dark'] .hover\:bg-emerald-100:hover {
   background-color: rgba(16, 185, 129, 0.18);
 }
+html[data-color-scheme='dark'] .hover\:bg-emerald-50:hover {
+  background-color: rgba(16, 185, 129, 0.12);
+}
 html[data-color-scheme='dark'] .hover\:bg-fuchsia-100:hover {
   background-color: rgba(217, 70, 239, 0.18);
 }

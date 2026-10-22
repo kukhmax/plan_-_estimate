@@ -136,6 +136,9 @@ export interface RegenerationPreviewResponse {
   updated: number;
   preserved_manual: number;
   changes: LineChangeEntry[];
+  /** Usability U-8: the total of the estimate now and the one a regeneration would give (the preview only; null when no line is priced). */
+  current_total?: string | null;
+  projected_total?: string | null;
 }
 
 // Stage 10G.3C — POST body for a MANUAL EstimateLine (Stage 10E contract).

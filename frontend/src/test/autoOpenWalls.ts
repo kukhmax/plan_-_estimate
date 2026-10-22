@@ -34,3 +34,20 @@ export function installAutoOpenAreaDetails(): () => void {
   observer.observe(document.body, { childList: true, subtree: true });
   return () => observer.disconnect();
 }
+
+/**
+ * The list of changes of a regeneration preview is folded under "Szczegóły" (usability U-8). Tests written before that about the entries
+ * open it the moment the button appears, as an owner's tap would.
+ */
+export function installAutoOpenPreviewDetails(): () => void {
+  const open = () => {
+    const buttons = Array.from(document.querySelectorAll<HTMLElement>('[aria-label="estimate-regeneration-details-toggle"][aria-expanded="false"]'));
+    if (buttons.length === 0) return;
+    act(() => {
+      for (const button of buttons) fireEvent.click(button);
+    });
+  };
+  const observer = new MutationObserver(open);
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
+}

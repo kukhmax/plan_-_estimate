@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDecimalMoney, formatMetric } from './format';
+import { formatDecimalMoney, formatMetric, formatQuantity, signedMoneyDifference } from './format';
 
 describe('formatMetric — two-decimal metric policy (Stage 7 final)', () => {
   it('renders every construction metric to exactly two decimals', () => {
@@ -59,5 +59,38 @@ describe('formatDecimalMoney — string-only decimal display (Stage 10G.1)', () 
 
   it('returns em dash for null', () => {
     expect(formatDecimalMoney(null)).toBe('—');
+  });
+});
+describe('formatQuantity — a quantity of an estimate line by its unit (usability U-10)', () => {
+  it('shows areas and lengths with two decimals, rounded half-up and exactly', () => {
+    expect(formatQuantity('78.374', 'M2')).toBe('78.37');
+    expect(formatQuantity('78.375', 'M2')).toBe('78.38');
+    expect(formatQuantity('1.005', 'M2')).toBe('1.01'); // a float would give 1.00
+    expect(formatQuantity('12.4', 'LM')).toBe('12.40');
+    expect(formatQuantity('0.004', 'M2')).toBe('0.00');
+    expect(formatQuantity('99.999', 'M2')).toBe('100.00');
+  });
+  it('shows hours and days with one decimal, pieces and lump sums whole', () => {
+    expect(formatQuantity('7.25', 'HOUR')).toBe('7.3');
+    expect(formatQuantity('2.000', 'DAY')).toBe('2.0');
+    expect(formatQuantity('3.000', 'PCS')).toBe('3');
+    expect(formatQuantity('1.000', 'FLAT')).toBe('1');
+    expect(formatQuantity('2.5', 'PCS')).toBe('3');
+  });
+  it('leaves an unknown unit or a value that is not a plain decimal as it came', () => {
+    expect(formatQuantity('78.374', 'XX')).toBe('78.374');
+    expect(formatQuantity('78.374', null)).toBe('78.374');
+    expect(formatQuantity('abc', 'M2')).toBe('abc');
+    expect(formatQuantity('-1.5', 'M2')).toBe('-1.5');
+  });
+});
+
+describe('signedMoneyDifference — the change of a total (usability U-8)', () => {
+  it('gives the signed difference of two money strings exactly', () => {
+    expect(signedMoneyDifference('2003.13', '3186.72')).toBe('+1183.59');
+    expect(signedMoneyDifference('3186.72', '2003.13')).toBe('-1183.59');
+    expect(signedMoneyDifference('10.00', '10.00')).toBe('0.00');
+    expect(signedMoneyDifference('0.10', '0.20')).toBe('+0.10'); // 0.2 - 0.1 is not 0.1 in floats
+    expect(signedMoneyDifference('5', '4.99')).toBe('-0.01');
   });
 });

@@ -24,3 +24,46 @@ export function formatDecimalMoney(value: string | null): string {
   if (frac.length === 1) return `${intPart}.${frac}0`;
   return `${intPart}.${frac.slice(0, 2)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Usability U-8 / U-10 -- exact decimal display (no floats): quantities by unit, and the difference of two money strings.
+// ---------------------------------------------------------------------------
+
+/** Rounds a non-negative decimal string half-up to `decimals` digits, exactly (BigInt, no floating point). */
+function roundDecimalString(value: string, decimals: number): string {
+  const [intPart = '0', fracPart = ''] = value.split('.');
+  const padded = fracPart.padEnd(decimals + 1, '0');
+  const scaled = BigInt(intPart + padded.slice(0, decimals)) + (Number(padded[decimals]) >= 5 ? 1n : 0n);
+  if (decimals === 0) return scaled.toString();
+  const text = scaled.toString().padStart(decimals + 1, '0');
+  return `${text.slice(0, -decimals)}.${text.slice(-decimals)}`;
+}
+
+/** How many decimals a quantity shows by unit: areas and lengths 2, hours and days 1, pieces and lump sums whole. */
+const QUANTITY_DECIMALS: Record<string, number> = { M2: 2, LM: 2, HOUR: 1, DAY: 1, PCS: 0, FLAT: 0 };
+
+/**
+ * A quantity of an estimate line for DISPLAY ("78.374" m² → "78.37"). The server keeps its three decimals; the sum of a line is shown as
+ * it arrives and is never recalculated from this text. An unknown unit, or a value that is not a plain decimal, is returned as it came.
+ */
+export function formatQuantity(value: string, unit: string | null): string {
+  const decimals = unit !== null ? QUANTITY_DECIMALS[unit] : undefined;
+  if (decimals === undefined || !/^\d+(\.\d+)?$/.test(value)) return value;
+  return roundDecimalString(value, decimals);
+}
+
+function toCents(value: string): bigint {
+  const negative = value.startsWith('-');
+  const [intPart, fracPart = ''] = value.replace('-', '').split('.');
+  const cents = BigInt(intPart + fracPart.padEnd(2, '0').slice(0, 2));
+  return negative ? -cents : cents;
+}
+
+/** `to - from` of two money strings as a signed two-decimal string ("+1183.59", "-12.00", "0.00"): the change a regeneration would bring. */
+export function signedMoneyDifference(from: string, to: string): string {
+  const cents = toCents(to) - toCents(from);
+  const sign = cents > 0n ? '+' : cents < 0n ? '-' : '';
+  const abs = cents < 0n ? -cents : cents;
+  const text = abs.toString().padStart(3, '0');
+  return `${sign}${text.slice(0, -2)}.${text.slice(-2)}`;
+}

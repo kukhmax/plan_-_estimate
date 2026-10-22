@@ -142,6 +142,9 @@ class RegenerationPreviewResponse(BaseModel):
     updated: int
     preserved_manual: int
     changes: list[LineChangeEntryRead] = Field(default_factory=list)
+    # Usability U-8 (added; only the preview fills them): the total of the estimate now and the one a regeneration would give
+    current_total: Decimal | None = None
+    projected_total: Decimal | None = None
 
 
 # ---------------------------------------------------------------------------

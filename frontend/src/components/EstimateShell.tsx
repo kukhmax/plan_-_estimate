@@ -6,7 +6,7 @@ import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, Estimat
 import { PRICE_UNITS, type PriceScopeValue, type PriceUnitValue } from '../types/priceItem';
 import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatPercentageDisplay, sumPercentages } from '../utils/coefficientCalculations';
-import { formatDecimalMoney } from '../utils/format';
+import { formatDecimalMoney, formatQuantity, signedMoneyDifference } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
 import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
@@ -380,6 +380,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // calls the mutating regenerate endpoint. Checks the WHOLE project
   // estimate, never scoped to the currently opened room or group.
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDetailsOpen, setPreviewDetailsOpen] = useState(false); // usability U-8: the list of changes is folded under "Szczegóły"
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewResult, setPreviewResult] = useState<RegenerationPreviewResponse | null>(null);
@@ -387,6 +388,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
 
   const openPreview = async () => {
+    setPreviewDetailsOpen(false);
     setPreviewOpen(true);
     setPreviewLoading(true);
     setPreviewError(null);
@@ -403,6 +405,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   };
 
   const closePreview = () => {
+    setPreviewDetailsOpen(false);
     setPreviewOpen(false);
     setPreviewLoading(false);
     setPreviewError(null);
@@ -599,11 +602,26 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // UPDATED entry's quantity/price didn't actually change (e.g. only the
   // description changed) instead of showing "X -> X".
   const changeQuantityDisplay = (entry: LineChangeEntry): string => {
-    const fmt = (v: string | null) => (v !== null ? `${v} ${unitLabel(entry.unit)}` : '—');
+    const fmt = (v: string | null) => (v !== null ? `${formatQuantity(v, entry.unit)} ${unitLabel(entry.unit)}` : '—');
     if (entry.change_type === 'ADDED') return fmt(entry.new_source_quantity);
     if (entry.change_type === 'REMOVED') return fmt(entry.old_source_quantity);
     if (entry.old_source_quantity === entry.new_source_quantity) return fmt(entry.new_source_quantity);
     return `${fmt(entry.old_source_quantity)} → ${fmt(entry.new_source_quantity)}`;
+  };
+
+  // Usability U-8: the changes of one kind are listed by WORK (its name once), under it the places: room, wall, opening.
+  const groupEntriesByWork = (entries: LineChangeEntry[]) => {
+    const groups: { key: string; title: string; items: { entry: LineChangeEntry; index: number }[] }[] = [];
+    entries.forEach((entry, index) => {
+      const key = `${entry.item_code}|${entry.description}`;
+      let group = groups.find((candidate) => candidate.key === key);
+      if (!group) {
+        group = { key, title: resolveKey(t, entry.description), items: [] };
+        groups.push(group);
+      }
+      group.items.push({ entry, index });
+    });
+    return groups;
   };
 
   const changePriceDisplay = (entry: LineChangeEntry): string => {
@@ -668,7 +686,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // `group.hasUnresolvedQuantity` (aggregate) — never re-derived here.
   const quantityDisplay = (quantity: string, unit: string | null, unresolved: boolean): string => {
     const unitText = unit !== null ? unitLabel(unit) : '';
-    return unresolved ? `${t.estimates.quantity_unresolved} / ${unitText}` : `${quantity} ${unitText}`;
+    return unresolved ? `${t.estimates.quantity_unresolved} / ${unitText}` : `${formatQuantity(quantity, unit)} ${unitText}`;
   };
 
   // The `estimate` prop is a point-in-time EstimateSummaryRead handed down by
@@ -820,14 +838,14 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
       // (padding/border/shadow) is reserved for the open panel below, so
       // three stacked actions don't each cost an extra card's worth of
       // height (Stage 10H.1 mobile density fix).
-      className={previewOpen ? 'pe-card rounded-2xl p-3 shadow-sm space-y-2' : ''}
+      className={previewOpen ? 'col-span-2 pe-card rounded-2xl p-3 shadow-sm space-y-2' : ''}
     >
       {!previewOpen ? (
         <button
           type="button"
           aria-label="estimate-check-changes-action"
           onClick={() => void openPreview()}
-          className="w-full min-h-[44px] px-3 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition"
+          className="w-full min-h-[44px] px-3 py-1 text-sm font-semibold text-slate-800 pe-surface border border-slate-300 rounded-xl hover:bg-slate-100 transition break-words"
         >
           <Ico>🔍</Ico>{t.estimates.check_changes_action}
         </button>
@@ -885,6 +903,46 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
               </div>
             ) : (
               <div className="space-y-2">
+                {/* Usability U-8: first the answer -- what the total of the estimate was and will be, and how many works come, go and change */}
+                {previewResult.current_total != null && previewResult.projected_total != null && (
+                  <div aria-label="estimate-regeneration-totals" className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-0.5">
+                    <p className="text-sm font-semibold text-slate-900 break-words">
+                      <span className="text-xs font-medium text-slate-500">{t.estimates.preview_total_was} </span>
+                      <span aria-label="estimate-regeneration-total-from">{formatDecimalMoney(previewResult.current_total)} {estimate.currency}</span>
+                      <span aria-hidden="true"> → </span>
+                      <span className="text-xs font-medium text-slate-500">{t.estimates.preview_total_will} </span>
+                      <span aria-label="estimate-regeneration-total-to">{formatDecimalMoney(previewResult.projected_total)} {estimate.currency}</span>
+                    </p>
+                    <p
+                      aria-label="estimate-regeneration-total-delta"
+                      className={`text-sm font-bold break-words ${
+                        signedMoneyDifference(previewResult.current_total, previewResult.projected_total).startsWith('+')
+                          ? 'text-emerald-700'
+                          : signedMoneyDifference(previewResult.current_total, previewResult.projected_total).startsWith('-')
+                            ? 'text-red-700'
+                            : 'text-slate-600'
+                      }`}
+                    >
+                      {signedMoneyDifference(previewResult.current_total, previewResult.projected_total)} {estimate.currency}
+                    </p>
+                  </div>
+                )}
+                <p aria-label="estimate-regeneration-counts" className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm font-semibold text-slate-800">
+                  <span aria-label="estimate-regeneration-count-added" className="text-emerald-700">+{previewResult.added}</span>
+                  <span aria-label="estimate-regeneration-count-removed" className="text-red-700">−{previewResult.removed}</span>
+                  <span aria-label="estimate-regeneration-count-updated">{t.estimates.preview_changed_count.replace('{count}', String(previewResult.updated))}</span>
+                </p>
+                <button
+                  type="button"
+                  aria-label="estimate-regeneration-details-toggle"
+                  aria-expanded={previewDetailsOpen}
+                  onClick={() => setPreviewDetailsOpen((open) => !open)}
+                  className="w-full min-h-[44px] border border-slate-300 text-slate-700 text-sm font-medium rounded-lg px-3"
+                >
+                  <Ico>{previewDetailsOpen ? '🔼' : '🔽'}</Ico>{previewDetailsOpen ? t.estimates.preview_details_hide : t.estimates.preview_details}
+                </button>
+                {previewDetailsOpen && (
+                <div aria-label="estimate-regeneration-details" className="space-y-2">
                 {(['ADDED', 'UPDATED', 'REMOVED'] as const).map((changeType) => {
                   const entries = previewResult.changes.filter((c) => c.change_type === changeType);
                   if (entries.length === 0) return null;
@@ -897,7 +955,20 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                         {changeCategoryLabel(changeType)}
                       </p>
-                      {entries.map((entry, i) => {
+                      {groupEntriesByWork(entries).map((group, g) => (
+                      <div
+                        key={group.key}
+                        aria-label={`estimate-regeneration-group-${changeType}-${g}`}
+                        className="space-y-1"
+                      >
+                      <p
+                        aria-label={`estimate-regeneration-group-title-${changeType}-${g}`}
+                        className="text-sm font-semibold text-slate-900 break-words min-w-0"
+                      >
+                        {group.title}
+                        {group.items.length > 1 && <span className="ml-1.5 text-xs font-medium text-slate-500">({group.items.length})</span>}
+                      </p>
+                      {group.items.map(({ entry, index: i }) => {
                         const entryProvenance = compactProvenanceLabel(entry);
                         return (
                         <div
@@ -913,12 +984,6 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                               {entryProvenance}
                             </p>
                           )}
-                          <p
-                            aria-label={`estimate-regeneration-change-description-${changeType}-${i}`}
-                            className="text-sm text-slate-900 break-words min-w-0"
-                          >
-                            {resolveKey(t, entry.description)}
-                          </p>
                           <div className="text-xs text-slate-600 flex items-baseline gap-1 flex-wrap min-w-0">
                             <span aria-label={`estimate-regeneration-change-quantity-${changeType}-${i}`}>
                               {changeQuantityDisplay(entry)}
@@ -1005,9 +1070,13 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                         </div>
                         );
                       })}
+                      </div>
+                      ))}
                     </div>
                   );
                 })}
+                </div>
+                )}
 
                 <div className="flex items-center gap-2 flex-wrap pt-1">
                   <button
@@ -1053,14 +1122,14 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const manualLineSection = detail.status === 'DRAFT' && (
     <div
       aria-label="estimate-manual-line"
-      className={manualFormOpen ? 'pe-card rounded-2xl p-3 shadow-sm space-y-2' : ''}
+      className={manualFormOpen ? 'col-span-2 pe-card rounded-2xl p-3 shadow-sm space-y-2' : ''}
     >
       {!manualFormOpen ? (
         <button
           type="button"
           aria-label="estimate-add-manual-line-action"
           onClick={openManualForm}
-          className="w-full min-h-[44px] px-3 text-sm font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-xl hover:bg-violet-100 transition"
+          className="w-full min-h-[44px] px-3 py-1 text-sm font-semibold text-slate-800 pe-surface border border-slate-300 rounded-xl hover:bg-slate-100 transition break-words"
         >
           <Ico>➕</Ico>{t.estimates.add_manual_line_action}
         </button>
@@ -1189,7 +1258,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           type="button"
           aria-label="estimate-finalize-action"
           onClick={openFinalizeConfirm}
-          className="w-full min-h-[44px] px-3 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition"
+          className="w-full min-h-[44px] px-3 text-sm font-semibold text-emerald-700 pe-surface border border-emerald-300 rounded-xl hover:bg-emerald-50 transition break-words"
         >
           <Ico>🏁</Ico>{t.estimates.finalize_action}
         </button>
@@ -1242,13 +1311,20 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // by the non-empty views below — an empty DRAFT reaches the exact same
   // "Sprawdź zmiany" / "+ Dodaj pozycję" / "Finalizuj kosztorys" actions,
   // already correctly gated to DRAFT-only by their own definitions above.
+  // Usability U-9: ONE main action per screen (the PDF, in `EstimateDocumentActions`); "Sprawdź zmiany" and "Dodaj pozycję" are two quiet
+  // buttons of one row (an open panel takes the whole row); "Finalizuj" is the last thing on the screen, after the lines were looked at.
+  const secondaryActions = (regenerationSection || manualLineSection) && (
+    <div aria-label="estimate-secondary-actions" className="grid grid-cols-2 gap-2 items-start">
+      {regenerationSection}
+      {manualLineSection}
+    </div>
+  );
+
   if (groups.length === 0) {
     return (
       <article aria-label="estimate-shell" className="space-y-3">
         {header}
-        {regenerationSection}
-        {manualLineSection}
-        {finalizeSection}
+        {secondaryActions}
         <div
           aria-label="estimate-lines-empty"
           className="pe-card rounded-2xl p-5 shadow-sm space-y-1"
@@ -1256,6 +1332,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           <p className="text-sm font-medium text-slate-700">{t.estimates.lines_empty_title}</p>
           <p className="text-xs text-slate-500">{t.estimates.lines_empty_description}</p>
         </div>
+        {finalizeSection}
       </article>
     );
   }
@@ -1268,9 +1345,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     return (
       <article aria-label="estimate-shell" className="space-y-3">
         {header}
-        {regenerationSection}
-        {manualLineSection}
-        {finalizeSection}
+        {secondaryActions}
 
         <button
           type="button"
@@ -1615,6 +1690,8 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
             );
           })}
         </div>
+
+        {finalizeSection}
       </article>
     );
   }
@@ -1623,25 +1700,21 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   return (
     <article aria-label="estimate-shell" className="space-y-3">
       {header}
-      {regenerationSection}
-      {manualLineSection}
-      {finalizeSection}
       <EstimateDocumentActions projectId={estimate.project_id} estimateId={estimate.id} status={detail.status} />
+      {secondaryActions}
 
       <div aria-label="estimate-groups" className="space-y-2">
         {groups.map((group, index) => {
           const supportsPriceReset = group.origin !== 'MANUAL';
           const optionsOpen = optionsOpenGroupKey === group.key;
           const isGroupBusy = groupActionBusyKey === group.key;
-          // Deterministic per-group-identity tint (Stage 10H.1) — reuses the
-          // same hash-based palette as Surface cards, keyed by the group's
-          // own stable `key`, never the array index.
-          const tint = surfaceCardTint(group.key);
+          // Usability U-9: the cards of the grouped view are neutral (a colour per group told nothing); the colour of a surface stays on the
+          // lines of the drill-down view, where it tells the walls apart.
 
           return (
             <div
               key={group.key}
-              className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-2xl shadow-sm p-3 space-y-1.5`}
+              className="pe-card rounded-2xl shadow-sm p-3 space-y-1.5"
             >
               {/* Stage 10G.3A polish — Opcje sits top-right, beside the
                   work title/header, per owner-approved placement. The
@@ -1862,6 +1935,8 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           );
         })}
       </div>
+
+      {finalizeSection}
     </article>
   );
 }

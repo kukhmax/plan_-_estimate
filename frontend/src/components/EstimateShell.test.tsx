@@ -9,11 +9,11 @@
  */
 import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as estimatesApi from '../api/estimates';
 import { I18nProvider } from '../hooks/useI18n';
 import type { EstimateLineRead, EstimateRead, EstimateSummaryRead, LineChangeEntry, RegenerationPreviewResponse } from '../types/estimate';
-import { surfaceCardTint } from '../utils/surfaceColorTint';
+import { installAutoOpenPreviewDetails } from '../test/autoOpenWalls';
 import { EstimateShell } from './EstimateShell';
 
 vi.mock('../api/estimates', () => ({
@@ -141,6 +141,15 @@ function renderShell(
     </I18nProvider>,
   );
 }
+
+// The list of changes of a preview is folded under "Szczegóły" (usability U-8); the older tests about the entries see it open.
+let stopAutoOpenPreview: (() => void) | undefined;
+beforeEach(() => {
+  stopAutoOpenPreview = installAutoOpenPreviewDetails();
+});
+afterEach(() => {
+  stopAutoOpenPreview?.();
+});
 
 beforeEach(() => {
   localStorage.removeItem('locale');
@@ -386,7 +395,7 @@ describe('Stage 10G.4 — empty DRAFT reaches the shared regeneration/manual/fin
     expect(screen.getByLabelText('estimate-finalize-action')).toBeTruthy();
   });
 
-  it('gives the three DRAFT actions distinct subtle backgrounds and a compact collapsed height (Stage 10H.1)', async () => {
+  it('U-9: the three DRAFT actions are quiet outline buttons of 44 px; two share a row, "Finalizuj" comes last (replaces the coloured trio of Stage 10H.1)', async () => {
     vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([]));
     renderShell(makeSummary(), null);
     await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
@@ -395,19 +404,23 @@ describe('Stage 10G.4 — empty DRAFT reaches the shared regeneration/manual/fin
     const addManualLine = screen.getByLabelText('estimate-add-manual-line-action');
     const finalize = screen.getByLabelText('estimate-finalize-action');
 
-    // Distinct semantic backgrounds — never the same class for all three.
-    expect(checkChanges.className).toContain('bg-blue-50');
-    expect(addManualLine.className).toContain('bg-violet-50');
-    expect(finalize.className).toContain('bg-emerald-50');
-
-    // Still a full ~44px touch target...
     for (const action of [checkChanges, addManualLine, finalize]) {
       expect(action.className).toContain('min-h-[44px]');
       expect(action.className).toContain('w-full');
+      expect(action.className).toContain('border');
+      expect(action.className).not.toMatch(/(^|\s)bg-(blue|violet|emerald)-50/); // no pastel fill: nothing shouts
     }
+    // the two secondary actions are cells of one row
+    const row = screen.getByLabelText('estimate-secondary-actions');
+    expect(row.className).toContain('grid-cols-2');
+    expect(row).toContainElement(checkChanges);
+    expect(row).toContainElement(addManualLine);
+    expect(row).not.toContainElement(finalize);
+    // "Finalizuj" is after the review: below the row and the list
+    expect(row.compareDocumentPosition(finalize) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByLabelText('estimate-lines-empty').compareDocumentPosition(finalize) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    // ...but the collapsed wrapper carries no extra card padding, so three
-    // stacked actions don't each cost a full white-card's worth of height.
+    // the collapsed wrapper carries no extra card padding
     expect(checkChanges.parentElement?.className).not.toContain('p-3');
     expect(addManualLine.parentElement?.className).not.toContain('p-3');
     expect(finalize.parentElement?.className).not.toContain('p-3');
@@ -465,7 +478,7 @@ describe('line card basics (detail view)', () => {
   it('renders quantity and unit', async () => {
     renderShell();
     await waitFor(() => screen.getByLabelText('estimate-lines'));
-    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.500');
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.50');
     expect(screen.getByLabelText('line-quantity-1').textContent).toContain('m²');
   });
 
@@ -672,7 +685,7 @@ describe('override indicators', () => {
     );
     renderShell();
     await waitFor(() => screen.getByLabelText('estimate-lines'));
-    expect(screen.getByLabelText('line-qty-override-1').textContent).toContain('10.000');
+    expect(screen.getByLabelText('line-qty-override-1').textContent).toContain('10.00');
     expect(screen.getByLabelText('line-qty-override-1').textContent).toContain('m²');
   });
 
@@ -931,7 +944,7 @@ describe('grouped view (selectedGroupKey === null)', () => {
     return { onGroupKeyChange };
   }
 
-  it('gives each group card a deterministic tint keyed by group identity, not array position (Stage 10H.1)', async () => {
+  it('U-9: the group cards are neutral (no colour per group) and keep their scope badges', async () => {
     const surfaceLine = makeLine();
     const manualLine = makeLine({
       id: 'line-2',
@@ -944,22 +957,26 @@ describe('grouped view (selectedGroupKey === null)', () => {
     renderGrouped([surfaceLine, manualLine]);
     await waitFor(() => screen.getByLabelText('estimate-groups'));
 
-    const surfaceTint = surfaceCardTint(PLANNED_SURFACE_KEY);
-    const manualTint = surfaceCardTint('manual::line-2');
-    // Guard: the fixture's two group identities must actually hash to
-    // different palette entries for this assertion to be meaningful.
-    expect(surfaceTint.bg).not.toBe(manualTint.bg);
-
-    const card0 = screen.getByLabelText('estimate-group-0').parentElement?.parentElement;
-    const card1 = screen.getByLabelText('estimate-group-1').parentElement?.parentElement;
-    expect(card0?.className).toContain(surfaceTint.bg);
-    expect(card0?.className).toContain(surfaceTint.border);
-    expect(card1?.className).toContain(manualTint.bg);
-    expect(card1?.className).toContain(manualTint.border);
-
-    // Preserved: scope badges remain rendered on the tinted cards.
+    for (const index of [0, 1]) {
+      const card = screen.getByLabelText(`estimate-group-${index}`).parentElement?.parentElement;
+      expect(card?.className).toContain('pe-card');
+      expect(card?.className).not.toMatch(/bg-(blue|emerald|amber|rose|violet|teal)-50|pe-tinted/);
+    }
     expect(screen.getByLabelText('group-scope-0')).toBeInTheDocument();
     expect(screen.getByLabelText('group-scope-1')).toBeInTheDocument();
+  });
+
+  it('U-9: one main action on the grouped screen -- the PDF -- before the secondary row, and Finalizuj after the groups', async () => {
+    renderGrouped();
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    const pdf = screen.getByLabelText('estimate-preview-pdf');
+    expect(pdf.className).toContain('--tg-theme-button-color');
+    expect(pdf.className).not.toContain('bg-sky-700');
+    const row = screen.getByLabelText('estimate-secondary-actions');
+    expect(pdf.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const groups = screen.getByLabelText('estimate-groups');
+    const finalize = screen.getByLabelText('estimate-finalize-action');
+    expect(groups.compareDocumentPosition(finalize) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('renders estimate-groups container when selectedGroupKey is null', async () => {
@@ -1071,7 +1088,7 @@ describe('grouped view (selectedGroupKey === null)', () => {
     ];
     renderGrouped(lines);
     await waitFor(() => screen.getByLabelText('estimate-groups'));
-    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('15.750');
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('15.75');
     expect(screen.getByLabelText('group-quantity-0').textContent).toContain('m²');
   });
 
@@ -1085,8 +1102,8 @@ describe('grouped view (selectedGroupKey === null)', () => {
     // Two separate groups (different price_item_ids), each with its own quantity
     const groups = screen.getAllByLabelText(/^estimate-group-/);
     expect(groups.length).toBe(2);
-    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('10.000');
-    expect(screen.getByLabelText('group-quantity-1').textContent).toContain('3.000');
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('10.00');
+    expect(screen.getByLabelText('group-quantity-1').textContent).toContain('3.00');
   });
 
   it('group amount is exact sum when all lines have amounts (no float drift)', async () => {
@@ -2052,7 +2069,7 @@ describe('Stage 10G.3A — authoritative refetch after mutation', () => {
     fireEvent.click(screen.getByLabelText('line-edit-save-1'));
 
     await waitFor(() => screen.getByLabelText('line-qty-override-1'));
-    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('20.000');
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('20.00');
     expect(screen.getByLabelText('line-amount-1').textContent).toContain('700.00');
   });
 
@@ -2093,7 +2110,7 @@ describe('Stage 10G.3A — authoritative refetch after mutation', () => {
 
     fireEvent.click(screen.getByLabelText('estimate-detail-back'));
     await waitFor(() => screen.getByLabelText('estimate-groups'));
-    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('20.000');
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('20.00');
     expect(screen.getByLabelText('group-has-overrides-0')).toBeTruthy();
   });
 });
@@ -2141,7 +2158,7 @@ describe('Stage 10G.3A — cancel and error handling', () => {
 
     await waitFor(() => screen.getByLabelText('line-edit-error-1'));
     expect(screen.getByLabelText('line-edit-error-1').textContent).toBe('Estimate is not a DRAFT');
-    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.500');
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.50');
   });
 });
 
@@ -2186,7 +2203,7 @@ describe('Stage 10G.3A regression — existing 10G.2 UI untouched', () => {
   it('an atomic line not being edited still renders quantity/price/amount exactly as in 10G.2, with Edytuj alongside (not replacing) them', async () => {
     renderShell();
     await waitFor(() => screen.getByLabelText('estimate-lines'));
-    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.500');
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.50');
     expect(screen.getByLabelText('line-unit-price-1').textContent).toContain('35.00');
     expect(screen.getByLabelText('line-amount-1').textContent).toContain('437.50');
     expect(screen.getByLabelText('line-edit-action-1')).toBeTruthy();
@@ -2724,7 +2741,7 @@ describe('Stage 10G.3A polish — atomic Edytuj placement (upper-right, beside h
     expect(screen.queryByLabelText('line-edit-panel-1')).toBeNull();
     expect(screen.queryByLabelText('line-reset-quantity-1')).toBeNull();
     expect(screen.queryByLabelText('line-reset-price-1')).toBeNull();
-    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.500');
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.50');
   });
 
   it('a long PL description wraps and Edytuj stays available without overlapping the badges', async () => {
@@ -2895,10 +2912,11 @@ describe('Stage 10G.3B — change category rendering', () => {
     await waitFor(() => screen.getByLabelText('estimate-regeneration-category-ADDED'));
 
     expect(screen.getByLabelText('estimate-regeneration-category-ADDED').textContent).toContain('Dodano');
-    expect(screen.getByLabelText('estimate-regeneration-change-description-ADDED-0').textContent).toBe(
+    // usability U-8: the work is named once, as the heading of its group
+    expect(screen.getByLabelText('estimate-regeneration-group-title-ADDED-0').textContent).toBe(
       'Gładź szpachlowa — 2 warstwy (pakiet)',
     );
-    expect(screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0').textContent).toContain('12.400 m²');
+    expect(screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0').textContent).toContain('12.40 m²');
     expect(screen.getByLabelText('estimate-regeneration-change-price-ADDED-0').textContent).toContain('35.00 PLN');
   });
 
@@ -2921,7 +2939,7 @@ describe('Stage 10G.3B — change category rendering', () => {
     await waitFor(() => screen.getByLabelText('estimate-regeneration-category-REMOVED'));
 
     expect(screen.getByLabelText('estimate-regeneration-category-REMOVED').textContent).toContain('Usunięto');
-    expect(screen.getByLabelText('estimate-regeneration-change-quantity-REMOVED-0').textContent).toContain('8.000 m²');
+    expect(screen.getByLabelText('estimate-regeneration-change-quantity-REMOVED-0').textContent).toContain('8.00 m²');
     expect(screen.getByLabelText('estimate-regeneration-change-price-REMOVED-0').textContent).toContain('30.00 PLN');
   });
 
@@ -2945,8 +2963,8 @@ describe('Stage 10G.3B — change category rendering', () => {
 
     expect(screen.getByLabelText('estimate-regeneration-category-UPDATED').textContent).toContain('Zmieniono');
     const qty = screen.getByLabelText('estimate-regeneration-change-quantity-UPDATED-0').textContent ?? '';
-    expect(qty).toContain('10.000 m²');
-    expect(qty).toContain('12.400 m²');
+    expect(qty).toContain('10.00 m²');
+    expect(qty).toContain('12.40 m²');
     expect(qty).toContain('→');
     // price unchanged -> collapsed to a single value, never "35.00 PLN → 35.00 PLN"
     expect(screen.getByLabelText('estimate-regeneration-change-price-UPDATED-0').textContent).toBe('35.00 PLN');
@@ -2961,8 +2979,8 @@ describe('Stage 10G.3B — human-readable description, no raw UUIDs or item code
     renderShell();
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
-    await waitFor(() => screen.getByLabelText('estimate-regeneration-change-description-ADDED-0'));
-    expect(screen.getByLabelText('estimate-regeneration-change-description-ADDED-0').textContent).toBe(
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-group-title-ADDED-0'));
+    expect(screen.getByLabelText('estimate-regeneration-group-title-ADDED-0').textContent).toBe(
       'Gruntowanie gruntem kontaktowym adhezyjnym',
     );
   });
@@ -3423,7 +3441,7 @@ describe('Stage 10G.3B — multi-room acceptance scenario', () => {
 
     // Before regeneration: exactly one group, Room A quantity only.
     expect(screen.getAllByLabelText(/^estimate-group-/).length).toBe(1);
-    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('10.000');
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('10.00');
 
     // The owner checks for changes — the new Kuchnia planned work reports as ADDED.
     vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(
@@ -3450,7 +3468,7 @@ describe('Stage 10G.3B — multi-room acceptance scenario', () => {
     );
 
     // Still unchanged before confirmation.
-    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('10.000');
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('10.00');
 
     const roomBLine = makeLine({
       id: 'lb1',
@@ -3476,7 +3494,7 @@ describe('Stage 10G.3B — multi-room acceptance scenario', () => {
 
     // Grouped summary aggregates matching work across BOTH rooms into one group.
     await waitFor(() => expect(screen.getAllByLabelText(/^estimate-group-/).length).toBe(1));
-    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('16.000');
+    expect(screen.getByLabelText('group-quantity-0').textContent).toContain('16.00');
     expect(screen.getByLabelText('group-line-count-0').textContent).toContain('2');
 
     // Drill-down still distinguishes each room's provenance.
@@ -3561,7 +3579,7 @@ describe('Stage 10G.3B regression — accepted 10G.2/10G.3A behavior untouched',
     fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
     await waitFor(() => screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0'));
     // Exact decimal strings pass through unrounded — 319.410, not 319.41 or 319.4100000001.
-    expect(screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0').textContent).toContain('319.410');
+    expect(screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-0').textContent).toContain('319.41');
     expect(screen.getByLabelText('estimate-regeneration-change-price-ADDED-0').textContent).toContain('312.34');
   });
 });
@@ -4026,7 +4044,7 @@ describe('Stage 10G.3C — NULL vs 0.00 for manual lines', () => {
     );
     renderShell(makeSummary(), MANUAL_KEY);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
-    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('3.500');
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('3.50');
     expect(screen.getByLabelText('line-unit-price-1').textContent).toBe('Do ustalenia');
     expect(screen.getByLabelText('line-amount-1').textContent).toBe('—');
   });
@@ -4379,7 +4397,7 @@ describe('Stage 10H.1 — unresolved MANUAL quantity display', () => {
     });
     await waitFor(() => {
       const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
-      expect(text).toContain('4.500');
+      expect(text).toContain('4.50');
       expect(text).toContain('mb');
       expect(text).not.toContain('Ilość do ustalenia');
     });
@@ -4392,7 +4410,7 @@ describe('Stage 10H.1 — unresolved MANUAL quantity display', () => {
     renderShell(makeSummary(), PLANNED_SURFACE_LM_KEY);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
-    expect(text).toContain('0.000');
+    expect(text).toContain('0.00');
     expect(text).toContain('mb');
     expect(text).not.toContain('Ilość do ustalenia');
     // The distinct "manually changed" annotation still applies, as for any override.
@@ -4408,7 +4426,7 @@ describe('Stage 10H.1 — unresolved MANUAL quantity display', () => {
     vi.mocked(estimatesApi.patchEstimateLine).mockResolvedValue(unresolvedLine());
     renderShell(makeSummary(), PLANNED_SURFACE_LM_KEY);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
-    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('4.500');
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('4.50');
 
     fireEvent.click(screen.getByLabelText('line-reset-quantity-1'));
 
@@ -4440,7 +4458,7 @@ describe('Stage 10H.1 — unresolved MANUAL quantity display', () => {
     renderShell();
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
-    expect(text).toContain('1.284');
+    expect(text).toContain('1.28');
     expect(text).toContain('m²');
     expect(text).not.toContain('Ilość do ustalenia');
   });
@@ -4463,7 +4481,7 @@ describe('Stage 10H.1 — unresolved MANUAL quantity display', () => {
     renderShell(makeSummary(), MANUAL_KEY);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     const text = screen.getByLabelText('line-quantity-1').textContent ?? '';
-    expect(text).toContain('1.000');
+    expect(text).toContain('1 ryczałt');
     expect(text).not.toContain('Ilość do ustalenia');
   });
 });
@@ -4494,7 +4512,7 @@ describe('Stage 10H.1 defect #4 — main estimate card/list quantity parity', ()
     renderGroupedShell([unresolvedGroupLine({ quantity_overridden: true })]);
     await waitFor(() => screen.getByLabelText('estimate-groups'));
     const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
-    expect(text).toContain('0.000');
+    expect(text).toContain('0.00');
     expect(text).toContain('mb');
     expect(text).not.toContain('Ilość do ustalenia');
   });
@@ -4509,7 +4527,7 @@ describe('Stage 10H.1 defect #4 — main estimate card/list quantity parity', ()
     ]);
     await waitFor(() => screen.getByLabelText('estimate-groups'));
     const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
-    expect(text).toContain('1.000');
+    expect(text).toContain('1 ryczałt');
     expect(text).not.toContain('Ilość do ustalenia');
   });
 
@@ -4523,7 +4541,7 @@ describe('Stage 10H.1 defect #4 — main estimate card/list quantity parity', ()
     ]);
     await waitFor(() => screen.getByLabelText('estimate-groups'));
     const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
-    expect(text).toContain('1.284');
+    expect(text).toContain('1.28');
     expect(text).not.toContain('Ilość do ustalenia');
   });
 
@@ -4537,7 +4555,7 @@ describe('Stage 10H.1 defect #4 — main estimate card/list quantity parity', ()
     ]);
     await waitFor(() => screen.getByLabelText('estimate-groups'));
     const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
-    expect(text).toContain('4.000');
+    expect(text).toContain('4.00');
     expect(text).not.toContain('Ilość do ustalenia');
   });
 
@@ -4551,7 +4569,7 @@ describe('Stage 10H.1 defect #4 — main estimate card/list quantity parity', ()
     ]);
     await waitFor(() => screen.getByLabelText('estimate-groups'));
     const text = screen.getByLabelText('group-quantity-0').textContent ?? '';
-    expect(text).toContain('1.000');
+    expect(text).toContain('1.00');
     expect(text).not.toContain('Ilość do ustalenia');
   });
 
@@ -4726,7 +4744,7 @@ describe('Stage 10G.3D — FINAL remains fully readable', () => {
     );
     renderShell(makeSummary({ status: 'FINAL', total: '437.50' }));
     await waitFor(() => screen.getByLabelText('estimate-lines'));
-    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.500');
+    expect(screen.getByLabelText('line-quantity-1').textContent).toContain('12.50');
     expect(screen.getByLabelText('line-unit-price-1').textContent).toContain('35.00');
     expect(screen.getByLabelText('line-amount-1').textContent).toContain('437.50');
     expect(screen.getByLabelText('line-provenance-1').textContent).toBe('Salon — Ściana 1');
@@ -5075,5 +5093,80 @@ describe('EstimateShell — documents (Stage 15F.3)', () => {
     renderShell(final);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
     expect(screen.queryByRole('button', { name: 'estimate-send-pdf' })).toBeNull();
+  });
+});
+
+describe('Usability U-8 — "Sprawdź zmiany" answers first: the total was / will be, the counts, the details folded and grouped by work', () => {
+  const open = async (preview: RegenerationPreviewResponse) => {
+    stopAutoOpenPreview?.(); // these tests are about the folded state
+    vi.mocked(estimatesApi.previewEstimateRegeneration).mockResolvedValue(preview);
+    renderShell();
+    await waitFor(() => screen.getByLabelText('estimate-lines'));
+    fireEvent.click(screen.getByLabelText('estimate-check-changes-action'));
+    await waitFor(() => screen.getByLabelText('estimate-regeneration-counts'));
+  };
+
+  it('shows "Było … → będzie …" with the signed difference, and the counts "+3 / −1 / zmienione 5"', async () => {
+    await open(makePreview({ added: 3, removed: 1, updated: 5, current_total: '2003.13', projected_total: '3186.72', changes: [makeChange()] }));
+    expect(screen.getByLabelText('estimate-regeneration-totals')).toHaveTextContent('Było');
+    expect(screen.getByLabelText('estimate-regeneration-total-from')).toHaveTextContent('2003.13 PLN');
+    expect(screen.getByLabelText('estimate-regeneration-total-to')).toHaveTextContent('3186.72 PLN');
+    expect(screen.getByLabelText('estimate-regeneration-totals')).toHaveTextContent('będzie');
+    expect(screen.getByLabelText('estimate-regeneration-total-delta')).toHaveTextContent('+1183.59 PLN');
+    expect(screen.getByLabelText('estimate-regeneration-total-delta').className).toContain('text-emerald-700');
+    expect(screen.getByLabelText('estimate-regeneration-count-added')).toHaveTextContent('+3');
+    expect(screen.getByLabelText('estimate-regeneration-count-removed')).toHaveTextContent('−1');
+    expect(screen.getByLabelText('estimate-regeneration-count-updated')).toHaveTextContent('zmienione 5');
+  });
+
+  it('a total that goes down is red, an unchanged one is neutral, and no total (nothing priced) hides the card', async () => {
+    await open(makePreview({ removed: 1, current_total: '500.00', projected_total: '320.50', changes: [makeChange({ change_type: 'REMOVED' })] }));
+    expect(screen.getByLabelText('estimate-regeneration-total-delta')).toHaveTextContent('-179.50 PLN');
+    expect(screen.getByLabelText('estimate-regeneration-total-delta').className).toContain('text-red-700');
+  });
+
+  it('an unchanged total shows 0.00 and no total at all shows no card', async () => {
+    await open(makePreview({ updated: 1, current_total: '100.00', projected_total: '100.00', changes: [makeChange({ change_type: 'UPDATED' })] }));
+    expect(screen.getByLabelText('estimate-regeneration-total-delta')).toHaveTextContent('0.00 PLN');
+  });
+
+  it('without totals (older server, nothing priced) the card is absent and the rest works', async () => {
+    await open(makePreview({ added: 1, current_total: null, projected_total: null, changes: [makeChange()] }));
+    expect(screen.queryByLabelText('estimate-regeneration-totals')).toBeNull();
+    expect(screen.getByLabelText('estimate-regeneration-count-added')).toHaveTextContent('+1');
+  });
+
+  it('keeps the list of changes folded until "Szczegóły" is tapped, and then groups it by work with its places under it', async () => {
+    const entries = [
+      makeChange({ planned_work_id: 'a1', surface_id: 's1', surface_name: 'Ściana 1', room_name: 'Salon', new_source_quantity: '10.000' }),
+      makeChange({ planned_work_id: 'a2', surface_id: 's2', surface_name: 'Ściana 2', room_name: 'Salon', new_source_quantity: '7.500' }),
+      makeChange({ planned_work_id: 'a3', item_code: 'PRIM', description: 'pricebook.seed.prim_adh', surface_id: 's1', surface_name: 'Ściana 1', room_name: 'Salon' }),
+    ];
+    await open(makePreview({ added: 3, current_total: '0.00', projected_total: '900.00', changes: entries }));
+    const toggle = screen.getByLabelText('estimate-regeneration-details-toggle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle.className).toContain('min-h-[44px]');
+    expect(screen.queryByLabelText('estimate-regeneration-category-ADDED')).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    // two works: the first has two places, the second one
+    expect(screen.getByLabelText('estimate-regeneration-group-title-ADDED-0')).toHaveTextContent('Gładź szpachlowa — 2 warstwy (pakiet)');
+    expect(screen.getByLabelText('estimate-regeneration-group-title-ADDED-0')).toHaveTextContent('(2)');
+    expect(screen.getByLabelText('estimate-regeneration-group-title-ADDED-1')).toHaveTextContent('Gruntowanie gruntem kontaktowym adhezyjnym');
+    expect(within(screen.getByLabelText('estimate-regeneration-group-ADDED-0')).getAllByLabelText(/^estimate-regeneration-change-quantity-ADDED-/)).toHaveLength(2);
+    expect(screen.getByLabelText('estimate-regeneration-change-quantity-ADDED-1')).toHaveTextContent('7.50 m²');
+    fireEvent.click(toggle);
+    expect(screen.queryByLabelText('estimate-regeneration-category-ADDED')).toBeNull();
+    // the confirm button stays in reach under the summary
+    expect(screen.getByLabelText('estimate-regeneration-confirm')).toBeInTheDocument();
+  });
+
+  it('speaks Russian: "Было … → станет …", "изменено N", "Подробности"', async () => {
+    localStorage.setItem('locale', 'ru');
+    await open(makePreview({ added: 2, updated: 4, current_total: '10.00', projected_total: '30.00', changes: [makeChange()] }));
+    expect(screen.getByLabelText('estimate-regeneration-totals')).toHaveTextContent('Было');
+    expect(screen.getByLabelText('estimate-regeneration-totals')).toHaveTextContent('станет');
+    expect(screen.getByLabelText('estimate-regeneration-count-updated')).toHaveTextContent('изменено 4');
+    expect(screen.getByLabelText('estimate-regeneration-details-toggle')).toHaveTextContent('Подробности');
   });
 });

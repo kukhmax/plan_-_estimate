@@ -87,7 +87,7 @@ export function EstimateDocumentActions({ projectId, estimateId, status }: Estim
         aria-label={isDraft ? 'estimate-preview-pdf' : 'estimate-send-pdf'}
         onClick={() => void send()}
         disabled={running}
-        className="w-full min-h-[44px] px-3 text-sm font-semibold text-white bg-sky-700 rounded-xl hover:bg-sky-800 disabled:opacity-60 transition break-words"
+        className="w-full min-h-[44px] px-3 text-sm font-semibold bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] rounded-xl hover:opacity-90 disabled:opacity-60 transition break-words"
       >
         {busy ? text.sending : isDraft ? text.preview_pdf : text.send_pdf}
       </button>
