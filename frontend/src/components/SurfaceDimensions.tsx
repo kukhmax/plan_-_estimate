@@ -65,7 +65,7 @@ export function SurfaceDimensions({ surfaceId, width, height, readOnly = false, 
   };
 
   const secondary =
-    'min-h-11 px-3 py-1 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition';
+    'group min-h-11 shrink-0 flex items-center text-xs font-medium';
 
   if (editing) {
     return (
@@ -106,9 +106,9 @@ export function SurfaceDimensions({ surfaceId, width, height, readOnly = false, 
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-0 text-xs text-slate-600">
       {has && (
-        <p className="min-w-0 break-words">
+        <p className="min-w-0 flex-1 basis-36 break-words">
           <span>{t.surfaces.dimensions}: </span>
           <strong className="text-slate-900 font-semibold">
             {formatMetric(width)} × {formatMetric(height)} {t.common.unit_m}
@@ -117,8 +117,11 @@ export function SurfaceDimensions({ surfaceId, width, height, readOnly = false, 
       )}
       {!readOnly && (
         <button type="button" aria-label={`edit-dimensions-${surfaceId}`} onClick={open} className={secondary}>
-          <Ico>✏️</Ico>
-          {has ? t.common.edit : t.surfaces.add_dimensions}
+          {/* the touch area stays 44 px; the visible pill is low (owner request), so the size, "Edytuj" and the extra action fit one line */}
+          <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-blue-700 group-hover:bg-blue-100 transition">
+            <Ico>✏️</Ico>
+            {has ? t.common.edit : t.surfaces.add_dimensions}
+          </span>
         </button>
       )}
       {extraAction}

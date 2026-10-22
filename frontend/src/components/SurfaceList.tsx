@@ -847,9 +847,11 @@ export function SurfaceList({
                         type="button"
                         aria-label={`duplicate-surface-${surface.id}`}
                         onClick={() => void handleDuplicateWall(surface)}
-                        className="min-h-11 px-3 py-1 text-xs rounded-lg bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100 transition"
+                        className="group min-h-11 shrink-0 flex items-center text-xs font-medium"
                       >
-                        <Ico>📑</Ico>{t.surfaces.duplicate_wall}
+                        <span className="rounded-lg bg-indigo-50 px-2.5 py-1 text-indigo-700 group-hover:bg-indigo-100 transition">
+                          <Ico>📑</Ico>{t.surfaces.duplicate_wall}
+                        </span>
                       </button>
                     ) : undefined
                   }

@@ -783,7 +783,7 @@
     "picker_loading": "Загрузка прайса…"
   },
   "surfaces": {
-    "duplicate_wall": "Дублировать стену",
+    "duplicate_wall": "Дублировать",
     "duplicated": "Стена продублирована",
     "title": "Поверхности",
     "walls_section_title": "Стены",
