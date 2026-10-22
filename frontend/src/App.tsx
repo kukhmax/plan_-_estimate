@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { I18nProvider, useI18n } from './hooks/useI18n';
 import { AccessScreen } from './components/AccessScreen';
@@ -12,6 +12,7 @@ import { KnowledgeBase } from './components/KnowledgeBase';
 import { ProjectOpenRequest, ProjectWorkspace } from './components/ProjectWorkspace';
 import { AccountModal } from './components/AccountModal';
 import { AppMenu, AppMenuItem } from './components/AppMenu';
+import { BottomNav } from './components/BottomNav';
 import { ConnectionBanner } from './components/ConnectionBanner';
 import { SyncScreen } from './components/SyncScreen';
 import { SyncStrip } from './components/SyncStrip';
@@ -19,6 +20,7 @@ import { purgeStaleReads } from './offline/readCache';
 import { requestPersistentStorage } from './offline/persist';
 import { startSync } from './offline/sync';
 import { startConnectionWatch } from './offline/watch';
+import { clearLastProject, readLastProject, writeLastProject } from './utils/lastProject';
 
 type Section = 'clients' | 'projects' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge' | 'access' | 'security';
 
@@ -45,6 +47,18 @@ const AppContent: React.FC = () => {
     target?.projectId ? { token: 1, projectId: target.projectId, view: 'project' } : null,
   );
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  // Usability U-11: without an `?open=` link the application opens on the object the owner worked on last (if it is not archived);
+  // the memory is per account. Done once, when the user is known.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (!user || restoredRef.current) return;
+    restoredRef.current = true;
+    if (target) return;
+    const last = readLastProject(user.id);
+    if (!last) return;
+    setActiveSection('projects');
+    setOpenRequest({ token: 1, projectId: last, view: 'last' });
+  }, [user, target]);
   // Stage 19B: the connection is watched while the application is open; copies not refreshed for 30 days are dropped
   useEffect(() => {
     void purgeStaleReads();
@@ -135,7 +149,7 @@ const AppContent: React.FC = () => {
         </aside>
       )}
 
-      <main className="w-full max-w-lg p-4 sm:p-6 flex-1 flex flex-col items-center">
+      <main className={`w-full max-w-lg p-4 sm:p-6 flex-1 flex flex-col items-center ${user ? 'pb-[calc(5rem+env(safe-area-inset-bottom))]' : ''}`}>
         <header
           aria-label="app-header"
           className="sticky top-0 z-30 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 mb-4 px-4 sm:px-6 py-1 flex items-center justify-between gap-2 min-h-14"
@@ -276,6 +290,12 @@ const AppContent: React.FC = () => {
                 openRequest={openRequest}
                 onStartClient={startClientChain}
                 onOpenPricebook={() => choose('pricebook')}
+                onProjectOpened={(projectId) => {
+                  if (user && projectId) writeLastProject(user.id, projectId);
+                }}
+                onLastProjectUnavailable={() => {
+                  if (user) clearLastProject(user.id);
+                }}
               />
             ) : activeSection === 'calendar' ? (
               <CalendarScreen backSuspended={showAccount || menuOpen || showSync} onOpenProject={openProjectOf} />
@@ -295,6 +315,15 @@ const AppContent: React.FC = () => {
           </>
         )}
       </main>
+
+      {!isLoading && user && (
+        <BottomNav
+          active={activeSection}
+          hidden={menuOpen || showAccount || showSync}
+          onSelect={choose}
+          onMore={() => setMenuOpen(true)}
+        />
+      )}
 
       {!isLoading && user && (
         <AppMenu

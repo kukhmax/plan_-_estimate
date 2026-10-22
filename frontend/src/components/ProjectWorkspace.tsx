@@ -128,14 +128,18 @@ interface ProjectWorkspaceProps {
   /** "Od czego zacząć" on the empty list of objects (usability U-3): the first step leads to the form of a client; the second to the price book. */
   onStartClient?: () => void;
   onOpenPricebook?: () => void;
+  /** Usability U-11: the id of the object that is open now (null when none): the application remembers the last one. */
+  onProjectOpened?: (projectId: string | null) => void;
+  /** The object a `last` request asked for is gone or archived: nothing is opened, the list stays. */
+  onLastProjectUnavailable?: () => void;
 }
 
 export type ProjectOpenRequest =
-  | { token: number; projectId: string; view: 'estimates' | 'project'; clientId?: undefined }
+  | { token: number; projectId: string; view: 'estimates' | 'project' | 'last'; clientId?: undefined }
   /** The form of a new object for this client opens (after the first client was added). */
   | { token: number; clientId: string; view: 'new-project'; projectId?: undefined };
 
-export function ProjectWorkspace({ resetSignal, backSuspended = false, openRequest = null, onStartClient, onOpenPricebook }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({ resetSignal, backSuspended = false, openRequest = null, onStartClient, onOpenPricebook, onProjectOpened, onLastProjectUnavailable }: ProjectWorkspaceProps) {
   const { t } = useI18n();
   const photoBack = usePhotoBackStack();
   const [projects, setProjects] = useState<ProjectType[]>([]);
@@ -145,6 +149,11 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<ProjectType | null>(null);
+  // Usability U-11: the application remembers the object that is open
+  useEffect(() => {
+    onProjectOpened?.(selectedProject?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject?.id]);
   const [selectedRoom, setSelectedRoom] = useState<RoomType | null>(null);
   const roomDimensionsKey = `${selectedRoom?.length ?? ''}|${selectedRoom?.width ?? ''}|${selectedRoom?.height ?? ''}`;
   const [showForm, setShowForm] = useState(false);
@@ -536,14 +545,21 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       return;
     }
     let cancelled = false;
+    const isLast = openRequest.view === 'last';
     fetchProject(openRequest.projectId)
       .then((project) => {
         if (cancelled) return;
+        if (isLast && project.is_archived) {
+          onLastProjectUnavailable?.(); // an archived object is not reopened by itself: the list of objects stays
+          return;
+        }
         openProject(project);
         if (openRequest.view === 'estimates') setShowEstimates(true);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : t.projects.error);
+        if (cancelled) return;
+        if (isLast) onLastProjectUnavailable?.(); // gone or unreachable: no error screen for a thing the owner did not ask for
+        else setError(err instanceof Error ? err.message : t.projects.error);
       });
     return () => {
       cancelled = true;
