@@ -13,6 +13,7 @@ import { useI18n } from '../hooks/useI18n';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { Ico } from './Ico';
+import { GettingStarted, useStartProgress } from './GettingStarted';
 
 /** Digits and a single leading '+' only — a safe `tel:` href from a
  * human-readable stored phone value (spaces/dashes/parens stripped). */
@@ -78,11 +79,17 @@ function formFromClient(c: ClientType): ClientFormState {
 interface ClientListProps {
   /** "Смета" on the card of a client opens the estimate of that object. */
   onOpenEstimate?: (projectId: string) => void;
+  /** Usability U-3: after a client was added through "Od czego zacząć", the form of his object opens at once. */
+  onStartObject?: (clientId: string) => void;
+  onOpenPricebook?: () => void;
+  onOpenProjects?: () => void;
+  /** A new value opens the form of a client that leads on to the form of his object (the first step of "Od czego zacząć" from another screen). */
+  autoCreateToken?: number;
   /** An overlay above the screen (the main menu, the account dialog) owns the Telegram BackButton while it is open. */
   backSuspended?: boolean;
 }
 
-export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSuspended = false }) => {
+export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, onStartObject, onOpenPricebook, onOpenProjects, autoCreateToken = 0, backSuspended = false }) => {
   const { t } = useI18n();
   const [clients, setClients] = useState<ClientType[]>([]);
   const [total, setTotal] = useState(0);
@@ -104,7 +111,11 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
   // primary action) — small self-clearing inline confirmation, same pattern
   // as the existing Stage 8C CommunicationPanel copy-to-clipboard action.
   const [copiedEmail, setCopiedEmail] = useState<{ id: string; ok: boolean } | null>(null);
+  // The client being added leads on to the form of his object (the first step of "Od czego zacząć").
+  const [leadsToObject, setLeadsToObject] = useState(false);
   const copyEmailTimerRef = useRef<number | null>(null);
+
+  const startProgress = useStartProgress(total > 0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -212,7 +223,20 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
     setShowForm(true);
   };
 
+  const startFirstClient = () => {
+    setLeadsToObject(true);
+    setEditingClient(null);
+    setForm(DEFAULT_FORM);
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  useEffect(() => {
+    if (autoCreateToken > 0) startFirstClient();
+  }, [autoCreateToken]);
+
   const closeForm = () => {
+    setLeadsToObject(false);
     setShowForm(false);
     setEditingClient(null);
     setForm(DEFAULT_FORM);
@@ -275,7 +299,12 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
           telegram_username: form.telegram_username || undefined,
           notes: form.notes || undefined,
         };
-        await createClient(payload);
+        const created = await createClient(payload);
+        if (leadsToObject && onStartObject) {
+          closeForm();
+          onStartObject(created.id);
+          return;
+        }
       }
       closeForm();
       load();
@@ -656,7 +685,20 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
         <p className="text-sm text-red-600 text-center py-4">{error}</p>
       )}
       {!loading && !error && clients.length === 0 && (
-        <p aria-label="no-clients" className="text-sm text-slate-400 text-center py-6">{t.clients.no_clients}</p>
+        <div aria-label="no-clients">
+          {search.trim() === '' ? (
+            !showForm && (
+              <GettingStarted
+                progress={startProgress}
+                onAddClient={startFirstClient}
+                onOpenPricebook={() => onOpenPricebook?.()}
+                onOpenProjects={() => onOpenProjects?.()}
+              />
+            )
+          ) : (
+            <p className="text-sm text-slate-400 text-center py-6">{t.clients.no_clients}</p>
+          )}
+        </div>
       )}
       {!loading && clients.length > 0 && (
         <ul className="space-y-2" aria-label="clients-list">
@@ -687,8 +729,8 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, backSusp
           ))}
         </ul>
       )}
-      <p className="text-xs text-slate-400 text-right mt-2">
-        {total > 0 ? `${total}` : ''}
+      <p aria-label="clients-count" className="text-xs text-slate-400 text-right mt-2">
+        {total > 0 ? t.clients.count_label.replace('{count}', String(total)) : ''}
       </p>
     </section>
   );

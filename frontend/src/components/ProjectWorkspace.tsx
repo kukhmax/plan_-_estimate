@@ -54,6 +54,7 @@ import { SurfaceList } from './SurfaceList';
 import { KnowledgeBasis, KnowledgeBasisTarget } from './KnowledgeBasis';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
+import { GettingStarted, useStartProgress } from './GettingStarted';
 
 /** Which document of the knowledge base's links stands behind each screen of the section "Umowa i protokoły" (Stage 17E). */
 const LEGAL_BASIS: Partial<Record<LegalSection, KnowledgeBasisTarget[]>> = {
@@ -124,19 +125,22 @@ interface ProjectWorkspaceProps {
   backSuspended?: boolean;
   /** A request from another screen (the card of a client): open the estimates of this object. Handled once per token. */
   openRequest?: ProjectOpenRequest | null;
+  /** "Od czego zacząć" on the empty list of objects (usability U-3): the first step leads to the form of a client; the second to the price book. */
+  onStartClient?: () => void;
+  onOpenPricebook?: () => void;
 }
 
-export interface ProjectOpenRequest {
-  token: number;
-  projectId: string;
-  view: 'estimates' | 'project';
-}
+export type ProjectOpenRequest =
+  | { token: number; projectId: string; view: 'estimates' | 'project'; clientId?: undefined }
+  /** The form of a new object for this client opens (after the first client was added). */
+  | { token: number; clientId: string; view: 'new-project'; projectId?: undefined };
 
-export function ProjectWorkspace({ resetSignal, backSuspended = false, openRequest = null }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({ resetSignal, backSuspended = false, openRequest = null, onStartClient, onOpenPricebook }: ProjectWorkspaceProps) {
   const { t } = useI18n();
   const photoBack = usePhotoBackStack();
   const [projects, setProjects] = useState<ProjectType[]>([]);
   const [clients, setClients] = useState<ClientType[]>([]);
+  const startProgress = useStartProgress(clients.length > 0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -526,6 +530,11 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
   // One request is handled once: the effect depends on its token only.
   useEffect(() => {
     if (!openRequest) return;
+    if (openRequest.view === 'new-project') {
+      startCreate();
+      setForm({ ...EMPTY_FORM, client_id: openRequest.clientId });
+      return;
+    }
     let cancelled = false;
     fetchProject(openRequest.projectId)
       .then((project) => {
@@ -1287,9 +1296,16 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
         <p role="alert" className="text-sm text-red-600 text-center py-4">{error}</p>
       )}
       {!selectedProject && !loading && !error && projects.length === 0 && (
-        <p aria-label="no-projects" className="text-sm text-slate-400 text-center py-6">
-          {t.projects.empty}
-        </p>
+        <div aria-label="no-projects">
+          {showForm ? null : (
+            <GettingStarted
+              progress={startProgress}
+              onAddClient={() => (clients.length > 0 ? startCreate() : onStartClient?.())}
+              onOpenPricebook={() => onOpenPricebook?.()}
+              onOpenProjects={startCreate}
+            />
+          )}
+        </div>
       )}
       {!selectedProject && !loading && !error && projects.length > 0 && (
         <ul aria-label="projects-list" className="space-y-2">

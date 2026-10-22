@@ -36,6 +36,7 @@ const AppContent: React.FC = () => {
   const [target] = useState(() => openTarget(typeof window === 'undefined' ? '' : window.location.search));
   const [activeSection, setActiveSection] = useState<Section>(target?.section ?? 'clients');
   const [projectsNavToken, setProjectsNavToken] = useState(0);
+  const [clientChainToken, setClientChainToken] = useState(0); // usability U-3: "Od czego zacząć" asks the client screen for the first client
   const [showAccount, setShowAccount] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSync, setShowSync] = useState(false); // Stage 19E: the screen of what waits on the phone
@@ -68,6 +69,15 @@ const AppContent: React.FC = () => {
   const openEstimatesOf = (projectId: string) => {
     setOpenRequest((previous) => ({ token: (previous?.token ?? 0) + 1, projectId, view: 'estimates' }));
     setActiveSection('projects');
+  };
+  // Usability U-3: a client was just added through "Od czego zacząć": the form of his object opens.
+  const startObjectFor = (clientId: string) => {
+    setOpenRequest((previous) => ({ token: (previous?.token ?? 0) + 1, clientId, view: 'new-project' }));
+    setActiveSection('projects');
+  };
+  const startClientChain = () => {
+    setClientChainToken((n) => n + 1);
+    setActiveSection('clients');
   };
   // A line of the calendar leads to the screen of its object.
   const openProjectOf = (projectId: string) => {
@@ -251,9 +261,22 @@ const AppContent: React.FC = () => {
         {!isLoading && user && (
           <>
             {activeSection === 'clients' ? (
-              <ClientList onOpenEstimate={openEstimatesOf} backSuspended={showAccount || menuOpen || showSync} />
+              <ClientList
+                onOpenEstimate={openEstimatesOf}
+                onStartObject={startObjectFor}
+                onOpenPricebook={() => choose('pricebook')}
+                onOpenProjects={() => choose('projects')}
+                autoCreateToken={clientChainToken}
+                backSuspended={showAccount || menuOpen || showSync}
+              />
             ) : activeSection === 'projects' ? (
-              <ProjectWorkspace resetSignal={projectsNavToken} backSuspended={showAccount || menuOpen || showSync} openRequest={openRequest} />
+              <ProjectWorkspace
+                resetSignal={projectsNavToken}
+                backSuspended={showAccount || menuOpen || showSync}
+                openRequest={openRequest}
+                onStartClient={startClientChain}
+                onOpenPricebook={() => choose('pricebook')}
+              />
             ) : activeSection === 'calendar' ? (
               <CalendarScreen backSuspended={showAccount || menuOpen || showSync} onOpenProject={openProjectOf} />
             ) : activeSection === 'archive' ? (

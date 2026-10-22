@@ -1666,6 +1666,51 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     await waitFor(() => expect(projectsApi.fetchProject).toHaveBeenCalledTimes(2));
   });
 
+  // Usability U-3: a client was just added through "Od czego zacząć": the form of his object opens with him chosen.
+  it('opens the form of a new object with the requested client chosen (U-3)', async () => {
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client], total: 1 });
+    render(
+      <I18nProvider>
+        <ProjectWorkspace openRequest={{ token: 1, clientId: client.id, view: 'new-project' }} />
+      </I18nProvider>,
+    );
+    const form = await screen.findByLabelText('project-form');
+    await waitFor(() => expect((within(form).getByLabelText('project-client') as HTMLSelectElement).value).toBe(client.id));
+    expect(projectsApi.fetchProject).not.toHaveBeenCalled();
+  });
+
+  it('shows "Od czego zacząć" on the empty list of objects: the first step leads to the form of an object when a client exists, the second to the price book (U-3)', async () => {
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client], total: 1 });
+    const pricebook = vi.fn();
+    const startClient = vi.fn();
+    render(
+      <I18nProvider>
+        <ProjectWorkspace onOpenPricebook={pricebook} onStartClient={startClient} />
+      </I18nProvider>,
+    );
+    fireEvent.click(await screen.findByLabelText('start-step-prices'));
+    expect(pricebook).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByLabelText('start-step-client'));
+    expect(await screen.findByLabelText('project-form')).toBeInTheDocument();
+    expect(startClient).not.toHaveBeenCalled();
+  });
+
+  it('without any client the first step of the empty list of objects asks for the form of a client (U-3)', async () => {
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [], total: 0 });
+    const startClient = vi.fn();
+    render(
+      <I18nProvider>
+        <ProjectWorkspace onStartClient={startClient} />
+      </I18nProvider>,
+    );
+    fireEvent.click(await screen.findByLabelText('start-step-client'));
+    expect(startClient).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText('project-form')).toBeNull();
+  });
+
   it('shows the error when the requested object cannot be loaded (16K.2)', async () => {
     vi.mocked(projectsApi.fetchProject).mockRejectedValue(new Error('Nie znaleziono'));
     render(

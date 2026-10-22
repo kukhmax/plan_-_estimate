@@ -433,6 +433,9 @@ describe('App authentication component', () => {
       expect(screen.getByRole('button', { name: 'open-menu' })).toBeInTheDocument(),
     );
 
+    // the empty list of clients reads the prices for its "Od czego zacząć" card (usability U-3); the count starts from the price book
+    await screen.findByLabelText('clients-section');
+    vi.mocked(priceItemsApi.fetchPriceItems).mockClear();
     await chooseSection('show-pricebook');
     expect(await screen.findByRole('region', { name: 'price-book-section' })).toBeInTheDocument();
     // the price opens as a hub of three tiles; the positions are loaded when their tile is opened

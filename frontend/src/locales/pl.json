@@ -171,6 +171,14 @@
     "shown": "Pokazano {shown} z {total}",
     "object": "Obiekt:"
   },
+  "onboarding": {
+    "title": "Od czego zacząć",
+    "intro": "Plan & Estimate liczy kosztorysy oraz przygotowuje umowy i protokoły z pomiarów na obiekcie. Trzy kroki na start:",
+    "step_client": "Dodaj klienta i obiekt",
+    "step_prices": "Ustaw swoje ceny",
+    "step_room": "Zmierz pierwsze pomieszczenie",
+    "done": "gotowe"
+  },
   "navigation": {
     "clients": "Klienci",
     "projects": "Obiekty",
@@ -216,6 +224,7 @@
   },
   "clients": {
     "title": "Klienci",
+    "count_label": "Klienci: {count}",
     "add_client": "Dodaj klienta",
     "search_placeholder": "Szukaj po nazwie, firmie, telefonie...",
     "show_archived": "Pokaż zarchiwizowane",
