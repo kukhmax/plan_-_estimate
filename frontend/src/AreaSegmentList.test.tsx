@@ -519,7 +519,8 @@ describe('AreaSegmentList plane-card parity (10C.1B)', () => {
     expect(toggle).toHaveTextContent('Opcje');
     const workPlan = screen.getByLabelText(`work-plan-${floorSurfaceId}`);
     expect(workPlan).toBeInTheDocument();
-    expect(workPlan).toHaveTextContent('Rodzaje prac i jakość');
+    expect(workPlan).toHaveTextContent('Plan');
+    expect(screen.getByLabelText(`plan-tabs-${floorSurfaceId}`).parentElement).toHaveTextContent('Rodzaje prac i jakość'); // usability U-5: Plan | Realizacja under the caption
   });
 
   it('C: FLOOR WorkPlan button binds the canonical FLOOR Surface.id (not segment/room/synthetic)', async () => {
@@ -561,7 +562,8 @@ describe('AreaSegmentList plane-card parity (10C.1B)', () => {
     expect(toggle).toBeInTheDocument();
     const workPlan = screen.getByLabelText(`work-plan-${ceilingSurfaceId}`);
     expect(workPlan).toBeInTheDocument();
-    expect(workPlan).toHaveTextContent('Rodzaje prac i jakość');
+    expect(workPlan).toHaveTextContent('Plan');
+    expect(screen.getByLabelText(`plan-tabs-${ceilingSurfaceId}`).parentElement).toHaveTextContent('Rodzaje prac i jakość');
   });
 
   it('I: CEILING WorkPlan button uses the canonical CEILING Surface.id', async () => {

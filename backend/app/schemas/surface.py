@@ -82,6 +82,8 @@ class SurfaceRead(BaseModel):
     gross_area: Decimal | None = None
     deduction_area: Decimal | None = None
     net_area: Decimal | None = None
+    # Usability U-7: how many works the saved plan of the surface holds (filled by the list; 0 elsewhere and for a surface with no plan).
+    planned_work_count: int = 0
     is_archived: bool
     created_at: datetime
     updated_at: datetime

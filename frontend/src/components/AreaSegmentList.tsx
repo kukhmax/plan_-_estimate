@@ -1,4 +1,4 @@
-import { EXECUTION_ROW_WITH_BADGE, ExecutionPhotoBadge, INSPECT_BUTTON_WITH_BADGE, InspectionPhotoBadge } from './ExecutionPhotoBadge';
+import { INSPECT_BUTTON_WITH_BADGE, InspectionPhotoBadge } from './ExecutionPhotoBadge';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import {
   archiveAreaSegment,
@@ -24,6 +24,7 @@ import { SurfaceExecutionView } from './SurfaceExecutionView';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
+import { PlanExecutionTabs } from './PlanExecutionTabs';
 import { PendingMark } from './PendingMark';
 import { SurfaceRowButton } from './SurfaceRowButton';
 
@@ -535,17 +536,7 @@ export function AreaSegmentList({
 
         {planeSurfaceId && (
           <>
-            <button
-              type="button"
-              aria-label={`work-plan-${planeSurfaceId}`}
-              aria-expanded={isWorkPlanOpen}
-              aria-controls={`work-plan-editor-${planeSurfaceId}`}
-              onClick={() => toggleWorkPlan(plane)}
-              className="w-full min-h-11 text-sm px-3 py-1 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
-            >
-              <Ico>🛠️</Ico>
-              {t.surfaces.work_types_quality}
-            </button>
+            <PlanExecutionTabs surfaceId={planeSurfaceId} planOpen={isWorkPlanOpen} executionOpen={isExecutionOpen} onPlan={() => toggleWorkPlan(plane)} onExecution={() => toggleExecution(plane)} />
 
             {isWorkPlanOpen && (
               <SurfaceWorkPlanEditor
@@ -558,16 +549,6 @@ export function AreaSegmentList({
               />
             )}
 
-            <button
-              type="button"
-              aria-label={`execution-${planeSurfaceId}`}
-              aria-expanded={isExecutionOpen}
-              onClick={() => toggleExecution(plane)}
-              className={`w-full min-h-11 py-1 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
-            >
-              <span className="min-w-0 break-words"><Ico>🏗️</Ico>{t.execution.open}</span>
-              <ExecutionPhotoBadge surfaceId={planeSurfaceId} />
-            </button>
 
             {isExecutionOpen && (
               <SurfaceExecutionView

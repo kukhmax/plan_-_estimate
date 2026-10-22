@@ -31,7 +31,6 @@ import {
 import { formatWaitHours, parseWaitInput } from '../utils/waitFormat';
 import { CoefficientAssignmentModal } from './CoefficientAssignmentModal';
 import { ExecutionDetachDialog } from './ExecutionDetachDialog';
-import { ExecutionStatusBadge } from './ExecutionStatusBadge';
 import { PriceItemForm } from './PriceItemForm';
 import { WorkflowTemplateApplySheet } from './WorkflowTemplateApplySheet';
 import { SurfaceTypeValue } from '../types/surface';
@@ -203,6 +202,9 @@ export function SurfaceWorkPlanEditor({
 
   // Stage 13G: which occurrence has its break editor open (progressive disclosure).
   const [waitEditorKey, setWaitEditorKey] = useState<string | null>(null);
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({}); // usability U-4: the menus of the work rows that are open
+  const toggleMenu = (key: string) => setOpenMenus((current) => ({ ...current, [key]: !current[key] }));
+  const closeMenu = (key: string) => setOpenMenus((current) => ({ ...current, [key]: false }));
   const setWaitInput = (draftKey: string, value: string) => {
     setDraftOccurrences((prev) => prev.map((o) => (o.draftKey === draftKey ? { ...o, waitInput: value } : o)));
     setSaved(false);
@@ -655,6 +657,89 @@ export function SurfaceWorkPlanEditor({
 
       {loadState === 'ready' && (
         <>
+        {/* Usability U-6: apply to all walls sits at the top of the block (one plan is filled once, then applied), shown when the room has other walls */}
+        {isWall && hasPlan && otherActiveWallCount > 0 && (
+          <div className="space-y-2">
+            {applyState === 'idle' && (
+              <button
+                type="button"
+                aria-label={`apply-to-all-walls-${surfaceId}`}
+                onClick={() => setApplyState('confirming')}
+                disabled={saving}
+                className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm disabled:opacity-60"
+              >
+                <Ico>✅</Ico>{t.work_plan.apply_to_walls}
+              </button>
+            )}
+            {applyState === 'confirming' && (
+              <div
+                aria-label={`apply-confirm-panel-${surfaceId}`}
+                className="rounded-xl border border-[var(--tg-control-border-color)] p-3 space-y-2"
+              >
+                <p className="text-sm text-[var(--tg-theme-text-color)] break-words">
+                  {t.work_plan.apply_confirm.replace('{count}', String(otherActiveWallCount))}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    aria-label={`apply-confirm-yes-${surfaceId}`}
+                    onClick={() => void handleApplyToAllWalls()}
+                    disabled={detachPrompt !== null}
+                    className="flex-1 min-h-11 px-3 rounded-xl bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] font-semibold text-sm"
+                  >
+                    <Ico>✅</Ico>{t.work_plan.apply_confirm_yes}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`apply-cancel-${surfaceId}`}
+                    onClick={handleApplyCancel}
+                    className="flex-1 min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] font-semibold text-sm"
+                  >
+                    <Ico>✖️</Ico>{t.common.cancel}
+                  </button>
+                </div>
+              </div>
+            )}
+            {applyState === 'applying' && (
+              <p role="status" className="py-2 text-sm text-center text-[var(--tg-theme-hint-color)]">
+                {t.work_plan.applying}
+              </p>
+            )}
+            {applyState === 'success' && (
+              <div className="space-y-1">
+                <p role="status" className="text-sm text-[var(--tg-theme-text-color)]">
+                  {t.work_plan.apply_success.replace('{count}', String(appliedCount ?? 0))}
+                </p>
+                <button
+                  type="button"
+                  aria-label={`apply-success-dismiss-${surfaceId}`}
+                  onClick={handleApplyCancel}
+                  className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] text-sm font-medium"
+                >
+                  <Ico>✖️</Ico>{t.common.close}
+                </button>
+              </div>
+            )}
+            {applyState === 'error' && (
+              <div role="alert" className="space-y-1">
+                <p className="text-sm font-semibold text-[var(--tg-theme-destructive-text-color)]">
+                  {t.work_plan.apply_error}
+                </p>
+                {applyError && applyError !== t.work_plan.apply_error && (
+                  <p className="text-xs text-[var(--tg-theme-destructive-text-color)] break-words">{applyError}</p>
+                )}
+                <button
+                  type="button"
+                  aria-label={`apply-error-dismiss-${surfaceId}`}
+                  onClick={handleApplyCancel}
+                  className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] text-sm font-medium"
+                >
+                  <Ico>✖️</Ico>{t.common.close}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <form aria-label={`work-plan-form-${surfaceId}`} onSubmit={(event) => void handleSubmit(event)} className="space-y-3">
           {!hasPlan && (
             <p className="text-sm text-[var(--tg-theme-hint-color)]">{t.work_plan.no_plan}</p>
@@ -702,7 +787,14 @@ export function SurfaceWorkPlanEditor({
               {t.work_plan.planned_works}
             </h6>
             {draftOccurrences.length === 0 ? (
-              <p className="text-sm text-[var(--tg-theme-hint-color)]">{t.work_plan.no_works}</p>
+              <>
+                <p className="text-sm text-[var(--tg-theme-hint-color)]">{t.work_plan.no_works}</p>
+                {isWall && !hasPlan && otherActiveWallCount > 0 && (
+                  <p aria-label={`apply-hint-${surfaceId}`} className="text-xs text-[var(--tg-theme-hint-color)] break-words">
+                    {t.work_plan.apply_hint}
+                  </p>
+                )}
+              </>
             ) : (
               <ol aria-label={`planned-works-${surfaceId}`} className="space-y-2">
                 {draftOccurrences.map((occurrence, index) => {
@@ -730,31 +822,41 @@ export function SurfaceWorkPlanEditor({
                             <span aria-hidden="true" className="text-[var(--tg-theme-hint-color)]">{index + 1}. </span>
                             {occurrenceDisplayName(item)}
                           </span>
-                          {/* Stage 13H.5: read-only; execution changes only in Realizacja. */}
-                          {occurrence.execution ? (
-                            <div className="mt-0.5">
-                              <ExecutionStatusBadge
-                                status={occurrence.execution.status}
-                                ariaLabel={`occurrence-execution-${occurrence.draftKey}`}
-                              />
-                            </div>
-                          ) : occurrence.occurrenceKey === null ? (
+                          {/* Usability U-5: the plan is for planning; the progress of a work is shown in the Realizacja segment only. */}
+                          {!occurrence.execution && occurrence.occurrenceKey === null && (
                             <p
                               aria-label={`occurrence-unsaved-${occurrence.draftKey}`}
                               className="mt-0.5 text-xs text-[var(--tg-theme-hint-color)] break-words"
                             >
                               {t.execution.not_saved}
                             </p>
-                          ) : null}
-                          {coefSummary && (
+                          )}
+                          {/* Usability U-4: a coefficient and a break are badges (only when set); a tap on a badge opens its editor. */}
+                          {(coefSummary || typeof parseWaitInput(occurrence.waitInput) === 'number') && (
                             <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
-                              <span
-                                aria-label={`occurrence-coefficient-summary-${occurrence.draftKey}`}
-                                className="px-1.5 py-0.5 rounded font-medium bg-blue-50 text-blue-700 border border-blue-200"
-                              >
-                                {t.estimates.coefficient_adjustment}: {coefSummary}
-                              </span>
-                              {effectivePrice !== basePrice && effectivePrice !== null && (
+                              {coefSummary && (
+                                <button
+                                  type="button"
+                                  aria-label={`occurrence-coefficient-summary-${occurrence.draftKey}`}
+                                  onClick={() => openCoefficientModal(occurrence.draftKey)}
+                                  disabled={saving}
+                                  className="min-h-11 inline-flex items-center px-2 rounded-lg font-medium bg-blue-50 text-blue-700 border border-blue-200 break-words text-left disabled:opacity-60"
+                                >
+                                  {t.estimates.coefficient_adjustment}: {coefSummary}
+                                </button>
+                              )}
+                              {typeof parseWaitInput(occurrence.waitInput) === 'number' && (
+                                <button
+                                  type="button"
+                                  aria-label={`occurrence-wait-${occurrence.draftKey}`}
+                                  onClick={() => setWaitEditorKey(waitEditorKey === occurrence.draftKey ? null : occurrence.draftKey)}
+                                  disabled={saving}
+                                  className="min-h-11 inline-flex items-center px-2 rounded-lg bg-amber-50 border border-amber-200 font-medium text-amber-900 break-words text-left disabled:opacity-60"
+                                >
+                                  <span aria-hidden="true">⏸ </span>{t.work_plan.wait_after_work.replace('{value}', formatWaitHours(t, locale, parseWaitInput(occurrence.waitInput) as number))}
+                                </button>
+                              )}
+                              {coefSummary && effectivePrice !== basePrice && effectivePrice !== null && (
                                 <span className="text-[var(--tg-theme-hint-color)]">
                                   → {formatPrice(effectivePrice)} {currency === 'PLN' ? t.pricebook.currency_symbol : currency}
                                 </span>
@@ -790,15 +892,63 @@ export function SurfaceWorkPlanEditor({
                           </button>
                           <button
                             type="button"
-                            aria-label={`remove-occurrence-${occurrence.draftKey}`}
-                            onClick={() => handleRemoveOccurrence(occurrence.draftKey)}
+                            aria-label={`occurrence-menu-${occurrence.draftKey}`}
+                            aria-expanded={!!openMenus[occurrence.draftKey]}
+                            onClick={() => toggleMenu(occurrence.draftKey)}
                             disabled={saving}
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-xs text-[var(--tg-theme-destructive-text-color)] disabled:opacity-60"
+                            className="min-h-[44px] min-w-[44px] px-1 flex items-center justify-center text-lg font-bold text-[var(--tg-theme-text-color)] disabled:opacity-60"
+                            title={t.work_plan.row_menu}
+                          >
+                            <span aria-hidden="true">⋯</span>
+                          </button>
+                        </div>
+                      </div>
+                      {openMenus[occurrence.draftKey] && (
+                        <div role="menu" aria-label={`occurrence-menu-list-${occurrence.draftKey}`} className="mt-1 grid grid-cols-1 gap-1">
+                          {isLabor && (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              aria-label={`assign-coefficient-${occurrence.draftKey}`}
+                              onClick={() => {
+                                closeMenu(occurrence.draftKey);
+                                openCoefficientModal(occurrence.draftKey);
+                              }}
+                              disabled={saving}
+                              className="w-full min-h-[44px] px-3 py-1.5 text-sm font-semibold text-left text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-60"
+                            >
+                              <Ico>📐</Ico>{t.work_plan.coefficient_action}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            role="menuitem"
+                            aria-label={`edit-wait-${occurrence.draftKey}`}
+                            aria-expanded={waitEditorKey === occurrence.draftKey}
+                            onClick={() => {
+                              closeMenu(occurrence.draftKey);
+                              setWaitEditorKey(waitEditorKey === occurrence.draftKey ? null : occurrence.draftKey);
+                            }}
+                            disabled={saving}
+                            className="w-full min-h-[44px] px-3 py-1.5 text-sm font-semibold text-left text-[var(--tg-control-text-color)] bg-[var(--tg-control-bg-color)] border border-[var(--tg-control-border-color)] rounded-lg disabled:opacity-60"
+                          >
+                            <Ico>⏸️</Ico>{waitEditorKey === occurrence.draftKey ? t.work_plan.wait_hide : t.work_plan.wait_toggle}
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            aria-label={`remove-occurrence-${occurrence.draftKey}`}
+                            onClick={() => {
+                              closeMenu(occurrence.draftKey);
+                              handleRemoveOccurrence(occurrence.draftKey);
+                            }}
+                            disabled={saving}
+                            className="w-full min-h-[44px] px-3 py-1.5 text-sm font-semibold text-left text-[var(--tg-theme-destructive-text-color)] border border-[var(--tg-control-border-color)] rounded-lg disabled:opacity-60"
                           >
                             <Ico>🗑️</Ico>{t.work_plan.remove_work}
                           </button>
                         </div>
-                      </div>
+                      )}
                       {item ? (
                         <div className="mt-1 space-y-1">
                           <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--tg-theme-hint-color)]">
@@ -820,18 +970,6 @@ export function SurfaceWorkPlanEditor({
                               {t.work_plan.legacy_reveal_note}
                             </p>
                           )}
-                          {isLabor && (
-                            <button
-                              type="button"
-                              aria-label={`assign-coefficient-${occurrence.draftKey}`}
-                              onClick={() => openCoefficientModal(occurrence.draftKey)}
-                              disabled={saving}
-                              className="mt-1 w-full min-h-[44px] px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 active:bg-blue-200 disabled:opacity-60 flex items-center justify-center gap-1.5"
-                            >
-                              {t.work_plan.coefficient_action}
-                              {coefSummary && <span className="font-mono">({coefSummary})</span>}
-                            </button>
-                          )}
                         </div>
                       ) : (
                         <p className="mt-1 text-xs text-[var(--tg-theme-hint-color)]">{t.work_plan.unavailable_item}</p>
@@ -842,24 +980,6 @@ export function SurfaceWorkPlanEditor({
                         const open = waitEditorKey === occurrence.draftKey;
                         return (
                           <div className="mt-1.5 space-y-1.5">
-                            {typeof wait === 'number' && (
-                              <p
-                                aria-label={`occurrence-wait-${occurrence.draftKey}`}
-                                className="rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 text-xs font-medium text-amber-900 break-words"
-                              >
-                                <span aria-hidden="true">⏸ </span>{t.work_plan.wait_after_work.replace('{value}', formatWaitHours(t, locale, wait))}
-                              </p>
-                            )}
-                            <button
-                              type="button"
-                              aria-label={`edit-wait-${occurrence.draftKey}`}
-                              aria-expanded={open}
-                              onClick={() => setWaitEditorKey(open ? null : occurrence.draftKey)}
-                              disabled={saving}
-                              className="w-full min-h-[44px] px-3 py-1.5 text-xs font-semibold text-[var(--tg-control-text-color)] bg-[var(--tg-control-bg-color)] border border-[var(--tg-control-border-color)] rounded-lg disabled:opacity-60"
-                            >
-                              {open ? t.work_plan.wait_hide : t.work_plan.wait_toggle}
-                            </button>
                             {open && (
                               <label className="block space-y-1">
                                 <span className="block text-xs font-medium text-[var(--tg-theme-text-color)]">
@@ -984,90 +1104,6 @@ export function SurfaceWorkPlanEditor({
           >
             <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
           </button>
-
-          {/* Apply to all walls — WALL surfaces with a saved plan only */}
-          {isWall && hasPlan && (
-            <div className="space-y-2 pt-1 border-t border-[var(--tg-control-border-color)]">
-              {applyState === 'idle' && (
-                <button
-                  type="button"
-                  aria-label={`apply-to-all-walls-${surfaceId}`}
-                  onClick={() => setApplyState('confirming')}
-                  disabled={saving}
-                  className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-color)] font-semibold text-sm disabled:opacity-60"
-                >
-                  <Ico>✅</Ico>{t.work_plan.apply_to_walls}
-                </button>
-              )}
-              {applyState === 'confirming' && (
-                <div
-                  aria-label={`apply-confirm-panel-${surfaceId}`}
-                  className="rounded-xl border border-[var(--tg-control-border-color)] p-3 space-y-2"
-                >
-                  <p className="text-sm text-[var(--tg-theme-text-color)] break-words">
-                    {t.work_plan.apply_confirm.replace('{count}', String(otherActiveWallCount))}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      aria-label={`apply-confirm-yes-${surfaceId}`}
-                      onClick={() => void handleApplyToAllWalls()}
-                      disabled={detachPrompt !== null}
-                      className="flex-1 min-h-11 px-3 rounded-xl bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] font-semibold text-sm"
-                    >
-                      <Ico>✅</Ico>{t.work_plan.apply_confirm_yes}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`apply-cancel-${surfaceId}`}
-                      onClick={handleApplyCancel}
-                      className="flex-1 min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] font-semibold text-sm"
-                    >
-                      <Ico>✖️</Ico>{t.common.cancel}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {applyState === 'applying' && (
-                <p role="status" className="py-2 text-sm text-center text-[var(--tg-theme-hint-color)]">
-                  {t.work_plan.applying}
-                </p>
-              )}
-              {applyState === 'success' && (
-                <div className="space-y-1">
-                  <p role="status" className="text-sm text-[var(--tg-theme-text-color)]">
-                    {t.work_plan.apply_success.replace('{count}', String(appliedCount ?? 0))}
-                  </p>
-                  <button
-                    type="button"
-                    aria-label={`apply-success-dismiss-${surfaceId}`}
-                    onClick={handleApplyCancel}
-                    className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] text-sm font-medium"
-                  >
-                    <Ico>✖️</Ico>{t.common.close}
-                  </button>
-                </div>
-              )}
-              {applyState === 'error' && (
-                <div role="alert" className="space-y-1">
-                  <p className="text-sm font-semibold text-[var(--tg-theme-destructive-text-color)]">
-                    {t.work_plan.apply_error}
-                  </p>
-                  {applyError && applyError !== t.work_plan.apply_error && (
-                    <p className="text-xs text-[var(--tg-theme-destructive-text-color)] break-words">{applyError}</p>
-                  )}
-                  <button
-                    type="button"
-                    aria-label={`apply-error-dismiss-${surfaceId}`}
-                    onClick={handleApplyCancel}
-                    className="w-full min-h-11 px-3 rounded-xl border border-[var(--tg-control-border-color)] text-[var(--tg-theme-text-color)] text-sm font-medium"
-                  >
-                    <Ico>✖️</Ico>{t.common.close}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </form>
 
         {/* Rendered as a SIBLING of the form above, never nested inside it —

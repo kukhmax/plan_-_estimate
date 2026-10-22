@@ -1,5 +1,6 @@
 import { photoCountFor } from '../hooks/usePhotoCounts';
 import { useProjectPhotos } from '../hooks/ProjectPhotosContext';
+import { useI18n } from '../hooks/useI18n';
 import { PendingMark } from './PendingMark';
 
 interface SurfaceRowButtonProps {
@@ -13,6 +14,8 @@ interface SurfaceRowButtonProps {
   /** Already formatted ("8.62 m²"); '—' when the wall has no dimensions yet. */
   area: string;
   archivedLabel?: string | null;
+  /** How many works its plan holds; shown only when there are some (usability U-7). */
+  workCount?: number;
   /** The wall exists only on the phone (Stage 19E). */
   pending?: boolean;
   className: string;
@@ -23,7 +26,8 @@ interface SurfaceRowButtonProps {
  * A collapsed wall: one line "Ściana 1 [Ściana] [📷 3] 8.62 m²". A tap opens the full card (Stage 18G: the list of walls stays short
  * so the owner finds a wall at a glance and opens only the one being worked on).
  */
-export function SurfaceRowButton({ surfaceId, rowKey, name, typeLabel, area, archivedLabel, pending, className, onOpen }: SurfaceRowButtonProps) {
+export function SurfaceRowButton({ surfaceId, rowKey, name, typeLabel, area, archivedLabel, workCount, pending, className, onOpen }: SurfaceRowButtonProps) {
+  const { t } = useI18n();
   const photos = useProjectPhotos();
   const count = photos && surfaceId ? photoCountFor(photos.counts, 'SURFACE', surfaceId) : null;
   const key = rowKey ?? surfaceId ?? name;
@@ -35,6 +39,12 @@ export function SurfaceRowButton({ surfaceId, rowKey, name, typeLabel, area, arc
         {archivedLabel && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">{archivedLabel}</span>}
         <PendingMark record={{ _pending: pending }} id={key} />
       </span>
+      {workCount !== undefined && workCount > 0 && (
+        <span aria-label={`surface-row-works-${key}`} title={t.surfaces.works_in_plan} className="shrink-0 text-xs px-2 py-0.5 rounded-full pe-pill font-semibold">
+          <span aria-hidden="true">🛠️ </span>
+          {workCount}
+        </span>
+      )}
       {count !== null && (
         <span aria-label={`surface-row-photos-${key}`} className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-slate-900 text-white font-semibold">
           <span aria-hidden="true">📷 </span>

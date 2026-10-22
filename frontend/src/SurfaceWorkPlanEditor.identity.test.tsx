@@ -15,6 +15,7 @@ import { ApiError } from './api/http';
 import { SurfaceWorkPlanEditor } from './components/SurfaceWorkPlanEditor';
 import { I18nProvider } from './hooks/useI18n';
 import { PriceItem } from './types/priceItem';
+import { openOccurrenceMenus } from './test/menu';
 import {
   PlannedWorkCoefficientOptionRead,
   SurfacePlannedWorkRead,
@@ -172,6 +173,7 @@ describe('SurfaceWorkPlanEditor — occurrence identity (13E.2C)', () => {
   it('deleting A leaves B exactly as it was', async () => {
     vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(plan([B]));
     const [first] = await start();
+    openOccurrenceMenus(first); // the removal is in the menu of the row (usability U-4)
     fireEvent.click(within(first).getByLabelText(/^remove-occurrence-/));
     save();
     await waitFor(() => expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledTimes(1));

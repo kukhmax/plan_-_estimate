@@ -12,6 +12,7 @@ import { SurfaceWorkPlanEditor } from './components/SurfaceWorkPlanEditor';
 import { I18nProvider } from './hooks/useI18n';
 import { DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME } from './hooks/useTelegramWebApp';
 import { SurfacePlannedWorkRead, SurfacePriceItemSummaryRead, SurfaceWorkPlanRead, SurfaceWorkPlanUpsert } from './types/workPlan';
+import { openOccurrenceMenu } from './test/menu';
 
 vi.mock('./api/workPlans', async (orig) => ({
   ...(await orig<typeof import('./api/workPlans')>()),
@@ -102,6 +103,7 @@ describe('display (13G)', () => {
     await screen.findByLabelText(`planned-works-${S}`);
     expect(screen.getByLabelText(`occurrence-wait-${keyOf(0)}`)).toHaveTextContent('Технологическая пауза после этой работы: 24 ч · 1 день');
     expect(screen.getByLabelText(`occurrence-wait-${keyOf(1)}`)).toHaveTextContent('48 ч · 2 дня');
+    openOccurrenceMenu(keyOf(2));
     fireEvent.click(screen.getByLabelText(`edit-wait-${keyOf(2)}`));
     expect(cards()[2]).toHaveTextContent('Количество часов');
     expect(screen.getByLabelText(`wait-input-${keyOf(2)}`)).toHaveAttribute('placeholder', 'Пауза не задана');
@@ -112,12 +114,14 @@ describe('editing (13G)', () => {
   it('edits one occurrence, clears another; siblings with the same PriceItem are independent; save keeps keys and coefficients', async () => {
     renderEditor();
     await screen.findByLabelText(`planned-works-${S}`);
+    openOccurrenceMenu(keyOf(2));
     fireEvent.click(screen.getByLabelText(`edit-wait-${keyOf(2)}`));
     const input = screen.getByLabelText(`wait-input-${keyOf(2)}`);
     expect(input).toHaveAttribute('inputMode', 'numeric');
     fireEvent.change(input, { target: { value: '72' } });
     expect(screen.getByLabelText(`occurrence-wait-${keyOf(2)}`)).toHaveTextContent('72 h · 3 dni');
     expect(screen.getByLabelText(`occurrence-wait-${keyOf(0)}`)).toHaveTextContent('24 h'); // same PriceItem, untouched
+    openOccurrenceMenu(keyOf(1));
     fireEvent.click(screen.getByLabelText(`edit-wait-${keyOf(1)}`));
     fireEvent.change(screen.getByLabelText(`wait-input-${keyOf(1)}`), { target: { value: '' } });
     expect(screen.queryByLabelText(`occurrence-wait-${keyOf(1)}`)).toBeNull();
@@ -134,6 +138,7 @@ describe('editing (13G)', () => {
   it('rejects 0, fractions and text inline and never submits them', async () => {
     renderEditor();
     await screen.findByLabelText(`planned-works-${S}`);
+    openOccurrenceMenu(keyOf(0));
     fireEvent.click(screen.getByLabelText(`edit-wait-${keyOf(0)}`));
     for (const bad of ['0', '1.5', '2,5', 'abc', '-3']) {
       fireEvent.change(screen.getByLabelText(`wait-input-${keyOf(0)}`), { target: { value: bad } });
@@ -175,6 +180,8 @@ describe('editing (13G)', () => {
     await screen.findByLabelText(`planned-works-${S}`);
     expect(cards()[1].querySelector('span.break-words')).not.toBeNull();
     expect(screen.getByLabelText(`occurrence-wait-${keyOf(1)}`).className).toContain('break-words');
+    expect(screen.getByLabelText(`occurrence-wait-${keyOf(1)}`).className).toContain('min-h-11');
+    openOccurrenceMenu(keyOf(1));
     expect(screen.getByLabelText(`edit-wait-${keyOf(1)}`).className).toContain('min-h-[44px]');
   });
 });
@@ -193,6 +200,7 @@ describe('break toggle theme contrast (13G FIX.1)', () => {
   it('collapsed and expanded toggle use the paired theme-safe control tokens (no hardcoded light background)', async () => {
     renderEditor();
     await screen.findByLabelText(`planned-works-${S}`);
+    openOccurrenceMenu(keyOf(0));
     const toggle = screen.getByLabelText(`edit-wait-${keyOf(0)}`);
     const assertThemeSafe = () => {
       for (const token of [
@@ -207,14 +215,61 @@ describe('break toggle theme contrast (13G FIX.1)', () => {
     };
     expect(toggle).toHaveTextContent('Przerwa po pracy');
     assertThemeSafe();
-    fireEvent.click(toggle);
-    expect(toggle).toHaveTextContent('Ukryj przerwę');
-    assertThemeSafe();
+    fireEvent.click(toggle); // closes the menu and opens the editor of the break
+    openOccurrenceMenu(keyOf(0));
+    const expanded = screen.getByLabelText(`edit-wait-${keyOf(0)}`);
+    expect(expanded).toHaveTextContent('Ukryj przerwę');
+    expect(expanded.className).toContain('bg-[var(--tg-control-bg-color)]');
   });
 
   it('the control token pair is readable in light and dark themes (WCAG AA)', () => {
     for (const theme of [DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME] as Record<string, string>[]) {
       expect(contrast(theme['--tg-control-text-color'], theme['--tg-control-bg-color'])).toBeGreaterThanOrEqual(4.5);
     }
+  });
+});
+
+describe('compact row (usability U-4)', () => {
+  it('keeps the coefficient, the break and the removal out of the row until its menu ("⋯") is opened', async () => {
+    renderEditor();
+    await screen.findByLabelText(`planned-works-${S}`);
+    expect(screen.queryByLabelText(/^assign-coefficient-/)).toBeNull();
+    expect(screen.queryByLabelText(/^edit-wait-/)).toBeNull();
+    expect(screen.queryByLabelText(/^remove-occurrence-/)).toBeNull();
+    const menu = screen.getByLabelText(`occurrence-menu-${keyOf(0)}`);
+    expect(menu.className).toContain('min-w-[44px]');
+    expect(menu).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(menu);
+    expect(menu).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText(`edit-wait-${keyOf(0)}`)).toHaveTextContent('Przerwa po pracy');
+    expect(screen.getByLabelText(`remove-occurrence-${keyOf(0)}`)).toHaveTextContent('Usuń');
+    fireEvent.click(menu);
+    expect(screen.queryByLabelText(`edit-wait-${keyOf(0)}`)).toBeNull();
+  });
+
+  it('shows a break as a badge only when it is set, and a tap on the badge opens the editor of the break', async () => {
+    renderEditor();
+    await screen.findByLabelText(`planned-works-${S}`);
+    expect(screen.getByLabelText(`occurrence-wait-${keyOf(0)}`)).toHaveTextContent('⏸');
+    expect(screen.getByLabelText(`occurrence-wait-${keyOf(0)}`).className).toContain('min-h-11');
+    expect(screen.queryByLabelText(`occurrence-wait-${keyOf(2)}`)).toBeNull(); // no break set: no badge
+    expect(screen.queryByLabelText(`wait-input-${keyOf(0)}`)).toBeNull();
+    fireEvent.click(screen.getByLabelText(`occurrence-wait-${keyOf(0)}`));
+    expect(screen.getByLabelText(`wait-input-${keyOf(0)}`)).toBeInTheDocument();
+  });
+
+  it('a tap on the coefficient badge opens the coefficient editor of that work', async () => {
+    renderEditor();
+    await screen.findByLabelText(`planned-works-${S}`);
+    const badge = screen.getByLabelText(`occurrence-coefficient-summary-${keyOf(0)}`);
+    expect(badge.tagName).toBe('BUTTON');
+    fireEvent.click(badge);
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('shows no execution status in the plan', async () => {
+    renderEditor();
+    await screen.findByLabelText(`planned-works-${S}`);
+    expect(screen.queryByLabelText(/^occurrence-execution-/)).toBeNull();
   });
 });

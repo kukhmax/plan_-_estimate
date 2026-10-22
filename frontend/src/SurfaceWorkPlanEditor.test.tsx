@@ -9,6 +9,7 @@ import { I18nProvider } from './hooks/useI18n';
 import { CoefficientGroupRead } from './types/coefficient';
 import { PriceItem, PriceItemListResponse } from './types/priceItem';
 import { SurfaceWorkPlanApplyResult, SurfaceWorkPlanRead } from './types/workPlan';
+import { openOccurrenceMenus } from './test/menu';
 
 /** Stage 12 accordion: expand the coefficient group, then pick an option. */
 async function pickCoefficient(groupId: string, name: RegExp) {
@@ -653,7 +654,8 @@ describe('SurfaceWorkPlanEditor', () => {
     }
     expect(screen.getAllByText('Powtarzalna praca')).toHaveLength(2);
 
-    // Remove the first remove button
+    // Remove the first remove button (it is in the menu of the row, usability U-4)
+    openOccurrenceMenus();
     const removeButtons = screen.getAllByText('Usuń');
     expect(removeButtons).toHaveLength(2);
     fireEvent.click(removeButtons[0]);
@@ -976,6 +978,29 @@ describe('SurfaceWorkPlanEditor', () => {
     );
     renderEditor();
     await screen.findByText('Brak zapisanego planu prac dla tej powierzchni.');
+    expect(screen.queryByLabelText(`apply-to-all-walls-${surfaceId}`)).not.toBeInTheDocument();
+  });
+
+  // Usability U-6: one plan is filled once and applied to all walls: the button is at the top, with a hint while there is no plan.
+  it('U-6: the apply button sits above the form of the plan, the same one as before', async () => {
+    renderEditor();
+    const button = await screen.findByLabelText(`apply-to-all-walls-${surfaceId}`);
+    const form = screen.getByLabelText(`work-plan-form-${surfaceId}`);
+    expect(button.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // the form comes after the button
+    expect(button.className).toContain('min-h-11');
+  });
+
+  it('U-6: with no plan yet and other walls in the room the hint tells to fill one wall and apply it to all', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(new ApiError('Surface work plan not found', 404));
+    renderEditor(surfaceId, { otherActiveWallCount: 3 });
+    expect(await screen.findByLabelText(`apply-hint-${surfaceId}`)).toHaveTextContent('Wypełnij plan dla jednej ściany i zastosuj go do wszystkich.');
+  });
+
+  it('U-6: no hint and no apply button for the only wall of a room', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(new ApiError('Surface work plan not found', 404));
+    renderEditor(surfaceId, { otherActiveWallCount: 0 });
+    await screen.findByText('Brak zapisanego planu prac dla tej powierzchni.');
+    expect(screen.queryByLabelText(`apply-hint-${surfaceId}`)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(`apply-to-all-walls-${surfaceId}`)).not.toBeInTheDocument();
   });
 
@@ -1320,6 +1345,7 @@ describe('SurfaceWorkPlanEditor — coefficients (Stage 12F)', () => {
   async function assignButtons() {
     renderEditor();
     await screen.findByLabelText(`planned-works-${surfaceId}`);
+    openOccurrenceMenus(); // the coefficient action is in the menu of the row (usability U-4)
     return screen.getAllByLabelText(/^assign-coefficient-/);
   }
 

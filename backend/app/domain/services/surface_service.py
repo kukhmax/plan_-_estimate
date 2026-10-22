@@ -23,6 +23,7 @@ from app.models.opening import Opening
 from app.models.project import Project
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
+from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
 from app.schemas.surface import SurfaceCreate, SurfaceUpdate
 
 
@@ -103,6 +104,21 @@ class SurfaceService:
             if surface.surface_type == SurfaceType.WALL and surface.width is not None and surface.height is not None:
                 surface.deduction_area = Decimal(deduction_sum).quantize(Decimal("0.001"))
             items.append(surface)
+
+        # Usability U-7: the number of works of each saved plan, in one query (a read-only figure of the list)
+        if items:
+            counts = dict(
+                (
+                    await self.db.execute(
+                        select(SurfaceWorkPlan.surface_id, func.count(SurfacePlannedWork.id))
+                        .join(SurfacePlannedWork, SurfacePlannedWork.work_plan_id == SurfaceWorkPlan.id)
+                        .where(SurfaceWorkPlan.surface_id.in_([surface.id for surface in items]))
+                        .group_by(SurfaceWorkPlan.surface_id)
+                    )
+                ).all()
+            )
+            for surface in items:
+                surface.planned_work_count = int(counts.get(surface.id, 0))
 
         return items, total
 

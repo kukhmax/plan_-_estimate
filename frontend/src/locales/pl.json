@@ -814,6 +814,7 @@
     "options": "Opcje",
     "hide_options": "Ukryj opcje",
     "work_types_quality": "Rodzaje prac i jakość",
+    "works_in_plan": "Prace w planie",
     "requires_dimensions": "Wprowadź wymiary ściany, aby zarządzać otworami",
     "created": "Powierzchnia została utworzona",
     "updated": "Powierzchnia została zaktualizowana",
@@ -837,6 +838,9 @@
   "work_plan": {
     "legacy_reveal_note": "Praca na ościeżach zapisana na ścianie (starsze ustawienie). Zalecane: dodaj ją w konkretnym otworze → Prace na ościeżach i usuń stąd. Ta pozycja nie ma automatycznej ilości.",
     "title": "Rodzaje prac i jakość",
+    "tab_plan": "Plan",
+    "apply_hint": "Wypełnij plan dla jednej ściany i zastosuj go do wszystkich.",
+    "row_menu": "Menu pracy",
     "loading": "Ładowanie planu prac...",
     "error_load": "Nie udało się załadować planu prac.",
     "error_save": "Nie udało się zapisać planu prac.",

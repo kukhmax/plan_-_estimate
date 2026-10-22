@@ -1,4 +1,4 @@
-import { EXECUTION_ROW_WITH_BADGE, ExecutionPhotoBadge, INSPECT_BUTTON_WITH_BADGE, InspectionPhotoBadge } from './ExecutionPhotoBadge';
+import { INSPECT_BUTTON_WITH_BADGE, InspectionPhotoBadge } from './ExecutionPhotoBadge';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { fetchOpenings } from '../api/openings';
 import {
@@ -29,6 +29,7 @@ import { SurfaceExecutionView } from './SurfaceExecutionView';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
+import { PlanExecutionTabs } from './PlanExecutionTabs';
 import { PendingMark } from './PendingMark';
 import { SurfaceDimensions } from './SurfaceDimensions';
 import { SurfaceRowButton } from './SurfaceRowButton';
@@ -119,6 +120,9 @@ export function SurfaceList({
   const [expandedOptions, setExpandedOptions] = useState<Record<string, boolean>>({});
   /** Which wall cards are open (the others are one-line rows). `null` while nothing was opened or closed: then `initiallyOpen` decides. */
   const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
+  /** Usability U-7: which wall cards show their area calculation (gross, openings, reveals); the net area alone is the default. */
+  const [expandedAreas, setExpandedAreas] = useState<Record<string, boolean>>({});
+  const toggleAreaDetails = (surfaceId: string) => setExpandedAreas((current) => ({ ...current, [surfaceId]: !current[surfaceId] }));
   const [activeWorkPlanSurfaceId, setActiveWorkPlanSurfaceId] = useState<string | null>(null);
   // Stage 13H.5: Realizacja (execution) is a separate view from the plan
   // editor; at most one of the two is open, so neither shows stale data.
@@ -749,6 +753,7 @@ export function SurfaceList({
                     typeLabel={typeLabel(surface.surface_type)}
                     area={waitingArea ? `~${waitingArea} ${t.common.unit_m2}` : hasDimensions ? `${formatMetric(surface.net_area ?? surface.gross_area)} ${t.common.unit_m2}` : '—'}
                     archivedLabel={surface.is_archived ? t.common.archived_badge : null}
+                    workCount={surface.planned_work_count}
                     pending={surface._pending}
                     className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
                     onOpen={() => toggleCard(surface.id)}
@@ -861,7 +866,26 @@ export function SurfaceList({
                         <span className="block mt-0.5">{t.offline.area_after_sync}</span>
                       </p>
                     ) : hasDimensions ? (
-                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-1.5">
+                      <div className="space-y-1.5">
+                        {/* Usability U-7: the net area is the one figure of the card; a tap on it opens the calculation (gross, openings, reveals). */}
+                        <button
+                          type="button"
+                          aria-label={`area-details-${surface.id}`}
+                          aria-expanded={!!expandedAreas[surface.id]}
+                          onClick={() => toggleAreaDetails(surface.id)}
+                          className="w-full min-h-11 flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-200/60 rounded-lg px-2 py-1.5 text-left"
+                        >
+                          <span className="flex items-center gap-1 text-[11px] text-emerald-800 font-medium min-w-0 break-words">
+                            <span aria-hidden="true">=</span>
+                            <span>{t.surfaces.net_area}</span>
+                          </span>
+                          <strong className="shrink-0 text-emerald-700 text-xs font-bold">
+                            {formatMetric(surface.net_area ?? surface.gross_area)} {t.common.unit_m2}
+                            <span aria-hidden="true" className="ml-1">{expandedAreas[surface.id] ? '▴' : '▾'}</span>
+                          </strong>
+                        </button>
+                        {expandedAreas[surface.id] && (
+                      <div aria-label={`area-calculation-${surface.id}`} className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-[11px] text-slate-500">{t.surfaces.gross_area}</span>
                           <strong className="text-slate-800 text-xs font-semibold">
@@ -891,15 +915,8 @@ export function SurfaceList({
                             </strong>
                           </div>
                         )}
-                        <div className="flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-200/60 rounded-lg px-2 py-1.5">
-                          <span className="flex items-center gap-1 text-[11px] text-emerald-800 font-medium">
-                            <span aria-hidden="true">=</span>
-                            <span>{t.surfaces.net_area}</span>
-                          </span>
-                          <strong className="text-emerald-700 text-xs font-bold">
-                            {formatMetric(surface.net_area ?? surface.gross_area)} {t.common.unit_m2}
-                          </strong>
-                        </div>
+                      </div>
+                        )}
                       </div>
                     ) : (
                       <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1.5">
@@ -909,17 +926,7 @@ export function SurfaceList({
 
                     {surface.description && <p className="text-xs text-slate-500">{surface.description}</p>}
 
-                    <button
-                      type="button"
-                      aria-label={`work-plan-${surface.id}`}
-                      aria-expanded={isWorkPlanOpen}
-                      aria-controls={`work-plan-editor-${surface.id}`}
-                      onClick={() => toggleWorkPlan(surface.id)}
-                      className="w-full min-h-11 text-sm px-3 py-1 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
-                    >
-                      <Ico>🛠️</Ico>
-                      {t.surfaces.work_types_quality}
-                    </button>
+                    <PlanExecutionTabs surfaceId={surface.id} planOpen={isWorkPlanOpen} executionOpen={isExecutionOpen} onPlan={() => toggleWorkPlan(surface.id)} onExecution={() => toggleExecution(surface.id)} />
 
                     {isWorkPlanOpen && (
                       <SurfaceWorkPlanEditor
@@ -937,16 +944,6 @@ export function SurfaceList({
                       />
                     )}
 
-                    <button
-                      type="button"
-                      aria-label={`execution-${surface.id}`}
-                      aria-expanded={isExecutionOpen}
-                      onClick={() => toggleExecution(surface.id)}
-                      className={`w-full min-h-11 py-1 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
-                    >
-                      <span className="min-w-0 break-words"><Ico>🏗️</Ico>{t.execution.open}</span>
-                      <ExecutionPhotoBadge surfaceId={surface.id} />
-                    </button>
 
                     {isExecutionOpen && (
                       <SurfaceExecutionView
@@ -1073,17 +1070,7 @@ export function SurfaceList({
                     )}
                     {surface.description && <p className="text-xs text-slate-500">{surface.description}</p>}
 
-                    <button
-                      type="button"
-                      aria-label={`work-plan-${surface.id}`}
-                      aria-expanded={isWorkPlanOpen}
-                      aria-controls={`work-plan-editor-${surface.id}`}
-                      onClick={() => toggleWorkPlan(surface.id)}
-                      className="w-full min-h-11 text-sm px-3 py-1 rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition"
-                    >
-                      <Ico>🛠️</Ico>
-                      {t.surfaces.work_types_quality}
-                    </button>
+                    <PlanExecutionTabs surfaceId={surface.id} planOpen={isWorkPlanOpen} executionOpen={isExecutionOpen} onPlan={() => toggleWorkPlan(surface.id)} onExecution={() => toggleExecution(surface.id)} />
 
                     {isWorkPlanOpen && (
                       <SurfaceWorkPlanEditor
@@ -1096,16 +1083,6 @@ export function SurfaceList({
                       />
                     )}
 
-                    <button
-                      type="button"
-                      aria-label={`execution-${surface.id}`}
-                      aria-expanded={isExecutionOpen}
-                      onClick={() => toggleExecution(surface.id)}
-                      className={`w-full min-h-11 py-1 text-sm rounded-xl bg-slate-50 text-slate-700 font-medium hover:bg-slate-100 transition ${EXECUTION_ROW_WITH_BADGE}`}
-                    >
-                      <span className="min-w-0 break-words"><Ico>🏗️</Ico>{t.execution.open}</span>
-                      <ExecutionPhotoBadge surfaceId={surface.id} />
-                    </button>
 
                     {isExecutionOpen && (
                       <SurfaceExecutionView

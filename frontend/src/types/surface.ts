@@ -12,6 +12,8 @@ export interface SurfaceType {
   gross_area?: string | number | null;
   deduction_area?: string | number | null;
   net_area?: string | number | null;
+  /** How many works the saved plan of the surface holds (usability U-7; the list fills it). */
+  planned_work_count?: number;
   is_archived: boolean;
   /** Made on the phone and not yet accepted by the server (Stage 19E): the screens mark it. */
   _pending?: boolean;

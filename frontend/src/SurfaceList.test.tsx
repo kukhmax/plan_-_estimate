@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './api/http';
 import * as openingsApi from './api/openings';
 import * as surfacesApi from './api/surfaces';
@@ -11,6 +11,7 @@ import { EMPTY_PHOTO_COUNTS } from './hooks/usePhotoCounts';
 import { OpeningType } from './types/opening';
 import { SurfaceType } from './types/surface';
 import { surfaceCardTint } from './utils/surfaceColorTint';
+import { installAutoOpenAreaDetails } from './test/autoOpenWalls';
 
 vi.mock('./api/surfaces', () => ({
   fetchSurfaces: vi.fn(),
@@ -80,6 +81,15 @@ function renderSurfaces(
 function expandOptions(surfaceId: string) {
   fireEvent.click(screen.getByLabelText(`options-toggle-${surfaceId}`));
 }
+
+// the calculation of the area is folded behind a tap on the net area (usability U-7); the older tests about its figures see it open
+let stopAutoOpenAreas: (() => void) | undefined;
+beforeEach(() => {
+  stopAutoOpenAreas = installAutoOpenAreaDetails();
+});
+afterEach(() => {
+  stopAutoOpenAreas?.();
+});
 
 beforeEach(() => {
   vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockImplementation(async (_project, _room, id) => ({
@@ -1383,8 +1393,9 @@ describe('Realizacja entry (Stage 13H.5)', () => {
     fireEvent.click(screen.getByLabelText(`work-plan-${surface.id}`));
     expect(await screen.findByLabelText(`work-plan-editor-${surface.id}`)).toBeInTheDocument();
     expect(screen.queryByLabelText(`execution-view-${surface.id}`)).not.toBeInTheDocument();
-    // the editor shows only the read-only badge
-    expect(await screen.findByLabelText(/^occurrence-execution-/)).toHaveTextContent('W trakcie');
+    // usability U-5: the plan shows no execution status; it is in the Realizacja segment only
+    await screen.findByLabelText(/^draft-occurrence-/);
+    expect(screen.queryByLabelText(/^occurrence-execution-/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('execution-complete-key-1')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText(`execution-${surface.id}`));
@@ -1741,5 +1752,95 @@ describe('SurfaceList: changing the size right on the card (owner request, Stage
     fireEvent.change(screen.getByLabelText(`dimensions-width-${surface.id}`), { target: { value: '200' } });
     fireEvent.click(screen.getByLabelText(`dimensions-save-${surface.id}`));
     await waitFor(() => expect(surfacesApi.updateSurface).toHaveBeenCalledWith(projectId, roomId, surface.id, { width: 2, height: 2.6 }));
+  });
+});
+
+describe('Compact wall (usability U-5, U-7)', () => {
+  const wall = (over: Partial<SurfaceType> = {}): SurfaceType => ({
+    ...surface, id: 'cccccccc-0000-0000-0000-000000000003', name: 'Ściana 3', width: 5, height: 2.7,
+    gross_area: '13.500', deduction_area: '1.800', net_area: '11.700', ...over,
+  });
+  const photos = (surfaces: Record<string, number>) => ({
+    projectId,
+    counts: { ...EMPTY_PHOTO_COUNTS, surfaces },
+    isExpanded: () => false,
+    toggle: () => {},
+    adjust: () => {},
+    resolveLocation: () => '',
+    ensureLocations: () => {},
+  });
+  const renderCompact = (initiallyOpen: boolean, walls: SurfaceType[]) => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: walls, total: walls.length });
+    return render(
+      <I18nProvider>
+        <ProjectPhotosContext.Provider value={photos({})}>
+          <SurfaceList projectId={projectId} roomId={roomId} initiallyOpen={initiallyOpen} />
+        </ProjectPhotosContext.Provider>
+      </I18nProvider>,
+    );
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    stopAutoOpenAreas?.(); // these tests are about the folded state
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue({ id: 'p', surface_id: 'x', substrate: 'CONCRETE', quality_target: 'S2', template_applications: [], planned_works: [] } as never);
+  });
+
+  it('U-7: the collapsed row tells the number of works of the plan, only when there are some', async () => {
+    const other = wall({ id: 'dddddddd-0000-0000-0000-000000000004', name: 'Ściana 4', planned_work_count: 0 });
+    renderCompact(false, [wall({ planned_work_count: 3 }), other]);
+    const row = await screen.findByLabelText(`surface-row-${wall().id}`);
+    expect(screen.getByLabelText(`surface-row-works-${wall().id}`)).toHaveTextContent('3');
+    expect(screen.getByLabelText(`surface-row-works-${wall().id}`)).toHaveAttribute('title', 'Prace w planie');
+    expect(screen.getByLabelText(`surface-row-area-${wall().id}`)).toHaveTextContent('11.70 m²');
+    expect(row).toHaveTextContent('Ściana 3');
+    expect(screen.queryByLabelText(`surface-row-works-${other.id}`)).toBeNull();
+  });
+
+  it('U-7: an opened wall shows the net area alone; the calculation (gross, openings, reveals) opens on a tap on it', async () => {
+    renderCompact(true, [wall()]);
+    const toggle = await screen.findByLabelText(`area-details-${wall().id}`);
+    expect(toggle).toHaveTextContent('11.70 m²');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle.className).toContain('min-h-11');
+    expect(screen.queryByLabelText(`area-calculation-${wall().id}`)).toBeNull();
+    expect(screen.queryByText(/Powierzchnia brutto/)).toBeNull();
+    fireEvent.click(toggle);
+    const calculation = screen.getByLabelText(`area-calculation-${wall().id}`);
+    expect(calculation).toHaveTextContent('Powierzchnia brutto');
+    expect(calculation).toHaveTextContent('13.50 m²');
+    expect(calculation).toHaveTextContent('1.80 m²');
+    expect(screen.getByLabelText(`area-details-${wall().id}`)).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByLabelText(`area-details-${wall().id}`));
+    expect(screen.queryByLabelText(`area-calculation-${wall().id}`)).toBeNull();
+  });
+
+  it('U-7: the size of an opened wall is one line with its "Edytuj" button', async () => {
+    renderCompact(true, [wall()]);
+    const edit = await screen.findByLabelText(`edit-dimensions-${wall().id}`);
+    expect(edit).toHaveTextContent('Edytuj');
+    expect(edit.parentElement).toHaveTextContent('5.00 × 2.70 m');
+  });
+
+  it('U-5: Plan | Realizacja are two segments of one row under the caption; each opens its own view, only one at a time', async () => {
+    renderCompact(true, [wall()]);
+    const group = await screen.findByLabelText(`plan-tabs-${wall().id}`);
+    expect(group.parentElement).toHaveTextContent('Rodzaje prac i jakość');
+    const plan = within(group).getByLabelText(`work-plan-${wall().id}`);
+    const execution = within(group).getByLabelText(`execution-${wall().id}`);
+    expect(plan).toHaveTextContent('Plan');
+    expect(execution).toHaveTextContent('Realizacja');
+    expect(plan.className).toContain('min-h-11');
+    expect(execution.className).toContain('min-h-11');
+    // the execution button is not repeated under the block
+    expect(screen.getAllByLabelText(`execution-${wall().id}`)).toHaveLength(1);
+    fireEvent.click(plan);
+    expect(await screen.findByLabelText(`work-plan-editor-${wall().id}`)).toBeInTheDocument();
+    fireEvent.click(execution);
+    expect(await screen.findByLabelText(`execution-view-${wall().id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`work-plan-editor-${wall().id}`)).toBeNull();
+    expect(execution).toHaveAttribute('aria-expanded', 'true');
+    expect(plan).toHaveAttribute('aria-expanded', 'false');
   });
 });

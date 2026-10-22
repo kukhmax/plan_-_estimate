@@ -85,6 +85,7 @@ const dialog = () => screen.getByLabelText(`execution-detach-dialog-${S}`);
 async function removeB() {
   const list = await screen.findByLabelText(`planned-works-${S}`);
   const rows = within(list).getAllByRole('listitem');
+  fireEvent.click(rows[1].querySelector('button[aria-label^="occurrence-menu-"]') as HTMLButtonElement); // the removal is in the menu of the row (usability U-4)
   const removeButton = rows[1].querySelector('button[aria-label^="remove-occurrence-"]') as HTMLButtonElement;
   fireEvent.click(removeButton);
 }
@@ -96,13 +97,12 @@ beforeEach(() => {
 });
 
 describe('editor execution badge (read-only)', () => {
-  it('shows each saved occurrence status, no mutation controls, and no status for an unsaved row', async () => {
+  it('shows no execution status in the plan (usability U-5: it is in Realizacja), no mutation controls, and a note for an unsaved row', async () => {
     const { container } = renderEditor();
     const list = await screen.findByLabelText(`planned-works-${S}`);
     const rows = within(list).getAllByRole('listitem');
-    expect(rows[0]).toHaveTextContent('Zaplanowano');
-    expect(rows[1]).toHaveTextContent('Wykonano');
-    expect(rows[2]).toHaveTextContent('W trakcie');
+    for (const row of rows) expect(row).not.toHaveTextContent(/Zaplanowano|Wykonano|W trakcie/);
+    expect(screen.queryByLabelText(/^occurrence-execution-/)).toBeNull();
     expect(container.querySelector('[aria-label^="execution-start-"],[aria-label^="execution-complete-"],[aria-label^="execution-reopen-"],[aria-label^="execution-reset-"]')).toBeNull();
 
     vi.mocked((await import('./api/priceItems')).fetchPriceItems).mockResolvedValue({
@@ -163,6 +163,7 @@ describe('ordinary save', () => {
     renderEditor();
     await removeB();
     const row = within(screen.getByLabelText(`planned-works-${S}`)).getAllByRole('listitem')[1];
+    fireEvent.click(row.querySelector('button[aria-label^="occurrence-menu-"]') as HTMLButtonElement);
     fireEvent.click(row.querySelector('button[aria-label^="remove-occurrence-"]') as HTMLButtonElement);  // remove C too
     vi.mocked(workPlansApi.putSurfaceWorkPlan)
       .mockRejectedValueOnce(detach409([affected('key-B', 'COMPLETED', 1)]))

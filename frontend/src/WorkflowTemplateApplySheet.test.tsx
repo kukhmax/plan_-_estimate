@@ -11,6 +11,7 @@ import { SurfaceWorkPlanEditor } from './components/SurfaceWorkPlanEditor';
 import { I18nProvider } from './hooks/useI18n';
 import { SurfacePlannedWorkRead, SurfacePriceItemSummaryRead, SurfaceWorkPlanRead } from './types/workPlan';
 import { ApplyTemplateRequest, WorkflowTemplateRead, WorkflowTemplateStepRead } from './types/workflowTemplate';
+import { openOccurrenceMenus } from './test/menu';
 
 vi.mock('./api/workPlans', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./api/workPlans')>();
@@ -124,7 +125,7 @@ describe('Workflow template apply (13E.4)', () => {
     const open = await screen.findByLabelText(`open-template-sheet-${S}`);
     expect(open).toBeEnabled();
     expect(open).toHaveTextContent('Zastosuj proces technologiczny');
-    fireEvent.click(within(screen.getByLabelText(`planned-works-${S}`)).getAllByRole('listitem')[0].querySelector('button')!);
+    fireEvent.click(within(screen.getByLabelText(`planned-works-${S}`)).getAllByRole('listitem')[0].querySelector('button[aria-label^="move-down-occurrence-"]')!);
     fireEvent.change(screen.getByLabelText(`work-plan-quality-${S}`), { target: { value: 'S3' } });
     expect(open).toBeDisabled();
     expect(screen.getByLabelText(`template-unsaved-${S}`)).toHaveTextContent('Najpierw zapisz lub odrzuć niezapisane zmiany planu prac.');
@@ -573,6 +574,7 @@ describe('Workflow template apply (13E.4)', () => {
     );
     renderEditor();
     await screen.findByLabelText(`open-template-sheet-${S}`);
+    openOccurrenceMenus();
     fireEvent.click(screen.getAllByLabelText(/^remove-occurrence-/)[1]);
     fireEvent.click(screen.getByLabelText(`save-work-plan-${S}`));
     await waitFor(() => expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledTimes(1));

@@ -17,3 +17,20 @@ export function installAutoOpenWalls(): () => void {
   observer.observe(document.body, { childList: true, subtree: true });
   return () => observer.disconnect();
 }
+
+/**
+ * The calculation of the area of a wall (gross, openings, reveals) is folded behind a tap on the net area (usability U-7). Tests written
+ * before that about those figures open it the moment the button appears, as an owner's tap would.
+ */
+export function installAutoOpenAreaDetails(): () => void {
+  const open = () => {
+    const buttons = Array.from(document.querySelectorAll<HTMLElement>('[aria-label^="area-details-"][aria-expanded="false"]'));
+    if (buttons.length === 0) return;
+    act(() => {
+      for (const button of buttons) fireEvent.click(button);
+    });
+  };
+  const observer = new MutationObserver(open);
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
+}

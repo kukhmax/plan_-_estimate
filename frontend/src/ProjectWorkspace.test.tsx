@@ -10,7 +10,7 @@ import * as projectsApi from './api/projects';
 import * as roomsApi from './api/rooms';
 import * as surfacesApi from './api/surfaces';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
-import { installAutoOpenWalls } from './test/autoOpenWalls';
+import { installAutoOpenAreaDetails, installAutoOpenWalls } from './test/autoOpenWalls';
 import { I18nProvider } from './hooks/useI18n';
 import { ChecklistTemplate } from './types/checklist';
 import { ClientType } from './types/client';
@@ -21,11 +21,14 @@ import { ProjectSummary, RoomType } from './types/room';
 import { SurfaceType } from './types/surface';
 
 let stopAutoOpenWalls: (() => void) | undefined;
+let stopAutoOpenAreas: (() => void) | undefined;
 beforeEach(() => {
   stopAutoOpenWalls = installAutoOpenWalls();
+  stopAutoOpenAreas = installAutoOpenAreaDetails();
 });
 afterEach(() => {
   stopAutoOpenWalls?.();
+  stopAutoOpenAreas?.();
 });
 
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
