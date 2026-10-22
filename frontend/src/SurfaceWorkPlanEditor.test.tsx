@@ -797,36 +797,39 @@ describe('SurfaceWorkPlanEditor', () => {
   it('first occurrence cannot move up (button is disabled)', async () => {
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    openOccurrenceMenus(); // reordering is in the menu of the row (usability U-4/U-12 follow-up)
 
     const list = screen.getByLabelText(`planned-works-${surfaceId}`);
     const rows = within(list).getAllByRole('listitem');
     expect(rows).toHaveLength(4);
 
-    const firstRowUpBtn = within(rows[0]).getByText('↑');
+    const firstRowUpBtn = within(rows[0]).getByLabelText(/^move-up-occurrence-/);
     expect(firstRowUpBtn).toBeDisabled();
 
-    const firstRowDownBtn = within(rows[0]).getByText('↓');
+    const firstRowDownBtn = within(rows[0]).getByLabelText(/^move-down-occurrence-/);
     expect(firstRowDownBtn).toBeEnabled();
   });
 
   it('last occurrence cannot move down (button is disabled)', async () => {
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    openOccurrenceMenus(); // reordering is in the menu of the row (usability U-4/U-12 follow-up)
 
     const list = screen.getByLabelText(`planned-works-${surfaceId}`);
     const rows = within(list).getAllByRole('listitem');
     expect(rows).toHaveLength(4);
 
-    const lastRowDownBtn = within(rows[3]).getByText('↓');
+    const lastRowDownBtn = within(rows[3]).getByLabelText(/^move-down-occurrence-/);
     expect(lastRowDownBtn).toBeDisabled();
 
-    const lastRowUpBtn = within(rows[3]).getByText('↑');
+    const lastRowUpBtn = within(rows[3]).getByLabelText(/^move-up-occurrence-/);
     expect(lastRowUpBtn).toBeEnabled();
   });
 
   it('move middle occurrence up swaps positions locally without API call', async () => {
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    openOccurrenceMenus(); // reordering is in the menu of the row (usability U-4/U-12 follow-up)
 
     let rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
     expect(rows[0]).toHaveTextContent('Pierwsza praca');
@@ -851,6 +854,7 @@ describe('SurfaceWorkPlanEditor', () => {
   it('move middle occurrence down swaps positions locally', async () => {
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    openOccurrenceMenus(); // reordering is in the menu of the row (usability U-4/U-12 follow-up)
 
     let rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
     expect(rows[1]).toHaveTextContent('Malowanie ścian — 2 warstwy (standard)');
@@ -868,6 +872,7 @@ describe('SurfaceWorkPlanEditor', () => {
   it('archived occurrence can be reordered', async () => {
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    openOccurrenceMenus(); // reordering is in the menu of the row (usability U-4/U-12 follow-up)
 
     let rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
     expect(rows[2]).toHaveTextContent('Zarchiwizowana');
@@ -884,6 +889,7 @@ describe('SurfaceWorkPlanEditor', () => {
   it('duplicate occurrences remain independent when moving one', async () => {
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    openOccurrenceMenus(); // reordering is in the menu of the row (usability U-4/U-12 follow-up)
 
     // Initial order: [Pierwsza praca (active), Malowanie, Pierwsza praca (archived), Unavailable]
     let rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
@@ -893,7 +899,7 @@ describe('SurfaceWorkPlanEditor', () => {
     expect(rows[2]).toHaveTextContent('Zarchiwizowana');
 
     // Move first occurrence down to position 1
-    const firstDownBtn = within(rows[0]).getByText('↓');
+    const firstDownBtn = within(rows[0]).getByLabelText(/^move-down-occurrence-/);
     fireEvent.click(firstDownBtn);
 
     // New order: [Malowanie, Pierwsza praca (active), Pierwsza praca (archived), Unavailable]
@@ -909,11 +915,12 @@ describe('SurfaceWorkPlanEditor', () => {
     vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(makePlan());
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    openOccurrenceMenus(); // reordering is in the menu of the row (usability U-4/U-12 follow-up)
 
     // Initial order: ['price-shared', 'price-localized', 'price-shared', 'price-unavailable']
     const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
     // Move row 0 down -> order becomes: ['price-localized', 'price-shared', 'price-shared', 'price-unavailable']
-    fireEvent.click(within(rows[0]).getByText('↓'));
+    fireEvent.click(within(rows[0]).getByLabelText(/^move-down-occurrence-/));
 
     const saveBtn = screen.getByLabelText(`save-work-plan-${surfaceId}`);
     expect(saveBtn).toBeEnabled();
@@ -940,10 +947,11 @@ describe('SurfaceWorkPlanEditor', () => {
     vi.mocked(workPlansApi.putSurfaceWorkPlan).mockRejectedValue(new Error('Network error'));
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    openOccurrenceMenus(); // reordering is in the menu of the row (usability U-4/U-12 follow-up)
 
     const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
     // Move row 0 down
-    fireEvent.click(within(rows[0]).getByText('↓'));
+    fireEvent.click(within(rows[0]).getByLabelText(/^move-down-occurrence-/));
 
     const saveBtn = screen.getByLabelText(`save-work-plan-${surfaceId}`);
     fireEvent.click(saveBtn);
@@ -1094,10 +1102,11 @@ describe('SurfaceWorkPlanEditor', () => {
     vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(rehydratedPlan);
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
+    openOccurrenceMenus(); // reordering is in the menu of the row (usability U-4/U-12 follow-up)
 
     const rows = within(screen.getByLabelText(`planned-works-${surfaceId}`)).getAllByRole('listitem');
     // Move row 0 down
-    fireEvent.click(within(rows[0]).getByText('↓'));
+    fireEvent.click(within(rows[0]).getByLabelText(/^move-down-occurrence-/));
 
     const saveBtn = screen.getByLabelText(`save-work-plan-${surfaceId}`);
     fireEvent.click(saveBtn);

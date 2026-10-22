@@ -952,6 +952,7 @@
       "other": "{count} wybranych opcjonalnych"
     },
     "wait_after_work": "Przerwa technologiczna po tej pracy: {value}",
+    "wait_badge": "Przerwa: {value}",
     "wait_toggle": "Przerwa po pracy",
     "wait_hide": "Ukryj przerwę",
     "wait_hours_label": "Liczba godzin",

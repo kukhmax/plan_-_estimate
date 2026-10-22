@@ -16,6 +16,12 @@ import { SurfaceWorkPlanEditor } from './components/SurfaceWorkPlanEditor';
 import { I18nProvider } from './hooks/useI18n';
 import { PriceItem } from './types/priceItem';
 import { openOccurrenceMenus } from './test/menu';
+
+// reordering is in the menu of a row: open it, then the arrow button of the row
+function arrowOf(row: HTMLElement, direction: 'up' | 'down'): HTMLElement {
+  openOccurrenceMenus(row);
+  return within(row).getByLabelText(new RegExp(`^move-${direction}-occurrence-`));
+}
 import {
   PlannedWorkCoefficientOptionRead,
   SurfacePlannedWorkRead,
@@ -139,7 +145,7 @@ describe('SurfaceWorkPlanEditor — occurrence identity (13E.2C)', () => {
   it('reorder keeps each duplicate occurrence with its own key, wait and coefficients', async () => {
     vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValue(plan([B, A]));
     const [first] = await start();
-    fireEvent.click(within(first).getByText('↓'));
+    fireEvent.click(arrowOf(first, 'down'));
     save();
     await waitFor(() => expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledTimes(1));
     const payload = lastPayload();
@@ -198,8 +204,8 @@ describe('SurfaceWorkPlanEditor — occurrence identity (13E.2C)', () => {
     vi.mocked(workPlansApi.putSurfaceWorkPlan).mockResolvedValueOnce(plan([created, A, B]));
     const current = await rows();
     expect(current).toHaveLength(3);
-    fireEvent.click(within(current[2]).getByText('↑'));
-    fireEvent.click(within((await rows())[1]).getByText('↑'));
+    fireEvent.click(arrowOf(current[2], 'up'));
+    fireEvent.click(arrowOf((await rows())[1], 'up'));
     save();
     await waitFor(() => expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalledTimes(2));
     expect(lastPayload().planned_works).toEqual([
@@ -214,7 +220,7 @@ describe('SurfaceWorkPlanEditor — occurrence identity (13E.2C)', () => {
       new ApiError('occurrence_key key-B is not a current occurrence of this work plan; reload the plan and try again', 409),
     );
     const [first] = await start();
-    fireEvent.click(within(first).getByText('↓'));
+    fireEvent.click(arrowOf(first, 'down'));
     save();
     const alert = await screen.findByLabelText(`stale-work-plan-${surfaceId}`);
     expect(alert).toHaveTextContent('Plan prac zmienił się od czasu jego otwarcia. Odśwież plan przed ponownym zapisem.');
@@ -232,7 +238,7 @@ describe('SurfaceWorkPlanEditor — occurrence identity (13E.2C)', () => {
       new ApiError('application_id x cannot be recorded for this save; generate a new one for a new application', 409),
     );
     const [first] = await start();
-    fireEvent.click(within(first).getByText('↓'));
+    fireEvent.click(arrowOf(first, 'down'));
     save();
     expect(await screen.findByText('Nie udało się zapisać planu prac.')).toBeInTheDocument();
     expect(screen.queryByLabelText(`stale-work-plan-${surfaceId}`)).not.toBeInTheDocument();
@@ -244,7 +250,7 @@ describe('SurfaceWorkPlanEditor — occurrence identity (13E.2C)', () => {
       new ApiError('occurrence_key key-A is not a current occurrence of this work plan; reload the plan and try again', 409),
     );
     const [first] = await start();
-    fireEvent.click(within(first).getByText('↓'));
+    fireEvent.click(arrowOf(first, 'down'));
     save();
     const alert = await screen.findByLabelText(`stale-work-plan-${surfaceId}`);
     expect(alert).toHaveTextContent('План работ изменился после его открытия. Обновите план перед повторным сохранением.');

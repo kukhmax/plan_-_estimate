@@ -1582,6 +1582,15 @@ describe('Wall rows and cards (Stage 18G)', () => {
     expect(await screen.findByText('Ścianę zduplikowano')).toBeInTheDocument();
   });
 
+  it('puts "Duplikuj ścianę" right next to the dimensions "Edytuj", in sight without opening Opcje', async () => {
+    renderRows({ wallMode: 'CUSTOM' });
+    fireEvent.click(await screen.findByLabelText(`surface-row-${WALL_A.id}`));
+    expect(screen.queryByLabelText(`add-opening-${WALL_A.id}-DOOR`)).toBeNull(); // Opcje is still closed
+    const duplicate = screen.getByLabelText(`duplicate-surface-${WALL_A.id}`);
+    expect(duplicate.parentElement).toBe(screen.getByLabelText(`edit-dimensions-${WALL_A.id}`).parentElement);
+    expect(duplicate.className).toContain('min-h-11');
+  });
+
   it('offers no duplicate button in a rectangular room', async () => {
     renderRows();
     fireEvent.click(await screen.findByLabelText(`surface-row-${WALL_A.id}`));

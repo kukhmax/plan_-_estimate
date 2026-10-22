@@ -130,6 +130,7 @@ describe('Workflow template apply (13E.4)', () => {
     const open = await screen.findByLabelText(`open-template-sheet-${S}`);
     expect(open).toBeEnabled();
     expect(open).toHaveTextContent('Zastosuj proces technologiczny');
+    openOccurrenceMenus();
     fireEvent.click(within(screen.getByLabelText(`planned-works-${S}`)).getAllByRole('listitem')[0].querySelector('button[aria-label^="move-down-occurrence-"]')!);
     fireEvent.change(screen.getByLabelText(`work-plan-quality-${S}`), { target: { value: 'S3' } });
     expect(open).toBeDisabled();
@@ -611,6 +612,7 @@ describe('Workflow template apply (13E.4)', () => {
     expect(save).toBeDisabled();
     expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
     // Ordinary editor change (reorder) -> dirty -> Save enabled, success notice gone.
+    openOccurrenceMenus();
     fireEvent.click(screen.getAllByLabelText(/^move-down-occurrence-/)[0]);
     expect(save).toBeEnabled();
     expect(screen.queryByLabelText(`template-applied-${S}`)).not.toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, ReactNode, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import { formatMetric } from '../utils/format';
 import { DimensionInput } from './DimensionInput';
@@ -13,6 +13,8 @@ interface SurfaceDimensionsProps {
   readOnly?: boolean;
   /** Saves the new size (metres); a rejection carries the message to show. */
   onSave: (width: number, height: number) => Promise<void>;
+  /** A second quiet action shown right after "Edytuj" (the wall card puts "Duplikuj ścianę" here, in sight). */
+  extraAction?: ReactNode;
 }
 
 const asText = (value: string | number | null | undefined) => (value === null || value === undefined ? '' : String(value));
@@ -22,7 +24,7 @@ const asText = (value: string | number | null | undefined) => (value === null ||
  * the wall, and the next thing is often to correct the size — it must not take opening "Opcje" and a form at the top of a long list.
  * Closed: "Wymiary: 1.95 × 2.60 m  [✏️ Edytuj]". Open: the two fields (centimetres, as everywhere) with Zapisz / Anuluj right there.
  */
-export function SurfaceDimensions({ surfaceId, width, height, readOnly = false, onSave }: SurfaceDimensionsProps) {
+export function SurfaceDimensions({ surfaceId, width, height, readOnly = false, onSave, extraAction }: SurfaceDimensionsProps) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [draftWidth, setDraftWidth] = useState('');
@@ -119,6 +121,7 @@ export function SurfaceDimensions({ surfaceId, width, height, readOnly = false, 
           {has ? t.common.edit : t.surfaces.add_dimensions}
         </button>
       )}
+      {extraAction}
     </div>
   );
 }

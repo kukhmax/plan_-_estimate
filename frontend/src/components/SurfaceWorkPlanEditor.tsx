@@ -860,7 +860,7 @@ export function SurfaceWorkPlanEditor({
                                   disabled={saving}
                                   className="min-h-11 inline-flex items-center px-2 rounded-lg bg-amber-50 border border-amber-200 font-medium text-amber-900 break-words text-left disabled:opacity-60"
                                 >
-                                  <span aria-hidden="true">⏸ </span>{t.work_plan.wait_after_work.replace('{value}', formatWaitHours(t, locale, parseWaitInput(occurrence.waitInput) as number))}
+                                  <span aria-hidden="true">⏸ </span>{t.work_plan.wait_badge.replace('{value}', formatWaitHours(t, locale, parseWaitInput(occurrence.waitInput) as number))}
                                 </button>
                               )}
                               {coefSummary && effectivePrice !== basePrice && effectivePrice !== null && (
@@ -879,26 +879,6 @@ export function SurfaceWorkPlanEditor({
                           )}
                           <button
                             type="button"
-                            aria-label={`move-up-occurrence-${occurrence.draftKey}`}
-                            onClick={() => handleMoveOccurrenceUp(index)}
-                            disabled={saving || index === 0}
-                            className="min-h-[44px] min-w-[44px] px-1 flex items-center justify-center text-sm font-bold text-[var(--tg-theme-text-color)] disabled:opacity-30"
-                            title={t.work_plan.move_up}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`move-down-occurrence-${occurrence.draftKey}`}
-                            onClick={() => handleMoveOccurrenceDown(index)}
-                            disabled={saving || index === draftOccurrences.length - 1}
-                            className="min-h-[44px] min-w-[44px] px-1 flex items-center justify-center text-sm font-bold text-[var(--tg-theme-text-color)] disabled:opacity-30"
-                            title={t.work_plan.move_down}
-                          >
-                            ↓
-                          </button>
-                          <button
-                            type="button"
                             aria-label={`occurrence-menu-${occurrence.draftKey}`}
                             aria-expanded={!!openMenus[occurrence.draftKey]}
                             onClick={() => toggleMenu(occurrence.draftKey)}
@@ -912,6 +892,28 @@ export function SurfaceWorkPlanEditor({
                       </div>
                       {openMenus[occurrence.draftKey] && (
                         <div role="menu" aria-label={`occurrence-menu-list-${occurrence.draftKey}`} className="mt-1 grid grid-cols-1 gap-1">
+                          <div className="grid grid-cols-2 gap-1">
+                            <button
+                              type="button"
+                              role="menuitem"
+                              aria-label={`move-up-occurrence-${occurrence.draftKey}`}
+                              onClick={() => handleMoveOccurrenceUp(index)}
+                              disabled={saving || index === 0}
+                              className="w-full min-h-[44px] px-3 py-1.5 text-sm font-semibold text-left text-[var(--tg-control-text-color)] bg-[var(--tg-control-bg-color)] border border-[var(--tg-control-border-color)] rounded-lg disabled:opacity-40"
+                            >
+                              <span aria-hidden="true">↑ </span>{t.work_plan.move_up}
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              aria-label={`move-down-occurrence-${occurrence.draftKey}`}
+                              onClick={() => handleMoveOccurrenceDown(index)}
+                              disabled={saving || index === draftOccurrences.length - 1}
+                              className="w-full min-h-[44px] px-3 py-1.5 text-sm font-semibold text-left text-[var(--tg-control-text-color)] bg-[var(--tg-control-bg-color)] border border-[var(--tg-control-border-color)] rounded-lg disabled:opacity-40"
+                            >
+                              <span aria-hidden="true">↓ </span>{t.work_plan.move_down}
+                            </button>
+                          </div>
                           {isLabor && (
                             <button
                               type="button"

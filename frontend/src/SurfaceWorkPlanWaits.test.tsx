@@ -84,7 +84,7 @@ describe('display (13G)', () => {
     await screen.findByLabelText(`planned-works-${S}`);
     expect(cards()[0]).toHaveTextContent('1. Gruntowanie');
     expect(cards()[1]).toHaveTextContent('2. Gładź');
-    expect(screen.getByLabelText(`occurrence-wait-${keyOf(0)}`)).toHaveTextContent('Przerwa technologiczna po tej pracy: 24 h · 1 dzień');
+    expect(screen.getByLabelText(`occurrence-wait-${keyOf(0)}`)).toHaveTextContent('Przerwa: 24 h · 1 dzień');
     expect(screen.getByLabelText(`occurrence-wait-${keyOf(1)}`)).toHaveTextContent('48 h · 2 dni');
     expect(screen.queryByLabelText(`occurrence-wait-${keyOf(2)}`)).toBeNull(); // null -> clean
     // the LAST work keeps its own break (it is not deleted for lack of a next step)
@@ -101,7 +101,7 @@ describe('display (13G)', () => {
     localStorage.setItem('locale', 'ru');
     renderEditor();
     await screen.findByLabelText(`planned-works-${S}`);
-    expect(screen.getByLabelText(`occurrence-wait-${keyOf(0)}`)).toHaveTextContent('Технологическая пауза после этой работы: 24 ч · 1 день');
+    expect(screen.getByLabelText(`occurrence-wait-${keyOf(0)}`)).toHaveTextContent('Перерыв: 24 ч · 1 день');
     expect(screen.getByLabelText(`occurrence-wait-${keyOf(1)}`)).toHaveTextContent('48 ч · 2 дня');
     openOccurrenceMenu(keyOf(2));
     fireEvent.click(screen.getByLabelText(`edit-wait-${keyOf(2)}`));
@@ -165,6 +165,7 @@ describe('editing (13G)', () => {
   it('reorder moves the break with its occurrence', async () => {
     renderEditor();
     await screen.findByLabelText(`planned-works-${S}`);
+    openOccurrenceMenu(keyOf(0));
     fireEvent.click(screen.getByLabelText(`move-down-occurrence-${keyOf(0)}`));
     expect(cards()[1]).toHaveTextContent('2. Gruntowanie');
     expect(within(cards()[1]).getByText(/24 h/)).toBeInTheDocument();

@@ -841,6 +841,18 @@ export function SurfaceList({
                   height={surface.height}
                   readOnly={surface.is_archived}
                   onSave={(width, height) => saveDimensions(surface.id, width, height)}
+                  extraAction={
+                    isWall && effectiveWallMode === 'CUSTOM' && hasDimensions && !surface.is_archived ? (
+                      <button
+                        type="button"
+                        aria-label={`duplicate-surface-${surface.id}`}
+                        onClick={() => void handleDuplicateWall(surface)}
+                        className="min-h-11 px-3 py-1 text-xs rounded-lg bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100 transition"
+                      >
+                        <Ico>📑</Ico>{t.surfaces.duplicate_wall}
+                      </button>
+                    ) : undefined
+                  }
                 />
 
                 {openingSummary.length > 0 && (
@@ -1014,16 +1026,6 @@ export function SurfaceList({
                           >
                             <Ico>✏️</Ico>{t.common.edit}
                           </button>
-                          {effectiveWallMode === 'CUSTOM' && hasDimensions && !surface.is_archived && (
-                            <button
-                              type="button"
-                              aria-label={`duplicate-surface-${surface.id}`}
-                              onClick={() => void handleDuplicateWall(surface)}
-                              className="min-h-11 w-full text-xs px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100 transition"
-                            >
-                              <Ico>📑</Ico>{t.surfaces.duplicate_wall}
-                            </button>
-                          )}
                           <button
                             type="button"
                             aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
