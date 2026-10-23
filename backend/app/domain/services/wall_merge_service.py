@@ -8,6 +8,7 @@ the walls; whatever was added to the merged wall afterwards stays on it.
 """
 
 import uuid
+from collections import defaultdict
 from decimal import Decimal
 
 from sqlalchemy import delete, func, or_, select
@@ -137,7 +138,9 @@ class WallMergeService:
         await self.db.commit()
         return await self._surfaces.get_surface(project_id, room_id, primary.id, owner_id)
 
-    async def unmerge(self, project_id: uuid.UUID, room_id: uuid.UUID, owner_id: uuid.UUID, surface_id: uuid.UUID) -> Surface:
+    async def unmerge(
+        self, project_id: uuid.UUID, room_id: uuid.UUID, owner_id: uuid.UUID, surface_id: uuid.UUID, names: list[str] | None = None
+    ) -> Surface:
         (primary,) = await self._walls(project_id, room_id, owner_id, [surface_id])
         parts = (await load_parts(self.db, [primary.id])).get(primary.id)
         if not parts:
@@ -175,10 +178,37 @@ class WallMergeService:
             item = photos.get(move.item_id) if move.kind == MergeMoveKind.PHOTO else openings.get(move.item_id)
             if item is not None and item.surface_id == primary.id:
                 item.surface_id = move.from_surface_id
-        restored = [part.source_surface_id for part in parts if part.source_surface_id and part.source_surface_id != primary.id]
+        restored = {part.source_surface_id: part for part in parts if part.source_surface_id and part.source_surface_id != primary.id}
         if restored:
-            for wall in (await self.db.execute(select(Surface).where(Surface.id.in_(restored)))).scalars():
+            returning_to: dict[uuid.UUID, Decimal] = defaultdict(Decimal)
+            for opening in openings.values():
+                if opening.surface_id == primary.id and not opening.is_archived:
+                    origin = next(move.from_surface_id for move in moves if move.item_id == opening.id)
+                    returning_to[origin] += opening.width * opening.height * opening.quantity
+            for wall in (await self.db.execute(select(Surface).where(Surface.id.in_(list(restored))))).scalars():
+                part = restored[wall.id]
+                if returning_to[wall.id] > (part.width * part.height).quantize(AREA):
+                    raise WallMergeError("WALL_UNMERGE_OPENINGS_EXCEED", "The openings of a joined wall are larger than its part")
+                # the size of the part is the size of the wall (the part may have been corrected after the merge)
+                wall.width, wall.height = part.width, part.height
                 wall.is_archived = False
+        # parts of a COPY of a merged wall have no wall to come back: each becomes a new wall of its own size
+        loose = [part for part in parts if part.source_surface_id is None]
+        if loose:
+            last = (
+                await self.db.execute(select(func.max(Surface.position)).where(Surface.room_id == room_id))
+            ).scalar_one_or_none()
+            for number, part in enumerate(loose):
+                self.db.add(
+                    Surface(
+                        room_id=room_id,
+                        name=(names[number] if names and number < len(names) else f"{primary.name} ({number + 2})"),
+                        surface_type=SurfaceType.WALL,
+                        position=(last if last is not None else -1) + 1 + number,
+                        width=part.width,
+                        height=part.height,
+                    )
+                )
         await self.db.execute(delete(SurfaceMergeMove).where(SurfaceMergeMove.surface_id == primary.id))
         await self.db.execute(delete(SurfacePart).where(SurfacePart.surface_id == primary.id))
         await self.db.commit()

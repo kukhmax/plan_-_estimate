@@ -407,12 +407,14 @@ export function SurfaceList({
       setMergeBusy(false);
     }
   };
-  const handleUnmerge = async (surfaceId: string) => {
+  const handleUnmerge = async (surface: SurfaceType) => {
     setMergeBusy(true);
     setError(null);
     setSuccess(null);
     try {
-      await unmergeSurface(projectId, roomId, surfaceId);
+      // the parts of a copy have no wall to come back to: each becomes a new wall, which needs a name
+      const loose = (surface.parts ?? []).filter((part) => !part.source_surface_id).length;
+      await unmergeSurface(projectId, roomId, surface.id, loose > 0 ? await freeWallNames(loose) : []);
       setUnmergeConfirmId(null);
       setSuccess(t.surfaces.unmerged_done);
       await load();
@@ -436,14 +438,36 @@ export function SurfaceList({
     onMeasurementChanged?.();
   };
 
+  /**
+   * Names for new walls that cannot clash with an existing one: one number past the highest "<word> N" of EVERY wall of the room (the walls
+   * joined into a merged wall are archived, so they are asked for too), and at least the count of the active walls.
+   */
+  const freeWallNames = async (count: number): Promise<string[]> => {
+    let all = surfaces;
+    try {
+      all = (await fetchSurfaces(projectId, roomId, true)).items;
+    } catch {
+      // offline or refused: the walls at hand are what there is to go by
+    }
+    const highest = all
+      .filter((candidate) => candidate.surface_type === 'WALL')
+      .reduce((max, candidate) => {
+        const found = /^\D+ (\d+)$/.exec(candidate.name);
+        return found ? Math.max(max, Number(found[1])) : max;
+      }, 0);
+    const first = Math.max(highest, activeWallCount) + 1;
+    return Array.from({ length: count }, (_, index) => `${t.surfaces.wall} ${first + index}`);
+  };
+
   /** A merged wall once more (an irregular room has several alike): a new merged wall with the same parts, the next number and position. */
   const handleDuplicateMerged = async (surface: SurfaceType) => {
     setError(null);
     setSuccess(null);
     setMergeBusy(true);
     try {
+      const [name] = await freeWallNames(1);
       const created = await duplicateMergedSurface(projectId, roomId, surface.id, {
-        name: `${t.surfaces.wall} ${nextWallNumber}`,
+        name,
         position: nextWallPosition,
       });
       setSuccess(t.surfaces.duplicated);
@@ -1006,7 +1030,7 @@ export function SurfaceList({
                           <button
                             type="button"
                             aria-label={`unmerge-confirm-yes-${surface.id}`}
-                            onClick={() => void handleUnmerge(surface.id)}
+                            onClick={() => void handleUnmerge(surface)}
                             disabled={mergeBusy}
                             className="min-h-11 flex-1 px-3 text-sm rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-60"
                           >

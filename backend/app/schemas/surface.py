@@ -95,6 +95,12 @@ class SurfaceDuplicate(BaseModel):
     position: int | None = Field(default=None, ge=0)
 
 
+class SurfaceUnmerge(BaseModel):
+    """Optional names for the new walls that parts of a COPY of a merged wall become (in the order of the parts)."""
+
+    names: list[str] = Field(default_factory=list, max_length=12)
+
+
 class SurfacePartUpdate(BaseModel):
     width: Decimal = Field(gt=0, decimal_places=3, max_digits=10)
     height: Decimal = Field(gt=0, decimal_places=3, max_digits=10)

@@ -87,9 +87,15 @@ export function mergeSurfaces(projectId: string, roomId: string, surfaceIds: str
   });
 }
 
-/** Separates a merged wall: the joined walls come back with their photos and openings. */
-export function unmergeSurface(projectId: string, roomId: string, surfaceId: string): Promise<SurfaceType> {
-  return apiRequest(`${surfacesPath(projectId, roomId)}/${surfaceId}/unmerge`, { method: 'POST' });
+/**
+ * Separates a merged wall: the joined walls come back with their photos and openings. `names` are for the new walls that the parts of a
+ * COPY of a merged wall become (they have no wall to come back to).
+ */
+export function unmergeSurface(projectId: string, roomId: string, surfaceId: string, names: string[] = []): Promise<SurfaceType> {
+  return apiRequest(`${surfacesPath(projectId, roomId)}/${surfaceId}/unmerge`, {
+    method: 'POST',
+    body: JSON.stringify({ names }),
+  });
 }
 
 /** Changes the size of one part of a merged wall. */

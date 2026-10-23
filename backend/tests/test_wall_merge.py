@@ -241,10 +241,32 @@ async def test_a_merged_wall_can_be_duplicated_with_its_parts(api, http):
     assert (await api.db.execute(select(PhotoAttachment.surface_id))).scalars().all() == [first.id]
     assert (await http.get(f"{_base(api)}/{first.id}")).json()["parts"] == merged["parts"]
     # a copy separates into a plain wall of its own first size, and brings no wall back
-    unmerged = await http.post(f"{_base(api)}/{copy['id']}/unmerge")
+    unmerged = await http.post(f"{_base(api)}/{copy['id']}/unmerge", json={"names": ["Ściana 10"]})
     assert unmerged.status_code == 200 and unmerged.json()["parts"] == [] and unmerged.json()["gross_area"] == "13.500"
-    ids = {row["id"] for row in (await http.get(_base(api))).json()["items"]}
-    assert str(second.id) not in ids  # the joined wall of the ORIGINAL stays archived
+    listed = (await http.get(_base(api))).json()["items"]
+    assert str(second.id) not in {row["id"] for row in listed}  # the joined wall of the ORIGINAL stays archived
+    # every part of the copy comes out as a wall of its own size: the first one is the copy, the second a NEW wall with the given name
+    made = [row for row in listed if row["name"] == "Ściana 10"]
+    assert len(made) == 1 and (made[0]["width"], made[0]["height"]) == ("3.420", "2.520") and made[0]["parts"] == []
+    assert [(row["width"], row["height"]) for row in listed if row["id"] == copy["id"]] == [("5.000", "2.700")]
+
+
+async def test_a_copy_without_names_gets_numbered_names(api, http):
+    first, second, third = await _three(api)
+    await http.post(f"{_base(api)}/merge", json={"surface_ids": [str(first.id), str(second.id), str(third.id)]})
+    copy = (await http.post(f"{_base(api)}/{first.id}/duplicate-merged", json={"name": "Kopia"})).json()
+    await http.post(f"{_base(api)}/{copy['id']}/unmerge")
+    names = sorted(row["name"] for row in (await http.get(_base(api))).json()["items"] if row["surface_type"] == "WALL")
+    assert names == ["Kopia", "Kopia (2)", "Kopia (3)", first.name]
+
+
+async def test_the_walls_come_back_with_the_sizes_of_their_parts_even_when_a_part_was_corrected(api, http):
+    first, second, _ = await _three(api)
+    merged = (await http.post(f"{_base(api)}/merge", json={"surface_ids": [str(first.id), str(second.id)]})).json()
+    await http.patch(f"{_base(api)}/{first.id}/parts/{merged['parts'][1]['id']}", json={"width": "0.080", "height": "2.700"})
+    await http.post(f"{_base(api)}/{first.id}/unmerge")
+    sizes = {row["id"]: (row["width"], row["height"]) for row in (await http.get(_base(api))).json()["items"]}
+    assert sizes[str(first.id)] == ("5.000", "2.700") and sizes[str(second.id)] == ("0.080", "2.700")
 
 
 async def test_only_a_merged_wall_is_duplicated_this_way(api, http):

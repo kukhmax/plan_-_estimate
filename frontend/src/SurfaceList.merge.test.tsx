@@ -220,7 +220,7 @@ describe('merging walls: a merged wall', () => {
     fireEvent.click(await screen.findByLabelText(`unmerge-surface-${W1.id}`));
     expect(surfacesApi.unmergeSurface).not.toHaveBeenCalled();
     fireEvent.click(screen.getByLabelText(`unmerge-confirm-yes-${W1.id}`));
-    await waitFor(() => expect(surfacesApi.unmergeSurface).toHaveBeenCalledWith(projectId, roomId, W1.id));
+    await waitFor(() => expect(surfacesApi.unmergeSurface).toHaveBeenCalledWith(projectId, roomId, W1.id, []));
     expect(await screen.findByText('Ściana rozłączona')).toBeInTheDocument();
   });
 
@@ -233,7 +233,7 @@ describe('merging walls: a merged wall', () => {
     expect(duplicate.className).toContain('min-h-11');
     expect(duplicate.parentElement).toBe(screen.getByLabelText(`unmerge-surface-${W1.id}`).parentElement);
     fireEvent.click(duplicate);
-    await waitFor(() => expect(surfacesApi.duplicateMergedSurface).toHaveBeenCalledWith(projectId, roomId, W1.id, { name: 'Ściana 2', position: expect.any(Number) }));
+    await waitFor(() => expect(surfacesApi.duplicateMergedSurface).toHaveBeenCalledWith(projectId, roomId, W1.id, { name: 'Ściana 3', position: expect.any(Number) }));
     expect(await screen.findByText('Ścianę zduplikowano')).toBeInTheDocument();
   });
 
@@ -242,6 +242,25 @@ describe('merging walls: a merged wall', () => {
     fireEvent.click(await screen.findByLabelText(`surface-row-${W1.id}`));
     await screen.findByLabelText(`merged-parts-${W1.id}`);
     expect(screen.queryByLabelText(`duplicate-merged-${W1.id}`)).toBeNull();
+  });
+
+  it('separating a COPY asks for names that clash with no wall, the archived ones included', async () => {
+    const copy = wall(5, '4.000', '2.500', {
+      name: 'Ściana 5',
+      parts: [
+        { id: 'c-1', source_surface_id: W3.id, position: 0, width: '4.000', height: '2.500' },
+        { id: 'c-2', source_surface_id: null, position: 1, width: '0.080', height: '2.700' },
+        { id: 'c-3', source_surface_id: null, position: 2, width: '1.000', height: '2.000' },
+      ],
+    });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [merged, absorbed, copy], total: 3 });
+    vi.mocked(surfacesApi.unmergeSurface).mockResolvedValue(copy);
+    renderList();
+    fireEvent.click(await screen.findByLabelText(`surface-row-${copy.id}`));
+    fireEvent.click(await screen.findByLabelText(`unmerge-surface-${copy.id}`));
+    fireEvent.click(screen.getByLabelText(`unmerge-confirm-yes-${copy.id}`));
+    // the highest number is 5 ("Ściana 5"); the two new walls are 6 and 7
+    await waitFor(() => expect(surfacesApi.unmergeSurface).toHaveBeenCalledWith(projectId, roomId, copy.id, ['Ściana 6', 'Ściana 7']));
   });
 
   it('a wall that was joined is shown with its merged wall and cannot be restored alone', async () => {

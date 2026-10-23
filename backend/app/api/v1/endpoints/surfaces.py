@@ -23,6 +23,7 @@ from app.schemas.surface import (
     SurfaceMergeRequest,
     SurfacePartUpdate,
     SurfaceRead,
+    SurfaceUnmerge,
     SurfaceUpdate,
 )
 
@@ -374,11 +375,12 @@ async def unmerge_surface(
     project_id: uuid.UUID,
     room_id: uuid.UUID,
     surface_id: uuid.UUID,
+    payload: SurfaceUnmerge | None = None,
     current_user: User = Depends(get_current_user),
     merge_service: WallMergeService = Depends(get_wall_merge_service),
 ) -> SurfaceRead:
     try:
-        surface = await merge_service.unmerge(project_id, room_id, current_user.id, surface_id)
+        surface = await merge_service.unmerge(project_id, room_id, current_user.id, surface_id, payload.names if payload else None)
     except (ProjectNotFoundError, RoomNotFoundError, SurfaceNotFoundError) as e:
         raise _not_found(e)
     except WallMergeError as e:
