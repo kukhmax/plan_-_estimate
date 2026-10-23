@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { User } from '../types/auth';
 import { setOfflineOwner } from '../offline/readCache';
 import { restorePhotoQueue } from './usePhotoUploadQueue';
-import { loginWithTelegram, TelegramAuthRequestError } from '../api/auth';
+import { fetchAuthConfig, fetchCurrentUser, loginWithPassword, loginWithTelegram, TelegramAuthRequestError } from '../api/auth';
 import { ACCESS_LOST_EVENT } from '../api/http';
 import { useTelegramWebApp } from './useTelegramWebApp';
 
@@ -24,6 +24,8 @@ interface AuthState {
   error: AuthErrorCode | null;
   /** closed registration: the contact text for a refused person */
   accessContact: string | null;
+  /** V2-1: opened outside Telegram and the sign-in by password is on: the screen of the e-mail and the password is shown */
+  loginRequired: boolean;
 }
 
 class AuthFlowError extends Error {
@@ -56,10 +58,11 @@ export function useAuth() {
     isLoading: true,
     error: null,
     accessContact: null,
+    loginRequired: false,
   });
 
   const authenticate = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null, accessContact: null }));
+    setState((prev) => ({ ...prev, isLoading: true, error: null, accessContact: null, loginRequired: false }));
 
     try {
       let authenticationData = initData;
@@ -71,6 +74,23 @@ export function useAuth() {
       }
 
       if (!authenticationData) {
+        // V2-1: outside Telegram an account with a password may sign in; a session kept from the last time is tried first
+        const kept = localStorage.getItem('access_token');
+        if (kept) {
+          try {
+            const profile = await fetchCurrentUser(kept);
+            await setOfflineOwner(profile.id);
+            void restorePhotoQueue();
+            setState({ user: profile, token: kept, isDevAuth: false, isLoading: false, error: null, accessContact: null, loginRequired: false });
+            return;
+          } catch {
+            localStorage.removeItem('access_token'); // expired, blocked or not an account of this kind: the screen of the sign-in decides below
+          }
+        }
+        if (!isAvailable && (await fetchAuthConfig()).password_login) {
+          setState({ user: null, token: null, isDevAuth: false, isLoading: false, error: null, accessContact: null, loginRequired: true });
+          return;
+        }
         throw new AuthFlowError(
           isAvailable ? 'telegram_init_data_missing' : 'telegram_unavailable',
         );
@@ -89,6 +109,7 @@ export function useAuth() {
         isLoading: false,
         error: null,
         accessContact: null,
+        loginRequired: false,
       });
     } catch (err: unknown) {
       setState((prev) => ({
@@ -116,14 +137,40 @@ export function useAuth() {
         isLoading: false,
         error: code === 'ACCESS_BLOCKED' ? 'access_blocked' : 'access_denied',
         accessContact: contact || null,
+        loginRequired: false,
       });
     };
     window.addEventListener(ACCESS_LOST_EVENT, onLost);
     return () => window.removeEventListener(ACCESS_LOST_EVENT, onLost);
   }, []);
 
+  /** V2-1: the sign-in by password; a refusal is thrown to the screen of the sign-in. */
+  const signInWithPassword = useCallback(async (email: string, password: string) => {
+    const response = await loginWithPassword(email, password);
+    localStorage.setItem('access_token', response.access_token);
+    await setOfflineOwner(response.user.id);
+    void restorePhotoQueue();
+    setState({
+      user: response.user,
+      token: response.access_token,
+      isDevAuth: false,
+      isLoading: false,
+      error: null,
+      accessContact: null,
+      loginRequired: false,
+    });
+  }, []);
+
+  /** V2-1: leaves a session of the kind that has no Telegram to sign in again with; the screen starts again from the beginning. */
+  const signOut = useCallback(() => {
+    localStorage.removeItem('access_token');
+    window.location.reload();
+  }, []);
+
   return {
     ...state,
     retry: authenticate,
+    signInWithPassword,
+    signOut,
   };
 }

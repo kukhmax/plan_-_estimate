@@ -14,9 +14,11 @@ interface AccountModalProps {
   onClose: () => void;
   /** Opens the screen of what waits on the phone (Stage 19E). */
   onOpenSync?: () => void;
+  /** V2-1: leaving a session of an account that signs in with a password (an account of Telegram has nothing to sign out of). */
+  onSignOut?: () => void;
 }
 
-export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountModalProps) {
+export function AccountModal({ user, isDevAuth, onClose, onOpenSync, onSignOut }: AccountModalProps) {
   const { t } = useI18n();
   const [showProfile, setShowProfile] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -39,6 +41,7 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountMo
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onClose, showProfile]);
 
+  const isWebAccount = user.telegram_user_id < 0; // V2-1: an account without Telegram has a negative id
   const displayName =
     user.first_name || user.last_name
       ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
@@ -95,27 +98,40 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountMo
                 isDevAuth ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
               }`}
             >
-              {isDevAuth ? t.auth.mock_auth : t.auth.telegram_verified}
+              {isDevAuth ? t.auth.mock_auth : isWebAccount ? t.auth.account_password : t.auth.telegram_verified}
             </span>
           </div>
 
           <dl className="space-y-3 text-sm">
-            <div className="flex flex-col gap-0.5">
-              <dt
-                className="text-xs font-medium"
-                style={{ color: 'var(--tg-theme-hint-color)' }}
-              >
-                {t.auth.telegram_user_id}
-              </dt>
-              <dd
-                className="font-mono font-medium break-all"
-                style={{ color: 'var(--tg-theme-text-color)' }}
-              >
-                {user.telegram_user_id}
-              </dd>
-            </div>
+            {!isWebAccount && (
+              <div className="flex flex-col gap-0.5">
+                <dt
+                  className="text-xs font-medium"
+                  style={{ color: 'var(--tg-theme-hint-color)' }}
+                >
+                  {t.auth.telegram_user_id}
+                </dt>
+                <dd
+                  className="font-mono font-medium break-all"
+                  style={{ color: 'var(--tg-theme-text-color)' }}
+                >
+                  {user.telegram_user_id}
+                </dd>
+              </div>
+            )}
 
-            {user.username && (
+            {isWebAccount && user.username && (
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-xs font-medium" style={{ color: 'var(--tg-theme-hint-color)' }}>
+                  {t.auth.email_label}
+                </dt>
+                <dd aria-label="account-email" className="font-medium break-all" style={{ color: 'var(--tg-theme-text-color)' }}>
+                  {user.username}
+                </dd>
+              </div>
+            )}
+
+            {!isWebAccount && user.username && (
               <div className="flex flex-col gap-0.5">
                 <dt
                   className="text-xs font-medium"
@@ -147,6 +163,18 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync }: AccountMo
               </dd>
             </div>
           </dl>
+
+          {isWebAccount && onSignOut && (
+            <button
+              type="button"
+              aria-label="account-sign-out"
+              onClick={onSignOut}
+              className="mt-4 w-full min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-300 font-semibold"
+              style={{ color: 'var(--tg-theme-text-color)' }}
+            >
+              {t.auth.logout}
+            </button>
+          )}
           {/* Stage 19B: what the phone keeps for work without a signal can be removed here (the objects stay on the server) */}
           <div className="mt-4 space-y-2 border-t border-slate-200 pt-3" aria-label="offline-data">
             <p className="text-xs break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>{t.offline.clear_note}</p>

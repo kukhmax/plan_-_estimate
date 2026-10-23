@@ -11,7 +11,13 @@ from httpx import AsyncClient
 from app.main import app
 from tests.conftest import make_telegram_init_data
 
-OPEN_OPERATIONS = {("GET", "/api/health"), ("POST", "/api/auth/telegram")}
+# V2-1: the two entrances of a browser without Telegram are open as well: the answer of the configuration and the password login itself.
+OPEN_OPERATIONS = {
+    ("GET", "/api/health"),
+    ("POST", "/api/auth/telegram"),
+    ("GET", "/api/auth/config"),
+    ("POST", "/api/auth/password"),
+}
 METHODS = ("get", "post", "put", "patch", "delete")
 CONTRACT = app.openapi()
 
@@ -55,7 +61,7 @@ def test_the_contract_is_read_and_is_big():
     assert len(ALL) > 200
 
 
-def test_only_the_two_known_operations_are_open_in_the_contract():
+def test_only_the_known_operations_are_open_in_the_contract():
     open_ones = {(m, p) for m, p, op in operations() if not op.get("security")}
     assert open_ones == OPEN_OPERATIONS
 
@@ -89,6 +95,12 @@ async def token_of(client: AsyncClient) -> dict:
     response = await client.post("/api/auth/telegram", json={"init_data": make_telegram_init_data(user)})
     assert response.status_code == 200
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+@pytest.mark.parametrize("junk", JUNK)
+async def test_the_open_password_login_answers_no_5xx_to_a_wrong_request(async_client: AsyncClient, junk):
+    response = await async_client.post("/api/auth/password", json=junk)
+    assert response.status_code < 500, response.text[:300]
 
 
 # A 5xx is a defect, except the answers that are the design: a feature that the configuration has switched off.

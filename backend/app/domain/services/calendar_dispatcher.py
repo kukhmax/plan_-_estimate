@@ -197,7 +197,7 @@ class CalendarDispatcher:
             user = (await db.execute(select(User).where(User.id == owner_id))).scalar_one_or_none()
             prefs = await CalendarService(db).prefs(owner_id)
             views = await self._views(db, ids)
-        if user is None:  # the owner is gone: nothing to deliver to
+        if user is None or user.telegram_user_id <= 0:  # the owner is gone, or signs in without Telegram (V2-1) and has no chat: nothing to deliver to
             await self._finish(ids, ReminderStatus.CANCELLED, now, None)
             return
         language = prefs.language or ("ru" if (user.language_code or "").lower().startswith("ru") else "pl")

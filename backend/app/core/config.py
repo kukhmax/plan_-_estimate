@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_AUTH_MAX_AGE_SECONDS: int = 86400  # 24 hours
     MOCK_TELEGRAM_AUTH: bool = False
+    # V2-1: sign-in by e-mail and password (accounts made by `python -m app.cli.users create`). OFF by default: production keeps the Telegram sign-in
+    # only until the owner switches it on.
+    AUTH_PASSWORD_ENABLED: bool = False
 
     # Encryption of the personal data of the clients (EN-2a). DATA_KEK: base64 of 32 random bytes (`openssl rand -base64 32`), kept ONLY in the
     # environment and, separately from the backups, in the owner's password manager. Empty = encryption off (development, tests); production

@@ -1,4 +1,4 @@
-import { TelegramAuthResponse, User } from '../types/auth';
+import { AuthConfig, TelegramAuthResponse, User } from '../types/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -65,5 +65,58 @@ export async function fetchCurrentUser(token: string): Promise<User> {
     throw new Error(message);
   }
 
+  return response.json();
+}
+
+
+/** A refused sign-in by password: the code of the server (`INVALID_CREDENTIALS`, `ACCOUNT_LOCKED`, ...), and for a lock the seconds to wait. */
+export class PasswordLoginError extends Error {
+  constructor(
+    public readonly code: string | null,
+    public readonly status: number,
+    public readonly retryAfterSeconds: number | null = null,
+    public readonly contact: string | null = null,
+  ) {
+    super('Password sign-in failed');
+    this.name = 'PasswordLoginError';
+  }
+}
+
+/** Is the sign-in by password switched on? Any failure counts as "no": the old message for an application opened outside Telegram stays. */
+export async function fetchAuthConfig(): Promise<AuthConfig> {
+  try {
+    const response = await fetch(`${API_URL}/api/auth/config`);
+    if (!response.ok) return { password_login: false };
+    const body: unknown = await response.json();
+    return { password_login: typeof body === 'object' && body !== null && 'password_login' in body && body.password_login === true };
+  } catch {
+    return { password_login: false };
+  }
+}
+
+export async function loginWithPassword(email: string, password: string): Promise<TelegramAuthResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/api/auth/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    throw new PasswordLoginError(null, 0);
+  }
+  if (!response.ok) {
+    const errorData: unknown = await response.json().catch(() => null);
+    const detail =
+      typeof errorData === 'object' && errorData !== null && 'detail' in errorData && typeof errorData.detail === 'object' && errorData.detail !== null
+        ? (errorData.detail as Record<string, unknown>)
+        : {};
+    throw new PasswordLoginError(
+      typeof detail.code === 'string' ? detail.code : null,
+      response.status,
+      typeof detail.retry_after_seconds === 'number' ? detail.retry_after_seconds : null,
+      readContact(errorData),
+    );
+  }
   return response.json();
 }

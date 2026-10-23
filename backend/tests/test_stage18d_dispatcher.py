@@ -387,3 +387,15 @@ def test_the_production_templates_carry_the_calendar_settings_with_the_loop_off(
     assert all(name in Settings.model_fields for name in calendar)  # no name the application would silently ignore
     example = (root / ".env.production.example").read_text(encoding="utf-8")
     assert "\nCALENDAR_DISPATCHER_ENABLED=false\n" in example
+
+
+async def test_an_account_without_telegram_gets_no_message_and_its_reminders_end(db_session):
+    # V2-1: a web account has a negative id and no chat; nothing is sent, and the reminders do not wait for ever
+    u, p, r, s = await owner(db_session, telegram_id=-1)
+    db_session.add(reminder(u, p, r, s))
+    await db_session.commit()
+    sender = FakeSender()
+    report = await dispatcher(sender).tick(NOW)
+    assert report.claimed == 1 and report.sent == 0 and sender.calls == []
+    [row] = await rows(db_session)
+    assert row.status == "CANCELLED"

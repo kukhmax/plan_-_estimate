@@ -1088,3 +1088,28 @@ class WallMergeError(Exception):
         super().__init__(message)
         self.code = code
         self.message = message
+
+
+class PasswordLoginDisabledError(Exception):
+    """The sign-in by password is switched off (AUTH_PASSWORD_ENABLED)."""
+
+
+class InvalidCredentialsError(Exception):
+    """An unknown e-mail or a wrong password: one answer for both, so that the answer does not tell which e-mails have an account."""
+
+
+class AccountLockedError(Exception):
+    """Too many wrong passwords: the account is locked for a while."""
+
+    def __init__(self, retry_after_seconds: int) -> None:
+        super().__init__("account locked")
+        self.retry_after_seconds = retry_after_seconds
+
+
+class WebAccountError(Exception):
+    """A web account cannot be made / changed (a short password, an e-mail that is not one, an e-mail that is taken, no such account)."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message

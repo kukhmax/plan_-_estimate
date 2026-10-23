@@ -64,6 +64,8 @@ class TelegramBotApiDelivery:
         return "TelegramBotApiDelivery()"
 
     async def send_document(self, chat_id: int, filename: str, pdf: bytes, caption: str) -> None:
+        if chat_id <= 0:  # an account that signs in without Telegram (V2-1) has no chat: no call, the same refusal as a chat the bot may not write to
+            raise DocumentChatUnavailableError("this account has no Telegram chat")
         data = {"chat_id": str(chat_id), "caption": caption[:MAX_CAPTION]}
         files = {"document": (filename, pdf, "application/pdf")}
         try:

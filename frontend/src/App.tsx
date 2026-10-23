@@ -21,6 +21,7 @@ import { requestPersistentStorage } from './offline/persist';
 import { startSync } from './offline/sync';
 import { startConnectionWatch } from './offline/watch';
 import { clearLastProject, readLastProject, writeLastProject } from './utils/lastProject';
+import { LoginScreen } from './components/LoginScreen';
 
 type Section = 'clients' | 'projects' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge' | 'access' | 'security';
 
@@ -33,7 +34,7 @@ function openTarget(search: string): { section: Section; projectId?: string } | 
 }
 
 const AppContent: React.FC = () => {
-  const { user, isDevAuth, isLoading, error, accessContact, retry } = useAuth();
+  const { user, isDevAuth, isLoading, error, accessContact, retry, loginRequired, signInWithPassword, signOut } = useAuth();
   const { t, locale, setLocale } = useI18n();
   const [target] = useState(() => openTarget(typeof window === 'undefined' ? '' : window.location.search));
   const [activeSection, setActiveSection] = useState<Section>(target?.section ?? 'clients');
@@ -215,6 +216,8 @@ const AppContent: React.FC = () => {
           </div>
         )}
 
+        {!isLoading && !user && loginRequired && <LoginScreen onSubmit={signInWithPassword} />}
+
         {!isLoading && (error === 'access_denied' || error === 'access_blocked') && (
           <div
             role="alert"
@@ -343,6 +346,7 @@ const AppContent: React.FC = () => {
         <AccountModal
           user={user}
           isDevAuth={isDevAuth}
+          onSignOut={signOut}
           onClose={() => setShowAccount(false)}
           onOpenSync={() => {
             setShowAccount(false);

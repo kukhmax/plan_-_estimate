@@ -17,3 +17,8 @@ export interface TelegramAuthResponse {
   user: User;
   is_dev_auth: boolean;
 }
+
+/** What the sign-in screen needs before anyone is signed in (V2-1). */
+export interface AuthConfig {
+  password_login: boolean;
+}

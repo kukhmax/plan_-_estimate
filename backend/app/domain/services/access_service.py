@@ -116,6 +116,14 @@ class AccessService:
         closed = await self._setting(CLOSED_KEY)
         return await self.judge(entry.status if entry else None, entry.is_admin if entry else None, closed)
 
+    async def admit_account(self, telegram_user_id: int, profile: dict) -> AccessEntry:
+        """Write an account that was made by the owner (a web account) to the list as ACTIVE; an existing entry is kept as it is."""
+        entry = await self._entry(telegram_user_id)
+        if entry is None:
+            entry = await self._create(telegram_user_id, profile, AccessStatus.ACTIVE.value, datetime.now(UTC))
+            await self.db.commit()
+        return entry
+
     async def is_admin(self, telegram_user_id: int) -> bool:
         entry = await self._entry(telegram_user_id)
         return bool(entry and entry.is_admin)
