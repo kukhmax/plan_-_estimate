@@ -25,7 +25,10 @@ CODE=$(git diff --name-only HEAD "origin/$BR" | grep -Ev '^(README.md|docs/)' ||
 H=$(curl -fsS https://plan-estimate.pl/api/health) || fail "G0" "health недоступен"
 has '"status":"ok"' "$H" || fail "G0" "health не ok: $H"
 AL=$(docker exec plan_estimate_backend alembic current 2>/dev/null)
-has '0065_access_control' "$AL" || fail "G0" "alembic current не 0065_access_control: $AL"
+# голова миграций — самая новая миграция в origin/$BR (код между VM и origin/$BR не различается, значит, база уже на ней)
+HEADREV=$(git ls-tree --name-only "origin/$BR" backend/alembic/versions/ | sed -n 's#.*/\(00[0-9][0-9]_[a-z0-9_]*\)\.py$#\1#p' | sort | tail -1)
+[ -n "$HEADREV" ] || fail "G0" "не нашёл миграции в origin/$BR"
+has "$HEADREV" "$AL" || fail "G0" "alembic current не $HEADREV: $AL"
 [ "$(docker inspect -f '{{.State.Health.Status}}' plan_estimate_backend)" = "healthy" ] || fail "G0" "backend не healthy"
 echo "приходит (только документы):"; git log --oneline HEAD.."origin/$BR" | head -20
 ok "G0"
@@ -40,5 +43,5 @@ ok "G1 (ветка $BR, коммит $(git rev-parse --short HEAD); контей
 
 echo; echo "=============== ВСЁ PASS: VM на ветке $BR, коммит $(git rev-parse --short HEAD) ==============="
 echo "Дальше: все следующие выкладки берите из origin/main; бэкап под новую голову (в НОВОЙ сессии):"
-echo "  cd ~/apps/plan_-_estimate && BACKUP_BRANCH=main BACKUP_HEAD=0065_access_control bash ~/backup_a9.sh"
+echo "  cd ~/apps/plan_-_estimate && BACKUP_BRANCH=main BACKUP_HEAD=$HEADREV bash ~/backup_a9.sh"
 )
