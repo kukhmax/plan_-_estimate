@@ -17,6 +17,7 @@ vi.mock('./api/surfaces', () => ({
   generateWalls: vi.fn(),
   mergeSurfaces: vi.fn(),
   unmergeSurface: vi.fn(),
+  duplicateMergedSurface: vi.fn(),
   updateSurfacePart: vi.fn(),
 }));
 vi.mock('./api/openings', () => ({
@@ -221,6 +222,26 @@ describe('merging walls: a merged wall', () => {
     fireEvent.click(screen.getByLabelText(`unmerge-confirm-yes-${W1.id}`));
     await waitFor(() => expect(surfacesApi.unmergeSurface).toHaveBeenCalledWith(projectId, roomId, W1.id));
     expect(await screen.findByText('Ściana rozłączona')).toBeInTheDocument();
+  });
+
+  it('duplicates a merged wall: the next number and position, in sight next to "Rozłącz"', async () => {
+    vi.mocked(surfacesApi.duplicateMergedSurface).mockResolvedValue({ ...merged, id: 'copy-1', name: 'Ściana 3' });
+    renderList();
+    fireEvent.click(await screen.findByLabelText(`surface-row-${W1.id}`));
+    const duplicate = await screen.findByLabelText(`duplicate-merged-${W1.id}`);
+    expect(duplicate).toHaveTextContent('Duplikuj');
+    expect(duplicate.className).toContain('min-h-11');
+    expect(duplicate.parentElement).toBe(screen.getByLabelText(`unmerge-surface-${W1.id}`).parentElement);
+    fireEvent.click(duplicate);
+    await waitFor(() => expect(surfacesApi.duplicateMergedSurface).toHaveBeenCalledWith(projectId, roomId, W1.id, { name: 'Ściana 2', position: expect.any(Number) }));
+    expect(await screen.findByText('Ścianę zduplikowano')).toBeInTheDocument();
+  });
+
+  it('offers no duplicate of a merged wall in a rectangular room', async () => {
+    renderList('RECTANGLE');
+    fireEvent.click(await screen.findByLabelText(`surface-row-${W1.id}`));
+    await screen.findByLabelText(`merged-parts-${W1.id}`);
+    expect(screen.queryByLabelText(`duplicate-merged-${W1.id}`)).toBeNull();
   });
 
   it('a wall that was joined is shown with its merged wall and cannot be restored alone', async () => {

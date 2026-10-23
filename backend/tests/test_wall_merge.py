@@ -225,3 +225,29 @@ async def test_openings_are_checked_against_the_area_of_the_whole_merged_wall(ap
     # ... and fine for the merged wall (13.5 + 8.618 m2)
     created = await http.post(url, json={**big, "id": str(uuid.uuid4())})
     assert created.status_code == 201, created.text
+
+
+async def test_a_merged_wall_can_be_duplicated_with_its_parts(api, http):
+    first, second, _ = await _three(api)
+    await _photo(api, first.id)
+    merged = (await http.post(f"{_base(api)}/merge", json={"surface_ids": [str(first.id), str(second.id)]})).json()
+    response = await http.post(f"{_base(api)}/{first.id}/duplicate-merged", json={"name": "Ściana 9", "position": 9})
+    assert response.status_code == 201, response.text
+    copy = response.json()
+    assert copy["id"] != str(first.id) and copy["name"] == "Ściana 9" and copy["position"] == 9
+    assert [(p["width"], p["height"]) for p in copy["parts"]] == [(p["width"], p["height"]) for p in merged["parts"]]
+    assert copy["gross_area"] == merged["gross_area"] and copy["deduction_area"] == "0.000" and copy["merged_into_id"] is None
+    # nothing moved: the photo, the openings and the joined walls stay where they were
+    assert (await api.db.execute(select(PhotoAttachment.surface_id))).scalars().all() == [first.id]
+    assert (await http.get(f"{_base(api)}/{first.id}")).json()["parts"] == merged["parts"]
+    # a copy separates into a plain wall of its own first size, and brings no wall back
+    unmerged = await http.post(f"{_base(api)}/{copy['id']}/unmerge")
+    assert unmerged.status_code == 200 and unmerged.json()["parts"] == [] and unmerged.json()["gross_area"] == "13.500"
+    ids = {row["id"] for row in (await http.get(_base(api))).json()["items"]}
+    assert str(second.id) not in ids  # the joined wall of the ORIGINAL stays archived
+
+
+async def test_only_a_merged_wall_is_duplicated_this_way(api, http):
+    first, _, _ = await _three(api)
+    refused = await http.post(f"{_base(api)}/{first.id}/duplicate-merged", json={"name": "Ściana 9"})
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "WALL_UNMERGE_NOT_MERGED"

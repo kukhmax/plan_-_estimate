@@ -184,6 +184,32 @@ class WallMergeService:
         await self.db.commit()
         return await self._surfaces.get_surface(project_id, room_id, primary.id, owner_id)
 
+    async def duplicate(
+        self, project_id: uuid.UUID, room_id: uuid.UUID, owner_id: uuid.UUID, surface_id: uuid.UUID, name: str, position: int | None
+    ) -> Surface:
+        """The same merged wall once more (an irregular room has several alike): a new wall with copies of the parts; no photos, openings or plan."""
+        (wall,) = await self._walls(project_id, room_id, owner_id, [surface_id])
+        parts = (await load_parts(self.db, [wall.id])).get(wall.id)
+        if not parts:
+            raise WallMergeError("WALL_UNMERGE_NOT_MERGED", "The wall is not merged: duplicate it as an ordinary wall")
+        if wall.is_archived:
+            raise WallMergeError("WALL_MERGE_ARCHIVED", "An archived wall cannot be duplicated")
+        copy = Surface(
+            room_id=room_id, name=name, surface_type=SurfaceType.WALL, position=position, width=parts[0].width, height=parts[0].height
+        )
+        self.db.add(copy)
+        await self.db.flush()
+        for part in parts:
+            # the first part is the copy's own size; the other parts are not walls that can come back, so they have no source
+            self.db.add(
+                SurfacePart(
+                    surface_id=copy.id, source_surface_id=copy.id if part.position == parts[0].position else None,
+                    position=part.position, width=part.width, height=part.height,
+                )
+            )
+        await self.db.commit()
+        return await self._surfaces.get_surface(project_id, room_id, copy.id, owner_id)
+
     async def update_part(
         self, project_id: uuid.UUID, room_id: uuid.UUID, owner_id: uuid.UUID, surface_id: uuid.UUID, part_id: uuid.UUID, width: Decimal, height: Decimal
     ) -> Surface:

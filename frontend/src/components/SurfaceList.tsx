@@ -5,6 +5,7 @@ import { fetchOpenings } from '../api/openings';
 import {
   archiveSurface,
   createSurface,
+  duplicateMergedSurface,
   fetchSurfaces,
   generateWalls,
   mergeSurfaces,
@@ -433,6 +434,27 @@ export function SurfaceList({
     setSuccess(t.surfaces.dimensions_saved);
     await load();
     onMeasurementChanged?.();
+  };
+
+  /** A merged wall once more (an irregular room has several alike): a new merged wall with the same parts, the next number and position. */
+  const handleDuplicateMerged = async (surface: SurfaceType) => {
+    setError(null);
+    setSuccess(null);
+    setMergeBusy(true);
+    try {
+      const created = await duplicateMergedSurface(projectId, roomId, surface.id, {
+        name: `${t.surfaces.wall} ${nextWallNumber}`,
+        position: nextWallPosition,
+      });
+      setSuccess(t.surfaces.duplicated);
+      setOpenCards((current) => ({ ...current, [created.id]: true }));
+      await load();
+      onMeasurementChanged?.();
+    } catch (err) {
+      setError(mergeErrorText(err));
+    } finally {
+      setMergeBusy(false);
+    }
   };
 
   const closeForm = () => {
@@ -948,10 +970,24 @@ export function SurfaceList({
 
                 {isWall && partsCount > 0 && (
                   <div aria-label={`merged-parts-${surface.id}`} className="space-y-1 rounded-xl border border-blue-200/70 p-2">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2">
                       <span className="text-xs font-semibold text-slate-700 min-w-0 break-words">
                         <Ico>🔗</Ico>{t.surfaces.parts_title.replace('{count}', String(partsCount))}
                       </span>
+                      <div className="flex items-center gap-1.5">
+                      {effectiveWallMode === 'CUSTOM' && !surface.is_archived && (
+                        <button
+                          type="button"
+                          aria-label={`duplicate-merged-${surface.id}`}
+                          onClick={() => void handleDuplicateMerged(surface)}
+                          disabled={mergeBusy}
+                          className="group shrink-0 min-h-11 flex items-center text-xs font-medium disabled:opacity-60"
+                        >
+                          <span className="rounded-lg bg-indigo-50 px-2.5 py-1 text-indigo-700 group-hover:bg-indigo-100 transition">
+                            <Ico>📑</Ico>{t.surfaces.duplicate_wall}
+                          </span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         aria-label={`unmerge-surface-${surface.id}`}
@@ -961,6 +997,7 @@ export function SurfaceList({
                       >
                         <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-slate-700 group-hover:bg-slate-200 transition">{t.surfaces.unmerge}</span>
                       </button>
+                      </div>
                     </div>
                     {unmergeConfirmId === surface.id && (
                       <div role="alertdialog" aria-label={`unmerge-confirm-${surface.id}`} className="space-y-2 rounded-lg bg-amber-50 p-2">

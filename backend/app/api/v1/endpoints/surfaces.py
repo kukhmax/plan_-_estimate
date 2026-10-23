@@ -18,6 +18,7 @@ from app.domain.services.wall_merge_service import WallMergeService
 from app.models.user import User
 from app.schemas.surface import (
     SurfaceCreate,
+    SurfaceDuplicate,
     SurfaceListResponse,
     SurfaceMergeRequest,
     SurfacePartUpdate,
@@ -404,6 +405,29 @@ async def update_surface_part(
         surface = await merge_service.update_part(
             project_id, room_id, current_user.id, surface_id, part_id, payload.width, payload.height
         )
+    except (ProjectNotFoundError, RoomNotFoundError, SurfaceNotFoundError) as e:
+        raise _not_found(e)
+    except WallMergeError as e:
+        raise _merge_http(e)
+    return SurfaceRead.model_validate(surface)
+
+
+@router.post(
+    "/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}/duplicate-merged",
+    response_model=SurfaceRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Duplicate a merged wall: a new merged wall with the same parts",
+)
+async def duplicate_merged_surface(
+    project_id: uuid.UUID,
+    room_id: uuid.UUID,
+    surface_id: uuid.UUID,
+    payload: SurfaceDuplicate,
+    current_user: User = Depends(get_current_user),
+    merge_service: WallMergeService = Depends(get_wall_merge_service),
+) -> SurfaceRead:
+    try:
+        surface = await merge_service.duplicate(project_id, room_id, current_user.id, surface_id, payload.name, payload.position)
     except (ProjectNotFoundError, RoomNotFoundError, SurfaceNotFoundError) as e:
         raise _not_found(e)
     except WallMergeError as e:

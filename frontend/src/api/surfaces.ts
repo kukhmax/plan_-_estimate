@@ -105,3 +105,16 @@ export function updateSurfacePart(
     body: JSON.stringify(size),
   });
 }
+
+/** The same merged wall once more: a new merged wall with copies of the parts (no photos, openings or plan). */
+export function duplicateMergedSurface(
+  projectId: string,
+  roomId: string,
+  surfaceId: string,
+  payload: { name: string; position: number | null },
+): Promise<SurfaceType> {
+  return apiRequest(`${surfacesPath(projectId, roomId)}/${surfaceId}/duplicate-merged`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

@@ -88,6 +88,13 @@ class SurfaceMergeRequest(BaseModel):
     surface_ids: list[uuid.UUID] = Field(min_length=2, max_length=12)
 
 
+class SurfaceDuplicate(BaseModel):
+    """The name and the position of the copy of a merged wall (the next number of the room, chosen by the screen)."""
+
+    name: str = Field(min_length=1, max_length=255)
+    position: int | None = Field(default=None, ge=0)
+
+
 class SurfacePartUpdate(BaseModel):
     width: Decimal = Field(gt=0, decimal_places=3, max_digits=10)
     height: Decimal = Field(gt=0, decimal_places=3, max_digits=10)
