@@ -784,6 +784,11 @@
   },
   "surfaces": {
     "duplicate_wall": "Duplikuj",
+    "reorder_start": "Zmień kolejność",
+    "reorder_hint": "Przesuwaj ściany strzałkami. Zmiany zapisują się od razu.",
+    "reorder_done": "Gotowe",
+    "move_wall_up": "Przesuń ścianę wyżej",
+    "move_wall_down": "Przesuń ścianę niżej",
     "merge_start": "Połącz ściany",
     "merge_hint": "Zaznacz ściany do połączenia. Pierwsza zaznaczona zostaje, plan prac pochodzi z niej.",
     "merge_selected": "Zaznaczone: {count}",
@@ -815,7 +820,10 @@
       "WALL_UNMERGE_OPENINGS_EXCEED": "Otwory, które zostają na ścianie, są większe niż ona sama. Usuń lub zmniejsz je.",
       "WALL_PART_OPENINGS_EXCEED": "Otwory ściany byłyby większe niż jej nowa powierzchnia.",
       "WALL_MERGED_EDIT_PARTS": "Wymiary połączonej ściany zmienia się w jej częściach.",
-      "WALL_RESTORE_MERGED": "Ta ściana jest częścią połączonej ściany. Rozłącz tamtą, aby ją przywrócić."
+      "WALL_RESTORE_MERGED": "Ta ściana jest częścią połączonej ściany. Rozłącz tamtą, aby ją przywrócić.",
+      "WALL_REORDER_CANONICAL": "Cztery ściany pokoju prostokątnego mają swoje miejsca — ich kolejności nie zmienia się.",
+      "WALL_REORDER_NEED_TWO": "Do zmiany kolejności potrzeba co najmniej dwóch ścian.",
+      "WALL_REORDER_NOT_ACTIVE_WALL": "Kolejność można zmieniać tylko aktywnym ścianom."
     },
     "duplicated": "Ścianę zduplikowano",
     "title": "Powierzchnie",

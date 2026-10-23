@@ -18,6 +18,7 @@ vi.mock('./api/surfaces', () => ({
   mergeSurfaces: vi.fn(),
   unmergeSurface: vi.fn(),
   duplicateMergedSurface: vi.fn(),
+  reorderSurfaces: vi.fn(),
   updateSurfacePart: vi.fn(),
 }));
 vi.mock('./api/openings', () => ({
@@ -279,5 +280,68 @@ describe('merging walls: a merged wall', () => {
     fireEvent.click(screen.getByLabelText(`surface-row-${W1.id}`));
     expect(screen.getByLabelText('merge-selected')).toHaveTextContent('Zaznaczone: 0');
     expect(screen.getByLabelText(`surface-row-${W1.id}`)).toHaveAttribute('aria-disabled', 'true');
+  });
+});
+
+describe('the order of the walls', () => {
+  const order = () => screen.getAllByLabelText(/^surface-item-/).map((li) => within(li).getByText(/Ściana \d/).textContent);
+
+  it('is offered in an irregular room with two or more walls, and not in a rectangular one', async () => {
+    renderList('RECTANGLE');
+    await screen.findByLabelText(`surface-row-${W1.id}`);
+    expect(screen.queryByLabelText('reorder-walls-start')).toBeNull();
+  });
+
+  it('shows ↑ ↓ on every wall, the first cannot go up and the last cannot go down', async () => {
+    renderList();
+    fireEvent.click(await screen.findByLabelText('reorder-walls-start'));
+    expect(order()).toEqual(['Ściana 1', 'Ściana 2', 'Ściana 3']);
+    expect(screen.getByLabelText(`wall-up-${W1.id}`)).toBeDisabled();
+    expect(screen.getByLabelText(`wall-down-${W3.id}`)).toBeDisabled();
+    expect(screen.getByLabelText(`wall-down-${W1.id}`)).toBeEnabled();
+    expect(screen.getByLabelText(`wall-down-${W1.id}`).className).toContain('min-h-11');
+    expect(screen.getByLabelText(`wall-down-${W1.id}`).className).toContain('min-w-11');
+  });
+
+  it('moves a wall at once and saves the whole order', async () => {
+    vi.mocked(surfacesApi.reorderSurfaces).mockResolvedValue({ items: [W2, W1, W3], total: 3 });
+    renderList();
+    fireEvent.click(await screen.findByLabelText('reorder-walls-start'));
+    fireEvent.click(screen.getByLabelText(`wall-down-${W1.id}`));
+    expect(order()).toEqual(['Ściana 2', 'Ściana 1', 'Ściana 3']);
+    await waitFor(() => expect(surfacesApi.reorderSurfaces).toHaveBeenCalledWith(projectId, roomId, [W2.id, W1.id, W3.id]));
+    fireEvent.click(screen.getByLabelText(`wall-up-${W3.id}`));
+    await waitFor(() => expect(surfacesApi.reorderSurfaces).toHaveBeenLastCalledWith(projectId, roomId, [W2.id, W3.id, W1.id]));
+    expect(order()).toEqual(['Ściana 2', 'Ściana 3', 'Ściana 1']);
+  });
+
+  it('brings the real order back and says why when the server refuses', async () => {
+    vi.mocked(surfacesApi.reorderSurfaces).mockRejectedValue(new ApiError('x', 409, 'WALL_REORDER_CANONICAL'));
+    renderList();
+    fireEvent.click(await screen.findByLabelText('reorder-walls-start'));
+    const loads = vi.mocked(surfacesApi.fetchSurfaces).mock.calls.length;
+    fireEvent.click(screen.getByLabelText(`wall-down-${W1.id}`));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cztery ściany pokoju prostokątnego');
+    await waitFor(() => expect(vi.mocked(surfacesApi.fetchSurfaces).mock.calls.length).toBeGreaterThan(loads));
+    await waitFor(() => expect(order()).toEqual(['Ściana 1', 'Ściana 2', 'Ściana 3']));
+  });
+
+  it('lists only the active walls and ends with "Gotowe"', async () => {
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [W1, W2, wall(4, '1.000', '2.000', { is_archived: true })], total: 3 });
+    renderList();
+    fireEvent.click(await screen.findByLabelText('reorder-walls-start'));
+    expect(order()).toEqual(['Ściana 1', 'Ściana 2']);
+    fireEvent.click(screen.getByLabelText('reorder-done'));
+    expect(screen.queryByLabelText('reorder-bar')).toBeNull();
+    expect(screen.getByLabelText('reorder-walls-start')).toBeInTheDocument();
+  });
+
+  it('speaks Russian', async () => {
+    localStorage.setItem('locale', 'ru');
+    renderList();
+    expect(await screen.findByLabelText('reorder-walls-start')).toHaveTextContent('Изменить порядок');
+    fireEvent.click(screen.getByLabelText('reorder-walls-start'));
+    expect(screen.getByLabelText('reorder-done')).toHaveTextContent('Готово');
+    expect(screen.getByLabelText(`wall-up-${W1.id}`)).toHaveAttribute('title', 'Передвинуть стену выше');
   });
 });

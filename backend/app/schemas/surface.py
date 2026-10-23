@@ -95,6 +95,12 @@ class SurfaceDuplicate(BaseModel):
     position: int | None = Field(default=None, ge=0)
 
 
+class SurfaceReorder(BaseModel):
+    """The active walls of an irregular room in the order the owner chose (the first one goes first)."""
+
+    surface_ids: list[uuid.UUID] = Field(min_length=2, max_length=200)
+
+
 class SurfaceUnmerge(BaseModel):
     """Optional names for the new walls that parts of a COPY of a merged wall become (in the order of the parts)."""
 

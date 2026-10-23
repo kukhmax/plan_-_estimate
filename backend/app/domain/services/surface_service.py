@@ -125,6 +125,49 @@ class SurfaceService:
 
         return items, total
 
+    async def reorder_walls(
+        self,
+        project_id: uuid.UUID,
+        room_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        surface_ids: list[uuid.UUID],
+    ) -> None:
+        """Put the active walls of an irregular room in the order the owner chose: the position of each is its place in `surface_ids`.
+
+        Refused for the four generated walls of a rectangular room: their positions say which wall is which side of the room (room
+        resizing finds the walls by them).
+        """
+        await self._ensure_room_owned(project_id, room_id, owner_id)
+        if len(set(surface_ids)) != len(surface_ids) or len(surface_ids) < 2:
+            raise WallMergeError("WALL_REORDER_NEED_TWO", "Choose the order of at least two different walls")
+        found = {
+            surface.id: surface
+            for surface in (
+                await self.db.execute(select(Surface).where(Surface.room_id == room_id, Surface.id.in_(surface_ids)))
+            ).scalars()
+        }
+        if len(found) != len(surface_ids):
+            raise SurfaceNotFoundError("Surface not found")
+        for surface in found.values():
+            if surface.surface_type != SurfaceType.WALL or surface.is_archived:
+                raise WallMergeError("WALL_REORDER_NOT_ACTIVE_WALL", "Only active walls can be ordered")
+        room = (await self.db.execute(select(Room).where(Room.id == room_id))).scalar_one()
+        dimensions = (room.length, room.width, room.height)
+        if None not in dimensions:
+            active = list(
+                (
+                    await self.db.execute(
+                        select(Surface).where(Surface.room_id == room_id, Surface.is_archived.is_(False), Surface.surface_type == SurfaceType.WALL)
+                    )
+                ).scalars()
+            )
+            snapshot = [(wall.position, wall.surface_type, wall.width, wall.height) for wall in active]
+            if matches_canonical_wall_set(*dimensions, snapshot):
+                raise WallMergeError("WALL_REORDER_CANONICAL", "The walls of a rectangular room keep their places")
+        for position, surface_id in enumerate(surface_ids):
+            found[surface_id].position = position
+        await self.db.commit()
+
     async def generate_walls(
         self,
         project_id: uuid.UUID,

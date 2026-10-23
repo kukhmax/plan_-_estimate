@@ -9,6 +9,7 @@ import {
   fetchSurfaces,
   generateWalls,
   mergeSurfaces,
+  reorderSurfaces,
   restoreSurface,
   unmergeSurface,
   updateSurface,
@@ -373,6 +374,37 @@ export function SurfaceList({
     const known = code ? (t.surfaces.merge_errors as Record<string, string>)[code] : undefined;
     return known ?? (err instanceof Error ? err.message : t.surfaces.error);
   };
+  /** Order mode (backlog "менять очередность в списке стен"): the active walls get ↑ ↓; every move is saved at once. */
+  const [reordering, setReordering] = useState(false);
+  const [orderBusy, setOrderBusy] = useState(false);
+  /** A refused move is told next to the list (the global error would replace the list). */
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const moveWall = async (wallIds: string[], surfaceId: string, delta: -1 | 1) => {
+    const from = wallIds.indexOf(surfaceId);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= wallIds.length) return;
+    const next = [...wallIds];
+    [next[from], next[to]] = [next[to], next[from]];
+    // the screen answers at once; the server confirms (a refusal brings the real order back)
+    setSurfaces((current) => {
+      const a = current.findIndex((candidate) => candidate.id === wallIds[from]);
+      const b = current.findIndex((candidate) => candidate.id === wallIds[to]);
+      if (a < 0 || b < 0) return current;
+      const copy = [...current];
+      [copy[a], copy[b]] = [copy[b], copy[a]];
+      return copy;
+    });
+    setOrderBusy(true);
+    setOrderError(null);
+    try {
+      await reorderSurfaces(projectId, roomId, next);
+    } catch (err) {
+      setOrderError(mergeErrorText(err));
+      await load(); // the list as it really is
+    } finally {
+      setOrderBusy(false);
+    }
+  };
   const startSelecting = (firstId?: string) => {
     setError(null);
     setSuccess(null);
@@ -599,6 +631,9 @@ export function SurfaceList({
   const isMergeable = (surface: SurfaceType) =>
     surface.surface_type === 'WALL' && !surface.is_archived && surface.width != null && surface.height != null && !(surface.parts && surface.parts.length > 0);
   const mergeableWalls = visibleSurfaces.filter(isMergeable);
+  /** The walls the order mode works on: active walls, merged ones included. */
+  const activeWalls = visibleSurfaces.filter((surface) => surface.surface_type === 'WALL' && !surface.is_archived);
+  const activeWallIds = activeWalls.map((surface) => surface.id);
   const nameOf = (surfaceId: string | null | undefined) => {
     const found = surfaces.find((candidate) => candidate.id === surfaceId);
     return found ? getSurfaceDisplayName(found, surfaceDisplayLabels) : '';
@@ -763,15 +798,40 @@ export function SurfaceList({
         {t.common.show_archived}
       </label>
 
-      {effectiveWallMode === 'CUSTOM' && !selecting && !loading && mergeableWalls.length >= 2 && (
-        <button
-          type="button"
-          aria-label="merge-walls-start"
-          onClick={() => startSelecting()}
-          className="mb-3 w-full min-h-11 px-3 py-2 text-sm rounded-xl border border-blue-200 bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
-        >
-          <Ico>🔗</Ico>{t.surfaces.merge_start}
-        </button>
+      {effectiveWallMode === 'CUSTOM' && !selecting && !reordering && !loading && (activeWalls.length >= 2 || mergeableWalls.length >= 2) && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {mergeableWalls.length >= 2 && (
+            <button
+              type="button"
+              aria-label="merge-walls-start"
+              onClick={() => startSelecting()}
+              className="min-h-11 min-w-[9rem] flex-1 px-3 py-2 text-sm rounded-xl border border-blue-200 bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
+            >
+              <Ico>🔗</Ico>{t.surfaces.merge_start}
+            </button>
+          )}
+          {activeWalls.length >= 2 && (
+            <button
+              type="button"
+              aria-label="reorder-walls-start"
+              onClick={() => {
+                setError(null);
+                setSuccess(null);
+                setOrderError(null);
+                setReordering(true);
+              }}
+              className="min-h-11 min-w-[9rem] flex-1 px-3 py-2 text-sm rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 transition"
+            >
+              <Ico>↕️</Ico>{t.surfaces.reorder_start}
+            </button>
+          )}
+        </div>
+      )}
+      {reordering && (
+        <>
+          <p aria-label="reorder-hint" className="mb-3 text-xs text-slate-600 break-words">{t.surfaces.reorder_hint}</p>
+          {orderError && <p role="alert" className="mb-3 text-sm text-red-600 break-words">{orderError}</p>}
+        </>
       )}
       {selecting && (
         <p aria-label="merge-hint" className="mb-3 text-xs text-slate-600 break-words">{t.surfaces.merge_hint}</p>
@@ -893,6 +953,48 @@ export function SurfaceList({
             const openingTypeLabel = (type: 'DOOR' | 'WINDOW' | 'OTHER') =>
               type === 'DOOR' ? t.openings.door : type === 'WINDOW' ? t.openings.window : t.openings.other;
 
+            if (reordering) {
+              if (!isWall || surface.is_archived) return null;
+              const at = activeWallIds.indexOf(surface.id);
+              const buttonClass = 'shrink-0 min-h-11 min-w-11 rounded-xl border border-slate-300 text-lg font-bold text-slate-800 disabled:opacity-30';
+              return (
+                <li
+                  key={surface.id}
+                  aria-label={`surface-item-${surface.id}`}
+                  className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
+                >
+                  <span className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-slate-900 text-sm break-words">{displayName}</span>
+                    {(surface.parts?.length ?? 0) > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-medium">🔗 {surface.parts?.length}</span>
+                    )}
+                    <span className="text-sm font-bold text-emerald-800">
+                      {hasDimensions ? `${formatMetric(surface.net_area ?? surface.gross_area)} ${t.common.unit_m2}` : '—'}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`wall-up-${surface.id}`}
+                    title={t.surfaces.move_wall_up}
+                    disabled={orderBusy || at <= 0}
+                    onClick={() => void moveWall(activeWallIds, surface.id, -1)}
+                    className={buttonClass}
+                  >
+                    <span aria-hidden="true">↑</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`wall-down-${surface.id}`}
+                    title={t.surfaces.move_wall_down}
+                    disabled={orderBusy || at < 0 || at >= activeWallIds.length - 1}
+                    onClick={() => void moveWall(activeWallIds, surface.id, 1)}
+                    className={buttonClass}
+                  >
+                    <span aria-hidden="true">↓</span>
+                  </button>
+                </li>
+              );
+            }
             const partsCount = surface.parts?.length ?? 0;
             const selectedOrder = selectedIds.indexOf(surface.id) >= 0 ? selectedIds.indexOf(surface.id) + 1 : null;
             if (isWall && (selecting || !isCardOpen(surface.id))) {
@@ -1351,6 +1453,28 @@ export function SurfaceList({
             );
           })}
         </ul>
+      )}
+
+      {reordering && (
+        <>
+          <div aria-hidden="true" className="h-24" />
+          <div
+            aria-label="reorder-bar"
+            className="fixed inset-x-0 z-30 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] border-t px-4 py-2"
+            style={{ backgroundColor: 'var(--tg-theme-bg-color)', borderColor: 'var(--tg-theme-secondary-bg-color)' }}
+          >
+            <div className="mx-auto w-full max-w-lg">
+              <button
+                type="button"
+                aria-label="reorder-done"
+                onClick={() => setReordering(false)}
+                className="w-full min-h-11 px-3 text-sm rounded-xl bg-blue-600 text-white font-semibold"
+              >
+                {t.surfaces.reorder_done}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {selecting && (

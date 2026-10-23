@@ -124,3 +124,11 @@ export function duplicateMergedSurface(
     body: JSON.stringify(payload),
   });
 }
+
+/** Sets the order of the active walls of an irregular room (the first id goes first); answers the list as it is now. */
+export function reorderSurfaces(projectId: string, roomId: string, surfaceIds: string[]): Promise<SurfaceListResponse> {
+  return apiRequest(`${surfacesPath(projectId, roomId)}/reorder`, {
+    method: 'POST',
+    body: JSON.stringify({ surface_ids: surfaceIds }),
+  });
+}

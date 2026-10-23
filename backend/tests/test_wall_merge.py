@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.main import app
 from app.models.estimate import Estimate, EstimateLine, EstimateStatus
@@ -273,3 +273,55 @@ async def test_only_a_merged_wall_is_duplicated_this_way(api, http):
     first, _, _ = await _three(api)
     refused = await http.post(f"{_base(api)}/{first.id}/duplicate-merged", json={"name": "Ściana 9"})
     assert refused.status_code == 409 and refused.json()["detail"]["code"] == "WALL_UNMERGE_NOT_MERGED"
+
+
+# --- the order of the walls of a room (backlog: "менять очередность в списке стен") ----------------------------------------------------
+
+
+async def _order(http, api):
+    return [row["id"] for row in (await http.get(_base(api))).json()["items"] if row["surface_type"] == "WALL"]
+
+
+async def test_the_walls_of_an_irregular_room_can_be_put_in_any_order(api, http):
+    first, second, third = await _three(api)
+    await api.db.execute(update(Surface).where(Surface.room_id == api.room).values(position=None))  # legacy walls have no position
+    await api.db.commit()
+    await http.post(f"{_base(api)}/reorder", json={"surface_ids": [str(third.id), str(first.id), str(second.id)]})
+    assert await _order(http, api) == [str(third.id), str(first.id), str(second.id)]
+    response = await http.post(f"{_base(api)}/reorder", json={"surface_ids": [str(second.id), str(third.id), str(first.id)]})
+    assert response.status_code == 200, response.text
+    assert [row["id"] for row in response.json()["items"] if row["surface_type"] == "WALL"] == [str(second.id), str(third.id), str(first.id)]
+    assert await _order(http, api) == [str(second.id), str(third.id), str(first.id)]  # it is kept, not only answered
+
+
+async def test_the_order_survives_a_merge(api, http):
+    first, second, third = await _three(api)
+    await http.post(f"{_base(api)}/reorder", json={"surface_ids": [str(third.id), str(second.id), str(first.id)]})
+    await http.post(f"{_base(api)}/merge", json={"surface_ids": [str(second.id), str(first.id)]})
+    assert await _order(http, api) == [str(third.id), str(second.id)]
+
+
+@pytest.mark.parametrize("case", ["one", "twice", "archived", "stranger", "unknown"])
+async def test_the_order_refuses_wrong_walls(api, http, case):
+    first, second, _ = await _three(api)
+    other_room = (await _make_room(api.db, api.project, name="Kuchnia")).id
+    stranger = await _make_surface(api.db, other_room)
+    second.is_archived = case == "archived"
+    await api.db.commit()
+    ids = {
+        "one": [first.id], "twice": [first.id, first.id], "archived": [first.id, second.id],
+        "stranger": [first.id, stranger.id], "unknown": [first.id, uuid.uuid4()],
+    }[case]
+    response = await http.post(f"{_base(api)}/reorder", json={"surface_ids": [str(i) for i in ids]})
+    assert response.status_code in (404, 409, 422), (case, response.text)
+    assert response.status_code == {"one": 422, "twice": 422, "archived": 422, "stranger": 404, "unknown": 404}[case]
+
+
+async def test_the_four_walls_of_a_rectangular_room_keep_their_places(api, http):
+    room = (await http.post(f"/api/projects/{api.project}/rooms", json={"id": str(uuid.uuid4()), "name": "Prostokąt", "length": "4", "width": "3", "height": "2.5"})).json()
+    base = f"/api/projects/{api.project}/rooms/{room['id']}/surfaces"
+    generated = (await http.post(f"{base}/generate")).json()["items"]
+    walls = [row["id"] for row in generated if row["surface_type"] == "WALL"]
+    assert len(walls) == 4
+    refused = await http.post(f"{base}/reorder", json={"surface_ids": list(reversed(walls))})
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "WALL_REORDER_CANONICAL"

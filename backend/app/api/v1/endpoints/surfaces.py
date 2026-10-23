@@ -23,13 +23,14 @@ from app.schemas.surface import (
     SurfaceMergeRequest,
     SurfacePartUpdate,
     SurfaceRead,
+    SurfaceReorder,
     SurfaceUnmerge,
     SurfaceUpdate,
 )
 
 router = APIRouter()
 
-_MERGE_INPUT_CODES = {"WALL_MERGE_NEED_TWO", "WALL_MERGE_TOO_MANY", "WALL_MERGE_NOT_A_WALL", "WALL_MERGE_NO_SIZE"}
+_MERGE_INPUT_CODES = {"WALL_MERGE_NEED_TWO", "WALL_REORDER_NEED_TWO", "WALL_REORDER_NOT_ACTIVE_WALL", "WALL_MERGE_TOO_MANY", "WALL_MERGE_NOT_A_WALL", "WALL_MERGE_NO_SIZE"}
 
 
 def _merge_http(error: WallMergeError) -> HTTPException:
@@ -435,3 +436,26 @@ async def duplicate_merged_surface(
     except WallMergeError as e:
         raise _merge_http(e)
     return SurfaceRead.model_validate(surface)
+
+
+@router.post(
+    "/projects/{project_id}/rooms/{room_id}/surfaces/reorder",
+    response_model=SurfaceListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Set the order of the active walls of an irregular room",
+)
+async def reorder_surfaces(
+    project_id: uuid.UUID,
+    room_id: uuid.UUID,
+    payload: SurfaceReorder,
+    current_user: User = Depends(get_current_user),
+    surface_service: SurfaceService = Depends(get_surface_service),
+) -> SurfaceListResponse:
+    try:
+        await surface_service.reorder_walls(project_id, room_id, current_user.id, payload.surface_ids)
+        surfaces, total = await surface_service.list_surfaces(project_id, room_id, current_user.id)
+    except (ProjectNotFoundError, RoomNotFoundError, SurfaceNotFoundError) as e:
+        raise _not_found(e)
+    except WallMergeError as e:
+        raise _merge_http(e)
+    return SurfaceListResponse(items=[SurfaceRead.model_validate(surface) for surface in surfaces], total=total)

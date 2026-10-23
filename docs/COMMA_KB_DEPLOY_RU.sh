@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Десятичная запятая и тексты «?» — выкладка БЕЗ миграций: backend (данные базы знаний) + frontend; база, ключи и данные не меняются (голова остаётся 0066).
+# Десятичная запятая, тексты «?» и порядок стен — выкладка БЕЗ миграций: backend (данные базы знаний и один маршрут) + frontend; база, ключи и данные не меняются (голова остаётся 0066).
 # Что меняется: (1) площади, длины, количества, суммы сметы, проценты коэффициентов показываются с запятой (78,37 м²), поля количества и цены сметы принимают и запятую, и точку; расчёты и API не меняются;
+# (3) в списке стен комнаты нестандартной формы кнопка «Zmień kolejność»: стрелки ↑ ↓ у каждой стены, порядок сохраняется сразу (новый маршрут POST …/surfaces/reorder);
 # (2) в базе знаний две новые записи-черновика: «Standard wykończenia powierzchni S1–S4» (кнопка «?» у «Klasa jakości» для S-классов) и «Współczynnik ceny» («?» в окне коэффициента).
 # Откат БЕЗОПАСЕН образами (схема не менялась): теги pre-ck. Останавливается на первом непройденном условии (FAIL). Ворота B: контейнеры пересоздаются только после того, как вы САМИ введёте фразу. Секреты не печатает.
 # Запуск (в НОВОЙ SSH-сессии на VM; файл берётся из origin без pull, поэтому код на VM не меняется до проверок):
@@ -126,10 +127,12 @@ from app.core.startup_checks import production_problems
 print(len(production_problems(settings)))") || fail "G2" "проверка настроек production в контейнере упала. $ROLLALL"
 [ "$PROB" = "0" ] || fail "G2" "в контейнере production-настройки небезопасны ($PROB). $ROLLALL"
 CODE=$(docker exec plan_estimate_backend python -c "
+from app.main import app
 from app.domain.knowledge.catalog import CATALOG_DIR, application_references, read_catalog
 c = read_catalog(CATALOG_DIR, application_references())
 s = c.entry('APP.QUALITY-S'); k = c.entry('APP.COEFFICIENT')
-print(s is not None and s.qualities == ['S1', 'S2', 'S3', 'S4'], k is not None and 'wspolczynnik' in k.tags, len(c.entries) == 36)")
+route = '/api/projects/{project_id}/rooms/{room_id}/surfaces/reorder' in app.openapi()['paths']
+print(s is not None and s.qualities == ['S1', 'S2', 'S3', 'S4'], k is not None and 'wspolczynnik' in k.tags, len(c.entries) == 36 and route)")
 [ "$CODE" = "True True True" ] || fail "G2" "в контейнере нет исправлений этой выкладки: $CODE. $ROLLALL"
 # список доступа (ТОЛЬКО ЧТЕНИЕ): каждый нынешний пользователь допущен, как и до выкладки
 USERS_N=$(PSQL "select count(*) from users"); ENTRIES_N=$(PSQL "select count(*) from access_entries where status = 'ACTIVE'")
@@ -150,7 +153,7 @@ NOTRUN=$(PC ps --format '{{.Name}} {{.State}}' | grep -v ' running' || true); [ 
 PAGE=$(curl -fsS https://plan-estimate.pl/) && has "assets/index-" "$PAGE" || fail "G3" "главная страница не отдаёт сборку. $ROLLALL"
 JS=$(grep -o 'assets/index-[^"]*\.js' <<<"$PAGE" | head -1)
 BUNDLE=$( [ -n "$JS" ] && curl -fsS "https://plan-estimate.pl/$JS" || true )
-for MARK in show-access merge-walls-start merged-parts- duplicate-merged- unmerge-surface- unmerge bottom-nav field-help- show-security; do
+for MARK in show-access reorder-walls-start wall-down- merge-walls-start merged-parts- duplicate-merged- unmerge-surface- unmerge bottom-nav field-help- show-security; do
   has "$MARK" "$BUNDLE" || fail "G3" "в выданной сборке нет '$MARK'. $ROLLALL"
 done
 JS_AFTER="$JS"
@@ -174,5 +177,6 @@ echo "Дальше (по порядку, каждый шаг — после ва
 echo "  1) полностью закройте Telegram и откройте Mini App по кнопке меню: вход как обычно;"
 echo "  2) площади, длины и суммы везде с запятой (78,37 м², 1234,50 PLN, 2,70 м); в смете число в поле количества/цены можно вводить и с запятой (12,5), и с точкой;"
 echo "  3) стена с классом S1–S4 (штукатурка, бетон) → рядом с «Klasa jakości» кнопка «?» с объяснением S1–S4; окно «Współczynnik» → «?» с объяснением коэффициента; оба текста с пометкой «Черновик»;"
-echo "  4) слияние backlog-en-4-6 в main и переключение VM — только по отдельному «да»."
+echo "  4) комната нестандартной формы (несколько ваших стен): над списком стен кнопка «Zmień kolejność» → у каждой стены ↑ ↓ (не меньше пальца), «Gotowe» внизу; порядок сохраняется сразу и остаётся после перезапуска приложения; у комнаты-прямоугольника с четырьмя сгенерированными стенами кнопки нет;"
+echo "  5) слияние backlog-en-4-6 в main и переключение VM — только по отдельному «да»."
 )
