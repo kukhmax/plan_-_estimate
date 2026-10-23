@@ -32,6 +32,9 @@ interface SurfaceRowButtonProps {
   onOpen: () => void;
   /** A long press (about half a second) starts the selection. */
   onLongPress?: () => void;
+  /** A pencil beside the row (an icon only): the name is edited without opening the card. Not shown while walls are being selected. */
+  onEdit?: () => void;
+  editLabel?: string;
 }
 
 const LONG_PRESS_MS = 500;
@@ -42,7 +45,7 @@ const LONG_PRESS_MS = 500;
  */
 export function SurfaceRowButton({
   surfaceId, rowKey, name, typeLabel, area, archivedLabel, workCount, pending, partsLabel, mergedLabel, selecting = false, selectedOrder = null,
-  disabled = false, stayLabel, className, onOpen, onLongPress,
+  disabled = false, stayLabel, className, onOpen, onLongPress, onEdit, editLabel,
 }: SurfaceRowButtonProps) {
   const { t } = useI18n();
   const photos = useProjectPhotos();
@@ -85,7 +88,7 @@ export function SurfaceRowButton({
     if (disabled) return;
     onOpen();
   };
-  return (
+  const row = (
     <button
       type="button"
       aria-label={`surface-row-${key}`}
@@ -130,5 +133,20 @@ export function SurfaceRowButton({
       <span aria-label={`surface-row-area-${key}`} className="shrink-0 text-sm font-bold text-emerald-800">{area}</span>
       <span aria-hidden="true" className="shrink-0 text-slate-500">▾</span>
     </button>
+  );
+  if (!onEdit || selecting) return row;
+  return (
+    <div className="flex items-stretch gap-1.5">
+      <div className="min-w-0 flex-1 flex">{row}</div>
+      <button
+        type="button"
+        aria-label={`edit-surface-${key}`}
+        title={editLabel}
+        onClick={onEdit}
+        className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 pe-pill text-base"
+      >
+        <span aria-hidden="true">✏️</span>
+      </button>
+    </div>
   );
 }

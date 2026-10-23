@@ -1065,6 +1065,8 @@ export function SurfaceList({
                     pending={surface._pending}
                     className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
                     onOpen={() => (selecting ? toggleSelected(surface.id) : toggleCard(surface.id))}
+                    onEdit={() => startEdit(surface)}
+                    editLabel={t.common.edit}
                   />
                 </li>
               );
@@ -1109,7 +1111,8 @@ export function SurfaceList({
                       <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">{headerContent}</div>
                     );
                   })()}
-                  {/* The name is edited from its own pencil (an icon only), next to the name: for every wall, simple or merged. */}
+                  {/* The name of a wall is edited by the pencil of its collapsed row (an icon only); the other cards have it here. */}
+                  {!isWall && (
                   <button
                     type="button"
                     aria-label={`edit-surface-${surface.id}`}
@@ -1119,6 +1122,7 @@ export function SurfaceList({
                   >
                     <span aria-hidden="true">✏️</span>
                   </button>
+                  )}
                   {/* Stage 14E.7: the compact photo button sits in the header, left of Opcje (no row of its own);
                       nothing without a project context. */}
                   <PhotoCardButton context="SURFACE" targetId={surface.id} />

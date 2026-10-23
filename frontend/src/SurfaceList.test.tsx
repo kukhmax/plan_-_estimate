@@ -82,6 +82,13 @@ function expandOptions(surfaceId: string) {
   fireEvent.click(screen.getByLabelText(`options-toggle-${surfaceId}`));
 }
 
+// the pencil is on the collapsed row of a wall (owner, V2-1): an open card is folded first
+function pencil(surfaceId: string) {
+  const fold = screen.queryByLabelText(`card-collapse-${surfaceId}`);
+  if (fold) fireEvent.click(fold);
+  return screen.getByLabelText(`edit-surface-${surfaceId}`);
+}
+
 // the calculation of the area is folded behind a tap on the net area (usability U-7); the older tests about its figures see it open
 let stopAutoOpenAreas: (() => void) | undefined;
 beforeEach(() => {
@@ -152,7 +159,7 @@ describe('SurfaceList', () => {
     await waitFor(() =>
       expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByLabelText(`edit-surface-${surface.id}`));
+    fireEvent.click(pencil(surface.id));
     fireEvent.change(screen.getByLabelText('surface-name'), { target: { value: 'Ściana nowa' } });
     fireEvent.submit(screen.getByLabelText('surface-form'));
 
@@ -180,8 +187,9 @@ describe('SurfaceList', () => {
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
+    expect(pencil(surface.id)).toHaveClass('min-h-11');
+    fireEvent.click(screen.getByLabelText(`surface-row-${surface.id}`));
     expandOptions(surface.id);
-    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`)).toHaveClass('min-h-11');
@@ -297,7 +305,7 @@ describe('SurfaceList', () => {
     expect(screen.getByText('=')).toBeInTheDocument();
 
     // Verify form inputMode="decimal"
-    fireEvent.click(screen.getByLabelText(`edit-surface-${surface.id}`));
+    fireEvent.click(pencil(surface.id));
     expect(screen.getByLabelText('surface-width')).toHaveAttribute('inputMode', 'decimal');
     expect(screen.getByLabelText('surface-height')).toHaveAttribute('inputMode', 'decimal');
   });
@@ -819,7 +827,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     expect(await screen.findByText('Ściana 1')).toBeInTheDocument();
     expect(screen.queryByText('Wall 1')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText(`edit-surface-${generatedWall.id}`));
+    fireEvent.click(pencil(generatedWall.id));
     expect(screen.getByLabelText('surface-name')).toHaveValue('Wall 1');
     expect(surfacesApi.updateSurface).not.toHaveBeenCalled();
   });

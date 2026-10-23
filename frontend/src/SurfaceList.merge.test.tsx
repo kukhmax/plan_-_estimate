@@ -217,10 +217,9 @@ describe('merging walls: a merged wall', () => {
   it('renames a merged wall: a sheet over the list that sends the name and the description only', async () => {
     vi.mocked(surfacesApi.updateSurface).mockResolvedValue(merged);
     renderList();
-    fireEvent.click(await screen.findByLabelText(`surface-row-${W1.id}`));
-    const pencil = await screen.findByLabelText(`edit-surface-${W1.id}`); // the pencil next to the name, no Opcje needed
+    const pencil = await screen.findByLabelText(`edit-surface-${W1.id}`); // the pencil of the collapsed row: the card is not opened
     expect(pencil).toHaveTextContent(/^✏️$/); // an icon only, no word
-    expect(pencil.closest('li')).toContainElement(screen.getByLabelText(`card-collapse-${W1.id}`));
+    expect(pencil.closest('li')).toContainElement(screen.getByLabelText(`surface-row-${W1.id}`));
     fireEvent.click(pencil);
     const sheet = await screen.findByRole('dialog', { name: 'Edytuj powierzchnię' });
     expect(sheet).toContainElement(screen.getByLabelText('surface-form'));
@@ -235,7 +234,6 @@ describe('merging walls: a merged wall', () => {
 
   it('closes the sheet with Escape', async () => {
     renderList();
-    fireEvent.click(await screen.findByLabelText(`surface-row-${W1.id}`));
     fireEvent.click(await screen.findByLabelText(`edit-surface-${W1.id}`)); // the pencil next to the name, no Opcje needed
     await screen.findByLabelText('surface-form');
     fireEvent.keyDown(window, { key: 'Escape' });
