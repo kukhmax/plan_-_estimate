@@ -43,7 +43,7 @@ async def run(argv: list[str], out=sys.stdout, stdin=sys.stdin) -> int:
                 return EXIT_OK
             typed = stdin.readline().rstrip("\n") if args.password_stdin else None
             if args.command == "create":
-                user, password = await service.create_account(args.email, args.name, typed)
+                _, password = await service.create_account(args.email, args.name, typed)
                 print(f"account made: {args.email.strip().lower()}", file=out)
             else:
                 password = await service.set_password(args.email, typed)

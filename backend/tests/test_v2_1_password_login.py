@@ -167,7 +167,7 @@ async def test_an_e_mail_is_taken_once(db_session):
 
 
 async def test_the_command_line_makes_lists_and_changes(db_session, monkeypatch):
-    from tests.conftest import TestingSessionLocal  # noqa: PLC0415
+    from tests.conftest import TestingSessionLocal
 
     monkeypatch.setattr(users_cli, "async_session_maker", TestingSessionLocal)
     out = io.StringIO()
@@ -209,8 +209,8 @@ async def test_set_password_clears_a_lock(db_session):
 
 
 async def test_a_document_is_not_sent_to_a_chat_that_does_not_exist():
-    from app.domain.documents.delivery import TelegramBotApiDelivery  # noqa: PLC0415
-    from app.domain.exceptions import DocumentChatUnavailableError  # noqa: PLC0415
+    from app.domain.documents.delivery import TelegramBotApiDelivery
+    from app.domain.exceptions import DocumentChatUnavailableError
 
     delivery = TelegramBotApiDelivery("123:abc")  # no transport: a call would reach for the network
     with pytest.raises(DocumentChatUnavailableError):
