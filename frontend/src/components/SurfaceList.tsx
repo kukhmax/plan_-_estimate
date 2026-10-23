@@ -1,5 +1,6 @@
 import { INSPECT_BUTTON_WITH_BADGE, InspectionPhotoBadge } from './ExecutionPhotoBadge';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ApiError } from '../api/http';
 import { fetchOpenings } from '../api/openings';
 import {
@@ -16,6 +17,7 @@ import {
   updateSurfacePart,
 } from '../api/surfaces';
 import { useI18n } from '../hooks/useI18n';
+import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { OpeningType, OpeningTypeValue } from '../types/opening';
 import {
   SurfaceCreatePayload,
@@ -119,6 +121,8 @@ export function SurfaceList({
   const [form, setForm] = useState<SurfaceFormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  // a merged wall is renamed and described here; its size is edited by its parts (the form then has no type and size fields)
+  const [editingMerged, setEditingMerged] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [expandedOpenings, setExpandedOpenings] = useState<Record<string, boolean>>({});
@@ -516,13 +520,27 @@ export function SurfaceList({
   const closeForm = () => {
     setShowForm(false);
     setEditingId(null);
+    setEditingMerged(false);
     setForm(EMPTY_FORM);
     setFormError(null);
   };
 
+  // the form is a sheet over the walls: Escape and the Telegram BackButton close it
+  useTelegramBackButton(showForm, closeForm);
+  useEffect(() => {
+    if (!showForm) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeForm();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm]);
+
   const startEdit = (surface: SurfaceType) => {
     setSuccess(null);
     setEditingId(surface.id);
+    setEditingMerged((surface.parts?.length ?? 0) > 0);
     setForm({
       name: surface.name,
       surface_type: surface.surface_type,
@@ -538,6 +556,22 @@ export function SurfaceList({
     event.preventDefault();
     setSaving(true);
     setFormError(null);
+
+    if (editingId && editingMerged) {
+      // the size of a merged wall is the size of its parts: only the name and the description are sent
+      try {
+        await updateSurface(projectId, roomId, editingId, { name: form.name.trim(), description: form.description.trim() || null });
+        setSuccess(t.surfaces.updated);
+        closeForm();
+        await load();
+        onMeasurementChanged?.();
+      } catch (err) {
+        setFormError(err instanceof Error ? err.message : t.surfaces.error);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
 
     const widthVal = form.width.trim() ? parseFloat(form.width.trim()) : null;
     const heightVal = form.height.trim() ? parseFloat(form.height.trim()) : null;
@@ -837,11 +871,17 @@ export function SurfaceList({
         <p aria-label="merge-hint" className="mb-3 text-xs text-slate-600 break-words">{t.surfaces.merge_hint}</p>
       )}
 
-      {showForm && (
+      {showForm && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={editingId ? t.surfaces.edit : t.surfaces.add}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50"
+        >
         <form
           aria-label="surface-form"
           onSubmit={handleSubmit}
-          className="pe-card rounded-2xl p-4 mb-4 shadow-sm space-y-3"
+          className="pe-card w-full max-w-lg rounded-t-2xl sm:rounded-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-xl space-y-3 max-h-[92vh] overflow-y-auto"
         >
           <h4 className="font-semibold text-slate-900">
             {editingId ? t.surfaces.edit : t.surfaces.add}
@@ -855,6 +895,10 @@ export function SurfaceList({
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
             className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
+          {editingMerged ? (
+            <p aria-label="merged-size-hint" className="text-xs text-slate-600 break-words">{t.surfaces.merged_size_hint}</p>
+          ) : (
+          <>
           <select
             aria-label="surface-type"
             value={form.surface_type}
@@ -891,6 +935,8 @@ export function SurfaceList({
               />
             </div>
           </div>
+          </>
+          )}
 
           <textarea
             aria-label="surface-description"
@@ -918,6 +964,8 @@ export function SurfaceList({
             </button>
           </div>
         </form>
+        </div>,
+        document.body,
       )}
 
       {success && <p role="status" className="text-sm text-emerald-700 mb-3">{success}</p>}

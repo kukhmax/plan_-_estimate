@@ -820,6 +820,7 @@
     "part_label": "Część {n}",
     "merged_badge": "Połączona ({count})",
     "merged_into": "Połączona z: {name}",
+    "merged_size_hint": "Rozmiar połączonej ściany zmienia się w jej częściach (na karcie ściany). Tutaj można zmienić nazwę i opis.",
     "unmerge": "Rozłącz",
     "unmerge_confirm": "Rozłączyć? Ściany wrócą ze swoimi zdjęciami i otworami; to, co dodano po połączeniu, zostaje na tej ścianie.",
     "unmerge_confirm_yes": "Rozłącz",

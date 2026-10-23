@@ -214,6 +214,33 @@ describe('merging walls: a merged wall', () => {
     await waitFor(() => expect(surfacesApi.updateSurfacePart).toHaveBeenCalledWith(projectId, roomId, W1.id, 'part-2', { width: 3, height: 2.5 }));
   });
 
+  it('renames a merged wall: a sheet over the list that sends the name and the description only', async () => {
+    vi.mocked(surfacesApi.updateSurface).mockResolvedValue(merged);
+    renderList();
+    fireEvent.click(await screen.findByLabelText(`surface-row-${W1.id}`));
+    fireEvent.click(await screen.findByLabelText(`options-toggle-${W1.id}`));
+    fireEvent.click(await screen.findByLabelText(`edit-surface-${W1.id}`));
+    const sheet = await screen.findByRole('dialog', { name: 'Edytuj powierzchnię' });
+    expect(sheet).toContainElement(screen.getByLabelText('surface-form'));
+    expect(screen.queryByLabelText('surface-width')).toBeNull(); // the size is the parts
+    expect(screen.queryByLabelText('surface-type')).toBeNull();
+    expect(screen.getByLabelText('merged-size-hint')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('surface-name'), { target: { value: 'Ściana północna' } });
+    fireEvent.submit(screen.getByLabelText('surface-form'));
+    await waitFor(() => expect(surfacesApi.updateSurface).toHaveBeenCalledWith(projectId, roomId, W1.id, { name: 'Ściana północna', description: null }));
+    await waitFor(() => expect(screen.queryByLabelText('surface-form')).toBeNull());
+  });
+
+  it('closes the sheet with Escape', async () => {
+    renderList();
+    fireEvent.click(await screen.findByLabelText(`surface-row-${W1.id}`));
+    fireEvent.click(await screen.findByLabelText(`options-toggle-${W1.id}`));
+    fireEvent.click(await screen.findByLabelText(`edit-surface-${W1.id}`));
+    await screen.findByLabelText('surface-form');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByLabelText('surface-form')).toBeNull();
+  });
+
   it('separates the wall after one confirmation', async () => {
     vi.mocked(surfacesApi.unmergeSurface).mockResolvedValue(W1);
     renderList();
