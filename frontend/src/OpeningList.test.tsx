@@ -114,8 +114,8 @@ describe('OpeningList', () => {
 
     await waitFor(() => expect(screen.getByText('Drzwi')).toBeInTheDocument());
     expect(screen.getByText('(Drzwi pokojowe)')).toBeInTheDocument();
-    expect(screen.getByText(/0\.90 × 2\.00 m/)).toBeInTheDocument();
-    expect(screen.getByText(/1\.80 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/0,90 × 2,00 m/)).toBeInTheDocument();
+    expect(screen.getByText(/1,80 m²/)).toBeInTheDocument();
     expect(screen.getByText('Standardowe drzwi')).toBeInTheDocument();
   });
 
@@ -125,8 +125,8 @@ describe('OpeningList', () => {
 
     await waitFor(() => expect(screen.getByText('Okno')).toBeInTheDocument());
     expect(screen.getByText('×2')).toBeInTheDocument();
-    expect(screen.getByText(/1\.50 × 1\.40 m/)).toBeInTheDocument();
-    expect(screen.getByText(/4\.20 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/1,50 × 1,40 m/)).toBeInTheDocument();
+    expect(screen.getByText(/4,20 m²/)).toBeInTheDocument();
   });
 
   it('calculates live area preview when filling opening dimensions and quantity', async () => {
@@ -141,11 +141,11 @@ describe('OpeningList', () => {
 
     const preview = screen.getByLabelText('opening-preview-area');
     expect(preview).toBeInTheDocument();
-    expect(preview).toHaveTextContent('1.80 m²');
+    expect(preview).toHaveTextContent('1,80 m²');
 
     // Change quantity to 2 -> shows total preview
     fireEvent.change(screen.getByLabelText('opening-quantity'), { target: { value: '2' } });
-    expect(preview).toHaveTextContent('3.60 m²');
+    expect(preview).toHaveTextContent('3,60 m²');
   });
 
   it('creates an opening and notifies parent via onOpeningChanged', async () => {
@@ -476,7 +476,7 @@ describe('OpeningList dimension defaults (Stage 5D.1A.1)', () => {
     expect(openingsApi.updateOpening).not.toHaveBeenCalled();
     expect(openingsApi.archiveOpening).not.toHaveBeenCalled();
     // The existing opening row is untouched
-    expect(screen.getByText(/0\.90 × 2\.00 m/)).toBeInTheDocument();
+    expect(screen.getByText(/0,90 × 2,00 m/)).toBeInTheDocument();
   });
 });
 
@@ -616,8 +616,8 @@ describe('OpeningList reveals (Stage 5F)', () => {
     const card = screen.getByLabelText(`opening-item-${openingWindow.id}`);
     expect(card).toHaveTextContent('Ościeża');
     // Stage 10G.4 follow-up — reveal length renders localized "mb", never raw "LM"/plain "m".
-    expect(card).toHaveTextContent('4.30 mb');
-    expect(card).toHaveTextContent('0.65 m²');
+    expect(card).toHaveTextContent('4,30 mb');
+    expect(card).toHaveTextContent('0,65 m²');
     expect(card.textContent).not.toMatch(/\bLM\b/);
   });
 
@@ -635,7 +635,7 @@ describe('OpeningList reveals (Stage 5F)', () => {
 
     await waitFor(() => expect(screen.getByLabelText(`opening-item-${openingWindow.id}`)).toBeInTheDocument());
     const card = screen.getByLabelText(`opening-item-${openingWindow.id}`);
-    expect(card).toHaveTextContent('4.30 пог. м');
+    expect(card).toHaveTextContent('4,30 пог. м');
     expect(card.textContent).not.toMatch(/\bLM\b/);
   });
 
@@ -704,8 +704,8 @@ describe('OpeningList — reveal work planning entry', () => {
     fireEvent.click(screen.getByLabelText(`reveal-work-toggle-${openingWithReveal.id}`));
 
     const geometry = await screen.findByLabelText(`reveal-geometry-${openingWithReveal.id}`);
-    expect(geometry.textContent).toContain('4.30');
-    expect(geometry.textContent).toContain('0.65');
+    expect(geometry.textContent).toContain('4,30');
+    expect(geometry.textContent).toContain('0,65');
   });
 
   it('only one reveal work editor is open at a time across multiple reveal-enabled openings', async () => {
@@ -755,7 +755,7 @@ describe('OpeningList — owner walkthrough layout and reveal sides', () => {
   it('shows existing openings (with geometry and reveal action) before the new-opening controls', async () => {
     renderOpenings();
     const item = await screen.findByLabelText(`opening-item-${openingWithReveal.id}`);
-    expect(item).toHaveTextContent('4.30');
+    expect(item).toHaveTextContent('4,30');
     const add = screen.getByLabelText(`add-opening-${surfaceId}`);
     expect(follows(item, add)).toBe(true);
     expect(add.className).toContain('min-h-[44px]');

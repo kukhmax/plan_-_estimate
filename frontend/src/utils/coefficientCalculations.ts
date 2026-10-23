@@ -78,12 +78,12 @@ export function formatPercentageDisplay(percentage: string): string {
   const intPart = absVal / factor;
   const fracPart = (absVal % factor).toString().padStart(scale, '0');
 
-  // Trim trailing zeros completely for display: 20.0000 -> 20, 20.5000 -> 20.5
+  // Trim trailing zeros completely for display, with the decimal comma of PL / RU: 20.0000 -> 20, 20.5000 -> 20,5
   let end = fracPart.length;
   while (end > 0 && fracPart[end - 1] === '0') {
     end--;
   }
-  const fracStr = end > 0 ? `.${fracPart.slice(0, end)}` : '';
+  const fracStr = end > 0 ? `,${fracPart.slice(0, end)}` : '';
   const numStr = `${intPart}${fracStr}`;
   return isPositive ? `+${numStr}%` : `-${numStr}%`;
 }

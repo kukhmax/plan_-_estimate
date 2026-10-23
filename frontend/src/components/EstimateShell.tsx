@@ -6,7 +6,7 @@ import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, Estimat
 import { PRICE_UNITS, type PriceScopeValue, type PriceUnitValue } from '../types/priceItem';
 import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatPercentageDisplay, sumPercentages } from '../utils/coefficientCalculations';
-import { formatDecimalMoney, formatQuantity, signedMoneyDifference } from '../utils/format';
+import { commaDecimal, dotDecimal, formatDecimalMoney, formatQuantity, signedMoneyDifference } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
 import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
@@ -49,7 +49,7 @@ interface EstimateGroup {
 // Client-side shape guard only — never converts to Number. The backend
 // remains the sole authority on whether a decimal string is acceptable.
 function isValidDecimalString(value: string): boolean {
-  return /^\d+(\.\d+)?$/.test(value.trim());
+  return /^\d+(\.\d+)?$/.test(dotDecimal(value)); // a typed comma ("12,5") counts: it is sent as the dot text
 }
 
 // Stage 10G.3D — recognizes ONLY the known EstimateService.finalize
@@ -200,9 +200,9 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
 
   const beginEdit = (line: EstimateLineRead) => {
     setEditingLineId(line.id);
-    setEditQuantity(line.quantity);
+    setEditQuantity(commaDecimal(line.quantity));
     setEditPriceMode(line.unit_price === null ? 'unresolved' : 'value');
-    setEditUnitPrice(line.unit_price ?? '');
+    setEditUnitPrice(commaDecimal(line.unit_price ?? ''));
     setActionError(null);
   };
 
@@ -217,24 +217,24 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const submitEdit = async (line: EstimateLineRead) => {
     const payload: EstimateLineUpdatePayload = {};
 
-    if (editQuantity !== line.quantity) {
+    if (dotDecimal(editQuantity) !== line.quantity) {
       if (!isValidDecimalString(editQuantity)) {
         setActionError({ lineId: line.id, message: t.estimates.line_edit_invalid_number });
         return;
       }
-      payload.quantity = editQuantity;
+      payload.quantity = dotDecimal(editQuantity);
     }
 
     if (editPriceMode === 'unresolved') {
       if (line.unit_price !== null) payload.unit_price = null;
     } else {
       const currentPrice = line.unit_price ?? '';
-      if (editUnitPrice !== currentPrice) {
+      if (dotDecimal(editUnitPrice) !== currentPrice) {
         if (!isValidDecimalString(editUnitPrice)) {
           setActionError({ lineId: line.id, message: t.estimates.line_edit_invalid_number });
           return;
         }
-        payload.unit_price = editUnitPrice;
+        payload.unit_price = dotDecimal(editUnitPrice);
       }
     }
 
@@ -312,7 +312,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     if (uniquePrices.size === 1) {
       const value = prices[0];
       setGroupPriceMode(value === null ? 'unresolved' : 'value');
-      setGroupUnitPrice(value ?? '');
+      setGroupUnitPrice(commaDecimal(value ?? ''));
       setGroupPriceMixed(false);
     } else {
       setGroupPriceMode('value');
@@ -340,7 +340,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
         setGroupActionError({ groupKey: group.key, message: t.estimates.line_edit_invalid_number });
         return;
       }
-      payload = { unit_price: groupUnitPrice };
+      payload = { unit_price: dotDecimal(groupUnitPrice) };
     }
 
     setGroupActionBusyKey(group.key);
@@ -478,14 +478,14 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
         setManualError(t.estimates.line_edit_invalid_number);
         return;
       }
-      unitPrice = manualUnitPrice;
+      unitPrice = dotDecimal(manualUnitPrice);
     }
 
     const payload: ManualLineCreatePayload = {
       description: trimmedDescription,
       scope: manualScope,
       unit: manualUnit,
-      quantity: manualQuantity,
+      quantity: dotDecimal(manualQuantity),
       unit_price: unitPrice,
       currency: detail.currency,
     };
@@ -1450,7 +1450,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                     <p>{t.estimates.quantity_overridden}</p>
                     {line.source_quantity !== null && (
                       <p className="text-slate-400">
-                        {t.estimates.source_quantity}: {line.source_quantity} {unitLabel(line.unit)}
+                        {t.estimates.source_quantity}: {formatQuantity(line.source_quantity, line.unit)} {unitLabel(line.unit)}
                       </p>
                     )}
                   </div>

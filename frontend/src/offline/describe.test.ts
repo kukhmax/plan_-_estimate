@@ -34,9 +34,9 @@ describe('why the server refused a change (Stage 19E)', () => {
 
 describe('the preview of an area the phone only knows (Q5 (b))', () => {
   it('is the typed width times height, to two decimals', () => {
-    expect(previewArea('3.73', '2.68')).toBe('10.00');
-    expect(previewArea(3.73, 2.68)).toBe('10.00');
-    expect(previewArea('4', 2.5)).toBe('10.00');
+    expect(previewArea('3.73', '2.68')).toBe('10,00');
+    expect(previewArea(3.73, 2.68)).toBe('10,00');
+    expect(previewArea('4', 2.5)).toBe('10,00');
   });
   it.each([[null, 2], [2, undefined], ['', 3], ['abc', 3], [0, 3], [-1, 3], [{}, 3]])('is nothing for %j × %j', (w, h) => {
     expect(previewArea(w, h)).toBeNull();

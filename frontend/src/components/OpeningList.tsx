@@ -176,9 +176,9 @@ export function OpeningList({
   const parsedQuantity = parseInt(form.quantity.trim(), 10) || 1;
   const hasValidDimensions = !Number.isNaN(parsedWidth) && parsedWidth > 0 &&
                              !Number.isNaN(parsedHeight) && parsedHeight > 0;
-  const previewSingleArea = hasValidDimensions ? (parsedWidth * parsedHeight).toFixed(2) : null;
+  const previewSingleArea = hasValidDimensions ? (parsedWidth * parsedHeight).toFixed(2).replace('.', ',') : null;
   const previewTotalArea = hasValidDimensions && parsedQuantity >= 1
-    ? (parsedWidth * parsedHeight * parsedQuantity).toFixed(2)
+    ? (parsedWidth * parsedHeight * parsedQuantity).toFixed(2).replace('.', ',')
     : null;
 
   const handleSubmit = async (event: FormEvent) => {

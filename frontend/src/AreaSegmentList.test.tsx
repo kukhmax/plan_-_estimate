@@ -209,10 +209,10 @@ describe('AreaSegmentList', () => {
     await expandPlane('ceiling');
     await waitFor(() => expect(screen.getByText('Parkiet wejście')).toBeInTheDocument());
     expect(screen.getAllByText('Dodanie')).toHaveLength(2);
-    expect(screen.getByText(/3\.00 × 2\.00 m/)).toBeInTheDocument();
-    expect(screen.getByText('6.00 m²')).toBeInTheDocument();
+    expect(screen.getByText(/3,00 × 2,00 m/)).toBeInTheDocument();
+    expect(screen.getByText('6,00 m²')).toBeInTheDocument();
     expect(screen.getByText('Sufit salon')).toBeInTheDocument();
-    expect(screen.getByText('10.00 m²')).toBeInTheDocument();
+    expect(screen.getByText('10,00 m²')).toBeInTheDocument();
   });
 
   it('computes "Razem" plane totals as additions minus subtractions', async () => {
@@ -223,7 +223,7 @@ describe('AreaSegmentList', () => {
     renderAreaSegments();
 
     // Floor net = 6.000 - 1.000 = 5.000
-    await waitFor(() => expect(screen.getByText(/Razem: 5\.00 m²/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Razem: 5,00 m²/)).toBeInTheDocument());
   });
 
   it('renders mobile-optimized decimal inputs in the segment form', async () => {
@@ -440,9 +440,9 @@ describe('AreaSegmentList', () => {
     });
     renderAreaSegments();
 
-    await waitFor(() => expect(screen.getAllByText(/Razem: 12\.21 m²/)).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText(/Razem: 12,21 m²/)).toHaveLength(2));
     expect(screen.getAllByText('Powierzchnia bazowa')).toHaveLength(2);
-    expect(screen.getAllByText('12.21 m²').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('12,21 m²').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Korekty')).toHaveLength(2);
     // Empty-state copy is still present for the no-segments list (behind Opcje)
     await expandPlane('floor');
@@ -456,15 +456,15 @@ describe('AreaSegmentList', () => {
     });
     vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValueOnce({ items: [], total: 0, planes: planes('9.470') });
     const view = render(areaList('3.73|2.54|2.68'));
-    await waitFor(() => expect(screen.getAllByText(/Razem: 9\.47 m²/)).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText(/Razem: 9,47 m²/)).toHaveLength(2));
 
     vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0, planes: planes('8.650') });
     view.rerender(areaList('3.73|2.54|2.68'));
     expect(areaSegmentsApi.fetchAreaSegments).toHaveBeenCalledTimes(1);
 
     view.rerender(areaList('3.73|2.32|2.68'));
-    await waitFor(() => expect(screen.getAllByText(/Razem: 8\.65 m²/)).toHaveLength(2));
-    expect(screen.queryByText(/Razem: 9\.47 m²/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText(/Razem: 8,65 m²/)).toHaveLength(2));
+    expect(screen.queryByText(/Razem: 9,47 m²/)).not.toBeInTheDocument();
     expect(areaSegmentsApi.fetchAreaSegments).toHaveBeenCalledTimes(2);
   });
 
@@ -479,9 +479,9 @@ describe('AreaSegmentList', () => {
     });
     renderAreaSegments();
 
-    await waitFor(() => expect(screen.getByText(/Razem: 11\.65 m²/)).toBeInTheDocument());
-    expect(screen.getByText('-0.56 m²')).toBeInTheDocument();
-    expect(screen.getByText(/Razem: 12\.21 m²/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/Razem: 11,65 m²/)).toBeInTheDocument());
+    expect(screen.getByText('-0,56 m²')).toBeInTheDocument();
+    expect(screen.getByText(/Razem: 12,21 m²/)).toBeInTheDocument();
   });
 
   it('does not fabricate a base total for a custom room without segments', async () => {
@@ -499,7 +499,7 @@ describe('AreaSegmentList', () => {
     await waitFor(() => expect(screen.getByText('Brak prostokątów podłogi')).toBeInTheDocument());
     // No base-area row and no fabricated 0.000 total badge
     expect(screen.queryByText('Powierzchnia bazowa')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Razem: 0\.000 m²/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Razem: 0,000 m²/)).not.toBeInTheDocument();
   });
 });
 
@@ -682,7 +682,7 @@ describe('AreaSegmentList plane-card parity (10C.1B)', () => {
 
     expect(await screen.findByLabelText(`work-plan-${floorSurfaceId}`)).toBeInTheDocument();
     expect(screen.getByLabelText(`work-plan-${ceilingSurfaceId}`)).toBeInTheDocument();
-    expect(screen.getAllByText(/Razem: 12\.21 m²/)).toHaveLength(2);
+    expect(screen.getAllByText(/Razem: 12,21 m²/)).toHaveLength(2);
   });
 });
 
@@ -921,7 +921,7 @@ describe('Floor and ceiling rows (Stage 18H)', () => {
     const ceiling = await screen.findByLabelText('surface-row-plane-ceiling');
     expect(ceiling).toHaveTextContent('Sufit');
     await waitFor(() => expect(screen.getByLabelText('surface-row-photos-plane-ceiling')).toHaveTextContent('1'));
-    expect(screen.getByLabelText('surface-row-area-plane-ceiling')).toHaveTextContent('20.00 m²');
+    expect(screen.getByLabelText('surface-row-area-plane-ceiling')).toHaveTextContent('20,00 m²');
     expect(screen.getByLabelText('surface-row-plane-floor')).toHaveTextContent('Podłoga');
     expect(screen.getByLabelText('surface-row-photos-plane-floor')).toHaveTextContent('4');
     expect(ceiling.className).toContain('min-h-11');
@@ -954,7 +954,7 @@ describe('Floor and ceiling rows (Stage 18H)', () => {
 
   it('follows a corrected room size: the row shows the new area', async () => {
     const view = renderRows();
-    await waitFor(() => expect(screen.getByLabelText('surface-row-area-plane-floor')).toHaveTextContent('20.00 m²'));
+    await waitFor(() => expect(screen.getByLabelText('surface-row-area-plane-floor')).toHaveTextContent('20,00 m²'));
     vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [], total: 0, planes: planes('8.650') });
     view.rerender(
       <I18nProvider>
@@ -963,7 +963,7 @@ describe('Floor and ceiling rows (Stage 18H)', () => {
         </ProjectPhotosContext.Provider>
       </I18nProvider>,
     );
-    await waitFor(() => expect(screen.getByLabelText('surface-row-area-plane-floor')).toHaveTextContent('8.65 m²'));
+    await waitFor(() => expect(screen.getByLabelText('surface-row-area-plane-floor')).toHaveTextContent('8,65 m²'));
   });
 
   it('speaks Russian', async () => {
@@ -992,8 +992,8 @@ describe('AreaSegmentList: the rows of the rectangles (owner request, Stage 19)'
     const name = screen.getByText('Parkiet w przedpokoju przy wejściu głównym');
     expect(name.className).toMatch(/break-words/);
     expect(name.className).not.toMatch(/truncate/); // the name is never cut to "Co …"
-    expect(row).toHaveTextContent('3.00 × 2.00 m = 6.00 m²');
-    const numbers = within(row).getByText(/3\.00 × 2\.00 m/).closest('p');
+    expect(row).toHaveTextContent('3,00 × 2,00 m = 6,00 m²');
+    const numbers = within(row).getByText(/3,00 × 2,00 m/).closest('p');
     expect(numbers?.className).toMatch(/break-words/);
     const buttons = within(row).getByLabelText(`edit-segment-${floorAdd.id}`).parentElement;
     expect(buttons?.className).toMatch(/flex-wrap/);
@@ -1036,7 +1036,7 @@ describe('AreaSegmentList: the rows of the rectangles (owner request, Stage 19)'
     fireEvent.change(screen.getByLabelText('segment-width'), { target: { value: '400' } });
     fireEvent.submit(screen.getByLabelText('floor-segment-form'));
 
-    expect(await screen.findByText(/4\.00 × 2\.00 m/)).toBeInTheDocument();
+    expect(await screen.findByText(/4,00 × 2,00 m/)).toBeInTheDocument();
     expect(screen.queryByLabelText(`segment-editing-${floorAdd.id}`)).toBeNull();
   });
 });

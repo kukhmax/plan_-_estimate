@@ -311,11 +311,11 @@ describe('CommunicationPanel (Stage 8C)', () => {
     });
     renderPanel();
     fireEvent.click(await screen.findByLabelText(/Na podłożu stwierdziłem nierówności.*Dlaczego\?/));
-    expect(await screen.findByText('Nierówności podłoża — 3.00 mm')).toBeInTheDocument();
+    expect(await screen.findByText('Nierówności podłoża — 3,00 mm')).toBeInTheDocument();
     expect(screen.getByText('Luzne — Tak')).toBeInTheDocument();
     expect(screen.getByText('Uwagi — spalling')).toBeInTheDocument();
     // 13.515 rounds to 13.52 (toFixed) — not 13.51, not a 3-digit tail.
-    expect(screen.getByText('Czy płyty g-k się ruszają? — 13.52 mm')).toBeInTheDocument();
+    expect(screen.getByText('Czy płyty g-k się ruszają? — 13,52 mm')).toBeInTheDocument();
     // Machine finding keys never leak into the disclosure.
     expect(screen.queryByText(/checklist\./)).not.toBeInTheDocument();
     expect(screen.queryByText(/UNEVENNESS/)).not.toBeInTheDocument();

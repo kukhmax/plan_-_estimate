@@ -187,7 +187,7 @@ describe('version list rendering', () => {
     renderComponent();
 
     await screen.findByLabelText('estimates-list');
-    expect(screen.getByLabelText('estimate-version-1').textContent).toContain('1234.56');
+    expect(screen.getByLabelText('estimate-version-1').textContent).toContain('1234,56');
     expect(screen.getByLabelText('estimate-version-1').textContent).toContain('PLN');
   });
 

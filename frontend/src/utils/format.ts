@@ -1,3 +1,13 @@
+/** The decimal comma of PL and RU for DISPLAY only: "78.37" -> "78,37". The data, the API and the calculations keep the dot. */
+export function commaDecimal(text: string): string {
+  return text.replace('.', ',');
+}
+
+/** What a person typed ("12,5", " 12.5 ") as the dot text the API takes ("12.5"). */
+export function dotDecimal(text: string): string {
+  return text.trim().replace(',', '.');
+}
+
 export function formatMetric(
   value: string | number | null | undefined,
   decimals = 2,
@@ -5,24 +15,24 @@ export function formatMetric(
   if (value === null || value === undefined || value === '') return '—';
   const num = typeof value === 'number' ? value : Number(value);
   if (Number.isNaN(num)) return '—';
-  return num.toFixed(decimals);
+  return commaDecimal(num.toFixed(decimals));
 }
 
 /**
  * Format a backend Decimal money string for display only.
  * Operates on the string representation without any floating-point arithmetic.
  * Pads or truncates fractional digits to exactly 2 for display.
- * "1234.5" → "1234.50"  "0" → "0.00"  null → "—"
+ * "1234.5" → "1234,50"  "0" → "0,00"  null → "—" (the decimal comma of PL and RU)
  */
 export function formatDecimalMoney(value: string | null): string {
   if (value === null) return '—';
   const dot = value.indexOf('.');
-  if (dot === -1) return `${value}.00`;
+  if (dot === -1) return `${value},00`;
   const intPart = value.slice(0, dot);
   const frac = value.slice(dot + 1);
-  if (frac.length === 0) return `${intPart}.00`;
-  if (frac.length === 1) return `${intPart}.${frac}0`;
-  return `${intPart}.${frac.slice(0, 2)}`;
+  if (frac.length === 0) return `${intPart},00`;
+  if (frac.length === 1) return `${intPart},${frac}0`;
+  return `${intPart},${frac.slice(0, 2)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -44,12 +54,12 @@ const QUANTITY_DECIMALS: Record<string, number> = { M2: 2, LM: 2, HOUR: 1, DAY: 
 
 /**
  * A quantity of an estimate line for DISPLAY ("78.374" m² → "78.37"). The server keeps its three decimals; the sum of a line is shown as
- * it arrives and is never recalculated from this text. An unknown unit, or a value that is not a plain decimal, is returned as it came.
+ * it arrives and is never recalculated from this text. An unknown unit keeps its digits (only the comma is applied); a value that is not a decimal is returned as it came.
  */
 export function formatQuantity(value: string, unit: string | null): string {
   const decimals = unit !== null ? QUANTITY_DECIMALS[unit] : undefined;
-  if (decimals === undefined || !/^\d+(\.\d+)?$/.test(value)) return value;
-  return roundDecimalString(value, decimals);
+  if (decimals === undefined || !/^\d+(\.\d+)?$/.test(value)) return /^-?\d+\.\d+$/.test(value) ? commaDecimal(value) : value;
+  return commaDecimal(roundDecimalString(value, decimals));
 }
 
 function toCents(value: string): bigint {
@@ -65,5 +75,5 @@ export function signedMoneyDifference(from: string, to: string): string {
   const sign = cents > 0n ? '+' : cents < 0n ? '-' : '';
   const abs = cents < 0n ? -cents : cents;
   const text = abs.toString().padStart(3, '0');
-  return `${sign}${text.slice(0, -2)}.${text.slice(-2)}`;
+  return `${sign}${text.slice(0, -2)},${text.slice(-2)}`;
 }

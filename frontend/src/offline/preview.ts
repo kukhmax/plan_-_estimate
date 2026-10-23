@@ -6,5 +6,5 @@ export function previewArea(width: unknown, height: unknown): string | null {
   const w = typeof width === 'string' || typeof width === 'number' ? Number(width) : NaN;
   const h = typeof height === 'string' || typeof height === 'number' ? Number(height) : NaN;
   if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null;
-  return (w * h).toFixed(2);
+  return (w * h).toFixed(2).replace('.', ',');
 }

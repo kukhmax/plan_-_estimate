@@ -195,7 +195,7 @@ describe('SurfaceList', () => {
     const wall = (width: number, gross: string): SurfaceType => ({ ...surface, width, height: 2.68, gross_area: gross, deduction_area: '0.000', net_area: gross });
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValueOnce({ items: [wall(4.08, '10.934')], total: 1 });
     const view = renderSurfaces({ dimensionsKey: '3.73|2.32|2.68' });
-    await waitFor(() => expect(screen.getByText(/4\.08 × 2\.68 m/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/4,08 × 2,68 m/)).toBeInTheDocument());
 
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wall(2.32, '6.218')], total: 1 });
     const again = (key: string) => (
@@ -207,8 +207,8 @@ describe('SurfaceList', () => {
     expect(surfacesApi.fetchSurfaces).toHaveBeenCalledTimes(1);
 
     view.rerender(again('2.32|2.32|2.68'));
-    await waitFor(() => expect(screen.getByText(/2\.32 × 2\.68 m/)).toBeInTheDocument());
-    expect(screen.queryByText(/4\.08 × 2\.68 m/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/2,32 × 2,68 m/)).toBeInTheDocument());
+    expect(screen.queryByText(/4,08 × 2,68 m/)).not.toBeInTheDocument();
     expect(surfacesApi.fetchSurfaces).toHaveBeenCalledTimes(2);
   });
 
@@ -225,10 +225,10 @@ describe('SurfaceList', () => {
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
-    expect(screen.getByText(/5\.00 × 2\.70 m/)).toBeInTheDocument();
-    expect(screen.getByText(/13\.50 m²/)).toBeInTheDocument();
-    expect(screen.getByText(/1\.80 m²/)).toBeInTheDocument();
-    expect(screen.getByText(/11\.70 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/5,00 × 2,70 m/)).toBeInTheDocument();
+    expect(screen.getByText(/13,50 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/1,80 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/11,70 m²/)).toBeInTheDocument();
     expandOptions(surface.id);
     expect(screen.getByLabelText(`toggle-openings-${surface.id}`)).toBeInTheDocument();
   });
@@ -246,8 +246,8 @@ describe('SurfaceList', () => {
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
-    expect(screen.getByText(/5\.10 × 2\.65 m/)).toBeInTheDocument();
-    expect(screen.getAllByText(/13\.52 m²/)).toHaveLength(2); // gross & net
+    expect(screen.getByText(/5,10 × 2,65 m/)).toBeInTheDocument();
+    expect(screen.getAllByText(/13,52 m²/)).toHaveLength(2); // gross & net
   });
 
   it('shows requires_dimensions notice when wall lacks dimensions', async () => {
@@ -444,7 +444,7 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
 
     await waitFor(() => expect(screen.getByLabelText('no-surfaces')).toBeInTheDocument());
 
-    expect(screen.getByLabelText('custom-wall-height')).toHaveValue('2.70 m');
+    expect(screen.getByLabelText('custom-wall-height')).toHaveValue('2,70 m');
 
     fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '180' } });
     fireEvent.submit(screen.getByLabelText('custom-wall-form'));
@@ -929,8 +929,8 @@ describe('SurfaceList canonical plane filtering (10C.1C finding 3)', () => {
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
-    expect(screen.getByText(/5\.00 × 2\.70 m/)).toBeInTheDocument();
-    expect(screen.getByText(/11\.70 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/5,00 × 2,70 m/)).toBeInTheDocument();
+    expect(screen.getByText(/11,70 m²/)).toBeInTheDocument();
     expandOptions(surface.id);
     expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toBeInTheDocument();
     expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
@@ -1143,9 +1143,9 @@ describe('SurfaceList — deduction context row (Stage 10G.4 follow-up)', () => 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     const row = await screen.findByText(/okno 1[,.]20/);
     expect(row.textContent).toContain('okno');
-    expect(row.textContent).toContain('1.40');
+    expect(row.textContent).toContain('1,40');
     // The authoritative numeric deduction value is untouched by the context text.
-    expect(screen.getByText('1.68 m²')).toBeInTheDocument();
+    expect(screen.getByText('1,68 m²')).toBeInTheDocument();
   });
 
   it('describes a single DOOR deduction with its dimensions, localized', async () => {
@@ -1197,7 +1197,7 @@ describe('SurfaceList — deduction context row (Stage 10G.4 follow-up)', () => 
     renderSurfaces();
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     await screen.findByText(/okno/);
-    expect(screen.getByText('1.68 m²')).toBeInTheDocument();
+    expect(screen.getByText('1,68 m²')).toBeInTheDocument();
   });
 
   it('shows the plain deduction label with no invented context before openings have loaded / when there are none', async () => {
@@ -1237,9 +1237,9 @@ describe('SurfaceList — Ościeża reveal row (Stage 10G.4 follow-up)', () => {
     const row = await screen.findByText('Ościeża');
     const rowContent = row.closest('div')!.parentElement!.textContent ?? '';
     // 4.300 + 3.100 = 7.400 mb ; 0.860 + 0.620 = 1.480 m² — exact decimal-string sums, no float math.
-    expect(rowContent).toContain('7.40');
+    expect(rowContent).toContain('7,40');
     expect(rowContent).toContain('mb');
-    expect(rowContent).toContain('1.48');
+    expect(rowContent).toContain('1,48');
     expect(rowContent).toContain('m²');
     expect(rowContent).not.toMatch(/\bLM\b/);
   });
@@ -1270,8 +1270,8 @@ describe('SurfaceList — Ościeża reveal row (Stage 10G.4 follow-up)', () => {
     const row = await screen.findByText('Ościeża');
     const rowContent = row.closest('div')!.parentElement!.textContent ?? '';
     // Exactly the backend reveal_total_length/area — never re-derived from width/height/depth.
-    expect(rowContent).toContain('4.30');
-    expect(rowContent).toContain('1.29');
+    expect(rowContent).toContain('4,30');
+    expect(rowContent).toContain('1,29');
   });
 });
 
@@ -1333,7 +1333,7 @@ describe('SurfaceList — opening summary on the wall card (13E.5B)', () => {
     expect(rows).toEqual(['Drzwi 0,90 × 2,07 m (2)', 'Okno 0,60 × 1,40 m (1)', 'Okno 2,10 × 1,40 m (1)']);
     expect(summary).not.toHaveTextContent('9,99');
     // Existing area figures are untouched by the summary.
-    expect(screen.getByText('1.68 m²')).toBeInTheDocument();
+    expect(screen.getByText('1,68 m²')).toBeInTheDocument();
   });
 
   it('localizes the summary in Russian, including OTHER', async () => {
@@ -1522,8 +1522,8 @@ describe('Wall rows and cards (Stage 18G)', () => {
     expect(row).toHaveTextContent('Ściana 1');
     expect(row).toHaveTextContent('Ściana');
     expect(screen.getByLabelText(`surface-row-photos-${WALL_A.id}`)).toHaveTextContent('3');
-    expect(screen.getByLabelText(`surface-row-area-${WALL_A.id}`)).toHaveTextContent('8.62 m²');
-    expect(screen.getByLabelText(`surface-row-area-${WALL_B.id}`)).toHaveTextContent('7.23 m²');
+    expect(screen.getByLabelText(`surface-row-area-${WALL_A.id}`)).toHaveTextContent('8,62 m²');
+    expect(screen.getByLabelText(`surface-row-area-${WALL_B.id}`)).toHaveTextContent('7,23 m²');
     // no card behind the row
     expect(screen.queryByLabelText(`options-toggle-${WALL_A.id}`)).toBeNull();
     expect(screen.queryByText(/Powierzchnia brutto/)).toBeNull();
@@ -1536,7 +1536,7 @@ describe('Wall rows and cards (Stage 18G)', () => {
     fireEvent.click(await screen.findByLabelText(`surface-row-${WALL_A.id}`));
 
     expect(screen.getByLabelText(`options-toggle-${WALL_A.id}`)).toBeInTheDocument();
-    expect(screen.getByText(/3\.42 × 2\.52 m/)).toBeInTheDocument();
+    expect(screen.getByText(/3,42 × 2,52 m/)).toBeInTheDocument();
     expect(screen.queryByLabelText(`surface-row-${WALL_A.id}`)).toBeNull();
     expect(screen.getByLabelText(`surface-row-${WALL_B.id}`)).toBeInTheDocument();
     expect(screen.queryByLabelText(`options-toggle-${WALL_B.id}`)).toBeNull();
@@ -1616,7 +1616,7 @@ describe('SurfaceList: a wall only the phone knows (Stage 19E, Q5 (b))', () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [waiting], total: 1 });
     renderSurfaces({ initiallyOpen: false });
     const row = await screen.findByLabelText(`surface-row-${surface.id}`);
-    expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).toHaveTextContent('~10.00 m²');
+    expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).toHaveTextContent('~10,00 m²');
     expect(within(row).getByLabelText(`pending-mark-${surface.id}`)).toHaveTextContent('Czeka na wysłanie');
   });
 
@@ -1624,7 +1624,7 @@ describe('SurfaceList: a wall only the phone knows (Stage 19E, Q5 (b))', () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [waiting], total: 1 });
     renderSurfaces();
     const preview = await screen.findByLabelText(`surface-preview-${surface.id}`);
-    expect(preview).toHaveTextContent('~10.00 m²');
+    expect(preview).toHaveTextContent('~10,00 m²');
     expect(preview).toHaveTextContent('Powierzchnię policzy serwer po synchronizacji.');
     expect(screen.getByLabelText(`pending-mark-${surface.id}`)).toBeInTheDocument();
     expect(screen.queryByText(/= /)).toBeNull();
@@ -1634,7 +1634,7 @@ describe('SurfaceList: a wall only the phone knows (Stage 19E, Q5 (b))', () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [{ ...surface, width: 3.73, height: 2.68, gross_area: '9.996', net_area: '9.996' }], total: 1 });
     renderSurfaces({ initiallyOpen: false });
     const row = await screen.findByLabelText(`surface-row-${surface.id}`);
-    expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).toHaveTextContent('10.00 m²');
+    expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).toHaveTextContent('10,00 m²');
     expect(within(row).getByLabelText(`surface-row-area-${surface.id}`)).not.toHaveTextContent('~');
     expect(screen.queryByLabelText(`pending-mark-${surface.id}`)).toBeNull();
   });
@@ -1668,7 +1668,7 @@ describe('SurfaceList: changing the size right on the card (owner request, Stage
     const button = await screen.findByLabelText(`edit-dimensions-${surface.id}`);
     expect(button).toHaveTextContent('Edytuj');
     expect(button.className).toMatch(/min-h-11/);
-    expect(screen.getByText(/1\.95 × 2\.60 m/)).toBeInTheDocument();
+    expect(screen.getByText(/1,95 × 2,60 m/)).toBeInTheDocument();
     expect(screen.queryByLabelText(`dimensions-form-${surface.id}`)).toBeNull();
   });
 
@@ -1705,7 +1705,7 @@ describe('SurfaceList: changing the size right on the card (owner request, Stage
     fireEvent.click(screen.getByLabelText(`dimensions-cancel-${surface.id}`));
     expect(screen.queryByLabelText(`dimensions-form-${surface.id}`)).toBeNull();
     expect(surfacesApi.updateSurface).not.toHaveBeenCalled();
-    expect(screen.getByText(/1\.95 × 2\.60 m/)).toBeInTheDocument();
+    expect(screen.getByText(/1,95 × 2,60 m/)).toBeInTheDocument();
   });
 
   it('a size that is empty or not a positive number is refused before anything is sent', async () => {
@@ -1742,7 +1742,7 @@ describe('SurfaceList: changing the size right on the card (owner request, Stage
   it('an archived wall is not edited from the card', async () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [{ ...sized, is_archived: true }], total: 1 });
     renderSurfaces();
-    await screen.findByText(/1\.95 × 2\.60 m/);
+    await screen.findByText(/1,95 × 2,60 m/);
     expect(screen.queryByLabelText(`edit-dimensions-${surface.id}`)).toBeNull();
   });
 
@@ -1802,7 +1802,7 @@ describe('Compact wall (usability U-5, U-7)', () => {
     const row = await screen.findByLabelText(`surface-row-${wall().id}`);
     expect(screen.getByLabelText(`surface-row-works-${wall().id}`)).toHaveTextContent('3');
     expect(screen.getByLabelText(`surface-row-works-${wall().id}`)).toHaveAttribute('title', 'Prace w planie');
-    expect(screen.getByLabelText(`surface-row-area-${wall().id}`)).toHaveTextContent('11.70 m²');
+    expect(screen.getByLabelText(`surface-row-area-${wall().id}`)).toHaveTextContent('11,70 m²');
     expect(row).toHaveTextContent('Ściana 3');
     expect(screen.queryByLabelText(`surface-row-works-${other.id}`)).toBeNull();
   });
@@ -1810,7 +1810,7 @@ describe('Compact wall (usability U-5, U-7)', () => {
   it('U-7: an opened wall shows the net area alone; the calculation (gross, openings, reveals) opens on a tap on it', async () => {
     renderCompact(true, [wall()]);
     const toggle = await screen.findByLabelText(`area-details-${wall().id}`);
-    expect(toggle).toHaveTextContent('11.70 m²');
+    expect(toggle).toHaveTextContent('11,70 m²');
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(toggle.className).toContain('min-h-11');
     expect(screen.queryByLabelText(`area-calculation-${wall().id}`)).toBeNull();
@@ -1818,8 +1818,8 @@ describe('Compact wall (usability U-5, U-7)', () => {
     fireEvent.click(toggle);
     const calculation = screen.getByLabelText(`area-calculation-${wall().id}`);
     expect(calculation).toHaveTextContent('Powierzchnia brutto');
-    expect(calculation).toHaveTextContent('13.50 m²');
-    expect(calculation).toHaveTextContent('1.80 m²');
+    expect(calculation).toHaveTextContent('13,50 m²');
+    expect(calculation).toHaveTextContent('1,80 m²');
     expect(screen.getByLabelText(`area-details-${wall().id}`)).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(screen.getByLabelText(`area-details-${wall().id}`));
     expect(screen.queryByLabelText(`area-calculation-${wall().id}`)).toBeNull();
@@ -1829,7 +1829,7 @@ describe('Compact wall (usability U-5, U-7)', () => {
     renderCompact(true, [wall()]);
     const edit = await screen.findByLabelText(`edit-dimensions-${wall().id}`);
     expect(edit).toHaveTextContent('Edytuj');
-    expect(edit.parentElement).toHaveTextContent('5.00 × 2.70 m');
+    expect(edit.parentElement).toHaveTextContent('5,00 × 2,70 m');
   });
 
   it('U-5: Plan | Realizacja are two segments of one row under the caption; each opens its own view, only one at a time', async () => {

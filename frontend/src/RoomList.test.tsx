@@ -143,8 +143,8 @@ describe('RoomList', () => {
     renderRooms();
 
     await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
-    expect(screen.getByText(/5\.00 × 4\.00 × 2\.70 m/)).toBeInTheDocument();
-    expect(screen.getByText(/48\.60 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/5,00 × 4,00 × 2,70 m/)).toBeInTheDocument();
+    expect(screen.getByText(/48,60 m²/)).toBeInTheDocument();
   });
 
   it('renders representative room dimensions 5.000 × 4.900 × 2.700 to exactly two decimals (two-decimal policy)', async () => {
@@ -168,8 +168,8 @@ describe('RoomList', () => {
     renderRooms();
 
     await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
-    expect(screen.getByText(/5\.00 × 4\.90 × 2\.70 m/)).toBeInTheDocument();
-    expect(screen.getByText(/53\.46 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/5,00 × 4,90 × 2,70 m/)).toBeInTheDocument();
+    expect(screen.getByText(/53,46 m²/)).toBeInTheDocument();
   });
 
   it('renders backend-computed totals for a CUSTOM room with no L/W/H instead of "not measured" (Stage 10H.1)', async () => {
@@ -200,7 +200,7 @@ describe('RoomList', () => {
 
     await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
     expect(screen.queryByText('Brak wprowadzonych wymiarów')).not.toBeInTheDocument();
-    expect(screen.getByText(/12\.50 m²/)).toBeInTheDocument();
+    expect(screen.getByText(/12,50 m²/)).toBeInTheDocument();
   });
 
   it('still shows "not measured" for a room with neither L/W/H nor calculations (Stage 10H.1)', async () => {
@@ -239,8 +239,8 @@ describe('RoomList', () => {
     expect(screen.getByText(/Powierzchnia podłogi/)).toBeInTheDocument();
     expect(screen.getByText(/Powierzchnia sufitu/)).toBeInTheDocument();
     expect(screen.getByText(/Powierzchnia ścian \(brutto\)/)).toBeInTheDocument();
-    expect(screen.getAllByText(/6\.00 m²/)).toHaveLength(2);
-    expect(screen.getByText(/30\.58 m²/)).toBeInTheDocument();
+    expect(screen.getAllByText(/6,00 m²/)).toHaveLength(2);
+    expect(screen.getByText(/30,58 m²/)).toBeInTheDocument();
   });
 
   it('never fabricates a "0" for a calculated value that is genuinely null — the row is simply omitted (Stage 10H.2)', async () => {
@@ -266,7 +266,7 @@ describe('RoomList', () => {
     await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
     expect(screen.queryByText(/Powierzchnia podłogi/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Powierzchnia sufitu/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/0\.00 m²/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0,00 m²/)).not.toBeInTheDocument();
     expect(screen.getByText(/Powierzchnia ścian \(brutto\)/)).toBeInTheDocument();
   });
 
@@ -291,12 +291,12 @@ describe('RoomList', () => {
     renderRooms();
 
     await waitFor(() => expect(screen.getByText('Salon')).toBeInTheDocument());
-    expect(screen.getByText(/3\.00 × 2\.00 × 2\.50 m/)).toBeInTheDocument();
+    expect(screen.getByText(/3,00 × 2,00 × 2,50 m/)).toBeInTheDocument();
     expect(screen.getByText(/Powierzchnia podłogi/)).toBeInTheDocument();
     expect(screen.getByText(/Powierzchnia sufitu/)).toBeInTheDocument();
     expect(screen.getByText(/Powierzchnia ścian \(brutto\)/)).toBeInTheDocument();
-    expect(screen.getAllByText(/6\.00 m²/)).toHaveLength(2);
-    expect(screen.getByText(/25\.00 m²/)).toBeInTheDocument();
+    expect(screen.getAllByText(/6,00 m²/)).toHaveLength(2);
+    expect(screen.getByText(/25,00 m²/)).toBeInTheDocument();
   });
 
   it('archives an active room and reloads the list', async () => {
@@ -354,7 +354,7 @@ describe('RoomList', () => {
     expect(screen.getByLabelText(`archive-room-${room.id}`)).toHaveClass('min-h-11');
 
     // The measurements line wraps instead of overflowing the viewport.
-    expect(screen.getByText(/5\.00 × 4\.00 × 2\.70 m/)).toBeInTheDocument();
+    expect(screen.getByText(/5,00 × 4,00 × 2,70 m/)).toBeInTheDocument();
   });
 });
 

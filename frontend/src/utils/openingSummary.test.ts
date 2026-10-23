@@ -48,12 +48,12 @@ describe('summarizeOpenings (13E.5B)', () => {
 
 describe('formatExactDimension (13F-PRE, string-only, no float math)', () => {
   it('keeps two decimals and a significant third one', () => {
-    expect(formatExactDimension('0.900')).toBe('0.90');
-    expect(formatExactDimension('2.070')).toBe('2.07');
-    expect(formatExactDimension('1.701')).toBe('1.701');
-    expect(formatExactDimension('2.000')).toBe('2.00');
-    expect(formatExactDimension('2')).toBe('2.00');
-    expect(formatExactDimension('12.5')).toBe('12.50');
+    expect(formatExactDimension('0.900')).toBe('0,90');
+    expect(formatExactDimension('2.070')).toBe('2,07');
+    expect(formatExactDimension('1.701')).toBe('1,701');
+    expect(formatExactDimension('2.000')).toBe('2,00');
+    expect(formatExactDimension('2')).toBe('2,00');
+    expect(formatExactDimension('12.5')).toBe('12,50');
   });
 
   it('never renders two distinct Decimal groups identically', () => {

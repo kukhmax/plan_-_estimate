@@ -585,11 +585,11 @@ describe('ProjectWorkspace', () => {
 
     const summary = await screen.findByLabelText('room-calculations-summary');
     expect(summary).toBeInTheDocument();
-    expect(within(summary).getByText(/5\.00 × 4\.00 × 2\.70 m/)).toBeInTheDocument();
-    expect(within(summary).getAllByText('20.00 m²')).toHaveLength(2); // floor & ceiling
-    expect(within(summary).getByText('18.00 m')).toBeInTheDocument(); // perimeter
-    expect(within(summary).getAllByText('48.60 m²')).toHaveLength(2); // total wall area & net wall area
-    expect(within(summary).getByText('0.00 m²')).toBeInTheDocument(); // total deductions
+    expect(within(summary).getByText(/5,00 × 4,00 × 2,70 m/)).toBeInTheDocument();
+    expect(within(summary).getAllByText('20,00 m²')).toHaveLength(2); // floor & ceiling
+    expect(within(summary).getByText('18,00 m')).toBeInTheDocument(); // perimeter
+    expect(within(summary).getAllByText('48,60 m²')).toHaveLength(2); // total wall area & net wall area
+    expect(within(summary).getByText('0,00 m²')).toBeInTheDocument(); // total deductions
   });
 
   it('reconciles dependent state across Opening -> Surface -> Room on opening creation without page reload', async () => {
@@ -643,17 +643,17 @@ describe('ProjectWorkspace', () => {
 
     // 5. Verify Opening list refreshed
     await waitFor(() => expect(screen.getByText('Drzwi')).toBeInTheDocument());
-    expect(screen.getByText(/0\.90 × 2\.00 m/)).toBeInTheDocument();
+    expect(screen.getAllByText(/0,90 × 2,00 m/).length).toBeGreaterThan(0);
 
     // 6. Verify Surface deduction & net area refreshed
     const surfaceItem = screen.getByLabelText(`surface-item-${wallSurface.id}`);
-    expect(within(surfaceItem).getAllByText(/1\.80 m²/)).toHaveLength(2);
-    expect(within(surfaceItem).getByText(/11\.70 m²/)).toBeInTheDocument();
+    expect(within(surfaceItem).getAllByText(/1,80 m²/)).toHaveLength(2);
+    expect(within(surfaceItem).getByText(/11,70 m²/)).toBeInTheDocument();
 
     // 7. Verify Room aggregate calculations refreshed (total deductions and net wall area)
     const roomSummary = screen.getByLabelText('room-calculations-summary');
-    expect(within(roomSummary).getByText('1.80 m²')).toBeInTheDocument();
-    expect(within(roomSummary).getByText('46.80 m²')).toBeInTheDocument();
+    expect(within(roomSummary).getByText('1,80 m²')).toBeInTheDocument();
+    expect(within(roomSummary).getByText('46,80 m²')).toBeInTheDocument();
   });
 
   it('reconciles dependent state across Opening -> Surface -> Room on opening archive and restore', async () => {
@@ -702,14 +702,14 @@ describe('ProjectWorkspace', () => {
     // Check Surface refreshed: deduction 0.000, net 13.500
     await waitFor(() => {
       const surfaceItem = screen.getByLabelText(`surface-item-${wallSurface.id}`);
-      expect(within(surfaceItem).getByText(/0\.00 m²/)).toBeInTheDocument();
-      expect(within(surfaceItem).getAllByText(/13\.50 m²/)).toHaveLength(2);
+      expect(within(surfaceItem).getByText(/0,00 m²/)).toBeInTheDocument();
+      expect(within(surfaceItem).getAllByText(/13,50 m²/)).toHaveLength(2);
     });
 
     // Check Room summary refreshed: deductions 0.000, net 48.600
     const roomSummaryAfterArchive = screen.getByLabelText('room-calculations-summary');
-    expect(within(roomSummaryAfterArchive).getByText('0.00 m²')).toBeInTheDocument();
-    expect(within(roomSummaryAfterArchive).getAllByText('48.60 m²')).toHaveLength(2);
+    expect(within(roomSummaryAfterArchive).getByText('0,00 m²')).toBeInTheDocument();
+    expect(within(roomSummaryAfterArchive).getAllByText('48,60 m²')).toHaveLength(2);
 
     // Now test RESTORE:
     vi.mocked(openingsApi.fetchOpenings).mockResolvedValue({
@@ -733,14 +733,14 @@ describe('ProjectWorkspace', () => {
     // Check Surface deduction restored to 1.800, net back to 11.700
     await waitFor(() => {
       const surfaceItem = screen.getByLabelText(`surface-item-${wallSurface.id}`);
-      expect(within(surfaceItem).getAllByText(/1\.80 m²/)).toHaveLength(2);
-      expect(within(surfaceItem).getByText(/11\.70 m²/)).toBeInTheDocument();
+      expect(within(surfaceItem).getAllByText(/1,80 m²/)).toHaveLength(2);
+      expect(within(surfaceItem).getByText(/11,70 m²/)).toBeInTheDocument();
     });
 
     // Check Room aggregate restored
     const roomSummaryAfterRestore = screen.getByLabelText('room-calculations-summary');
-    expect(within(roomSummaryAfterRestore).getByText('1.80 m²')).toBeInTheDocument();
-    expect(within(roomSummaryAfterRestore).getByText('46.80 m²')).toBeInTheDocument();
+    expect(within(roomSummaryAfterRestore).getByText('1,80 m²')).toBeInTheDocument();
+    expect(within(roomSummaryAfterRestore).getByText('46,80 m²')).toBeInTheDocument();
   });
 
   it('reconciles dependent state on opening update', async () => {
@@ -807,17 +807,17 @@ describe('ProjectWorkspace', () => {
     fireEvent.submit(screen.getByLabelText(`opening-form-${wallSurface.id}`));
 
     // Verify Opening updated
-    await waitFor(() => expect(screen.getByText(/1\.00 × 2\.00 m/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/1,00 × 2,00 m/)).toBeInTheDocument());
 
     // Verify Surface deduction and net refreshed
     const surfaceItem = screen.getByLabelText(`surface-item-${wallSurface.id}`);
-    expect(within(surfaceItem).getAllByText(/2\.00 m²/)).toHaveLength(2);
-    expect(within(surfaceItem).getByText(/11\.50 m²/)).toBeInTheDocument();
+    expect(within(surfaceItem).getAllByText(/2,00 m²/)).toHaveLength(2);
+    expect(within(surfaceItem).getByText(/11,50 m²/)).toBeInTheDocument();
 
     // Verify Room deductions and net wall area refreshed
     const roomSummary = screen.getByLabelText('room-calculations-summary');
-    expect(within(roomSummary).getByText('2.00 m²')).toBeInTheDocument();
-    expect(within(roomSummary).getByText('46.60 m²')).toBeInTheDocument();
+    expect(within(roomSummary).getByText('2,00 m²')).toBeInTheDocument();
+    expect(within(roomSummary).getByText('46,60 m²')).toBeInTheDocument();
   });
 
   it('refreshes room measurements when editing room dimensions in-place', async () => {
@@ -861,10 +861,10 @@ describe('ProjectWorkspace', () => {
     await waitFor(() => expect(screen.queryByLabelText('room-edit-form')).not.toBeInTheDocument());
 
     const summary = screen.getByLabelText('room-calculations-summary');
-    expect(within(summary).getByText(/6\.00 × 4\.00 × 2\.70 m/)).toBeInTheDocument();
-    expect(within(summary).getAllByText('24.00 m²')).toHaveLength(2); // floor & ceiling
-    expect(within(summary).getByText('20.00 m')).toBeInTheDocument();
-    expect(within(summary).getAllByText('54.00 m²')).toHaveLength(2); // total wall & net wall
+    expect(within(summary).getByText(/6,00 × 4,00 × 2,70 m/)).toBeInTheDocument();
+    expect(within(summary).getAllByText('24,00 m²')).toHaveLength(2); // floor & ceiling
+    expect(within(summary).getByText('20,00 m')).toBeInTheDocument();
+    expect(within(summary).getAllByText('54,00 m²')).toHaveLength(2); // total wall & net wall
   });
 
   it('represents the canonical room scenario with multiple walls, door, and window deductions', async () => {
@@ -985,42 +985,42 @@ describe('ProjectWorkspace', () => {
 
     // 1. Verify Room aggregate calculations:
     const roomSummary = await screen.findByLabelText('room-calculations-summary');
-    expect(within(roomSummary).getByText(/5\.00 × 4\.00 × 2\.70 m/)).toBeInTheDocument();
-    expect(within(roomSummary).getAllByText('20.00 m²')).toHaveLength(2); // floor & ceiling
-    expect(within(roomSummary).getByText('18.00 m')).toBeInTheDocument(); // perimeter
-    expect(within(roomSummary).getByText('48.60 m²')).toBeInTheDocument(); // total gross wall area
-    expect(within(roomSummary).getByText('3.90 m²')).toBeInTheDocument(); // total deduction area
-    expect(within(roomSummary).getByText('44.70 m²')).toBeInTheDocument(); // net wall area
+    expect(within(roomSummary).getByText(/5,00 × 4,00 × 2,70 m/)).toBeInTheDocument();
+    expect(within(roomSummary).getAllByText('20,00 m²')).toHaveLength(2); // floor & ceiling
+    expect(within(roomSummary).getByText('18,00 m')).toBeInTheDocument(); // perimeter
+    expect(within(roomSummary).getByText('48,60 m²')).toBeInTheDocument(); // total gross wall area
+    expect(within(roomSummary).getByText('3,90 m²')).toBeInTheDocument(); // total deduction area
+    expect(within(roomSummary).getByText('44,70 m²')).toBeInTheDocument(); // net wall area
 
     // 2. Verify Wall 1:
     const wall1Item = screen.getByLabelText(`surface-item-${wall1.id}`);
     expect(within(wall1Item).getByText('Ściana 1')).toBeInTheDocument();
-    expect(within(wall1Item).getByText(/5\.00 × 2\.70 m/)).toBeInTheDocument();
-    expect(within(wall1Item).getByText(/13\.50 m²/)).toBeInTheDocument();
-    expect(within(wall1Item).getByText(/1\.80 m²/)).toBeInTheDocument();
-    expect(within(wall1Item).getByText(/11\.70 m²/)).toBeInTheDocument();
+    expect(within(wall1Item).getByText(/5,00 × 2,70 m/)).toBeInTheDocument();
+    expect(within(wall1Item).getByText(/13,50 m²/)).toBeInTheDocument();
+    expect(within(wall1Item).getByText(/1,80 m²/)).toBeInTheDocument();
+    expect(within(wall1Item).getByText(/11,70 m²/)).toBeInTheDocument();
 
     // 3. Verify Wall 2:
     const wall2Item = screen.getByLabelText(`surface-item-${wall2.id}`);
     expect(within(wall2Item).getByText('Ściana 2')).toBeInTheDocument();
-    expect(within(wall2Item).getByText(/4\.00 × 2\.70 m/)).toBeInTheDocument();
-    expect(within(wall2Item).getByText(/10\.80 m²/)).toBeInTheDocument();
-    expect(within(wall2Item).getByText(/2\.10 m²/)).toBeInTheDocument();
-    expect(within(wall2Item).getByText(/8\.70 m²/)).toBeInTheDocument();
+    expect(within(wall2Item).getByText(/4,00 × 2,70 m/)).toBeInTheDocument();
+    expect(within(wall2Item).getByText(/10,80 m²/)).toBeInTheDocument();
+    expect(within(wall2Item).getByText(/2,10 m²/)).toBeInTheDocument();
+    expect(within(wall2Item).getByText(/8,70 m²/)).toBeInTheDocument();
 
     // 4. Expand Wall 1 options and open openings, verify Door:
     fireEvent.click(within(wall1Item).getByLabelText(`options-toggle-${wall1.id}`));
     await waitFor(() => expect(within(wall1Item).getByLabelText(`toggle-openings-${wall1.id}`)).toBeInTheDocument());
     fireEvent.click(within(wall1Item).getByLabelText(`toggle-openings-${wall1.id}`));
     await waitFor(() => expect(within(wall1Item).getByText('Drzwi')).toBeInTheDocument());
-    expect(within(wall1Item).getByText(/0\.90 × 2\.00 m/)).toBeInTheDocument();
+    expect(within(wall1Item).getAllByText(/0,90 × 2,00 m/).length).toBeGreaterThan(0);
 
     // 5. Expand Wall 2 options and open openings, verify Window:
     fireEvent.click(within(wall2Item).getByLabelText(`options-toggle-${wall2.id}`));
     await waitFor(() => expect(within(wall2Item).getByLabelText(`toggle-openings-${wall2.id}`)).toBeInTheDocument());
     fireEvent.click(within(wall2Item).getByLabelText(`toggle-openings-${wall2.id}`));
     await waitFor(() => expect(within(wall2Item).getByText('Okno')).toBeInTheDocument());
-    expect(within(wall2Item).getByText(/1\.50 × 1\.40 m/)).toBeInTheDocument();
+    expect(within(wall2Item).getAllByText(/1,50 × 1,40 m/).length).toBeGreaterThan(0);
   });
 
   it('opens room edit form when clicking measure-room-action in unmeasured notice', async () => {
@@ -1092,10 +1092,10 @@ describe('ProjectWorkspace', () => {
 
     const summary = await screen.findByLabelText('room-calculations-summary');
     expect(within(summary).getAllByText(/—/)).toHaveLength(2); // floor & ceiling unavailable
-    expect(within(summary).getByText('21.00 m')).toBeInTheDocument(); // perimeter from wall widths
-    expect(within(summary).getByText('59.05 m²')).toBeInTheDocument(); // total wall gross
-    expect(within(summary).getByText('1.80 m²')).toBeInTheDocument(); // deductions
-    expect(within(summary).getByText('57.25 m²')).toBeInTheDocument(); // net wall area
+    expect(within(summary).getByText('21,00 m')).toBeInTheDocument(); // perimeter from wall widths
+    expect(within(summary).getByText('59,05 m²')).toBeInTheDocument(); // total wall gross
+    expect(within(summary).getByText('1,80 m²')).toBeInTheDocument(); // deductions
+    expect(within(summary).getByText('57,25 m²')).toBeInTheDocument(); // net wall area
     expect(within(summary).getByText('Ściany:')).toBeInTheDocument(); // wall_count label
     expect(within(summary).getByText('5')).toBeInTheDocument(); // wall_count value
   });
@@ -1123,7 +1123,7 @@ describe('ProjectWorkspace', () => {
     fireEvent.click(screen.getByLabelText(`open-room-${customRoom.id}`));
 
     const customEntry = await screen.findByLabelText('custom-wall-entry');
-    expect(within(customEntry).getByLabelText('custom-wall-height')).toHaveValue('2.70 m');
+    expect(within(customEntry).getByLabelText('custom-wall-height')).toHaveValue('2,70 m');
     expect(screen.queryByLabelText('mode-custom')).not.toBeInTheDocument();
   });
 
@@ -1181,11 +1181,11 @@ describe('ProjectWorkspace', () => {
     const summary = await screen.findByLabelText('room-calculations-summary');
     expect(screen.queryByLabelText('room-unmeasured-notice')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('measure-room-action')).not.toBeInTheDocument();
-    expect(within(summary).getByText(/4\.90 × 5\.00 × 2\.70 m/)).toBeInTheDocument();
-    expect(within(summary).getAllByText('24.50 m²')).toHaveLength(2); // floor & ceiling
-    expect(within(summary).getByText('19.80 m')).toBeInTheDocument(); // perimeter
+    expect(within(summary).getByText(/4,90 × 5,00 × 2,70 m/)).toBeInTheDocument();
+    expect(within(summary).getAllByText('24,50 m²')).toHaveLength(2); // floor & ceiling
+    expect(within(summary).getByText('19,80 m')).toBeInTheDocument(); // perimeter
     // net falls back to total for zero-deduction rooms, so 53.460 appears twice (net & gross).
-    expect(within(summary).getAllByText('53.46 m²')).toHaveLength(2); // wall gross (0 walls)
+    expect(within(summary).getAllByText('53,46 m²')).toHaveLength(2); // wall gross (0 walls)
 
     // Wall generation is available for the dimensioned RECTANGLE room.
     await waitFor(() => expect(screen.getByLabelText('generate-walls')).toBeInTheDocument());
@@ -1275,7 +1275,7 @@ describe('ProjectWorkspace', () => {
 
     // The opened selectedRoom retains the dimensions (fresh GET).
     const summary = screen.getByLabelText('room-calculations-summary');
-    expect(within(summary).getByText(/4\.90 × 5\.00 × 2\.70 m/)).toBeInTheDocument();
+    expect(within(summary).getByText(/4,90 × 5,00 × 2,70 m/)).toBeInTheDocument();
 
     // Wall generation is available and produces exactly 4 walls.
     await waitFor(() => expect(screen.getByLabelText('generate-walls')).toBeInTheDocument());
@@ -1403,7 +1403,7 @@ describe('Room measurement CTA routing (Stage 5D.1A.2)', () => {
   it('CUSTOM room defaults to wall entry on open using Room.height as wall height', async () => {
     await openRoomView(customMeasurementRoom, [customMeasurementRoom]);
     const entry = await screen.findByLabelText('custom-wall-entry');
-    expect(within(entry).getByLabelText('custom-wall-height')).toHaveValue('2.70 m');
+    expect(within(entry).getByLabelText('custom-wall-height')).toHaveValue('2,70 m');
   });
 
   it('preserves CUSTOM mode across navigation/reload via per-room storage', async () => {
@@ -1844,13 +1844,13 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
     expect(within(block).getByText('Otwory')).toBeInTheDocument();
     const doors = within(block).getByLabelText('room-openings-summary-DOOR');
     expect(doors).toHaveTextContent('Drzwi');
-    expect(doors).toHaveTextContent('0.90 × 2.07 m');
+    expect(doors).toHaveTextContent('0,90 × 2,07 m');
     expect(doors).toHaveTextContent('× 2');
     const windows = within(block).getByLabelText('room-openings-summary-WINDOW');
     expect(windows).toHaveTextContent('Okna');
     expect(within(windows).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      '1.70 × 1.65 m× 3',
-      '1.701 × 1.65 m× 1', // a distinct Decimal group is never rendered identically
+      '1,70 × 1,65 m× 3',
+      '1,701 × 1,65 m× 1', // a distinct Decimal group is never rendered identically
     ]);
     expect(within(block).getByLabelText('room-openings-summary-OTHER')).toHaveTextContent('Inne');
   });
@@ -1877,15 +1877,15 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
     expect(roomsApi.fetchProjectSummary).toHaveBeenCalledWith(project.id);
     await within(card).findByText('Podsumowanie obiektu');
     const value = (key: string) => within(card).getByLabelText(`object-summary-${key}`).textContent;
-    expect(value('floor')).toBe('Podłogi76.38 m²');
-    expect(value('ceiling')).toBe('Sufity65.90 m²');
-    expect(value('gross')).toBe('Ściany brutto149.34 m²');
-    expect(value('deductions')).toBe('Odjęcia otworów18.42 m²');
-    expect(value('net')).toBe('Ściany netto130.92 m²');
-    expect(value('reveals')).toBe('Ościeża27.60 mb / 5.52 m²');
+    expect(value('floor')).toBe('Podłogi76,38 m²');
+    expect(value('ceiling')).toBe('Sufity65,90 m²');
+    expect(value('gross')).toBe('Ściany brutto149,34 m²');
+    expect(value('deductions')).toBe('Odjęcia otworów18,42 m²');
+    expect(value('net')).toBe('Ściany netto130,92 m²');
+    expect(value('reveals')).toBe('Ościeża27,60 mb / 5,52 m²');
     const openings = within(card).getByLabelText('object-summary-openings');
-    expect(within(openings).getByLabelText('object-summary-openings-DOOR').textContent).toContain('0.80 × 2.07 m× 3');
-    expect(within(openings).getByLabelText('object-summary-openings-WINDOW').textContent).toContain('1.70 × 1.65 m× 5');
+    expect(within(openings).getByLabelText('object-summary-openings-DOOR').textContent).toContain('0,80 × 2,07 m× 3');
+    expect(within(openings).getByLabelText('object-summary-openings-WINDOW').textContent).toContain('1,70 × 1,65 m× 5');
     expect(within(openings).queryByLabelText('object-summary-openings-OTHER')).not.toBeInTheDocument();
   });
 
@@ -1919,8 +1919,8 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
     const card = await screen.findByLabelText('object-summary');
     await within(card).findByText('Резюме объекта');
     expect(card).toHaveTextContent('Площади');
-    expect(within(card).getByLabelText('object-summary-deductions').textContent).toBe('Вычеты проёмов18.42 м²');
-    expect(within(card).getByLabelText('object-summary-reveals').textContent).toBe('Откосы27.60 пог. м / 5.52 м²');
+    expect(within(card).getByLabelText('object-summary-deductions').textContent).toBe('Вычеты проёмов18,42 м²');
+    expect(within(card).getByLabelText('object-summary-reveals').textContent).toBe('Откосы27,60 пог. м / 5,52 м²');
     expect(within(card).getByLabelText('object-summary-openings-DOOR')).toHaveTextContent('Двери');
     expect(within(card).getByLabelText('object-summary-openings-WINDOW')).toHaveTextContent('Окна');
   });

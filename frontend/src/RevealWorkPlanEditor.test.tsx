@@ -252,8 +252,8 @@ describe('RevealWorkPlanEditor', () => {
   it('shows the backend-authoritative reveal geometry without recalculating it', async () => {
     renderEditor({ revealTotalLength: '4.300', revealTotalArea: '1.290' });
     const geometry = await screen.findByLabelText(`reveal-geometry-${openingId}`);
-    expect(geometry.textContent).toContain('4.30');
-    expect(geometry.textContent).toContain('1.29');
+    expect(geometry.textContent).toContain('4,30');
+    expect(geometry.textContent).toContain('1,29');
   });
 
   it('renders a bottom close action that reuses the exact same onClose handler as the top action (Stage 10H.1)', async () => {

@@ -191,8 +191,8 @@ describe('merging walls: a merged wall', () => {
     const block = await screen.findByLabelText(`merged-parts-${W1.id}`);
     expect(block).toHaveTextContent('Części ściany (2)');
     expect(within(block).getAllByText(/Część [12]/)).toHaveLength(2);
-    expect(block).toHaveTextContent('3.42 × 2.52');
-    expect(block).toHaveTextContent('2.70 × 2.50');
+    expect(block).toHaveTextContent('3,42 × 2,52');
+    expect(block).toHaveTextContent('2,70 × 2,50');
     expect(screen.queryByLabelText(`edit-dimensions-${W1.id}`)).toBeNull(); // the size is the parts
     expect(screen.queryByLabelText(`duplicate-surface-${W1.id}`)).toBeNull();
   });

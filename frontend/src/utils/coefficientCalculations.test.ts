@@ -34,14 +34,14 @@ describe('coefficientCalculations', () => {
     it('formats positive percentages with leading plus and trims trailing zeros', () => {
       expect(formatPercentageDisplay('20')).toBe('+20%');
       expect(formatPercentageDisplay('20.00')).toBe('+20%');
-      expect(formatPercentageDisplay('25.50')).toBe('+25.5%');
-      expect(formatPercentageDisplay('+12.34')).toBe('+12.34%');
+      expect(formatPercentageDisplay('25.50')).toBe('+25,5%');
+      expect(formatPercentageDisplay('+12.34')).toBe('+12,34%');
     });
 
     it('formats negative percentages with leading minus', () => {
       expect(formatPercentageDisplay('-10')).toBe('-10%');
       expect(formatPercentageDisplay('-10.00')).toBe('-10%');
-      expect(formatPercentageDisplay('-7.50')).toBe('-7.5%');
+      expect(formatPercentageDisplay('-7.50')).toBe('-7,5%');
     });
   });
 

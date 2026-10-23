@@ -147,7 +147,7 @@ describe('CoefficientAssignmentModal', () => {
 
     // 40.00 × (1 + 30/100) = 52.00 — additive, never compounded (40 × 1.2 × 1.1 = 52.80).
     expect(screen.getByText('+30%')).toBeInTheDocument();
-    expect(screen.getByText('52.00 PLN')).toBeInTheDocument();
+    expect(screen.getByText('52,00 PLN')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('coefficient-modal-apply'));
     expect(props.onApply).toHaveBeenCalledTimes(1);
@@ -197,7 +197,7 @@ describe('CoefficientAssignmentModal', () => {
     renderModal({ basePrice: null });
     await choose('grp-height', /wysoka/);
     expect(screen.getAllByText('Do ustalenia')).toHaveLength(2);
-    expect(screen.queryByText(/0\.00 PLN/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0,00 PLN/)).not.toBeInTheDocument();
   });
 
   it('disables Apply when the catalog fails to load so existing selections are not wiped', async () => {
@@ -410,7 +410,7 @@ describe('CoefficientAssignmentModal', () => {
 
       await choose('g-b', /b-205/);
       const warning = screen.getByLabelText('coefficient-high-total-warning');
-      expect(warning).toHaveTextContent('Wysoka łączna korekta ceny (+50.5%).');
+      expect(warning).toHaveTextContent('Wysoka łączna korekta ceny (+50,5%).');
       expect(warning).toHaveTextContent('czy ich wpływ nie został już uwzględniony w cenie bazowej');
 
       const apply = screen.getByLabelText('coefficient-modal-apply');
@@ -426,13 +426,13 @@ describe('CoefficientAssignmentModal', () => {
       expect(screen.getByLabelText('coefficient-high-total-warning')).toBeInTheDocument();
 
       await choose('g-c', /c-neg/);
-      expect(screen.getByText('+40.5%')).toBeInTheDocument();
+      expect(screen.getByText('+40,5%')).toBeInTheDocument();
       expect(percent('g-c')).toHaveTextContent('-10%');
       expect(screen.queryByLabelText('coefficient-high-total-warning')).not.toBeInTheDocument();
 
       // Explicit base (0%) replaces +30% in group A: 0 + 20.5 - 10 = +10.5%.
       await choose('g-a', /a-base/);
-      expect(screen.getByText('+10.5%')).toBeInTheDocument();
+      expect(screen.getByText('+10,5%')).toBeInTheDocument();
       expect(screen.getByRole('radio', { name: /a-base/ })).toBeChecked();
       expect(screen.getByRole('radio', { name: /Brak/ })).not.toBeChecked();
     });
@@ -443,7 +443,7 @@ describe('CoefficientAssignmentModal', () => {
       await choose('g-a', /a-30/);
       await choose('g-b', /b-205/);
       expect(screen.getByLabelText('coefficient-high-total-warning')).toHaveTextContent(
-        'Высокая суммарная корректировка цены (+50.5%).',
+        'Высокая суммарная корректировка цены (+50,5%).',
       );
     });
   });
@@ -549,7 +549,7 @@ describe('CoefficientAssignmentModal', () => {
     await choose('g1', /^x/);
     expect(screen.queryByLabelText('coefficient-high-total-warning')).not.toBeInTheDocument();
     await choose('g2', /^y/);
-    expect(screen.getByLabelText('coefficient-high-total-warning')).toHaveTextContent('+50.001%');
+    expect(screen.getByLabelText('coefficient-high-total-warning')).toHaveTextContent('+50,001%');
     expect(screen.getByLabelText('coefficient-modal-apply')).toBeEnabled();
   });
 });

@@ -3,6 +3,7 @@ import { fetchCoefficientGroups } from '../api/coefficients';
 import { useI18n } from '../hooks/useI18n';
 import { CoefficientGroupRead, CoefficientOptionRead } from '../types/coefficient';
 import { PlannedWorkCoefficientOptionRead } from '../types/workPlan';
+import { commaDecimal } from '../utils/format';
 import {
   calculateEffectivePrice,
   formatPercentageDisplay,
@@ -230,7 +231,7 @@ export const CoefficientAssignmentModal: React.FC<CoefficientAssignmentModalProp
             </div>
             <div className="text-sm font-semibold text-emerald-600 truncate mt-0.5">
               {effectivePrice !== null
-                ? `${effectivePrice} ${currency}`
+                ? `${commaDecimal(effectivePrice)} ${currency}`
                 : t.coefficients.unresolved_price}
             </div>
           </div>
