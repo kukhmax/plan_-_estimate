@@ -19,6 +19,7 @@ from app.domain.data.demo_data import (
 )
 from app.domain.exceptions import ClientHasProjectsError
 from app.domain.services.client_service import ClientService
+from app.domain.services.data_key_service import DataKeyService
 from app.domain.services.media_purger import MediaPurger
 from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.project_purge_service import ProjectPurgeService
@@ -63,17 +64,23 @@ class DemoDataService:
         self.purger = purger
 
     async def _project(self, owner_id: uuid.UUID) -> Project | None:
-        stmt = select(Project).where(Project.owner_id == owner_id, Project.name.startswith(DEMO_PROJECT_PREFIX))
-        return (await self.db.execute(stmt)).scalars().first()
+        # the name is ciphertext in the database: the objects of the owner are read (decrypted) and the prefix is looked for here
+        rows = (await self.db.execute(select(Project).where(Project.owner_id == owner_id).order_by(Project.created_at))).scalars()
+        return next((row for row in rows if row.name.startswith(DEMO_PROJECT_PREFIX)), None)
 
     async def _client(self, owner_id: uuid.UUID) -> Client | None:
-        stmt = select(Client).where(Client.owner_user_id == owner_id, Client.notes.startswith(DEMO_CLIENT_MARK))
-        return (await self.db.execute(stmt)).scalars().first()
+        rows = (await self.db.execute(select(Client).where(Client.owner_user_id == owner_id).order_by(Client.created_at))).scalars()
+        return next((row for row in rows if (row.notes or "").startswith(DEMO_CLIENT_MARK)), None)
 
     async def _items(self, owner_id: uuid.UUID) -> list[PriceItem]:
         return list((await self.db.execute(select(PriceItem).where(PriceItem.owner_id == owner_id))).scalars())
 
+    async def _in_force(self, owner_id: uuid.UUID) -> None:
+        # the client data is encrypted with the key of its owner: a command line has no request to put that key in force (EN-2)
+        await DataKeyService(self.db).put_in_force(owner_id)
+
     async def status(self, owner_id: uuid.UUID) -> DemoStatus:
+        await self._in_force(owner_id)
         project, client = await self._project(owner_id), await self._client(owner_id)
         rooms = 0
         if project is not None:
@@ -83,6 +90,7 @@ class DemoDataService:
         return DemoStatus(project.id if project else None, client.id if client else None, rooms, matching)
 
     async def seed(self, owner_id: uuid.UUID, *, with_prices: bool = True) -> DemoSeedResult:
+        await self._in_force(owner_id)
         project, client = await self._project(owner_id), await self._client(owner_id)
         created, rooms = False, 0
         if project is None:
@@ -126,6 +134,7 @@ class DemoDataService:
         return changed
 
     async def remove(self, owner_id: uuid.UUID, *, reset_prices: bool = True) -> DemoRemoveResult:
+        await self._in_force(owner_id)
         project, client = await self._project(owner_id), await self._client(owner_id)
         removed_project = removed_client = False
         kept: str | None = None

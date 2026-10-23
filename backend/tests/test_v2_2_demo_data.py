@@ -2,9 +2,12 @@
 import io
 from decimal import Decimal
 
-from sqlalchemy import func, select
+import pytest
+from sqlalchemy import func, select, text
 
 from app.cli import demo as demo_cli
+from app.core.config import settings
+from app.core.data_crypto import is_encrypted
 from app.domain.data.demo_data import (
     DEMO_PROJECT_NAME,
     DEMO_ROOMS,
@@ -214,3 +217,41 @@ async def test_the_command_line_refuses_an_unknown_account(db_session, monkeypat
     assert "ACCOUNT_NOT_FOUND" in out.getvalue()
     out = io.StringIO()
     assert await demo_cli.run(["seed", "--telegram-id", "424242"], out=out) == 1
+
+
+# --- the encrypted client data (EN-2): a command line has no request that puts the owner's key in force -----------------------------------------
+
+
+@pytest.fixture
+def strict(monkeypatch):
+    monkeypatch.setattr(settings, "DATA_STRICT_READ", True)
+
+
+async def test_the_demo_is_written_as_ciphertext_found_again_and_removed(db_session, encryption_on, strict):
+    owner = await _owner(db_session)
+    first = await _service(db_session).seed(owner.id)
+    assert first.created_objects and first.rooms == 5
+    raw = (await db_session.execute(text("select name, address from projects"))).one()
+    assert all(is_encrypted(value) for value in raw)  # never plain: the application refuses a plain value in strict mode
+    assert is_encrypted((await db_session.execute(text("select notes from clients"))).scalar_one())
+
+    again = await _service(db_session).seed(owner.id)
+    assert not again.created_objects and await _count(db_session, Project, Project.owner_id == owner.id) == 1  # found by its decrypted name
+    status = await _service(db_session).status(owner.id)
+    assert status.project_id and status.client_id and status.rooms == 5
+
+    removed = await _service(db_session).remove(owner.id)
+    assert removed.removed_project and removed.removed_client and removed.prices_reset == 49
+    assert await _count(db_session, Project, Project.owner_id == owner.id) == 0
+
+
+async def test_the_application_reads_the_demo_in_strict_mode(async_client, db_session, encryption_on, strict, monkeypatch):
+    monkeypatch.setattr(settings, "AUTH_PASSWORD_ENABLED", True)
+    owner = await _owner(db_session)
+    await _service(db_session).seed(owner.id)
+    token = (await async_client.post("/api/auth/password", json={"email": "jan@example.pl", "password": PASSWORD})).json()["access_token"]
+    projects = await async_client.get("/api/projects", headers={"Authorization": f"Bearer {token}"})
+    assert projects.status_code == 200, projects.text
+    assert [item["name"] for item in projects.json()["items"]] == [DEMO_PROJECT_NAME]
+    clients = await async_client.get("/api/clients", headers={"Authorization": f"Bearer {token}"})
+    assert clients.status_code == 200 and clients.json()["total"] == 1
