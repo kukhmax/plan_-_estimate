@@ -152,7 +152,6 @@ describe('SurfaceList', () => {
     await waitFor(() =>
       expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toBeInTheDocument(),
     );
-    expandOptions(surface.id);
     fireEvent.click(screen.getByLabelText(`edit-surface-${surface.id}`));
     fireEvent.change(screen.getByLabelText('surface-name'), { target: { value: 'Ściana nowa' } });
     fireEvent.submit(screen.getByLabelText('surface-form'));
@@ -298,7 +297,6 @@ describe('SurfaceList', () => {
     expect(screen.getByText('=')).toBeInTheDocument();
 
     // Verify form inputMode="decimal"
-    expandOptions(surface.id);
     fireEvent.click(screen.getByLabelText(`edit-surface-${surface.id}`));
     expect(screen.getByLabelText('surface-width')).toHaveAttribute('inputMode', 'decimal');
     expect(screen.getByLabelText('surface-height')).toHaveAttribute('inputMode', 'decimal');
@@ -583,7 +581,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByLabelText(`work-plan-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByText('Otwory i opcje')).toBeInTheDocument();
-    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`archive-surface-${surface.id}`)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(`add-opening-${surface.id}-DOOR`)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(`toggle-openings-${surface.id}`)).not.toBeInTheDocument();
   });
@@ -599,7 +597,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     // the "Ukryj opcje" label while expanded.
     expect(screen.getAllByText('Ukryj otwory i opcje')).toHaveLength(2);
     expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toBeInTheDocument();
     expect(screen.getByLabelText(`add-opening-${surface.id}-WINDOW`)).toBeInTheDocument();
@@ -629,7 +627,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     fireEvent.click(bottomToggle);
     expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByLabelText(`options-toggle-bottom-${surface.id}`)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`archive-surface-${surface.id}`)).not.toBeInTheDocument();
   });
 
   it('collapses the action grid again when tapping Ukryj opcje', async () => {
@@ -638,13 +636,13 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     expandOptions(surface.id);
-    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
 
     expect(screen.getByText('Otwory i opcje')).toBeInTheDocument();
     expect(screen.getByLabelText(`options-toggle-${surface.id}`)).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`archive-surface-${surface.id}`)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(`add-opening-${surface.id}-DOOR`)).not.toBeInTheDocument();
   });
 
@@ -661,8 +659,8 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
     expandOptions(wall1.id);
 
-    expect(screen.getByLabelText(`edit-surface-${wall1.id}`)).toBeInTheDocument();
-    expect(screen.queryByLabelText(`edit-surface-${wall2.id}`)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${wall1.id}`)).toBeInTheDocument();
+    expect(screen.queryByLabelText(`archive-surface-${wall2.id}`)).not.toBeInTheDocument();
     expect(screen.getByLabelText(`options-toggle-${wall2.id}`)).toBeInTheDocument();
   });
 
@@ -781,7 +779,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     expect(await screen.findByLabelText(`work-plan-editor-${surface.id}`)).toBeInTheDocument();
     expect(workPlansApi.fetchSurfaceWorkPlan).toHaveBeenCalledWith(projectId, roomId, surface.id);
     expect(options).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`archive-surface-${surface.id}`)).not.toBeInTheDocument();
 
     fireEvent.click(workPlan);
     expect(screen.queryByLabelText(`work-plan-editor-${surface.id}`)).not.toBeInTheDocument();
@@ -790,12 +788,12 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     await screen.findByLabelText(`work-plan-form-${surface.id}`);
     expandOptions(surface.id);
     expect(screen.getByLabelText(`work-plan-editor-${surface.id}`)).toBeInTheDocument();
-    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText(`close-work-plan-${surface.id}`));
     expect(screen.queryByLabelText(`work-plan-editor-${surface.id}`)).not.toBeInTheDocument();
     expect(options).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
     expect(workPlansApi.putSurfaceWorkPlan).not.toHaveBeenCalled();
   });
 
@@ -810,7 +808,7 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
 
     fireEvent.click(screen.getByLabelText(`options-toggle-${surface.id}`));
     expect(screen.getAllByText('Скрыть проёмы и опции')).toHaveLength(2);
-    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
   });
 
   it('shows generated wall names in Polish while keeping the stored name in the edit form', async () => {
@@ -821,7 +819,6 @@ describe('SurfaceList Stage 10C.1 compact card + Opcje progressive disclosure', 
     expect(await screen.findByText('Ściana 1')).toBeInTheDocument();
     expect(screen.queryByText('Wall 1')).not.toBeInTheDocument();
 
-    expandOptions(generatedWall.id);
     fireEvent.click(screen.getByLabelText(`edit-surface-${generatedWall.id}`));
     expect(screen.getByLabelText('surface-name')).toHaveValue('Wall 1');
     expect(surfacesApi.updateSurface).not.toHaveBeenCalled();
@@ -933,7 +930,7 @@ describe('SurfaceList canonical plane filtering (10C.1C finding 3)', () => {
     expect(screen.getByText(/11,70 m²/)).toBeInTheDocument();
     expandOptions(surface.id);
     expect(screen.getByLabelText(`add-opening-${surface.id}-DOOR`)).toBeInTheDocument();
-    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
     expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
   });
 
@@ -1089,15 +1086,15 @@ describe('SurfaceList — compact upper-right Opcje (Stage 10G.4 follow-up)', ()
     const opcjeButton = screen.getByLabelText(`options-toggle-${surface.id}`);
     expect(header.parentElement).toContainElement(opcjeButton);
     expect(opcjeButton).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`archive-surface-${surface.id}`)).not.toBeInTheDocument();
 
     fireEvent.click(opcjeButton);
     expect(opcjeButton).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByLabelText(`edit-surface-${surface.id}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`archive-surface-${surface.id}`)).toBeInTheDocument();
 
     fireEvent.click(opcjeButton);
     expect(opcjeButton).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByLabelText(`edit-surface-${surface.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`archive-surface-${surface.id}`)).not.toBeInTheDocument();
   });
 
   it('is a compact 40 px button (owner request, Stage 18G)', async () => {

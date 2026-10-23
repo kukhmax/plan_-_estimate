@@ -218,8 +218,10 @@ describe('merging walls: a merged wall', () => {
     vi.mocked(surfacesApi.updateSurface).mockResolvedValue(merged);
     renderList();
     fireEvent.click(await screen.findByLabelText(`surface-row-${W1.id}`));
-    fireEvent.click(await screen.findByLabelText(`options-toggle-${W1.id}`));
-    fireEvent.click(await screen.findByLabelText(`edit-surface-${W1.id}`));
+    const pencil = await screen.findByLabelText(`edit-surface-${W1.id}`); // the pencil next to the name, no Opcje needed
+    expect(pencil).toHaveTextContent(/^✏️$/); // an icon only, no word
+    expect(pencil.closest('li')).toContainElement(screen.getByLabelText(`card-collapse-${W1.id}`));
+    fireEvent.click(pencil);
     const sheet = await screen.findByRole('dialog', { name: 'Edytuj powierzchnię' });
     expect(sheet).toContainElement(screen.getByLabelText('surface-form'));
     expect(screen.queryByLabelText('surface-width')).toBeNull(); // the size is the parts
@@ -234,8 +236,7 @@ describe('merging walls: a merged wall', () => {
   it('closes the sheet with Escape', async () => {
     renderList();
     fireEvent.click(await screen.findByLabelText(`surface-row-${W1.id}`));
-    fireEvent.click(await screen.findByLabelText(`options-toggle-${W1.id}`));
-    fireEvent.click(await screen.findByLabelText(`edit-surface-${W1.id}`));
+    fireEvent.click(await screen.findByLabelText(`edit-surface-${W1.id}`)); // the pencil next to the name, no Opcje needed
     await screen.findByLabelText('surface-form');
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByLabelText('surface-form')).toBeNull();

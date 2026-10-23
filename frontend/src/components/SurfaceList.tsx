@@ -1109,6 +1109,16 @@ export function SurfaceList({
                       <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">{headerContent}</div>
                     );
                   })()}
+                  {/* The name is edited from its own pencil (an icon only), next to the name: for every wall, simple or merged. */}
+                  <button
+                    type="button"
+                    aria-label={`edit-surface-${surface.id}`}
+                    title={t.common.edit}
+                    onClick={() => startEdit(surface)}
+                    className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition"
+                  >
+                    <span aria-hidden="true">✏️</span>
+                  </button>
                   {/* Stage 14E.7: the compact photo button sits in the header, left of Opcje (no row of its own);
                       nothing without a project context. */}
                   <PhotoCardButton context="SURFACE" targetId={surface.id} />
@@ -1396,14 +1406,6 @@ export function SurfaceList({
                               </button>
                             </>
                           )}
-                          <button
-                            type="button"
-                            aria-label={`edit-surface-${surface.id}`}
-                            onClick={() => startEdit(surface)}
-                            className="min-h-11 w-full text-xs px-2 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
-                          >
-                            <Ico>✏️</Ico>{t.common.edit}
-                          </button>
                           {!(surface.is_archived && surface.merged_into_id) && <button
                             type="button"
                             aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
@@ -1477,14 +1479,6 @@ export function SurfaceList({
 
                     {isOptionsOpen && (
                       <div className="flex gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          aria-label={`edit-surface-${surface.id}`}
-                          onClick={() => startEdit(surface)}
-                          className="min-h-11 px-3 py-1 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
-                        >
-                          <Ico>✏️</Ico>{t.common.edit}
-                        </button>
                         <button
                           type="button"
                           aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
