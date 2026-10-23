@@ -28,6 +28,7 @@ from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
 from app.domain.services.canonical_planes import ensure_canonical_plane_surfaces
 from app.domain.services.client_ids import find_repeat
+from app.domain.services.wall_parts import load_parts, wall_size_pairs
 from app.schemas.room import (
     OpeningGroupRead,
     ProjectSummaryRead,
@@ -59,7 +60,7 @@ class RoomService:
         room_id: uuid.UUID,
         deduction: Decimal,
     ) -> WallDerivedTotals | None:
-        wall_stmt = select(Surface.width, Surface.height).where(
+        wall_stmt = select(Surface.id, Surface.width, Surface.height).where(
             Surface.room_id == room_id,
             Surface.is_archived.is_(False),
             Surface.surface_type == SurfaceType.WALL,
@@ -67,9 +68,8 @@ class RoomService:
             Surface.height.is_not(None),
         )
         wall_result = await self.db.execute(wall_stmt)
-        wall_pairs = [
-            (Decimal(row[0]), Decimal(row[1])) for row in wall_result.all()
-        ]
+        # a merged wall counts as the walls it joins (one pair per part)
+        wall_pairs = await wall_size_pairs(self.db, [(row[0], Decimal(row[1]), Decimal(row[2])) for row in wall_result.all()])
         return calculate_wall_derived_totals(wall_pairs, deduction)
 
     @staticmethod
@@ -343,7 +343,7 @@ class RoomService:
         total = count_result.scalar_one()
 
         wall_stmt = (
-            select(Surface.room_id, Surface.width, Surface.height)
+            select(Surface.room_id, Surface.width, Surface.height, Surface.id)
             .join(Room, Surface.room_id == Room.id)
             .where(
                 Room.project_id == project_id,
@@ -358,8 +358,12 @@ class RoomService:
         wall_rows = (await self.db.execute(wall_stmt)).all()
 
         wall_pairs_by_room: dict[uuid.UUID, list[tuple[Decimal, Decimal]]] = defaultdict(list)
-        for room_id, width, height in wall_rows:
-            wall_pairs_by_room[room_id].append((Decimal(width), Decimal(height)))
+        part_rows = await load_parts(self.db, [row[3] for row in wall_rows])
+        for room_id, width, height, surface_id in wall_rows:
+            if surface_id in part_rows:  # a merged wall counts as the walls it joins
+                wall_pairs_by_room[room_id].extend((part.width, part.height) for part in part_rows[surface_id])
+            else:
+                wall_pairs_by_room[room_id].append((Decimal(width), Decimal(height)))
 
         segment_stmt = (
             select(

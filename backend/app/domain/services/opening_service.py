@@ -14,6 +14,7 @@ from app.domain.exceptions import (
     SurfaceNotFoundError,
 )
 from app.domain.services.client_ids import find_repeat
+from app.domain.services.wall_parts import effective_gross_area
 from app.models.opening import Opening, OpeningType
 from app.models.project import Project
 from app.models.room import Room
@@ -136,7 +137,7 @@ class OpeningService:
         total_deductions = current_deductions + new_opening_area
 
         if surface.width is not None and surface.height is not None:
-            gross_area = (surface.width * surface.height).quantize(Decimal("0.001"))
+            gross_area = await effective_gross_area(self.db, surface)
             if total_deductions > gross_area:
                 raise DeductionExceedsGrossAreaError(
                     f"Total opening deductions ({total_deductions}) would exceed wall gross area ({gross_area})"
@@ -214,7 +215,7 @@ class OpeningService:
             )
             total_deductions = other_deductions + new_area
             if surface.width is not None and surface.height is not None:
-                gross_area = (surface.width * surface.height).quantize(Decimal("0.001"))
+                gross_area = await effective_gross_area(self.db, surface)
                 if total_deductions > gross_area:
                     raise DeductionExceedsGrossAreaError(
                         f"Total opening deductions ({total_deductions}) would exceed wall gross area ({gross_area})"
@@ -289,7 +290,7 @@ class OpeningService:
         total_deductions = current_deductions + opening_area
 
         if surface.width is not None and surface.height is not None:
-            gross_area = (surface.width * surface.height).quantize(Decimal("0.001"))
+            gross_area = await effective_gross_area(self.db, surface)
             if total_deductions > gross_area:
                 raise DeductionExceedsGrossAreaError(
                     f"Restoring opening with deduction ({opening_area}) would exceed wall gross area ({gross_area})"

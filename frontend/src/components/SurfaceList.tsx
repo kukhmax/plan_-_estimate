@@ -1,13 +1,17 @@
 import { INSPECT_BUTTON_WITH_BADGE, InspectionPhotoBadge } from './ExecutionPhotoBadge';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { ApiError } from '../api/http';
 import { fetchOpenings } from '../api/openings';
 import {
   archiveSurface,
   createSurface,
   fetchSurfaces,
   generateWalls,
+  mergeSurfaces,
   restoreSurface,
+  unmergeSurface,
   updateSurface,
+  updateSurfacePart,
 } from '../api/surfaces';
 import { useI18n } from '../hooks/useI18n';
 import { OpeningType, OpeningTypeValue } from '../types/opening';
@@ -355,6 +359,82 @@ export function SurfaceList({
     }
   };
 
+  // --- Merged walls (backlog "Объединить стены") -----------------------------------------------------------------------------------------
+  /** Selection mode: the walls are marked one by one (the order is kept: the first stays and keeps the plan). */
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [mergeConfirm, setMergeConfirm] = useState(false);
+  const [mergeBusy, setMergeBusy] = useState(false);
+  const [unmergeConfirmId, setUnmergeConfirmId] = useState<string | null>(null);
+
+  const mergeErrorText = (err: unknown): string => {
+    const code = err instanceof ApiError ? err.code : undefined;
+    const known = code ? (t.surfaces.merge_errors as Record<string, string>)[code] : undefined;
+    return known ?? (err instanceof Error ? err.message : t.surfaces.error);
+  };
+  const startSelecting = (firstId?: string) => {
+    setError(null);
+    setSuccess(null);
+    setMergeConfirm(false);
+    setSelecting(true);
+    setSelectedIds(firstId ? [firstId] : []);
+  };
+  const stopSelecting = () => {
+    setSelecting(false);
+    setSelectedIds([]);
+    setMergeConfirm(false);
+  };
+  const toggleSelected = (surfaceId: string) => {
+    setMergeConfirm(false);
+    setSelectedIds((current) => (current.includes(surfaceId) ? current.filter((id) => id !== surfaceId) : [...current, surfaceId]));
+  };
+  const handleMerge = async () => {
+    setMergeBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const merged = await mergeSurfaces(projectId, roomId, selectedIds);
+      stopSelecting();
+      setSuccess(t.surfaces.merged_done);
+      setOpenCards((current) => ({ ...current, [merged.id]: true }));
+      await load();
+      onMeasurementChanged?.();
+    } catch (err) {
+      setError(mergeErrorText(err));
+      setMergeConfirm(false);
+    } finally {
+      setMergeBusy(false);
+    }
+  };
+  const handleUnmerge = async (surfaceId: string) => {
+    setMergeBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await unmergeSurface(projectId, roomId, surfaceId);
+      setUnmergeConfirmId(null);
+      setSuccess(t.surfaces.unmerged_done);
+      await load();
+      onMeasurementChanged?.();
+    } catch (err) {
+      setError(mergeErrorText(err));
+      setUnmergeConfirmId(null);
+    } finally {
+      setMergeBusy(false);
+    }
+  };
+  const savePartSize = async (surfaceId: string, partId: string, width: number, height: number) => {
+    setSuccess(null);
+    try {
+      await updateSurfacePart(projectId, roomId, surfaceId, partId, { width, height });
+    } catch (err) {
+      throw new Error(mergeErrorText(err)); // SurfaceDimensions shows the message under its fields
+    }
+    setSuccess(t.surfaces.dimensions_saved);
+    await load();
+    onMeasurementChanged?.();
+  };
+
   const closeForm = () => {
     setShowForm(false);
     setEditingId(null);
@@ -468,6 +548,15 @@ export function SurfaceList({
   const visibleSurfaces = surfaces.filter(
     (s) => s.surface_type !== 'FLOOR' && s.surface_type !== 'CEILING',
   );
+
+  /** Walls that can be joined: active, with a size, not merged yet. */
+  const isMergeable = (surface: SurfaceType) =>
+    surface.surface_type === 'WALL' && !surface.is_archived && surface.width != null && surface.height != null && !(surface.parts && surface.parts.length > 0);
+  const mergeableWalls = visibleSurfaces.filter(isMergeable);
+  const nameOf = (surfaceId: string | null | undefined) => {
+    const found = surfaces.find((candidate) => candidate.id === surfaceId);
+    return found ? getSurfaceDisplayName(found, surfaceDisplayLabels) : '';
+  };
 
   const openingTypeWord = (type: OpeningTypeValue): string => {
     if (type === 'WINDOW') return t.surfaces.deduction_type_window;
@@ -628,6 +717,20 @@ export function SurfaceList({
         {t.common.show_archived}
       </label>
 
+      {effectiveWallMode === 'CUSTOM' && !selecting && !loading && mergeableWalls.length >= 2 && (
+        <button
+          type="button"
+          aria-label="merge-walls-start"
+          onClick={() => startSelecting()}
+          className="mb-3 w-full min-h-11 px-3 py-2 text-sm rounded-xl border border-blue-200 bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
+        >
+          <Ico>🔗</Ico>{t.surfaces.merge_start}
+        </button>
+      )}
+      {selecting && (
+        <p aria-label="merge-hint" className="mb-3 text-xs text-slate-600 break-words">{t.surfaces.merge_hint}</p>
+      )}
+
       {showForm && (
         <form
           aria-label="surface-form"
@@ -744,10 +847,19 @@ export function SurfaceList({
             const openingTypeLabel = (type: 'DOOR' | 'WINDOW' | 'OTHER') =>
               type === 'DOOR' ? t.openings.door : type === 'WINDOW' ? t.openings.window : t.openings.other;
 
-            if (isWall && !isCardOpen(surface.id)) {
+            const partsCount = surface.parts?.length ?? 0;
+            const selectedOrder = selectedIds.indexOf(surface.id) >= 0 ? selectedIds.indexOf(surface.id) + 1 : null;
+            if (isWall && (selecting || !isCardOpen(surface.id))) {
               return (
                 <li key={surface.id} aria-label={`surface-item-${surface.id}`}>
                   <SurfaceRowButton
+                    partsLabel={partsCount > 0 ? String(partsCount) : null}
+                    mergedLabel={surface.merged_into_id ? t.surfaces.merged_into.replace('{name}', nameOf(surface.merged_into_id)) : null}
+                    selecting={selecting}
+                    selectedOrder={selectedOrder}
+                    disabled={selecting && !isMergeable(surface)}
+                    stayLabel={t.surfaces.merge_first_stays}
+                    onLongPress={effectiveWallMode === 'CUSTOM' && isMergeable(surface) && mergeableWalls.length >= 2 ? () => startSelecting(surface.id) : undefined}
                     surfaceId={surface.id}
                     name={displayName}
                     typeLabel={typeLabel(surface.surface_type)}
@@ -756,7 +868,7 @@ export function SurfaceList({
                     workCount={surface.planned_work_count}
                     pending={surface._pending}
                     className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
-                    onOpen={() => toggleCard(surface.id)}
+                    onOpen={() => (selecting ? toggleSelected(surface.id) : toggleCard(surface.id))}
                   />
                 </li>
               );
@@ -834,15 +946,68 @@ export function SurfaceList({
                   </button>
                 )}
 
+                {isWall && partsCount > 0 && (
+                  <div aria-label={`merged-parts-${surface.id}`} className="space-y-1 rounded-xl border border-blue-200/70 p-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-700 min-w-0 break-words">
+                        <Ico>🔗</Ico>{t.surfaces.parts_title.replace('{count}', String(partsCount))}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`unmerge-surface-${surface.id}`}
+                        onClick={() => setUnmergeConfirmId(unmergeConfirmId === surface.id ? null : surface.id)}
+                        disabled={mergeBusy}
+                        className="group shrink-0 min-h-11 flex items-center text-xs font-medium disabled:opacity-60"
+                      >
+                        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-slate-700 group-hover:bg-slate-200 transition">{t.surfaces.unmerge}</span>
+                      </button>
+                    </div>
+                    {unmergeConfirmId === surface.id && (
+                      <div role="alertdialog" aria-label={`unmerge-confirm-${surface.id}`} className="space-y-2 rounded-lg bg-amber-50 p-2">
+                        <p className="text-xs text-amber-900 break-words">{t.surfaces.unmerge_confirm}</p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            aria-label={`unmerge-confirm-yes-${surface.id}`}
+                            onClick={() => void handleUnmerge(surface.id)}
+                            disabled={mergeBusy}
+                            className="min-h-11 flex-1 px-3 text-sm rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-60"
+                          >
+                            {t.surfaces.unmerge_confirm_yes}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setUnmergeConfirmId(null)}
+                            className="min-h-11 flex-1 px-3 text-sm rounded-xl border border-slate-300 text-slate-700 font-medium"
+                          >
+                            {t.common.cancel}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {(surface.parts ?? []).map((part, partIndex) => (
+                      <div key={part.id} aria-label={`merged-part-${part.id}`}>
+                        <p className="text-[11px] text-slate-500">{t.surfaces.part_label.replace('{n}', String(partIndex + 1))}</p>
+                        <SurfaceDimensions
+                          surfaceId={part.id}
+                          width={part.width}
+                          height={part.height}
+                          readOnly={surface.is_archived}
+                          onSave={(width, height) => savePartSize(surface.id, part.id, width, height)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {/* the size, with a one-tap way to change it right on the card (Stage 19, owner request) */}
-                <SurfaceDimensions
+                {partsCount === 0 && <SurfaceDimensions
                   surfaceId={surface.id}
                   width={surface.width}
                   height={surface.height}
                   readOnly={surface.is_archived}
                   onSave={(width, height) => saveDimensions(surface.id, width, height)}
                   extraAction={
-                    isWall && effectiveWallMode === 'CUSTOM' && hasDimensions && !surface.is_archived ? (
+                    isWall && effectiveWallMode === 'CUSTOM' && hasDimensions && !surface.is_archived && partsCount === 0 ? (
                       <button
                         type="button"
                         aria-label={`duplicate-surface-${surface.id}`}
@@ -855,7 +1020,7 @@ export function SurfaceList({
                       </button>
                     ) : undefined
                   }
-                />
+                />}
 
                 {openingSummary.length > 0 && (
                   <div aria-label={`openings-summary-${surface.id}`} className="text-xs text-slate-600">
@@ -1028,14 +1193,14 @@ export function SurfaceList({
                           >
                             <Ico>✏️</Ico>{t.common.edit}
                           </button>
-                          <button
+                          {!(surface.is_archived && surface.merged_into_id) && <button
                             type="button"
                             aria-label={`${surface.is_archived ? 'restore' : 'archive'}-surface-${surface.id}`}
                             onClick={() => void changeArchiveState(surface)}
                             className="min-h-11 w-full text-xs px-2 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
                           >
                             <Ico>{surface.is_archived ? '♻️' : '🗃️'}</Ico>{surface.is_archived ? t.common.restore : t.common.archive}
-                          </button>
+                          </button>}
                         </div>
 
                         {isOpeningsOpen && (
@@ -1125,6 +1290,68 @@ export function SurfaceList({
             );
           })}
         </ul>
+      )}
+
+      {selecting && (
+        <>
+          <div aria-hidden="true" className="h-28" />
+          <div
+            aria-label="merge-bar"
+            className="fixed inset-x-0 z-30 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] border-t px-4 py-2"
+            style={{ backgroundColor: 'var(--tg-theme-bg-color)', borderColor: 'var(--tg-theme-secondary-bg-color)' }}
+          >
+            <div className="mx-auto w-full max-w-lg space-y-2">
+              {mergeConfirm && selectedIds.length >= 2 ? (
+                <div role="alertdialog" aria-label="merge-confirm" className="space-y-2">
+                  <p className="text-sm font-semibold text-[var(--tg-theme-text-color)]">{t.surfaces.merge_confirm_title}</p>
+                  <p className="text-xs text-slate-600 break-words">{t.surfaces.merge_confirm_body.replace('{name}', nameOf(selectedIds[0]))}</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      aria-label="merge-confirm-yes"
+                      onClick={() => void handleMerge()}
+                      disabled={mergeBusy}
+                      className="min-h-11 flex-1 px-3 text-sm rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-60"
+                    >
+                      {t.surfaces.merge_confirm_yes}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="merge-confirm-back"
+                      onClick={() => setMergeConfirm(false)}
+                      className="min-h-11 flex-1 px-3 text-sm rounded-xl border border-slate-300 text-slate-700 font-medium"
+                    >
+                      {t.common.cancel}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span aria-label="merge-selected" className="min-w-0 flex-1 text-xs text-slate-600 break-words">
+                    {t.surfaces.merge_selected.replace('{count}', String(selectedIds.length))}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="merge-cancel"
+                    onClick={stopSelecting}
+                    className="shrink-0 min-h-11 px-3 text-sm rounded-xl border border-slate-300 text-slate-700 font-medium"
+                  >
+                    {t.common.cancel}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="merge-go"
+                    disabled={selectedIds.length < 2 || mergeBusy}
+                    onClick={() => setMergeConfirm(true)}
+                    className="shrink-0 min-h-11 px-3 text-sm rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-50"
+                  >
+                    {t.surfaces.merge_action.replace('{count}', String(selectedIds.length))}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </section>
   );

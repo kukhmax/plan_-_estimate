@@ -12,6 +12,7 @@ from app.domain.exceptions import (
     SurfaceNotFoundError,
     WallGenerationConflictError,
     WallGenerationDimensionsMissingError,
+    WallMergeError,
 )
 from app.domain.rules.room_geometry import (
     generate_canonical_walls,
@@ -19,6 +20,7 @@ from app.domain.rules.room_geometry import (
 )
 from app.domain.services.canonical_planes import find_active_plane_surface
 from app.domain.services.client_ids import find_repeat
+from app.domain.services.wall_parts import decorate
 from app.models.opening import Opening
 from app.models.project import Project
 from app.models.room import Room
@@ -119,6 +121,7 @@ class SurfaceService:
             )
             for surface in items:
                 surface.planned_work_count = int(counts.get(surface.id, 0))
+            await decorate(self.db, items)
 
         return items, total
 
@@ -280,6 +283,7 @@ class SurfaceService:
             deduction_res = await self.db.execute(deduction_stmt)
             surface.deduction_area = Decimal(deduction_res.scalar_one()).quantize(Decimal("0.001"))
 
+        await decorate(self.db, [surface])
         return surface
 
     async def update_surface(
@@ -291,6 +295,10 @@ class SurfaceService:
         owner_id: uuid.UUID,
     ) -> Surface:
         surface = await self.get_surface(project_id, room_id, surface_id, owner_id)
+
+        if surface.parts and (payload.width is not None or payload.height is not None or payload.surface_type is not None):
+            # the size of a merged wall is the size of its parts: they are edited one by one (PATCH .../parts/{part_id})
+            raise WallMergeError("WALL_MERGED_EDIT_PARTS", "A merged wall's size is edited by its parts")
 
         target_width = payload.width if payload.width is not None else surface.width
         target_height = payload.height if payload.height is not None else surface.height
@@ -346,6 +354,7 @@ class SurfaceService:
             )
             deduction_res = await self.db.execute(deduction_stmt)
             surface.deduction_area = Decimal(deduction_res.scalar_one()).quantize(Decimal("0.001"))
+        await decorate(self.db, [surface])
         return surface
 
     async def archive_surface(
@@ -366,6 +375,7 @@ class SurfaceService:
         surface.is_archived = True
         await self.db.commit()
         await self.db.refresh(surface)
+        await decorate(self.db, [surface])
         return surface
 
     async def restore_surface(
@@ -376,6 +386,9 @@ class SurfaceService:
         owner_id: uuid.UUID,
     ) -> Surface:
         surface = await self.get_surface(project_id, room_id, surface_id, owner_id)
+        if surface.merged_into_id is not None:
+            # a wall that was joined into another one comes back only when that wall is separated
+            raise WallMergeError("WALL_RESTORE_MERGED", "The wall is part of a merged wall: separate that wall to bring it back")
         if surface.surface_type in (SurfaceType.FLOOR, SurfaceType.CEILING):
             existing = await find_active_plane_surface(
                 self.db, room_id, surface.surface_type
@@ -387,4 +400,5 @@ class SurfaceService:
         surface.is_archived = False
         await self.db.commit()
         await self.db.refresh(surface)
+        await decorate(self.db, [surface])
         return surface

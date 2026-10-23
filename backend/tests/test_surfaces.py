@@ -136,6 +136,8 @@ async def test_create_each_supported_surface_type(
         "deduction_area",
         "net_area",
         "planned_work_count",  # usability U-7: an added, read-only field
+        "parts",  # merged walls: added, read-only fields
+        "merged_into_id",
         "is_archived",
         "created_at",
         "updated_at",

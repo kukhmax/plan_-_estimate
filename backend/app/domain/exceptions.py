@@ -1079,3 +1079,12 @@ class AccessAdminProtectedError(Exception):
 
 class AccessSettingsInvalidError(Exception):
     """The contact text is too long."""
+
+
+class WallMergeError(Exception):
+    """A wall merge / unmerge the rules refuse; `code` is machine-readable, `message` is for the log (the screen translates the code)."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message

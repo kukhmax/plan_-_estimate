@@ -194,6 +194,9 @@ html[data-color-scheme='dark'] .border-blue-100 {
 html[data-color-scheme='dark'] .border-blue-200 {
   border-color: rgba(59, 130, 246, 0.45);
 }
+html[data-color-scheme='dark'] .border-blue-200\/70 {
+  border-color: rgba(59, 130, 246, 0.315);
+}
 html[data-color-scheme='dark'] .border-blue-300 {
   border-color: rgba(59, 130, 246, 0.45);
 }

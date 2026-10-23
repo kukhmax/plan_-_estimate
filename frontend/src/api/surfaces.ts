@@ -78,3 +78,30 @@ export function generateWalls(
     method: 'POST',
   });
 }
+
+/** Joins walls of a room into one (the first id stays and keeps the plan; the others are archived into it). */
+export function mergeSurfaces(projectId: string, roomId: string, surfaceIds: string[]): Promise<SurfaceType> {
+  return apiRequest(`${surfacesPath(projectId, roomId)}/merge`, {
+    method: 'POST',
+    body: JSON.stringify({ surface_ids: surfaceIds }),
+  });
+}
+
+/** Separates a merged wall: the joined walls come back with their photos and openings. */
+export function unmergeSurface(projectId: string, roomId: string, surfaceId: string): Promise<SurfaceType> {
+  return apiRequest(`${surfacesPath(projectId, roomId)}/${surfaceId}/unmerge`, { method: 'POST' });
+}
+
+/** Changes the size of one part of a merged wall. */
+export function updateSurfacePart(
+  projectId: string,
+  roomId: string,
+  surfaceId: string,
+  partId: string,
+  size: { width: number; height: number },
+): Promise<SurfaceType> {
+  return apiRequest(`${surfacesPath(projectId, roomId)}/${surfaceId}/parts/${partId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(size),
+  });
+}

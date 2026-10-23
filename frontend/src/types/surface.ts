@@ -14,6 +14,10 @@ export interface SurfaceType {
   net_area?: string | number | null;
   /** How many works the saved plan of the surface holds (usability U-7; the list fills it). */
   planned_work_count?: number;
+  /** Merged walls: the parts of a merged wall (the area is their sum); empty for an ordinary wall. */
+  parts?: SurfacePart[];
+  /** A wall that was joined into another one: that merged wall. */
+  merged_into_id?: string | null;
   is_archived: boolean;
   /** Made on the phone and not yet accepted by the server (Stage 19E): the screens mark it. */
   _pending?: boolean;
@@ -42,4 +46,13 @@ export interface SurfaceUpdatePayload {
   position?: number | null;
   width?: number | string | null;
   height?: number | string | null;
+}
+
+/** One part of a merged wall: the size of a wall that was joined into it (the first part is the wall's own size). */
+export interface SurfacePart {
+  id: string;
+  source_surface_id: string | null;
+  position: number;
+  width: string | number;
+  height: string | number;
 }

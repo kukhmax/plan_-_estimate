@@ -70,6 +70,29 @@ class SurfaceUpdate(BaseModel):
         return self
 
 
+class SurfacePartRead(BaseModel):
+    """One part of a merged wall: the size of a wall that was joined into it (the first part is the wall's own size)."""
+
+    id: uuid.UUID
+    source_surface_id: uuid.UUID | None = None
+    position: int
+    width: Decimal
+    height: Decimal
+
+    model_config = {"from_attributes": True}
+
+
+class SurfaceMergeRequest(BaseModel):
+    """The walls to join, in the order they were chosen: the first one stays (it keeps the plan), the others are archived into it."""
+
+    surface_ids: list[uuid.UUID] = Field(min_length=2, max_length=12)
+
+
+class SurfacePartUpdate(BaseModel):
+    width: Decimal = Field(gt=0, decimal_places=3, max_digits=10)
+    height: Decimal = Field(gt=0, decimal_places=3, max_digits=10)
+
+
 class SurfaceRead(BaseModel):
     id: uuid.UUID
     room_id: uuid.UUID
@@ -84,6 +107,10 @@ class SurfaceRead(BaseModel):
     net_area: Decimal | None = None
     # Usability U-7: how many works the saved plan of the surface holds (filled by the list; 0 elsewhere and for a surface with no plan).
     planned_work_count: int = 0
+    # Merged walls: the parts of a merged wall (empty for an ordinary wall; its `gross_area` is their sum) and, for a wall that was joined
+    # into another one, that merged wall.
+    parts: list[SurfacePartRead] = []
+    merged_into_id: uuid.UUID | None = None
     is_archived: bool
     created_at: datetime
     updated_at: datetime

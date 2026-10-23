@@ -41,6 +41,7 @@ from app.domain.services.handover_service import HandoverService
 from app.domain.services.project_representative_service import ProjectRepresentativeService
 from app.domain.services.room_service import RoomService
 from app.domain.services.surface_service import SurfaceService
+from app.domain.services.wall_merge_service import WallMergeService
 from app.domain.services.work_execution_service import SurfaceWorkExecutionService
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.domain.services.work_recommendation_service import WorkRecommendationService
@@ -207,6 +208,12 @@ async def get_surface_service(
     db: AsyncSession = Depends(get_db),
 ) -> SurfaceService:
     return SurfaceService(db)
+
+
+async def get_wall_merge_service(
+    db: AsyncSession = Depends(get_db),
+) -> WallMergeService:
+    return WallMergeService(db)
 
 
 async def get_opening_service(

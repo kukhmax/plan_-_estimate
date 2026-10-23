@@ -48,9 +48,9 @@ from app.domain.rules.room_geometry import (
     calculate_plane_totals,
     calculate_reveal,
     calculate_segment_area,
-    calculate_surface_gross_area,
     calculate_wall_net_area,
 )
+from app.domain.services.wall_parts import effective_gross_area
 from app.models.area_segment import AreaPlane, AreaSegment
 from app.models.estimate import (
     Estimate,
@@ -657,9 +657,7 @@ class EstimateService:
         if surface.surface_type in (SurfaceType.FLOOR, SurfaceType.CEILING):
             return await self._plane_net_area(surface.room_id, surface.surface_type)
 
-        gross = calculate_surface_gross_area(
-            surface.surface_type, surface.width, surface.height
-        )
+        gross = await effective_gross_area(self.db, surface)  # the sum of the parts for a merged wall
         if gross is None:
             return None
         deduction_stmt = select(
