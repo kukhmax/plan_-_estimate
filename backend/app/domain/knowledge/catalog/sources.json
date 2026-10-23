@@ -99,5 +99,12 @@
     "designation": "karta techniczna producenta",
     "url": "https://tytan-cdn.tytan.com/uploads/sites/53/2020/11/TYTAN-PROFESSIONAL-Grunt-sczepny-BETONKONTAKT_09-09-2025_TDS_pl.pdf",
     "status": "DRAFT"
+  },
+  {
+    "code": "APP.STANDARDS",
+    "kind": "OTHER",
+    "title_pl": "Plan & Estimate — standardy wykonawcy: wykończenie powierzchni S1–S4 i współczynniki cen (zasady aplikacji)",
+    "designation": "Plan & Estimate, docs/stage-12-architecture.md §27.1–27.2",
+    "status": "DRAFT"
   }
 ]

@@ -866,5 +866,63 @@
     "substrates": [
       "CONCRETE"
     ]
+  },
+  {
+    "code": "APP.QUALITY-S",
+    "source": "APP.STANDARDS",
+    "locator": "S1–S4",
+    "title_pl": "Standard wykończenia powierzchni S1–S4 (wewnętrzna klasyfikacja wykonawcy)",
+    "title_ru": "Стандарт отделки поверхности S1–S4 (внутренняя классификация подрядчика)",
+    "summary_pl": "To wewnętrzna klasyfikacja wykonawcy, a nie klasa normowa (PN). Opisuje jakość wykończenia powierzchni, a nie jej geometrię: nie określa pionu, poziomu, płaszczyzny ani kątów i nie ma tolerancji w milimetrach — geometrię ocenia się osobno. S1 — przygotowanie podstawowe: powierzchnia przygotowana technicznie do kolejnej operacji, niekoniecznie gotowa wizualnie do malowania. S2 — standard malarski: typowa powierzchnia pod zwykłe malowanie wnętrz w normalnych warunkach i przy świetle rozproszonym. S3 — podwyższony standard wizualny: większa jednorodność dla wymagających wnętrz, dużych gładkich powierzchni lub trudniejszego oświetlenia. S4 — standard premium uzgadniany indywidualnie: warunki wizualne i oświetleniowe odbioru trzeba uzgodnić z klientem przed rozpoczęciem prac. Klasa jest ustaleniem z klientem, a nie mnożnikiem ceny — cenę buduje lista wymaganych operacji.",
+    "explanation_ru": "Это ваша внутренняя классификация, а не нормативный класс (PN). Она описывает качество поверхности после отделки, а не геометрию: отвес, горизонталь, плоскость и углы оцениваются отдельно, допусков в миллиметрах у S1–S4 нет. S1 — техническая подготовка под следующую операцию, не обязательно готово под покраску. S2 — обычный малярный стандарт: под нормальную покраску при рассеянном свете. S3 — повышенный визуальный стандарт: ровная однородность для требовательных интерьеров, больших гладких поверхностей, сложного света. S4 — премиум по отдельной договорённости: условия осмотра и освещения нужно согласовать с клиентом до начала работ. Класс — договорённость с клиентом, а не коэффициент цены: цена складывается из списка нужных операций.",
+    "tags": [
+      "jakosc",
+      "s1",
+      "s2",
+      "s3",
+      "s4",
+      "standard"
+    ],
+    "works": [],
+    "substrates": [],
+    "qualities": [
+      "S1",
+      "S2",
+      "S3",
+      "S4"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść zgodna z docs/stage-12-architecture.md §27.1 i README („Model wyceny”). To zasada własna wykonawcy, nie przepis ani norma: zatwierdza właściciel; prawnik sprawdza wyłącznie sformułowania, które trafiają do dokumentów dla klienta."
+      }
+    ]
+  },
+  {
+    "code": "APP.COEFFICIENT",
+    "source": "APP.STANDARDS",
+    "locator": "współczynnik ceny",
+    "title_pl": "Współczynnik ceny — korekta ceny robocizny za warunki wykonania",
+    "title_ru": "Коэффициент цены — поправка к цене работы за условия выполнения",
+    "summary_pl": "Współczynnik to korekta ceny bazowej ROBOCIZNY za warunki wykonania inne niż te, które założono w cenie pozycji cennika. To nie jest dodatkowa operacja technologiczna. Dotyczy jednej konkretnej pozycji planu, wybiera go wykonawca — nigdy nie jest nadawany automatycznie (ani przez badanie, ani przez reguły ryzyka, ani przez rekomendacje) — i nie dotyczy materiałów. Wybrane współczynniki dodają się procentowo, nie mnożą się (40 zł × (1 + 20% + 10%) = 52 zł). Jeśli utrudnienie jest już w cenie bazowej lub w innej pozycji kosztorysu, nie stosuje się go drugi raz. Przy łącznej korekcie powyżej 50% aplikacja ostrzega, żeby sprawdzić, czy utrudnienia są niezależne. Klasa jakości (S1–S4, Q1–Q4) nie jest współczynnikiem ceny.",
+    "explanation_ru": "Коэффициент — поправка к базовой цене РАБОТЫ (труда) за условия выполнения, отличающиеся от тех, что заложены в цене позиции прайса. Это не отдельная технологическая операция. Он относится к одной позиции плана, его выбираете вы — автоматически он не назначается (ни обследованием, ни правилами рисков, ни рекомендациями) — и к материалам не применяется. Выбранные коэффициенты складываются в процентах, а не перемножаются (40 зл × (1 + 20% + 10%) = 52 зл). Если сложность уже входит в базовую цену или в другую позицию сметы, второй раз её не применяют. При суммарной поправке выше 50% приложение предупреждает: проверьте, что сложности независимы. Класс качества (S1–S4, Q1–Q4) коэффициентом цены не является.",
+    "tags": [
+      "wspolczynnik",
+      "cena",
+      "robocizna"
+    ],
+    "works": [],
+    "substrates": [],
+    "qualities": [],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść zgodna z docs/stage-12-architecture.md §27.2 oraz regułami modułu (suma procentowa, ostrzeżenie powyżej 50%). Zasada własna aplikacji: zatwierdza właściciel."
+      }
+    ]
   }
 ]

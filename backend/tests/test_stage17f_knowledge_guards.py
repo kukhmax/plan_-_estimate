@@ -45,9 +45,9 @@ async def test_the_real_catalogue_is_served_as_it_is_in_the_files(async_client):
 
     headers = auth_header(await get_token(async_client, VALID_USER))
     meta = (await async_client.get("/api/knowledge/meta", headers=headers)).json()
-    assert meta["entries"] == 34 and meta["sources"] == 13 and meta["situations"] == 8
+    assert meta["entries"] == 36 and meta["sources"] == 14 and meta["situations"] == 8
     entries = (await async_client.get("/api/knowledge/entries", params={"limit": 200}, headers=headers)).json()
-    assert entries["total"] == 34 and all(item["status"] == "DRAFT" for item in entries["items"])
+    assert entries["total"] == 36 and all(item["status"] == "DRAFT" for item in entries["items"])
     found = (await async_client.get("/api/knowledge/entries", params={"q": "rekoj"}, headers=headers)).json()
     assert {"KC.556", "KC.558", "KC.638"} <= {item["code"] for item in found["items"]}  # letters without marks, the start of a word
     card = (await async_client.get("/api/knowledge/entries/KC.640", headers=headers)).json()
