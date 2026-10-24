@@ -365,6 +365,19 @@ async def test_a_second_acceptance_is_refused_and_the_journal_keeps_one_row(asyn
     assert len((await db_session.execute(select(ClientConsent))).scalars().all()) == 1
 
 
+async def test_an_estimate_approved_in_a_contract_is_shown_as_approved_without_a_form(async_client, db_session, web):
+    world = await make_world(async_client, db_session)
+    token = await issue(async_client, world)
+    await db_session.execute(update(Estimate).values(status=EstimateStatus.ACCEPTED))  # what the signing of a contract does
+    await db_session.commit()
+    shown = (await open_page(async_client, token)).json()["estimate"]
+    assert shown["status"] == "ACCEPTED" and shown["consent"] is None and shown["accept_statement"] is None
+    page = (await open_page(async_client, token)).json()
+    recorded = await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page), headers=door(token))
+    assert recorded.status_code == 200  # the page offers no form, but a consent sent anyway is recorded; the journal then holds it
+    assert (await db_session.execute(select(ClientConsent))).scalar_one().kind == "ESTIMATE_ACCEPTED"
+
+
 async def test_the_page_stays_open_after_the_acceptance_and_a_changed_estimate_waits_for_a_new_one(async_client, db_session, web):
     world = await make_world(async_client, db_session)
     token = await issue(async_client, world)

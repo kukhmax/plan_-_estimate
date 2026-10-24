@@ -3304,6 +3304,7 @@
     "vat_exempt": "Sprzedaż zwolniona z VAT",
     "total_gross": "Razem do zapłaty (brutto)",
     "accepted_title": "Wycena zatwierdzona",
+    "approved_by_contract": "Ta wycena jest już zatwierdzona w umowie z wykonawcą. Dodatkowe zatwierdzenie nie jest potrzebne.",
     "accepted_by": "{name}, {date}",
     "accept_heading": "Zatwierdzenie wyceny",
     "name_label": "Imię i nazwisko",

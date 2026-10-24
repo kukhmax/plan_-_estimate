@@ -353,6 +353,10 @@ export function ClientPage({ token }: { token: string }) {
               <p className="text-sm font-semibold text-emerald-800 break-words">{text.accepted_title}</p>
               <p className="text-xs text-emerald-800 break-words">{consentLine(estimate.consent)}</p>
             </div>
+          ) : estimate.status === 'ACCEPTED' ? (
+            <div aria-label="client-estimate-approved-by-contract" className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+              <p className="text-sm font-semibold text-emerald-800 break-words">{text.approved_by_contract}</p>
+            </div>
           ) : estimate.accept_statement ? (
             <div className="space-y-3 border-t border-slate-200 pt-3">
               <h2 className="text-base font-semibold text-slate-900 break-words">{text.accept_heading}</h2>

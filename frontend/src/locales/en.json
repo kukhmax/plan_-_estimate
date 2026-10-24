@@ -3309,6 +3309,7 @@
     "vat_exempt": "Sale exempt from VAT",
     "total_gross": "Total to pay (gross)",
     "accepted_title": "Estimate approved",
+    "approved_by_contract": "This estimate is already approved in the contract with the contractor. No further approval is needed.",
     "accepted_by": "{name}, {date}",
     "accept_heading": "Approving the estimate",
     "name_label": "Full name",

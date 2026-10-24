@@ -175,6 +175,14 @@ describe('approving the estimate', () => {
     expect(screen.queryByLabelText('client-accept-submit')).toBeNull();
   });
 
+  it('says that an estimate approved in the contract needs no approval, and shows no form', async () => {
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE({ estimate: ESTIMATE({ status: 'ACCEPTED', accept_statement: null, consent: null }) }));
+    show();
+    expect(await screen.findByLabelText('client-estimate-approved-by-contract')).toHaveTextContent('już zatwierdzona w umowie');
+    expect(screen.queryByLabelText('client-accept-form')).toBeNull();
+    expect(screen.queryByLabelText('client-estimate-accepted')).toBeNull();
+  });
+
   it('shows the binding Polish text under a translation', async () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(
       PAGE({ lang: 'en', estimate: ESTIMATE({ accept_statement: { pl: 'Zapoznałem/am się z wyceną.', text: 'I have read the estimate.' } }) }),
