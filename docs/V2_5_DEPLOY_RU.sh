@@ -36,9 +36,9 @@ STRICT_ENV=$(docker exec plan_estimate_backend python -c "from app.core.config i
 [ "$STRICT_ENV" = "true True" ] || fail "G0" "строгое чтение / ключ шифрования в контейнере: '$STRICT_ENV', ожидалось 'true True' (состояние после EN-2b-2)"
 # бэкап (A9) не старше суток: выкладка добавляет таблицы и столбец (бэкап под голову 0067 делается из ветки ver-2)
 LASTRUN=$(ls -1t "$R/data/encrypted" 2>/dev/null | head -1)
-[ -n "$LASTRUN" ] || fail "G0" "нет ни одного запуска бэкапа в $R/data/encrypted: сначала A9 (BACKUP_BRANCH=ver-2 BACKUP_HEAD=0067_password_login bash ~/backup_a9.sh)"
+[ -n "$LASTRUN" ] || fail "G0" "нет ни одного запуска бэкапа в $R/data/encrypted: сначала A9 (BACKUP_BRANCH=ver-2 BACKUP_COMMIT=49086b2 BACKUP_HEAD=0067_password_login bash ~/backup_a9.sh)"
 AGE_H=$(( ( $(date +%s) - $(stat -c %Y "$R/data/encrypted/$LASTRUN") ) / 3600 ))
-[ "$AGE_H" -le 24 ] || fail "G0" "последний бэкап $LASTRUN старше суток (${AGE_H} ч). Сделайте свежий: cd ~/apps/plan_-_estimate && git fetch -q origin ver-2 && git show origin/ver-2:docs/STAGE_18_BACKUP_A9_RU.sh > ~/backup_a9.sh && BACKUP_BRANCH=ver-2 BACKUP_HEAD=0067_password_login bash ~/backup_a9.sh (в НОВОЙ сессии, потом закрыть её)"
+[ "$AGE_H" -le 24 ] || fail "G0" "последний бэкап $LASTRUN старше суток (${AGE_H} ч). Сделайте свежий: cd ~/apps/plan_-_estimate && git fetch -q origin ver-2 && git show origin/ver-2:docs/STAGE_18_BACKUP_A9_RU.sh > ~/backup_a9.sh && BACKUP_BRANCH=ver-2 BACKUP_COMMIT=49086b2 BACKUP_HEAD=0067_password_login bash ~/backup_a9.sh (в НОВОЙ сессии, потом закрыть её)"
 echo "последний бэкап: $LASTRUN (${AGE_H} ч назад)"
 KEKTXT=$(grep -E '^DATA_KEK=' .env.production | head -1 | cut -d= -f2-)
 [ -n "$KEKTXT" ] && [ "$(printf '%s' "$KEKTXT" | base64 -d 2>/dev/null | wc -c)" = "32" ] || fail "G0" "DATA_KEK в .env.production отсутствует или не base64 из 32 байт (ключ НЕ МЕНЯТЬ и не удалять)"

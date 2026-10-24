@@ -20,8 +20,8 @@ ok()   { echo "PASS: $1"; }
 has()  { grep -q -- "$1" <<<"$2"; }
 
 echo "################ B0: проверка перед бэкапом (только чтение) ################"
-# BACKUP_BRANCH и BACKUP_HEAD — параметры самого скрипта (их передают в команде запуска): они не считаются «лишними»; любые другие MEDIA_S3* / BACKUP_* — считаются
-[ "$(env | grep '^MEDIA_S3\|^BACKUP_' | grep -vc '^BACKUP_BRANCH=\|^BACKUP_HEAD=')" = "0" ] || fail "B0" "В оболочке лишние переменные MEDIA_S3/BACKUP_. Откройте НОВУЮ SSH-сессию."
+# BACKUP_BRANCH, BACKUP_HEAD и (необязательно) BACKUP_COMMIT — параметры самого скрипта (их передают в команде запуска): они не считаются «лишними»; любые другие MEDIA_S3* / BACKUP_* — считаются
+[ "$(env | grep '^MEDIA_S3\|^BACKUP_' | grep -vc '^BACKUP_BRANCH=\|^BACKUP_HEAD=\|^BACKUP_COMMIT=')" = "0" ] || fail "B0" "В оболочке лишние переменные MEDIA_S3/BACKUP_. Откройте НОВУЮ SSH-сессию."
 for f in backup.env upload.env pgpass; do [ -r "$R/secrets/$f" ] || fail "B0" "нет файла $R/secrets/$f"; done
 for f in backup.env upload.env pgpass; do
   [ "$(stat -c %a "$R/secrets/$f")" = "600" ] || fail "B0" "права $R/secrets/$f не 600"
@@ -31,10 +31,16 @@ has '"status":"ok"' "$H" || fail "B0" "health не ok: $H"
 AL=$(docker exec plan_estimate_backend alembic current 2>/dev/null)
 has "$HEAD_NAME" "$AL" || fail "B0" "alembic current не $HEAD_NAME: $AL (до выкладки Stage 18 нужен 0053_downtime_episodes, после — BACKUP_BRANCH=stage-18 BACKUP_HEAD=0055_project_notes)"
 git fetch -q origin "$BRANCH" || fail "B0" "git fetch origin $BRANCH не удался"
-COMMIT=$(git rev-parse "origin/$BRANCH")
+if [ -n "${BACKUP_COMMIT:-}" ]; then
+  # необязательно (V2-5): ветка уже ушла вперёд по миграциям, а база ещё нет (бэкап ПЕРЕД выкладкой миграции): образы строятся из указанного коммита ИЗ ИСТОРИИ ветки
+  COMMIT=$(git rev-parse --verify "${BACKUP_COMMIT}^{commit}" 2>/dev/null) || fail "B0" "нет такого коммита: $BACKUP_COMMIT"
+  git merge-base --is-ancestor "$COMMIT" "origin/$BRANCH" || fail "B0" "коммит $BACKUP_COMMIT не из истории origin/$BRANCH"
+else
+  COMMIT=$(git rev-parse "origin/$BRANCH")
+fi
 VERS=$(git ls-tree -r --name-only "$COMMIT" backend/alembic/versions | grep -E 'versions/[0-9]{4}_.*\.py$' | sort)
 LAST=$(tail -n 1 <<<"$VERS" | sed -E 's#.*/([^/]+)\.py#\1#')
-[ "$LAST" = "$HEAD_NAME" ] || fail "B0" "последняя миграция в origin/$BRANCH — $LAST, а база на $HEAD_NAME: образы будут под другую голову"
+[ "$LAST" = "$HEAD_NAME" ] || fail "B0" "последняя миграция в ${BACKUP_COMMIT:-origin/$BRANCH} — $LAST, а база на $HEAD_NAME: образы будут под другую голову (если ветка ушла вперёд по миграциям: BACKUP_COMMIT=<коммит с головой $HEAD_NAME>)"
 docker network inspect plan-estimate_internal >/dev/null 2>&1 || fail "B0" "нет сети plan-estimate_internal"
 docker network inspect pe-upload >/dev/null 2>&1 || fail "B0" "нет сети pe-upload"
 LEFT=$(docker ps -a --format '{{.Names}}' | grep '^pe-backup-prod-' || true)
