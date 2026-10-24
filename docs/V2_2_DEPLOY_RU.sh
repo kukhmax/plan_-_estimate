@@ -81,7 +81,7 @@ ok "G1 (сборка backend и frontend, теги pre-v22)"
 
 echo; echo "################ ВОРОТА B: пересоздание контейнеров (без миграций) ################"
 echo "Что произойдёт: пересоздаются backend и frontend из собранных образов."
-echo "  • Миграций НЕТ: схема базы (0067), данные, ключ шифрования, строгое чтение, регистрация и вход по паролю (выключен) остаются как были. Команда demo сама ничего не создаёт: демо-объект появится только после вашего `demo seed`."
+echo "  • Миграций НЕТ: схема базы (0067), данные, ключ шифрования, строгое чтение, регистрация и вход по паролю (выключен) остаются как были. Команда demo сама ничего не создаёт: демо-объект появится только после вашей команды demo seed."
 echo "  • Ключ шифрования и строгое чтение остаются как были. Ничего не удаляется."
 echo "  • Простой API при пересоздании backend: около 30–60 секунд."
 echo "  • Откат безопасен образами (схема не менялась): retag pre-v22 и up --no-deps --no-build backend frontend. Команда напечатается при любом отказе."
@@ -152,10 +152,15 @@ echo; echo "################ G4: кнопка меню Telegram ################
 set -a; source .env.production; set +a
 R1=$(curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setChatMenuButton" -H "Content-Type: application/json" \
   -d "{\"menu_button\": {\"type\": \"web_app\", \"text\": \"Plan & Estimate\", \"web_app\": {\"url\": \"https://plan-estimate.pl/?v=${NEW}\"}}}")
-R2=$(curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMenuButton" | sed -E 's#(bot)[0-9]+:[A-Za-z0-9_-]+#\1…#')
+has '"ok":true' "$R1" || { unset TELEGRAM_BOT_TOKEN; fail "G4" "setChatMenuButton: $R1 (приложение уже выложено и работает; кнопку можно повторить отдельно)"; }
+# Telegram иногда отдаёт прежний адрес в первые секунды после смены: читаем до 6 раз с паузой в 5 секунд
+R2=""
+for i in 1 2 3 4 5 6; do
+  R2=$(curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMenuButton" | sed -E 's#(bot)[0-9]+:[A-Za-z0-9_-]+#\1…#')
+  has "?v=${NEW}" "$R2" && break; sleep 5
+done
 unset TELEGRAM_BOT_TOKEN
-has '"ok":true' "$R1" || fail "G4" "setChatMenuButton: $R1 (приложение уже выложено и работает; кнопку можно повторить отдельно)"
-has "?v=${NEW}" "$R2" || fail "G4" "getChatMenuButton не показывает ?v=${NEW}: $R2"
+has "?v=${NEW}" "$R2" || fail "G4" "getChatMenuButton не показывает ?v=${NEW}: $R2 (приложение уже выложено и работает; кнопку можно повторить отдельно)"
 ok "G4 (кнопка ?v=$NEW)"
 
 echo; echo "=============== ВСЁ PASS: версия $NEW выложена (миграций нет, база на 0067), данные те же, ничего не удалено ==============="
