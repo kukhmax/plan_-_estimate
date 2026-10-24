@@ -10,43 +10,45 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.s3_media_storage import create_media_storage
 from app.core.security import decode_access_token
-from app.domain.photos.image_processing import ImagePipelineConfig, ImageProcessor
 from app.domain.exceptions import AccessDeniedError
+from app.domain.photos.image_processing import ImagePipelineConfig, ImageProcessor
+from app.domain.services.acceptance_service import AcceptanceService
 from app.domain.services.access_service import AccessService
+from app.domain.services.adjacent_work_service import AdjacentWorkService
 from app.domain.services.area_segment_service import AreaSegmentService
 from app.domain.services.auth_service import TelegramAuthService
+from app.domain.services.calendar_service import CalendarService
 from app.domain.services.checklist_service import ChecklistService
+from app.domain.services.client_link_service import ClientLinkService
+from app.domain.services.client_portal_service import ClientPortalService
 from app.domain.services.client_service import ClientService
 from app.domain.services.communication_service import CommunicationService
+from app.domain.services.concealed_service import ConcealedService
+from app.domain.services.contract_service import ContractService
 from app.domain.services.data_key_service import DataKeyService
+from app.domain.services.decision_service import DecisionService
+from app.domain.services.demo_data_service import DemoDataService
+from app.domain.services.downtime_service import DowntimeService
 from app.domain.services.estimate_service import EstimateService
+from app.domain.services.handover_service import HandoverService
 from app.domain.services.inspection_service import InspectionService
 from app.domain.services.media_storage import MediaStorage
 from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
 from app.domain.services.opening_service import OpeningService
-from app.domain.services.demo_data_service import DemoDataService
-from app.domain.services.room_work_plan_service import RoomWorkPlanService
-from app.domain.services.quick_estimate_service import QuickEstimateService
+from app.domain.services.password_login_service import PasswordLoginService
+from app.domain.services.payment_service import PaymentService
 from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.price_coefficient_service import PriceCoefficientService
-from app.domain.services.project_service import ProjectService
-from app.domain.services.risk_service import RiskService
-from app.domain.services.adjacent_work_service import AdjacentWorkService
-from app.domain.services.acceptance_service import AcceptanceService
-from app.domain.services.decision_service import DecisionService
-from app.domain.services.calendar_service import CalendarService
-from app.domain.services.payment_service import PaymentService
 from app.domain.services.project_note_service import ProjectNoteService
-from app.domain.services.client_link_service import ClientLinkService
-from app.domain.services.client_portal_service import ClientPortalService
-from app.domain.services.downtime_service import DowntimeService
-from app.domain.services.concealed_service import ConcealedService
-from app.domain.services.contract_service import ContractService
-from app.domain.services.handover_service import HandoverService
-from app.domain.services.project_representative_service import ProjectRepresentativeService
+from app.domain.services.project_representative_service import (
+    ProjectRepresentativeService,
+)
+from app.domain.services.project_service import ProjectService
+from app.domain.services.quick_estimate_service import QuickEstimateService
+from app.domain.services.risk_service import RiskService
 from app.domain.services.room_service import RoomService
+from app.domain.services.room_work_plan_service import RoomWorkPlanService
 from app.domain.services.surface_service import SurfaceService
-from app.domain.services.password_login_service import PasswordLoginService
 from app.domain.services.wall_merge_service import WallMergeService
 from app.domain.services.work_execution_service import SurfaceWorkExecutionService
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
@@ -213,7 +215,7 @@ async def get_client_link_service(
 async def get_client_portal_service(
     db: AsyncSession = Depends(get_db),
 ) -> ClientPortalService:
-    return ClientPortalService(db, settings.JWT_SECRET_KEY)
+    return ClientPortalService(db, settings.JWT_SECRET_KEY, settings.CALENDAR_WEB_APP_URL)
 
 
 async def get_downtime_service(
@@ -424,3 +426,17 @@ def get_document_delivery():
     if _document_delivery is None:
         _document_delivery = delivery_from_settings(settings)
     return _document_delivery
+
+
+_message_sender = None
+
+
+def get_message_sender():
+    """The process-wide sender of text messages to the owner's Telegram chat (V2-8a: the client decided); created on first use from the settings;
+    tests override this dependency."""
+    from app.domain.documents.delivery import message_sender_from_settings
+
+    global _message_sender
+    if _message_sender is None:
+        _message_sender = message_sender_from_settings(settings)
+    return _message_sender

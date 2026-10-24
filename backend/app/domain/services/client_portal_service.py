@@ -13,9 +13,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain import client_link as rules
+from app.domain.calendar.messages import language_of_telegram
 from app.domain.documents.catalog import localize_description
 from app.domain.documents.surface_names import surface_title_or_none
 from app.domain.exceptions import DocumentDataError
+from app.domain.services.calendar_service import CalendarService
 from app.domain.services.client_link_service import aware
 from app.domain.services.data_key_service import DataKeyService
 from app.domain.services.estimate_service import EstimateService
@@ -54,9 +56,10 @@ def _polish(description: str) -> str:
 
 
 class ClientPortalService:
-    def __init__(self, db: AsyncSession, secret: str) -> None:
+    def __init__(self, db: AsyncSession, secret: str, web_app_url: str = "") -> None:
         self.db = db
         self.secret = secret
+        self.web_app_url = web_app_url
 
     # -- the door ---------------------------------------------------------------------------------------------------------------
 
@@ -234,7 +237,7 @@ class ClientPortalService:
         ip: str,
         agent: str,
         now: datetime | None = None,
-    ) -> None:
+    ) -> ClientConsent:
         now = now or datetime.now(UTC)
         if not agree:
             raise rules.ClientLinkError("AGREE_REQUIRED", "tick the box to agree", "agree")
@@ -259,24 +262,24 @@ class ClientPortalService:
         text = rules.statement(
             "estimate_accept", "pl", contractor=contractor.name or "", amount=amount, currency=read.currency, version=read.version
         )
-        self.db.add(
-            self._consent_row(
-                link,
-                kind=ConsentKind.ESTIMATE_ACCEPTED,
-                signer=signer,
-                ip=ip,
-                agent=agent,
-                now=now,
-                estimate_id=estimate_id,
-                estimate_version=read.version,
-                subject_hash=current,
-                amount=amount,
-                currency=read.currency,
-                statement=text,
-            )
+        consent = self._consent_row(
+            link,
+            kind=ConsentKind.ESTIMATE_ACCEPTED,
+            signer=signer,
+            ip=ip,
+            agent=agent,
+            now=now,
+            estimate_id=estimate_id,
+            estimate_version=read.version,
+            subject_hash=current,
+            amount=amount,
+            currency=read.currency,
+            statement=text,
         )
+        self.db.add(consent)
         estimate.status = EstimateStatus.ACCEPTED
         await self._commit_once()
+        return consent
 
     async def decide_proposal(
         self,
@@ -290,7 +293,7 @@ class ClientPortalService:
         ip: str,
         agent: str,
         now: datetime | None = None,
-    ) -> None:
+    ) -> ClientConsent:
         now = now or datetime.now(UTC)
         if not agree:
             raise rules.ClientLinkError("AGREE_REQUIRED", "tick the box to agree", "agree")
@@ -321,24 +324,49 @@ class ClientPortalService:
             title=proposal.title,
             extra_days=proposal.extra_days,
         )
-        self.db.add(
-            self._consent_row(
-                link,
-                kind=ConsentKind.PROPOSAL_ACCEPTED if accepted else ConsentKind.PROPOSAL_DECLINED,
-                signer=signer,
-                ip=ip,
-                agent=agent,
-                now=now,
-                proposal_id=proposal.id,
-                subject_hash=proposal.content_hash,
-                amount=proposal.amount,
-                currency=proposal.currency,
-                statement=text,
-            )
+        consent = self._consent_row(
+            link,
+            kind=ConsentKind.PROPOSAL_ACCEPTED if accepted else ConsentKind.PROPOSAL_DECLINED,
+            signer=signer,
+            ip=ip,
+            agent=agent,
+            now=now,
+            proposal_id=proposal.id,
+            subject_hash=proposal.content_hash,
+            amount=proposal.amount,
+            currency=proposal.currency,
+            statement=text,
         )
+        self.db.add(consent)
         proposal.status = ProposalStatus.ACCEPTED.value if accepted else ProposalStatus.DECLINED.value
         proposal.decided_at = now
         await self._commit_once()
+        return consent
+
+    async def owner_notice(self, link: ClientLink, consent: ClientConsent) -> rules.OwnerNotice | None:
+        """The message to the owner's Telegram chat about a consent just recorded: in the language the owner chose for the messages of the calendar
+        (else that of their Telegram), with a button that opens the object. None when the owner has no Telegram chat (signs in with a password)."""
+        user = (await self.db.execute(select(User).where(User.id == link.owner_id))).scalar_one_or_none()
+        if user is None or user.telegram_user_id <= 0:
+            return None
+        prefs = await CalendarService(self.db).prefs(link.owner_id)
+        lang = prefs.language or language_of_telegram(user.language_code)
+        lang = rules.clean_language(lang)
+        project = (await self.db.execute(select(Project).where(Project.id == link.project_id, Project.owner_id == link.owner_id))).scalar_one()
+        amount = rules.amount_text(consent.amount, lang)
+        values = {"client": consent.signer_name, "project": project.name, "amount": amount, "currency": consent.currency}
+        if consent.kind == ConsentKind.ESTIMATE_ACCEPTED.value:
+            text = rules.owner_notice_text("notice_estimate", lang, version=str(consent.estimate_version or ""), **values)
+        else:
+            proposal = (await self.db.execute(select(ClientProposal).where(ClientProposal.id == consent.proposal_id))).scalar_one()
+            key = "notice_accept" if consent.kind == ConsentKind.PROPOSAL_ACCEPTED.value else "notice_decline"
+            text = rules.owner_notice_text(key, lang, title=proposal.title, **values)
+        return rules.OwnerNotice(
+            chat_id=user.telegram_user_id,
+            text=text,
+            open_url=rules.project_open_url(self.web_app_url, link.project_id),
+            button_text=rules.texts()["notice_button"][lang],
+        )
 
     async def _commit_once(self) -> None:
         try:

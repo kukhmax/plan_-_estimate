@@ -10,13 +10,17 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import delete, select, text, update
 
+from app.api.deps import get_message_sender
 from app.api.v1.endpoints import client_portal
 from app.core.config import settings
 from app.core.rate_limit import SlidingWindowLimiter
 from app.domain import client_link as rules
+from app.domain.exceptions import MessageChatUnavailableError, MessageDeliveryDisabledError, MessageRejectedError, MessageUnavailableError
+from app.main import app
 from app.models.client_link import ClientConsent, ClientLink, ClientProposal
 from app.models.estimate import Estimate, EstimateStatus
 from app.models.project import Project
+from app.models.user import User
 from tests.test_v2_6_vat import _price, _profile, _quick, _signed_in
 
 PUBLIC = "/api/public/client"
@@ -578,3 +582,139 @@ async def test_the_links_and_the_journal_go_with_the_object(async_client, db_ses
     assert (await db_session.execute(select(ClientLink))).first() is None
     assert (await db_session.execute(select(ClientConsent))).first() is None
     assert (await db_session.execute(select(ClientProposal))).first() is None
+
+
+# --- the message to the owner (V2-8a) ----------------------------------------------------------------------------------------------------
+
+
+class FakeSender:
+    def __init__(self, *outcomes):
+        self.calls: list[tuple[int, str, str | None, str]] = []
+        self.outcomes = list(outcomes)
+
+    async def send_message(self, chat_id, text, *, open_url=None, button_text=""):
+        self.calls.append((chat_id, text, open_url, button_text))
+        outcome = self.outcomes.pop(0) if self.outcomes else None
+        if outcome is not None:
+            raise outcome
+
+
+@pytest.fixture
+def sender():
+    fake = FakeSender()
+    app.dependency_overrides[get_message_sender] = lambda: fake
+    yield fake
+    app.dependency_overrides.pop(get_message_sender, None)
+
+
+async def with_telegram(db, chat_id=777001, language_code="uk"):
+    await db.execute(update(User).values(telegram_user_id=chat_id, language_code=language_code))
+    await db.commit()
+
+
+async def approve(client, token, page, name="Jan Kowalski"):
+    return await client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page, name), headers=door(token))
+
+
+async def test_the_owner_is_told_in_telegram_that_the_client_approved_the_estimate(async_client, db_session, web, sender, monkeypatch):
+    monkeypatch.setattr(settings, "CALENDAR_WEB_APP_URL", "https://plan-estimate.pl")
+    world = await make_world(async_client, db_session)
+    await with_telegram(db_session)
+    token = await issue(async_client, world)
+    page = (await open_page(async_client, token)).json()
+    assert (await approve(async_client, token, page)).status_code == 200
+    assert len(sender.calls) == 1
+    chat, text, url, button = sender.calls[0]
+    assert chat == 777001 and url == f"https://plan-estimate.pl?open=project:{world['project']}"
+    assert text.startswith("✅ Клієнт Jan Kowalski прийняв кошторис № 1") and "3489,66 PLN" in text and "\n" not in text  # Telegram language of the owner: Ukrainian
+    assert button == "Відкрити об’єкт"
+
+
+async def test_the_owner_chooses_the_language_of_the_message_in_the_settings_of_the_calendar(async_client, db_session, web, sender):
+    world = await make_world(async_client, db_session)
+    await with_telegram(db_session, language_code="ru")
+    saved = await async_client.put("/api/calendar/settings", json={"timezone": "Europe/Warsaw", "language": "en"}, headers=world["headers"])
+    assert saved.status_code == 200, saved.text
+    token = await issue(async_client, world)
+    await approve(async_client, token, (await open_page(async_client, token)).json())
+    assert sender.calls[0][1].startswith("✅ The client Jan Kowalski approved estimate no. 1") and "3489.66 PLN" in sender.calls[0][1]
+    assert sender.calls[0][2] is None and sender.calls[0][3] == "Open the property"  # no address of the application configured: no address on the button
+
+
+async def test_a_proposal_agreed_or_declined_is_told_with_its_title_and_amount(async_client, db_session, web, sender):
+    world = await make_world(async_client, db_session)
+    await with_telegram(db_session, language_code="pl")
+    token = await issue(async_client, world)
+    await propose(async_client, world, title="Gruntowanie sufitu", amount="450.50")
+    await propose(async_client, world, title="Druga warstwa", amount="99")
+    first, second = (await open_page(async_client, token)).json()["proposals"]
+    for item, decision in ((first, "ACCEPT"), (second, "DECLINE")):
+        body = {"decision": decision, "hash": item["hash"], "signer_name": "Jan\nKowalski", "agree": True}
+        assert (await async_client.post(f"{PUBLIC}/proposals/{item['id']}/decide", json=body, headers=door(token))).status_code == 200
+    texts = [call[1] for call in sender.calls]
+    assert texts[0].startswith("✅ Klient Jan Kowalski zgodził się na pracę dodatkową „Gruntowanie sufitu”") and "450,50 PLN" in texts[0]
+    assert texts[1].startswith("❌ Klient Jan Kowalski odrzucił pracę dodatkową „Druga warstwa”") and "99,00 PLN" in texts[1]
+
+
+async def test_an_owner_without_a_telegram_chat_gets_no_message(async_client, db_session, web, sender):
+    world = await make_world(async_client, db_session)  # an account with a password has no chat
+    token = await issue(async_client, world)
+    assert (await approve(async_client, token, (await open_page(async_client, token)).json())).status_code == 200
+    assert sender.calls == []
+
+
+async def test_a_refused_press_sends_nothing_and_a_second_one_sends_nothing_more(async_client, db_session, web, sender):
+    world = await make_world(async_client, db_session)
+    await with_telegram(db_session)
+    token = await issue(async_client, world)
+    page = (await open_page(async_client, token)).json()
+    assert (await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page, agree=False), headers=door(token))).status_code == 422
+    assert (await async_client.post(f"{PUBLIC}/estimate/accept", json={**accept_body(page), "hash": "0" * 64}, headers=door(token))).status_code == 409
+    assert sender.calls == []
+    assert (await approve(async_client, token, page)).status_code == 200
+    assert (await approve(async_client, token, page, "Ewa Nowak")).status_code == 409
+    assert len(sender.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [MessageChatUnavailableError("blocked"), MessageUnavailableError("down", retry_after=5), MessageRejectedError("no"), MessageDeliveryDisabledError("off")],
+)
+async def test_a_message_that_does_not_go_never_costs_the_client_the_consent(async_client, db_session, web, failure, caplog):
+    fake = FakeSender(failure)
+    app.dependency_overrides[get_message_sender] = lambda: fake
+    try:
+        world = await make_world(async_client, db_session)
+        await with_telegram(db_session)
+        token = await issue(async_client, world)
+        page = (await open_page(async_client, token)).json()
+        with caplog.at_level("INFO"):
+            response = await approve(async_client, token, page)
+        assert response.status_code == 200 and response.json()["estimate"]["status"] == "ACCEPTED"
+        assert len(fake.calls) == 1
+        assert (await db_session.execute(select(ClientConsent.kind))).scalars().all() == ["ESTIMATE_ACCEPTED"]
+        logged = " ".join(record.getMessage() for record in caplog.records)
+        assert "the owner was not told" in logged or "switched off" in logged
+        assert "Jan Kowalski" not in logged and "777001" not in logged  # no name of the client, no chat in the log
+    finally:
+        app.dependency_overrides.pop(get_message_sender, None)
+
+
+async def test_a_message_that_cannot_be_put_together_is_logged_and_the_client_still_succeeds(async_client, db_session, web, sender, monkeypatch, caplog):
+    async def broken(self, link, consent):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("app.domain.services.client_portal_service.ClientPortalService.owner_notice", broken)
+    world = await make_world(async_client, db_session)
+    await with_telegram(db_session)
+    token = await issue(async_client, world)
+    with caplog.at_level("ERROR"):
+        response = await approve(async_client, token, (await open_page(async_client, token)).json())
+    assert response.status_code == 200 and sender.calls == []
+    assert any("could not be put together" in record.getMessage() for record in caplog.records)
+
+
+def test_the_words_of_the_client_in_a_message_are_one_short_line():
+    text = rules.owner_notice_text("notice_estimate", "pl", client="Jan\n\tKowalski " + "x" * 400, project="Dom", version="1", amount="1,00", currency="PLN")
+    assert "\n" not in text and "\t" not in text and len(text) < 400
+    assert rules.project_open_url("", "p1") is None and rules.project_open_url("https://a.pl", "p1") == "https://a.pl?open=project:p1"

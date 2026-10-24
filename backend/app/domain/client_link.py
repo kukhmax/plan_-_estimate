@@ -8,6 +8,7 @@ import hmac
 import json
 import re
 import secrets
+from dataclasses import dataclass
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -172,7 +173,7 @@ def texts() -> dict[str, dict[str, str]]:
     return _texts
 
 
-def _amount_text(value: Decimal, lang: str) -> str:
+def amount_text(value: Decimal, lang: str) -> str:
     plain = _money(value)
     return plain if lang == "en" else plain.replace(".", ",")
 
@@ -186,8 +187,30 @@ def statement(key: str, lang: str, *, contractor: str, amount: Decimal, currency
     return all_texts[key][lang].format(
         version=version if version is not None else "",
         contractor=contractor,
-        amount=_amount_text(amount, lang),
+        amount=amount_text(amount, lang),
         currency=currency,
         title=title or "",
         days=days,
     )
+
+
+@dataclass(frozen=True)
+class OwnerNotice:
+    """A message to the owner's Telegram chat: what the client decided (V2-8a). Plain data, so it can be sent after the answer to the client."""
+
+    chat_id: int
+    text: str
+    open_url: str | None
+    button_text: str
+
+
+def owner_notice_text(key: str, lang: str, **values: str) -> str:
+    """`key`: notice_estimate, notice_accept or notice_decline; the words of the client are cut and stripped of line breaks (one line in a chat)."""
+    lang = clean_language(lang)
+    safe = {name: re.sub(r"\s+", " ", str(value)).strip()[:200] for name, value in values.items()}
+    return texts()[key][lang].format(**safe)
+
+
+def project_open_url(base_url: str, project_id: object) -> str | None:
+    """The address of the button: the Mini App opened on the object (the same form the reminders use); no address configured, no button."""
+    return f"{base_url}?open=project:{project_id}" if base_url else None

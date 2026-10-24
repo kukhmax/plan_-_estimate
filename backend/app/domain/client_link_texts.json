@@ -22,5 +22,29 @@
     "ru": ", срок сдвигается на {days} дн",
     "uk": ", термін зсувається на {days} дн",
     "en": ", the deadline moves by {days} days"
+  },
+  "notice_estimate": {
+    "pl": "✅ Klient {client} zatwierdził wycenę nr {version} (obiekt „{project}”): {amount} {currency}.",
+    "ru": "✅ Клиент {client} принял смету № {version} (объект «{project}»): {amount} {currency}.",
+    "uk": "✅ Клієнт {client} прийняв кошторис № {version} (об’єкт «{project}»): {amount} {currency}.",
+    "en": "✅ The client {client} approved estimate no. {version} (property “{project}”): {amount} {currency}."
+  },
+  "notice_accept": {
+    "pl": "✅ Klient {client} zgodził się na pracę dodatkową „{title}” (obiekt „{project}”): {amount} {currency}.",
+    "ru": "✅ Клиент {client} согласился на допработы «{title}» (объект «{project}»): {amount} {currency}.",
+    "uk": "✅ Клієнт {client} погодився на додаткові роботи «{title}» (об’єкт «{project}»): {amount} {currency}.",
+    "en": "✅ The client {client} agreed to the extra work “{title}” (property “{project}”): {amount} {currency}."
+  },
+  "notice_decline": {
+    "pl": "❌ Klient {client} odrzucił pracę dodatkową „{title}” (obiekt „{project}”): {amount} {currency}.",
+    "ru": "❌ Клиент {client} отказался от допработ «{title}» (объект «{project}»): {amount} {currency}.",
+    "uk": "❌ Клієнт {client} відмовився від додаткових робіт «{title}» (об’єкт «{project}»): {amount} {currency}.",
+    "en": "❌ The client {client} declined the extra work “{title}” (property “{project}”): {amount} {currency}."
+  },
+  "notice_button": {
+    "pl": "Otwórz obiekt",
+    "ru": "Открыть объект",
+    "uk": "Відкрити об’єкт",
+    "en": "Open the property"
   }
 }

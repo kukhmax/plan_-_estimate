@@ -7,11 +7,21 @@ expired one gets 410. Requests are counted per address (in memory); too many bad
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+)
 
-from app.api.deps import get_client_portal_service
+from app.api.deps import get_client_portal_service, get_message_sender
 from app.core.rate_limit import SlidingWindowLimiter
 from app.domain import client_link as rules
+from app.domain.exceptions import MessageDeliveryDisabledError, MessageDeliveryError
 from app.domain.services.client_portal_service import ClientPortalService
 from app.models.client_link import ClientLink
 from app.schemas.client_portal import (
@@ -79,6 +89,27 @@ async def _door(request: Request, service: ClientPortalService, token: str | Non
         raise _error(410, "LINK_INACTIVE", "the link is no longer active") from None
 
 
+async def _tell_owner(sender, notice: rules.OwnerNotice) -> None:
+    """Send the message to the owner after the answer to the client has gone. A failure never reaches the client (the consent is already recorded);
+    it is logged without the text or the chat."""
+    try:
+        await sender.send_message(notice.chat_id, notice.text, open_url=notice.open_url, button_text=notice.button_text)
+    except MessageDeliveryDisabledError:
+        logger.info("a client decided; messages to the owner are switched off")
+    except MessageDeliveryError as exc:
+        logger.warning("a client decided; the owner was not told: %s", type(exc).__name__)
+
+
+async def _notice_after(service: ClientPortalService, link: ClientLink, consent, tasks: BackgroundTasks, sender) -> None:
+    try:
+        notice = await service.owner_notice(link, consent)
+    except Exception:
+        logger.exception("a client decided; the message to the owner could not be put together")
+        return
+    if notice is not None:
+        tasks.add_task(_tell_owner, sender, notice)
+
+
 _STATUS = {
     "AGREE_REQUIRED": 422,
     "NAME_REQUIRED": 422,
@@ -111,13 +142,15 @@ async def read_page(
 async def accept_estimate(
     payload: PortalAcceptEstimate,
     request: Request,
+    tasks: BackgroundTasks,
     lang: str | None = Query(default=None, max_length=5),
     x_client_link: str | None = Header(default=None, max_length=100),
     service: ClientPortalService = Depends(get_client_portal_service),
+    sender=Depends(get_message_sender),
 ) -> PortalPage:
     link = await _door(request, service, x_client_link, action_limiter)
     try:
-        await service.accept_estimate(
+        consent = await service.accept_estimate(
             link,
             estimate_id=payload.estimate_id,
             version=payload.version,
@@ -129,6 +162,7 @@ async def accept_estimate(
         )
     except (rules.ClientLinkError, rules.ClientLinkNotFoundError) as exc:
         raise _failure(exc) from exc
+    await _notice_after(service, link, consent, tasks, sender)
     return await service.page(link, lang)
 
 
@@ -137,13 +171,15 @@ async def decide_proposal(
     proposal_id: uuid.UUID,
     payload: PortalDecideProposal,
     request: Request,
+    tasks: BackgroundTasks,
     lang: str | None = Query(default=None, max_length=5),
     x_client_link: str | None = Header(default=None, max_length=100),
     service: ClientPortalService = Depends(get_client_portal_service),
+    sender=Depends(get_message_sender),
 ) -> PortalPage:
     link = await _door(request, service, x_client_link, action_limiter)
     try:
-        await service.decide_proposal(
+        consent = await service.decide_proposal(
             link,
             proposal_id,
             decision=payload.decision,
@@ -155,4 +191,5 @@ async def decide_proposal(
         )
     except (rules.ClientLinkError, rules.ClientLinkNotFoundError) as exc:
         raise _failure(exc) from exc
+    await _notice_after(service, link, consent, tasks, sender)
     return await service.page(link, lang)
