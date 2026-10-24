@@ -22,8 +22,9 @@ import { startSync } from './offline/sync';
 import { startConnectionWatch } from './offline/watch';
 import { clearLastProject, readLastProject, writeLastProject } from './utils/lastProject';
 import { LoginScreen } from './components/LoginScreen';
+import { QuickEstimate } from './components/QuickEstimate';
 
-type Section = 'clients' | 'projects' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge' | 'access' | 'security';
+type Section = 'clients' | 'projects' | 'quick' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge' | 'access' | 'security';
 
 /** The button of a reminder message opens the Mini App with `?open=calendar` or `?open=project:<id>` (Stage 18D / 18E). */
 function openTarget(search: string): { section: Section; projectId?: string } | null {
@@ -117,6 +118,7 @@ const AppContent: React.FC = () => {
   const sectionTitles: Record<Section, string> = {
     clients: t.navigation.clients,
     projects: t.navigation.projects,
+    quick: t.navigation.quick,
     calendar: t.navigation.calendar,
     pricebook: t.navigation.pricebook,
     archive: t.navigation.archive,
@@ -295,12 +297,20 @@ const AppContent: React.FC = () => {
                 onStartClient={startClientChain}
                 onOpenPricebook={() => choose('pricebook')}
                 onOpenProject={openProjectOf}
+                onStartQuickEstimate={() => choose('quick')}
                 onProjectOpened={(projectId) => {
                   if (user && projectId) writeLastProject(user.id, projectId);
                 }}
                 onLastProjectUnavailable={() => {
                   if (user) clearLastProject(user.id);
                 }}
+              />
+            ) : activeSection === 'quick' ? (
+              <QuickEstimate
+                onDone={openEstimatesOf}
+                onClose={() => choose('projects')}
+                backSuspended={showAccount || menuOpen || showSync}
+                onOpenPricebook={() => choose('pricebook')}
               />
             ) : activeSection === 'calendar' ? (
               <CalendarScreen backSuspended={showAccount || menuOpen || showSync} onOpenProject={openProjectOf} />

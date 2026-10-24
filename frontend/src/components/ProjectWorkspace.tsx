@@ -131,6 +131,8 @@ interface ProjectWorkspaceProps {
   onOpenPricebook?: () => void;
   /** The example object of the account was made on the empty list: open it (V2-3). */
   onOpenProject?: (projectId: string) => void;
+  /** The quick estimate (V2-4) is opened from the list of objects. */
+  onStartQuickEstimate?: () => void;
   /** Usability U-11: the id of the object that is open now (null when none): the application remembers the last one. */
   onProjectOpened?: (projectId: string | null) => void;
   /** The object a `last` request asked for is gone or archived: nothing is opened, the list stays. */
@@ -142,7 +144,7 @@ export type ProjectOpenRequest =
   /** The form of a new object for this client opens (after the first client was added). */
   | { token: number; clientId: string; view: 'new-project'; projectId?: undefined };
 
-export function ProjectWorkspace({ resetSignal, backSuspended = false, openRequest = null, onStartClient, onOpenPricebook, onOpenProject, onProjectOpened, onLastProjectUnavailable }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({ resetSignal, backSuspended = false, openRequest = null, onStartClient, onOpenPricebook, onOpenProject, onStartQuickEstimate, onProjectOpened, onLastProjectUnavailable }: ProjectWorkspaceProps) {
   const { t } = useI18n();
   const photoBack = usePhotoBackStack();
   const [projects, setProjects] = useState<ProjectType[]>([]);
@@ -741,6 +743,16 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           >
             <Ico>{selectedProject ? '✏️' : '➕'}</Ico>{selectedProject ? t.common.edit : t.projects.add}
           </button>
+          {!selectedProject && onStartQuickEstimate && (
+            <button
+              type="button"
+              aria-label="start-quick-estimate"
+              onClick={onStartQuickEstimate}
+              className="w-full min-h-11 px-4 text-sm font-semibold rounded-xl border border-blue-300 text-blue-700 hover:bg-blue-50 transition"
+            >
+              <Ico>⚡</Ico>{t.quick.start_button}
+            </button>
+          )}
         </div>
       )}
 

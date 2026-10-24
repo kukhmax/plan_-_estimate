@@ -1113,3 +1113,12 @@ class WebAccountError(Exception):
         super().__init__(message)
         self.code = code
         self.message = message
+
+
+class QuickEstimateError(Exception):
+    """A quick estimate cannot be made as asked (a work that is not in the price book, a client that is not the owner's); nothing was created."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message

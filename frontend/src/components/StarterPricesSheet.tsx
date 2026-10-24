@@ -5,7 +5,7 @@ import { updatePriceItem } from '../api/priceItems';
 import { useI18n } from '../hooks/useI18n';
 import { useMarketEvidence } from '../hooks/useMarketEvidence';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
-import { PriceItem } from '../types/priceItem';
+import { PriceItem, PriceItemListResponse } from '../types/priceItem';
 import { normalizePriceInput } from '../utils/priceFormat';
 import { resolveDisplayName } from '../utils/priceItemName';
 import { Ico } from './Ico';
@@ -17,13 +17,15 @@ interface StarterPricesSheetProps {
   onSaved?: (count: number) => void;
   /** A link to the whole price book (the sheet closes first). */
   onOpenAll?: () => void;
+  /** Which rows the sheet asks for; the five starter rows by default (the quick estimate asks for the rows of the chosen works). */
+  load?: () => Promise<PriceItemListResponse>;
 }
 
 /**
  * "5 cen na start" (V2-3): the five price rows a new contractor needs first, in a sheet over the screen. Only the rows that were filled in are saved
  * (through the ordinary price update); the market window of a row is shown as a hint and is never filled in for the owner.
  */
-export function StarterPricesSheet({ onClose, onSaved, onOpenAll }: StarterPricesSheetProps) {
+export function StarterPricesSheet({ onClose, onSaved, onOpenAll, load = fetchStarterPrices }: StarterPricesSheetProps) {
   const { t } = useI18n();
   const [items, setItems] = useState<PriceItem[] | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -45,7 +47,7 @@ export function StarterPricesSheet({ onClose, onSaved, onOpenAll }: StarterPrice
   useEffect(() => {
     let cancelled = false;
     void Promise.resolve()
-      .then(() => fetchStarterPrices())
+      .then(() => load())
       .then((found) => {
         if (cancelled) return;
         setItems(found.items);
@@ -57,10 +59,14 @@ export function StarterPricesSheet({ onClose, onSaved, onOpenAll }: StarterPrice
     return () => {
       cancelled = true;
     };
+    // the rows are read once, when the sheet opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    // the sheet is a portal: React would hand this submit on to a form that holds the component (the quick estimate)
+    event.stopPropagation();
     if (!items) return;
     setError(null);
     // only the rows that were changed are sent; an empty field leaves the row as it is

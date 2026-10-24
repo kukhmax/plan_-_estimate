@@ -38,6 +38,7 @@ from app.api.v1.endpoints.photo_purge import router as photo_purge_router
 from app.api.v1.endpoints.photos import router as photos_router
 from app.api.v1.endpoints.price_coefficients import router as price_coefficients_router
 from app.api.v1.endpoints.pricebook import router as pricebook_router
+from app.api.v1.endpoints.quick_estimate import router as quick_estimate_router
 from app.api.v1.endpoints.project_notes import router as project_notes_router
 from app.api.v1.endpoints.project_purge import router as project_purge_router
 from app.api.v1.endpoints.project_representatives import (
@@ -145,6 +146,7 @@ app.include_router(risks_router, prefix="/api", tags=["risks"])
 app.include_router(communications_router, prefix="/api", tags=["communications"])
 app.include_router(pricebook_router, prefix="/api", tags=["price-items"])
 app.include_router(onboarding_router, prefix="/api", tags=["onboarding"])
+app.include_router(quick_estimate_router, prefix="/api", tags=["quick-estimate"])
 app.include_router(price_coefficients_router, prefix="/api", tags=["price-coefficients"])
 app.include_router(work_plan_router, prefix="/api", tags=["work-plans"])
 app.include_router(estimates_router, prefix="/api", tags=["estimates"])
