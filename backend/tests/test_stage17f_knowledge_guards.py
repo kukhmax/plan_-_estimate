@@ -32,7 +32,8 @@ def test_only_the_start_and_the_read_only_api_know_the_knowledge_base():
 
 
 def test_every_route_of_the_knowledge_base_only_reads_and_is_behind_the_login():
-    paths = {path: item for path, item in app.openapi()["paths"].items() if path.startswith("/api/knowledge")}
+    # the catalogue only; the owner's own documents (V2-7a, `/api/knowledge/documents`) are the owner's, writable, and a different thing
+    paths = {path: item for path, item in app.openapi()["paths"].items() if path.startswith("/api/knowledge") and not path.startswith("/api/knowledge/documents")}
     assert len(paths) == 7  # meta, entries, entry, situations, situation, links, link index
     for path, item in paths.items():
         assert set(item) == {"get"}, path

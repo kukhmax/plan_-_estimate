@@ -18,10 +18,11 @@ import type {
 import { documentKindLabel } from '../utils/documentFormat';
 import { clientPhraseText } from '../utils/knowledgePhrases';
 import type { DocumentKind } from '../types/document';
+import { KnowledgeDocumentCard, KnowledgeDocumentsSection } from './KnowledgeDocuments';
 import { KeyPoints, SourceLink, StatusBadge } from './KnowledgeEntryParts';
 import { Ico } from './Ico';
 
-type View = { kind: 'list' } | { kind: 'entry'; code: string } | { kind: 'situation'; code: string };
+type View = { kind: 'list' } | { kind: 'entry'; code: string } | { kind: 'situation'; code: string } | { kind: 'document'; id: string };
 
 interface KnowledgeBaseProps {
   backSuspended?: boolean;
@@ -44,6 +45,8 @@ export function KnowledgeBase({ backSuspended = false }: KnowledgeBaseProps) {
   const text = t.knowledge;
   const [stack, setStack] = useState<View[]>([{ kind: 'list' }]);
   const view = stack[stack.length - 1];
+  // a document of the owner was added, changed or deleted: the list reads them again
+  const [documentsVersion, setDocumentsVersion] = useState(0);
   const open = (next: View) => setStack((current) => [...current, next]);
   const back = useCallback(() => setStack((current) => (current.length > 1 ? current.slice(0, -1) : current)), []);
 
@@ -63,7 +66,16 @@ export function KnowledgeBase({ backSuspended = false }: KnowledgeBaseProps) {
           ← {text.back}
         </button>
       )}
-      {view.kind === 'list' && <KnowledgeList title={title} onOpenEntry={(code) => open({ kind: 'entry', code })} onOpenSituation={(code) => open({ kind: 'situation', code })} />}
+      {view.kind === 'list' && (
+        <KnowledgeList
+          title={title}
+          documentsVersion={documentsVersion}
+          onOpenEntry={(code) => open({ kind: 'entry', code })}
+          onOpenSituation={(code) => open({ kind: 'situation', code })}
+          onOpenDocument={(id) => open({ kind: 'document', id })}
+        />
+      )}
+      {view.kind === 'document' && <KnowledgeDocumentCard id={view.id} onChanged={() => setDocumentsVersion((v) => v + 1)} onDeleted={back} />}
       {view.kind === 'entry' && <KnowledgeEntryCard code={view.code} title={title} />}
       {view.kind === 'situation' && <KnowledgeSituationPlayer code={view.code} title={title} onOpenEntry={(code) => open({ kind: 'entry', code })} />}
     </section>
@@ -74,7 +86,7 @@ interface TitleProps {
   title: (item: { title_pl: string; title_ru: string }) => string;
 }
 
-function KnowledgeList({ title, onOpenEntry, onOpenSituation }: TitleProps & { onOpenEntry: (code: string) => void; onOpenSituation: (code: string) => void }) {
+function KnowledgeList({ title, documentsVersion, onOpenEntry, onOpenSituation, onOpenDocument }: TitleProps & { documentsVersion: number; onOpenEntry: (code: string) => void; onOpenSituation: (code: string) => void; onOpenDocument: (id: string) => void }) {
   const { t, locale } = useI18n();
   const text = t.knowledge;
   const [meta, setMeta] = useState<KnowledgeMeta | null>(null);
@@ -140,6 +152,8 @@ function KnowledgeList({ title, onOpenEntry, onOpenSituation }: TitleProps & { o
         enterKeyHint="search"
         className="w-full min-h-12 px-3 text-base rounded-xl border border-slate-300 pe-surface text-slate-900"
       />
+
+      <KnowledgeDocumentsSection query={query} refreshKey={documentsVersion} onOpen={onOpenDocument} />
 
       {situations.length > 0 && !query && (
         <div aria-label="knowledge-situations" className="space-y-2">

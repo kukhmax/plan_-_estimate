@@ -396,3 +396,17 @@ def get_document_issuer():
             max_active=settings.DOCUMENT_MAX_ACTIVE,
         )
     return _document_issuer
+
+
+_document_delivery = None
+
+
+def get_document_delivery():
+    """The process-wide delivery of a file to the owner's Telegram chat (V2-7a: a document of the knowledge base is sent to the chat);
+    created on first use from the settings; tests override this dependency."""
+    from app.domain.documents.delivery import delivery_from_settings
+
+    global _document_delivery
+    if _document_delivery is None:
+        _document_delivery = delivery_from_settings(settings)
+    return _document_delivery

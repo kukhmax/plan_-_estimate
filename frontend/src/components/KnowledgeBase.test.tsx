@@ -13,6 +13,16 @@ vi.mock('../api/knowledge', () => ({
   fetchKnowledgeSituation: vi.fn(),
 }));
 
+// V2-7a: the block "own documents" of the same screen has its own tests (KnowledgeDocuments.test.tsx); here it only has to be empty
+vi.mock('../api/knowledgeDocuments', () => ({
+  listKnowledgeDocuments: vi.fn().mockResolvedValue({ items: [], total: 0, max_documents: 100, max_file_bytes: 10_000_000 }),
+  fetchKnowledgeDocument: vi.fn(),
+  saveKnowledgeDocument: vi.fn(),
+  deleteKnowledgeDocument: vi.fn(),
+  fetchKnowledgeDocumentFile: vi.fn(),
+  sendKnowledgeDocumentToChat: vi.fn(),
+}));
+
 const META: KnowledgeMeta = {
   version: 2, updated_on: '2026-10-11', disclaimer_pl: null, disclaimer_ru: null, disclaimer_status: 'DRAFT',
   sources: 1, entries: 2, situations: 0,
