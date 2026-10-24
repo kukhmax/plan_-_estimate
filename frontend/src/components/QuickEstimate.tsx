@@ -76,7 +76,7 @@ export function QuickEstimate({ onDone, onClose, backSuspended = false, onOpenPr
   const [city, setCity] = useState('');
   const [rooms, setRooms] = useState<RoomDraft[]>(() => [newRoom(text.rooms_names[0])]);
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [ceiling, setCeiling] = useState(false);
+  const [ceiling, setCeiling] = useState(true); // a room is finished with its ceiling: ticked from the start (V2-4, owner's check)
   const [substrate, setSubstrate] = useState<SubstrateValue>('GYPSUM_PLASTER');
   const [quality, setQuality] = useState<QualityLevelValue>('S2');
   const [busy, setBusy] = useState(false);

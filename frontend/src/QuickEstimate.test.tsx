@@ -52,12 +52,12 @@ beforeEach(() => {
 });
 
 describe('the quick estimate screen (V2-4)', () => {
-  it('offers the works in the order of the server with the defaults ticked and the ceiling off', async () => {
+  it('offers the works in the order of the server with the defaults and the ceiling ticked', async () => {
     view();
     await screen.findByLabelText('quick-work-PRIM');
     expect(screen.getByLabelText('quick-work-PREP')).not.toBeChecked();
     for (const code of ['PRIM', 'SKIM', 'SAND', 'PAINT']) expect(screen.getByLabelText(`quick-work-${code}`)).toBeChecked();
-    expect(screen.getByLabelText('quick-ceiling')).not.toBeChecked();
+    expect(screen.getByLabelText('quick-ceiling')).toBeChecked(); // the ceiling is counted unless the owner unticks it
     expect(within(screen.getByLabelText('quick-works')).getAllByText('Do ustalenia')).toHaveLength(5); // no work has a price yet
     expect(screen.getByText(/Bez odjęcia otworów/)).toBeInTheDocument();
   });
@@ -77,11 +77,11 @@ describe('the quick estimate screen (V2-4)', () => {
     expect(quickApi.createQuickEstimate).toHaveBeenCalledWith({
       client_name: 'Jan Kowalski', client_phone: '600 100 200', address: 'ul. Długa 5/7', city: 'Kraków',
       rooms: [{ name: 'Salon', length: '5.2', width: '3.6', height: '2.6' }],
-      work_codes: ['PREP', 'PRIM', 'SKIM', 'PAINT'], include_ceiling: false, substrate: 'GYPSUM_PLASTER', quality_target: 'S2',
+      work_codes: ['PREP', 'PRIM', 'SKIM', 'PAINT'], include_ceiling: true, substrate: 'GYPSUM_PLASTER', quality_target: 'S2',
     });
   });
 
-  it('uses an existing client when there are some, and the ceiling switch goes with the request', async () => {
+  it('uses an existing client when there are some, and an unticked ceiling goes with the request', async () => {
     vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client('c9', 'Anna')], total: 1 } as never);
     view();
     const select = await screen.findByLabelText('quick-client-select');
@@ -95,7 +95,7 @@ describe('the quick estimate screen (V2-4)', () => {
     const sent = vi.mocked(quickApi.createQuickEstimate).mock.calls[0][0];
     expect(sent.client_id).toBe('c9');
     expect(sent.client_name).toBeUndefined();
-    expect(sent.include_ceiling).toBe(true);
+    expect(sent.include_ceiling).toBe(false); // the owner unticked it
   });
 
   it('a drywall substrate switches to the Q classes and sends one of them', async () => {
@@ -176,9 +176,9 @@ describe('the quick estimate screen (V2-4)', () => {
     view();
     fireEvent.click(await screen.findByLabelText('quick-set-prices'));
     const sheet = await screen.findByLabelText('starter-prices-form');
-    expect(within(sheet).getAllByLabelText(/^starter-price-(?!row)/)).toHaveLength(4); // PRIM, SKIM, SAND, PAINT (the ceiling row only with the ceiling)
+    expect(within(sheet).getAllByLabelText(/^starter-price-(?!row)/)).toHaveLength(5); // PRIM, SKIM, SAND, PAINT and the painting row of the ceiling
     fireEvent.change(within(sheet).getByLabelText('starter-price-SKIM'), { target: { value: '35' } });
-    vi.mocked(quickApi.fetchQuickEstimateOptions).mockResolvedValue(options({ PRIM: '7.00', SKIM: '35.00', SAND: '10.00', PAINT: '10.00' }));
+    vi.mocked(quickApi.fetchQuickEstimateOptions).mockResolvedValue(options({ PRIM: '7.00', SKIM: '35.00', SAND: '10.00', PAINT: '10.00', CEIL: '16.00' }));
     fireEvent.submit(sheet);
     await waitFor(() => expect(quickApi.fetchQuickEstimateOptions).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByLabelText('quick-set-prices')).toBeNull());
@@ -198,14 +198,14 @@ describe('the quick estimate screen (V2-4)', () => {
     expect(onDone).not.toHaveBeenCalled();
   });
 
-  it('the ceiling adds its own painting row to the prices that are asked for', async () => {
+  it('without the ceiling its painting row is not asked for', async () => {
     view();
     await screen.findByLabelText('quick-ceiling');
-    fireEvent.click(screen.getByLabelText('quick-ceiling'));
+    fireEvent.click(screen.getByLabelText('quick-ceiling')); // off: no ceiling row is asked for
     fireEvent.click(screen.getByLabelText('quick-set-prices'));
     const sheet = await screen.findByLabelText('starter-prices-form');
-    expect(within(sheet).getAllByLabelText(/^starter-price-(?!row)/)).toHaveLength(5);
-    expect(within(sheet).getByLabelText('starter-price-CEIL')).toBeInTheDocument();
+    expect(within(sheet).getAllByLabelText(/^starter-price-(?!row)/)).toHaveLength(4);
+    expect(within(sheet).queryByLabelText('starter-price-CEIL')).toBeNull();
   });
 
   it('says so when the settings cannot be read, and the cancel button leaves', async () => {
