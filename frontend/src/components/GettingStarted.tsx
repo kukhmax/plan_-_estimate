@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { createExample } from '../api/onboarding';
 import { fetchPriceItems } from '../api/priceItems';
 import { fetchProjects } from '../api/projects';
 import { fetchRooms } from '../api/rooms';
 import { useI18n } from '../hooks/useI18n';
+import { StarterPricesSheet } from './StarterPricesSheet';
 
 /** What the three steps of the start look at (usability U-3). `null` = not read yet. */
 export interface StartProgress {
@@ -54,15 +56,33 @@ interface GettingStartedProps {
   onAddClient: () => void;
   onOpenPricebook: () => void;
   onOpenProjects: () => void;
+  /** The example object of the account was made: open it (V2-3). Without it the button of the example is not shown. */
+  onOpenProject?: (projectId: string) => void;
 }
 
 /** "Od czego zacząć": the three steps of a new contractor, the finished ones ticked (usability U-3). */
-export function GettingStarted({ progress, onAddClient, onOpenPricebook, onOpenProjects }: GettingStartedProps) {
+export function GettingStarted({ progress, onAddClient, onOpenPricebook, onOpenProjects, onOpenProject }: GettingStartedProps) {
   const { t } = useI18n();
   const text = t.onboarding;
+  const [pricesOpen, setPricesOpen] = useState(false);
+  const [pricesSaved, setPricesSaved] = useState(false);
+  const [exampleBusy, setExampleBusy] = useState(false);
+  const [exampleError, setExampleError] = useState<string | null>(null);
+  const tryExample = async () => {
+    setExampleBusy(true);
+    setExampleError(null);
+    try {
+      const made = await createExample();
+      if (made.project_id && onOpenProject) onOpenProject(made.project_id);
+    } catch {
+      setExampleError(text.example_failed);
+    } finally {
+      setExampleBusy(false);
+    }
+  };
   const steps = [
     { id: 'client', label: text.step_client, done: progress.hasClients && progress.hasProjects === true, action: onAddClient, icon: '👤' },
-    { id: 'prices', label: text.step_prices, done: progress.hasPrices === true, action: onOpenPricebook, icon: '🏷️' },
+    { id: 'prices', label: text.step_prices, done: progress.hasPrices === true || pricesSaved, action: () => setPricesOpen(true), icon: '🏷️' },
     { id: 'room', label: text.step_room, done: progress.hasRooms === true, action: onOpenProjects, icon: '📐' },
   ];
   return (
@@ -90,6 +110,24 @@ export function GettingStarted({ progress, onAddClient, onOpenPricebook, onOpenP
           </li>
         ))}
       </ol>
+      {onOpenProject && (
+        <div className="space-y-1">
+          <button
+            type="button"
+            aria-label="start-try-example"
+            disabled={exampleBusy}
+            onClick={() => void tryExample()}
+            className="w-full min-h-11 px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-50 break-words"
+          >
+            <span aria-hidden="true">🧪 </span>{text.try_example}
+          </button>
+          <p className="text-xs text-slate-500 break-words">{text.try_example_hint}</p>
+          {exampleError && <p role="alert" className="text-sm text-red-600 break-words">{exampleError}</p>}
+        </div>
+      )}
+      {pricesOpen && (
+        <StarterPricesSheet onClose={() => setPricesOpen(false)} onSaved={() => setPricesSaved(true)} onOpenAll={onOpenPricebook} />
+      )}
     </section>
   );
 }

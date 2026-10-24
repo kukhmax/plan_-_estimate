@@ -283,6 +283,7 @@ const AppContent: React.FC = () => {
                 onStartObject={startObjectFor}
                 onOpenPricebook={() => choose('pricebook')}
                 onOpenProjects={() => choose('projects')}
+                onOpenProject={openProjectOf}
                 autoCreateToken={clientChainToken}
                 backSuspended={showAccount || menuOpen || showSync}
               />
@@ -293,6 +294,7 @@ const AppContent: React.FC = () => {
                 openRequest={openRequest}
                 onStartClient={startClientChain}
                 onOpenPricebook={() => choose('pricebook')}
+                onOpenProject={openProjectOf}
                 onProjectOpened={(projectId) => {
                   if (user && projectId) writeLastProject(user.id, projectId);
                 }}

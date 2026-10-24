@@ -15,6 +15,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.domain.data.onboarding_data import STARTER_PRICE_CODES
 from app.domain.data.price_book_seed import (
     LEGACY_GENERIC_CODES,
     MarketReferenceSeed,
@@ -628,6 +629,21 @@ class PriceBookService:
             PriceItem.code,
         )
         return list((await self.db.execute(stmt)).scalars())
+
+    async def list_starter_items(self, owner_id: uuid.UUID) -> list[PriceItem]:
+        """The starter rows of a new contractor (V2-3), in the order of `STARTER_PRICE_CODES`; the catalog is completed first."""
+        await self.ensure_owner_catalog(owner_id)
+        rows = (
+            await self.db.execute(
+                select(PriceItem).where(
+                    PriceItem.owner_id == owner_id,
+                    PriceItem.is_archived.is_(False),
+                    PriceItem.code.in_(STARTER_PRICE_CODES),
+                )
+            )
+        ).scalars()
+        by_code = {row.code: row for row in rows}
+        return [by_code[code] for code in STARTER_PRICE_CODES if code in by_code]
 
     async def get_owned_item(
         self,

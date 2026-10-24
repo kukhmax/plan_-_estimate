@@ -24,7 +24,8 @@ import {
   PriceScopeValue,
   PriceUnitValue,
 } from '../types/priceItem';
-import { resolveKey } from '../utils/i18nKeys';
+import { resolveDisplayName } from '../utils/priceItemName';
+import { StarterPricesSheet } from './StarterPricesSheet';
 import { formatPrice, normalizePriceInput } from '../utils/priceFormat';
 import { HubTile } from './HubTile';
 import { PriceBookMarket } from './PriceBookMarket';
@@ -43,16 +44,6 @@ const WorkflowTemplateManager = lazy(() =>
 
 type Tab = 'active' | 'archived';
 type MainTab = 'items' | 'coefficients' | 'processes';
-
-/** display_name > localized name_key > em-dash. Never the machine code. */
-function resolveDisplayName(item: PriceItem, t: Record<string, unknown>): string {
-  if (item.display_name) return item.display_name;
-  if (item.name_key) {
-    const resolved = resolveKey(t, item.name_key);
-    if (resolved !== item.name_key) return resolved;
-  }
-  return '—';
-}
 
 /** Seeded catalog rows carry a name_key; owner-created rows never do. */
 function isCatalogItem(item: PriceItem): boolean {
@@ -104,6 +95,8 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
 
   // Per-item market evidence (read-only; cached, never re-fetched per render).
   const evidence = useMarketEvidence(items.map((item) => item.id));
+
+  const [starterOpen, setStarterOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -287,6 +280,23 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
         </Suspense>
       ) : (
         <>
+
+      {/* V2-3: while no row has a price, the five that matter first are one tap away */}
+      {tab === 'active' && !loading && !error && !search.trim() && !category && items.length > 0 && items.every((item) => item.price === null) && (
+        <div aria-label="starter-prices-hint" className="pe-card rounded-2xl p-3 mb-3 shadow-sm space-y-2">
+          <p className="text-sm font-semibold text-slate-900 break-words">{t.onboarding.prices_hint_title}</p>
+          <p className="text-xs text-slate-600 break-words">{t.onboarding.prices_hint_text}</p>
+          <button
+            type="button"
+            aria-label="starter-prices-open"
+            onClick={() => setStarterOpen(true)}
+            className="w-full min-h-11 px-3 py-1 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition"
+          >
+            <Ico>🏷️</Ico>{t.onboarding.prices_open}
+          </button>
+        </div>
+      )}
+      {starterOpen && <StarterPricesSheet onClose={() => setStarterOpen(false)} onSaved={() => void load()} />}
 
       <div
         role="tablist"

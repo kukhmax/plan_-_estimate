@@ -32,6 +32,12 @@ afterEach(() => {
 });
 
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
+vi.mock('./api/onboarding', () => ({
+  fetchStarterPrices: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  fetchExample: vi.fn().mockResolvedValue({ project_id: null, client_id: null }),
+  createExample: vi.fn(),
+  deleteExample: vi.fn(),
+}));
 vi.mock('./api/contracts', () => ({
   fetchContracts: vi.fn(async () => ({ items: [], total: 0 })),
   openContractDraft: vi.fn(),
@@ -1694,6 +1700,8 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
       </I18nProvider>,
     );
     fireEvent.click(await screen.findByLabelText('start-step-prices'));
+    await screen.findByLabelText('starter-prices-form');
+    fireEvent.click(screen.getByLabelText('starter-prices-all'));
     expect(pricebook).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByLabelText('start-step-client'));
     expect(await screen.findByLabelText('project-form')).toBeInTheDocument();

@@ -7,6 +7,7 @@ import * as clientsApi from './api/clients';
 import * as projectsApi from './api/projects';
 import * as roomsApi from './api/rooms';
 import * as priceItemsApi from './api/priceItems';
+import * as onboardingApi from './api/onboarding';
 
 vi.mock('./api/clients', () => ({
   fetchClients: vi.fn(),
@@ -18,7 +19,8 @@ vi.mock('./api/clients', () => ({
 }));
 vi.mock('./api/projects', () => ({ fetchProjects: vi.fn() }));
 vi.mock('./api/rooms', () => ({ fetchRooms: vi.fn() }));
-vi.mock('./api/priceItems', () => ({ fetchPriceItems: vi.fn() }));
+vi.mock('./api/priceItems', () => ({ fetchPriceItems: vi.fn(), updatePriceItem: vi.fn() }));
+vi.mock('./api/onboarding', () => ({ fetchStarterPrices: vi.fn(), createExample: vi.fn(), fetchExample: vi.fn(), deleteExample: vi.fn() }));
 
 const client = (id: string, first = 'Jan') => ({
   id, owner_user_id: 'o', client_type: 'PRIVATE_PERSON' as const, first_name: first, last_name: 'Kowalski', company_name: null, phone: null,
@@ -39,6 +41,7 @@ beforeEach(() => {
   vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });
   vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
   vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
+  vi.mocked(onboardingApi.fetchStarterPrices).mockResolvedValue({ items: [], total: 0 });
 });
 
 describe('"Od czego zacząć" on the empty list of clients (usability U-3)', () => {
@@ -83,11 +86,15 @@ describe('"Od czego zacząć" on the empty list of clients (usability U-3)', () 
     expect(screen.getByLabelText('start-step-room')).toHaveAttribute('data-done', 'false');
   });
 
-  it('the second and the third step open the price book and the objects', async () => {
+  it('the second step opens the sheet of five prices (with a way to the whole price book), the third the objects', async () => {
     const pricebook = vi.fn();
     const projects = vi.fn();
     renderList({ onOpenPricebook: pricebook, onOpenProjects: projects });
     fireEvent.click(await screen.findByLabelText('start-step-prices'));
+    expect(await screen.findByLabelText('starter-prices-form')).toBeInTheDocument();
+    expect(pricebook).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('starter-prices-all'));
+    expect(screen.queryByLabelText('starter-prices-form')).toBeNull();
     fireEvent.click(screen.getByLabelText('start-step-room'));
     expect(pricebook).toHaveBeenCalledTimes(1);
     expect(projects).toHaveBeenCalledTimes(1);

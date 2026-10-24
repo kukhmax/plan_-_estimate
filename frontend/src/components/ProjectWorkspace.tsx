@@ -54,6 +54,7 @@ import { SurfaceList } from './SurfaceList';
 import { KnowledgeBasis, KnowledgeBasisTarget } from './KnowledgeBasis';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
+import { ExampleBanner } from './ExampleBanner';
 import { GettingStarted, useStartProgress } from './GettingStarted';
 
 /** Which document of the knowledge base's links stands behind each screen of the section "Umowa i protokoły" (Stage 17E). */
@@ -128,6 +129,8 @@ interface ProjectWorkspaceProps {
   /** "Od czego zacząć" on the empty list of objects (usability U-3): the first step leads to the form of a client; the second to the price book. */
   onStartClient?: () => void;
   onOpenPricebook?: () => void;
+  /** The example object of the account was made on the empty list: open it (V2-3). */
+  onOpenProject?: (projectId: string) => void;
   /** Usability U-11: the id of the object that is open now (null when none): the application remembers the last one. */
   onProjectOpened?: (projectId: string | null) => void;
   /** The object a `last` request asked for is gone or archived: nothing is opened, the list stays. */
@@ -139,7 +142,7 @@ export type ProjectOpenRequest =
   /** The form of a new object for this client opens (after the first client was added). */
   | { token: number; clientId: string; view: 'new-project'; projectId?: undefined };
 
-export function ProjectWorkspace({ resetSignal, backSuspended = false, openRequest = null, onStartClient, onOpenPricebook, onProjectOpened, onLastProjectUnavailable }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({ resetSignal, backSuspended = false, openRequest = null, onStartClient, onOpenPricebook, onOpenProject, onProjectOpened, onLastProjectUnavailable }: ProjectWorkspaceProps) {
   const { t } = useI18n();
   const photoBack = usePhotoBackStack();
   const [projects, setProjects] = useState<ProjectType[]>([]);
@@ -847,6 +850,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
         <>
           {objectSection === null && (
             <div className="space-y-3">
+            <ExampleBanner projectId={selectedProject.id} onRemoved={() => { backToProjects(); void load(); }} onOpenPricebook={() => onOpenPricebook?.()} />
             <article aria-label="project-detail" className="pe-card rounded-2xl p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 {/* This card is an intentionally always-white surface (never
@@ -1319,6 +1323,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               onAddClient={() => (clients.length > 0 ? startCreate() : onStartClient?.())}
               onOpenPricebook={() => onOpenPricebook?.()}
               onOpenProjects={startCreate}
+              onOpenProject={onOpenProject}
             />
           )}
         </div>

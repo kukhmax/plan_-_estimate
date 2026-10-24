@@ -2,63 +2,67 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from app.api.v1.endpoints.area_segments import router as area_segments_router
+from app.api.upload_guard import sweep_stale_photo_temp
+from app.api.v1.endpoints.acceptances import router as acceptances_router
 from app.api.v1.endpoints.access import router as access_router
+from app.api.v1.endpoints.adjacent_works import router as adjacent_works_router
+from app.api.v1.endpoints.archive_structure import router as archive_structure_router
+from app.api.v1.endpoints.archived_documents import router as archived_documents_router
+from app.api.v1.endpoints.area_segments import router as area_segments_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.calendar import router as calendar_router
-from app.api.v1.endpoints.project_notes import router as project_notes_router
 from app.api.v1.endpoints.checklists import router as checklists_router
 from app.api.v1.endpoints.clients import router as clients_router
 from app.api.v1.endpoints.communications import router as communications_router
-from app.api.v1.endpoints.estimates import router as estimates_router
-from app.api.v1.endpoints.inspections import router as inspections_router
-from app.api.v1.endpoints.health import router as health_router
-from app.api.v1.endpoints.openings import router as openings_router
+from app.api.v1.endpoints.concealed_works import router as concealed_works_router
+from app.api.v1.endpoints.contract_catalog import router as contract_catalog_router
+from app.api.v1.endpoints.contracts import router as contracts_router
+from app.api.v1.endpoints.decisions import router as decisions_router
 from app.api.v1.endpoints.documents import router as documents_router
-from app.api.v1.endpoints.knowledge import router as knowledge_router
-from app.domain.knowledge.catalog import load_knowledge_catalog
-from app.domain.calendar.messages import load_texts
-from app.domain.exceptions import ClientIdConflictError
-from app.domain.services.calendar_dispatcher import start_dispatcher
-from app.domain.services.data_key_service import DataKeyService
-from app.core.data_crypto import DataCryptoError
-from app.core.database import async_session_maker
+from app.api.v1.endpoints.downtimes import router as downtimes_router
+from app.api.v1.endpoints.estimates import router as estimates_router
 from app.api.v1.endpoints.executor_profile import router as executor_profile_router
-from app.api.v1.endpoints.archive_structure import router as archive_structure_router
-from app.api.v1.endpoints.payments import router as payments_router
-from app.api.v1.endpoints.archived_documents import router as archived_documents_router
+from app.api.v1.endpoints.handovers import router as handovers_router
+from app.api.v1.endpoints.health import router as health_router
+from app.api.v1.endpoints.inspections import router as inspections_router
+from app.api.v1.endpoints.knowledge import router as knowledge_router
+from app.api.v1.endpoints.onboarding import router as onboarding_router
+from app.api.v1.endpoints.openings import router as openings_router
 from app.api.v1.endpoints.payment_purge import router as payment_purge_router
+from app.api.v1.endpoints.payments import router as payments_router
 from app.api.v1.endpoints.photo_archive import router as photo_archive_router
 from app.api.v1.endpoints.photo_purge import router as photo_purge_router
-from app.api.v1.endpoints.project_purge import router as project_purge_router
-from app.api.v1.endpoints.structure_purge import router as structure_purge_router
 from app.api.v1.endpoints.photos import router as photos_router
 from app.api.v1.endpoints.price_coefficients import router as price_coefficients_router
 from app.api.v1.endpoints.pricebook import router as pricebook_router
+from app.api.v1.endpoints.project_notes import router as project_notes_router
+from app.api.v1.endpoints.project_purge import router as project_purge_router
+from app.api.v1.endpoints.project_representatives import (
+    router as project_representatives_router,
+)
 from app.api.v1.endpoints.projects import router as projects_router
 from app.api.v1.endpoints.reveal_works import router as reveal_works_router
 from app.api.v1.endpoints.risks import router as risks_router
-from app.api.v1.endpoints.contract_catalog import router as contract_catalog_router
-from app.api.v1.endpoints.adjacent_works import router as adjacent_works_router
-from app.api.v1.endpoints.acceptances import router as acceptances_router
-from app.api.v1.endpoints.decisions import router as decisions_router
-from app.api.v1.endpoints.downtimes import router as downtimes_router
-from app.api.v1.endpoints.concealed_works import router as concealed_works_router
-from app.api.v1.endpoints.contracts import router as contracts_router
-from app.api.v1.endpoints.handovers import router as handovers_router
-from app.api.v1.endpoints.project_representatives import router as project_representatives_router
 from app.api.v1.endpoints.rooms import router as rooms_router
+from app.api.v1.endpoints.structure_purge import router as structure_purge_router
 from app.api.v1.endpoints.surfaces import router as surfaces_router
 from app.api.v1.endpoints.work_plans import router as work_plan_router
-from app.api.v1.endpoints.work_recommendations import router as work_recommendations_router
+from app.api.v1.endpoints.work_recommendations import (
+    router as work_recommendations_router,
+)
 from app.api.v1.endpoints.workflow_templates import router as workflow_templates_router
-from app.api.upload_guard import sweep_stale_photo_temp
 from app.core.config import settings
+from app.core.data_crypto import DataCryptoError
+from app.core.database import async_session_maker
 from app.core.startup_checks import ensure_production_configuration
-
+from app.domain.calendar.messages import load_texts
+from app.domain.exceptions import ClientIdConflictError
+from app.domain.knowledge.catalog import load_knowledge_catalog
+from app.domain.services.calendar_dispatcher import start_dispatcher
+from app.domain.services.data_key_service import DataKeyService
 
 
 @asynccontextmanager
@@ -140,6 +144,7 @@ app.include_router(inspections_router, prefix="/api", tags=["inspections"])
 app.include_router(risks_router, prefix="/api", tags=["risks"])
 app.include_router(communications_router, prefix="/api", tags=["communications"])
 app.include_router(pricebook_router, prefix="/api", tags=["price-items"])
+app.include_router(onboarding_router, prefix="/api", tags=["onboarding"])
 app.include_router(price_coefficients_router, prefix="/api", tags=["price-coefficients"])
 app.include_router(work_plan_router, prefix="/api", tags=["work-plans"])
 app.include_router(estimates_router, prefix="/api", tags=["estimates"])

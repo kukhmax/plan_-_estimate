@@ -83,13 +83,15 @@ interface ClientListProps {
   onStartObject?: (clientId: string) => void;
   onOpenPricebook?: () => void;
   onOpenProjects?: () => void;
+  /** The example object of the account was made on the empty list: open it (V2-3). */
+  onOpenProject?: (projectId: string) => void;
   /** A new value opens the form of a client that leads on to the form of his object (the first step of "Od czego zacząć" from another screen). */
   autoCreateToken?: number;
   /** An overlay above the screen (the main menu, the account dialog) owns the Telegram BackButton while it is open. */
   backSuspended?: boolean;
 }
 
-export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, onStartObject, onOpenPricebook, onOpenProjects, autoCreateToken = 0, backSuspended = false }) => {
+export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, onStartObject, onOpenPricebook, onOpenProjects, onOpenProject, autoCreateToken = 0, backSuspended = false }) => {
   const { t } = useI18n();
   const [clients, setClients] = useState<ClientType[]>([]);
   const [total, setTotal] = useState(0);
@@ -693,6 +695,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, onStartO
                 onAddClient={startFirstClient}
                 onOpenPricebook={() => onOpenPricebook?.()}
                 onOpenProjects={() => onOpenProjects?.()}
+                onOpenProject={onOpenProject}
               />
             )
           ) : (

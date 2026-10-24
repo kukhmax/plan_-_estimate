@@ -106,7 +106,7 @@ class DemoDataService:
             project = await ProjectService(self.db).create_project(
                 ProjectCreate(
                     name=DEMO_PROJECT_NAME, address="ul. Przykładowa 1/2", city="Kraków", postal_code="30-001",
-                    description=f"{DEMO_CLIENT_MARK} Przykładowy obiekt z pomieszczeniami i cenami demo.", client_id=client.id,
+                    description=f"{DEMO_CLIENT_MARK} Przykładowy obiekt z pomieszczeniami.", client_id=client.id,
                 ),
                 owner_id,
             )

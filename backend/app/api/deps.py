@@ -24,6 +24,7 @@ from app.domain.services.inspection_service import InspectionService
 from app.domain.services.media_storage import MediaStorage
 from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
 from app.domain.services.opening_service import OpeningService
+from app.domain.services.demo_data_service import DemoDataService
 from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.price_coefficient_service import PriceCoefficientService
 from app.domain.services.project_service import ProjectService
@@ -257,6 +258,12 @@ async def get_communication_service(
     db: AsyncSession = Depends(get_db),
 ) -> CommunicationService:
     return CommunicationService(db)
+
+
+async def get_demo_data_service(
+    db: AsyncSession = Depends(get_db),
+) -> DemoDataService:
+    return DemoDataService(db, get_media_purger())
 
 
 async def get_price_book_service(
