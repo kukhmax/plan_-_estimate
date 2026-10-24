@@ -30,6 +30,8 @@ from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.inspections import router as inspections_router
 from app.api.v1.endpoints.knowledge import router as knowledge_router
 from app.api.v1.endpoints.knowledge_documents import router as knowledge_documents_router
+from app.api.v1.endpoints.client_links import router as client_links_router
+from app.api.v1.endpoints.client_portal import router as client_portal_router
 from app.api.v1.endpoints.onboarding import router as onboarding_router
 from app.api.v1.endpoints.openings import router as openings_router
 from app.api.v1.endpoints.payment_purge import router as payment_purge_router
@@ -169,5 +171,7 @@ app.include_router(executor_profile_router, prefix="/api", tags=["executor-profi
 app.include_router(documents_router, prefix="/api", tags=["documents"])
 app.include_router(knowledge_router, prefix="/api", tags=["knowledge"])
 app.include_router(knowledge_documents_router, prefix="/api", tags=["knowledge-documents"])
+app.include_router(client_links_router, prefix="/api", tags=["client-links"])
+app.include_router(client_portal_router, prefix="/api", tags=["client-portal"])
 app.include_router(calendar_router, prefix="/api", tags=["calendar"])
 app.include_router(project_notes_router, prefix="/api", tags=["project-notes"])

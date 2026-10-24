@@ -24,6 +24,7 @@ import { startConnectionWatch } from './offline/watch';
 import { clearLastProject, readLastProject, writeLastProject } from './utils/lastProject';
 import { LoginScreen } from './components/LoginScreen';
 import { QuickEstimate } from './components/QuickEstimate';
+import { ClientPage, isClientPagePath, tokenFromHash } from './components/ClientPage';
 
 type Section = 'clients' | 'projects' | 'quick' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge' | 'access' | 'security';
 
@@ -357,10 +358,16 @@ const AppContent: React.FC = () => {
   );
 };
 
-export const App: React.FC = () => (
-  <I18nProvider>
-    <AppContent />
-  </I18nProvider>
-);
+/** V2-8: `/c#<secret>` is the open page of the client -- no login, no Telegram, no offline copies, and the language is never written to the storage of the application. */
+export const App: React.FC = () =>
+  typeof window !== 'undefined' && isClientPagePath(window.location.pathname) ? (
+    <I18nProvider persist={false}>
+      <ClientPage token={tokenFromHash(window.location.hash)} />
+    </I18nProvider>
+  ) : (
+    <I18nProvider>
+      <AppContent />
+    </I18nProvider>
+  );
 
 export default App;

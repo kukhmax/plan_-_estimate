@@ -41,6 +41,7 @@ from app.models.calendar_settings import CalendarSettings
 from app.models.downtime_episode import DowntimeEpisode, DowntimeStatus
 from app.models.reminder import Reminder, ReminderOrigin, ReminderStatus
 from app.models.knowledge_document import KnowledgeDocument, KnowledgeDocumentFile
+from app.models.client_link import ClientConsent, ClientLink, ClientProposal
 from app.models.project_note import ProjectNote
 from app.models.project_payment import ProjectFinance, ProjectPayment
 from app.models.purge_ledger import PurgeLedger
@@ -95,6 +96,9 @@ from app.models.work_recommendation import (
 __all__ = [
     "KnowledgeDocument",
     "KnowledgeDocumentFile",
+    "ClientConsent",
+    "ClientLink",
+    "ClientProposal",
     "UserCredential",
     "RoomWorkPlan",
     "RoomPlannedWork",

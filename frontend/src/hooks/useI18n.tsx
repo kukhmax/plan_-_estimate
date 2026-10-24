@@ -21,6 +21,10 @@ function firstLocale(): Locale {
   return localeFromTelegramCode(window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code ?? null);
 }
 
+function browserLocale(): Locale {
+  return localeFromTelegramCode(typeof navigator === 'undefined' ? null : navigator.language);
+}
+
 interface I18nContextValue {
   locale: Locale;
   t: LocaleData;
@@ -33,17 +37,23 @@ const I18nContext = createContext<I18nContextValue>({
   setLocale: () => undefined,
 });
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(firstLocale);
+/** `persist={false}`: the open page of the client (V2-8) starts in the language of the browser and never writes the choice to the storage of the application. */
+export function I18nProvider({ children, persist = true }: { children: ReactNode; persist?: boolean }) {
+  const [locale, setLocaleState] = useState<Locale>(persist ? firstLocale : browserLocale);
 
-  const setLocale = useCallback((next: Locale) => {
-    try {
-      localStorage.setItem('locale', next);
-    } catch {
-      // the language still changes for this visit
-    }
-    setLocaleState(next);
-  }, []);
+  const setLocale = useCallback(
+    (next: Locale) => {
+      if (persist) {
+        try {
+          localStorage.setItem('locale', next);
+        } catch {
+          // the language still changes for this visit
+        }
+      }
+      setLocaleState(next);
+    },
+    [persist],
+  );
 
   return (
     <I18nContext.Provider value={{ locale, t: locales[locale], setLocale }}>

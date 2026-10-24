@@ -1,0 +1,26 @@
+{
+  "estimate_accept": {
+    "pl": "Zapoznałem/am się z wyceną nr {version} przedstawioną przez {contractor} i ją zatwierdzam: zakres prac oraz łączną kwotę do zapłaty {amount} {currency}.",
+    "ru": "Я ознакомился/ознакомилась со сметой № {version}, представленной {contractor}, и принимаю её: объём работ и общую сумму к оплате {amount} {currency}.",
+    "uk": "Я ознайомився/ознайомилася з кошторисом № {version}, наданим {contractor}, і приймаю його: обсяг робіт та загальну суму до сплати {amount} {currency}.",
+    "en": "I have read estimate no. {version} presented by {contractor} and I approve it: the scope of work and the total amount to pay of {amount} {currency}."
+  },
+  "proposal_accept": {
+    "pl": "Zapoznałem/am się z propozycją prac dodatkowych „{title}” przedstawioną przez {contractor} i ją zatwierdzam: kwota {amount} {currency}{days}.",
+    "ru": "Я ознакомился/ознакомилась с предложением дополнительных работ «{title}», представленным {contractor}, и согласен/согласна: сумма {amount} {currency}{days}.",
+    "uk": "Я ознайомився/ознайомилася з пропозицією додаткових робіт «{title}», наданою {contractor}, і погоджуюсь: сума {amount} {currency}{days}.",
+    "en": "I have read the proposal for extra work “{title}” presented by {contractor} and I agree to it: amount {amount} {currency}{days}."
+  },
+  "proposal_decline": {
+    "pl": "Zapoznałem/am się z propozycją prac dodatkowych „{title}” przedstawioną przez {contractor} i jej nie akceptuję: kwota {amount} {currency}{days}.",
+    "ru": "Я ознакомился/ознакомилась с предложением дополнительных работ «{title}», представленным {contractor}, и не согласен/не согласна: сумма {amount} {currency}{days}.",
+    "uk": "Я ознайомився/ознайомилася з пропозицією додаткових робіт «{title}», наданою {contractor}, і не погоджуюсь: сума {amount} {currency}{days}.",
+    "en": "I have read the proposal for extra work “{title}” presented by {contractor} and I do not accept it: amount {amount} {currency}{days}."
+  },
+  "days": {
+    "pl": ", termin przesunięty o {days} dni",
+    "ru": ", срок сдвигается на {days} дн",
+    "uk": ", термін зсувається на {days} дн",
+    "en": ", the deadline moves by {days} days"
+  }
+}

@@ -17,6 +17,10 @@ OPEN_OPERATIONS = {
     ("POST", "/api/auth/telegram"),
     ("GET", "/api/auth/config"),
     ("POST", "/api/auth/password"),
+    # V2-8: the page of the client; the secret of the link in the header is the only door (tests/test_v2_8_client_link.py)
+    ("GET", "/api/public/client"),
+    ("POST", "/api/public/client/estimate/accept"),
+    ("POST", "/api/public/client/proposals/{proposal_id}/decide"),
 }
 METHODS = ("get", "post", "put", "patch", "delete")
 CONTRACT = app.openapi()

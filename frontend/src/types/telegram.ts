@@ -96,6 +96,8 @@ export interface TelegramWebApp {
   close: () => void;
   /** Opens a link outside the Mini App (the browser of the phone). */
   openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
+  /** Opens a t.me link inside Telegram (a share dialog: `https://t.me/share/url?url=...`). */
+  openTelegramLink?: (url: string) => void;
   onEvent?: (eventType: string, eventHandler: (payload?: unknown) => void) => void;
   offEvent?: (eventType: string, eventHandler: (payload?: unknown) => void) => void;
 }

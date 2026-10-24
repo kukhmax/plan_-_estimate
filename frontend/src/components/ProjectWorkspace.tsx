@@ -49,6 +49,7 @@ import { ProjectSummaryCard } from './ProjectSummaryCard';
 import { ProjectPayments } from './ProjectPayments';
 import { DocumentsMenu, DocumentsSection, LegalMenu, LegalSection, ObjectPhotos, ObjectSection, ProjectHub } from './ProjectHub';
 import { PrepareOfflineButton } from './PrepareOfflineButton';
+import { ProjectClientLink } from './ProjectClientLink';
 import { ProjectNotes } from './ProjectNotes';
 import { SurfaceList } from './SurfaceList';
 import { KnowledgeBasis, KnowledgeBasisTarget } from './KnowledgeBasis';
@@ -368,6 +369,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       payments: t.payments.title,
       summary: t.object_summary.title,
       notes: t.notes.title,
+      client: t.client_link.title,
     })[section];
 
   const documentsTitle = (section: DocumentsSection) =>
@@ -924,6 +926,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
 
           {/* Stage 13F-PRE: the totals of the object, a screen of its own (the last tile of the hub). */}
           {objectSection === 'notes' && <ProjectNotes projectId={selectedProject.id} />}
+
+          {objectSection === 'client' && <ProjectClientLink projectId={selectedProject.id} />}
 
           {objectSection === 'payments' && (
             <ProjectPayments

@@ -37,6 +37,8 @@ from app.domain.services.decision_service import DecisionService
 from app.domain.services.calendar_service import CalendarService
 from app.domain.services.payment_service import PaymentService
 from app.domain.services.project_note_service import ProjectNoteService
+from app.domain.services.client_link_service import ClientLinkService
+from app.domain.services.client_portal_service import ClientPortalService
 from app.domain.services.downtime_service import DowntimeService
 from app.domain.services.concealed_service import ConcealedService
 from app.domain.services.contract_service import ContractService
@@ -200,6 +202,18 @@ async def get_project_note_service(
     db: AsyncSession = Depends(get_db),
 ) -> ProjectNoteService:
     return ProjectNoteService(db)
+
+
+async def get_client_link_service(
+    db: AsyncSession = Depends(get_db),
+) -> ClientLinkService:
+    return ClientLinkService(db)
+
+
+async def get_client_portal_service(
+    db: AsyncSession = Depends(get_db),
+) -> ClientPortalService:
+    return ClientPortalService(db, settings.JWT_SECRET_KEY)
 
 
 async def get_downtime_service(
