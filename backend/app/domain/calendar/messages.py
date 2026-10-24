@@ -1,6 +1,6 @@
 """The text of the messages to the owner (Stage 18D): what goes into one message, and in which words.
 
-Pure functions. The words are in `texts.json` (Polish and Russian, like every text of the application, never in code); the owner's own
+Pure functions. The words are in `texts.json` (Polish, Russian, Ukrainian and English, like every text of the application, never in code); the owner's own
 reminders carry the owner's own words. What is due at one moment is put together so that the owner is not flooded: everything announced
 by a day (a term, a start) goes into **one digest**, the ends of breaks of one room into **one message**, the rest one message each.
 """
@@ -16,11 +16,17 @@ from pathlib import Path
 from app.domain.calendar import DEFAULT_TIMEZONE
 from app.domain.calendar.policy import LATE, lateness
 
-LANGUAGES = ("pl", "ru")
+LANGUAGES = ("pl", "ru", "uk", "en")
 TEXTS_FILE = Path(__file__).parent / "texts.json"
 FRAME_KEYS = ("late", "digest_title", "today", "in_days", "more", "button", "break_hours", "surfaces", "own_prefix")
 BREAK_KINDS = ("BREAK_START", "BREAK_END")
 DIGEST_LIMIT = 25  # lines of one digest; the rest is counted
+
+
+def language_of_telegram(code: str | None) -> str:
+    """The language of the messages for an owner who did not choose one: that of Telegram (uk-UA, en, ru ...), anything else is Polish."""
+    base = (code or "").lower().replace("_", "-").split("-")[0]
+    return base if base in LANGUAGES else "pl"
 
 
 class CalendarTextsError(Exception):

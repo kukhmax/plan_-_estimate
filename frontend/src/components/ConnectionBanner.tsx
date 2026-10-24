@@ -1,7 +1,7 @@
 import { useI18n } from '../hooks/useI18n';
 import { useConnection } from '../offline/connection';
+import { localeTag } from '../utils/locale';
 
-const TAGS: Record<string, string> = { pl: 'pl-PL', ru: 'ru-RU' };
 
 /**
  * A strip under the header, only while the server cannot be reached or the screen shows a copy kept on the phone (Stage 19B).
@@ -11,7 +11,7 @@ export function ConnectionBanner() {
   const { t, locale } = useI18n();
   const { offline, servedFrom } = useConnection();
   if (!offline && servedFrom === null) return null;
-  const time = servedFrom === null ? '' : new Date(servedFrom).toLocaleString(TAGS[locale] ?? locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const time = servedFrom === null ? '' : new Date(servedFrom).toLocaleString(localeTag(locale), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const text = offline
     ? servedFrom === null
       ? t.offline.banner_offline

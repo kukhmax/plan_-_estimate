@@ -137,11 +137,10 @@ describe('App shell — compact account control (Stage 9D.1)', () => {
     const header = screen.getByRole('banner', { name: 'app-header' });
     expect(header).toHaveTextContent('Klienci'); // the header names the open section (usability U-2)
     expect(header).toContainElement(screen.getByRole('button', { name: 'open-menu' }));
-    expect(header).toContainElement(screen.getByRole('button', { name: 'lang-pl' }));
-    expect(header).toContainElement(screen.getByRole('button', { name: 'lang-ru' }));
+    expect(header).toContainElement(screen.getByRole('button', { name: 'language-switch' }));
     // The language switcher sits left of the menu button, and the menu button is the last control in the right corner.
     const buttons = Array.from(header.querySelectorAll('button')).map((button) => button.getAttribute('aria-label'));
-    expect(buttons).toEqual(['lang-pl', 'lang-ru', 'open-menu']);
+    expect(buttons).toEqual(['language-switch', 'open-menu']);
     // The panel slides in from the right.
     fireEvent.click(screen.getByRole('button', { name: 'open-menu' }));
     expect(screen.getByRole('dialog', { name: 'main-menu' })).toHaveClass('right-0');
@@ -378,6 +377,7 @@ describe('App shell — the main menu (Stage 16K.1)', () => {
     render(<App />);
     await openMenu();
     expect(screen.getByRole('button', { name: 'show-projects' })).toHaveTextContent('Obiekty');
+    fireEvent.click(screen.getByRole('button', { name: 'language-switch' }));
     fireEvent.click(screen.getByRole('button', { name: 'lang-ru' }));
     expect(screen.getByRole('button', { name: 'show-projects' })).toHaveTextContent('Объекты');
     expect(screen.getByRole('button', { name: 'open-account' })).toHaveTextContent('Аккаунт');
@@ -389,7 +389,7 @@ describe('App shell — the main menu (Stage 16K.1)', () => {
     await screen.findByText(/./, { selector: 'h2' });
     expect(screen.queryByRole('button', { name: 'open-menu' })).toBeNull();
     // the language switch still works on the error screen
-    expect(screen.getByRole('button', { name: 'lang-ru' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'language-switch' })).toBeInTheDocument();
   });
 });
 

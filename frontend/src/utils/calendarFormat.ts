@@ -1,7 +1,7 @@
 import type { AgendaItem } from '../types/calendar';
+import { localeTag } from './locale';
 
-const LOCALE_TAGS: Record<string, string> = { pl: 'pl-PL', ru: 'ru-RU' };
-const tag = (locale: string) => LOCALE_TAGS[locale] ?? locale;
+const tag = (locale: string) => localeTag(locale);
 
 /** 'YYYY-MM-DD' as a calendar day (local midnight: a day has no zone). */
 export function parseDay(day: string): Date {

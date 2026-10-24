@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { I18nProvider, useI18n } from './hooks/useI18n';
 import { AccessScreen } from './components/AccessScreen';
 import { ArchiveScreen } from './components/ArchiveScreen';
@@ -36,7 +37,7 @@ function openTarget(search: string): { section: Section; projectId?: string } | 
 
 const AppContent: React.FC = () => {
   const { user, isDevAuth, isLoading, error, accessContact, retry, loginRequired, signInWithPassword, signOut } = useAuth();
-  const { t, locale, setLocale } = useI18n();
+  const { t } = useI18n();
   const [target] = useState(() => openTarget(typeof window === 'undefined' ? '' : window.location.search));
   const [activeSection, setActiveSection] = useState<Section>(target?.section ?? 'clients');
   const [projectsNavToken, setProjectsNavToken] = useState(0);
@@ -166,23 +167,7 @@ const AppContent: React.FC = () => {
           </div>
           {/* Language switcher (small, by the owner's request) and the menu button: both in the right corner, the menu button last */}
           <div className="flex items-center gap-2 shrink-0">
-            <div className="flex gap-0.5 shrink-0 rounded-lg p-0.5" style={{ backgroundColor: 'var(--tg-theme-secondary-bg-color)' }}>
-              {(['pl', 'ru'] as const).map((lang) => (
-                <button
-                  key={lang}
-                  aria-label={`lang-${lang}`}
-                  onClick={() => setLocale(lang)}
-                  className="min-h-9 min-w-9 text-xs px-2 rounded-md font-semibold uppercase transition"
-                  style={
-                    locale === lang
-                      ? { backgroundColor: 'var(--tg-theme-button-color)', color: 'var(--tg-theme-button-text-color)' }
-                      : { color: 'var(--tg-theme-hint-color)' }
-                  }
-                >
-                  {lang}
-                </button>
-              ))}
-            </div>
+            <LanguageSwitcher />
             {!isLoading && user && (
               <button
                 type="button"

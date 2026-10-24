@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 
 TITLE_LIMIT = 120
 MAX_OWN_PENDING = 200  # waiting own reminders of one owner: a guard against a script or a stuck button, far above a real use
-LANGUAGES = ("pl", "ru")
+LANGUAGES = ("pl", "ru", "uk", "en")
 CLOSING_RANK = {WorkExecutionStatus.IN_PROGRESS.value: 1, WorkExecutionStatus.COMPLETED.value: 2}
 
 

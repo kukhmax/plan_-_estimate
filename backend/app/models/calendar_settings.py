@@ -45,5 +45,5 @@ class CalendarSettings(Base):
 
     __table_args__ = (
         UniqueConstraint("owner_id", name="uq_calendar_settings_owner"),
-        CheckConstraint("language IS NULL OR language IN ('pl', 'ru')", name="ck_calendar_settings_language"),
+        CheckConstraint("language IS NULL OR language IN ('pl', 'ru', 'uk', 'en')", name="ck_calendar_settings_language"),
     )

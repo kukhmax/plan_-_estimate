@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { decideAccess, fetchAccess, removeAccess, saveAccessSettings } from '../api/access';
 import { useI18n } from '../hooks/useI18n';
 import type { AccessEntry, AccessOverview, AccessStatus } from '../types/access';
+import { localeTag } from '../utils/locale';
 
 const button = 'w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-slate-300 pe-surface text-slate-900 hover:bg-slate-50 disabled:opacity-50 transition break-words';
 const primary = 'w-full min-h-11 px-3 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition break-words';
@@ -60,7 +61,7 @@ export function AccessScreen() {
     });
 
   const nameOf = (entry: AccessEntry) => [entry.first_name, entry.last_name].filter(Boolean).join(' ') || text.no_name;
-  const dateOf = (value: string) => new Date(value).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'pl-PL');
+  const dateOf = (value: string) => new Date(value).toLocaleDateString(localeTag(locale));
   const label = (status: AccessStatus) => (status === 'PENDING' ? text.pending : status === 'ACTIVE' ? text.active : text.blocked);
 
   return (

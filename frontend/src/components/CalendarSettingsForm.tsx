@@ -4,6 +4,7 @@ import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import type { CalendarSettings } from '../types/calendar';
 import { Ico } from './Ico';
+import { LOCALES, LOCALE_NAMES, type Locale } from '../utils/locale';
 
 const input = 'w-full min-h-11 px-3 text-sm rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-control-bg-color)] text-[var(--tg-control-text-color)]';
 const hhmm = (value: string) => value.slice(0, 5);
@@ -22,7 +23,7 @@ export function CalendarSettingsForm({ onSaved }: { onSaved?: (settings: Calenda
   const [quietFrom, setQuietFrom] = useState('21:00');
   const [quietTo, setQuietTo] = useState('07:00');
   const [digestAt, setDigestAt] = useState('08:00');
-  const [language, setLanguage] = useState<'' | 'pl' | 'ru'>('');
+  const [language, setLanguage] = useState<'' | Locale>('');
   const [sends, setSends] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
@@ -110,10 +111,11 @@ export function CalendarSettingsForm({ onSaved }: { onSaved?: (settings: Calenda
 
       <label className="block space-y-1">
         <span className="text-xs text-[var(--tg-theme-hint-color)]">{s.language}</span>
-        <select aria-label="settings-language" value={language} onChange={(event) => setLanguage(event.target.value as '' | 'pl' | 'ru')} className={input}>
+        <select aria-label="settings-language" value={language} onChange={(event) => setLanguage(event.target.value as '' | Locale)} className={input}>
           <option value="">{s.language_auto}</option>
-          <option value="pl">Polski</option>
-          <option value="ru">Русский</option>
+          {LOCALES.map((code) => (
+            <option key={code} value={code}>{LOCALE_NAMES[code]}</option>
+          ))}
         </select>
       </label>
 

@@ -1,11 +1,25 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import pl from '../locales/pl.json';
 import ru from '../locales/ru.json';
+import uk from '../locales/uk.json';
+import en from '../locales/en.json';
+import { isLocale, localeFromTelegramCode, type Locale } from '../utils/locale';
 
-type Locale = 'pl' | 'ru';
 type LocaleData = typeof pl;
 
-const locales: Record<Locale, LocaleData> = { pl, ru };
+const locales: Record<Locale, LocaleData> = { pl, ru, uk, en };
+
+function firstLocale(): Locale {
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem('locale');
+  } catch {
+    stored = null;
+  }
+  if (isLocale(stored)) return stored;
+  // V2-7: a new user starts in the language of Telegram; the choice made by hand is kept afterwards
+  return localeFromTelegramCode(window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code ?? null);
+}
 
 interface I18nContextValue {
   locale: Locale;
@@ -20,13 +34,14 @@ const I18nContext = createContext<I18nContextValue>({
 });
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    const stored = localStorage.getItem('locale') as Locale | null;
-    return stored && stored in locales ? stored : 'pl';
-  });
+  const [locale, setLocaleState] = useState<Locale>(firstLocale);
 
   const setLocale = useCallback((next: Locale) => {
-    localStorage.setItem('locale', next);
+    try {
+      localStorage.setItem('locale', next);
+    } catch {
+      // the language still changes for this visit
+    }
     setLocaleState(next);
   }, []);
 

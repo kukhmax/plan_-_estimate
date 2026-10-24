@@ -29,6 +29,7 @@ from app.domain.calendar.messages import (
     Message,
     ReminderView,
     compose_messages,
+    language_of_telegram,
 )
 from app.domain.calendar.prefs import CalendarPrefs, in_quiet_hours
 from app.domain.documents.delivery import (
@@ -200,7 +201,7 @@ class CalendarDispatcher:
         if user is None or user.telegram_user_id <= 0:  # the owner is gone, or signs in without Telegram (V2-1) and has no chat: nothing to deliver to
             await self._finish(ids, ReminderStatus.CANCELLED, now, None)
             return
-        language = prefs.language or ("ru" if (user.language_code or "").lower().startswith("ru") else "pl")
+        language = prefs.language or language_of_telegram(user.language_code)
         messages = compose_messages(views, lang=language if language in LANGUAGES else "pl", now=now, base_url=self._web_app_url, tz=prefs.tz)
         for index, message in enumerate(messages):
             if index and self._pause:

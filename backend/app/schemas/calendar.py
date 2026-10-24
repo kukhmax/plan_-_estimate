@@ -69,7 +69,7 @@ class CalendarSettingsRead(BaseModel):
     quiet_from: time
     quiet_to: time
     digest_at: time
-    language: Literal["pl", "ru"] | None = None
+    language: Literal["pl", "ru", "uk", "en"] | None = None
     kinds: list[KindSettingRead]
     timezones: list[str]
 

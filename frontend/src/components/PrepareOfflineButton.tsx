@@ -3,8 +3,8 @@ import { useI18n } from '../hooks/useI18n';
 import { useConnection } from '../offline/connection';
 import { lastPrepared, prepareProjectOffline, type PrepareProgress } from '../offline/prepareProject';
 import { Ico } from './Ico';
+import { localeTag } from '../utils/locale';
 
-const TAGS: Record<string, string> = { pl: 'pl-PL', ru: 'ru-RU' };
 
 interface PrepareOfflineButtonProps {
   projectId: string;
@@ -40,7 +40,7 @@ export function PrepareOfflineButton({ projectId }: PrepareOfflineButtonProps) {
     if (result.failed === 0) setLast(Date.now());
   };
 
-  const fmt = (ms: number) => new Date(ms).toLocaleString(TAGS[locale] ?? locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const fmt = (ms: number) => new Date(ms).toLocaleString(localeTag(locale), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const o = t.offline;
 
   return (

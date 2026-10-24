@@ -63,6 +63,20 @@ describe('the settings form', () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
+  it('offers the four languages of the messages and saves Ukrainian and English too (V2-7)', async () => {
+    form();
+    await screen.findByLabelText('settings-save');
+    const select = screen.getByLabelText('settings-language');
+    expect([...select.querySelectorAll('option')].map((option) => option.getAttribute('value'))).toEqual(['', 'pl', 'ru', 'uk', 'en']);
+    for (const code of ['uk', 'en']) {
+      vi.mocked(api.saveCalendarSettings).mockClear();
+      fireEvent.change(select, { target: { value: code } });
+      fireEvent.click(screen.getByLabelText('settings-save'));
+      await waitFor(() => expect(api.saveCalendarSettings).toHaveBeenCalled());
+      expect(vi.mocked(api.saveCalendarSettings).mock.calls[0][0].language).toBe(code);
+    }
+  });
+
   it('sends no overrides when nothing was changed', async () => {
     form();
     fireEvent.click(await screen.findByLabelText('settings-save'));

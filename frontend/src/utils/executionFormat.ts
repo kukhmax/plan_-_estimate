@@ -7,14 +7,14 @@
  */
 import { SurfacePriceItemSummaryRead } from '../types/workPlan';
 import { resolveKey } from './i18nKeys';
+import { localeTag } from './locale';
 
-const LOCALE_TAGS: Record<string, string> = { pl: 'pl-PL', ru: 'ru-RU' };
 
 export function formatRecordedDateTime(iso: string, locale: string): string {
   const hasOffset = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso);
   const date = new Date(hasOffset ? iso : `${iso}Z`);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(LOCALE_TAGS[locale] ?? locale, { dateStyle: 'short', timeStyle: 'short' });
+  return date.toLocaleString(localeTag(locale), { dateStyle: 'short', timeStyle: 'short' });
 }
 
 type NameTexts = Parameters<typeof resolveKey>[0];
@@ -39,6 +39,6 @@ type PluralForms = { one: string; few: string; many: string; other: string };
 
 /** Pick a CLDR plural form (pl/ru one/few/many/other) and fill {count}. */
 export function pluralCount(forms: PluralForms, locale: string, count: number): string {
-  const category = new Intl.PluralRules(LOCALE_TAGS[locale] ?? locale).select(count) as keyof PluralForms;
+  const category = new Intl.PluralRules(localeTag(locale)).select(count) as keyof PluralForms;
   return (forms[category] ?? forms.other).replace('{count}', String(count));
 }

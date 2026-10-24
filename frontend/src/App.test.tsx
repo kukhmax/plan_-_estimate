@@ -255,6 +255,7 @@ describe('App authentication component', () => {
     });
     expect(screen.queryByText(/signature/i)).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: 'language-switch' }));
     fireEvent.click(screen.getByRole('button', { name: 'lang-ru' }));
     expect(
       screen.getByText('Не удалось подтвердить подлинность данных Telegram.'),

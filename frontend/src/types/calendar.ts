@@ -1,3 +1,4 @@
+import type { Locale } from '../utils/locale';
 import type { WorkExecutionStatus } from './workPlan';
 
 /** The API of Stage 18E mirrored: the agenda, the settings, the Remind button, the planned dates. */
@@ -63,7 +64,7 @@ export interface CalendarSettings {
   quiet_from: string; // HH:MM:SS
   quiet_to: string;
   digest_at: string;
-  language: 'pl' | 'ru' | null;
+  language: Locale | null;
   kinds: KindSetting[];
   timezones: string[];
 }
@@ -75,7 +76,7 @@ export interface CalendarSettingsUpdate {
   quiet_from: string;
   quiet_to: string;
   digest_at: string;
-  language: 'pl' | 'ru' | null;
+  language: Locale | null;
 }
 
 export interface ReminderCreate {

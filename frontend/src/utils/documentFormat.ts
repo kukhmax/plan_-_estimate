@@ -1,8 +1,9 @@
+import { localeTag } from './locale';
 import type { DocumentKind } from '../types/document';
 
 /** The date and time of a journal row in Polish local time, in the language of the screen. */
 export function formatIssued(iso: string, locale: string): string {
-  return new Date(iso).toLocaleString(locale === 'ru' ? 'ru-RU' : 'pl-PL', {
+  return new Date(iso).toLocaleString(localeTag(locale), {
     timeZone: 'Europe/Warsaw',
     day: '2-digit',
     month: '2-digit',
