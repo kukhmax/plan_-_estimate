@@ -101,6 +101,73 @@ describe('the sheet "Plan pomieszczenia" (V2-5)', () => {
     expect(roomPlansApi.saveRoomWorkPlan).toHaveBeenCalledWith(projectId, roomId, { substrate: 'GYPSUM_PLASTER', quality_target: 'S2', walls: ['id-D', 'id-B'], ceiling: [] });
   });
 
+  describe('"Wczytaj ze ściany"', () => {
+    const planOf = (surfaceId: string, items: string[], substrate = 'GYPSUM_BOARD', quality = 'Q3') => ({
+      id: 'p', surface_id: surfaceId, substrate, quality_target: quality,
+      planned_works: items.map((id, position) => ({ id: `w${position}`, work_plan_id: 'p', price_item_id: id, position, occurrence_key: `k${position}`, wait_after_hours: null, price_item: null })),
+    });
+
+    it('offers only the surfaces that have a plan, named the way the lists name them', async () => {
+      vi.mocked(roomPlansApi.fetchRoomWorkPlan).mockResolvedValue(planResponse({
+        surfaces: [
+          { surface_id: 'w1', name: 'Wall 1', surface_type: 'WALL', state: 'OWN', started: false },
+          { surface_id: 'w2', name: 'Wall 2', surface_type: 'WALL', state: 'NONE', started: false },
+          { surface_id: 'c1', name: 'Ceiling', surface_type: 'CEILING', state: 'FOLLOWS', started: false },
+        ],
+      }));
+      open();
+      const pick = await screen.findByLabelText('room-plan-load-pick');
+      expect(within(pick).getAllByRole('option').map((o) => o.textContent)).toEqual(['Wybierz ścianę lub sufit', 'Ściana 1', 'Sufit']);
+    });
+
+    it('puts the works, the substrate and the class of a wall into the list of the walls and saves them', async () => {
+      vi.mocked(roomPlansApi.fetchRoomWorkPlan).mockResolvedValue(planResponse({ surfaces: [{ surface_id: 'w1', name: 'Wall 1', surface_type: 'WALL', state: 'OWN', started: false }] }));
+      vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(planOf('w1', ['id-D', 'id-A', 'id-D']) as never);
+      vi.mocked(roomPlansApi.saveRoomWorkPlan).mockResolvedValue(planResponse());
+      open();
+      fireEvent.change(await screen.findByLabelText('room-plan-load-pick'), { target: { value: 'w1' } });
+      expect(screen.getByLabelText('room-plan-load-button')).not.toBeDisabled();
+      fireEvent.click(screen.getByLabelText('room-plan-load-button'));
+      await waitFor(() => expect(screen.getByLabelText('room-plan-substrate')).toHaveValue('GYPSUM_BOARD'));
+      expect(screen.getByLabelText('room-plan-quality')).toHaveValue('Q3');
+      const walls = screen.getByLabelText('room-plan-walls');
+      expect(within(walls).getByText('1. Praca D')).toBeInTheDocument();
+      expect(within(walls).getByText('2. Praca A')).toBeInTheDocument();
+      expect(within(walls).getByText('3. Praca D')).toBeInTheDocument();
+      expect(within(screen.getByLabelText('room-plan-ceiling')).getByText('1. Praca C')).toBeInTheDocument(); // the ceiling list is not touched
+      fireEvent.click(screen.getByLabelText('room-plan-save'));
+      await screen.findByLabelText('room-plan-report');
+      expect(roomPlansApi.saveRoomWorkPlan).toHaveBeenCalledWith(projectId, roomId, { substrate: 'GYPSUM_BOARD', quality_target: 'Q3', walls: ['id-D', 'id-A', 'id-D'], ceiling: ['id-C'] });
+    });
+
+    it('a ceiling goes into the list of the ceiling and leaves the walls alone', async () => {
+      vi.mocked(roomPlansApi.fetchRoomWorkPlan).mockResolvedValue(planResponse({ surfaces: [{ surface_id: 'c1', name: 'Ceiling', surface_type: 'CEILING', state: 'OWN', started: false }] }));
+      vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(planOf('c1', ['id-B'], 'GYPSUM_PLASTER', 'S2') as never);
+      open();
+      fireEvent.change(await screen.findByLabelText('room-plan-load-pick'), { target: { value: 'c1' } });
+      fireEvent.click(screen.getByLabelText('room-plan-load-button'));
+      await waitFor(() => expect(within(screen.getByLabelText('room-plan-ceiling')).getByText('1. Praca B')).toBeInTheDocument());
+      expect(within(screen.getByLabelText('room-plan-walls')).getByText('1. Praca A')).toBeInTheDocument();
+    });
+
+    it('says so when the plan of the surface cannot be read, and changes nothing', async () => {
+      vi.mocked(roomPlansApi.fetchRoomWorkPlan).mockResolvedValue(planResponse({ surfaces: [{ surface_id: 'w1', name: 'Wall 1', surface_type: 'WALL', state: 'OWN', started: false }] }));
+      vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(new Error('x'));
+      open();
+      fireEvent.change(await screen.findByLabelText('room-plan-load-pick'), { target: { value: 'w1' } });
+      fireEvent.click(screen.getByLabelText('room-plan-load-button'));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się wczytać planu tej powierzchni.');
+      expect(within(screen.getByLabelText('room-plan-walls')).getByText('1. Praca A')).toBeInTheDocument();
+    });
+
+    it('is not shown while no surface has a plan', async () => {
+      vi.mocked(roomPlansApi.fetchRoomWorkPlan).mockResolvedValue(planResponse({ plan: null, surfaces: [{ surface_id: 'w1', name: 'Wall 1', surface_type: 'WALL', state: 'NONE', started: false }] }));
+      open();
+      await screen.findByLabelText('room-plan-walls');
+      expect(screen.queryByLabelText('room-plan-load-pick')).toBeNull();
+    });
+  });
+
   it('a drywall substrate takes a Q class', async () => {
     open();
     await screen.findByLabelText('room-plan-walls');

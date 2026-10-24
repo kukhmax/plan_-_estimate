@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchPriceItems } from '../api/priceItems';
 import { fetchRoomWorkPlan, RoomPlanRequestError, saveRoomWorkPlan } from '../api/roomWorkPlans';
+import { fetchSurfaceWorkPlan } from '../api/workPlans';
 import { useI18n } from '../hooks/useI18n';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { QualityLevelValue, SubstrateValue } from '../types/checklist';
 import { PriceCategoryValue, PriceItem } from '../types/priceItem';
-import { RoomWorkPlanResponse } from '../types/roomWorkPlan';
+import { RoomWorkPlanResponse, SurfacePlanState } from '../types/roomWorkPlan';
 import { resolveDisplayName } from '../utils/priceItemName';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { Ico } from './Ico';
@@ -59,6 +60,9 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<RoomWorkPlanResponse | null>(null);
+  const [sources, setSources] = useState<SurfacePlanState[]>([]);
+  const [source, setSource] = useState('');
+  const [loadingSource, setLoadingSource] = useState(false);
 
   useTelegramBackButton(true, report ? () => { onSaved(); onClose(); } : onClose);
   useEffect(() => {
@@ -78,6 +82,7 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
       .then(([catalog, found]) => {
         if (cancelled) return;
         setItems(catalog.items);
+        setSources(found.surfaces.filter((surface) => surface.state !== 'NONE')); // only a surface that has a plan can be copied from
         if (found.plan) {
           setSubstrate(found.plan.substrate);
           setQuality(found.plan.quality_target ?? '');
@@ -135,6 +140,25 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
     }
   };
 
+  // "Wczytaj ze ściany": the works, the substrate and the class of a surface go into the list of its kind (a wall -> the walls, the ceiling -> the ceiling)
+  const loadFromSurface = async () => {
+    const chosen = sources.find((surface) => surface.surface_id === source);
+    if (!chosen) return;
+    setLoadingSource(true);
+    setError(null);
+    try {
+      const plan = await fetchSurfaceWorkPlan(projectId, roomId, chosen.surface_id);
+      setSubstrate(plan.substrate);
+      setQuality(plan.quality_target ?? '');
+      const ids = plan.planned_works.map((work) => work.price_item_id);
+      setLists((current) => (chosen.surface_type === 'CEILING' ? { ...current, ceiling: ids } : { ...current, walls: ids }));
+    } catch {
+      setError(text.load_surface_failed);
+    } finally {
+      setLoadingSource(false);
+    }
+  };
+
   const finish = () => {
     onSaved();
     onClose();
@@ -168,6 +192,24 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
             {loadFailed && <p role="alert" className="text-sm text-red-600 break-words">{text.load_failed}</p>}
             {items && (
               <>
+                {sources.length > 0 && (
+                  <section aria-label="room-plan-load" className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <select aria-label="room-plan-load-pick" value={source} onChange={(event) => setSource(event.target.value)} className={`${inputClass} min-w-0 flex-1`}>
+                        <option value="">{text.load_pick}</option>
+                        {sources.map((surface) => (
+                          <option key={surface.surface_id} value={surface.surface_id}>
+                            {getSurfaceDisplayName({ name: surface.name, surface_type: surface.surface_type }, labels)}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="button" aria-label="room-plan-load-button" disabled={!source || loadingSource} onClick={() => void loadFromSurface()} className="shrink-0 min-h-11 px-3 text-sm font-semibold rounded-xl border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-40 break-words">
+                        <Ico>📥</Ico>{text.load_button}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 break-words">{text.load_hint}</p>
+                  </section>
+                )}
                 <div className="grid grid-cols-1 gap-2">
                   <div>
                     <label htmlFor="room-plan-substrate" className="block text-xs text-slate-500 mb-1">{text.substrate}</label>
