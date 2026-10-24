@@ -8,6 +8,7 @@ import { QualityLevelValue, SubstrateValue } from '../types/checklist';
 import { PriceCategoryValue, PriceItem } from '../types/priceItem';
 import { RoomWorkPlanResponse } from '../types/roomWorkPlan';
 import { resolveDisplayName } from '../utils/priceItemName';
+import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { Ico } from './Ico';
 
 interface RoomPlanSheetProps {
@@ -139,7 +140,10 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
     onClose();
   };
 
-  const names = (outcome: string) => (report?.results ?? []).filter((r) => r.outcome === outcome).map((r) => r.name);
+  // the stored names ("Wall 1", "Ceiling") are language-neutral: they are shown the way the lists show them
+  const labels = { wall: t.surfaces.wall, floor: t.surfaces.floor, ceiling: t.surfaces.ceiling };
+  const names = (outcome: string) =>
+    (report?.results ?? []).filter((r) => r.outcome === outcome).map((r) => getSurfaceDisplayName({ name: r.name, surface_type: r.surface_type }, labels));
   const count = (...outcomes: string[]) => (report?.results ?? []).filter((r) => outcomes.includes(r.outcome)).length;
 
   return createPortal(

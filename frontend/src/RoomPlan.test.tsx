@@ -115,8 +115,9 @@ describe('the sheet "Plan pomieszczenia" (V2-5)', () => {
       results: [
         { surface_id: 'a', name: 'Ściana 1', surface_type: 'WALL', outcome: 'CREATED' },
         { surface_id: 'b', name: 'Ściana 2', surface_type: 'WALL', outcome: 'UPDATED' },
-        { surface_id: 'c', name: 'Ściana 3', surface_type: 'WALL', outcome: 'SKIPPED_OWN' },
-        { surface_id: 'd', name: 'Ściana 4', surface_type: 'WALL', outcome: 'SKIPPED_STARTED' },
+        { surface_id: 'c', name: 'Wall 3', surface_type: 'WALL', outcome: 'SKIPPED_OWN' },
+        { surface_id: 'e', name: 'Ceiling', surface_type: 'CEILING', outcome: 'SKIPPED_OWN' },
+        { surface_id: 'd', name: 'Wall 4', surface_type: 'WALL', outcome: 'SKIPPED_STARTED' },
       ],
     }));
     open({ onSaved, onClose });
@@ -125,7 +126,8 @@ describe('the sheet "Plan pomieszczenia" (V2-5)', () => {
     const report = await screen.findByLabelText('room-plan-report');
     expect(report).toHaveTextContent('Utworzono plany: 1');
     expect(report).toHaveTextContent('Zaktualizowano plany: 1');
-    expect(report).toHaveTextContent('Pominięto (własny plan): Ściana 3');
+    expect(report).toHaveTextContent('Pominięto (własny plan): Ściana 3, Sufit'); // the stored "Wall 3" / "Ceiling" are shown in the language of the application
+    expect(report).not.toHaveTextContent('Wall');
     expect(report).toHaveTextContent('Pominięto (prace rozpoczęte): Ściana 4');
     expect(onSaved).not.toHaveBeenCalled();
     fireEvent.click(screen.getByLabelText('room-plan-close'));
