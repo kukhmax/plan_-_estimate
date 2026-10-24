@@ -1122,3 +1122,12 @@ class QuickEstimateError(Exception):
         super().__init__(message)
         self.code = code
         self.message = message
+
+
+class RoomPlanError(Exception):
+    """The plan of a room cannot be saved / followed as asked (no plan yet, a wrong surface, a started surface); nothing was changed."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message

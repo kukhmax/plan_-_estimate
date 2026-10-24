@@ -21,6 +21,8 @@ interface SurfaceRowButtonProps {
   pending?: boolean;
   /** A merged wall: how many parts it has (a badge); a wall that was joined into another one shows `mergedLabel`. */
   partsLabel?: string | null;
+  /** V2-5: a wall whose plan differs from the plan of its room says so (only the differences are marked). */
+  planLabel?: string | null;
   mergedLabel?: string | null;
   /** Merge selection (backlog "Объединить стены"): when `selecting`, a tap marks the wall (`selectedOrder` = 1 for the wall that stays, 2... for the others). */
   selecting?: boolean;
@@ -44,7 +46,7 @@ const LONG_PRESS_MS = 500;
  * so the owner finds a wall at a glance and opens only the one being worked on).
  */
 export function SurfaceRowButton({
-  surfaceId, rowKey, name, typeLabel, area, archivedLabel, workCount, pending, partsLabel, mergedLabel, selecting = false, selectedOrder = null,
+  surfaceId, rowKey, name, typeLabel, area, archivedLabel, workCount, pending, partsLabel, planLabel, mergedLabel, selecting = false, selectedOrder = null,
   disabled = false, stayLabel, className, onOpen, onLongPress, onEdit, editLabel,
 }: SurfaceRowButtonProps) {
   const { t } = useI18n();
@@ -114,6 +116,7 @@ export function SurfaceRowButton({
         {typeLabel && <span className="text-xs px-2 py-0.5 rounded-full pe-pill font-medium">{typeLabel}</span>}
         {archivedLabel && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">{archivedLabel}</span>}
         <PendingMark record={{ _pending: pending }} id={key} />
+        {planLabel && <span aria-label={`surface-row-plan-${key}`} className="text-xs px-2 py-0.5 rounded-full pe-pill font-medium">{planLabel}</span>}
         {partsLabel && <span aria-label={`surface-row-parts-${key}`} className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-medium">🔗 {partsLabel}</span>}
         {mergedLabel && <span aria-label={`surface-row-merged-${key}`} className="text-xs px-2 py-0.5 rounded-full pe-pill font-medium">{mergedLabel}</span>}
         {selecting && selectedOrder === 1 && stayLabel && <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">{stayLabel}</span>}

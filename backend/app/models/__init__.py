@@ -1,5 +1,6 @@
 from app.models.access_entry import AccessEntry, AccessSetting, AccessStatus
 from app.models.area_segment import AreaOperation, AreaPlane, AreaSegment
+from app.models.room_work_plan import RoomPlannedWork, RoomPlanTarget, RoomWorkPlan
 from app.models.user_credential import UserCredential
 from app.models.surface_part import MergeMoveKind, SurfaceMergeMove, SurfacePart
 from app.models.checklist import (
@@ -92,6 +93,9 @@ from app.models.work_recommendation import (
 
 __all__ = [
     "UserCredential",
+    "RoomWorkPlan",
+    "RoomPlannedWork",
+    "RoomPlanTarget",
     "MergeMoveKind",
     "SurfaceMergeMove",
     "SurfacePart",

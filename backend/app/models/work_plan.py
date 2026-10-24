@@ -15,6 +15,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     Enum,
@@ -24,6 +25,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
 )
+from sqlalchemy import false as sa_false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -54,6 +56,8 @@ class SurfaceWorkPlan(Base):
         nullable=True,
         comment="Agreed quality target; NULL means none agreed yet",
     )
+    # V2-5: the plan of this surface follows the plan of its room (kept equal to it); false = a plan of its own
+    follows_room_plan: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_false())
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

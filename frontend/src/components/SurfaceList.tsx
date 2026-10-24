@@ -37,8 +37,11 @@ import { SurfaceExecutionView } from './SurfaceExecutionView';
 import { SurfaceWorkPlanEditor } from './SurfaceWorkPlanEditor';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
+import { RoomPlanSheet } from './RoomPlanSheet';
 import { PlanExecutionTabs } from './PlanExecutionTabs';
 import { PendingMark } from './PendingMark';
+import { fetchRoomWorkPlan, followRoomWorkPlan, RoomPlanRequestError } from '../api/roomWorkPlans';
+import { SurfacePlanState } from '../types/roomWorkPlan';
 import { SurfaceDimensions } from './SurfaceDimensions';
 import { SurfaceRowButton } from './SurfaceRowButton';
 import { previewArea } from '../offline/preview';
@@ -132,6 +135,20 @@ export function SurfaceList({
   const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
   /** Usability U-7: which wall cards show their area calculation (gross, openings, reveals); the net area alone is the default. */
   const [expandedAreas, setExpandedAreas] = useState<Record<string, boolean>>({});
+  // V2-5: the plan of the room, and what each surface does with it (follows it, has a plan of its own, none)
+  const [roomPlanOpen, setRoomPlanOpen] = useState(false);
+  const [hasRoomPlan, setHasRoomPlan] = useState(false);
+  const [planStates, setPlanStates] = useState<Record<string, SurfacePlanState>>({});
+  const loadPlanStates = useCallback(async () => {
+    try {
+      const found = await fetchRoomWorkPlan(projectId, roomId);
+      setHasRoomPlan(found.plan !== null);
+      setPlanStates(Object.fromEntries(found.surfaces.map((state) => [state.surface_id, state])));
+    } catch {
+      setHasRoomPlan(false); // the marks are an extra: a failing request leaves the list as it was
+      setPlanStates({});
+    }
+  }, [projectId, roomId]);
   const toggleAreaDetails = (surfaceId: string) => setExpandedAreas((current) => ({ ...current, [surfaceId]: !current[surfaceId] }));
   const [activeWorkPlanSurfaceId, setActiveWorkPlanSurfaceId] = useState<string | null>(null);
   // Stage 13H.5: Realizacja (execution) is a separate view from the plan
@@ -200,6 +217,10 @@ export function SurfaceList({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!loading) void loadPlanStates();
+  }, [loading, loadPlanStates]);
 
   // Stage 10G.4 — fetch active openings for every measured WALL so the
   // deduction/reveal summary rows have real data to describe. Best-effort
@@ -514,6 +535,19 @@ export function SurfaceList({
       setError(mergeErrorText(err));
     } finally {
       setMergeBusy(false);
+    }
+  };
+
+  const backToRoomPlan = async (surfaceId: string) => {
+    setError(null);
+    setSuccess(null);
+    try {
+      await followRoomWorkPlan(projectId, roomId, surfaceId);
+      setSuccess(t.roomplan.back_done);
+      await loadPlanStates();
+      onMeasurementChanged?.();
+    } catch (failure) {
+      setError(failure instanceof RoomPlanRequestError && failure.code === 'ROOM_PLAN_STARTED' ? t.roomplan.back_started : t.roomplan.back_failed);
     }
   };
 
@@ -832,6 +866,19 @@ export function SurfaceList({
         {t.common.show_archived}
       </label>
 
+      {!selecting && !reordering && !loading && !error && activeWalls.length >= 1 && (
+        <button
+          type="button"
+          aria-label="room-plan-open"
+          onClick={() => setRoomPlanOpen(true)}
+          className="mb-3 w-full min-h-11 px-3 py-2 text-sm rounded-xl border border-indigo-300 text-indigo-700 font-semibold hover:bg-indigo-50 transition break-words"
+        >
+          <Ico>🧱</Ico>{t.roomplan.open}
+        </button>
+      )}
+      {roomPlanOpen && (
+        <RoomPlanSheet projectId={projectId} roomId={roomId} onClose={() => setRoomPlanOpen(false)} onSaved={() => { void load(); }} />
+      )}
       {effectiveWallMode === 'CUSTOM' && !selecting && !reordering && !loading && (activeWalls.length >= 2 || mergeableWalls.length >= 2) && (
         <div className="mb-3 flex flex-wrap gap-2">
           {mergeableWalls.length >= 2 && (
@@ -1049,6 +1096,7 @@ export function SurfaceList({
               return (
                 <li key={surface.id} aria-label={`surface-item-${surface.id}`}>
                   <SurfaceRowButton
+                    planLabel={hasRoomPlan && planStates[surface.id]?.state === 'OWN' ? t.roomplan.badge_own : null}
                     partsLabel={partsCount > 0 ? String(partsCount) : null}
                     mergedLabel={surface.merged_into_id ? t.surfaces.merged_into.replace('{name}', nameOf(surface.merged_into_id)) : null}
                     selecting={selecting}
@@ -1154,6 +1202,27 @@ export function SurfaceList({
                     <span className="min-w-0 break-words"><Ico>🔬</Ico>{t.inspections.inspect_wall}</span>
                     <InspectionPhotoBadge surfaceId={surface.id} />
                   </button>
+                )}
+
+                {isWall && hasRoomPlan && planStates[surface.id] && planStates[surface.id].state !== 'NONE' && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      aria-label={`plan-state-${surface.id}`}
+                      className="text-xs px-2 py-0.5 rounded-full pe-pill font-medium"
+                    >
+                      {planStates[surface.id].state === 'OWN' ? t.roomplan.badge_own : t.roomplan.badge_follows}
+                    </span>
+                    {planStates[surface.id].state === 'OWN' && (
+                      <button
+                        type="button"
+                        aria-label={`back-to-room-plan-${surface.id}`}
+                        onClick={() => void backToRoomPlan(surface.id)}
+                        className="min-h-11 px-3 text-xs rounded-lg border border-indigo-300 text-indigo-700 font-semibold hover:bg-indigo-50 break-words"
+                      >
+                        <Ico>↩️</Ico>{t.roomplan.back_to_plan}
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {isWall && partsCount > 0 && (

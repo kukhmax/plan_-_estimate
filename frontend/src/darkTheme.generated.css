@@ -224,6 +224,9 @@ html[data-color-scheme='dark'] .border-fuchsia-200 {
 html[data-color-scheme='dark'] .border-indigo-200 {
   border-color: rgba(99, 102, 241, 0.45);
 }
+html[data-color-scheme='dark'] .border-indigo-300 {
+  border-color: rgba(99, 102, 241, 0.45);
+}
 html[data-color-scheme='dark'] .border-lime-200 {
   border-color: rgba(132, 204, 22, 0.45);
 }
@@ -337,6 +340,9 @@ html[data-color-scheme='dark'] .hover\:bg-green-200:hover {
 }
 html[data-color-scheme='dark'] .hover\:bg-indigo-100:hover {
   background-color: rgba(99, 102, 241, 0.18);
+}
+html[data-color-scheme='dark'] .hover\:bg-indigo-50:hover {
+  background-color: rgba(99, 102, 241, 0.12);
 }
 html[data-color-scheme='dark'] .hover\:bg-lime-100:hover {
   background-color: rgba(132, 204, 22, 0.18);

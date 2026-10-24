@@ -399,6 +399,8 @@ class SurfaceWorkPlanService:
         assignments are created via the relationship, atomically, in the
         same commit.
         """
+        # V2-5: any ordinary change of the works makes the plan of this surface a plan of its own; the plan of a room sets the flag back itself
+        plan.follows_room_plan = False
         if plan.id is not None:
             await self.db.execute(
                 delete(SurfacePlannedWork).where(
@@ -561,6 +563,7 @@ class SurfaceWorkPlanService:
             position=next_position,
             occurrence_key=uuid.uuid4(),
         )
+        plan.follows_room_plan = False  # V2-5: a work added by hand makes it a plan of its own
         self.db.add(work)
         await self.db.flush()
         return work
@@ -640,6 +643,7 @@ class SurfaceWorkPlanService:
         planned_works: list[OrderedPriceItemSelection] | None = None,
         template_applications: list[TemplateApplicationIntent] | None = None,
         confirm_execution_detach_keys: list[uuid.UUID] | None = None,
+        follows_room_plan: bool = False,
     ) -> SurfaceWorkPlan:
         """Create or fully replace the surface's plan in one atomic commit.
 
@@ -693,6 +697,7 @@ class SurfaceWorkPlanService:
             plan.substrate = substrate
             plan.quality_target = quality_target
         await self._rewrite_works(plan, validated)
+        plan.follows_room_plan = follows_room_plan  # V2-5: only the plan of a room sets it (`RoomWorkPlanService`)
         for record in applications:
             record.work_plan = plan
             self.db.add(record)
@@ -929,6 +934,7 @@ class SurfaceWorkPlanService:
                 [], request.confirm_execution_detach_keys
             )
             next_position = (max((w.position for w in current), default=-1)) + 1
+            plan.follows_room_plan = False  # V2-5
             for offset, step in enumerate(chosen):
                 self.db.add(
                     SurfacePlannedWork(

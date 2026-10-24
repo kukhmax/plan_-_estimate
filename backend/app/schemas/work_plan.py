@@ -287,6 +287,8 @@ class SurfaceWorkPlanRead(BaseModel):
     surface_id: uuid.UUID
     substrate: Substrate
     quality_target: QualityLevel | None = None
+    # V2-5: the plan of this surface follows the plan of its room (false = a plan of its own)
+    follows_room_plan: bool = False
     planned_works: list[SurfacePlannedWorkRead] = Field(default_factory=list)
     # Historical provenance (oldest first); snapshot, not current state.
     template_applications: list[TemplateApplicationRead] = Field(default_factory=list)

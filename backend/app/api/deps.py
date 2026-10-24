@@ -25,6 +25,7 @@ from app.domain.services.media_storage import MediaStorage
 from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
 from app.domain.services.opening_service import OpeningService
 from app.domain.services.demo_data_service import DemoDataService
+from app.domain.services.room_work_plan_service import RoomWorkPlanService
 from app.domain.services.quick_estimate_service import QuickEstimateService
 from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.price_coefficient_service import PriceCoefficientService
@@ -259,6 +260,12 @@ async def get_communication_service(
     db: AsyncSession = Depends(get_db),
 ) -> CommunicationService:
     return CommunicationService(db)
+
+
+async def get_room_work_plan_service(
+    db: AsyncSession = Depends(get_db),
+) -> RoomWorkPlanService:
+    return RoomWorkPlanService(db)
 
 
 async def get_quick_estimate_service(

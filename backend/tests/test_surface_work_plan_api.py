@@ -1258,4 +1258,8 @@ def test_work_plan_route_family_registered():
         "/work-plan/execution/apply-to-room-walls-preview",
         "/api/projects/{project_id}/rooms/{room_id}/surfaces/{source_surface_id}"
         "/work-plan/execution/apply-to-room-walls",
+        # V2-5: the plan of a whole room, and "back to the plan of the room" of one surface.
+        "/api/projects/{project_id}/rooms/{room_id}/work-plan",
+        "/api/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}"
+        "/work-plan/follow-room-plan",
     }
