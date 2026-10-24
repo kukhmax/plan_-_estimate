@@ -18,7 +18,6 @@ Polish labels (`locales/pl.json`); the data (names, answers, risks) come from th
 photo report.
 """
 
-import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date
@@ -36,10 +35,14 @@ from app.domain.documents.parties import party_from_executor_profile
 from app.domain.documents.photo_report_document import InspectionView, inspection_view
 from app.domain.documents.registry import DocumentKind, get_template
 from app.domain.documents.renderer import DocumentRenderer, RenderedPdf
+from app.domain.documents.surface_names import surface_title
 from app.domain.documents.templating import render_html
 from app.domain.exceptions import DocumentDataError
 from app.domain.services.executor_profile_service import ExecutorProfileService
-from app.domain.services.inspection_report_read_model import InspectionInfo, InspectionReportReadModel
+from app.domain.services.inspection_report_read_model import (
+    InspectionInfo,
+    InspectionReportReadModel,
+)
 from app.domain.services.project_service import ProjectService
 from app.models.client import Client
 from app.models.estimate import Estimate, EstimateLine, EstimateStatus
@@ -56,7 +59,6 @@ SPARE_ROWS = 4  # empty rows a working version leaves under the works of a surfa
 MISSING_QUALITY_TARGET = "QUALITY_TARGET"
 MISSING_INSPECTION = "INSPECTION"
 
-_CANONICAL_WALL = re.compile(r"^Wall (\d+)$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,19 +128,6 @@ class RoomSource:
     room_id: uuid.UUID
     name: str
     surfaces: tuple[SurfaceSource, ...]
-
-
-def surface_title(name: str) -> str:
-    """The canonical language-neutral names ("Wall 1", "Floor", "Ceiling") in Polish; an owner's own name is kept."""
-    labels = Labels()
-    match = _CANONICAL_WALL.match(name)
-    if match:
-        return labels("techcard.canonical.wall", n=match.group(1))
-    if name == "Floor":
-        return labels("techcard.canonical.floor")
-    if name == "Ceiling":
-        return labels("techcard.canonical.ceiling")
-    return name
 
 
 def _quality_label(code: str) -> str:

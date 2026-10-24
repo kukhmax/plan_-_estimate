@@ -23,6 +23,7 @@ from app.domain.documents.labels import Labels
 from app.domain.documents.layout import DocumentLayout, DocumentMeta
 from app.domain.documents.parties import party_from_executor_profile
 from app.domain.documents.registry import DocumentKind, get_template
+from app.domain.documents.surface_names import surface_title
 from app.domain.documents.templating import render_html
 from app.domain.exceptions import DocumentDataError
 from app.domain.protocols import acceptance as A
@@ -181,7 +182,7 @@ def build_acceptance_document(
     surface_results = {f.id: A.surface_result(f, state["surfaces"].get(f.id)) for f in scope}
     blocks = tuple(
         SurfaceBlock(
-            heading=f"{f.room_name} — {f.name}", standard=f.quality_target,
+            heading=f"{f.room_name} — {surface_title(f.name)}", standard=f.quality_target,
             works=tuple(WorkRow(w.name, work_names[w.status]) for w in f.works), result=result_names[surface_results[f.id]],
         )
         for f in scope
@@ -259,7 +260,7 @@ def snapshot_of(data: dict[str, Any], sources: AcceptanceSources, document: Acce
         entry = state["surfaces"].get(f.id) or {}
         photos = {p.id: p for p in sources.defect_photos.get(f.id, [])}
         surfaces.append({
-            "id": f.id, "name": f.name, "room_id": f.room_id, "room_name": f.room_name, "surface_type": f.surface_type,
+            "id": f.id, "name": surface_title(f.name), "room_id": f.room_id, "room_name": f.room_name, "surface_type": f.surface_type,
             "quality_target": f.quality_target, "works": [{"name": w.name, "status": w.status} for w in f.works],
             "result": A.surface_result(f, entry),
             "remarks": [

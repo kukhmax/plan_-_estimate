@@ -22,6 +22,7 @@ from app.domain.documents.layout import DocumentLayout, DocumentMeta, Party
 from app.domain.documents.parties import party_from_executor_profile
 from app.domain.documents.registry import DocumentKind, get_template
 from app.domain.documents.renderer import DocumentRenderer, RenderedPdf
+from app.domain.documents.surface_names import surface_title_or_none
 from app.domain.documents.templating import render_html
 from app.domain.exceptions import DocumentDataError
 from app.domain.rules.polish_identifiers import format_nip, normalize_nip
@@ -131,7 +132,7 @@ def build_estimate_document(
         views = []
         for line in members[room]:
             counter += 1
-            detail = " · ".join(part for part in (line.surface_name, line.opening_name) if part) or None
+            detail = " · ".join(part for part in (surface_title_or_none(line.surface_name), line.opening_name) if part) or None
             views.append(
                 EstimateLineView(
                     number=counter,

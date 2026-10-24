@@ -22,6 +22,7 @@ from app.domain.documents.labels import Labels
 from app.domain.documents.layout import DocumentLayout, DocumentMeta
 from app.domain.documents.parties import party_from_executor_profile
 from app.domain.documents.registry import DocumentKind, get_template
+from app.domain.documents.surface_names import surface_title
 from app.domain.documents.templating import render_html
 from app.domain.exceptions import DocumentDataError
 from app.domain.protocols.concealed import COVER_CONSENTS, RESULTS
@@ -134,7 +135,7 @@ def build_concealed_document(
         facts=(
             FactRow(labels("concealed.object"), ", ".join((base.project.name, *object_lines(base.project)))),
             FactRow(labels("concealed.room"), surface.room_name if surface else None),
-            FactRow(labels("concealed.surface"), surface.name if surface else None),
+            FactRow(labels("concealed.surface"), surface_title(surface.name) if surface else None),
             FactRow(labels("concealed.work"), work),
             FactRow(labels("concealed.material"), data.get("material")),
             FactRow(labels("concealed.batch"), data.get("batch")),
@@ -167,7 +168,7 @@ def snapshot_of(data: dict[str, Any], sources: ConcealedSources, document: Conce
         "customer_absent": bool(data.get("customer_absent")),
         "notified_on": notified_on.isoformat() if notified_on else None,
         "attendees": list(data.get("attendees") or []),
-        "surface": {"id": surface.id, "name": surface.name, "room_id": surface.room_id, "room_name": surface.room_name} if surface else None,
+        "surface": {"id": surface.id, "name": surface_title(surface.name), "room_id": surface.room_id, "room_name": surface.room_name} if surface else None,
         "work_kind": data.get("work_kind"),
         "work_note": data.get("work_note"),
         "material": data.get("material"),

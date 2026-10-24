@@ -40,6 +40,7 @@ from app.domain.documents.layout import DocumentLayout, DocumentMeta
 from app.domain.documents.parties import party_from_executor_profile
 from app.domain.documents.registry import DocumentKind, get_template
 from app.domain.documents.renderer import DocumentRenderer, RenderedPdf
+from app.domain.documents.surface_names import surface_title, surface_title_or_none
 from app.domain.documents.templating import render_html
 from app.domain.exceptions import DocumentDataError, MediaStorageError
 from app.domain.services.executor_profile_service import ExecutorProfileService
@@ -270,7 +271,7 @@ def _target_label(plane: str | None, surface_name: str | None) -> str:
 
 def _inspection_steps(report_inspection: ReportInspection | None, info: InspectionInfo | None, room_name: str) -> Iterable[_Step]:
     labels = Labels()
-    surface_name = info.surface_name if info else None
+    surface_name = surface_title_or_none(info.surface_name) if info else None
     plane = report_inspection.plane if report_inspection else (info.plane if info else None)
     status = report_inspection.status if report_inspection else info.status
     heading = _target_label(plane, surface_name)
@@ -307,15 +308,15 @@ def _room_steps(room: ReportRoom | None, name: str, infos: tuple[InspectionInfo,
     in_tree = {i.inspection_id: i for i in room.inspections} if room else {}
     if room:
         for surface in room.surfaces:
-            yield _Step("surface", surface.photos, title=surface.name, code=surface.surface_type, path=(name, surface.name))
+            yield _Step("surface", surface.photos, title=surface_title(surface.name), code=surface.surface_type, path=(name, surface_title(surface.name)))
             for opening in surface.openings:
                 label = labels("photo_report.opening") + (f": {opening.name}" if opening.name else "")
-                yield _Step("opening", opening.photos, title=opening.name, path=(name, surface.name, label))
+                yield _Step("opening", opening.photos, title=opening.name, path=(name, surface_title(surface.name), label))
             for work in surface.works:
                 work_name = work.price_item_display_name or work.price_item_name_key or work.price_item_code
                 title = localize_description(work_name) if work_name else None
                 label = labels("photo_report.work") + (f": {title}" if title else "")
-                yield _Step("work", work.photos, title=title, muted=not work.current, path=(name, surface.name, label))
+                yield _Step("work", work.photos, title=title, muted=not work.current, path=(name, surface_title(surface.name), label))
     seen: set[uuid.UUID] = set()
     for info in infos:
         if info.inspection_id in in_tree or info.has_content:
@@ -438,7 +439,7 @@ def _work_reason(work: RecommendedWork) -> str:
 
 
 def unpriced_text(works: RecommendedWorks) -> str:
-    return "; ".join(f"{w.room_name} › {w.surface_name}: {_work_name(w)}" for w in works.unpriced)
+    return "; ".join(f"{w.room_name} › {surface_title(w.surface_name)}: {_work_name(w)}" for w in works.unpriced)
 
 
 def check_recommended_works(works: RecommendedWorks) -> None:
@@ -458,7 +459,7 @@ def recommended_view(works: RecommendedWorks) -> RecommendedView | None:
     check_recommended_works(works)
     rows = [
         RecommendedRow(
-            place=f"{work.room_name} › {work.surface_name}",
+            place=f"{work.room_name} › {surface_title(work.surface_name)}",
             work=_work_name(work),
             reason=_work_reason(work),
             quantity=price.quantity,
@@ -755,7 +756,7 @@ class PhotoReportDocumentService:
             limit=self.max_photos,
             rooms=tuple(rooms),
             recommended_count=len(recommended.items),
-            unpriced_works=tuple(f"{w.room_name} › {w.surface_name}: {_work_name(w)}" for w in recommended.unpriced),
+            unpriced_works=tuple(f"{w.room_name} › {surface_title(w.surface_name)}: {_work_name(w)}" for w in recommended.unpriced),
             unpriced_items=unpriced_items(recommended),
             estimate_id=recommended.estimate_id,
             estimate_status=recommended.estimate_status,
