@@ -52,6 +52,8 @@ from app.domain.rules.room_geometry import (
 )
 from app.domain.services.wall_parts import effective_gross_area
 from app.models.area_segment import AreaPlane, AreaSegment
+from app.domain.rules.vat import VatError, validate_vat
+from app.models.executor_profile import ExecutorProfile
 from app.models.estimate import (
     Estimate,
     EstimateLine,
@@ -978,11 +980,15 @@ class EstimateService:
         ):
             version = latest.version + 1
 
+        # V2-6: the VAT of the owner's profile (when it is set) is taken as the VAT of the new estimate; it can be changed on the DRAFT
+        profile = (await self.db.execute(select(ExecutorProfile).where(ExecutorProfile.owner_id == owner_id))).scalar_one_or_none()
         estimate = Estimate(
             owner_id=owner_id,
             project_id=project_id,
             version=version,
             status=EstimateStatus.DRAFT,
+            vat_mode=profile.vat_mode if profile is not None else None,
+            vat_rate_percent=profile.vat_rate_percent if profile is not None else None,
         )
         self.db.add(estimate)
         await self.db.flush()
@@ -1436,6 +1442,10 @@ class EstimateService:
             "name": estimate.name,
             "total": estimate.total,
             "currency": estimate.currency,
+            "vat_mode": estimate.vat_mode,
+            "vat_rate_percent": estimate.vat_rate_percent,
+            "vat_amount": estimate.vat_amount,
+            "gross_total": estimate.gross_total,
             "created_at": estimate.created_at,
             "updated_at": estimate.updated_at,
             "lines": enriched_lines,
@@ -1814,6 +1824,27 @@ class EstimateService:
         self.recalculate_totals(estimate)
         await self.db.commit()
         return line
+
+    async def set_vat(
+        self,
+        project_id: uuid.UUID,
+        estimate_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        mode: str | None,
+        rate: int | None,
+    ) -> Estimate:
+        """V2-6: the VAT of a DRAFT estimate (the lines and the net total do not change). A finished estimate keeps the VAT it was finished with."""
+        estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
+        if estimate.status != EstimateStatus.DRAFT:
+            raise EstimateStateError(
+                f"The VAT can only be changed on DRAFT estimates; estimate {estimate_id} is {estimate.status.value}"
+            )
+        try:
+            estimate.vat_mode, estimate.vat_rate_percent = validate_vat(mode, rate)
+        except VatError as error:
+            raise EstimateValidationError(str(error)) from error
+        await self.db.commit()
+        return await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
 
     async def patch_line(
         self,

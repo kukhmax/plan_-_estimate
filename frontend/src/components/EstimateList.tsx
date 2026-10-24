@@ -186,7 +186,9 @@ export function EstimateList({ projectId, onOpenEstimate }: EstimateListProps) {
 
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-sm font-semibold text-slate-800">
-                {t.estimates.total}: {formatTotal(estimate.total, estimate.currency)}
+                {estimate.vat_mode === 'RATE' && estimate.gross_total !== null
+                  ? `${t.vat.gross}: ${formatTotal(estimate.gross_total, estimate.currency)}`
+                  : `${t.estimates.total}: ${formatTotal(estimate.total, estimate.currency)}`}
               </span>
               <button
                 type="button"

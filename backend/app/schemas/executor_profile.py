@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,6 +21,9 @@ class ExecutorProfileWrite(BaseModel):
     phone: str | None = Field(default=None, max_length=50)
     email: str | None = Field(default=None, max_length=255)
     bank_account: str | None = Field(default=None, max_length=64)
+    # V2-6: the VAT of the owner's estimates. Omitted = the stored value stays (an older screen never clears it); given = replaced.
+    vat_mode: Literal["EXEMPT", "RATE"] | None = None
+    vat_rate_percent: int | None = None
 
 
 class ExecutorProfileRead(BaseModel):
@@ -34,6 +38,8 @@ class ExecutorProfileRead(BaseModel):
     phone: str | None
     email: str | None
     bank_account: str | None
+    vat_mode: str | None = None
+    vat_rate_percent: int | None = None
     created_at: datetime
     updated_at: datetime
 

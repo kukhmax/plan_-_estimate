@@ -6,6 +6,7 @@ Enums serialise as their string value (str enum mixin on model enums).
 """
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -26,6 +27,10 @@ class EstimateSummaryRead(BaseModel):
     name: str | None = None
     total: Decimal | None = None
     currency: str
+    vat_mode: str | None = None
+    vat_rate_percent: int | None = None
+    vat_amount: Decimal | None = None
+    gross_total: Decimal | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -89,6 +94,11 @@ class EstimateRead(BaseModel):
     name: str | None = None
     total: Decimal | None = None
     currency: str
+    # V2-6: the VAT (a snapshot of the executor profile; NULL = not set) and what follows from it: the lines and `total` are NET
+    vat_mode: str | None = None
+    vat_rate_percent: int | None = None
+    vat_amount: Decimal | None = None
+    gross_total: Decimal | None = None
     lines: list[EstimateLineRead] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
@@ -203,3 +213,12 @@ class EstimateLineUpdate(BaseModel):
                 "Cannot set quantity and reset_quantity_override simultaneously"
             )
         return self
+
+
+class EstimateVatWrite(BaseModel):
+    """PUT body of the VAT of a DRAFT estimate (V2-6): (null, null) = not set, ("EXEMPT", null) = "zw.", ("RATE", 8 | 23)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    vat_mode: Literal["EXEMPT", "RATE"] | None = None
+    vat_rate_percent: int | None = None

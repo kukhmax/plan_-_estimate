@@ -14,6 +14,7 @@ vi.mock('../api/executorProfile', async () => {
 const SAVED: ExecutorProfile = {
   id: 'p1', name: 'Jan Kowalski', nip: '7740001454', street: 'ul. Długa 1', postal_code: '30-001', city: 'Kraków',
   phone: '+48 600 100 200', email: 'jan@example.pl', bank_account: '61109010140000071219812874',
+  vat_mode: null, vat_rate_percent: null,
   created_at: '2026-10-08T10:00:00Z', updated_at: '2026-10-08T10:00:00Z',
 };
 
@@ -84,8 +85,34 @@ describe('ExecutorProfileModal (Stage 15C)', () => {
     expect(await screen.findByText('Profil zapisany.')).toBeInTheDocument();
     expect(profileApi.saveExecutorProfile).toHaveBeenCalledWith({
       name: 'Jan Kowalski', nip: '774-000-14-54', street: '', postal_code: '', city: '', phone: '', email: '', bank_account: '',
+      vat_mode: null, vat_rate_percent: null,
     });
     expect(screen.getByLabelText('NIP')).toHaveValue('7740001454');
+  });
+
+  it('shows the stored VAT and sends the chosen one with the whole form (V2-6)', async () => {
+    vi.mocked(profileApi.fetchExecutorProfile).mockResolvedValue({ ...SAVED, vat_mode: 'RATE', vat_rate_percent: 23 });
+    vi.mocked(profileApi.saveExecutorProfile).mockResolvedValue({ ...SAVED, vat_mode: 'EXEMPT', vat_rate_percent: null });
+    renderModal();
+    const select = await screen.findByLabelText('Stawka VAT w kosztorysach');
+    expect(select).toHaveValue('23');
+    expect(select.className).toContain('min-h-11');
+    fireEvent.change(select, { target: { value: 'EXEMPT' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
+    expect(await screen.findByText('Profil zapisany.')).toBeInTheDocument();
+    expect(profileApi.saveExecutorProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ vat_mode: 'EXEMPT', vat_rate_percent: null }),
+    );
+    expect(screen.getByLabelText('Stawka VAT w kosztorysach')).toHaveValue('EXEMPT');
+  });
+
+  it('marks a wrong VAT from the backend next to the VAT field (V2-6)', async () => {
+    vi.mocked(profileApi.fetchExecutorProfile).mockResolvedValue(null);
+    vi.mocked(profileApi.saveExecutorProfile).mockRejectedValue(invalid({ vat: 'VAT_INVALID' }));
+    renderModal();
+    await screen.findByLabelText('NIP');
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
+    expect(await screen.findByText('Niepoprawna stawka VAT.')).toBeInTheDocument();
   });
 
   it('marks every wrong field with its own message and clears one when it is edited', async () => {

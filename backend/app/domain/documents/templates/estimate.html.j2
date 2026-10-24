@@ -38,9 +38,20 @@
     </tr>
   {% endfor %}
     <tr class="grand-total">
-      <td colspan="5" class="num">{{ t('estimate.total') }}</td>
+      <td colspan="5" class="num">{% if doc.vat_mode == 'RATE' %}{{ t('estimate.total_net') }}{% else %}{{ t('estimate.total') }}{% endif %}</td>
       <td class="num">{% if doc.total is none %}<span class="pending">{{ t('estimate.to_be_set') }}</span>{% else %}{{ doc.total | money(doc.currency) }}{% endif %}</td>
     </tr>
+    {% if doc.vat_mode == 'RATE' and doc.total is not none %}
+    <tr class="vat">
+      <td colspan="5" class="num">{{ t('estimate.vat', rate=doc.vat_rate) }}</td>
+      <td class="num">{{ doc.vat_amount | money(doc.currency) }}</td>
+    </tr>
+    <tr class="grand-total">
+      <td colspan="5" class="num">{{ t('estimate.total_gross') }}</td>
+      <td class="num">{{ doc.gross | money(doc.currency) }}</td>
+    </tr>
+    {% endif %}
   </tbody>
 </table>
+{% if doc.vat_mode == 'RATE' %}<p class="detail">{{ t('estimate.vat_note_rate') }}</p>{% elif doc.vat_mode == 'EXEMPT' %}<p class="detail">{{ t('estimate.vat_note_exempt') }}</p>{% endif %}
 {% endblock %}

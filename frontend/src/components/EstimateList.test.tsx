@@ -39,6 +39,10 @@ function makeEstimate(overrides: Partial<EstimateSummaryRead> = {}): EstimateSum
     name: null,
     total: null,
     currency: 'PLN',
+    vat_mode: null,
+    vat_rate_percent: null,
+    vat_amount: null,
+    gross_total: null,
     created_at: '2026-09-17T10:00:00Z',
     updated_at: '2026-09-17T10:00:00Z',
     ...overrides,
@@ -189,6 +193,21 @@ describe('version list rendering', () => {
     await screen.findByLabelText('estimates-list');
     expect(screen.getByLabelText('estimate-version-1').textContent).toContain('1234,56');
     expect(screen.getByLabelText('estimate-version-1').textContent).toContain('PLN');
+  });
+
+  it('shows the gross amount when the estimate has a VAT rate (V2-6)', async () => {
+    const v1 = makeEstimate({
+      total: '2837.12', status: 'FINAL', updated_at: '2026-01-01T00:00:00Z',
+      vat_mode: 'RATE', vat_rate_percent: 23, vat_amount: '652.54', gross_total: '3489.66',
+    });
+    mockListEstimates.mockResolvedValue(listResponse([v1]));
+    renderComponent();
+
+    await screen.findByLabelText('estimates-list');
+    const text = screen.getByLabelText('estimate-version-1').textContent ?? '';
+    expect(text).toContain('Razem brutto');
+    expect(text).toContain('3489,66');
+    expect(text).not.toContain('2837,12');
   });
 
   it('shows — for null total', async () => {

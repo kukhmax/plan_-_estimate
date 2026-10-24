@@ -9,6 +9,8 @@ export interface ExecutorProfile {
   phone: string | null;
   email: string | null;
   bank_account: string | null;
+  vat_mode: 'EXEMPT' | 'RATE' | null;
+  vat_rate_percent: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -27,9 +29,12 @@ export interface ExecutorProfilePayload {
   phone: string;
   email: string;
   bank_account: string;
+  /** V2-6: always sent, so that saving the profile never leaves the VAT of the stored profile behind. */
+  vat_mode: 'EXEMPT' | 'RATE' | null;
+  vat_rate_percent: number | null;
 }
 
-export type ExecutorProfileField = keyof ExecutorProfilePayload;
+export type ExecutorProfileField = Exclude<keyof ExecutorProfilePayload, 'vat_mode' | 'vat_rate_percent'>;
 
 /** Codes the backend puts in `detail.fields` of a 422 EXECUTOR_PROFILE_INVALID. */
 export type ExecutorProfileFieldCode =
@@ -38,4 +43,5 @@ export type ExecutorProfileFieldCode =
   | 'POSTAL_CODE_INVALID'
   | 'EMAIL_INVALID'
   | 'PHONE_INVALID'
-  | 'BANK_ACCOUNT_INVALID';
+  | 'BANK_ACCOUNT_INVALID'
+  | 'VAT_INVALID';

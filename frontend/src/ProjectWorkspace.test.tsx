@@ -461,6 +461,7 @@ describe('ProjectWorkspace', () => {
     vi.mocked(documentsApi.fetchPhotoReportSummary).mockResolvedValue(blockedSummary('NOT_IN_ESTIMATE'));
     const summary = {
       id: 'est-1', project_id: project.id, version: 1, status: 'FINAL', name: null, total: '0.00', currency: 'PLN',
+      vat_mode: null, vat_rate_percent: null, vat_amount: null, gross_total: null,
       created_at: '2026-09-09T10:00:00Z', updated_at: '2026-09-09T10:00:00Z',
     } as const;
     vi.mocked(estimatesApi.listEstimates).mockResolvedValue({ items: [summary], total: 1 });

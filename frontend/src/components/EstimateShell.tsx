@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { addManualEstimateLine, deleteEstimateLine, finalizeEstimate, getEstimate, patchEstimateLine, previewEstimateRegeneration, regenerateEstimate } from '../api/estimates';
+import { addManualEstimateLine, deleteEstimateLine, finalizeEstimate, getEstimate, patchEstimateLine, previewEstimateRegeneration, regenerateEstimate, setEstimateVat } from '../api/estimates';
 import { useI18n } from '../hooks/useI18n';
 import { EstimateDocumentActions } from './EstimateDocumentActions';
 import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue, LineChangeEntry, LineChangeTypeValue, ManualLineCreatePayload, RegenerationPreviewResponse } from '../types/estimate';
@@ -8,6 +8,7 @@ import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatPercentageDisplay, sumPercentages } from '../utils/coefficientCalculations';
 import { commaDecimal, dotDecimal, formatDecimalMoney, formatQuantity, signedMoneyDifference } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
+import { VAT_CHOICES, type VatChoice, vatChoiceOf, vatSettingOf } from '../utils/vat';
 import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { Ico } from './Ico';
@@ -187,6 +188,23 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // V2-6 — the VAT of a DRAFT estimate. The answer is the summary of the estimate; the lines stay as they are.
+  const [vatBusy, setVatBusy] = useState(false);
+  const [vatError, setVatError] = useState<string | null>(null);
+  const changeVat = async (choice: VatChoice) => {
+    if (vatBusy) return;
+    setVatBusy(true);
+    setVatError(null);
+    try {
+      const summary = await setEstimateVat(estimate.project_id, estimate.id, vatSettingOf(choice));
+      setDetail((current) => (current ? { ...current, ...summary, lines: current.lines } : current));
+    } catch {
+      setVatError(t.vat.save_failed);
+    } finally {
+      setVatBusy(false);
+    }
+  };
 
   // Stage 10G.3A — atomic line editing state. One line editable at a time;
   // the backend EstimateLine remains authoritative — every successful
@@ -726,7 +744,45 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
               : '—'}
           </span>
         </div>
+        {headerSource.vat_mode === 'RATE' && headerSource.total !== null && headerSource.vat_amount !== null && headerSource.gross_total !== null && (
+          <>
+            <div>
+              <span className="text-slate-400">{t.vat.vat} {headerSource.vat_rate_percent} %: </span>
+              <span className="font-medium text-slate-700" aria-label="estimate-shell-vat">
+                {formatDecimalMoney(headerSource.vat_amount)} {headerSource.currency}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-400">{t.vat.gross}: </span>
+              <span className="font-semibold text-slate-800" aria-label="estimate-shell-gross">
+                {formatDecimalMoney(headerSource.gross_total)} {headerSource.currency}
+              </span>
+            </div>
+          </>
+        )}
+        {headerSource.vat_mode === 'EXEMPT' && (
+          <div aria-label="estimate-shell-vat-exempt" className="text-slate-500">{t.vat.exempt}</div>
+        )}
       </div>
+
+      {headerSource.status === 'DRAFT' && (
+        <div className="flex flex-col gap-1 pt-1">
+          <label htmlFor="estimate-vat-select" className="text-xs font-medium text-slate-500">{t.vat.label}</label>
+          <select
+            id="estimate-vat-select"
+            aria-label="estimate-vat-select"
+            value={vatChoiceOf(headerSource)}
+            disabled={vatBusy}
+            onChange={(event) => void changeVat(event.target.value as VatChoice)}
+            className="min-h-11 w-full px-3 text-sm rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-control-bg-color)] text-[var(--tg-control-text-color)]"
+          >
+            {VAT_CHOICES.map((choice) => (
+              <option key={choice || 'none'} value={choice}>{t.vat.choices[choice || 'none']}</option>
+            ))}
+          </select>
+          {vatError && <p role="alert" className="text-xs font-medium text-red-600 break-words">{vatError}</p>}
+        </div>
+      )}
     </div>
   );
 

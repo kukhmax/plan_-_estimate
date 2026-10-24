@@ -13,6 +13,15 @@ export function generateEstimate(projectId: string): Promise<EstimateSummaryRead
   return apiRequest(`${estimatesPath(projectId)}/generate`, { method: 'POST' });
 }
 
+/** V2-6: the VAT of a DRAFT estimate (null/null = not set). */
+export function setEstimateVat(
+  projectId: string,
+  estimateId: string,
+  vat: { vat_mode: 'EXEMPT' | 'RATE' | null; vat_rate_percent: number | null },
+): Promise<EstimateSummaryRead> {
+  return apiRequest(`${estimatesPath(projectId)}/${estimateId}/vat`, { method: 'PUT', body: JSON.stringify(vat) });
+}
+
 export function getEstimate(projectId: string, estimateId: string): Promise<EstimateRead> {
   return apiRequest(`${estimatesPath(projectId)}/${estimateId}`);
 }

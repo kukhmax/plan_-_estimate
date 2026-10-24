@@ -26,6 +26,7 @@ vi.mock('../api/estimates', () => ({
   addManualEstimateLine: vi.fn(),
   deleteEstimateLine: vi.fn(),
   finalizeEstimate: vi.fn(),
+  setEstimateVat: vi.fn(),
 }));
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -46,6 +47,10 @@ function makeSummary(overrides: Partial<EstimateSummaryRead> = {}): EstimateSumm
     name: null,
     total: '4375.00',
     currency: 'PLN',
+    vat_mode: null,
+    vat_rate_percent: null,
+    vat_amount: null,
+    gross_total: null,
     created_at: '2026-09-17T10:00:00Z',
     updated_at: '2026-09-17T10:00:00Z',
     ...overrides,
@@ -1591,6 +1596,10 @@ describe('real API payload — full tap-to-drilldown flow (regression)', () => {
     name: null,
     total: '460850.00',
     currency: 'PLN',
+    vat_mode: null,
+    vat_rate_percent: null,
+    vat_amount: null,
+    gross_total: null,
     created_at: '2026-09-18T16:21:26.824207',
     updated_at: '2026-09-18T16:21:26.869577',
     lines: [

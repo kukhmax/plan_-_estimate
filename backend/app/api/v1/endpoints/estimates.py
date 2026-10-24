@@ -30,6 +30,7 @@ from app.schemas.estimate import (
     EstimateListResponse,
     EstimateRead,
     EstimateSummaryRead,
+    EstimateVatWrite,
     LineChangeEntryRead,
     ManualLineCreate,
     RegenerationPreviewResponse,
@@ -242,6 +243,30 @@ async def add_manual_line(
 # ---------------------------------------------------------------------------
 # G. Update editable draft line (quantity / price overrides, MANUAL description)
 # ---------------------------------------------------------------------------
+
+@router.put(
+    "/projects/{project_id}/estimates/{estimate_id}/vat",
+    response_model=EstimateSummaryRead,
+    status_code=status.HTTP_200_OK,
+    summary="Set the VAT of a DRAFT estimate (not set / exempt / 8 % / 23 %)",
+)
+async def put_vat(
+    project_id: uuid.UUID,
+    estimate_id: uuid.UUID,
+    payload: EstimateVatWrite,
+    current_user: User = Depends(get_current_user),
+    service: EstimateService = Depends(get_estimate_service),
+) -> EstimateSummaryRead:
+    try:
+        estimate = await service.set_vat(project_id, estimate_id, current_user.id, payload.vat_mode, payload.vat_rate_percent)
+    except (EstimateNotFoundError, ProjectNotFoundError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estimate not found")
+    except EstimateStateError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    except EstimateValidationError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    return EstimateSummaryRead.model_validate(estimate)
+
 
 @router.patch(
     "/projects/{project_id}/estimates/{estimate_id}/lines/{line_id}",

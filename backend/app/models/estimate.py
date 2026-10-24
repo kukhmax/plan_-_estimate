@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
+    CheckConstraint,
     Boolean,
     DateTime,
     Enum,
@@ -35,6 +36,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON as GenericJSON
 
 from app.core.database import Base
+from app.domain.rules.vat import vat_totals
 from app.models.price_item import PriceScope, PriceUnit
 
 # JSONB on PostgreSQL (production), plain JSON on SQLite (tests) -- the
@@ -102,6 +104,10 @@ class Estimate(Base):
     currency: Mapped[str] = mapped_column(
         String(3), nullable=False, default="PLN"
     )
+    # V2-6: the VAT of this estimate (a snapshot of the executor profile when it was made, changed on a DRAFT only).
+    # NULL / NULL = not set (older estimates): no VAT is shown; EXEMPT / NULL = "zw."; RATE / 8 or 23.
+    vat_mode: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    vat_rate_percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -111,6 +117,14 @@ class Estimate(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+    @property
+    def vat_amount(self) -> Decimal | None:
+        return vat_totals(self.total, self.vat_mode, self.vat_rate_percent)[0]
+
+    @property
+    def gross_total(self) -> Decimal | None:
+        return vat_totals(self.total, self.vat_mode, self.vat_rate_percent)[1]
 
     lines: Mapped[list["EstimateLine"]] = relationship(
         back_populates="estimate",
@@ -123,6 +137,11 @@ class Estimate(Base):
             "project_id", "version", name="uq_estimates_project_version"
         ),
         Index("ix_estimates_owner_status", "owner_id", "status"),
+        CheckConstraint(
+            "(vat_mode IS NULL AND vat_rate_percent IS NULL) OR (vat_mode = 'EXEMPT' AND vat_rate_percent IS NULL) "
+            "OR (vat_mode = 'RATE' AND vat_rate_percent IN (8, 23))",
+            name="ck_estimates_vat",
+        ),
     )
 
 

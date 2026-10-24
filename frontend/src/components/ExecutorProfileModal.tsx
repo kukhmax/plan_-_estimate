@@ -3,6 +3,7 @@ import { fetchExecutorProfile, profileFieldErrors, saveExecutorProfile } from '.
 import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import { ExecutorProfile, ExecutorProfileField, ExecutorProfilePayload } from '../types/executorProfile';
+import { VAT_CHOICES, VatChoice, vatChoiceOf, vatSettingOf } from '../utils/vat';
 import { Ico } from './Ico';
 
 interface ExecutorProfileModalProps {
@@ -30,6 +31,7 @@ const FIELDS: FieldSpec[] = [
 
 const EMPTY: ExecutorProfilePayload = {
   name: '', nip: '', street: '', postal_code: '', city: '', phone: '', email: '', bank_account: '',
+  vat_mode: null, vat_rate_percent: null,
 };
 
 function toForm(profile: ExecutorProfile | null): ExecutorProfilePayload {
@@ -43,6 +45,8 @@ function toForm(profile: ExecutorProfile | null): ExecutorProfilePayload {
     phone: profile.phone ?? '',
     email: profile.email ?? '',
     bank_account: profile.bank_account ?? '',
+    vat_mode: profile.vat_mode,
+    vat_rate_percent: profile.vat_rate_percent,
   };
 }
 
@@ -76,6 +80,16 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const changeVat = (choice: VatChoice) => {
+    setForm((current) => ({ ...current, ...vatSettingOf(choice) }));
+    setSaved(false);
+    setFieldErrors((current) => {
+      if (!('vat' in current)) return current;
+      const { vat: _removed, ...rest } = current;
+      return rest;
+    });
+  };
 
   const change = (field: ExecutorProfileField, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -203,6 +217,30 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
                 </div>
               );
             })}
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="executor-profile-vat" className="text-xs font-medium break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>
+                {text.fields.vat}
+              </label>
+              <select
+                id="executor-profile-vat"
+                name="vat"
+                value={vatChoiceOf(form)}
+                onChange={(event) => changeVat(event.target.value as VatChoice)}
+                aria-invalid={errorText('vat') ? true : undefined}
+                className="min-h-11 w-full rounded-lg border border-slate-200 px-3 text-base"
+                style={{
+                  backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+                  color: 'var(--tg-theme-text-color)',
+                }}
+              >
+                {VAT_CHOICES.map((choice) => (
+                  <option key={choice || 'none'} value={choice}>{t.vat.choices[choice || 'none']}</option>
+                ))}
+              </select>
+              <p className="text-xs break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>{text.vat_hint}</p>
+              {errorText('vat') && <p className="text-xs font-medium text-red-700 break-words">{errorText('vat')}</p>}
+            </div>
 
             {saveError && <p role="alert" className="text-sm font-medium text-red-700 break-words">{saveError}</p>}
             {saved && <p role="status" className="text-sm font-medium text-emerald-700 break-words">{text.saved}</p>}

@@ -1829,6 +1829,16 @@
     "apply_error": "Nie udało się zastosować prac do innych otworów.",
     "work_coefficient_action": "Współczynnik"
   },
+  "vat": {
+    "label": "VAT",
+    "choices": { "none": "Nie ustawiono (bez VAT)", "EXEMPT": "Zwolniony z VAT (zw.)", "8": "8 %", "23": "23 %" },
+    "net": "Razem netto",
+    "vat": "VAT",
+    "gross": "Razem brutto",
+    "exempt": "VAT: zw. (zwolniony)",
+    "draft_only": "Stawkę VAT można zmienić tylko w roboczym kosztorysie.",
+    "save_failed": "Nie udało się zmienić stawki VAT."
+  },
   "estimates": {
     "title": "Kosztorys",
     "version": "Wersja",
@@ -2431,6 +2441,7 @@
     "button": "Profil wykonawcy",
     "title": "Profil wykonawcy",
     "intro": "Te dane pojawiają się w nagłówku każdego dokumentu PDF.",
+    "vat_hint": "Ceny w cenniku są netto. VAT jest doliczany w nowych kosztorysach i ich PDF; wcześniejsze kosztorysy się nie zmieniają.",
     "loading": "Ładowanie profilu…",
     "load_failed": "Nie udało się wczytać profilu.",
     "retry": "Spróbuj ponownie",
@@ -2445,7 +2456,8 @@
       "city": "Miejscowość",
       "phone": "Telefon",
       "email": "E-mail",
-      "bank_account": "Numer rachunku bankowego"
+      "bank_account": "Numer rachunku bankowego",
+      "vat": "Stawka VAT w kosztorysach"
     },
     "placeholders": {
       "nip": "774-000-14-54",
@@ -2458,7 +2470,8 @@
       "POSTAL_CODE_INVALID": "Kod pocztowy w formacie 00-000.",
       "EMAIL_INVALID": "Niepoprawny adres e-mail.",
       "PHONE_INVALID": "Niepoprawny numer telefonu.",
-      "BANK_ACCOUNT_INVALID": "Niepoprawny numer rachunku (26 cyfr)."
+      "BANK_ACCOUNT_INVALID": "Niepoprawny numer rachunku (26 cyfr).",
+      "VAT_INVALID": "Niepoprawna stawka VAT."
     }
   },
   "documents": {

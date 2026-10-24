@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import ExecutorProfileValidationError
 from app.domain.rules import polish_identifiers as ids
+from app.domain.rules.vat import VatError, validate_vat
 from app.models.executor_profile import ExecutorProfile
 from app.schemas.executor_profile import ExecutorProfileWrite
 
@@ -28,9 +29,9 @@ def _clean_text(value: str | None) -> str | None:
     return text or None
 
 
-def validate_profile(payload: ExecutorProfileWrite) -> dict[str, str | None]:
+def validate_profile(payload: ExecutorProfileWrite) -> dict[str, str | int | None]:
     """The canonical values to store, or `ExecutorProfileValidationError` with every wrong field."""
-    values: dict[str, str | None] = {}
+    values: dict[str, str | int | None] = {}
     errors: dict[str, str] = {}
     name = _clean_text(payload.name)
     if name is None:
@@ -43,6 +44,11 @@ def validate_profile(payload: ExecutorProfileWrite) -> dict[str, str | None]:
             values[field] = normalize(getattr(payload, field))
         except ValueError as exc:
             errors[field] = str(exc)
+    if "vat_mode" in payload.model_fields_set or "vat_rate_percent" in payload.model_fields_set:
+        try:
+            values["vat_mode"], values["vat_rate_percent"] = validate_vat(payload.vat_mode, payload.vat_rate_percent)
+        except VatError:
+            errors["vat"] = "VAT_INVALID"
     if errors:
         raise ExecutorProfileValidationError(errors)
     return values
@@ -78,6 +84,6 @@ class ExecutorProfileService:
         return profile
 
     @staticmethod
-    def _apply(profile: ExecutorProfile, values: dict[str, str | None]) -> None:
+    def _apply(profile: ExecutorProfile, values: dict[str, str | int | None]) -> None:
         for field, value in values.items():
             setattr(profile, field, value)

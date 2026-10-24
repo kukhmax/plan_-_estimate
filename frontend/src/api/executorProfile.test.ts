@@ -3,7 +3,8 @@ import { fetchExecutorProfile, profileFieldErrors, saveExecutorProfile } from '.
 
 const PAYLOAD = {
   name: 'Jan', nip: '', street: '', postal_code: '', city: '', phone: '', email: '', bank_account: '',
-};
+  vat_mode: null, vat_rate_percent: null,
+} as const;
 
 function respond(status: number, body: unknown) {
   vi.mocked(fetch).mockResolvedValueOnce({

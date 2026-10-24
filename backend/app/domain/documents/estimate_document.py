@@ -26,6 +26,7 @@ from app.domain.documents.surface_names import surface_title_or_none
 from app.domain.documents.templating import render_html
 from app.domain.exceptions import DocumentDataError
 from app.domain.rules.polish_identifiers import format_nip, normalize_nip
+from app.domain.rules.vat import vat_totals
 from app.domain.services.estimate_service import EstimateService
 from app.domain.services.executor_profile_service import ExecutorProfileService
 from app.models.client import Client
@@ -63,6 +64,11 @@ class EstimateDocument:
     groups: tuple[EstimateGroupView, ...]
     total: Decimal | None
     currency: str
+    # V2-6: the VAT block (all None = no VAT is set on the estimate: the page is as it was). The lines and `total` are NET.
+    vat_mode: str | None = None
+    vat_rate: int | None = None
+    vat_amount: Decimal | None = None
+    gross: Decimal | None = None
 
     def context(self) -> dict[str, object]:
         return {"layout": self.layout, "doc": self}
@@ -160,6 +166,8 @@ def build_estimate_document(
         client=party_from_client(client) if client else None,
         draft=draft,
     )
+    # the VAT is counted here from the sum of the lines (never taken on trust from the stored value)
+    vat_amount, gross = vat_totals(total, estimate.vat_mode, estimate.vat_rate_percent)
     return EstimateDocument(
         layout=layout,
         name=estimate.name,
@@ -169,6 +177,10 @@ def build_estimate_document(
         groups=tuple(groups),
         total=total,
         currency=estimate.currency,
+        vat_mode=estimate.vat_mode,
+        vat_rate=estimate.vat_rate_percent,
+        vat_amount=vat_amount,
+        gross=gross,
     )
 
 

@@ -25,6 +25,11 @@ export interface EstimateSummaryRead {
   name: string | null;
   total: string | null;
   currency: string;
+  /** V2-6: null/null = the VAT was not set (the total is shown as it was, without VAT). */
+  vat_mode: 'EXEMPT' | 'RATE' | null;
+  vat_rate_percent: number | null;
+  vat_amount: string | null;
+  gross_total: string | null;
   created_at: string;
   updated_at: string;
 }
