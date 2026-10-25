@@ -4,7 +4,7 @@ import { createCalc, deleteCalc, fetchCalcs, updateCalc } from '../api/materials
 import { useI18n } from '../hooks/useI18n';
 import { useConnection } from '../offline/connection';
 import type { CalcFields, DrywallParams, MaterialCalc, MaterialPackage, TileParams } from '../types/materials';
-import { buyWord, calcSummary, needWord, positiveDecimal } from '../utils/materialsFormat';
+import { areaFromSides, buyWord, calcSummary, needWord, positiveDecimal } from '../utils/materialsFormat';
 import { formatPlain, toInput } from '../utils/paymentFormat';
 import { Ico } from './Ico';
 import { fieldClass, labelClass, primaryButton, secondaryButton, segmentClass } from './paymentUi';
@@ -36,6 +36,7 @@ interface RoomMaterialsSectionProps {
 
 const compactButton = 'w-full min-h-11 px-2 py-2 text-sm leading-tight rounded-xl border border-slate-200 pe-surface text-slate-700 font-medium break-words hover:bg-slate-50 disabled:opacity-50';
 const compactDanger = 'w-full min-h-11 px-2 py-2 text-sm leading-tight rounded-xl border border-red-200 bg-red-50 text-red-800 font-semibold break-words hover:bg-red-100 disabled:opacity-50';
+const radioRow = 'w-full min-h-11 px-3 py-2 flex items-center gap-3 text-left text-sm font-medium text-slate-700 rounded-xl border pe-surface';
 const chip = 'min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-200 pe-surface text-slate-700 font-medium break-words hover:bg-slate-50';
 
 /**
@@ -201,6 +202,10 @@ function CalcForm({
   const [pkg, setPkg] = useState<MaterialPackage>(calc?.package ?? 'TILE');
   const [title, setTitle] = useState(calc?.title ?? '');
   const [area, setArea] = useState(toInput(p.area_m2));
+  // the area is given either directly or by the two sides of the surface: only one way at a time
+  const [areaMode, setAreaMode] = useState<'AREA' | 'DIMS'>('AREA');
+  const [sideLength, setSideLength] = useState('');
+  const [sideWidth, setSideWidth] = useState('');
   // the tile
   const [length, setLength] = useState(toInput(p.length_cm));
   const [width, setWidth] = useState(toInput(p.width_cm));
@@ -237,7 +242,17 @@ function CalcForm({
       if (value === null) found.push(id);
       return value ?? '';
     };
-    const areaValue = need('material-area', positiveDecimal(area, 2, 100000));
+    let areaValue: string;
+    if (areaMode === 'AREA') areaValue = need('material-area', positiveDecimal(area, 2, 100000));
+    else {
+      const lengthOk = positiveDecimal(sideLength, 2, 1000) !== null;
+      const widthOk = positiveDecimal(sideWidth, 2, 1000) !== null;
+      if (!lengthOk) found.push('material-surface_length');
+      if (!widthOk) found.push('material-surface_width');
+      const product = lengthOk && widthOk ? areaFromSides(sideLength, sideWidth) : null;
+      if (lengthOk && widthOk && product === null) found.push('material-area');
+      areaValue = product ?? '';
+    }
     let fields: CalcFields;
     if (pkg === 'TILE') {
       const params: TileParams = {
@@ -280,6 +295,8 @@ function CalcForm({
         {label}
       </button>
     );
+  const areaModes: ['AREA' | 'DIMS', string][] = [['AREA', text.area_mode_area], ['DIMS', text.area_mode_dims]];
+  const sidesArea = areaFromSides(sideLength, sideWidth);
   const chips = [
     quick(text.use_floor.replace('{v}', formatPlain(areas.floor)), pkg === 'TILE' ? areas.floor : null),
     quick(text.use_walls.replace('{v}', formatPlain(areas.walls)), areas.walls),
@@ -311,8 +328,42 @@ function CalcForm({
           </div>
         </div>
       )}
-      {numberField('material-area', area, setArea, text.area_label)}
-      {chips.length > 0 && <div aria-label="material-area-chips" className="flex flex-wrap gap-2">{chips}</div>}
+      <div>
+        <span id="material-area-mode-label" className={labelClass}>{text.area_mode_label}</span>
+        <div role="radiogroup" aria-labelledby="material-area-mode-label" className="flex flex-col gap-2">
+          {areaModes.map(([mode, label]) => (
+            <button
+              key={mode}
+              type="button"
+              role="radio"
+              aria-checked={areaMode === mode}
+              aria-label={`material-area-mode-${mode}`}
+              onClick={() => { setAreaMode(mode); setErrors([]); }}
+              className={`${radioRow} ${areaMode === mode ? 'border-blue-600' : 'border-slate-200'}`}
+            >
+              <span aria-hidden="true" className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center ${areaMode === mode ? 'border-blue-600' : 'border-slate-400'}`}>
+                {areaMode === mode && <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+              </span>
+              <span className="min-w-0 break-words">{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {areaMode === 'AREA' ? (
+        <>
+          {numberField('material-area', area, setArea, text.area_label)}
+          {chips.length > 0 && <div aria-label="material-area-chips" className="flex flex-wrap gap-2">{chips}</div>}
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
+            {numberField('material-surface_length', sideLength, setSideLength, text.surface_length)}
+            {numberField('material-surface_width', sideWidth, setSideWidth, text.surface_width)}
+          </div>
+          {sidesArea !== null && <p aria-label="material-area-result" className="text-sm font-semibold text-slate-900 break-words">{text.area_result.replace('{v}', formatPlain(sidesArea))}</p>}
+          {errors.includes('material-area') && <p role="alert" className="text-xs text-red-600">{text.err_area}</p>}
+        </>
+      )}
       {pkg === 'TILE' ? (
         <>
           <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">

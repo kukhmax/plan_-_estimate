@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import pl from '../locales/pl.json';
 import ru from '../locales/ru.json';
 import type { MaterialCalc, MaterialLine } from '../types/materials';
-import { buyWord, calcSummary, needWord, positiveDecimal, unitWord } from './materialsFormat';
+import { areaFromSides, buyWord, calcSummary, needWord, positiveDecimal, unitWord } from './materialsFormat';
 
 const line = (over: Partial<MaterialLine>): MaterialLine => ({
   code: 'TILE_ADHESIVE', name: 'Klej', quantity: '50.00', unit_text: 'kg', pack_size: '25', packs: 2, pieces: null, billing_unit: 'PCS', billing_quantity: '2.00', ...over,
@@ -46,5 +46,21 @@ describe('calcSummary', () => {
     expect(calcSummary(calc({}), pl.materials)).toBe('10 m² · 30×60 cm');
     expect(calcSummary(calc({ package: 'DRYWALL', params: { kind: 'CEILING', area_m2: '8.50', layers: 2 } }), pl.materials)).toBe('sufit 8,5 m² · 2 warstw(y)');
     expect(calcSummary(calc({ package: 'DRYWALL', params: { kind: 'WALL', area_m2: '13.00', layers: 1 } }), ru.materials)).toBe('стена 13 м² · слоёв: 1');
+  });
+});
+
+describe('areaFromSides', () => {
+  it('multiplies in whole hundredths and rounds half up', () => {
+    expect(areaFromSides('3,2', '4,5')).toBe('14.40');
+    expect(areaFromSides('0,1', '0,1')).toBe('0.01');
+    expect(areaFromSides('2.35', '1.1')).toBe('2.59'); // 2.585 -> 2.59, no float noise
+    expect(areaFromSides('1000', '100')).toBe('100000.00');
+  });
+  it('is null for a side that is not a positive number, a third place, or an area over the limit', () => {
+    expect(areaFromSides('', '3')).toBeNull();
+    expect(areaFromSides('3', '0')).toBeNull();
+    expect(areaFromSides('3', '2,555')).toBeNull();
+    expect(areaFromSides('1000', '101')).toBeNull();
+    expect(areaFromSides('0,01', '0,01')).toBeNull(); // 0.0001 rounds to zero
   });
 });

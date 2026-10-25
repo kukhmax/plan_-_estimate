@@ -23,6 +23,22 @@ export function positiveDecimal(raw: string, places: number, max: number): strin
   return value > 0 && value <= max ? text : null;
 }
 
+/** The area of a room from its two sides in metres ("3,2" × "4,5" -> "14.40"): whole hundredths, rounded half up, so no float noise; `null` when a side is not a positive number or the area is out of the limits the server checks. */
+export function areaFromSides(lengthRaw: string, widthRaw: string): string | null {
+  const a = positiveDecimal(lengthRaw, 2, 1000);
+  const b = positiveDecimal(widthRaw, 2, 1000);
+  if (a === null || b === null) return null;
+  const hundredths = (text: string) => {
+    const [whole, fraction = ''] = text.split('.');
+    return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'));
+  };
+  const product = hundredths(a) * hundredths(b); // in ten-thousandths of m²
+  const rounded = (product + 50n) / 100n; // in hundredths of m²
+  if (rounded <= 0n || rounded > 10000000n) return null;
+  const text = rounded.toString().padStart(3, '0');
+  return `${text.slice(0, -2)}.${text.slice(-2)}`;
+}
+
 /** The unit of the server's text ("m²", "kg", "pcs", "m") in the words of the screen; the weight stays kg. */
 export function unitWord(unitText: string, words: UnitWords & { unit_m2: string }): string {
   if (unitText === 'pcs') return words.unit_pcs;

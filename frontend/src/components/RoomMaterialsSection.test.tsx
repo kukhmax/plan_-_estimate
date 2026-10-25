@@ -106,6 +106,56 @@ describe('the calculations of materials of a room', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Zapisano.');
   });
 
+  it('takes the area from two sides in metres when that way is chosen, and only one way is on at a time', async () => {
+    vi.mocked(api.createCalc).mockResolvedValue(calc());
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('material-calc-add'));
+    expect(screen.getByLabelText('material-area-mode-AREA')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByLabelText('material-area-mode-DIMS')).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(screen.getByLabelText('material-area-mode-DIMS'));
+    expect(screen.getByLabelText('material-area-mode-AREA')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByLabelText('material-area')).toBeNull();
+    expect(screen.queryByLabelText('material-area-chips')).toBeNull();
+    type('material-surface_length', '3,2');
+    type('material-surface_width', '4,55');
+    expect(screen.getByLabelText('material-area-result')).toHaveTextContent('Powierzchnia: 14,56 m²');
+    type('material-length', '30');
+    type('material-width', '60');
+    fireEvent.click(screen.getByLabelText('material-calc-save'));
+    await waitFor(() => expect(api.createCalc).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.createCalc).mock.calls[0][2].params).toMatchObject({ area_m2: '14.56' });
+  });
+
+  it('asks for both sides, and the chips come back with the way of the area', async () => {
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('material-calc-add'));
+    fireEvent.click(screen.getByLabelText('material-area-mode-DIMS'));
+    type('material-surface_length', '3');
+    fireEvent.click(screen.getByLabelText('material-calc-save'));
+    expect(await screen.findByText('Wpisz szerokość większą od zera.')).toBeInTheDocument();
+    expect(screen.queryByText('Wpisz długość większą od zera.')).toBeNull();
+    expect(api.createCalc).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('material-area-mode-AREA'));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByLabelText('material-area-chips')).toBeInTheDocument();
+  });
+
+  it('sends the drywall area from two sides too', async () => {
+    vi.mocked(api.createCalc).mockResolvedValue(calc());
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('material-calc-add'));
+    fireEvent.click(screen.getByLabelText('material-package-DRYWALL'));
+    fireEvent.click(screen.getByLabelText('material-area-mode-DIMS'));
+    type('material-surface_length', '5');
+    type('material-surface_width', '2,6');
+    fireEvent.click(screen.getByLabelText('material-calc-save'));
+    await waitFor(() => expect(api.createCalc).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.createCalc).mock.calls[0][2].params).toMatchObject({ kind: 'WALL', area_m2: '13.00' });
+  });
+
   it('offers the perimeter of the room for the tape', async () => {
     renderSection();
     await open();
