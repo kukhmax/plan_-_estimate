@@ -9,16 +9,17 @@ import { ClientPage, isClientPagePath, tokenFromHash } from './ClientPage';
 
 vi.mock('../api/clientPortal', () => ({
   fetchPortalPage: vi.fn(),
-  acceptPortalEstimate: vi.fn(),
+  decidePortalEstimate: vi.fn(),
   decidePortalProposal: vi.fn(),
 }));
 
 const TOKEN = 'T'.repeat(43);
 const STATEMENT = { pl: 'Zatwierdzam wycenę nr 1 na kwotę 3489,66 PLN.', text: 'Zatwierdzam wycenę nr 1 na kwotę 3489,66 PLN.' };
+const DECLINE = { pl: 'Nie zatwierdzam wyceny nr 1 na kwotę 3489,66 PLN.', text: 'Nie zatwierdzam wyceny nr 1 na kwotę 3489,66 PLN.' };
 
 const ESTIMATE = (overrides: Partial<PortalEstimate> = {}): PortalEstimate => ({
   id: 'e1', version: 1, status: 'FINAL', name: null, currency: 'PLN', total: '2837.12', vat_mode: 'RATE', vat_rate_percent: 23, vat_amount: '652.54',
-  gross_total: '3489.66', hash: 'h'.repeat(64), consent: null, accept_statement: STATEMENT,
+  gross_total: '3489.66', hash: 'h'.repeat(64), consent: null, accept_statement: STATEMENT, decline_statement: DECLINE,
   lines: [
     { position: 1, room_name: 'Salon', surface_name: 'Ściana 1', description: 'Gruntowanie ścian', unit: 'M2', quantity: '45.760', unit_price: '7.00', amount: '320.32' },
     { position: 2, room_name: 'Łazienka', surface_name: null, description: 'Gładź dwuwarstwowa', unit: 'M2', quantity: '45.760', unit_price: '35.00', amount: '1601.60' },
@@ -39,6 +40,11 @@ const PAGE = (overrides: Partial<PortalPage> = {}): PortalPage => ({
   project: { name: 'Mieszkanie 50 m²', address: 'ul. Długa 5', city: 'Kraków', postal_code: '30-001' },
   estimate: ESTIMATE(), proposals: [], ...overrides,
 });
+
+/** The estimate waits for a decision: the first step is the choice. */
+const choose = async (label = 'client-estimate-agree') => {
+  fireEvent.click(await screen.findByLabelText(label));
+};
 
 function show(token = TOKEN) {
   render(
@@ -124,23 +130,24 @@ describe('approving the estimate', () => {
   it('needs the name and the box, sends what the client saw, and shows the approval', async () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
     const accepted = PAGE({
-      estimate: ESTIMATE({ status: 'ACCEPTED', accept_statement: null, consent: { kind: 'ESTIMATE_ACCEPTED', signer_name: 'Jan Kowalski', created_at: '2026-10-26T11:00:00Z' } }),
+      estimate: ESTIMATE({ status: 'ACCEPTED', accept_statement: null, consent: { kind: 'ESTIMATE_ACCEPTED', signer_name: 'Jan Kowalski', comment: null, created_at: '2026-10-26T11:00:00Z' } }),
     });
-    vi.mocked(api.acceptPortalEstimate).mockResolvedValue(accepted);
+    vi.mocked(api.decidePortalEstimate).mockResolvedValue(accepted);
     show();
-    expect(await screen.findByLabelText('client-accept-statement')).toHaveTextContent('Zatwierdzam wycenę nr 1');
-    fireEvent.change(screen.getByLabelText('client-accept-name'), { target: { value: 'Jan Kowalski' } });
-    fireEvent.click(screen.getByLabelText('client-accept-agree'));
-    fireEvent.click(screen.getByLabelText('client-accept-submit'));
+    await choose();
+    expect(await screen.findByLabelText('client-estimate-statement')).toHaveTextContent('Zatwierdzam wycenę nr 1');
+    fireEvent.change(screen.getByLabelText('client-estimate-name'), { target: { value: 'Jan Kowalski' } });
+    fireEvent.click(screen.getByLabelText('client-estimate-agree'));
+    fireEvent.click(screen.getByLabelText('client-estimate-submit'));
     await waitFor(() =>
-      expect(api.acceptPortalEstimate).toHaveBeenCalledWith(TOKEN, 'pl', {
-        estimate_id: 'e1', version: 1, hash: 'h'.repeat(64), signer_name: 'Jan Kowalski', agree: true,
+      expect(api.decidePortalEstimate).toHaveBeenCalledWith(TOKEN, 'pl', {
+        estimate_id: 'e1', version: 1, hash: 'h'.repeat(64), decision: 'ACCEPT', signer_name: 'Jan Kowalski', agree: true, comment: null,
       }),
     );
     const done = await screen.findByLabelText('client-estimate-accepted');
     expect(done).toHaveTextContent('Wycena zatwierdzona');
     expect(done).toHaveTextContent('Jan Kowalski');
-    expect(screen.queryByLabelText('client-accept-form')).toBeNull();
+    expect(screen.queryByLabelText('client-estimate-form')).toBeNull();
   });
 
   it.each([
@@ -151,35 +158,37 @@ describe('approving the estimate', () => {
     ['RATE_LIMITED', 429, 'Zbyt wiele prób'],
   ])('says in words what the server refused (%s)', async (code, status, words) => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
-    vi.mocked(api.acceptPortalEstimate).mockRejectedValue(new ApiError('x', status, code));
+    vi.mocked(api.decidePortalEstimate).mockRejectedValue(new ApiError('x', status, code));
     show();
-    fireEvent.click(await screen.findByLabelText('client-accept-submit'));
+    await choose();
+    fireEvent.click(screen.getByLabelText('client-estimate-submit'));
     expect(await screen.findByRole('alert')).toHaveTextContent(words);
-    expect(screen.getByLabelText('client-accept-form')).toBeInTheDocument();
+    expect(screen.getByLabelText('client-estimate-form')).toBeInTheDocument();
   });
 
   it('says that there is no connection', async () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
-    vi.mocked(api.acceptPortalEstimate).mockRejectedValue(new ApiError('network', 0, 'NETWORK'));
+    vi.mocked(api.decidePortalEstimate).mockRejectedValue(new ApiError('network', 0, 'NETWORK'));
     show();
-    fireEvent.click(await screen.findByLabelText('client-accept-submit'));
+    await choose();
+    fireEvent.click(screen.getByLabelText('client-estimate-submit'));
     expect(await screen.findByRole('alert')).toHaveTextContent('Brak połączenia');
   });
 
   it('shows an approved estimate without the form', async () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(
-      PAGE({ estimate: ESTIMATE({ status: 'ACCEPTED', accept_statement: null, consent: { kind: 'ESTIMATE_ACCEPTED', signer_name: 'Ewa Nowak', created_at: '2026-10-26T11:00:00Z' } }) }),
+      PAGE({ estimate: ESTIMATE({ status: 'ACCEPTED', accept_statement: null, consent: { kind: 'ESTIMATE_ACCEPTED', signer_name: 'Ewa Nowak', comment: null, created_at: '2026-10-26T11:00:00Z' } }) }),
     );
     show();
     expect(await screen.findByLabelText('client-estimate-accepted')).toHaveTextContent('Ewa Nowak');
-    expect(screen.queryByLabelText('client-accept-submit')).toBeNull();
+    expect(screen.queryByLabelText('client-estimate-submit')).toBeNull();
   });
 
   it('says that an estimate approved in the contract needs no approval, and shows no form', async () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE({ estimate: ESTIMATE({ status: 'ACCEPTED', accept_statement: null, consent: null }) }));
     show();
     expect(await screen.findByLabelText('client-estimate-approved-by-contract')).toHaveTextContent('już zatwierdzona w umowie');
-    expect(screen.queryByLabelText('client-accept-form')).toBeNull();
+    expect(screen.queryByLabelText('client-estimate-form')).toBeNull();
     expect(screen.queryByLabelText('client-estimate-accepted')).toBeNull();
   });
 
@@ -188,8 +197,100 @@ describe('approving the estimate', () => {
       PAGE({ lang: 'en', estimate: ESTIMATE({ accept_statement: { pl: 'Zapoznałem/am się z wyceną.', text: 'I have read the estimate.' } }) }),
     );
     show();
-    expect(await screen.findByLabelText('client-accept-statement')).toHaveTextContent('I have read the estimate.');
+    await choose();
+    expect(await screen.findByLabelText('client-estimate-statement')).toHaveTextContent('I have read the estimate.');
     expect(screen.getByLabelText('client-estimate')).toHaveTextContent('Zapoznałem/am się z wyceną.');
+  });
+});
+
+describe('declining the estimate', () => {
+  it('offers the two ways first, shows the words of a refusal with a field for the reason, and sends the refusal', async () => {
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
+    const declined = PAGE({
+      estimate: ESTIMATE({
+        accept_statement: null, decline_statement: null,
+        consent: { kind: 'ESTIMATE_DECLINED', signer_name: 'Jan Kowalski', comment: 'Za drogo', created_at: '2026-10-26T11:00:00Z' },
+      }),
+    });
+    vi.mocked(api.decidePortalEstimate).mockResolvedValue(declined);
+    show();
+    expect(await screen.findByLabelText('client-estimate-agree')).toHaveTextContent('Zatwierdzam wycenę');
+    expect(screen.getByLabelText('client-estimate-decline')).toHaveTextContent('Nie zatwierdzam wyceny');
+    expect(screen.queryByLabelText('client-estimate-form')).toBeNull();
+    fireEvent.click(screen.getByLabelText('client-estimate-decline'));
+    expect(screen.getByLabelText('client-estimate-statement')).toHaveTextContent('Nie zatwierdzam wyceny nr 1');
+    expect(screen.getByLabelText('client-estimate-comment')).toHaveAttribute('maxlength', '500');
+    fireEvent.change(screen.getByLabelText('client-estimate-name'), { target: { value: 'Jan Kowalski' } });
+    fireEvent.change(screen.getByLabelText('client-estimate-comment'), { target: { value: 'Za drogo' } });
+    fireEvent.click(screen.getByLabelText('client-estimate-agree'));
+    fireEvent.click(screen.getByLabelText('client-estimate-submit'));
+    await waitFor(() =>
+      expect(api.decidePortalEstimate).toHaveBeenCalledWith(TOKEN, 'pl', {
+        estimate_id: 'e1', version: 1, hash: 'h'.repeat(64), decision: 'DECLINE', signer_name: 'Jan Kowalski', agree: true, comment: 'Za drogo',
+      }),
+    );
+    const card = await screen.findByLabelText('client-estimate-declined');
+    expect(card).toHaveTextContent('Wycena odrzucona');
+    expect(card).toHaveTextContent('Twoja uwaga: Za drogo');
+    expect(card).toHaveTextContent('Poczekaj na nową wersję');
+    expect(screen.queryByLabelText('client-estimate-accepted')).toBeNull();
+  });
+
+  it('has no field for a reason when the client approves, and sends no reason', async () => {
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
+    vi.mocked(api.decidePortalEstimate).mockResolvedValue(PAGE());
+    show();
+    await choose();
+    expect(screen.queryByLabelText('client-estimate-comment')).toBeNull();
+    fireEvent.click(screen.getByLabelText('client-estimate-submit'));
+    await waitFor(() => expect(api.decidePortalEstimate).toHaveBeenCalled());
+    expect(vi.mocked(api.decidePortalEstimate).mock.calls[0][2]).toMatchObject({ decision: 'ACCEPT', comment: null });
+  });
+
+  it('does not carry a typed reason over to an approval after the client changes their mind', async () => {
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
+    vi.mocked(api.decidePortalEstimate).mockResolvedValue(PAGE());
+    show();
+    await choose('client-estimate-decline');
+    fireEvent.change(screen.getByLabelText('client-estimate-comment'), { target: { value: 'Za drogo' } });
+    fireEvent.click(screen.getByLabelText('client-estimate-back'));
+    await choose();
+    fireEvent.click(screen.getByLabelText('client-estimate-submit'));
+    await waitFor(() => expect(api.decidePortalEstimate).toHaveBeenCalled());
+    expect(vi.mocked(api.decidePortalEstimate).mock.calls[0][2]).toMatchObject({ decision: 'ACCEPT', comment: null });
+  });
+
+  it('says in words that a reason is too long or the estimate is approved already', async () => {
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
+    vi.mocked(api.decidePortalEstimate).mockRejectedValueOnce(new ApiError('x', 422, 'COMMENT_TOO_LONG')).mockRejectedValueOnce(new ApiError('x', 409, 'ESTIMATE_ALREADY_APPROVED'));
+    show();
+    await choose('client-estimate-decline');
+    fireEvent.click(screen.getByLabelText('client-estimate-submit'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Powód jest za długi');
+    fireEvent.click(screen.getByLabelText('client-estimate-submit'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('już zatwierdzona w umowie'));
+  });
+
+  it('shows the reason of a refused proposal and gives its refusal a field for the reason', async () => {
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE({ proposals: [PROPOSAL()] }));
+    vi.mocked(api.decidePortalProposal).mockResolvedValue(
+      PAGE({
+        proposals: [PROPOSAL({ status: 'DECLINED', accept_statement: null, decline_statement: null, consent: { kind: 'PROPOSAL_DECLINED', signer_name: 'Jan Kowalski', comment: 'Nie potrzebuję', created_at: '2026-10-26T12:00:00Z' } })],
+      }),
+    );
+    show();
+    fireEvent.click(await screen.findByLabelText('client-proposal-agree-p1'));
+    expect(screen.queryByLabelText('client-decide-p1-comment')).toBeNull();
+    fireEvent.click(screen.getByLabelText('client-decide-p1-back'));
+    fireEvent.click(screen.getByLabelText('client-proposal-decline-p1'));
+    fireEvent.change(screen.getByLabelText('client-decide-p1-name'), { target: { value: 'Jan Kowalski' } });
+    fireEvent.change(screen.getByLabelText('client-decide-p1-comment'), { target: { value: 'Nie potrzebuję' } });
+    fireEvent.click(screen.getByLabelText('client-decide-p1-agree'));
+    fireEvent.click(screen.getByLabelText('client-decide-p1-submit'));
+    await waitFor(() =>
+      expect(api.decidePortalProposal).toHaveBeenCalledWith(TOKEN, 'p1', 'pl', { decision: 'DECLINE', hash: 'p'.repeat(64), signer_name: 'Jan Kowalski', agree: true, comment: 'Nie potrzebuję' }),
+    );
+    expect(await screen.findByLabelText('client-proposal-decided-p1')).toHaveTextContent('Twoja uwaga: Nie potrzebuję');
   });
 });
 
@@ -197,7 +298,7 @@ describe('the proposals of extra work', () => {
   it('lets the client choose, shows the words of that choice and sends the decision', async () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE({ proposals: [PROPOSAL()] }));
     const after = PAGE({
-      proposals: [PROPOSAL({ status: 'DECLINED', accept_statement: null, decline_statement: null, consent: { kind: 'PROPOSAL_DECLINED', signer_name: 'Jan Kowalski', created_at: '2026-10-26T12:00:00Z' } })],
+      proposals: [PROPOSAL({ status: 'DECLINED', accept_statement: null, decline_statement: null, consent: { kind: 'PROPOSAL_DECLINED', signer_name: 'Jan Kowalski', comment: null, created_at: '2026-10-26T12:00:00Z' } })],
     });
     vi.mocked(api.decidePortalProposal).mockResolvedValue(after);
     show();
@@ -210,7 +311,7 @@ describe('the proposals of extra work', () => {
     fireEvent.click(screen.getByLabelText('client-decide-p1-agree'));
     fireEvent.click(screen.getByLabelText('client-decide-p1-submit'));
     await waitFor(() =>
-      expect(api.decidePortalProposal).toHaveBeenCalledWith(TOKEN, 'p1', 'pl', { decision: 'DECLINE', hash: 'p'.repeat(64), signer_name: 'Jan Kowalski', agree: true }),
+      expect(api.decidePortalProposal).toHaveBeenCalledWith(TOKEN, 'p1', 'pl', { decision: 'DECLINE', hash: 'p'.repeat(64), signer_name: 'Jan Kowalski', agree: true, comment: null }),
     );
     expect(await screen.findByLabelText('client-proposal-decided-p1')).toHaveTextContent('Odrzucono');
   });
@@ -229,7 +330,7 @@ describe('the proposals of extra work', () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(
       PAGE({
         proposals: [
-          PROPOSAL({ id: 'p1', title: 'Stara', status: 'ACCEPTED', accept_statement: null, decline_statement: null, consent: { kind: 'PROPOSAL_ACCEPTED', signer_name: 'Jan Kowalski', created_at: '2026-10-26T12:00:00Z' } }),
+          PROPOSAL({ id: 'p1', title: 'Stara', status: 'ACCEPTED', accept_statement: null, decline_statement: null, consent: { kind: 'PROPOSAL_ACCEPTED', signer_name: 'Jan Kowalski', comment: null, created_at: '2026-10-26T12:00:00Z' } }),
           PROPOSAL({ id: 'p2', sequence: 2, title: 'Nowa' }),
         ],
       }),
@@ -285,9 +386,10 @@ describe('a link that does not work', () => {
 
   it('shows the inactive screen when the link dies during a press', async () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
-    vi.mocked(api.acceptPortalEstimate).mockRejectedValue(new ApiError('x', 410, 'LINK_INACTIVE'));
+    vi.mocked(api.decidePortalEstimate).mockRejectedValue(new ApiError('x', 410, 'LINK_INACTIVE'));
     show();
-    fireEvent.click(await screen.findByLabelText('client-accept-submit'));
+    await choose();
+    fireEvent.click(screen.getByLabelText('client-estimate-submit'));
     expect(await screen.findByLabelText('client-inactive')).toBeInTheDocument();
   });
 });
@@ -310,10 +412,11 @@ describe('the language', () => {
   it('keeps the page and the typed name while the words change', async () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
     show();
-    fireEvent.change(await screen.findByLabelText('client-accept-name'), { target: { value: 'Jan' } });
+    await choose();
+    fireEvent.change(screen.getByLabelText('client-estimate-name'), { target: { value: 'Jan' } });
     fireEvent.change(screen.getByLabelText('client-language'), { target: { value: 'en' } });
     expect(screen.getByLabelText('client-estimate')).toBeInTheDocument();
-    expect(screen.getByLabelText('client-accept-name')).toHaveValue('Jan');
+    expect(screen.getByLabelText('client-estimate-name')).toHaveValue('Jan');
   });
 });
 
@@ -322,7 +425,7 @@ describe('the phone', () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE({ proposals: [PROPOSAL()] }));
     show();
     await screen.findByLabelText('client-estimate');
-    for (const label of ['client-accept-submit', 'client-accept-name', 'client-proposal-agree-p1', 'client-proposal-decline-p1']) {
+    for (const label of ['client-estimate-agree', 'client-estimate-decline', 'client-proposal-agree-p1', 'client-proposal-decline-p1']) {
       expect(screen.getByLabelText(label).className).toContain('min-h-12');
     }
     expect(screen.getByLabelText('client-page').className).toContain('overflow-x-hidden');

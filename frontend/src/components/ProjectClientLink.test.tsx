@@ -28,7 +28,7 @@ const PROPOSAL = (overrides: Partial<ClientProposal> = {}): ClientProposal => ({
 });
 const CONSENT = (overrides: Partial<ClientConsent> = {}): ClientConsent => ({
   id: 'c1', kind: 'ESTIMATE_ACCEPTED', estimate_id: 'e1', estimate_version: 2, proposal_id: null, subject_hash: 'h'.repeat(64), amount: '3489.66', currency: 'PLN',
-  statement: 'Zatwierdzam wycenę nr 2.', statement_lang: 'pl', signer_name: 'Jan Kowalski', created_at: '2026-10-27T09:30:00Z', ...overrides,
+  statement: 'Zatwierdzam wycenę nr 2.', statement_lang: 'pl', signer_name: 'Jan Kowalski', comment: null, created_at: '2026-10-27T09:30:00Z', ...overrides,
 });
 
 function show() {
@@ -222,6 +222,24 @@ describe('the journal', () => {
     const second = screen.getByLabelText('client-journal-c2');
     expect(second).toHaveTextContent('Odrzucona praca dodatkowa');
     expect(second).not.toHaveTextContent('wersja');
+  });
+});
+
+describe('the journal of refusals', () => {
+  it('shows a refused estimate and the reason of the client, and a refusal without one', async () => {
+    vi.mocked(api.fetchClientJournal).mockResolvedValue({
+      items: [
+        CONSENT({ id: 'c3', kind: 'ESTIMATE_DECLINED', statement: 'Nie zatwierdzam wyceny nr 2.', comment: 'Za drogo,\nproszę usunąć łazienkę' }),
+        CONSENT({ id: 'c4', kind: 'PROPOSAL_DECLINED', estimate_id: null, estimate_version: null, proposal_id: 'p1', comment: null }),
+      ],
+    });
+    show();
+    const refused = await screen.findByLabelText('client-journal-c3');
+    expect(refused).toHaveTextContent('Wycena odrzucona');
+    expect(refused).toHaveTextContent('Powód klienta: Za drogo,');
+    expect(refused).toHaveTextContent('proszę usunąć łazienkę');
+    expect(refused).toHaveTextContent('Nie zatwierdzam wyceny nr 2.');
+    expect(screen.getByLabelText('client-journal-c4')).not.toHaveTextContent('Powód klienta');
   });
 });
 

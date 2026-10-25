@@ -47,7 +47,7 @@ export interface ClientProposalInput {
   extra_days: number | null;
 }
 
-export type ConsentKind = 'ESTIMATE_ACCEPTED' | 'PROPOSAL_ACCEPTED' | 'PROPOSAL_DECLINED';
+export type ConsentKind = 'ESTIMATE_ACCEPTED' | 'ESTIMATE_DECLINED' | 'PROPOSAL_ACCEPTED' | 'PROPOSAL_DECLINED';
 
 export interface ClientConsent {
   id: string;
@@ -61,6 +61,7 @@ export interface ClientConsent {
   statement: string;
   statement_lang: string;
   signer_name: string;
+  comment: string | null;
   created_at: string;
 }
 
@@ -103,6 +104,7 @@ export interface PortalStatement {
 export interface PortalConsent {
   kind: ConsentKind;
   signer_name: string;
+  comment: string | null;
   created_at: string;
 }
 
@@ -121,6 +123,7 @@ export interface PortalEstimate {
   lines: PortalLine[];
   consent: PortalConsent | null;
   accept_statement: PortalStatement | null;
+  decline_statement: PortalStatement | null;
 }
 
 export interface PortalProposal {
@@ -148,12 +151,14 @@ export interface PortalPage {
   proposals: PortalProposal[];
 }
 
-export interface PortalAcceptInput {
+export interface PortalEstimateDecision {
   estimate_id: string;
   version: number;
   hash: string;
+  decision: 'ACCEPT' | 'DECLINE';
   signer_name: string;
   agree: boolean;
+  comment?: string | null;
 }
 
 export interface PortalDecideInput {
@@ -161,6 +166,7 @@ export interface PortalDecideInput {
   hash: string;
   signer_name: string;
   agree: boolean;
+  comment?: string | null;
 }
 
 /** The address the client opens; the secret stays after the `#`, which a browser never sends to a server. */

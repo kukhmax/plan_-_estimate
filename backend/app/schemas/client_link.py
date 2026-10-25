@@ -77,6 +77,7 @@ class ClientConsentRead(BaseModel):
     statement: str
     statement_lang: str
     signer_name: str
+    comment: str | None = None
     created_at: datetime
 
 

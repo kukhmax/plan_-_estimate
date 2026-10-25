@@ -24,6 +24,7 @@ MAX_AMOUNT = Decimal(10000000)
 MAX_EXTRA_DAYS = 365
 MIN_NAME = 2
 MAX_NAME = 80
+MAX_COMMENT = 500
 TEXTS_FILE = Path(__file__).with_name("client_link_texts.json")
 
 LINK_TERM = timedelta(days=LINK_DAYS)
@@ -120,6 +121,17 @@ def clean_name(value: str | None) -> str:
     return text
 
 
+def clean_comment(value: str | None) -> str | None:
+    """The reason of a refusal: optional, line breaks kept (at most two in a row), no control characters, at most 500 characters."""
+    text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", " ", (value or "").replace("\r\n", "\n")).strip()
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    if not text:
+        return None
+    if len(text) > MAX_COMMENT:
+        raise ClientLinkError("COMMENT_TOO_LONG", f"at most {MAX_COMMENT} characters", "comment")
+    return text
+
+
 def clean_title(value: str | None) -> str:
     text = re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f\x7f]", " ", value or "")).strip()
     if not text:
@@ -205,7 +217,7 @@ class OwnerNotice:
 
 
 def owner_notice_text(key: str, lang: str, **values: str) -> str:
-    """`key`: notice_estimate, notice_accept or notice_decline; the words of the client are cut and stripped of line breaks (one line in a chat)."""
+    """`key`: notice_estimate, notice_estimate_declined, notice_accept, notice_decline or notice_comment; the words of the client are cut and stripped of line breaks (one line in a chat)."""
     lang = clean_language(lang)
     safe = {name: re.sub(r"\s+", " ", str(value)).strip()[:200] for name, value in values.items()}
     return texts()[key][lang].format(**safe)

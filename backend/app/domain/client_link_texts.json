@@ -46,5 +46,23 @@
     "ru": "Открыть объект",
     "uk": "Відкрити об’єкт",
     "en": "Open the property"
+  },
+  "estimate_decline": {
+    "pl": "Zapoznałem/am się z wyceną nr {version} przedstawioną przez {contractor} i jej nie zatwierdzam: łączna kwota do zapłaty {amount} {currency}.",
+    "ru": "Я ознакомился/ознакомилась со сметой № {version}, представленной {contractor}, и не принимаю её: общая сумма к оплате {amount} {currency}.",
+    "uk": "Я ознайомився/ознайомилася з кошторисом № {version}, наданим {contractor}, і не приймаю його: загальна сума до сплати {amount} {currency}.",
+    "en": "I have read estimate no. {version} presented by {contractor} and I do not approve it: the total amount to pay of {amount} {currency}."
+  },
+  "notice_estimate_declined": {
+    "pl": "❌ Klient {client} nie zatwierdził wyceny nr {version} (obiekt „{project}”): {amount} {currency}.",
+    "ru": "❌ Клиент {client} не принял смету № {version} (объект «{project}»): {amount} {currency}.",
+    "uk": "❌ Клієнт {client} не прийняв кошторис № {version} (об’єкт «{project}»): {amount} {currency}.",
+    "en": "❌ The client {client} did not approve estimate no. {version} (property “{project}”): {amount} {currency}."
+  },
+  "notice_comment": {
+    "pl": "Powód: „{comment}”",
+    "ru": "Причина: «{comment}»",
+    "uk": "Причина: «{comment}»",
+    "en": "Reason: “{comment}”"
   }
 }

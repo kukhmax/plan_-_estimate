@@ -58,7 +58,7 @@ def turn_encryption_on():
 def test_the_columns_come_from_the_models():
     columns = encrypted_columns()
     names = {f"{c.table}.{c.column}" for c in columns}
-    assert len(columns) == 64 and "clients.first_name" in names and "projects.name" in names and "project_notes.body" in names  # 20 of EN-2a + 37 of EN-2b-2 + 4 of EN-2b-3 + 3 of V2-8 (two words of a proposal, the name of a signer)
+    assert len(columns) == 65 and "clients.first_name" in names and "projects.name" in names and "project_notes.body" in names  # 20 of EN-2a + 37 of EN-2b-2 + 4 of EN-2b-3 + 3 of V2-8 (two words of a proposal, the name of a signer) + 1 of V2-8b (the reason of a refusal)
     assert {c.table for c in columns} == {
         "clients", "projects", "project_representatives", "project_notes",
         "contracts", "handover_protocols", "concealed_works_protocols", "acceptance_protocols", "decision_protocols", "downtime_episodes", "issued_documents", "project_payments",

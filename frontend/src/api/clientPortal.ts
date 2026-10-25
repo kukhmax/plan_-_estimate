@@ -1,4 +1,4 @@
-import type { PortalAcceptInput, PortalDecideInput, PortalPage } from '../types/clientLink';
+import type { PortalDecideInput, PortalEstimateDecision, PortalPage } from '../types/clientLink';
 import { API_BASE, ApiError } from './http';
 
 /**
@@ -39,8 +39,8 @@ export function fetchPortalPage(token: string, lang: string | null): Promise<Por
   return request(token, '', lang);
 }
 
-export function acceptPortalEstimate(token: string, lang: string | null, input: PortalAcceptInput): Promise<PortalPage> {
-  return request(token, '/estimate/accept', lang, { method: 'POST', body: JSON.stringify(input) });
+export function decidePortalEstimate(token: string, lang: string | null, input: PortalEstimateDecision): Promise<PortalPage> {
+  return request(token, '/estimate/decide', lang, { method: 'POST', body: JSON.stringify(input) });
 }
 
 export function decidePortalProposal(token: string, proposalId: string, lang: string | null, input: PortalDecideInput): Promise<PortalPage> {

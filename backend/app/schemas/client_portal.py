@@ -40,6 +40,7 @@ class PortalStatement(BaseModel):
 class PortalConsent(BaseModel):
     kind: str
     signer_name: str
+    comment: str | None = None
     created_at: datetime
 
 
@@ -58,6 +59,7 @@ class PortalEstimate(BaseModel):
     lines: list[PortalLine]
     consent: PortalConsent | None = None
     accept_statement: PortalStatement | None = None  # only while the estimate is waiting for the client
+    decline_statement: PortalStatement | None = None
 
 
 class PortalProposal(BaseModel):
@@ -90,14 +92,16 @@ class PortalPage(BaseModel):
     proposals: list[PortalProposal]
 
 
-class PortalAcceptEstimate(BaseModel):
+class PortalDecideEstimate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     estimate_id: uuid.UUID
     version: int = Field(ge=1)
     hash: str = Field(min_length=64, max_length=64)
+    decision: Literal["ACCEPT", "DECLINE"]
     signer_name: str = Field(max_length=200)
     agree: bool
+    comment: str | None = Field(default=None, max_length=2000)  # the reason of a refusal; refused with an approval
 
 
 class PortalDecideProposal(BaseModel):
@@ -107,3 +111,4 @@ class PortalDecideProposal(BaseModel):
     hash: str = Field(min_length=64, max_length=64)
     signer_name: str = Field(max_length=200)
     agree: bool
+    comment: str | None = Field(default=None, max_length=2000)

@@ -1,5 +1,5 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useState } from 'react';
-import { acceptPortalEstimate, decidePortalProposal, fetchPortalPage } from '../api/clientPortal';
+import { decidePortalEstimate, decidePortalProposal, fetchPortalPage } from '../api/clientPortal';
 import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import type { PortalConsent, PortalEstimate, PortalLine, PortalPage, PortalProposal, PortalStatement } from '../types/clientLink';
@@ -46,6 +46,8 @@ function ConsentBox(props: {
   error: string | null;
   prefix: string;
   secondary?: { label: string; onClick: () => void };
+  /** The reason of a refusal (optional); shown only when the box is for a refusal. */
+  comment?: { value: string; onChange: (value: string) => void };
 }) {
   const { t } = useI18n();
   const text = t.client_page;
@@ -79,6 +81,19 @@ function ConsentBox(props: {
         />
         <span aria-label={`${prefix}-statement`} className="break-words">{statement.text}</span>
       </label>
+      {props.comment && (
+        <label className="block text-sm font-medium text-slate-700">
+          {text.comment_label}
+          <textarea
+            aria-label={`${prefix}-comment`}
+            value={props.comment.value}
+            maxLength={500}
+            placeholder={text.comment_placeholder}
+            onChange={(e) => props.comment?.onChange(e.target.value)}
+            className={`${FIELD} mt-1 min-h-24`}
+          />
+        </label>
+      )}
       {statement.text !== statement.pl && (
         <p className="text-xs text-slate-500 break-words">
           <span className="font-semibold">{text.binding_pl}</span> {statement.pl}
@@ -161,6 +176,8 @@ export function ClientPage({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [choice, setChoice] = useState<{ id: string; decision: 'ACCEPT' | 'DECLINE' } | null>(null);
+  const [estimateChoice, setEstimateChoice] = useState<'ACCEPT' | 'DECLINE' | null>(null);
+  const [comment, setComment] = useState('');
 
   useEffect(() => {
     document.title = 'Plan & Estimate';
@@ -226,21 +243,40 @@ export function ClientPage({ token }: { token: string }) {
     }
   };
 
-  const accept = (estimate: PortalEstimate) =>
+  const reasonOf = (decision: 'ACCEPT' | 'DECLINE') => (decision === 'DECLINE' && comment.trim() !== '' ? comment : null);
+  const decideEstimate = (estimate: PortalEstimate, decision: 'ACCEPT' | 'DECLINE') =>
     act(
-      () => acceptPortalEstimate(token, locale, { estimate_id: estimate.id, version: estimate.version, hash: estimate.hash, signer_name: name, agree }),
+      () =>
+        decidePortalEstimate(token, locale, {
+          estimate_id: estimate.id,
+          version: estimate.version,
+          hash: estimate.hash,
+          decision,
+          signer_name: name,
+          agree,
+          comment: reasonOf(decision),
+        }),
       () => {
+        setEstimateChoice(null);
         setAgree(false);
+        setComment('');
       },
     );
   const decide = (proposal: PortalProposal, decision: 'ACCEPT' | 'DECLINE') =>
     act(
-      () => decidePortalProposal(token, proposal.id, locale, { decision, hash: proposal.hash, signer_name: name, agree }),
+      () => decidePortalProposal(token, proposal.id, locale, { decision, hash: proposal.hash, signer_name: name, agree, comment: reasonOf(decision) }),
       () => {
         setChoice(null);
         setAgree(false);
+        setComment('');
       },
     );
+  const pick = (next: () => void) => {
+    setAgree(false);
+    setComment('');
+    setError(null);
+    next();
+  };
 
   const date = (iso: string) => formatNoteTime(iso, locale);
   const consentLine = (consent: PortalConsent) => text.accepted_by.replace('{name}', consent.signer_name).replace('{date}', date(consent.created_at));
@@ -349,29 +385,54 @@ export function ClientPage({ token }: { token: string }) {
           <Totals estimate={estimate} />
 
           {estimate.consent ? (
-            <div aria-label="client-estimate-accepted" className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
-              <p className="text-sm font-semibold text-emerald-800 break-words">{text.accepted_title}</p>
-              <p className="text-xs text-emerald-800 break-words">{consentLine(estimate.consent)}</p>
-            </div>
+            estimate.consent.kind === 'ESTIMATE_DECLINED' ? (
+              <div aria-label="client-estimate-declined" className="rounded-xl bg-slate-100 border border-slate-200 p-3 space-y-1">
+                <p className="text-sm font-semibold text-slate-800 break-words">{text.declined_title}</p>
+                <p className="text-xs text-slate-700 break-words">{consentLine(estimate.consent)}</p>
+                {estimate.consent.comment && (
+                  <p className="text-xs text-slate-700 whitespace-pre-wrap break-words">{text.comment_yours.replace('{comment}', estimate.consent.comment)}</p>
+                )}
+                <p className="text-xs text-slate-600 break-words">{text.declined_text}</p>
+              </div>
+            ) : (
+              <div aria-label="client-estimate-accepted" className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+                <p className="text-sm font-semibold text-emerald-800 break-words">{text.accepted_title}</p>
+                <p className="text-xs text-emerald-800 break-words">{consentLine(estimate.consent)}</p>
+              </div>
+            )
           ) : estimate.status === 'ACCEPTED' ? (
             <div aria-label="client-estimate-approved-by-contract" className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
               <p className="text-sm font-semibold text-emerald-800 break-words">{text.approved_by_contract}</p>
             </div>
-          ) : estimate.accept_statement ? (
+          ) : estimate.accept_statement && estimate.decline_statement ? (
             <div className="space-y-3 border-t border-slate-200 pt-3">
               <h2 className="text-base font-semibold text-slate-900 break-words">{text.accept_heading}</h2>
-              <ConsentBox
-                prefix="client-accept"
-                statement={estimate.accept_statement}
-                name={name}
-                onName={setName}
-                agree={agree}
-                onAgree={setAgree}
-                label={text.accept_button}
-                busy={busy}
-                error={choice === null ? error : null}
-                onSubmit={() => void accept(estimate)}
-              />
+              {estimateChoice === null ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">{text.decision_label}</p>
+                  <button type="button" aria-label="client-estimate-agree" onClick={() => pick(() => setEstimateChoice('ACCEPT'))} className={PRIMARY}>
+                    {text.accept_button}
+                  </button>
+                  <button type="button" aria-label="client-estimate-decline" onClick={() => pick(() => setEstimateChoice('DECLINE'))} className={SECONDARY}>
+                    {text.estimate_decline_button}
+                  </button>
+                </div>
+              ) : (
+                <ConsentBox
+                  prefix="client-estimate"
+                  statement={estimateChoice === 'DECLINE' ? estimate.decline_statement : estimate.accept_statement}
+                  name={name}
+                  onName={setName}
+                  agree={agree}
+                  onAgree={setAgree}
+                  label={text.send_decision}
+                  busy={busy}
+                  error={choice === null ? error : null}
+                  onSubmit={() => void decideEstimate(estimate, estimateChoice)}
+                  comment={estimateChoice === 'DECLINE' ? { value: comment, onChange: setComment } : undefined}
+                  secondary={{ label: text.cancel, onClick: () => pick(() => setEstimateChoice(null)) }}
+                />
+              )}
             </div>
           ) : null}
         </section>
@@ -399,14 +460,17 @@ export function ClientPage({ token }: { token: string }) {
                   >
                     <p className="text-sm font-semibold break-words">{proposal.status === 'ACCEPTED' ? text.status_accepted : text.status_declined}</p>
                     <p className="text-xs break-words">{consentLine(proposal.consent)}</p>
+                    {proposal.consent.comment && (
+                      <p className="text-xs whitespace-pre-wrap break-words">{text.comment_yours.replace('{comment}', proposal.consent.comment)}</p>
+                    )}
                   </div>
                 ) : picked === null ? (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-slate-500">{text.decision_label}</p>
-                    <button type="button" aria-label={`client-proposal-agree-${proposal.id}`} onClick={() => { setChoice({ id: proposal.id, decision: 'ACCEPT' }); setAgree(false); setError(null); }} className={PRIMARY}>
+                    <button type="button" aria-label={`client-proposal-agree-${proposal.id}`} onClick={() => pick(() => setChoice({ id: proposal.id, decision: 'ACCEPT' }))} className={PRIMARY}>
                       {text.agree_button}
                     </button>
-                    <button type="button" aria-label={`client-proposal-decline-${proposal.id}`} onClick={() => { setChoice({ id: proposal.id, decision: 'DECLINE' }); setAgree(false); setError(null); }} className={SECONDARY}>
+                    <button type="button" aria-label={`client-proposal-decline-${proposal.id}`} onClick={() => pick(() => setChoice({ id: proposal.id, decision: 'DECLINE' }))} className={SECONDARY}>
                       {text.decline_button}
                     </button>
                   </div>
@@ -422,7 +486,8 @@ export function ClientPage({ token }: { token: string }) {
                     busy={busy}
                     error={error}
                     onSubmit={() => void decide(proposal, picked)}
-                    secondary={{ label: text.cancel, onClick: () => { setChoice(null); setError(null); } }}
+                    secondary={{ label: text.cancel, onClick: () => pick(() => setChoice(null)) }}
+                    comment={picked === 'DECLINE' ? { value: comment, onChange: setComment } : undefined}
                   />
                 ) : null}
               </article>

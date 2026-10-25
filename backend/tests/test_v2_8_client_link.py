@@ -9,6 +9,7 @@ from decimal import Decimal
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import delete, select, text, update
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import get_message_sender
 from app.api.v1.endpoints import client_portal
@@ -163,7 +164,7 @@ async def open_page(client, token, **params):
 
 def accept_body(page: dict, name="Jan Kowalski", agree=True) -> dict:
     est = page["estimate"]
-    return {"estimate_id": est["id"], "version": est["version"], "hash": est["hash"], "signer_name": name, "agree": agree}
+    return {"estimate_id": est["id"], "version": est["version"], "hash": est["hash"], "decision": "ACCEPT", "signer_name": name, "agree": agree}
 
 
 # --- the owner's side ----------------------------------------------------------------------------------------------------------------
@@ -242,7 +243,7 @@ async def test_the_page_shows_the_estimate_with_its_sums_and_nothing_else(async_
     assert page["lang"] == "pl" and page["contractor"]["name"] == "Vvv Remonty" and page["project"]["city"] == "Kraków"
     est = page["estimate"]
     assert est["status"] == "FINAL" and est["consent"] is None and est["version"] == 1
-    assert set(est) == {"id", "version", "status", "name", "currency", "total", "vat_mode", "vat_rate_percent", "vat_amount", "gross_total", "hash", "lines", "consent", "accept_statement"}
+    assert set(est) == {"id", "version", "status", "name", "currency", "total", "vat_mode", "vat_rate_percent", "vat_amount", "gross_total", "hash", "lines", "consent", "accept_statement", "decline_statement"}
     assert Decimal(est["total"]) == Decimal("2837.12") and Decimal(est["gross_total"]) == Decimal("3489.66") and Decimal(est["vat_amount"]) == Decimal("652.54")
     assert est["lines"] and set(est["lines"][0]) == {"position", "room_name", "surface_name", "description", "unit", "quantity", "unit_price", "amount"}
     assert sum(Decimal(ln["amount"]) for ln in est["lines"]) == Decimal(est["total"])
@@ -319,7 +320,7 @@ async def test_the_client_accepts_the_estimate_and_the_journal_holds_the_proof(a
     token = await issue(async_client, world)
     page = (await open_page(async_client, token)).json()
     sent = await async_client.post(
-        f"{PUBLIC}/estimate/accept", json=accept_body(page, "  Jan   Kowalski "), headers=door(token, **{"User-Agent": "Mozilla/5.0 test", "CF-Connecting-IP": "203.0.113.7"})
+        f"{PUBLIC}/estimate/decide", json=accept_body(page, "  Jan   Kowalski "), headers=door(token, **{"User-Agent": "Mozilla/5.0 test", "CF-Connecting-IP": "203.0.113.7"})
     )
     assert sent.status_code == 200, sent.text
     after = sent.json()["estimate"]
@@ -341,7 +342,7 @@ async def test_the_acceptance_needs_the_box_a_name_and_the_page_the_client_saw(a
     world = await make_world(async_client, db_session)
     token = await issue(async_client, world)
     page = (await open_page(async_client, token)).json()
-    post = lambda body: async_client.post(f"{PUBLIC}/estimate/accept", json=body, headers=door(token))  # noqa: E731
+    post = lambda body: async_client.post(f"{PUBLIC}/estimate/decide", json=body, headers=door(token))  # noqa: E731
     no_box = await post(accept_body(page, agree=False))
     assert no_box.status_code == 422 and no_box.json()["detail"]["code"] == "AGREE_REQUIRED"
     no_name = await post(accept_body(page, name=" "))
@@ -363,8 +364,8 @@ async def test_a_second_acceptance_is_refused_and_the_journal_keeps_one_row(asyn
     world = await make_world(async_client, db_session)
     token = await issue(async_client, world)
     page = (await open_page(async_client, token)).json()
-    assert (await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page), headers=door(token))).status_code == 200
-    again = await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page, "Ewa Nowak"), headers=door(token))
+    assert (await async_client.post(f"{PUBLIC}/estimate/decide", json=accept_body(page), headers=door(token))).status_code == 200
+    again = await async_client.post(f"{PUBLIC}/estimate/decide", json=accept_body(page, "Ewa Nowak"), headers=door(token))
     assert again.status_code == 409 and again.json()["detail"]["code"] == "ALREADY_DECIDED"
     assert len((await db_session.execute(select(ClientConsent))).scalars().all()) == 1
 
@@ -377,7 +378,7 @@ async def test_an_estimate_approved_in_a_contract_is_shown_as_approved_without_a
     shown = (await open_page(async_client, token)).json()["estimate"]
     assert shown["status"] == "ACCEPTED" and shown["consent"] is None and shown["accept_statement"] is None
     page = (await open_page(async_client, token)).json()
-    recorded = await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page), headers=door(token))
+    recorded = await async_client.post(f"{PUBLIC}/estimate/decide", json=accept_body(page), headers=door(token))
     assert recorded.status_code == 200  # the page offers no form, but a consent sent anyway is recorded; the journal then holds it
     assert (await db_session.execute(select(ClientConsent))).scalar_one().kind == "ESTIMATE_ACCEPTED"
 
@@ -386,7 +387,7 @@ async def test_the_page_stays_open_after_the_acceptance_and_a_changed_estimate_w
     world = await make_world(async_client, db_session)
     token = await issue(async_client, world)
     page = (await open_page(async_client, token)).json()
-    await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page), headers=door(token))
+    await async_client.post(f"{PUBLIC}/estimate/decide", json=accept_body(page), headers=door(token))
     again = (await open_page(async_client, token)).json()["estimate"]
     assert again["status"] == "ACCEPTED" and again["consent"]["signer_name"] == "Jan Kowalski"
     # the estimate is changed after the acceptance: a new version is made and finalized; the page now shows it, waiting
@@ -397,7 +398,7 @@ async def test_the_page_stays_open_after_the_acceptance_and_a_changed_estimate_w
     assert done.status_code == 200, done.text
     fresh = (await open_page(async_client, token)).json()["estimate"]
     assert fresh["id"] == new_id and fresh["version"] == 2 and fresh["status"] == "FINAL" and fresh["consent"] is None
-    stale = await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body({"estimate": again}), headers=door(token))
+    stale = await async_client.post(f"{PUBLIC}/estimate/decide", json=accept_body({"estimate": again}), headers=door(token))
     assert stale.status_code == 409 and stale.json()["detail"]["code"] == "ESTIMATE_CHANGED"
 
 
@@ -528,7 +529,7 @@ def test_exactly_three_open_operations_belong_to_the_client():
         for method, op in ops.items()
         if path.startswith("/api/public/") and not op.get("security")
     }
-    assert opened == {("GET", PUBLIC), ("POST", PUBLIC + "/estimate/accept"), ("POST", PUBLIC + "/proposals/{proposal_id}/decide")}
+    assert opened == {("GET", PUBLIC), ("POST", PUBLIC + "/estimate/decide"), ("POST", PUBLIC + "/proposals/{proposal_id}/decide")}
 
 
 async def test_too_many_wrong_secrets_from_one_address_close_the_door_for_a_while(async_client, db_session, web):
@@ -546,7 +547,7 @@ async def test_the_presses_are_counted_too(async_client, db_session, web):
     world = await make_world(async_client, db_session)
     token = await issue(async_client, world)
     page = (await open_page(async_client, token)).json()
-    codes = [(await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page, agree=False), headers=door(token))).status_code for _ in range(22)]
+    codes = [(await async_client.post(f"{PUBLIC}/estimate/decide", json=accept_body(page, agree=False), headers=door(token))).status_code for _ in range(22)]
     assert codes[:20] == [422] * 20 and codes[20:] == [429, 429]
 
 
@@ -559,7 +560,7 @@ async def test_with_the_encryption_on_the_words_of_the_client_and_the_proposal_a
     await propose(async_client, world, title="Sekretna praca", description="Szczegóły dla klienta")
     page = (await open_page(async_client, token)).json()
     assert page["proposals"][0]["title"] == "Sekretna praca"
-    await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page, "Zofia Wójcik"), headers=door(token))
+    await async_client.post(f"{PUBLIC}/estimate/decide", json=accept_body(page, "Zofia Wójcik"), headers=door(token))
     raw = {
         "title": (await db_session.execute(text("select title from client_proposals"))).scalar_one(),
         "description": (await db_session.execute(text("select description from client_proposals"))).scalar_one(),
@@ -576,7 +577,7 @@ async def test_the_links_and_the_journal_go_with_the_object(async_client, db_ses
     token = await issue(async_client, world)
     await propose(async_client, world)
     page = (await open_page(async_client, token)).json()
-    await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page), headers=door(token))
+    await async_client.post(f"{PUBLIC}/estimate/decide", json=accept_body(page), headers=door(token))
     await db_session.execute(delete(Project).where(Project.id == uuid.UUID(world["project"])))
     await db_session.commit()
     assert (await db_session.execute(select(ClientLink))).first() is None
@@ -613,7 +614,7 @@ async def with_telegram(db, chat_id=777001, language_code="uk"):
 
 
 async def approve(client, token, page, name="Jan Kowalski"):
-    return await client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page, name), headers=door(token))
+    return await client.post(f"{PUBLIC}/estimate/decide", json=accept_body(page, name), headers=door(token))
 
 
 async def test_the_owner_is_told_in_telegram_that_the_client_approved_the_estimate(async_client, db_session, web, sender, monkeypatch):
@@ -668,8 +669,8 @@ async def test_a_refused_press_sends_nothing_and_a_second_one_sends_nothing_more
     await with_telegram(db_session)
     token = await issue(async_client, world)
     page = (await open_page(async_client, token)).json()
-    assert (await async_client.post(f"{PUBLIC}/estimate/accept", json=accept_body(page, agree=False), headers=door(token))).status_code == 422
-    assert (await async_client.post(f"{PUBLIC}/estimate/accept", json={**accept_body(page), "hash": "0" * 64}, headers=door(token))).status_code == 409
+    assert (await async_client.post(f"{PUBLIC}/estimate/decide", json=accept_body(page, agree=False), headers=door(token))).status_code == 422
+    assert (await async_client.post(f"{PUBLIC}/estimate/decide", json={**accept_body(page), "hash": "0" * 64}, headers=door(token))).status_code == 409
     assert sender.calls == []
     assert (await approve(async_client, token, page)).status_code == 200
     assert (await approve(async_client, token, page, "Ewa Nowak")).status_code == 409
@@ -714,7 +715,145 @@ async def test_a_message_that_cannot_be_put_together_is_logged_and_the_client_st
     assert any("could not be put together" in record.getMessage() for record in caplog.records)
 
 
+def test_the_reason_keeps_two_line_breaks_at_most_and_is_cut_in_a_message():
+    assert rules.clean_comment("a\r\n\r\n\r\n\r\nb") == "a\n\nb"
+    text = rules.owner_notice_text("notice_comment", "pl", comment="x" * 400)
+    assert len(text) < 220
+
+
 def test_the_words_of_the_client_in_a_message_are_one_short_line():
     text = rules.owner_notice_text("notice_estimate", "pl", client="Jan\n\tKowalski " + "x" * 400, project="Dom", version="1", amount="1,00", currency="PLN")
     assert "\n" not in text and "\t" not in text and len(text) < 400
     assert rules.project_open_url("", "p1") is None and rules.project_open_url("https://a.pl", "p1") == "https://a.pl?open=project:p1"
+
+
+# --- the client may decline the estimate and give a reason (V2-8b) ---------------------------------------------------------------------------
+
+
+def decline_body(page: dict, name="Jan Kowalski", comment="Za drogo, proszę usunąć łazienkę") -> dict:
+    return {**accept_body(page, name), "decision": "DECLINE", "comment": comment}
+
+
+async def test_the_client_declines_the_estimate_with_a_reason_and_the_owner_reads_both(async_client, db_session, web, sender):
+    world = await make_world(async_client, db_session)
+    await with_telegram(db_session, language_code="pl")
+    token = await issue(async_client, world)
+    page = (await open_page(async_client, token)).json()
+    est = page["estimate"]
+    assert "nie zatwierdzam" in est["decline_statement"]["pl"] and "3489,66" in est["decline_statement"]["pl"]
+    response = await async_client.post(f"{PUBLIC}/estimate/decide", json=decline_body(page), headers=door(token))
+    assert response.status_code == 200, response.text
+    after = response.json()["estimate"]
+    assert after["status"] == "FINAL" and after["accept_statement"] is None and after["decline_statement"] is None
+    assert after["consent"]["kind"] == "ESTIMATE_DECLINED" and after["consent"]["comment"] == "Za drogo, proszę usunąć łazienkę"
+    estimate = (await db_session.execute(select(Estimate).execution_options(populate_existing=True))).scalar_one()
+    assert estimate.status == EstimateStatus.FINAL  # a refusal changes nothing in the estimate itself
+    row = (await db_session.execute(select(ClientConsent))).scalar_one()
+    assert row.kind == "ESTIMATE_DECLINED" and row.statement == est["decline_statement"]["pl"] and row.subject_hash == est["hash"] and row.amount == Decimal("3489.66")
+    journal = (await async_client.get(world["base"] + "/client-journal", headers=world["headers"])).json()["items"]
+    assert journal[0]["kind"] == "ESTIMATE_DECLINED" and journal[0]["comment"] == "Za drogo, proszę usunąć łazienkę"
+    text_ = sender.calls[0][1]
+    assert text_.startswith("❌ Klient Jan Kowalski nie zatwierdził wyceny nr 1") and "\nPowód: „Za drogo, proszę usunąć łazienkę”" in text_
+
+
+async def test_a_refusal_without_a_reason_is_fine_and_a_blank_reason_is_no_reason(async_client, db_session, web):
+    world = await make_world(async_client, db_session)
+    token = await issue(async_client, world)
+    page = (await open_page(async_client, token)).json()
+    body = {k: v for k, v in decline_body(page).items() if k != "comment"}
+    assert (await async_client.post(f"{PUBLIC}/estimate/decide", json=body, headers=door(token))).status_code == 200
+    assert (await db_session.execute(select(ClientConsent.comment))).scalar_one() is None
+    world2 = await make_world(async_client, db_session, email="ewa@example.pl")
+    token2 = await issue(async_client, world2)
+    page2 = (await open_page(async_client, token2)).json()
+    assert (await async_client.post(f"{PUBLIC}/estimate/decide", json=decline_body(page2, comment="  \n "), headers=door(token2))).status_code == 200
+    assert sorted((await db_session.execute(select(ClientConsent.comment))).scalars().all(), key=str) == [None, None]
+
+
+async def test_a_reason_goes_only_with_a_refusal_and_is_short(async_client, db_session, web):
+    world = await make_world(async_client, db_session)
+    token = await issue(async_client, world)
+    page = (await open_page(async_client, token)).json()
+    post = lambda body: async_client.post(f"{PUBLIC}/estimate/decide", json=body, headers=door(token))  # noqa: E731
+    with_accept = await post({**accept_body(page), "comment": "ale proszę o rabat"})
+    assert with_accept.status_code == 422 and with_accept.json()["detail"]["code"] == "COMMENT_ONLY_ON_DECLINE"
+    long = await post(decline_body(page, comment="x" * 501))
+    assert long.status_code == 422 and long.json()["detail"]["code"] == "COMMENT_TOO_LONG"
+    assert (await post(decline_body(page, comment="x" * 2001))).status_code == 422
+    assert (await post({**decline_body(page), "decision": "MAYBE"})).status_code == 422
+    assert (await post({k: v for k, v in decline_body(page).items() if k != "decision"})).status_code == 422
+    assert (await post(decline_body(page, comment="x" * 500))).status_code == 200
+    assert (await db_session.execute(select(ClientConsent.comment))).scalar_one() == "x" * 500
+
+
+async def test_a_declined_version_is_final_and_a_new_version_waits_for_a_new_decision(async_client, db_session, web):
+    world = await make_world(async_client, db_session)
+    token = await issue(async_client, world)
+    page = (await open_page(async_client, token)).json()
+    assert (await async_client.post(f"{PUBLIC}/estimate/decide", json=decline_body(page), headers=door(token))).status_code == 200
+    again = await approve(async_client, token, page)
+    assert again.status_code == 409 and again.json()["detail"]["code"] == "ALREADY_DECIDED"
+    regenerated = await async_client.post(f"{world['base']}/estimates/generate", headers=world["headers"])
+    new_id = regenerated.json()["id"]
+    assert (await async_client.post(f"{world['base']}/estimates/{new_id}/finalize", headers=world["headers"])).status_code == 200
+    fresh = (await open_page(async_client, token)).json()
+    assert fresh["estimate"]["version"] == 2 and fresh["estimate"]["consent"] is None and fresh["estimate"]["decline_statement"] is not None
+    assert (await approve(async_client, token, fresh)).status_code == 200
+    assert (await db_session.execute(select(ClientConsent.kind).order_by(ClientConsent.created_at))).scalars().all() == ["ESTIMATE_DECLINED", "ESTIMATE_ACCEPTED"]
+
+
+async def test_an_estimate_approved_in_a_contract_cannot_be_declined_by_the_client(async_client, db_session, web):
+    world = await make_world(async_client, db_session)
+    token = await issue(async_client, world)
+    page = (await open_page(async_client, token)).json()
+    await db_session.execute(update(Estimate).values(status=EstimateStatus.ACCEPTED))
+    await db_session.commit()
+    refused = await async_client.post(f"{PUBLIC}/estimate/decide", json=decline_body(page), headers=door(token))
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "ESTIMATE_ALREADY_APPROVED"
+    assert (await db_session.execute(select(ClientConsent))).first() is None
+
+
+async def test_a_proposal_is_declined_with_a_reason_and_an_approval_takes_none(async_client, db_session, web, sender):
+    world = await make_world(async_client, db_session)
+    await with_telegram(db_session, language_code="en")
+    token = await issue(async_client, world)
+    await propose(async_client, world, title="Druga warstwa")
+    item = (await open_page(async_client, token)).json()["proposals"][0]
+    url = f"{PUBLIC}/proposals/{item['id']}/decide"
+    body = {"decision": "ACCEPT", "hash": item["hash"], "signer_name": "Jan Kowalski", "agree": True, "comment": "tak, ale taniej"}
+    bad = await async_client.post(url, json=body, headers=door(token))
+    assert bad.status_code == 422 and bad.json()["detail"]["code"] == "COMMENT_ONLY_ON_DECLINE"
+    assert (await async_client.post(url, json={**body, "decision": "DECLINE", "comment": "x" * 501}, headers=door(token))).json()["detail"]["code"] == "COMMENT_TOO_LONG"
+    ok = await async_client.post(url, json={**body, "decision": "DECLINE", "comment": "too expensive"}, headers=door(token))
+    assert ok.status_code == 200 and ok.json()["proposals"][0]["consent"]["comment"] == "too expensive"
+    assert sender.calls[0][1].endswith("\nReason: “too expensive”")
+    journal = (await async_client.get(world["base"] + "/client-journal", headers=world["headers"])).json()["items"]
+    assert journal[0]["kind"] == "PROPOSAL_DECLINED" and journal[0]["comment"] == "too expensive"
+
+
+async def test_only_a_refusal_may_carry_a_reason_in_the_database_too(async_client, db_session, web):
+    world = await make_world(async_client, db_session)
+    token = await issue(async_client, world)
+    page = (await open_page(async_client, token)).json()
+    await approve(async_client, token, page)
+    row = (await db_session.execute(select(ClientConsent))).scalar_one()
+    db_session.add(
+        ClientConsent(
+            owner_id=row.owner_id, project_id=row.project_id, link_id=row.link_id, kind="ESTIMATE_ACCEPTED", estimate_id=uuid.uuid4(), subject_hash="h" * 64,
+            amount=Decimal("1"), currency="PLN", statement="x", signer_name="Jan", comment="a reason with an approval", ip_hash="i" * 64, agent_hash="a" * 64,
+        )
+    )
+    with pytest.raises(IntegrityError):
+        await db_session.commit()
+    await db_session.rollback()
+
+
+async def test_with_the_encryption_on_the_reason_is_ciphertext_too(async_client, db_session, web, encryption_on):
+    world = await make_world(async_client, db_session)
+    token = await issue(async_client, world)
+    page = (await open_page(async_client, token)).json()
+    await async_client.post(f"{PUBLIC}/estimate/decide", json=decline_body(page, comment="Sekretny powód"), headers=door(token))
+    raw = (await db_session.execute(text("select comment from client_consents"))).scalar_one()
+    assert raw.startswith("enc1:") and "Sekretny" not in raw
+    journal = (await async_client.get(world["base"] + "/client-journal", headers=world["headers"])).json()["items"]
+    assert journal[0]["comment"] == "Sekretny powód"

@@ -3,7 +3,7 @@
 `client_links` keeps only the SHA-256 of the secret (the link itself is shown once, when it is made); one unrevoked link per object.
 `client_proposals` are immutable once made (to change one, withdraw it and make another); title and description are the owner's words about
 the client's flat, so they are encrypted like the rest of the object. `client_consents` is the journal: rows are only ever added, and each
-holds the exact text the client agreed to, the hash of what was shown, and hashes (never raw values) of the address and the browser.
+holds the exact text the client agreed to or refused, the hash of what was shown, and hashes (never raw values) of the address and the browser.
 """
 import enum
 import uuid
@@ -38,6 +38,7 @@ class ProposalStatus(str, enum.Enum):
 
 class ConsentKind(str, enum.Enum):
     ESTIMATE_ACCEPTED = "ESTIMATE_ACCEPTED"
+    ESTIMATE_DECLINED = "ESTIMATE_DECLINED"
     PROPOSAL_ACCEPTED = "PROPOSAL_ACCEPTED"
     PROPOSAL_DECLINED = "PROPOSAL_DECLINED"
 
@@ -100,12 +101,15 @@ class ClientConsent(Base):
     __tablename__ = "client_consents"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('ESTIMATE_ACCEPTED', 'PROPOSAL_ACCEPTED', 'PROPOSAL_DECLINED')", name="ck_client_consents_kind"
+            "kind IN ('ESTIMATE_ACCEPTED', 'ESTIMATE_DECLINED', 'PROPOSAL_ACCEPTED', 'PROPOSAL_DECLINED')", name="ck_client_consents_kind"
         ),
         CheckConstraint(
-            "(kind = 'ESTIMATE_ACCEPTED' AND estimate_id IS NOT NULL AND proposal_id IS NULL)"
-            " OR (kind <> 'ESTIMATE_ACCEPTED' AND proposal_id IS NOT NULL)",
+            "(kind IN ('ESTIMATE_ACCEPTED', 'ESTIMATE_DECLINED') AND estimate_id IS NOT NULL AND proposal_id IS NULL)"
+            " OR (kind IN ('PROPOSAL_ACCEPTED', 'PROPOSAL_DECLINED') AND proposal_id IS NOT NULL)",
             name="ck_client_consents_subject",
+        ),
+        CheckConstraint(
+            "comment IS NULL OR kind IN ('ESTIMATE_DECLINED', 'PROPOSAL_DECLINED')", name="ck_client_consents_comment_on_decline"
         ),
         UniqueConstraint("estimate_id", name="uq_client_consents_estimate"),
         UniqueConstraint("proposal_id", name="uq_client_consents_proposal"),
@@ -126,6 +130,7 @@ class ClientConsent(Base):
     statement: Mapped[str] = mapped_column(Text, nullable=False)  # the exact Polish text the client agreed to (no personal data)
     statement_lang: Mapped[str] = mapped_column(String(2), nullable=False, default="pl")
     signer_name: Mapped[str] = mapped_column(EncryptedText("client_consents.signer_name"), nullable=False)
+    comment: Mapped[str | None] = mapped_column(EncryptedText("client_consents.comment"), nullable=True)  # the reason of a refusal (V2-8b), optional
     ip_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     agent_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)

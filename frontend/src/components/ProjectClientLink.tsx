@@ -163,7 +163,7 @@ export function ProjectClientLink({ projectId }: ProjectClientLinkProps) {
   const statusLabel = (status: ClientProposal['status']) =>
     ({ OPEN: text.status_open, ACCEPTED: text.status_accepted, DECLINED: text.status_declined, WITHDRAWN: text.status_withdrawn })[status];
   const kindLabel = (kind: ClientConsent['kind']) =>
-    ({ ESTIMATE_ACCEPTED: text.kind_estimate_accepted, PROPOSAL_ACCEPTED: text.kind_proposal_accepted, PROPOSAL_DECLINED: text.kind_proposal_declined })[kind];
+    ({ ESTIMATE_ACCEPTED: text.kind_estimate_accepted, ESTIMATE_DECLINED: text.kind_estimate_declined, PROPOSAL_ACCEPTED: text.kind_proposal_accepted, PROPOSAL_DECLINED: text.kind_proposal_declined })[kind];
   const badge = (status: ClientProposal['status']) =>
     status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-800' : status === 'DECLINED' ? 'bg-red-100 text-red-800' : status === 'OPEN' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700';
 
@@ -337,6 +337,7 @@ export function ProjectClientLink({ projectId }: ProjectClientLinkProps) {
                   {entry.estimate_version ? ` · ${text.estimate_version.replace('{version}', String(entry.estimate_version))}` : ''}
                 </p>
                 <p className="text-sm text-slate-700 break-words">{text.signed_by.replace('{name}', entry.signer_name)}</p>
+                {entry.comment && <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{text.comment_of_client.replace('{comment}', entry.comment)}</p>}
                 <details>
                   <summary className="text-xs text-blue-700 cursor-pointer min-h-11 flex items-center">{text.statement_toggle}</summary>
                   <p className="text-xs text-slate-600 break-words whitespace-pre-wrap">{entry.statement}</p>

@@ -25,7 +25,7 @@ from app.domain.exceptions import MessageDeliveryDisabledError, MessageDeliveryE
 from app.domain.services.client_portal_service import ClientPortalService
 from app.models.client_link import ClientLink
 from app.schemas.client_portal import (
-    PortalAcceptEstimate,
+    PortalDecideEstimate,
     PortalDecideProposal,
     PortalPage,
 )
@@ -114,6 +114,9 @@ _STATUS = {
     "AGREE_REQUIRED": 422,
     "NAME_REQUIRED": 422,
     "NAME_TOO_LONG": 422,
+    "COMMENT_TOO_LONG": 422,
+    "COMMENT_ONLY_ON_DECLINE": 422,
+    "ESTIMATE_ALREADY_APPROVED": 409,
     "ESTIMATE_CHANGED": 409,
     "PROPOSAL_CHANGED": 409,
     "ALREADY_DECIDED": 409,
@@ -138,9 +141,9 @@ async def read_page(
     return page
 
 
-@router.post("/estimate/accept", response_model=PortalPage, summary="The client accepts the estimate")
-async def accept_estimate(
-    payload: PortalAcceptEstimate,
+@router.post("/estimate/decide", response_model=PortalPage, summary="The client approves or declines the estimate")
+async def decide_estimate(
+    payload: PortalDecideEstimate,
     request: Request,
     tasks: BackgroundTasks,
     lang: str | None = Query(default=None, max_length=5),
@@ -150,13 +153,15 @@ async def accept_estimate(
 ) -> PortalPage:
     link = await _door(request, service, x_client_link, action_limiter)
     try:
-        consent = await service.accept_estimate(
+        consent = await service.decide_estimate(
             link,
             estimate_id=payload.estimate_id,
             version=payload.version,
             seen_hash=payload.hash,
+            decision=payload.decision,
             signer_name=payload.signer_name,
             agree=payload.agree,
+            comment=payload.comment,
             ip=client_ip(request),
             agent=request.headers.get("user-agent", ""),
         )
@@ -186,6 +191,7 @@ async def decide_proposal(
             seen_hash=payload.hash,
             signer_name=payload.signer_name,
             agree=payload.agree,
+            comment=payload.comment,
             ip=client_ip(request),
             agent=request.headers.get("user-agent", ""),
         )

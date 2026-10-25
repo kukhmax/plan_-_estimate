@@ -100,7 +100,7 @@ class ClientPortalService:
     def _consent(row: ClientConsent | None) -> PortalConsent | None:
         if row is None:
             return None
-        return PortalConsent(kind=row.kind, signer_name=row.signer_name, created_at=row.created_at)
+        return PortalConsent(kind=row.kind, signer_name=row.signer_name, comment=row.comment, created_at=row.created_at)
 
     def _pair(self, key: str, lang: str, **values) -> PortalStatement:
         return PortalStatement(pl=rules.statement(key, "pl", **values), text=rules.statement(key, lang, **values))
@@ -152,6 +152,11 @@ class ClientPortalService:
                 consent=self._consent(consent),
                 accept_statement=self._pair(
                     "estimate_accept", lang, contractor=who, amount=rules.payable(read), currency=read.currency, version=read.version
+                )
+                if waiting
+                else None,
+                decline_statement=self._pair(
+                    "estimate_decline", lang, contractor=who, amount=rules.payable(read), currency=read.currency, version=read.version
                 )
                 if waiting
                 else None,
@@ -211,7 +216,9 @@ class ClientPortalService:
 
     # -- the consent ------------------------------------------------------------------------------------------------------------
 
-    def _consent_row(self, link: ClientLink, *, kind: ConsentKind, signer: str, ip: str, agent: str, now: datetime, **subject) -> ClientConsent:
+    def _consent_row(
+        self, link: ClientLink, *, kind: ConsentKind, signer: str, ip: str, agent: str, now: datetime, comment: str | None = None, **subject
+    ) -> ClientConsent:
         return ClientConsent(
             owner_id=link.owner_id,
             project_id=link.project_id,
@@ -219,29 +226,37 @@ class ClientPortalService:
             kind=kind.value,
             statement_lang="pl",
             signer_name=signer,
+            comment=comment,
             ip_hash=rules.hash_value(self.secret, ip),
             agent_hash=rules.hash_value(self.secret, agent[:300]),
             created_at=now,
             **subject,
         )
 
-    async def accept_estimate(
+    async def decide_estimate(
         self,
         link: ClientLink,
         *,
         estimate_id: uuid.UUID,
         version: int,
         seen_hash: str,
+        decision: str,
         signer_name: str,
         agree: bool,
+        comment: str | None,
         ip: str,
         agent: str,
         now: datetime | None = None,
     ) -> ClientConsent:
+        """The client approves the estimate (it becomes ACCEPTED) or declines it (it stays as it is; the owner makes a new version). One decision per version."""
         now = now or datetime.now(UTC)
+        accepted = decision == "ACCEPT"
         if not agree:
             raise rules.ClientLinkError("AGREE_REQUIRED", "tick the box to agree", "agree")
         signer = rules.clean_name(signer_name)
+        reason = rules.clean_comment(comment)
+        if reason is not None and accepted:
+            raise rules.ClientLinkError("COMMENT_ONLY_ON_DECLINE", "a reason is written only with a refusal", "comment")
         latest = await self._latest_estimate_id(link)
         if latest is None or latest != estimate_id:
             raise rules.ClientLinkError("ESTIMATE_CHANGED", "the estimate was replaced: reload the page")
@@ -252,7 +267,9 @@ class ClientPortalService:
         ).scalar_one()
         done = (await self.db.execute(select(ClientConsent.id).where(ClientConsent.estimate_id == estimate_id))).scalar_one_or_none()
         if done is not None:
-            raise rules.ClientLinkError("ALREADY_DECIDED", "the estimate is already accepted")
+            raise rules.ClientLinkError("ALREADY_DECIDED", "this version of the estimate is already decided")
+        if not accepted and estimate.status == EstimateStatus.ACCEPTED:
+            raise rules.ClientLinkError("ESTIMATE_ALREADY_APPROVED", "the estimate is already approved in the contract")
         read = await EstimateService(self.db).get_estimate_read_with_provenance(link.project_id, estimate_id, link.owner_id)
         current = rules.estimate_hash(read)
         if read.version != version or not hmac.compare_digest(current, seen_hash.lower()):
@@ -260,15 +277,21 @@ class ClientPortalService:
         contractor = await self._contractor(link.owner_id)
         amount = rules.payable(read)
         text = rules.statement(
-            "estimate_accept", "pl", contractor=contractor.name or "", amount=amount, currency=read.currency, version=read.version
+            "estimate_accept" if accepted else "estimate_decline",
+            "pl",
+            contractor=contractor.name or "",
+            amount=amount,
+            currency=read.currency,
+            version=read.version,
         )
         consent = self._consent_row(
             link,
-            kind=ConsentKind.ESTIMATE_ACCEPTED,
+            kind=ConsentKind.ESTIMATE_ACCEPTED if accepted else ConsentKind.ESTIMATE_DECLINED,
             signer=signer,
             ip=ip,
             agent=agent,
             now=now,
+            comment=reason,
             estimate_id=estimate_id,
             estimate_version=read.version,
             subject_hash=current,
@@ -277,7 +300,8 @@ class ClientPortalService:
             statement=text,
         )
         self.db.add(consent)
-        estimate.status = EstimateStatus.ACCEPTED
+        if accepted:
+            estimate.status = EstimateStatus.ACCEPTED
         await self._commit_once()
         return consent
 
@@ -290,6 +314,7 @@ class ClientPortalService:
         seen_hash: str,
         signer_name: str,
         agree: bool,
+        comment: str | None = None,
         ip: str,
         agent: str,
         now: datetime | None = None,
@@ -298,6 +323,9 @@ class ClientPortalService:
         if not agree:
             raise rules.ClientLinkError("AGREE_REQUIRED", "tick the box to agree", "agree")
         signer = rules.clean_name(signer_name)
+        reason = rules.clean_comment(comment)
+        if reason is not None and decision == "ACCEPT":
+            raise rules.ClientLinkError("COMMENT_ONLY_ON_DECLINE", "a reason is written only with a refusal", "comment")
         proposal = (
             await self.db.execute(
                 select(ClientProposal).where(
@@ -331,6 +359,7 @@ class ClientPortalService:
             ip=ip,
             agent=agent,
             now=now,
+            comment=reason,
             proposal_id=proposal.id,
             subject_hash=proposal.content_hash,
             amount=proposal.amount,
@@ -355,12 +384,15 @@ class ClientPortalService:
         project = (await self.db.execute(select(Project).where(Project.id == link.project_id, Project.owner_id == link.owner_id))).scalar_one()
         amount = rules.amount_text(consent.amount, lang)
         values = {"client": consent.signer_name, "project": project.name, "amount": amount, "currency": consent.currency}
-        if consent.kind == ConsentKind.ESTIMATE_ACCEPTED.value:
-            text = rules.owner_notice_text("notice_estimate", lang, version=str(consent.estimate_version or ""), **values)
+        if consent.kind in (ConsentKind.ESTIMATE_ACCEPTED.value, ConsentKind.ESTIMATE_DECLINED.value):
+            key = "notice_estimate" if consent.kind == ConsentKind.ESTIMATE_ACCEPTED.value else "notice_estimate_declined"
+            text = rules.owner_notice_text(key, lang, version=str(consent.estimate_version or ""), **values)
         else:
             proposal = (await self.db.execute(select(ClientProposal).where(ClientProposal.id == consent.proposal_id))).scalar_one()
             key = "notice_accept" if consent.kind == ConsentKind.PROPOSAL_ACCEPTED.value else "notice_decline"
             text = rules.owner_notice_text(key, lang, title=proposal.title, **values)
+        if consent.comment:
+            text += "\n" + rules.owner_notice_text("notice_comment", lang, comment=consent.comment)
         return rules.OwnerNotice(
             chat_id=user.telegram_user_id,
             text=text,
