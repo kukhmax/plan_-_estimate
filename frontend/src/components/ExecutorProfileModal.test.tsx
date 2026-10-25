@@ -85,9 +85,40 @@ describe('ExecutorProfileModal (Stage 15C)', () => {
     expect(await screen.findByText('Profil zapisany.')).toBeInTheDocument();
     expect(profileApi.saveExecutorProfile).toHaveBeenCalledWith({
       name: 'Jan Kowalski', nip: '774-000-14-54', street: '', postal_code: '', city: '', phone: '', email: '', bank_account: '',
-      vat_mode: null, vat_rate_percent: null,
+      vat_mode: null, vat_rate_percent: null, hourly_rate: '',
     });
     expect(screen.getByLabelText('NIP')).toHaveValue('7740001454');
+  });
+
+  it('has the hourly rate: touch-sized, a decimal keyboard, shown as typed, a typo is told at the field and nothing is sent (V2-9)', async () => {
+    vi.mocked(profileApi.fetchExecutorProfile).mockResolvedValue({ ...SAVED, hourly_rate: '90.50' });
+    vi.mocked(profileApi.saveExecutorProfile).mockResolvedValue({ ...SAVED, hourly_rate: '120.00' });
+    renderModal();
+    const rate = await screen.findByLabelText('Stawka za godzinę, zł (opcjonalnie)');
+    expect(rate).toHaveValue('90,50');
+    expect(rate).toHaveAttribute('inputmode', 'decimal');
+    expect(rate.className).toContain('min-h-11');
+    expect(screen.getByText(/Używana tylko do marży obiektu/)).toBeInTheDocument();
+    for (const bad of ['0', 'abc', '1,234', '-5']) {
+      fireEvent.change(rate, { target: { value: bad } });
+      fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
+      expect(await screen.findByText('Stawka: liczba większa od zera, najwyżej z dwoma miejscami po przecinku.')).toBeInTheDocument();
+    }
+    expect(profileApi.saveExecutorProfile).not.toHaveBeenCalled();
+    fireEvent.change(rate, { target: { value: '120' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
+    await waitFor(() => expect(profileApi.saveExecutorProfile).toHaveBeenCalledWith(expect.objectContaining({ hourly_rate: '120' })));
+    expect(await screen.findByLabelText('Stawka za godzinę, zł (opcjonalnie)')).toHaveValue('120,00');
+  });
+
+  it('may clear the rate (an empty field is sent) (V2-9)', async () => {
+    vi.mocked(profileApi.fetchExecutorProfile).mockResolvedValue({ ...SAVED, hourly_rate: '90.50' });
+    vi.mocked(profileApi.saveExecutorProfile).mockResolvedValue({ ...SAVED, hourly_rate: null });
+    renderModal();
+    fireEvent.change(await screen.findByLabelText('Stawka za godzinę, zł (opcjonalnie)'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
+    await waitFor(() => expect(profileApi.saveExecutorProfile).toHaveBeenCalledWith(expect.objectContaining({ hourly_rate: '' })));
+    expect(await screen.findByLabelText('Stawka za godzinę, zł (opcjonalnie)')).toHaveValue('');
   });
 
   it('shows the stored VAT and sends the chosen one with the whole form (V2-6)', async () => {

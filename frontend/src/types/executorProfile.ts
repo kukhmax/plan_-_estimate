@@ -11,6 +11,8 @@ export interface ExecutorProfile {
   bank_account: string | null;
   vat_mode: 'EXEMPT' | 'RATE' | null;
   vat_rate_percent: number | null;
+  /** V2-9: the owner's own rate per hour (the margin of an object uses it); a profile kept from before may lack it. */
+  hourly_rate?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,6 +34,8 @@ export interface ExecutorProfilePayload {
   /** V2-6: always sent, so that saving the profile never leaves the VAT of the stored profile behind. */
   vat_mode: 'EXEMPT' | 'RATE' | null;
   vat_rate_percent: number | null;
+  /** V2-9: typed as text ("90,5"); empty clears the rate. */
+  hourly_rate: string;
 }
 
 export type ExecutorProfileField = Exclude<keyof ExecutorProfilePayload, 'vat_mode' | 'vat_rate_percent'>;

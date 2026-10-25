@@ -326,7 +326,10 @@
     "validation_integer": "Enter a whole number.",
     "validation_failed": "Check the values you entered.",
     "execution_archived": "Execution cannot be changed in an archived object, room or surface. Restore them first.",
-    "CHANGES_WAITING": "Changes made without a connection have not been sent to the server yet. Wait for a connection and try again."
+    "CHANGES_WAITING": "Changes made without a connection have not been sent to the server yet. Wait for a connection and try again.",
+    "STAGE_AMOUNT_UNKNOWN": "This stage is a share of the agreed amount, which is not set yet.",
+    "STAGE_NOTHING_LEFT": "This stage is already paid in full.",
+    "STAGE_INVALID": "Check the data of the stage."
   },
   "common": {
     "open": "Open",
@@ -2462,7 +2465,8 @@
       "phone": "Phone",
       "email": "E-mail",
       "bank_account": "Bank account number",
-      "vat": "VAT rate in estimates"
+      "vat": "VAT rate in estimates",
+      "hourly_rate": "Rate per hour, zł (optional)"
     },
     "placeholders": {
       "nip": "774-000-14-54",
@@ -2476,8 +2480,10 @@
       "EMAIL_INVALID": "Invalid e-mail address.",
       "PHONE_INVALID": "Invalid phone number.",
       "BANK_ACCOUNT_INVALID": "Invalid account number (26 digits).",
-      "VAT_INVALID": "Invalid VAT rate."
-    }
+      "VAT_INVALID": "Invalid VAT rate.",
+      "RATE_INVALID": "Rate: a number above zero with at most two decimal places."
+    },
+    "hourly_rate_hint": "Used only for the margin of a property; it does not go into the documents."
   },
   "documents": {
     "title": "PDF documents",
@@ -3577,7 +3583,9 @@
     "tabs": {
       "invoices": "Invoices",
       "client": "From the client",
-      "materials": "Materials"
+      "materials": "Materials",
+      "schedule": "Stages",
+      "hours": "Hours"
     },
     "add_invoice": "Add an invoice",
     "add_client": "Add money from the client",
@@ -3637,7 +3645,9 @@
       "vat": "VAT, % (for information)",
       "settles": "Which invoice it belongs to",
       "settles_none": "No invoice",
-      "note": "Note"
+      "note": "Note",
+      "stage": "Schedule stage",
+      "stage_none": "No stage"
     },
     "errors": {
       "title": "Enter what it is for.",
@@ -3676,6 +3686,100 @@
       "clear": "Clear the amount",
       "needs_connection": "You can change the agreed amount when the connection is back.",
       "save_error": "Could not save the amount."
+    },
+    "schedule": {
+      "intro": "The client's payment plan in stages. The server counts the amounts and the statuses.",
+      "empty": "No stages yet. Add the first one (for example, an advance).",
+      "add": "Add a stage",
+      "add_title": "New stage",
+      "edit_title": "Change the stage",
+      "title_label": "Name of the stage",
+      "mode_percent": "% of the agreed amount",
+      "mode_amount": "Amount, zł",
+      "percent_label": "Share of the agreed amount, %",
+      "amount_label": "Amount of the stage, zł",
+      "due_label": "Payment due (optional)",
+      "hint_1": "Advance at the start",
+      "hint_2": "After the skim coat",
+      "hint_3": "Final acceptance",
+      "received_btn": "Received",
+      "received_ok": "The payment for the rest of the stage was recorded.",
+      "amount": "Stage amount",
+      "received": "Received",
+      "remaining": "Left",
+      "due": "Due",
+      "share_of": "{percent}% of the agreed amount",
+      "share_waits": "The share waits for the agreed amount.",
+      "state": {
+        "PAID": "Paid",
+        "PARTIAL": "Partly",
+        "OVERDUE": "Overdue",
+        "OPEN": "Waiting"
+      },
+      "summary": {
+        "agreed": "Agreed amount",
+        "total": "Total of the stages",
+        "difference_more": "Not scheduled yet: {amount}",
+        "difference_less": "The stages are above the agreed amount by {amount}",
+        "difference_ok": "The stages cover the agreed amount.",
+        "received": "Received for the stages",
+        "to_receive": "Still due by the stages",
+        "unpriced": "Stages waiting for the agreed amount: {n}",
+        "not_set": "not set"
+      },
+      "delete": "Delete the stage",
+      "delete_confirm": "Delete the stage? The payments stay, without a stage.",
+      "delete_yes": "Yes, delete the stage",
+      "deleted": "The stage was deleted.",
+      "saved": "The stage was saved.",
+      "save_error": "The stage could not be saved.",
+      "load_error": "The schedule could not be loaded.",
+      "needs_connection": "You can change the schedule when the connection is back.",
+      "errors": {
+        "title": "Enter the name of the stage.",
+        "value": "Enter a share (0.01 to 100) or an amount above zero."
+      }
+    },
+    "hours": {
+      "intro": "Your work log for the property: the day and the hours. It is used for the margin.",
+      "empty": "No hours yet. Add the first entry.",
+      "add": "Add hours",
+      "add_title": "New entry",
+      "edit_title": "Change the entry",
+      "date_label": "Day of work",
+      "hours_label": "Hours (for example 7.5)",
+      "note_label": "Note (optional)",
+      "total": "Hours in all",
+      "rate": "Rate per hour",
+      "rate_not_set": "not set — set it in the executor profile",
+      "saved": "The entry was saved.",
+      "deleted": "The entry was deleted.",
+      "delete": "Delete the entry",
+      "delete_confirm": "Delete this entry of hours?",
+      "delete_yes": "Yes, delete the entry",
+      "save_error": "The entry could not be saved.",
+      "load_error": "The hours could not be loaded.",
+      "needs_connection": "You can change the hours when the connection is back.",
+      "errors": {
+        "hours": "Enter hours above zero, at most 24 (up to two decimal places)."
+      }
+    },
+    "margin": {
+      "title": "Margin of the property",
+      "basis_agreed": "Basis: the agreed amount",
+      "basis_estimate": "Basis: the estimate (no agreed amount)",
+      "no_basis": "Set the agreed amount or prepare an estimate to count the margin.",
+      "basis": "Basis",
+      "expenses": "Expenses",
+      "hours": "Hours worked",
+      "labor": "Your work (hours × rate)",
+      "labor_none": "no rate",
+      "margin": "Margin",
+      "margin_before": "Margin before the cost of work",
+      "percent": "% of the basis",
+      "per_hour": "Earned per hour (before the cost of work)",
+      "rate_hint": "Set the rate per hour in the executor profile to take off the cost of your own work.",
+      "note": "Amounts as recorded, VAT is not settled."
     }
   },
   "notes": {

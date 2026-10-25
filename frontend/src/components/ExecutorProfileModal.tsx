@@ -3,6 +3,7 @@ import { fetchExecutorProfile, profileFieldErrors, saveExecutorProfile } from '.
 import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import { ExecutorProfile, ExecutorProfileField, ExecutorProfilePayload } from '../types/executorProfile';
+import { positiveAmount, toInput } from '../utils/paymentFormat';
 import { VAT_CHOICES, VatChoice, vatChoiceOf, vatSettingOf } from '../utils/vat';
 import { Ico } from './Ico';
 
@@ -13,7 +14,7 @@ interface ExecutorProfileModalProps {
 interface FieldSpec {
   name: ExecutorProfileField;
   type: 'text' | 'tel' | 'email';
-  inputMode?: 'numeric' | 'tel' | 'email';
+  inputMode?: 'numeric' | 'tel' | 'email' | 'decimal';
   autoComplete: string;
   placeholder?: boolean;
 }
@@ -27,11 +28,12 @@ const FIELDS: FieldSpec[] = [
   { name: 'phone', type: 'tel', inputMode: 'tel', autoComplete: 'tel' },
   { name: 'email', type: 'email', inputMode: 'email', autoComplete: 'email' },
   { name: 'bank_account', type: 'text', inputMode: 'numeric', autoComplete: 'off', placeholder: true },
+  { name: 'hourly_rate', type: 'text', inputMode: 'decimal', autoComplete: 'off' },
 ];
 
 const EMPTY: ExecutorProfilePayload = {
   name: '', nip: '', street: '', postal_code: '', city: '', phone: '', email: '', bank_account: '',
-  vat_mode: null, vat_rate_percent: null,
+  vat_mode: null, vat_rate_percent: null, hourly_rate: '',
 };
 
 function toForm(profile: ExecutorProfile | null): ExecutorProfilePayload {
@@ -47,6 +49,7 @@ function toForm(profile: ExecutorProfile | null): ExecutorProfilePayload {
     bank_account: profile.bank_account ?? '',
     vat_mode: profile.vat_mode,
     vat_rate_percent: profile.vat_rate_percent,
+    hourly_rate: toInput(profile.hourly_rate),
   };
 }
 
@@ -104,6 +107,12 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (saving) return;
+    // the rate is the owner's own number: checked here, so a typo is told at the field
+    if (form.hourly_rate.trim() !== '' && positiveAmount(form.hourly_rate) === null) {
+      setFieldErrors({ hourly_rate: 'RATE_INVALID' });
+      setSaveError(text.invalid_summary);
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     setSaved(false);
@@ -211,6 +220,7 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
                       color: 'var(--tg-theme-text-color)',
                     }}
                   />
+                  {spec.name === 'hourly_rate' && <p className="text-xs break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>{text.hourly_rate_hint}</p>}
                   {error && (
                     <p id={`${id}-error`} className="text-xs font-medium text-red-700 break-words">{error}</p>
                   )}

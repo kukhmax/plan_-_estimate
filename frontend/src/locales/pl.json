@@ -326,7 +326,10 @@
     "validation_integer": "Podaj liczbę całkowitą.",
     "validation_failed": "Sprawdź wprowadzone wartości.",
     "execution_archived": "Nie można zmieniać realizacji w zarchiwizowanym obiekcie, pomieszczeniu lub powierzchni. Najpierw je przywróć.",
-    "CHANGES_WAITING": "Zmiany zrobione bez zasięgu czekają jeszcze na wysłanie na serwer. Poczekaj chwilę na zasięg i spróbuj ponownie."
+    "CHANGES_WAITING": "Zmiany zrobione bez zasięgu czekają jeszcze na wysłanie na serwer. Poczekaj chwilę na zasięg i spróbuj ponownie.",
+    "STAGE_AMOUNT_UNKNOWN": "Ten etap to udział w umówionej kwocie, a jej jeszcze nie ustawiono.",
+    "STAGE_NOTHING_LEFT": "Ten etap jest już w całości opłacony.",
+    "STAGE_INVALID": "Popraw dane etapu."
   },
   "common": {
     "open": "Otwórz",
@@ -2457,7 +2460,8 @@
       "phone": "Telefon",
       "email": "E-mail",
       "bank_account": "Numer rachunku bankowego",
-      "vat": "Stawka VAT w kosztorysach"
+      "vat": "Stawka VAT w kosztorysach",
+      "hourly_rate": "Stawka za godzinę, zł (opcjonalnie)"
     },
     "placeholders": {
       "nip": "774-000-14-54",
@@ -2471,8 +2475,10 @@
       "EMAIL_INVALID": "Niepoprawny adres e-mail.",
       "PHONE_INVALID": "Niepoprawny numer telefonu.",
       "BANK_ACCOUNT_INVALID": "Niepoprawny numer rachunku (26 cyfr).",
-      "VAT_INVALID": "Niepoprawna stawka VAT."
-    }
+      "VAT_INVALID": "Niepoprawna stawka VAT.",
+      "RATE_INVALID": "Stawka: liczba większa od zera, najwyżej z dwoma miejscami po przecinku."
+    },
+    "hourly_rate_hint": "Używana tylko do marży obiektu; nie trafia do dokumentów."
   },
   "documents": {
     "title": "Dokumenty PDF",
@@ -3569,7 +3575,7 @@
     "loading": "Ładowanie rozliczeń…",
     "load_error": "Nie udało się wczytać rozliczeń.",
     "retry": "Spróbuj ponownie",
-    "tabs": { "invoices": "Faktury", "client": "Od klienta", "materials": "Materiały" },
+    "tabs": { "invoices": "Faktury", "client": "Od klienta", "materials": "Materiały", "schedule": "Etapy", "hours": "Godziny" },
     "add_invoice": "Dodaj fakturę",
     "add_client": "Dodaj wpłatę od klienta",
     "add_expense": "Dodaj wydatek na materiały",
@@ -3609,7 +3615,9 @@
       "vat": "VAT, % (dla informacji)",
       "settles": "Dotyczy faktury",
       "settles_none": "Bez faktury",
-      "note": "Notatka"
+      "note": "Notatka",
+      "stage": "Etap harmonogramu",
+      "stage_none": "Bez etapu"
     },
     "errors": {
       "title": "Wpisz, za co.",
@@ -3648,6 +3656,100 @@
       "clear": "Wyczyść kwotę",
       "needs_connection": "Umówioną kwotę zmienisz, gdy wróci zasięg.",
       "save_error": "Nie udało się zapisać kwoty."
+    },
+    "schedule": {
+      "intro": "Plan płatności klienta w etapach. Kwoty i statusy liczy serwer.",
+      "empty": "Brak etapów. Dodaj pierwszy (np. zaliczkę).",
+      "add": "Dodaj etap",
+      "add_title": "Nowy etap",
+      "edit_title": "Zmiana etapu",
+      "title_label": "Nazwa etapu",
+      "mode_percent": "% umówionej kwoty",
+      "mode_amount": "Kwota, zł",
+      "percent_label": "Udział w umówionej kwocie, %",
+      "amount_label": "Kwota etapu, zł",
+      "due_label": "Termin płatności (opcjonalnie)",
+      "hint_1": "Zaliczka na start",
+      "hint_2": "Po gładziach",
+      "hint_3": "Odbiór końcowy",
+      "received_btn": "Otrzymano",
+      "received_ok": "Wpłata na resztę etapu zapisana.",
+      "amount": "Kwota etapu",
+      "received": "Otrzymano",
+      "remaining": "Pozostało",
+      "due": "Termin",
+      "share_of": "{percent}% umówionej kwoty",
+      "share_waits": "Udział czeka na umówioną kwotę.",
+      "state": {
+        "PAID": "Zapłacony",
+        "PARTIAL": "Częściowo",
+        "OVERDUE": "Po terminie",
+        "OPEN": "Oczekuje"
+      },
+      "summary": {
+        "agreed": "Umówiona kwota",
+        "total": "Suma etapów",
+        "difference_more": "Nie rozplanowano: {amount}",
+        "difference_less": "Etapy przekraczają umówioną kwotę o {amount}",
+        "difference_ok": "Etapy pokrywają umówioną kwotę.",
+        "received": "Otrzymano na etapy",
+        "to_receive": "Do otrzymania wg etapów",
+        "unpriced": "Etapy czekające na umówioną kwotę: {n}",
+        "not_set": "nie ustawiono"
+      },
+      "delete": "Usuń etap",
+      "delete_confirm": "Usunąć etap? Wpłaty zostaną, bez etapu.",
+      "delete_yes": "Tak, usuń etap",
+      "deleted": "Etap usunięty.",
+      "saved": "Etap zapisany.",
+      "save_error": "Nie udało się zapisać etapu.",
+      "load_error": "Nie udało się wczytać harmonogramu.",
+      "needs_connection": "Harmonogram zmienisz, gdy wróci zasięg.",
+      "errors": {
+        "title": "Wpisz nazwę etapu.",
+        "value": "Wpisz udział (od 0,01 do 100) albo kwotę większą od zera."
+      }
+    },
+    "hours": {
+      "intro": "Twój dziennik pracy przy obiekcie: dzień i godziny. Służy do liczenia marży.",
+      "empty": "Brak godzin. Dodaj pierwszy wpis.",
+      "add": "Dodaj godziny",
+      "add_title": "Nowy wpis",
+      "edit_title": "Zmiana wpisu",
+      "date_label": "Dzień pracy",
+      "hours_label": "Godziny (np. 7,5)",
+      "note_label": "Notatka (opcjonalnie)",
+      "total": "Razem godzin",
+      "rate": "Stawka za godzinę",
+      "rate_not_set": "nie ustawiono — ustaw w profilu wykonawcy",
+      "saved": "Wpis zapisany.",
+      "deleted": "Wpis usunięty.",
+      "delete": "Usuń wpis",
+      "delete_confirm": "Usunąć wpis godzin?",
+      "delete_yes": "Tak, usuń wpis",
+      "save_error": "Nie udało się zapisać wpisu.",
+      "load_error": "Nie udało się wczytać godzin.",
+      "needs_connection": "Godziny zmienisz, gdy wróci zasięg.",
+      "errors": {
+        "hours": "Wpisz godziny większe od zera, najwyżej 24 (do dwóch miejsc po przecinku)."
+      }
+    },
+    "margin": {
+      "title": "Marża obiektu",
+      "basis_agreed": "Podstawa: umówiona kwota",
+      "basis_estimate": "Podstawa: kosztorys (brak umówionej kwoty)",
+      "no_basis": "Ustaw umówioną kwotę albo przygotuj kosztorys, by policzyć marżę.",
+      "basis": "Podstawa",
+      "expenses": "Wydatki",
+      "hours": "Godziny pracy",
+      "labor": "Twoja praca (godziny × stawka)",
+      "labor_none": "brak stawki",
+      "margin": "Marża",
+      "margin_before": "Marża przed kosztem pracy",
+      "percent": "% podstawy",
+      "per_hour": "Zarobek na godzinę (przed kosztem pracy)",
+      "rate_hint": "Ustaw stawkę za godzinę w profilu wykonawcy, by odjąć koszt własnej pracy.",
+      "note": "Kwoty jak w zapisach, bez rozliczenia VAT."
     }
   },
   "notes": {

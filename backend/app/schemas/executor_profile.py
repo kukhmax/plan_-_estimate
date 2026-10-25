@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -24,6 +25,8 @@ class ExecutorProfileWrite(BaseModel):
     # V2-6: the VAT of the owner's estimates. Omitted = the stored value stays (an older screen never clears it); given = replaced.
     vat_mode: Literal["EXEMPT", "RATE"] | None = None
     vat_rate_percent: int | None = None
+    # V2-9: the owner's own rate per hour (the margin of an object uses it). Omitted = the stored value stays; given = replaced; null = cleared.
+    hourly_rate: Decimal | None = Field(default=None, gt=0, max_digits=8, decimal_places=2)
 
 
 class ExecutorProfileRead(BaseModel):
@@ -40,6 +43,7 @@ class ExecutorProfileRead(BaseModel):
     bank_account: str | None
     vat_mode: str | None = None
     vat_rate_percent: int | None = None
+    hourly_rate: Decimal | None = None
     created_at: datetime
     updated_at: datetime
 

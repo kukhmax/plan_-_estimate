@@ -7,7 +7,10 @@ export async function fetchExecutorProfile(): Promise<ExecutorProfile | null> {
 }
 
 export function saveExecutorProfile(payload: ExecutorProfilePayload): Promise<ExecutorProfile> {
-  return apiRequest<ExecutorProfile>('/api/executor-profile', { method: 'PUT', body: JSON.stringify(payload) });
+  // the rate is typed as text; the server wants a number string or null (null clears it)
+  const hourly = payload.hourly_rate.trim().replace(',', '.');
+  const body = { ...payload, hourly_rate: hourly === '' ? null : hourly };
+  return apiRequest<ExecutorProfile>('/api/executor-profile', { method: 'PUT', body: JSON.stringify(body) });
 }
 
 /** Field → error code from a 422 EXECUTOR_PROFILE_INVALID; {} for any other error. */

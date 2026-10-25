@@ -76,8 +76,10 @@ class ProjectPayment(Base):
         CheckConstraint("due_on IS NULL OR kind = 'INVOICE'", name="ck_project_payments_due_only_invoice"),
         CheckConstraint("settles_id IS NULL OR kind IN ('ADVANCE', 'PAYMENT')", name="ck_project_payments_settles_only_money_in"),
         CheckConstraint("settles_id IS NULL OR settles_id <> id", name="ck_project_payments_settles_not_self"),
+        CheckConstraint("stage_id IS NULL OR kind IN ('ADVANCE', 'PAYMENT')", name="ck_project_payments_stage_only_money_in"),
         Index("ix_project_payments_project_kind", "project_id", "kind", "occurred_on"),
         Index("ix_project_payments_settles", "settles_id"),
+        Index("ix_project_payments_stage", "stage_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -92,6 +94,8 @@ class ProjectPayment(Base):
     occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
     due_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     settles_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("project_payments.id", ondelete="SET NULL"), nullable=True)
+    # the stage of the payment schedule the money was received for (V2-9): an advance or a payment only; the stage may be deleted, the money stays
+    stage_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("payment_stages.id", ondelete="SET NULL"), nullable=True)
     counterparty: Mapped[str | None] = mapped_column(EncryptedText("project_payments.counterparty"), nullable=True)
     document_kind: Mapped[str | None] = mapped_column(String(8), nullable=True)
     category: Mapped[str | None] = mapped_column(String(16), nullable=True)  # an expense only (IA-6b)

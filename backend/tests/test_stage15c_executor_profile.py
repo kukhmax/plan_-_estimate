@@ -75,7 +75,7 @@ def test_revision_chain_and_single_head():
     assert module.revision == "0037_executor_profiles" and module.down_revision == "0036_photo_annotation_outline"
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0074_measurements_document"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0075_payment_schedule"]
 
 
 def test_upgrade_matches_the_model_and_downgrade_removes_only_the_table():
@@ -85,8 +85,8 @@ def test_upgrade_matches_the_model_and_downgrade_removes_only_the_table():
     insp = inspect(engine)
     assert set(insp.get_table_names()) == before | {"executor_profiles"}
     columns = {c["name"]: c for c in insp.get_columns("executor_profiles")}
-    # the VAT columns of the model come with the migration 0069 (V2-6), not with this one
-    assert set(columns) == {c.name for c in ExecutorProfile.__table__.columns} - {"vat_mode", "vat_rate_percent"}
+    # the VAT columns of the model come with the migration 0069 (V2-6) and the hourly rate with 0075 (V2-9), not with this one
+    assert set(columns) == {c.name for c in ExecutorProfile.__table__.columns} - {"vat_mode", "vat_rate_percent", "hourly_rate"}
     required = {name for name, c in columns.items() if not c["nullable"]}
     assert required == {"id", "owner_id", "name", "created_at", "updated_at"}
     assert [fk["referred_table"] for fk in insp.get_foreign_keys("executor_profiles")] == ["users"]
@@ -217,7 +217,7 @@ async def test_the_api_starts_empty_then_saves_and_reads_back(async_client: Asyn
     data = saved.json()
     assert data["name"] == "Jan Kowalski Wykończenia" and data["nip"] == "7740001454" and data["postal_code"] == "30-001"
     assert data["email"] == "Jan@example.pl" and data["bank_account"] == "61109010140000071219812874"
-    assert set(data) == {"id", "name", "nip", "street", "postal_code", "city", "phone", "email", "bank_account", "vat_mode", "vat_rate_percent", "created_at", "updated_at"}
+    assert set(data) == {"id", "name", "nip", "street", "postal_code", "city", "phone", "email", "bank_account", "vat_mode", "vat_rate_percent", "hourly_rate", "created_at", "updated_at"}
     assert (await async_client.get(URL, headers=headers)).json() == {"profile": data}
 
 

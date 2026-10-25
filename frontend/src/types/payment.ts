@@ -18,6 +18,8 @@ export interface Payment {
   occurred_on: string;
   due_on: string | null;
   settles_id: string | null;
+  /** An advance or a payment only: the stage of the payment schedule it was received for (V2-9); a record kept on the phone from before may lack it. */
+  stage_id?: string | null;
   counterparty: string | null;
   document_kind: PaymentDocumentKind | null;
   /** An expense only; an expense made before the categories existed has none (a list kept on the phone from before may lack the field). */
@@ -75,6 +77,8 @@ export interface PaymentFields {
   vat_rate: string | null;
   due_on: string | null;
   settles_id: string | null;
+  /** V2-9: the stage of the schedule (an advance or a payment only). */
+  stage_id?: string | null;
   counterparty: string | null;
   document_kind: PaymentDocumentKind | null;
   category: PaymentCategory | null;

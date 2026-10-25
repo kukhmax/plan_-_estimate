@@ -36,7 +36,10 @@ from app.domain.services.media_storage import MediaStorage
 from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
 from app.domain.services.opening_service import OpeningService
 from app.domain.services.password_login_service import PasswordLoginService
+from app.domain.services.payment_schedule_service import PaymentScheduleService
 from app.domain.services.payment_service import PaymentService
+from app.domain.services.project_margin_service import ProjectMarginService
+from app.domain.services.work_hours_service import WorkHoursService
 from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.price_coefficient_service import PriceCoefficientService
 from app.domain.services.project_note_service import ProjectNoteService
@@ -198,6 +201,24 @@ async def get_payment_service(
     db: AsyncSession = Depends(get_db),
 ) -> PaymentService:
     return PaymentService(db)
+
+
+async def get_payment_schedule_service(
+    db: AsyncSession = Depends(get_db),
+) -> PaymentScheduleService:
+    return PaymentScheduleService(db)
+
+
+async def get_work_hours_service(
+    db: AsyncSession = Depends(get_db),
+) -> WorkHoursService:
+    return WorkHoursService(db)
+
+
+async def get_margin_service(
+    db: AsyncSession = Depends(get_db),
+) -> ProjectMarginService:
+    return ProjectMarginService(db)
 
 
 async def get_project_note_service(

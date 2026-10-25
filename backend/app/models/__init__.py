@@ -43,6 +43,7 @@ from app.models.reminder import Reminder, ReminderOrigin, ReminderStatus
 from app.models.knowledge_document import KnowledgeDocument, KnowledgeDocumentFile
 from app.models.client_link import ClientConsent, ClientLink, ClientProposal
 from app.models.project_note import ProjectNote
+from app.models.payment_stage import PaymentStage, WorkHour
 from app.models.project_payment import ProjectFinance, ProjectPayment
 from app.models.purge_ledger import PurgeLedger
 from app.models.work_schedule import WorkSchedule
@@ -124,7 +125,9 @@ __all__ = [
     "ReminderOrigin",
     "ReminderStatus",
     "ProjectNote",
+    "PaymentStage",
     "ProjectPayment",
+    "WorkHour",
     "ProjectFinance",
     "PurgeLedger",
     "WorkSchedule",

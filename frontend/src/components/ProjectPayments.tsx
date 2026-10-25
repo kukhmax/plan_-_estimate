@@ -1,14 +1,19 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { archivePayment, fetchFinance, fetchPayments, restorePayment, saveAgreedAmount } from '../api/payments';
+import { fetchSchedule } from '../api/paymentSchedule';
 import { useI18n } from '../hooks/useI18n';
 import type { Finance, InvoiceState, Payment, PaymentList } from '../types/payment';
+import type { PaymentStage } from '../types/paymentSchedule';
 import { localizeApiError } from '../utils/apiErrors';
 import { formatDay, formatMoney, positiveAmount, tabOf, toInput, type PaymentTab } from '../utils/paymentFormat';
 import { useConnection } from '../offline/connection';
 import { Ico } from './Ico';
+import { MarginCard } from './MarginCard';
 import { PaymentForm } from './PaymentForm';
+import { PaymentScheduleTab } from './PaymentScheduleTab';
 import { PendingMark } from './PendingMark';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
+import { WorkHoursTab } from './WorkHoursTab';
 
 interface ProjectPaymentsProps {
   projectId: string;
@@ -16,7 +21,9 @@ interface ProjectPaymentsProps {
   onOpenStatement?: () => void;
 }
 
-const TABS: PaymentTab[] = ['invoices', 'client', 'materials'];
+/** The three tabs of the records and, since V2-9, the schedule of the stages and the work hours. */
+type ScreenTab = PaymentTab | 'schedule' | 'hours';
+const TABS: ScreenTab[] = ['invoices', 'client', 'materials', 'schedule', 'hours'];
 const STATE_STYLE: Record<InvoiceState, string> = {
   PAID: 'bg-emerald-100 text-emerald-800',
   PARTIAL: 'bg-amber-100 text-amber-900',
@@ -37,7 +44,10 @@ export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsP
   const [list, setList] = useState<PaymentList | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [tab, setTab] = useState<PaymentTab>('invoices');
+  const [tab, setTab] = useState<ScreenTab>('invoices');
+  // V2-9: the stages an advance or a payment can be received for, and a counter that makes the margin read again
+  const [stages, setStages] = useState<PaymentStage[]>([]);
+  const [version, setVersion] = useState(0);
   const [showArchived, setShowArchived] = useState(false);
   const [form, setForm] = useState<{ payment?: Payment } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -45,6 +55,8 @@ export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsP
 
   const load = useCallback(async () => {
     setLoadFailed(false);
+    // the stages are only a convenience of the form: not being able to read them never blocks the records
+    fetchSchedule(projectId).then((found) => setStages(Array.isArray(found?.items) ? found.items : [])).catch(() => setStages([]));
     try {
       setList(await fetchPayments(projectId, showArchived));
     } catch {
@@ -60,6 +72,12 @@ export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsP
 
   const items = list?.items ?? [];
   const inTab = useMemo(() => items.filter((item) => tabOf(item.kind) === tab), [items, tab]);
+  const recordTab: PaymentTab | null = tab === 'schedule' || tab === 'hours' ? null : tab;
+  // the money, the schedule or the hours changed: the records are read again and so is the margin
+  const moneyChanged = useCallback(() => {
+    setVersion((current) => current + 1);
+    void load();
+  }, [load]);
   // the invoices an advance or a payment can be tied to: the active ones of the whole object, whatever tab is open
   const invoices = useMemo(() => items.filter((item) => item.kind === 'INVOICE'), [items]);
 
@@ -71,6 +89,7 @@ export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsP
       await (payment.is_archived ? restorePayment(projectId, payment.id) : archivePayment(projectId, payment.id));
       setMessage({ kind: 'ok', text: payment.is_archived ? text.restored : text.archived });
       await load();
+      setVersion((current) => current + 1);
     } catch (err) {
       const localized = localizeApiError(err, t);
       setMessage({ kind: 'error', text: localized && !localized.startsWith('Request failed') ? localized : text.archive_error });
@@ -83,6 +102,7 @@ export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsP
     setForm(null);
     setMessage({ kind: 'ok', text: text.saved });
     await load();
+    setVersion((current) => current + 1);
   };
 
   const addLabel = tab === 'invoices' ? text.add_invoice : tab === 'materials' ? text.add_expense : text.add_client;
@@ -102,7 +122,8 @@ export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsP
 
       {list && (
         <>
-          <SummaryCard projectId={projectId} list={list} onChanged={load} />
+          <SummaryCard projectId={projectId} list={list} onChanged={async () => { await load(); setVersion((current) => current + 1); }} />
+          <MarginCard projectId={projectId} version={version} />
           {onOpenStatement && (
             <button type="button" aria-label="payments-statement" onClick={onOpenStatement} className={secondary.replace('flex-1', 'w-full')}>
               <Ico>🧾</Ico>{text.statement_button}
@@ -136,7 +157,10 @@ export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsP
             ))}
           </div>
 
-          {form === null ? (
+          {tab === 'schedule' && <PaymentScheduleTab projectId={projectId} onMoneyChanged={moneyChanged} />}
+          {tab === 'hours' && <WorkHoursTab projectId={projectId} onChanged={() => setVersion((current) => current + 1)} />}
+
+          {recordTab !== null && (form === null ? (
             <button type="button" aria-label="payment-add" onClick={() => setForm({})} className={primary}>
               <Ico>➕</Ico>{addLabel}
             </button>
@@ -144,42 +168,47 @@ export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsP
             <PaymentForm
               key={form.payment?.id ?? `new-${tab}`}
               projectId={projectId}
-              tab={tab}
+              tab={recordTab}
               payment={form.payment}
               invoices={invoices}
+              stages={stages}
               onSaved={() => void saved()}
               onCancel={() => setForm(null)}
             />
-          )}
+          ))}
 
-          {message && (
+          {recordTab !== null && message && (
             <p role={message.kind === 'error' ? 'alert' : 'status'} className={`text-sm break-words ${message.kind === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>
               {message.text}
             </p>
           )}
 
-          <label className="flex items-center gap-2 min-h-11 text-sm text-[var(--tg-theme-text-color)]">
-            <input type="checkbox" aria-label="payments-show-archived" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} className="h-5 w-5" />
-            <span className="min-w-0 break-words">{text.show_archived}</span>
-          </label>
+          {recordTab !== null && (
+            <>
+            <label className="flex items-center gap-2 min-h-11 text-sm text-[var(--tg-theme-text-color)]">
+              <input type="checkbox" aria-label="payments-show-archived" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} className="h-5 w-5" />
+              <span className="min-w-0 break-words">{text.show_archived}</span>
+            </label>
 
-          {inTab.length === 0 ? (
-            <p aria-label="payments-empty" className="text-sm text-slate-500 text-center py-4">{emptyLabel}</p>
-          ) : (
-            <ul aria-label="payments-list" className="space-y-2">
-              {inTab.map((payment) => (
-                <PaymentCard
-                  key={payment.id}
-                  payment={payment}
-                  busy={busyId === payment.id}
-                  onEdit={() => {
-                    setMessage(null);
-                    setForm({ payment });
-                  }}
-                  onArchive={() => void changeArchive(payment)}
-                />
-              ))}
-            </ul>
+            {inTab.length === 0 ? (
+              <p aria-label="payments-empty" className="text-sm text-slate-500 text-center py-4">{emptyLabel}</p>
+            ) : (
+              <ul aria-label="payments-list" className="space-y-2">
+                {inTab.map((payment) => (
+                  <PaymentCard
+                    key={payment.id}
+                    payment={payment}
+                    busy={busyId === payment.id}
+                    onEdit={() => {
+                      setMessage(null);
+                      setForm({ payment });
+                    }}
+                    onArchive={() => void changeArchive(payment)}
+                  />
+                ))}
+              </ul>
+            )}
+            </>
           )}
         </>
       )}

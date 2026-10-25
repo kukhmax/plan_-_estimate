@@ -427,7 +427,7 @@ describe('PL/RU locale parity (LOCALIZATION)', () => {
       expect(Object.keys(dictionary.kind).sort()).toEqual(['ADVANCE', 'EXPENSE', 'INVOICE', 'PAYMENT']);
       expect(Object.keys(dictionary.state).sort()).toEqual(['OPEN', 'OVERDUE', 'PAID', 'PARTIAL']);
       expect(Object.keys(dictionary.document_kind).sort()).toEqual(['INVOICE', 'RECEIPT']);
-      expect(Object.keys(dictionary.tabs).sort()).toEqual(['client', 'invoices', 'materials']);
+      expect(Object.keys(dictionary.tabs).sort()).toEqual(['client', 'hours', 'invoices', 'materials', 'schedule']);
     }
   });
 });

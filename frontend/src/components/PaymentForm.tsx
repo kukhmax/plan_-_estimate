@@ -14,6 +14,7 @@ import {
   type PaymentFields,
   type PaymentKind,
 } from '../types/payment';
+import type { PaymentStage } from '../types/paymentSchedule';
 import { localizeApiError } from '../utils/apiErrors';
 import { formatDay, formatMoney, optionalAmount, optionalRate, positiveAmount, todayInPoland, toInput, type PaymentTab } from '../utils/paymentFormat';
 import { Ico } from './Ico';
@@ -25,6 +26,8 @@ interface PaymentFormProps {
   payment?: Payment;
   /** The invoices an advance or a payment can be tied to. */
   invoices: Payment[];
+  /** The stages of the payment schedule an advance or a payment can be received for (V2-9); none when the schedule is empty or could not be read. */
+  stages?: PaymentStage[];
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -44,7 +47,7 @@ const label = 'block text-xs font-semibold text-slate-600 mb-1';
  * One form for the three tabs: a new record or a change of one. Only the fields of the kind are shown; the rare ones are under "Opcje".
  * Money is typed as text and checked here for its shape only; the sums are the server's.
  */
-export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCancel }: PaymentFormProps) {
+export function PaymentForm({ projectId, tab, payment, invoices, stages = [], onSaved, onCancel }: PaymentFormProps) {
   const { t } = useI18n();
   const text = t.payments;
   const [moneyKind, setMoneyKind] = useState<PaymentKind>(payment && payment.kind !== 'INVOICE' && payment.kind !== 'EXPENSE' ? payment.kind : 'ADVANCE');
@@ -60,8 +63,9 @@ export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCanc
   const [net, setNet] = useState(toInput(payment?.amount_net));
   const [vat, setVat] = useState(toInput(payment?.vat_rate));
   const [settles, setSettles] = useState(payment?.settles_id ?? '');
+  const [stageId, setStageId] = useState(payment?.stage_id ?? '');
   const [note, setNote] = useState(payment?.note ?? '');
-  const hasOptional = [payment?.amount_net, payment?.vat_rate, payment?.settles_id, payment?.note, tab === 'materials' ? payment?.number : null].some(Boolean);
+  const hasOptional = [payment?.amount_net, payment?.vat_rate, payment?.settles_id, payment?.stage_id, payment?.note, tab === 'materials' ? payment?.number : null].some(Boolean);
   const [more, setMore] = useState(hasOptional);
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [busy, setBusy] = useState(false);
@@ -97,6 +101,7 @@ export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCanc
       vat_rate: vatValue === '' ? null : vatValue,
       due_on: kind === 'INVOICE' && due !== '' ? due : null,
       settles_id: (kind === 'ADVANCE' || kind === 'PAYMENT') && settles !== '' ? settles : null,
+      stage_id: (kind === 'ADVANCE' || kind === 'PAYMENT') && stageId !== '' ? stageId : null,
       counterparty: kind === 'EXPENSE' && counterparty.trim() !== '' ? counterparty.trim() : null,
       document_kind: kind === 'EXPENSE' ? documentKind : null,
       category: kind === 'EXPENSE' ? category : null,
@@ -284,6 +289,17 @@ export function PaymentForm({ projectId, tab, payment, invoices, onSaved, onCanc
                   <option key={invoice.id} value={invoice.id}>
                     {`${invoice.number ? `${invoice.number} · ` : ''}${invoice.title} · ${formatMoney(invoice.amount_gross)} · ${formatDay(invoice.occurred_on)}`}
                   </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {tab === 'client' && stages.length > 0 && (
+            <div>
+              <label htmlFor="payment-stage" className={label}>{text.fields.stage}</label>
+              <select id="payment-stage" aria-label="payment-stage" value={stageId} onChange={(event) => setStageId(event.target.value)} className={field}>
+                <option value="">{text.fields.stage_none}</option>
+                {stages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>{stage.amount !== null ? `${stage.title} · ${formatMoney(stage.amount)}` : stage.title}</option>
                 ))}
               </select>
             </div>

@@ -42,6 +42,7 @@ class PaymentCreate(BaseModel):
     vat_rate: VatRate | None = None
     due_on: date | None = None
     settles_id: uuid.UUID | None = None
+    stage_id: uuid.UUID | None = None  # an advance or a payment only: the stage of the schedule it was received for (V2-9)
     counterparty: str | None = Field(default=None, max_length=255)
     document_kind: DocumentKind | None = None
     category: Category | None = None  # an expense only
@@ -61,6 +62,7 @@ class PaymentUpdate(BaseModel):
     vat_rate: VatRate | None = None
     due_on: date | None = None
     settles_id: uuid.UUID | None = None
+    stage_id: uuid.UUID | None = None
     counterparty: str | None = Field(default=None, max_length=255)
     document_kind: DocumentKind | None = None
     category: Category | None = None
@@ -81,6 +83,7 @@ class PaymentRead(BaseModel):
     occurred_on: date
     due_on: date | None
     settles_id: uuid.UUID | None
+    stage_id: uuid.UUID | None = None
     counterparty: str | None
     document_kind: DocumentKind | None
     category: Category | None

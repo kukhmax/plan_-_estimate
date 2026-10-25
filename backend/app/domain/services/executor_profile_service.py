@@ -1,6 +1,7 @@
 """Executor profile (Stage 15C): read and save the owner's own profile. One row per owner; a save creates or replaces it."""
 
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -31,7 +32,7 @@ def _clean_text(value: str | None) -> str | None:
 
 def validate_profile(payload: ExecutorProfileWrite) -> dict[str, str | int | None]:
     """The canonical values to store, or `ExecutorProfileValidationError` with every wrong field."""
-    values: dict[str, str | int | None] = {}
+    values: dict[str, str | int | Decimal | None] = {}
     errors: dict[str, str] = {}
     name = _clean_text(payload.name)
     if name is None:
@@ -49,6 +50,8 @@ def validate_profile(payload: ExecutorProfileWrite) -> dict[str, str | int | Non
             values["vat_mode"], values["vat_rate_percent"] = validate_vat(payload.vat_mode, payload.vat_rate_percent)
         except VatError:
             errors["vat"] = "VAT_INVALID"
+    if "hourly_rate" in payload.model_fields_set:
+        values["hourly_rate"] = payload.hourly_rate
     if errors:
         raise ExecutorProfileValidationError(errors)
     return values

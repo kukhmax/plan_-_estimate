@@ -17,6 +17,12 @@ vi.mock('./api/payments', () => ({
   saveAgreedAmount: vi.fn(),
 }));
 
+// V2-9: the stages for the form and the margin under the sums are read from their own module; here they are empty (their own tests are in ProjectPayments.money.test.tsx)
+vi.mock('./api/paymentSchedule', () => ({
+  fetchSchedule: vi.fn(async () => ({ items: [], summary: { agreed: null, stages_total: '0.00', unpriced: 0, difference: null, received: '0.00', to_receive: '0.00' } })),
+  fetchMargin: vi.fn(async () => { throw new Error('no margin in this test'); }),
+}));
+
 const projectId = '11111111-1111-1111-1111-111111111111';
 
 const base = (over: Partial<Payment>): Payment => ({
@@ -275,7 +281,7 @@ describe('ProjectPayments — "Faktury i zaliczki" (IA-2)', () => {
       expect(kind).toBe('INVOICE');
       expect(fields).toEqual({
         title: 'Etap 2', amount_gross: '1500.5', occurred_on: '2026-10-10', number: 'FV 2/2026', amount_net: null, vat_rate: null,
-        due_on: '2026-10-24', settles_id: null, counterparty: null, document_kind: null, category: null, note: null,
+        due_on: '2026-10-24', settles_id: null, stage_id: null, counterparty: null, document_kind: null, category: null, note: null,
       });
       await waitFor(() => expect(screen.queryByLabelText('payment-form')).toBeNull());
       expect(screen.getByRole('status')).toHaveTextContent('Zapisano.');
@@ -436,7 +442,7 @@ describe('ProjectPayments — "Faktury i zaliczki" (IA-2)', () => {
       const [, , kind, fields] = vi.mocked(paymentsApi.createPayment).mock.calls[0];
       expect(kind).toBe('EXPENSE');
       expect(fields).toMatchObject({
-        title: 'Farba', counterparty: 'Castorama', document_kind: 'INVOICE', number: 'FV/55', amount_gross: '89.99', due_on: null, settles_id: null,
+        title: 'Farba', counterparty: 'Castorama', document_kind: 'INVOICE', number: 'FV/55', amount_gross: '89.99', due_on: null, settles_id: null, stage_id: null,
       });
     });
   });

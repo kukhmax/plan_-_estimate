@@ -3,7 +3,7 @@ import { fetchExecutorProfile, profileFieldErrors, saveExecutorProfile } from '.
 
 const PAYLOAD = {
   name: 'Jan', nip: '', street: '', postal_code: '', city: '', phone: '', email: '', bank_account: '',
-  vat_mode: null, vat_rate_percent: null,
+  vat_mode: null, vat_rate_percent: null, hourly_rate: '',
 } as const;
 
 function respond(status: number, body: unknown) {
@@ -40,7 +40,17 @@ describe('executor profile API', () => {
     const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(String(url)).toBe('/api/executor-profile');
     expect(init?.method).toBe('PUT');
-    expect(JSON.parse(String(init?.body))).toEqual(PAYLOAD);
+    expect(JSON.parse(String(init?.body))).toEqual({ ...PAYLOAD, hourly_rate: null });
+  });
+
+  it('PUT sends the hourly rate as a number string and an empty one as null (V2-9)', async () => {
+    respond(200, { id: 'p1', name: 'Jan' });
+    await saveExecutorProfile({ ...PAYLOAD, hourly_rate: ' 90,5 ' });
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)).hourly_rate).toBe('90.5');
+    vi.mocked(fetch).mockClear();
+    respond(200, { id: 'p1', name: 'Jan' });
+    await saveExecutorProfile({ ...PAYLOAD, hourly_rate: '  ' });
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)).hourly_rate).toBeNull();
   });
 
   it('reads field codes only from the EXECUTOR_PROFILE_INVALID envelope', () => {

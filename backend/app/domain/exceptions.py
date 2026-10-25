@@ -1036,6 +1036,22 @@ class PaymentInvalidError(Exception):
     code = "PAYMENT_INVALID"
 
 
+class PaymentStageNotFoundError(Exception):
+    """A stage of the payment schedule that does not exist, is not on this object or is not this owner's (V2-9)."""
+
+
+class PaymentStageInvalidError(Exception):
+    """A stage or a receipt that breaks a rule of the schedule (V2-9): `code` is stable (STAGE_AMOUNT_UNKNOWN, STAGE_NOTHING_LEFT, STAGE_INVALID)."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+class WorkHourNotFoundError(Exception):
+    """An entry of the work log that does not exist, is not on this object or is not this owner's (V2-9)."""
+
+
 class ArchivedDocumentNotFoundError(Exception):
     """A contract / protocol that does not exist, is not this owner's or is of an unknown kind (archive of documents, AC-6)."""
 

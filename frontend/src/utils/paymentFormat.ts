@@ -50,3 +50,23 @@ export function optionalRate(raw: string): string | '' | null {
 export function toInput(value: string | null | undefined): string {
   return (value ?? '').replace('.', ',');
 }
+
+/** "30.00" → "30", "37.50" → "37,5": a percent or an amount of hours as the owner reads it (the server sent the number, nothing is counted here). */
+export function formatPlain(value: string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—';
+  const [whole, fraction = ''] = value.split('.');
+  const trimmed = fraction.replace(/0+$/, '');
+  return trimmed === '' ? whole : `${whole},${trimmed}`;
+}
+
+/** The hours field of a form: more than zero, at most 24, at most two places ("7,5" → "7.5"); `null` when it is not one. */
+export function hoursAmount(raw: string): string | null {
+  const value = positiveAmount(raw);
+  return value !== null && Number(value) <= 24 ? value : null;
+}
+
+/** A share of the agreed amount in percent: 0.01 to 100, at most two places. */
+export function percentAmount(raw: string): string | null {
+  const value = positiveAmount(raw);
+  return value !== null && Number(value) <= 100 ? value : null;
+}

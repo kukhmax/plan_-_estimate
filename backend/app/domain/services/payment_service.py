@@ -28,13 +28,14 @@ from app.domain.rules.payment_totals import (
 from app.domain.services.calendar_service import CalendarService
 from app.domain.services.client_ids import find_repeat
 from app.models.estimate import Estimate, EstimateStatus
+from app.models.payment_stage import PaymentStage
 from app.models.project import Project
 from app.models.project_payment import ProjectFinance, ProjectPayment
 
 MONEY_IN = ("ADVANCE", "PAYMENT")
 # the columns an update may change (the kind and the owner never change)
 EDITABLE = (
-    "title", "number", "amount_gross", "amount_net", "vat_rate", "occurred_on", "due_on", "settles_id", "counterparty", "document_kind", "category", "note",
+    "title", "number", "amount_gross", "amount_net", "vat_rate", "occurred_on", "due_on", "settles_id", "stage_id", "counterparty", "document_kind", "category", "note",
 )
 
 
@@ -117,6 +118,14 @@ class PaymentService:
             raise PaymentInvalidError("only an expense has a shop / supplier and a kind of document")
         if f["category"] is not None and kind != "EXPENSE":
             raise PaymentInvalidError("only an expense has a category")
+        if f.get("stage_id") is not None:
+            if kind not in MONEY_IN:
+                raise PaymentInvalidError("only an advance or a payment can belong to a stage of the schedule")
+            stage = (await self.db.execute(
+                select(PaymentStage.id).where(PaymentStage.id == f["stage_id"], PaymentStage.project_id == project_id, PaymentStage.owner_id == owner_id)
+            )).scalar_one_or_none()
+            if stage is None:
+                raise PaymentInvalidError("the stage must be a stage of the same object")
         if f["settles_id"] is not None:
             if kind not in MONEY_IN:
                 raise PaymentInvalidError("only an advance or a payment can settle an invoice")
@@ -166,6 +175,7 @@ class PaymentService:
             "occurred_on": data["occurred_on"],
             "due_on": data.get("due_on"),
             "settles_id": data.get("settles_id"),
+            "stage_id": data.get("stage_id"),
             "counterparty": _clean_text(data.get("counterparty")),
             "document_kind": data.get("document_kind"),
             "category": data.get("category"),
