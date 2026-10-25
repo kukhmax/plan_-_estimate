@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import pl from '../locales/pl.json';
+import en from '../locales/en.json';
 import ru from '../locales/ru.json';
+import uk from '../locales/uk.json';
 import { eventTitle } from './calendarFormat';
 
 describe('eventTitle', () => {
@@ -46,5 +48,25 @@ describe('the words of the due day of an invoice', () => {
     expect(pl.calendar.kind.INVOICE_DUE).toBeTruthy();
     expect(ru.calendar.kind.INVOICE_DUE).toBeTruthy();
     expect(Object.keys(pl.calendar.kind).sort()).toEqual(Object.keys(ru.calendar.kind).sort());
+  });
+});
+
+describe('the words of the due day of a stage of the payment schedule (V2-9b)', () => {
+  const item = { title: null, title_key: 'calendar.event.stage_due', kind: 'STAGE_DUE', params: { what: 'Po gładziach' } };
+
+  it('put the title of the stage into the text, in the four languages', () => {
+    const of = (dictionary: { calendar: { event: unknown } }) => eventTitle(dictionary.calendar.event as Record<string, unknown>, item);
+    expect(of(pl)).toBe('Termin płatności etapu: Po gładziach');
+    expect(of(ru)).toBe('Срок оплаты этапа: Po gładziach');
+    expect(of(uk)).toBe('Строк оплати етапу: Po gładziach');
+    expect(of(en)).toBe('Payment stage due: Po gładziach');
+  });
+
+  it('have the same placeholder everywhere, and the kind has its label in the settings', () => {
+    for (const dictionary of [pl, ru, uk, en]) {
+      expect(dictionary.calendar.event.stage_due).toContain('{what}');
+      expect(dictionary.calendar.kind.STAGE_DUE).toBeTruthy();
+      expect(dictionary.payments.schedule.due_hint).toBeTruthy();
+    }
   });
 });

@@ -19,6 +19,7 @@ from app.domain.exceptions import (
     ProjectNotFoundError,
 )
 from app.domain.rules import payment_schedule as rules
+from app.domain.services.calendar_service import CalendarService
 from app.domain.services.payment_service import PaymentService
 from app.models.payment_stage import PaymentStage
 from app.models.project import Project
@@ -78,6 +79,12 @@ class PaymentScheduleService:
         )).scalars()
         return [rules.Received(stage_id=r.stage_id, amount_gross=r.amount_gross, is_archived=r.is_archived) for r in rows]
 
+    async def _calendar_follows(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> None:
+        """A stage can move, add or take away a due day, and the agreed amount can change what a share is worth (V2-9b): the reminders follow at once. A
+        fault in the calendar is logged and never undoes the stage (the periodic reconciliation brings the queue right again)."""
+        await self.db.flush()
+        await CalendarService(self.db).reconcile_project_guarded(owner_id, project_id)
+
     # -- reading ------------------------------------------------------------------
 
     async def schedule(self, owner_id: uuid.UUID, project_id: uuid.UUID, *, today: date | None = None) -> Schedule:
@@ -108,6 +115,7 @@ class PaymentScheduleService:
             percent=data.get("percent"), amount=data.get("amount"), due_on=data.get("due_on"), created_at=now, updated_at=now,
         )
         self.db.add(row)
+        await self._calendar_follows(owner_id, project_id)
         await self.db.commit()
         await self.db.refresh(row)
         return row
@@ -125,6 +133,7 @@ class PaymentScheduleService:
         if "due_on" in changes:
             row.due_on = changes["due_on"]
         row.updated_at = datetime.now(UTC)
+        await self._calendar_follows(owner_id, project_id)
         await self.db.commit()
         await self.db.refresh(row)
         return row
@@ -134,6 +143,7 @@ class PaymentScheduleService:
         # the money received for the stage stays: it only loses the stage (the database does the same with ON DELETE SET NULL)
         await self.db.execute(update(ProjectPayment).where(ProjectPayment.stage_id == row.id).values(stage_id=None))
         await self.db.execute(delete(PaymentStage).where(PaymentStage.id == row.id))
+        await self._calendar_follows(owner_id, project_id)
         await self.db.commit()
 
     async def receive(self, owner_id: uuid.UUID, project_id: uuid.UUID, stage_id: uuid.UUID, *, today: date | None = None) -> ProjectPayment:

@@ -245,6 +245,13 @@ describe('the schedule', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Etap zapisany.');
   });
 
+  it('tells under the due day that a reminder comes a day before and on the day (V2-9b)', async () => {
+    renderScreen();
+    await tab('schedule');
+    fireEvent.click(await screen.findByLabelText('stage-add'));
+    expect(screen.getByLabelText('stage-due-hint')).toHaveTextContent('dzień przed terminem i w dniu terminu');
+  });
+
   it('adds a stage as a fixed amount with no day', async () => {
     vi.mocked(moneyApi.createStage).mockResolvedValue(PAID);
     renderScreen();

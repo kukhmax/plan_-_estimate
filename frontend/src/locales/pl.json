@@ -3476,6 +3476,7 @@
         "advance": "Termin wpłaty zaliczki (§ 6)"
       },
       "invoice_due": "Termin zapłaty faktury: {what}",
+      "stage_due": "Termin płatności etapu: {what}",
       "adjacent_work": {
         "from": "Początek prac innego wykonawcy w obiekcie",
         "to": "Koniec prac innego wykonawcy w obiekcie"
@@ -3572,6 +3573,7 @@
       "WITHDRAWAL_END": "Odstąpienie konsumenta (§ 20)",
       "PAYMENT_TERM": "Zaliczka (§ 6)",
       "INVOICE_DUE": "Termin zapłaty faktury (Faktury i zaliczki)",
+      "STAGE_DUE": "Termin płatności etapu (Harmonogram)",
       "ADJACENT_WORK": "Prace innych wykonawców",
       "PRICE_VALIDITY_END": "Ważność cen (§ 4)"
     }
@@ -3677,6 +3679,7 @@
       "percent_label": "Udział w umówionej kwocie, %",
       "amount_label": "Kwota etapu, zł",
       "due_label": "Termin płatności (opcjonalnie)",
+      "due_hint": "Przypomnienie w Telegramie przyjdzie dzień przed terminem i w dniu terminu, dopóki etap nie jest opłacony (można wyłączyć w kalendarzu).",
       "hint_1": "Zaliczka na start",
       "hint_2": "Po gładziach",
       "hint_3": "Odbiór końcowy",

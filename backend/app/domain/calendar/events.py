@@ -37,6 +37,7 @@ class EventKind(StrEnum):
     WITHDRAWAL_END = "WITHDRAWAL_END"  # the end of the consumer's right to withdraw (§ 20)
     PAYMENT_TERM = "PAYMENT_TERM"  # the advance is due (§ 6)
     INVOICE_DUE = "INVOICE_DUE"  # an invoice of the settlements of the object is due (the owner's own register, IA-5)
+    STAGE_DUE = "STAGE_DUE"  # a stage of the payment schedule is due (the owner's own schedule, V2-9b)
     ADJACENT_WORK = "ADJACENT_WORK"  # another contractor works in the object (the period of the protocol)
     PRICE_VALIDITY_END = "PRICE_VALIDITY_END"  # the unit prices stop to bind (§ 4)
     USER = "USER"  # an own reminder (the Remind button, Stage 18E)
@@ -46,12 +47,14 @@ class EventKind(StrEnum):
 PUSH_BY_DEFAULT: frozenset[EventKind] = frozenset(
     {EventKind.BREAK_END, EventKind.WORK_START, EventKind.WORK_END, EventKind.OBJECT_START, EventKind.OBJECT_END,
      EventKind.DELIVERY_DEADLINE, EventKind.ACCEPTANCE_TERM, EventKind.CONCEALED_TERM, EventKind.DOWNTIME_TERM, EventKind.USER,
-     EventKind.INVOICE_DUE}
+     EventKind.INVOICE_DUE, EventKind.STAGE_DUE}
 )
 # How many days ahead of the day a reminder is also due; zero is the day itself. The delivery deadline, the start of the works and the
-# due date of an invoice (3 days to ask the client, then the day itself) are announced early.
+# due date of an invoice (3 days to ask the client, then the day itself) and the due day of a stage of the payment schedule (a day ahead, then the day itself)
+# are announced early.
 LEAD_DAYS: Mapping[EventKind, tuple[int, ...]] = {
     EventKind.DELIVERY_DEADLINE: (7, 3, 1, 0), EventKind.OBJECT_START: (1, 0), EventKind.INVOICE_DUE: (3, 0),
+    EventKind.STAGE_DUE: (1, 0),
 }
 DEFAULT_LEAD_DAYS: tuple[int, ...] = (0,)
 
@@ -315,4 +318,28 @@ def invoice_events(invoices: Iterable[InvoiceDue]) -> list[CalendarEvent]:
             params={"what": item.what.strip()[:MAX_WHAT_LENGTH]},
         )
         for item in invoices
+    ]
+
+
+# --- the stages of the payment schedule (V2-9b) --------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class StageDue:
+    """A stage of the owner's payment schedule that still waits for money: the due day the owner wrote on it."""
+
+    project_id: uuid.UUID
+    stage_id: uuid.UUID
+    due_on: date
+    what: str  # the title of the stage
+
+
+def stage_events(stages: Iterable[StageDue]) -> list[CalendarEvent]:
+    """The due day of a stage that is not paid in full. The caller gives only such stages that have a due day."""
+    return [
+        CalendarEvent(
+            EventKind.STAGE_DUE, _key(EventKind.STAGE_DUE, item.project_id, item.stage_id), item.project_id, on=item.due_on,
+            params={"what": item.what.strip()[:MAX_WHAT_LENGTH]},
+        )
+        for item in stages
     ]

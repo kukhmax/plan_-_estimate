@@ -39,6 +39,7 @@ from app.domain.exceptions import (
     ReminderNotFoundError,
     ScheduleOccurrenceNotFoundError,
 )
+from app.domain.rules import payment_schedule as schedule_rules
 from app.domain.rules.payment_totals import PAID, Entry, invoice_standings
 from app.domain.rules.work_execution_rules import derive_ready_after
 from app.models.acceptance_protocol import AcceptanceProtocol, AcceptanceStatus
@@ -48,9 +49,10 @@ from app.models.client import Client, ClientType
 from app.models.concealed_works_protocol import ConcealedStatus, ConcealedWorksProtocol
 from app.models.contract import Contract, ContractStatus
 from app.models.downtime_episode import DowntimeEpisode, DowntimeStatus
+from app.models.payment_stage import PaymentStage
 from app.models.price_item import PriceItem
 from app.models.project import Project
-from app.models.project_payment import ProjectPayment
+from app.models.project_payment import ProjectFinance, ProjectPayment
 from app.models.reminder import Reminder, ReminderOrigin, ReminderStatus
 from app.models.room import Room
 from app.models.surface import Surface
@@ -252,6 +254,7 @@ class CalendarService:
             )).scalars()
         )
         events += await self._invoice_events(project_id)
+        events += await self._stage_events(project_id)
         return events
 
     async def _invoice_events(self, project_id: uuid.UUID) -> list[ev.CalendarEvent]:
@@ -265,6 +268,25 @@ class CalendarService:
             ev.InvoiceDue(project_id, r.id, r.due_on, r.number or r.title)
             for r in rows
             if r.kind == "INVOICE" and not r.is_archived and r.due_on is not None and standings[r.id].state != PAID
+        )
+
+    async def _stage_events(self, project_id: uuid.UUID) -> list[ev.CalendarEvent]:
+        """The due days of the stages of the payment schedule that still wait for money (V2-9b): with a due day, not paid in full (the standing is the one
+        of the schedule screen: the same rules, the money that names the stage, archived records left out). A paid stage, a stage without a due day or a
+        deleted one gives nothing, so its waiting reminders are cancelled by the next reconciliation."""
+        stages = list((await self.db.execute(select(PaymentStage).where(PaymentStage.project_id == project_id))).scalars())
+        if not any(stage.due_on is not None for stage in stages):
+            return []
+        agreed = (await self.db.execute(select(ProjectFinance.agreed_amount).where(ProjectFinance.project_id == project_id))).scalar_one_or_none()
+        money = (await self.db.execute(
+            select(ProjectPayment).where(ProjectPayment.project_id == project_id, ProjectPayment.stage_id.is_not(None))
+        )).scalars()
+        entries = [schedule_rules.StageEntry(s.id, s.position, s.percent, s.amount, s.due_on) for s in stages]
+        found = schedule_rules.standings(
+            entries, [schedule_rules.Received(r.stage_id, r.amount_gross, r.is_archived) for r in money], agreed, datetime.now(UTC).date()
+        )
+        return ev.stage_events(
+            ev.StageDue(project_id, s.id, s.due_on, s.title) for s in stages if s.due_on is not None and found[s.id].state != schedule_rules.PAID
         )
 
     # --- the queue -------------------------------------------------------------------------------------------------------------------

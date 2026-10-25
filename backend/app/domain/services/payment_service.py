@@ -256,5 +256,6 @@ class PaymentService:
         else:
             row.agreed_amount = amount
             row.updated_at = datetime.now(UTC)
+        await self._calendar_follows(owner_id, project_id)  # a share of the agreed amount may now be paid in full or not (V2-9b)
         await self.db.commit()
         return await self.get_finance(owner_id, project_id)

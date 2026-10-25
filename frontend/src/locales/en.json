@@ -3481,6 +3481,7 @@
         "advance": "Deadline for paying the advance (§ 6)"
       },
       "invoice_due": "Invoice due date: {what}",
+      "stage_due": "Payment stage due: {what}",
       "adjacent_work": {
         "from": "Start of another contractor’s work on the object",
         "to": "End of another contractor’s work on the object"
@@ -3577,6 +3578,7 @@
       "WITHDRAWAL_END": "Consumer’s withdrawal (§ 20)",
       "PAYMENT_TERM": "Advance (§ 6)",
       "INVOICE_DUE": "Invoice due date (“Invoices and advances”)",
+      "STAGE_DUE": "Payment stage due date (payment schedule)",
       "ADJACENT_WORK": "Work of other contractors",
       "PRICE_VALIDITY_END": "Validity of prices (§ 4)"
     }
@@ -3707,6 +3709,7 @@
       "percent_label": "Share of the agreed amount, %",
       "amount_label": "Amount of the stage, zł",
       "due_label": "Payment due (optional)",
+      "due_hint": "A Telegram reminder comes a day before the due day and on the day, until the stage is paid (it can be switched off in the calendar).",
       "hint_1": "Advance at the start",
       "hint_2": "After the skim coat",
       "hint_3": "Final acceptance",

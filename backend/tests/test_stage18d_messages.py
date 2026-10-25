@@ -60,6 +60,7 @@ def all_title_keys() -> set[str]:
         + ev.downtime_events(ev.DowntimeDates(P, day, day))
         + ev.adjacent_events([ev.AdjacentPeriod(P, "x", day, day)])
         + ev.invoice_events([ev.InvoiceDue(P, uuid.uuid4(), day, "FV 1/2026")])
+        + ev.stage_events([ev.StageDue(P, uuid.uuid4(), day, "Zaliczka")])
     )
     return {event.title_key for event in built}
 

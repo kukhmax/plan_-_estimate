@@ -332,6 +332,7 @@ function StageForm({ projectId, stage, onSaved, onCancel }: { projectId: string;
       <div>
         <label htmlFor="stage-due" className={labelClass}>{text.due_label}</label>
         <input id="stage-due" aria-label="stage-due" type="date" value={due} onChange={(event) => setDue(event.target.value)} className={fieldClass} />
+        <p aria-label="stage-due-hint" className="text-xs text-slate-600 mt-1 break-words">{text.due_hint}</p>
       </div>
       {failure && <p role="alert" className="text-sm text-red-600 break-words">{failure}</p>}
       <div className="flex flex-col gap-2">
