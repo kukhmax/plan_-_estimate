@@ -47,17 +47,18 @@ function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSec
         : sectionKind === 'measurements'
           ? { title: text.measurements_title, hint: text.measurements_hint, preview: text.measurements_preview, send: text.measurements_send, previewOk: text.measurements_preview_ok }
           : { title: text.production_plan, hint: text.production_plan_hint, preview: text.production_plan_preview, send: text.production_plan_send, previewOk: text.production_plan_preview_ok };
+  const [withPhotos, setWithPhotos] = useState(false); // measurements only: the photos of the surfaces go under their sizes
   // looked up only when a button is tapped (a screen that mocks part of the api never reaches the others)
   const previewers = {
     'tech-card': () => previewTechCardPdf(projectId),
     settlement: () => previewSettlementPdf(projectId),
-    measurements: () => previewMeasurementsPdf(projectId),
+    measurements: () => previewMeasurementsPdf(projectId, withPhotos),
     'production-plan': () => previewProductionPlanPdf(projectId),
   };
   const issuers = {
     'tech-card': () => issueTechCard(projectId),
     settlement: () => issueSettlement(projectId),
-    measurements: () => issueMeasurements(projectId),
+    measurements: () => issueMeasurements(projectId, withPhotos),
     'production-plan': () => issueProductionPlan(projectId),
   };
   const preview = previewers[sectionKind];
@@ -105,6 +106,21 @@ function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSec
     <section aria-label={`${sectionKind}-card`} className="space-y-2">
       <h4 className="text-sm font-semibold text-slate-900 break-words">{words.title}</h4>
       <p className="text-sm text-slate-700 break-words">{words.hint}</p>
+      {sectionKind === 'measurements' && (
+        <label className="flex items-start gap-3 min-h-11 py-2 text-sm text-slate-900 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={withPhotos}
+            onChange={(event) => setWithPhotos(event.target.checked)}
+            disabled={busy !== null}
+            className="mt-0.5 h-6 w-6 shrink-0 accent-sky-700"
+          />
+          <span className="min-w-0 break-words">
+            <span className="font-semibold">{text.measurements_with_photos}</span>
+            <span className="block text-xs text-slate-600">{text.measurements_with_photos_hint}</span>
+          </span>
+        </label>
+      )}
       <button
         type="button"
         aria-label={`preview-${sectionKind}`}

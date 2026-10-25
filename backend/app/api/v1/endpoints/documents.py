@@ -33,6 +33,7 @@ from app.schemas.issued_document import (
     IssuedDocumentListResponse,
     IssuedDocumentRead,
     IssueDocumentRequest,
+    MeasurementsPreviewRequest,
     OwnerDocumentListResponse,
     OwnerDocumentRead,
     PhotoReportSummaryRead,
@@ -104,7 +105,7 @@ async def issue_document(
         elif body.kind == "SETTLEMENT":
             reservation = await issuer.start_settlement(db, current_user, project_id)
         elif body.kind == "MEASUREMENTS":
-            reservation = await issuer.start_measurements(db, current_user, project_id)
+            reservation = await issuer.start_measurements(db, current_user, project_id, with_photos=bool(body.with_photos))
         else:
             rooms = frozenset(body.room_ids) if body.room_ids is not None else None
             reservation = await issuer.start_photo_report(
@@ -286,12 +287,13 @@ async def preview_settlement_pdf(
 )
 async def preview_measurements_pdf(
     project_id: uuid.UUID,
+    body: MeasurementsPreviewRequest | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     issuer: DocumentIssuer = Depends(get_document_issuer),
 ) -> PreviewResponse:
     try:
-        result = await issuer.preview_measurements(db, current_user, project_id)
+        result = await issuer.preview_measurements(db, current_user, project_id, with_photos=bool(body and body.with_photos))
     except (ProjectNotFoundError, DocumentDataError, DocumentRenderError, DocumentDeliveryError) as exc:
         raise _http_error(exc) from exc
     return PreviewResponse(sent=True, pages=result.pages, byte_size=result.byte_size)

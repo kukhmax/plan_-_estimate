@@ -111,6 +111,19 @@ describe('documents API', () => {
     call = lastCall();
     expect(call.url).toBe('/api/projects/p1/documents/measurements/preview');
     expect(call.init.method).toBe('POST');
+    expect(call.init.body).toBeUndefined();
+  });
+
+  it('asks for the photos of the surfaces only when told to (V2-8d)', async () => {
+    respond(202, {});
+    await issueMeasurements('p1', true);
+    expect(JSON.parse(String(lastCall().init.body))).toEqual({ kind: 'MEASUREMENTS', with_photos: true });
+    vi.mocked(fetch).mockClear();
+    respond(200, { sent: true, pages: 3, byte_size: 10 });
+    await previewMeasurementsPdf('p1', true);
+    const call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents/measurements/preview');
+    expect(JSON.parse(String(call.init.body))).toEqual({ with_photos: true });
   });
 
   it('issues the production plan of the whole object and previews its working version', async () => {

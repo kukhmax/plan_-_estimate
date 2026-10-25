@@ -71,14 +71,21 @@ export function previewSettlementPdf(projectId: string): Promise<DocumentPreview
   return apiRequest(`${base(projectId)}/documents/settlement/preview`, { method: 'POST' });
 }
 
-/** The numbered measurements of the object (Obmiar obiektu): every size of every room (the server refuses it while the object has no room). */
-export function issueMeasurements(projectId: string): Promise<IssuedDocument> {
-  return apiRequest(`${base(projectId)}/documents`, { method: 'POST', body: JSON.stringify({ kind: 'MEASUREMENTS' }) });
+/**
+ * The numbered measurements of the object (Obmiar obiektu): every size of every room (the server refuses it while the object has no room).
+ * `withPhotos` (V2-8d) adds the photos attached to the walls, ceilings and floors under their sizes.
+ */
+export function issueMeasurements(projectId: string, withPhotos = false): Promise<IssuedDocument> {
+  const body = withPhotos ? { kind: 'MEASUREMENTS', with_photos: true } : { kind: 'MEASUREMENTS' };
+  return apiRequest(`${base(projectId)}/documents`, { method: 'POST', body: JSON.stringify(body) });
 }
 
-/** The working version of the measurements (watermark, no number) to the owner's chat. */
-export function previewMeasurementsPdf(projectId: string): Promise<DocumentPreviewResult> {
-  return apiRequest(`${base(projectId)}/documents/measurements/preview`, { method: 'POST' });
+/** The working version of the measurements (watermark, no number) to the owner's chat; `withPhotos` as above. */
+export function previewMeasurementsPdf(projectId: string, withPhotos = false): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/measurements/preview`, {
+    method: 'POST',
+    ...(withPhotos ? { body: JSON.stringify({ with_photos: true }) } : {}),
+  });
 }
 
 /** The numbered production plan of the whole object (the server refuses it while no surface has a planned work). */

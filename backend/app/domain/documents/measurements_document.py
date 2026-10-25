@@ -14,7 +14,8 @@ Two forms of one document, like the technological card:
 """
 
 import uuid
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 
@@ -26,6 +27,14 @@ from app.domain.documents.estimate_document import object_lines, party_from_clie
 from app.domain.documents.labels import Labels
 from app.domain.documents.layout import DocumentLayout, DocumentMeta
 from app.domain.documents.parties import party_from_executor_profile
+from app.domain.documents.photo_report_document import (
+    MarkerShape,
+    OutlineShape,
+    PhotoReportDocumentService,
+    PrintImage,
+    marker_shapes,
+    outline_shapes,
+)
 from app.domain.documents.registry import DocumentKind, get_template
 from app.domain.documents.renderer import DocumentRenderer, RenderedPdf
 from app.domain.documents.surface_names import surface_title
@@ -34,6 +43,10 @@ from app.domain.exceptions import DocumentDataError
 from app.domain.rules.room_geometry import calculate_segment_area
 from app.domain.services.area_segment_service import AreaSegmentService
 from app.domain.services.executor_profile_service import ExecutorProfileService
+from app.domain.services.photo_report_read_model import (
+    PhotoReportReadModel,
+    ReportPhoto,
+)
 from app.domain.services.project_service import ProjectService
 from app.domain.services.room_service import RoomService
 from app.domain.services.surface_service import SurfaceService
@@ -49,6 +62,9 @@ from app.schemas.surface import SurfaceRead
 
 NBSP = " "
 DASH = "—"
+
+THUMB_WIDTH_MM = 52.0  # three photos side by side on the page
+THUMB_MAX_HEIGHT_MM = 62.0  # a portrait photo is narrower, so the rows stay about equally high
 
 
 # --- what is read ----------------------------------------------------------------------------------------------------------------------
@@ -73,6 +89,9 @@ class RoomSource:
     base_areas: dict[AreaPlane, Decimal | None]  # the rectangle L x W of each plane (None for a room without a rectangle)
     segments: tuple[SegmentSource, ...]
     walls: tuple[tuple[SurfaceRead, tuple[OpeningRead, ...]], ...]
+    ceiling_photos: tuple[ReportPhoto, ...] = ()  # the photos attached to the surfaces (only when the owner asked for them)
+    floor_photos: tuple[ReportPhoto, ...] = ()
+    wall_photos: Mapping[uuid.UUID, tuple[ReportPhoto, ...]] = field(default_factory=dict)  # by the id of the wall
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +100,7 @@ class Sources:
     client: Client | None
     summary: ProjectSummaryRead
     rooms: tuple[RoomSource, ...]
+    with_photos: bool = False
 
 
 # --- what is printed -------------------------------------------------------------------------------------------------------------------
@@ -98,10 +118,25 @@ class Row:
 
 
 @dataclass(frozen=True, slots=True)
+class ThumbView:
+    """A photo of a surface as the page prints it: small, with the markers drawn over it."""
+
+    asset_name: str  # file name inside the document's own assets/
+    width: int
+    height: int
+    frame_mm: str
+    caption: str | None
+    markers: tuple[MarkerShape, ...]
+    outlines: tuple[OutlineShape, ...]
+    legend: tuple[tuple[int, str | None], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class PlaneBlock:
     title: str
     total: str
     rows: tuple[Row, ...]
+    photos: tuple[ThumbView, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +149,7 @@ class WallBlock:
     reveals: tuple[Row, ...]
     net: str | None  # shown only when something is taken off the wall
     missing: bool
+    photos: tuple[ThumbView, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +172,7 @@ class MeasurementsDocument:
     openings: tuple[Row, ...]
     rooms: tuple[RoomBlock, ...]
     working: bool
+    assets: Mapping[str, bytes] = field(default_factory=dict, compare=False, repr=False)  # the photos the page refers to as assets/<name>
 
     def context(self) -> dict[str, object]:
         return {"layout": self.layout, "doc": self}
@@ -159,7 +196,56 @@ def _sizes(*values: Decimal, quantity: int | None = None) -> str:
     return f"{text}{NBSP}×{NBSP}{quantity}" if quantity is not None and quantity != 1 else text
 
 
-def _plane(labels: Labels, plane: AreaPlane, room: RoomSource) -> PlaneBlock:
+def photos_of(sources: Sources) -> list[ReportPhoto]:
+    """Every photo the document prints, in print order (empty unless the photos were asked for)."""
+    if not sources.with_photos:
+        return []
+    found: list[ReportPhoto] = []
+    for room in sources.rooms:
+        found += room.ceiling_photos
+        found += room.floor_photos
+        for wall, _ in room.walls:
+            found += room.wall_photos.get(wall.id, ())
+    return found
+
+
+class _Thumbs:
+    """Turns the photos of a surface into what the template prints; keeps one file per asset for the whole document."""
+
+    def __init__(self, images: Mapping[uuid.UUID, PrintImage] | None) -> None:
+        self.images = images  # None: the photos are not printed (the document is only being checked)
+        self.names: dict[uuid.UUID, str] = {}
+
+    def __call__(self, photos: tuple[ReportPhoto, ...]) -> tuple[ThumbView, ...]:
+        if self.images is None:
+            return ()
+        views: list[ThumbView] = []
+        for photo in photos:
+            image = self.images.get(photo.asset_id)
+            if image is None:
+                raise DocumentDataError("PHOTO_UNAVAILABLE", "a photo of the measurements has no picture")
+            name = self.names.setdefault(photo.asset_id, f"p{len(self.names) + 1}.jpg")
+            views.append(
+                ThumbView(
+                    asset_name=name,
+                    width=image.width,
+                    height=image.height,
+                    frame_mm=f"{min(THUMB_WIDTH_MM, THUMB_MAX_HEIGHT_MM * image.width / image.height):.1f}",
+                    caption=photo.caption or None,
+                    markers=marker_shapes(photo.markers, image.width, image.height),
+                    outlines=outline_shapes(photo.markers, image.width, image.height),
+                    legend=tuple((index, marker.label or None) for index, marker in enumerate(photo.markers, start=1)),
+                )
+            )
+        return tuple(views)
+
+    def files(self) -> dict[str, bytes]:
+        if self.images is None:
+            return {}
+        return {name: self.images[asset_id].data for asset_id, name in self.names.items()}
+
+
+def _plane(labels: Labels, plane: AreaPlane, room: RoomSource, thumbs: _Thumbs) -> PlaneBlock:
     calc = room.calculations
     total = calc.ceiling_area if calc is not None and plane == AreaPlane.CEILING else (calc.floor_area if calc is not None else None)
     rows: list[Row] = []
@@ -177,7 +263,8 @@ def _plane(labels: Labels, plane: AreaPlane, room: RoomSource) -> PlaneBlock:
             )
         )
     title = labels("measurements.ceiling") if plane == AreaPlane.CEILING else labels("measurements.floor")
-    return PlaneBlock(title, area(total), tuple(rows))
+    photos = thumbs(room.ceiling_photos if plane == AreaPlane.CEILING else room.floor_photos)
+    return PlaneBlock(title, area(total), tuple(rows), photos)
 
 
 def _opening_names(labels: Labels) -> dict[OpeningType, str]:
@@ -188,10 +275,10 @@ def _opening_names(labels: Labels) -> dict[OpeningType, str]:
     }
 
 
-def _wall(labels: Labels, wall: SurfaceRead, openings: tuple[OpeningRead, ...]) -> WallBlock:
+def _wall(labels: Labels, wall: SurfaceRead, openings: tuple[OpeningRead, ...], photos: tuple[ThumbView, ...]) -> WallBlock:
     name = surface_title(wall.name)
     if wall.gross_area is None:
-        return WallBlock(name, labels("measurements.no_size"), DASH, (), (), (), None, True)
+        return WallBlock(name, labels("measurements.no_size"), DASH, (), (), (), None, True, photos)
     parts = (
         tuple(
             Row(labels("measurements.part", n=index), _sizes(part.width, part.height), f"={NBSP}{area((part.width * part.height).quantize(Decimal('0.001')))}")
@@ -226,6 +313,7 @@ def _wall(labels: Labels, wall: SurfaceRead, openings: tuple[OpeningRead, ...]) 
         reveals=tuple(reveal_rows),
         net=area(wall.net_area) if deducted else None,
         missing=False,
+        photos=photos,
     )
 
 
@@ -237,7 +325,9 @@ def build_measurements_document(
     issued_on: date,
     number: str | None = None,
     sequence: int | None = None,
+    images: Mapping[uuid.UUID, PrintImage] | None = None,
 ) -> MeasurementsDocument:
+    """`images` (by asset id, one per photo of `sources`) are printed under the surfaces they are attached to; without them no photo is printed."""
     if working and number is not None:
         raise DocumentDataError("DRAFT_NUMBERED", "a working version is never numbered")
     if executor is None and not working:
@@ -264,6 +354,7 @@ def build_measurements_document(
         for group in summary.opening_groups
     )
     rooms: list[RoomBlock] = []
+    thumbs = _Thumbs(images)
     for room in sources.rooms:
         calc = room.calculations
         totals = [
@@ -285,10 +376,10 @@ def build_measurements_document(
                 name=room.name,
                 description=room.description or None,
                 totals=tuple(totals),
-                ceiling=_plane(labels, AreaPlane.CEILING, room),
-                floor=_plane(labels, AreaPlane.FLOOR, room),
+                ceiling=_plane(labels, AreaPlane.CEILING, room, thumbs),
+                floor=_plane(labels, AreaPlane.FLOOR, room, thumbs),
                 walls_title=labels("measurements.walls"),
-                walls=tuple(_wall(labels, wall, openings) for wall, openings in room.walls),
+                walls=tuple(_wall(labels, wall, openings, thumbs(room.wall_photos.get(wall.id, ()))) for wall, openings in room.walls),
             )
         )
     layout = DocumentLayout(
@@ -305,15 +396,20 @@ def build_measurements_document(
         draft=working,
         light_watermark=False,
     )
-    return MeasurementsDocument(layout, sources.project.name, object_lines(sources.project), tuple(summary_rows), opening_rows, tuple(rooms), working)
+    return MeasurementsDocument(
+        layout, sources.project.name, object_lines(sources.project), tuple(summary_rows), opening_rows, tuple(rooms), working, thumbs.files()
+    )
 
 
 class MeasurementsDocumentService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, photos: PhotoReportDocumentService | None = None) -> None:
         self.db = db
+        self.photos = photos  # reads the pictures; needed only for a document with photos
 
-    async def sources(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> Sources:
-        """Raises ProjectNotFoundError for a project that is not this owner's (nothing else is read then). Only active rooms, walls and openings."""
+    async def sources(self, owner_id: uuid.UUID, project_id: uuid.UUID, *, with_photos: bool = False) -> Sources:
+        """Raises ProjectNotFoundError for a project that is not this owner's (nothing else is read then). Only active rooms, walls and openings.
+        With `with_photos` every photo attached to a wall, a ceiling or a floor is read too (whether or not it is marked for the photo report);
+        a document with more of them than one document holds is refused (`MEASUREMENTS_PHOTO_LIMIT_EXCEEDED`) before any picture is read."""
         await ProjectService(self.db).get_project(project_id, owner_id)
         project = (await self.db.execute(select(Project).where(Project.id == project_id, Project.owner_id == owner_id))).scalar_one()
         client = None
@@ -324,6 +420,7 @@ class MeasurementsDocumentService:
         rooms_service = RoomService(self.db)
         summary = await rooms_service.get_project_summary(project_id, owner_id)
         rooms, _ = await rooms_service.list_rooms(project_id, owner_id, include_archived=False)
+        photo_tree = {r.room_id: r for r in (await PhotoReportReadModel(self.db).build(owner_id, project_id, only_included=False)).rooms} if with_photos else {}
         out: list[RoomSource] = []
         for room in rooms:
             surfaces, _ = await SurfaceService(self.db).list_surfaces(project_id, room.id, owner_id)
@@ -340,6 +437,13 @@ class MeasurementsDocumentService:
                 for opening in found:
                     opening_rows[opening.surface_id].append(OpeningRead.model_validate(opening))
             segments, _, totals = await AreaSegmentService(self.db).list_area_segments(project_id, room.id, owner_id)
+            by_type: dict[str, list[ReportPhoto]] = {"CEILING": [], "FLOOR": []}
+            by_wall: dict[uuid.UUID, tuple[ReportPhoto, ...]] = {}
+            for node in photo_tree[room.id].surfaces if room.id in photo_tree else ():
+                if node.surface_type in by_type:
+                    by_type[node.surface_type].extend(node.photos)
+                elif node.surface_type == SurfaceType.WALL.value and node.photos:
+                    by_wall[node.surface_id] = node.photos
             out.append(
                 RoomSource(
                     name=room.name,
@@ -350,16 +454,51 @@ class MeasurementsDocumentService:
                     base_areas={plane: (totals.get(plane).base_area if totals.get(plane) is not None else None) for plane in AreaPlane},
                     segments=tuple(SegmentSource(s.plane, s.operation, s.width, s.height, s.label) for s in segments),
                     walls=tuple((read, tuple(opening_rows[read.id])) for read in reads),
+                    ceiling_photos=tuple(by_type["CEILING"]),
+                    floor_photos=tuple(by_type["FLOOR"]),
+                    wall_photos={read.id: by_wall[read.id] for read in reads if read.id in by_wall},
                 )
             )
-        return Sources(project, client, summary, tuple(out))
+        sources = Sources(project, client, summary, tuple(out), with_photos)
+        self._check_limit(sources)
+        return sources
+
+    def _check_limit(self, sources: Sources) -> None:
+        count = len(photos_of(sources))
+        limit = self.photos.max_photos if self.photos is not None else None
+        if limit is not None and count > limit:
+            raise DocumentDataError(
+                "MEASUREMENTS_PHOTO_LIMIT_EXCEEDED",
+                f"the surfaces have {count} photos; one document holds at most {limit}",
+                {"count": count, "limit": limit},
+            )
 
     async def build(
-        self, owner_id: uuid.UUID, project_id: uuid.UUID, *, working: bool, issued_on: date, number: str | None = None, sequence: int | None = None
+        self,
+        owner_id: uuid.UUID,
+        project_id: uuid.UUID,
+        *,
+        working: bool,
+        issued_on: date,
+        number: str | None = None,
+        sequence: int | None = None,
+        with_photos: bool = False,
+        read_photos: bool = True,
     ) -> MeasurementsDocument:
-        sources = await self.sources(owner_id, project_id)
+        """`read_photos=False` only checks that a document with photos can be made (limits, data) without reading a single picture:
+        what the numbered form does before it takes a number."""
+        sources = await self.sources(owner_id, project_id, with_photos=with_photos)
         executor = await ExecutorProfileService(self.db).get(owner_id)
-        return build_measurements_document(sources, executor, working=working, issued_on=issued_on, number=number, sequence=sequence)
+        if executor is None and not working:  # refuse before a single picture is read
+            raise DocumentDataError("EXECUTOR_PROFILE_REQUIRED", "fill in the executor profile before issuing the measurements")
+        images = None
+        if with_photos and read_photos:
+            if self.photos is None:
+                raise RuntimeError("a document with photos needs the service that reads them")
+            images = await self.photos.images_of(photos_of(sources))
+        return build_measurements_document(
+            sources, executor, working=working, issued_on=issued_on, number=number, sequence=sequence, images=images
+        )
 
     @staticmethod
     def html(document: MeasurementsDocument) -> str:
@@ -367,4 +506,4 @@ class MeasurementsDocumentService:
 
     async def render(self, owner_id: uuid.UUID, project_id: uuid.UUID, renderer: DocumentRenderer, **kwargs) -> RenderedPdf:
         document = await self.build(owner_id, project_id, **kwargs)
-        return await renderer.render(self.html(document))
+        return await renderer.render(self.html(document), document.assets)

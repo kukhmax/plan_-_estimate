@@ -786,6 +786,10 @@ class PhotoReportDocumentService:
 
     # -- reading ---------------------------------------------------------------------------------------------------------
 
+    async def images_of(self, photos: list[ReportPhoto]) -> dict[uuid.UUID, PrintImage]:
+        """The pictures of any photos (one per asset), for the other documents that print photos (the measurements)."""
+        return await self._images(photos)
+
     async def _images(self, photos: list[ReportPhoto]) -> dict[uuid.UUID, PrintImage]:
         """Download a few at a time, prepare one at a time (one core), keep one picture per asset."""
         unique: dict[uuid.UUID, ReportPhoto] = {}

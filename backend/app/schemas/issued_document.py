@@ -15,11 +15,14 @@ class IssueDocumentRequest(BaseModel):
     estimate_id: uuid.UUID | None = None
     room_ids: list[uuid.UUID] | None = None
     include_project_photos: bool | None = None
+    with_photos: bool | None = None  # MEASUREMENTS only: print the photos attached to the walls, ceilings and floors
 
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
     def _kind_fits_fields(self) -> "IssueDocumentRequest":
+        if self.with_photos is not None and self.kind != "MEASUREMENTS":
+            raise ValueError("with_photos belongs to the measurements")
         if self.kind in ("TECH_CARD", "PRODUCTION_PLAN", "SETTLEMENT", "MEASUREMENTS"):
             if self.estimate_id is not None or self.room_ids is not None or self.include_project_photos is not None:
                 raise ValueError("a technological card, a production plan, a statement of settlements and the measurements take no other fields")
@@ -36,6 +39,14 @@ class IssueDocumentRequest(BaseModel):
             if self.room_ids is None and self.include_project_photos is not None:
                 raise ValueError("include_project_photos only makes sense together with room_ids")
         return self
+
+
+class MeasurementsPreviewRequest(BaseModel):
+    """The working version of the measurements; `with_photos` prints the photos attached to the walls, ceilings and floors."""
+
+    with_photos: bool = False
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class IssuedDocumentRead(BaseModel):

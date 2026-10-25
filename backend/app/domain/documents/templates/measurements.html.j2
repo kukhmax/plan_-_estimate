@@ -4,6 +4,9 @@
   <tr class="{% if r.note == 'strong' %}strong{% endif %}{% if r.muted %} muted{% endif %}"><td class="c-what">{{ r.label }}</td><td class="c-sizes">{{ r.sizes }}</td><td class="c-result">{{ r.result }}{% if r.note and r.note != 'strong' %}<div class="hint">{{ r.note }}</div>{% endif %}</td></tr>
   {% endfor %}
 {% endmacro %}
+{% macro thumbs(items) %}
+  {% if items %}<div class="m-thumbs">{% for p in items %}<div class="m-thumb"><div class="frame" style="width: {{ p.frame_mm }}mm"><img src="assets/{{ p.asset_name }}" alt="">{% if p.markers or p.outlines %}<svg class="overlay" viewBox="0 0 {{ p.width }} {{ p.height }}">{% for o in p.outlines %}<polyline points="{{ o.points }}" fill="none" stroke="#ffffff" stroke-width="{{ o.under_width }}" stroke-linecap="round" stroke-linejoin="round"/><polyline points="{{ o.points }}" fill="none" stroke="#dc2626" stroke-width="{{ o.width }}" stroke-linecap="round" stroke-linejoin="round"/>{% endfor %}{% for m in p.markers %}<circle cx="{{ m.cx }}" cy="{{ m.cy }}" r="{{ m.r }}" fill="#dc2626" stroke="#ffffff" stroke-width="{{ m.stroke }}"/><text x="{{ m.cx }}" y="{{ m.ty }}" text-anchor="middle" font-family="DejaVu Sans" font-weight="700" font-size="{{ m.font }}" fill="#ffffff">{{ m.number }}</text>{% endfor %}</svg>{% endif %}</div>{% if p.caption or p.legend %}<div class="photo-caption">{% if p.caption %}<div>{{ p.caption }}</div>{% endif %}{% if p.legend %}<div class="legend">{{ t('photo_report.markers') }}: {% for number, label in p.legend %}{{ number }} – {% if label %}{{ label }}{% else %}{{ t('photo_report.marker_no_label') }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}</div>{% endif %}</div>{% endif %}</div>{% endfor %}</div>{% endif %}
+{% endmacro %}
 {% block body %}
 <div class="measure">
 {% if doc.working %}<p class="notice">{{ t('measurements.working_note') }}</p>{% endif %}
@@ -27,9 +30,10 @@
 {% if room.description %}<p class="room-note">{{ room.description }}</p>{% endif %}
 <table class="m-table totals"><tbody>{{ rows(room.totals) }}</tbody></table>
 {% for plane in [room.ceiling, room.floor] %}
-  {% if plane.rows %}
+  {% if plane.rows or plane.photos %}
   <h3>{{ plane.title }}: {{ plane.total }}</h3>
-  <table class="m-table"><tbody>{{ rows(plane.rows) }}</tbody></table>
+  {{ thumbs(plane.photos) }}
+  {% if plane.rows %}<table class="m-table"><tbody>{{ rows(plane.rows) }}</tbody></table>{% endif %}
   {% endif %}
 {% endfor %}
 {% if room.walls %}
@@ -41,6 +45,7 @@
   {% for r in wall.openings %}<tr class="sub"><td class="c-what">{{ r.label }}</td><td class="c-sizes">{{ r.sizes }}</td><td class="c-result">{{ r.result }}</td></tr>{% endfor %}
   {% for r in wall.reveals %}<tr class="sub muted"><td class="c-what">{{ r.label }}</td><td class="c-sizes">{{ r.sizes }}</td><td class="c-result">{{ r.result }}</td></tr>{% endfor %}
   {% if wall.net %}<tr class="sub net"><td class="c-what">{{ t('measurements.net') }}</td><td class="c-sizes"></td><td class="c-result">={{ ' ' }}{{ wall.net }}</td></tr>{% endif %}
+  {% if wall.photos %}<tr class="m-photos-row"><td colspan="3">{{ thumbs(wall.photos) }}</td></tr>{% endif %}
   {% endfor %}
 </tbody></table>
 {% endif %}

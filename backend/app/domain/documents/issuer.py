@@ -299,12 +299,15 @@ class DocumentIssuer:
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
-    async def start_measurements(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> Reservation:
+    async def start_measurements(self, db: AsyncSession, user: User, project_id: uuid.UUID, *, with_photos: bool = False) -> Reservation:
         """The numbered measurements of the object (Obmiar obiektu): checked now (refused with a stable code while the object has no room, or the executor
-        profile is empty), so a number is never given to an empty document; the slow part runs in the background."""
+        profile is empty, or the photos asked for are more than one document holds), so a number is never given to a document that cannot be made; the slow
+        part runs in the background. The choice "with photos" is kept in the journal row (`scope`), so the document is made the same way when it is rendered."""
         self._ensure_capacity()
         owner_id = user.id
-        document = await MeasurementsDocumentService(db).build(owner_id, project_id, working=False, issued_on=self._today())
+        document = await MeasurementsDocumentService(db, self._photo_service(db)).build(
+            owner_id, project_id, working=False, issued_on=self._today(), with_photos=with_photos, read_photos=False
+        )
         project = await self._project(db, owner_id, project_id)
         reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
             owner_id,
@@ -313,15 +316,18 @@ class DocumentIssuer:
             title=document.layout.meta.title,
             template_version=get_template(DocumentKind.MEASUREMENTS).version,
             client_id=project.client_id,
+            scope={"with_photos": True} if with_photos else None,
         )
         return self._launch(reservation)
 
-    async def preview_measurements(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
-        """The working version (watermark, no number, no journal row) to the owner's chat; it never refuses for missing data."""
+    async def preview_measurements(self, db: AsyncSession, user: User, project_id: uuid.UUID, *, with_photos: bool = False) -> PreviewResult:
+        """The working version (watermark, no number, no journal row) to the owner's chat; it never refuses for missing data (only for too many photos)."""
         owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
-        document = await MeasurementsDocumentService(db).build(owner_id, project_id, working=True, issued_on=self._today())
+        document = await MeasurementsDocumentService(db, self._photo_service(db)).build(
+            owner_id, project_id, working=True, issued_on=self._today(), with_photos=with_photos
+        )
         project = await self._project(db, owner_id, project_id)
-        rendered = await self.renderer.render(MeasurementsDocumentService.html(document))
+        rendered = await self.renderer.render(MeasurementsDocumentService.html(document), document.assets)
         await self.delivery.send_document(
             chat_id,
             "Obmiar-obiektu-wersja-robocza.pdf",
@@ -951,9 +957,10 @@ class DocumentIssuer:
                 working=False, issued_on=issued_on, number=document.number, sequence=document.project_seq,
             )
         if document.kind == IssuedDocumentKind.MEASUREMENTS.value:
-            return await MeasurementsDocumentService(db).render(
+            return await MeasurementsDocumentService(db, self._photo_service(db)).render(
                 document.owner_id, document.project_id, self.renderer,
                 working=False, issued_on=issued_on, number=document.number, sequence=document.project_seq,
+                with_photos=bool((document.scope or {}).get("with_photos")),
             )
         if document.kind == IssuedDocumentKind.TECH_CARD.value:
             return await TechCardDocumentService(db).render(

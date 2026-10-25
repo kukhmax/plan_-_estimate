@@ -273,7 +273,7 @@ describe('MeasurementsSection (V2-8c)', () => {
     vi.mocked(documentsApi.previewMeasurementsPdf).mockResolvedValue({ sent: true, pages: 2, byte_size: 17000 });
     renderMeasurements();
     await press('preview-measurements');
-    expect(documentsApi.previewMeasurementsPdf).toHaveBeenCalledWith('p1');
+    expect(documentsApi.previewMeasurementsPdf).toHaveBeenCalledWith('p1', false);
     expect(await screen.findByLabelText('measurements-note')).toHaveTextContent('Wersja robocza wysłana do czatu z botem');
     expect(documentsApi.issueMeasurements).not.toHaveBeenCalled();
     expect(onIssued).not.toHaveBeenCalled();
@@ -283,9 +283,51 @@ describe('MeasurementsSection (V2-8c)', () => {
     vi.mocked(documentsApi.issueMeasurements).mockResolvedValue({} as never);
     renderMeasurements();
     await press('send-measurements');
-    expect(documentsApi.issueMeasurements).toHaveBeenCalledWith('p1');
+    expect(documentsApi.issueMeasurements).toHaveBeenCalledWith('p1', false);
     expect(documentsApi.previewMeasurementsPdf).not.toHaveBeenCalled();
     expect(onIssued).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers "Dodaj zdjęcia" off by default as a touch-sized checkbox and sends the choice with both buttons (V2-8d)', async () => {
+    vi.mocked(documentsApi.previewMeasurementsPdf).mockResolvedValue({ sent: true, pages: 3, byte_size: 99000 });
+    vi.mocked(documentsApi.issueMeasurements).mockResolvedValue({} as never);
+    renderMeasurements();
+    const box = screen.getByRole('checkbox', { name: /Dodaj zdjęcia/ });
+    expect(box).not.toBeChecked();
+    expect(box.closest('label')?.className).toContain('min-h-11');
+    expect(screen.getByText(/trafią do PDF pod ich wymiarami/)).toBeInTheDocument();
+    fireEvent.click(box);
+    expect(box).toBeChecked();
+    await press('preview-measurements');
+    expect(documentsApi.previewMeasurementsPdf).toHaveBeenLastCalledWith('p1', true);
+    await press('send-measurements');
+    expect(documentsApi.issueMeasurements).toHaveBeenLastCalledWith('p1', true);
+    fireEvent.click(box);
+    await press('send-measurements');
+    expect(documentsApi.issueMeasurements).toHaveBeenLastCalledWith('p1', false);
+  });
+
+  it('has the checkbox only for the measurements', () => {
+    renderSection();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  it('explains too many photos with the counts, in four languages', async () => {
+    vi.mocked(documentsApi.issueMeasurements).mockRejectedValue(
+      new ApiError('Request failed', 422, 'MEASUREMENTS_PHOTO_LIMIT_EXCEEDED', { code: 'MEASUREMENTS_PHOTO_LIMIT_EXCEEDED', details: { count: 73, limit: 60 } }),
+    );
+    for (const [lang, words] of [
+      ['pl', 'Zdjęć powierzchni jest za dużo na jeden dokument (73 > 60)'],
+      ['ru', 'Фото поверхностей слишком много для одного документа (73 > 60)'],
+      ['uk', 'Фото поверхонь забагато для одного документа (73 > 60)'],
+      ['en', 'There are too many surface photos for one document (73 > 60)'],
+    ] as const) {
+      localStorage.setItem('locale', lang);
+      renderMeasurements();
+      await press('send-measurements');
+      expect(await screen.findByLabelText('measurements-error')).toHaveTextContent(words);
+      cleanup();
+    }
   });
 
   it('answers an object without a room with the words of its code, in four languages', async () => {
