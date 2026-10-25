@@ -259,16 +259,16 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(screen.queryByLabelText('stub-notes')).toBeNull();
   });
 
-  it('the documents tile opens a list of five rows, none of the pieces is open yet (16K.6, IA-6a)', async () => {
+  it('the documents tile opens a list of six rows, none of the pieces is open yet (16K.6, IA-6a, V2-8c)', async () => {
     renderWorkspace();
     await openHub();
     fireEvent.click(screen.getByLabelText('object-tile-documents'));
     const menu = screen.getByLabelText('documents-menu');
     expect(Array.from(menu.children).map((row) => row.getAttribute('aria-label'))).toEqual([
-      'docs-tile-tech_card', 'docs-tile-plan', 'docs-tile-settlement', 'docs-tile-photo_report', 'docs-tile-journal',
+      'docs-tile-measurements', 'docs-tile-tech_card', 'docs-tile-plan', 'docs-tile-settlement', 'docs-tile-photo_report', 'docs-tile-journal',
     ]);
     expect(Array.from(menu.children).map((row) => row.textContent?.replace('›', '').replace(/\p{Extended_Pictographic}️?/gu, '').trim())).toEqual([
-      'Karta technologiczna', 'Plan produkcji prac', 'Rozliczenie', 'Raport fotograficzny', 'Wysłane dokumenty',
+      'Obmiar obiektu', 'Karta technologiczna', 'Plan produkcji prac', 'Rozliczenie', 'Raport fotograficzny', 'Wysłane dokumenty',
     ]);
     for (const row of Array.from(menu.children)) expect(row.className).toContain('min-h-14');
     expect(document.querySelectorAll('[aria-label^="stub-documents"]')).toHaveLength(0);

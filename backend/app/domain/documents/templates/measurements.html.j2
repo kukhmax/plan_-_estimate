@@ -1,0 +1,51 @@
+{% extends "_layout.html.j2" %}
+{% macro rows(items) %}
+  {% for r in items %}
+  <tr class="{% if r.note == 'strong' %}strong{% endif %}{% if r.muted %} muted{% endif %}"><td class="c-what">{{ r.label }}</td><td class="c-sizes">{{ r.sizes }}</td><td class="c-result">{{ r.result }}{% if r.note and r.note != 'strong' %}<div class="hint">{{ r.note }}</div>{% endif %}</td></tr>
+  {% endfor %}
+{% endmacro %}
+{% block body %}
+<div class="measure">
+{% if doc.working %}<p class="notice">{{ t('measurements.working_note') }}</p>{% endif %}
+<div class="object">
+  <div class="role">{{ t('estimate.object') }}</div>
+  <div><strong>{{ doc.object_name }}</strong></div>
+  {% for line in doc.object_lines %}<div>{{ line }}</div>{% endfor %}
+</div>
+
+<h2>{{ t('measurements.summary') }}</h2>
+<table class="m-table summary"><tbody>{{ rows(doc.summary) }}</tbody></table>
+{% if doc.openings %}
+<h3>{{ t('measurements.openings') }}</h3>
+<table class="m-table"><tbody>{{ rows(doc.openings) }}</tbody></table>
+{% endif %}
+
+{% if not doc.rooms %}<p class="muted-text">{{ t('measurements.no_rooms') }}</p>{% endif %}
+{% for room in doc.rooms %}
+<section class="m-room">
+<h2>{{ room.name }}</h2>
+{% if room.description %}<p class="room-note">{{ room.description }}</p>{% endif %}
+<table class="m-table totals"><tbody>{{ rows(room.totals) }}</tbody></table>
+{% for plane in [room.ceiling, room.floor] %}
+  {% if plane.rows %}
+  <h3>{{ plane.title }}: {{ plane.total }}</h3>
+  <table class="m-table"><tbody>{{ rows(plane.rows) }}</tbody></table>
+  {% endif %}
+{% endfor %}
+{% if room.walls %}
+<h3>{{ room.walls_title }}</h3>
+<table class="m-table walls"><tbody>
+  {% for wall in room.walls %}
+  <tr class="wall"><td class="c-what">{{ wall.name }}</td><td class="c-sizes">{% if wall.missing %}<span class="muted-text">{{ wall.sizes }}</span>{% else %}{{ wall.sizes }}{% endif %}</td><td class="c-result">{% if not wall.missing %}={{ ' ' }}{% endif %}{{ wall.gross }}</td></tr>
+  {% for r in wall.parts %}<tr class="sub"><td class="c-what">{{ r.label }}</td><td class="c-sizes">{{ r.sizes }}</td><td class="c-result">{{ r.result }}</td></tr>{% endfor %}
+  {% for r in wall.openings %}<tr class="sub"><td class="c-what">{{ r.label }}</td><td class="c-sizes">{{ r.sizes }}</td><td class="c-result">{{ r.result }}</td></tr>{% endfor %}
+  {% for r in wall.reveals %}<tr class="sub muted"><td class="c-what">{{ r.label }}</td><td class="c-sizes">{{ r.sizes }}</td><td class="c-result">{{ r.result }}</td></tr>{% endfor %}
+  {% if wall.net %}<tr class="sub net"><td class="c-what">{{ t('measurements.net') }}</td><td class="c-sizes"></td><td class="c-result">={{ ' ' }}{{ wall.net }}</td></tr>{% endif %}
+  {% endfor %}
+</tbody></table>
+{% endif %}
+</section>
+{% endfor %}
+<p class="m-note">{{ t('measurements.note') }}</p>
+</div>
+{% endblock %}

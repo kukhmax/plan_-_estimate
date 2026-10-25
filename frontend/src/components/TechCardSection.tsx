@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { issueProductionPlan, issueSettlement, issueTechCard, previewProductionPlanPdf, previewSettlementPdf, previewTechCardPdf } from '../api/documents';
+import {
+  issueMeasurements,
+  issueProductionPlan,
+  issueSettlement,
+  issueTechCard,
+  previewMeasurementsPdf,
+  previewProductionPlanPdf,
+  previewSettlementPdf,
+  previewTechCardPdf,
+} from '../api/documents';
 import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import type { TechCardMissingItem } from '../types/document';
@@ -12,7 +21,7 @@ interface DocumentSectionProps {
   onIssued: () => void;
 }
 
-type SectionKind = 'tech-card' | 'production-plan' | 'settlement';
+type SectionKind = 'tech-card' | 'production-plan' | 'settlement' | 'measurements';
 
 /** The surfaces the server named in `TECH_CARD_INCOMPLETE`, if that is what the error was. */
 function missingItems(error: unknown): TechCardMissingItem[] {
@@ -35,12 +44,24 @@ function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSec
       ? { title: text.tech_card, hint: text.tech_card_hint, preview: text.tech_card_preview, send: text.tech_card_send, previewOk: text.tech_card_preview_ok }
       : sectionKind === 'settlement'
         ? { title: text.settlement, hint: text.settlement_hint, preview: text.settlement_preview, send: text.settlement_send, previewOk: text.settlement_preview_ok }
-        : { title: text.production_plan, hint: text.production_plan_hint, preview: text.production_plan_preview, send: text.production_plan_send, previewOk: text.production_plan_preview_ok };
+        : sectionKind === 'measurements'
+          ? { title: text.measurements_title, hint: text.measurements_hint, preview: text.measurements_preview, send: text.measurements_send, previewOk: text.measurements_preview_ok }
+          : { title: text.production_plan, hint: text.production_plan_hint, preview: text.production_plan_preview, send: text.production_plan_send, previewOk: text.production_plan_preview_ok };
   // looked up only when a button is tapped (a screen that mocks part of the api never reaches the others)
-  const preview = () =>
-    sectionKind === 'tech-card' ? previewTechCardPdf(projectId) : sectionKind === 'settlement' ? previewSettlementPdf(projectId) : previewProductionPlanPdf(projectId);
-  const issue = () =>
-    sectionKind === 'tech-card' ? issueTechCard(projectId) : sectionKind === 'settlement' ? issueSettlement(projectId) : issueProductionPlan(projectId);
+  const previewers = {
+    'tech-card': () => previewTechCardPdf(projectId),
+    settlement: () => previewSettlementPdf(projectId),
+    measurements: () => previewMeasurementsPdf(projectId),
+    'production-plan': () => previewProductionPlanPdf(projectId),
+  };
+  const issuers = {
+    'tech-card': () => issueTechCard(projectId),
+    settlement: () => issueSettlement(projectId),
+    measurements: () => issueMeasurements(projectId),
+    'production-plan': () => issueProductionPlan(projectId),
+  };
+  const preview = previewers[sectionKind];
+  const issue = issuers[sectionKind];
   const [busy, setBusy] = useState<'preview' | 'issue' | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +149,11 @@ function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSec
 /** Stage 16C — the technological card: numbered form refused with the list of what each surface lacks, working form with empty lines. */
 export function TechCardSection(props: DocumentSectionProps) {
   return <DocumentSection {...props} kind="tech-card" />;
+}
+
+/** V2-8c — the measurements of the object (Obmiar obiektu): every size of every room, the same numbers as the screens. */
+export function MeasurementsSection(props: DocumentSectionProps) {
+  return <DocumentSection {...props} kind="measurements" />;
 }
 
 /** Stage 16D.2 — the production plan: the order of the works, the technological breaks, the works of other contractors. */

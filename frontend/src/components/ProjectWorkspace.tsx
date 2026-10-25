@@ -374,6 +374,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
 
   const documentsTitle = (section: DocumentsSection) =>
     ({
+      measurements: t.documents.kind_measurements,
       tech_card: t.documents.kind_tech_card,
       plan: t.documents.kind_production_plan,
       settlement: t.documents.kind_settlement,

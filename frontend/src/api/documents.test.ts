@@ -12,8 +12,7 @@ import {
   previewEstimatePdf,
   previewProductionPlanPdf,
   previewSettlementPdf,
-  previewTechCardPdf,
-} from './documents';
+  previewTechCardPdf, issueMeasurements, previewMeasurementsPdf } from './documents';
 
 function respond(status: number, body: unknown) {
   vi.mocked(fetch).mockResolvedValueOnce({ ok: status < 400, status, json: vi.fn().mockResolvedValue(body) } as unknown as Response);
@@ -97,6 +96,20 @@ describe('documents API', () => {
     await previewSettlementPdf('p1');
     call = lastCall();
     expect(call.url).toBe('/api/projects/p1/documents/settlement/preview');
+    expect(call.init.method).toBe('POST');
+  });
+
+  it('issues the measurements of the whole object and previews its working version (V2-8c)', async () => {
+    respond(202, {});
+    await issueMeasurements('p1');
+    let call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents');
+    expect(JSON.parse(String(call.init.body))).toEqual({ kind: 'MEASUREMENTS' });
+    vi.mocked(fetch).mockClear();
+    respond(200, { sent: true, pages: 2, byte_size: 10 });
+    await previewMeasurementsPdf('p1');
+    call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents/measurements/preview');
     expect(call.init.method).toBe('POST');
   });
 

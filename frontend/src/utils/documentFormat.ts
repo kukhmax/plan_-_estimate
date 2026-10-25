@@ -31,6 +31,7 @@ export interface DocumentKindTexts {
   kind_downtime_notice: string;
   kind_downtime_protocol: string;
   kind_settlement: string;
+  kind_measurements: string;
 }
 
 export function documentKindLabel(text: DocumentKindTexts, kind: DocumentKind): string {
@@ -47,6 +48,7 @@ export function documentKindLabel(text: DocumentKindTexts, kind: DocumentKind): 
     DOWNTIME_NOTICE: text.kind_downtime_notice,
     DOWNTIME_PROTOCOL: text.kind_downtime_protocol,
     SETTLEMENT: text.kind_settlement,
+    MEASUREMENTS: text.kind_measurements,
   };
   return labels[kind];
 }

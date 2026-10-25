@@ -53,9 +53,10 @@ def test_the_old_row_is_untouched_and_the_new_kind_is_accepted_and_nothing_else_
 def test_the_check_of_the_migration_is_the_check_of_the_model():
     from app.models.issued_document import IssuedDocument
 
-    module = load_migration(NAME)
+    module = load_migration("0074_measurements_document")  # the latest migration that widens the check is the one the model must equal (0060 was the one before it)
     model = next(c for c in IssuedDocument.__table__.constraints if getattr(c, "name", None) == "ck_issued_documents_kind")
     assert " ".join(module.KINDS_NEW.split()) == " ".join(str(model.sqltext).split())
+    assert " ".join(load_migration(NAME).KINDS_NEW.split()) == " ".join(module.KINDS_OLD.split())
 
 
 def test_downgrade_refuses_while_a_statement_exists():

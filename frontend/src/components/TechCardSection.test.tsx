@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as documentsApi from '../api/documents';
 import { ApiError } from '../api/http';
 import { I18nProvider } from '../hooks/useI18n';
-import { ProductionPlanSection, SettlementSection, TechCardSection } from './TechCardSection';
+import { MeasurementsSection, ProductionPlanSection, SettlementSection, TechCardSection } from './TechCardSection';
 
 vi.mock('../api/documents', () => ({
   issueTechCard: vi.fn(),
@@ -12,6 +12,8 @@ vi.mock('../api/documents', () => ({
   previewProductionPlanPdf: vi.fn(),
   issueSettlement: vi.fn(),
   previewSettlementPdf: vi.fn(),
+  issueMeasurements: vi.fn(),
+  previewMeasurementsPdf: vi.fn(),
 }));
 
 const onIssued = vi.fn();
@@ -244,5 +246,69 @@ describe('SettlementSection (IA-6a)', () => {
     renderSection();
     await press('preview-tech-card');
     expect(documentsApi.previewSettlementPdf).not.toHaveBeenCalled();
+  });
+});
+
+describe('MeasurementsSection (V2-8c)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+  afterEach(cleanup);
+
+  const renderMeasurements = () => render(<I18nProvider><MeasurementsSection projectId="p1" onIssued={onIssued} /></I18nProvider>);
+
+  it('says what the document holds and offers two full-width touch-sized actions', () => {
+    renderMeasurements();
+    expect(screen.getByText('Obmiar obiektu dla klienta')).toBeInTheDocument();
+    expect(screen.getByText(/Liczby są takie same jak na ekranach aplikacji/)).toBeInTheDocument();
+    for (const name of ['preview-measurements', 'send-measurements']) {
+      const button = screen.getByRole('button', { name });
+      expect(button.className).toContain('min-h-11');
+      expect(button.className).toContain('w-full');
+    }
+  });
+
+  it('sends the working version to the chat and nothing else', async () => {
+    vi.mocked(documentsApi.previewMeasurementsPdf).mockResolvedValue({ sent: true, pages: 2, byte_size: 17000 });
+    renderMeasurements();
+    await press('preview-measurements');
+    expect(documentsApi.previewMeasurementsPdf).toHaveBeenCalledWith('p1');
+    expect(await screen.findByLabelText('measurements-note')).toHaveTextContent('Wersja robocza wysłana do czatu z botem');
+    expect(documentsApi.issueMeasurements).not.toHaveBeenCalled();
+    expect(onIssued).not.toHaveBeenCalled();
+  });
+
+  it('starts the numbered document and tells the journal to follow it', async () => {
+    vi.mocked(documentsApi.issueMeasurements).mockResolvedValue({} as never);
+    renderMeasurements();
+    await press('send-measurements');
+    expect(documentsApi.issueMeasurements).toHaveBeenCalledWith('p1');
+    expect(documentsApi.previewMeasurementsPdf).not.toHaveBeenCalled();
+    expect(onIssued).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers an object without a room with the words of its code, in four languages', async () => {
+    vi.mocked(documentsApi.issueMeasurements).mockRejectedValue(new ApiError('Request failed', 422, 'MEASUREMENTS_EMPTY', { code: 'MEASUREMENTS_EMPTY' }));
+    for (const [lang, words] of [
+      ['pl', 'Obiekt nie ma jeszcze pomieszczeń do obmiaru'],
+      ['ru', 'В объекте пока нет помещений для обмеров'],
+      ['uk', 'В об’єкті ще немає приміщень для обмірів'],
+      ['en', 'The property has no room to measure yet'],
+    ] as const) {
+      localStorage.setItem('locale', lang);
+      renderMeasurements();
+      await press('send-measurements');
+      expect(await screen.findByLabelText('measurements-error')).toHaveTextContent(words);
+      cleanup();
+    }
+    expect(onIssued).not.toHaveBeenCalled();
+  });
+
+  it('works only on its own buttons: a card or a statement never calls the measurements', async () => {
+    vi.mocked(documentsApi.previewTechCardPdf).mockResolvedValue({ sent: true, pages: 1, byte_size: 1 });
+    renderSection();
+    await press('preview-tech-card');
+    expect(documentsApi.previewMeasurementsPdf).not.toHaveBeenCalled();
   });
 });

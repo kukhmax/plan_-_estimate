@@ -12,9 +12,9 @@ export type ObjectSection = 'rooms' | 'photos' | 'documents' | 'legal' | 'paymen
 // 'notes' has no tile: the notes of an object are opened with the button of its card in the list of objects.
 
 /** What the screen of documents lists: each piece of it is opened alone. */
-export type DocumentsSection = 'tech_card' | 'plan' | 'settlement' | 'photo_report' | 'journal';
+export type DocumentsSection = 'measurements' | 'tech_card' | 'plan' | 'settlement' | 'photo_report' | 'journal';
 
-const DOCUMENT_ICONS: Record<string, string> = { tech_card: '📋', plan: '🗓️', settlement: '🧾', photo_report: '🖼️', journal: '📨' };
+const DOCUMENT_ICONS: Record<string, string> = { measurements: '📐', tech_card: '📋', plan: '🗓️', settlement: '🧾', photo_report: '🖼️', journal: '📨' };
 const LEGAL_ICONS: Record<string, string> = {
   representatives: '🤝',
   adjacent: '🔧',
@@ -74,6 +74,7 @@ interface DocumentsMenuProps {
 export function DocumentsMenu({ onOpen }: DocumentsMenuProps) {
   const { t } = useI18n();
   const rows: { id: DocumentsSection; label: string }[] = [
+    { id: 'measurements', label: t.documents.kind_measurements },
     { id: 'tech_card', label: t.documents.kind_tech_card },
     { id: 'plan', label: t.documents.kind_production_plan },
     { id: 'settlement', label: t.documents.kind_settlement },

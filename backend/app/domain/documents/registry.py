@@ -26,6 +26,7 @@ class DocumentKind(str, enum.Enum):
     PRODUCTION_PLAN = "PRODUCTION_PLAN"  # Plan produkcji prac: the sequence, the technological breaks, the works of others (16D)
     TECH_CARD = "TECH_CARD"  # Karta technologiczna: the substrate, the standard and the works of every surface (16C)
     SETTLEMENT = "SETTLEMENT"  # Rozliczenie: what was invoiced to the client and what the client paid (IA-6a)
+    MEASUREMENTS = "MEASUREMENTS"  # Obmiar obiektu: every size of every room, as the screens show them (V2-8c)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +45,7 @@ TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
     DocumentKind.TECH_CARD: DocumentTemplate(DocumentKind.TECH_CARD, "1", "tech_card.html.j2", "KART"),
     DocumentKind.PRODUCTION_PLAN: DocumentTemplate(DocumentKind.PRODUCTION_PLAN, "1", "production_plan.html.j2", "PLAN"),
     DocumentKind.SETTLEMENT: DocumentTemplate(DocumentKind.SETTLEMENT, "1", "settlement.html.j2", "ROZL"),
+    DocumentKind.MEASUREMENTS: DocumentTemplate(DocumentKind.MEASUREMENTS, "1", "measurements.html.j2", "OBM"),
     DocumentKind.CONTRACT: DocumentTemplate(
         DocumentKind.CONTRACT, "2", "contract.html.j2", "UMOWA",
         (
