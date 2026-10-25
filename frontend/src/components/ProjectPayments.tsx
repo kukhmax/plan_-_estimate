@@ -19,6 +19,8 @@ interface ProjectPaymentsProps {
   projectId: string;
   /** Opens the statement of settlements for the client (the documents of the object); without it the button is not shown. */
   onOpenStatement?: () => void;
+  /** Opens the document "Harmonogram płatności" (V2-9a); without it the button of the schedule tab is not shown. */
+  onOpenSchedule?: () => void;
 }
 
 /** The three tabs of the records and, since V2-9, the schedule of the stages and the work hours. */
@@ -38,7 +40,7 @@ const secondary = 'flex-1 min-h-11 px-3 py-2 text-sm rounded-xl border border-sl
  * "Faktury i zaliczki" (a backlog item, not a roadmap stage): what the client was invoiced and paid, and what the owner spent on materials.
  * A register for reference: nothing here issues an invoice. Every sum is the server's; the phone only shows them.
  */
-export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsProps) {
+export function ProjectPayments({ projectId, onOpenStatement, onOpenSchedule }: ProjectPaymentsProps) {
   const { t } = useI18n();
   const text = t.payments;
   const [list, setList] = useState<PaymentList | null>(null);
@@ -157,7 +159,7 @@ export function ProjectPayments({ projectId, onOpenStatement }: ProjectPaymentsP
             ))}
           </div>
 
-          {tab === 'schedule' && <PaymentScheduleTab projectId={projectId} onMoneyChanged={moneyChanged} />}
+          {tab === 'schedule' && <PaymentScheduleTab projectId={projectId} onMoneyChanged={moneyChanged} onOpenPdf={onOpenSchedule} />}
           {tab === 'hours' && <WorkHoursTab projectId={projectId} onChanged={() => setVersion((current) => current + 1)} />}
 
           {recordTab !== null && (form === null ? (

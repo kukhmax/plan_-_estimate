@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as documentsApi from '../api/documents';
 import { ApiError } from '../api/http';
 import { I18nProvider } from '../hooks/useI18n';
-import { MeasurementsSection, ProductionPlanSection, SettlementSection, TechCardSection } from './TechCardSection';
+import { MeasurementsSection, PaymentScheduleSection, ProductionPlanSection, SettlementSection, TechCardSection } from './TechCardSection';
 
 vi.mock('../api/documents', () => ({
   issueTechCard: vi.fn(),
@@ -14,6 +14,8 @@ vi.mock('../api/documents', () => ({
   previewSettlementPdf: vi.fn(),
   issueMeasurements: vi.fn(),
   previewMeasurementsPdf: vi.fn(),
+  issuePaymentSchedule: vi.fn(),
+  previewPaymentSchedulePdf: vi.fn(),
 }));
 
 const onIssued = vi.fn();
@@ -352,5 +354,71 @@ describe('MeasurementsSection (V2-8c)', () => {
     renderSection();
     await press('preview-tech-card');
     expect(documentsApi.previewMeasurementsPdf).not.toHaveBeenCalled();
+  });
+});
+
+describe('PaymentScheduleSection (V2-9a)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+  afterEach(cleanup);
+
+  const renderSchedule = () => render(<I18nProvider><PaymentScheduleSection projectId="p1" onIssued={onIssued} /></I18nProvider>);
+
+  it('says what the document holds (and what it never holds) and offers two full-width touch-sized actions, no photos checkbox', () => {
+    renderSchedule();
+    expect(screen.getByText('Harmonogram płatności dla klienta')).toBeInTheDocument();
+    expect(screen.getByText(/Twoje wydatki, godziny i marża nie trafiają do dokumentu/)).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    for (const name of ['preview-payment-schedule', 'send-payment-schedule']) {
+      const button = screen.getByRole('button', { name });
+      expect(button.className).toContain('min-h-11');
+      expect(button.className).toContain('w-full');
+    }
+    expect(screen.getByRole('button', { name: 'send-payment-schedule' })).toHaveTextContent('Wyślij harmonogram (PDF)');
+  });
+
+  it('sends the working version to the chat and nothing else', async () => {
+    vi.mocked(documentsApi.previewPaymentSchedulePdf).mockResolvedValue({ sent: true, pages: 1, byte_size: 9000 });
+    renderSchedule();
+    await press('preview-payment-schedule');
+    expect(documentsApi.previewPaymentSchedulePdf).toHaveBeenCalledWith('p1');
+    expect(await screen.findByLabelText('payment-schedule-note')).toHaveTextContent('Wersja robocza wysłana do czatu z botem');
+    expect(documentsApi.issuePaymentSchedule).not.toHaveBeenCalled();
+    expect(onIssued).not.toHaveBeenCalled();
+  });
+
+  it('starts the numbered document and tells the journal to follow it', async () => {
+    vi.mocked(documentsApi.issuePaymentSchedule).mockResolvedValue({} as never);
+    renderSchedule();
+    await press('send-payment-schedule');
+    expect(documentsApi.issuePaymentSchedule).toHaveBeenCalledWith('p1');
+    expect(documentsApi.previewPaymentSchedulePdf).not.toHaveBeenCalled();
+    expect(onIssued).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers an object without a stage and a stage without a known amount with the words of the code, in four languages', async () => {
+    for (const [lang, empty, unpriced] of [
+      ['pl', 'Obiekt nie ma jeszcze etapów płatności', 'Etap jest udziałem w umówionej kwocie, której jeszcze nie ustawiono (2)'],
+      ['ru', 'В объекте пока нет этапов платежей', 'Этап задан долей договорной суммы, которую ещё не указали (2)'],
+      ['uk', 'В об’єкті ще немає етапів платежів', 'Етап задано часткою домовленої суми, яку ще не вказано (2)'],
+      ['en', 'The property has no payment stage yet', 'A stage is a share of an agreed amount that is not set yet (2)'],
+    ] as const) {
+      localStorage.setItem('locale', lang);
+      vi.mocked(documentsApi.issuePaymentSchedule).mockRejectedValueOnce(new ApiError('Request failed', 422, 'PAYMENT_SCHEDULE_EMPTY', { code: 'PAYMENT_SCHEDULE_EMPTY' }));
+      renderSchedule();
+      await press('send-payment-schedule');
+      expect(await screen.findByLabelText('payment-schedule-error')).toHaveTextContent(empty);
+      cleanup();
+      vi.mocked(documentsApi.issuePaymentSchedule).mockRejectedValueOnce(
+        new ApiError('Request failed', 422, 'PAYMENT_SCHEDULE_UNPRICED', { code: 'PAYMENT_SCHEDULE_UNPRICED', details: { count: 2 } }),
+      );
+      renderSchedule();
+      await press('send-payment-schedule');
+      expect(await screen.findByLabelText('payment-schedule-error')).toHaveTextContent(unpriced);
+      cleanup();
+    }
+    expect(onIssued).not.toHaveBeenCalled();
   });
 });

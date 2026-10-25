@@ -2571,7 +2571,9 @@
       "CONCEALED_NOT_ISSUED": "The protocol of this document is not frozen. Report it to the support of the app.",
       "ACCEPTANCE_NOT_ISSUED": "The protocol of this document is not frozen. Report it to the support of the app.",
       "DECISION_NOT_ISSUED": "The protocol of this document is not frozen. Report it to the support of the app.",
-      "DOWNTIME_NOT_ISSUED": "The document of this downtime is not frozen. Report it to the support of the app."
+      "DOWNTIME_NOT_ISSUED": "The document of this downtime is not frozen. Report it to the support of the app.",
+      "PAYMENT_SCHEDULE_EMPTY": "The property has no payment stage yet. Add a stage in “Invoices and advances” or send the working version.",
+      "PAYMENT_SCHEDULE_UNPRICED": "A stage is a share of an agreed amount that is not set yet ({count}). Set the agreed amount, type the amount of the stage, or send the working version."
     },
     "recommended_works": "Recommended extra works: {count}",
     "unpriced_title": "The report will not be sent: these recommended works have no price in the estimate.",
@@ -2621,7 +2623,13 @@
     "kind_final": "Work acceptance protocol (final or partial)",
     "kind_decision": "Client information and decisions protocol",
     "kind_downtime_notice": "Downtime notice",
-    "kind_downtime_protocol": "Downtime protocol"
+    "kind_downtime_protocol": "Downtime protocol",
+    "kind_payment_schedule": "Payment schedule",
+    "payment_schedule_title": "Payment schedule for the client",
+    "payment_schedule_hint": "The stages in which the client pays: the name, the share, the amount, the day and the state of each stage, and the totals. The numbers are the ones of the screen “Stages”. Your expenses, hours and margin do not go into the document.",
+    "payment_schedule_preview": "Working version (PDF with a watermark)",
+    "payment_schedule_send": "Send the schedule (PDF)",
+    "payment_schedule_preview_ok": "The working version was sent to the chat with the bot."
   },
   "handover": {
     "title": "Rooms handover protocol",
@@ -3738,7 +3746,8 @@
       "errors": {
         "title": "Enter the name of the stage.",
         "value": "Enter a share (0.01 to 100) or an amount above zero."
-      }
+      },
+      "pdf_button": "Schedule for the client (PDF)"
     },
     "hours": {
       "intro": "Your work log for the property: the day and the hours. It is used for the margin.",

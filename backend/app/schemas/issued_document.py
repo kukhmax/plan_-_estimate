@@ -11,7 +11,7 @@ class IssueDocumentRequest(BaseModel):
     """What to issue. A technological card and a production plan are the whole object (no other fields). An estimate is named by its id; a photo report is the whole object or, when it is too big, a part: the
     chosen rooms (the general photos of the object come along only when asked for)."""
 
-    kind: Literal["ESTIMATE", "PHOTO_REPORT", "TECH_CARD", "PRODUCTION_PLAN", "SETTLEMENT", "MEASUREMENTS"]  # a contract has its own route: it is frozen first
+    kind: Literal["ESTIMATE", "PHOTO_REPORT", "TECH_CARD", "PRODUCTION_PLAN", "SETTLEMENT", "MEASUREMENTS", "PAYMENT_SCHEDULE"]  # a contract has its own route: it is frozen first
     estimate_id: uuid.UUID | None = None
     room_ids: list[uuid.UUID] | None = None
     include_project_photos: bool | None = None
@@ -23,9 +23,9 @@ class IssueDocumentRequest(BaseModel):
     def _kind_fits_fields(self) -> "IssueDocumentRequest":
         if self.with_photos is not None and self.kind != "MEASUREMENTS":
             raise ValueError("with_photos belongs to the measurements")
-        if self.kind in ("TECH_CARD", "PRODUCTION_PLAN", "SETTLEMENT", "MEASUREMENTS"):
+        if self.kind in ("TECH_CARD", "PRODUCTION_PLAN", "SETTLEMENT", "MEASUREMENTS", "PAYMENT_SCHEDULE"):
             if self.estimate_id is not None or self.room_ids is not None or self.include_project_photos is not None:
-                raise ValueError("a technological card, a production plan, a statement of settlements and the measurements take no other fields")
+                raise ValueError("a technological card, a production plan, a statement of settlements, the measurements and the payment schedule take no other fields")
         elif self.kind == "ESTIMATE":
             if self.estimate_id is None:
                 raise ValueError("estimate_id is required for an estimate")
@@ -52,7 +52,7 @@ class MeasurementsPreviewRequest(BaseModel):
 class IssuedDocumentRead(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
-    kind: Literal["ESTIMATE", "PHOTO_REPORT", "TECH_CARD", "PRODUCTION_PLAN", "CONTRACT", "HANDOVER_PROTOCOL", "CONCEALED_WORKS_PROTOCOL", "FINAL_PROTOCOL", "DECISION_PROTOCOL", "DOWNTIME_NOTICE", "DOWNTIME_PROTOCOL", "SETTLEMENT", "MEASUREMENTS"]
+    kind: Literal["ESTIMATE", "PHOTO_REPORT", "TECH_CARD", "PRODUCTION_PLAN", "CONTRACT", "HANDOVER_PROTOCOL", "CONCEALED_WORKS_PROTOCOL", "FINAL_PROTOCOL", "DECISION_PROTOCOL", "DOWNTIME_NOTICE", "DOWNTIME_PROTOCOL", "SETTLEMENT", "MEASUREMENTS", "PAYMENT_SCHEDULE"]
     source_id: uuid.UUID | None
     source_version: int | None
     title: str

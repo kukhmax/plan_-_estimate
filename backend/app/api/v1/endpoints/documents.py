@@ -104,6 +104,8 @@ async def issue_document(
             reservation = await issuer.start_tech_card(db, current_user, project_id)
         elif body.kind == "SETTLEMENT":
             reservation = await issuer.start_settlement(db, current_user, project_id)
+        elif body.kind == "PAYMENT_SCHEDULE":
+            reservation = await issuer.start_payment_schedule(db, current_user, project_id)
         elif body.kind == "MEASUREMENTS":
             reservation = await issuer.start_measurements(db, current_user, project_id, with_photos=bool(body.with_photos))
         else:
@@ -275,6 +277,24 @@ async def preview_settlement_pdf(
 ) -> PreviewResponse:
     try:
         result = await issuer.preview_settlement(db, current_user, project_id)
+    except (ProjectNotFoundError, DocumentDataError, DocumentRenderError, DocumentDeliveryError) as exc:
+        raise _http_error(exc) from exc
+    return PreviewResponse(sent=True, pages=result.pages, byte_size=result.byte_size)
+
+
+@router.post(
+    "/projects/{project_id}/documents/payment-schedule/preview",
+    response_model=PreviewResponse,
+    summary="Send the working version (watermark, no number) of the payment schedule (Harmonogram płatności) to the owner's chat",
+)
+async def preview_payment_schedule_pdf(
+    project_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    issuer: DocumentIssuer = Depends(get_document_issuer),
+) -> PreviewResponse:
+    try:
+        result = await issuer.preview_payment_schedule(db, current_user, project_id)
     except (ProjectNotFoundError, DocumentDataError, DocumentRenderError, DocumentDeliveryError) as exc:
         raise _http_error(exc) from exc
     return PreviewResponse(sent=True, pages=result.pages, byte_size=result.byte_size)

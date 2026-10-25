@@ -13,6 +13,8 @@ interface PaymentScheduleTabProps {
   projectId: string;
   /** Money was booked (the one-tap "received") or the schedule changed: the totals and the margin of the screen are read again. */
   onMoneyChanged: () => void;
+  /** Opens the document "Harmonogram płatności" (the documents of the object); without it the button is not shown. */
+  onOpenPdf?: () => void;
 }
 
 const STATE_STYLE: Record<StageState, string> = {
@@ -26,7 +28,7 @@ const STATE_STYLE: Record<StageState, string> = {
  * V2-9 — the payment schedule of an object: the owner's own stages (a share of the agreed amount or a fixed amount, an optional day), what each is worth,
  * what was received for it and where it stands — all the server's. "Otrzymano" books the rest of a stage in one tap. Needs the connection (like the agreed amount).
  */
-export function PaymentScheduleTab({ projectId, onMoneyChanged }: PaymentScheduleTabProps) {
+export function PaymentScheduleTab({ projectId, onMoneyChanged, onOpenPdf }: PaymentScheduleTabProps) {
   const { t } = useI18n();
   const text = t.payments.schedule;
   const { offline } = useConnection();
@@ -111,6 +113,11 @@ export function PaymentScheduleTab({ projectId, onMoneyChanged }: PaymentSchedul
       {schedule && (
         <>
           <ScheduleSummaryCard summary={schedule.summary} />
+          {onOpenPdf && schedule.items.length > 0 && (
+            <button type="button" aria-label="schedule-pdf" onClick={onOpenPdf} className={secondaryButton}>
+              <Ico>📆</Ico>{text.pdf_button}
+            </button>
+          )}
           {form === null ? (
             <>
               <button type="button" aria-label="stage-add" disabled={offline} onClick={() => setForm({})} className={primaryButton}>

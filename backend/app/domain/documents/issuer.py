@@ -61,12 +61,15 @@ from app.domain.documents.downtime_document import (
     render_protocol_html,
 )
 from app.domain.documents.estimate_document import EstimateDocumentService
-from app.domain.documents.measurements_document import MeasurementsDocumentService
 from app.domain.documents.handover_document import (
     build_handover_document,
     render_handover_html,
 )
 from app.domain.documents.handover_document import snapshot_of as handover_snapshot_of
+from app.domain.documents.measurements_document import MeasurementsDocumentService
+from app.domain.documents.payment_schedule_document import (
+    PaymentScheduleDocumentService,
+)
 from app.domain.documents.photo_report_document import PhotoReportDocumentService
 from app.domain.documents.production_plan_document import ProductionPlanDocumentService
 from app.domain.documents.registry import DocumentKind, get_template
@@ -296,6 +299,37 @@ class DocumentIssuer:
             "Rozliczenie-wersja-robocza.pdf",
             rendered.pdf,
             f"WERSJA ROBOCZA — Rozliczenie — {project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
+    async def start_payment_schedule(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> Reservation:
+        """The numbered payment schedule (Harmonogram płatności): checked now (refused with a stable code while the object has no stage, a stage has no
+        known amount, or the executor profile is empty), so a number is never given to a schedule that cannot be printed; the slow part runs in the background."""
+        self._ensure_capacity()
+        owner_id = user.id
+        document = await PaymentScheduleDocumentService(db).build(owner_id, project_id, working=False, issued_on=self._today())
+        project = await self._project(db, owner_id, project_id)
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.PAYMENT_SCHEDULE,
+            title=document.layout.meta.title,
+            template_version=get_template(DocumentKind.PAYMENT_SCHEDULE).version,
+            client_id=project.client_id,
+        )
+        return self._launch(reservation)
+
+    async def preview_payment_schedule(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version (watermark, no number, no journal row) to the owner's chat; it never refuses for missing data."""
+        owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
+        document = await PaymentScheduleDocumentService(db).build(owner_id, project_id, working=True, issued_on=self._today())
+        project = await self._project(db, owner_id, project_id)
+        rendered = await self.renderer.render(PaymentScheduleDocumentService.html(document))
+        await self.delivery.send_document(
+            chat_id,
+            "Harmonogram-platnosci-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — Harmonogram płatności — {project.name}",
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
@@ -948,6 +982,11 @@ class DocumentIssuer:
             return await self.renderer.render(protocol.document_html)
         if document.kind == IssuedDocumentKind.PRODUCTION_PLAN.value:
             return await ProductionPlanDocumentService(db).render(
+                document.owner_id, document.project_id, self.renderer,
+                working=False, issued_on=issued_on, number=document.number, sequence=document.project_seq,
+            )
+        if document.kind == IssuedDocumentKind.PAYMENT_SCHEDULE.value:
+            return await PaymentScheduleDocumentService(db).render(
                 document.owner_id, document.project_id, self.renderer,
                 working=False, issued_on=issued_on, number=document.number, sequence=document.project_seq,
             )

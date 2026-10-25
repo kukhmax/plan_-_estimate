@@ -2566,7 +2566,9 @@
       "CONCEALED_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji.",
       "ACCEPTANCE_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji.",
       "DECISION_NOT_ISSUED": "Protokół tego dokumentu nie jest zamrożony. Zgłoś to do obsługi aplikacji.",
-      "DOWNTIME_NOT_ISSUED": "Dokument tego przestoju nie jest zamrożony. Zgłoś to do obsługi aplikacji."
+      "DOWNTIME_NOT_ISSUED": "Dokument tego przestoju nie jest zamrożony. Zgłoś to do obsługi aplikacji.",
+      "PAYMENT_SCHEDULE_EMPTY": "Obiekt nie ma jeszcze etapów płatności. Dodaj etap w „Faktury i zaliczki” albo wyślij wersję roboczą.",
+      "PAYMENT_SCHEDULE_UNPRICED": "Etap jest udziałem w umówionej kwocie, której jeszcze nie ustawiono ({count}). Ustaw umówioną kwotę albo wpisz kwotę etapu, albo wyślij wersję roboczą."
     },
     "recommended_works": "Rekomendowane prace dodatkowe: {count}",
     "unpriced_title": "Raport nie zostanie wysłany: te rekomendowane prace nie mają ceny w kosztorysie.",
@@ -2616,7 +2618,13 @@
     "kind_final": "Protokół odbioru prac (końcowy lub częściowy)",
     "kind_decision": "Protokół informacji i decyzji Zamawiającego",
     "kind_downtime_notice": "Zawiadomienie o przestoju",
-    "kind_downtime_protocol": "Protokół przestoju"
+    "kind_downtime_protocol": "Protokół przestoju",
+    "kind_payment_schedule": "Harmonogram płatności",
+    "payment_schedule_title": "Harmonogram płatności dla klienta",
+    "payment_schedule_hint": "Etapy, w których klient płaci: nazwa, udział, kwota, termin i stan każdego etapu oraz podsumowanie. Liczby są takie same jak na ekranie „Etapy”. Twoje wydatki, godziny i marża nie trafiają do dokumentu.",
+    "payment_schedule_preview": "Wersja robocza (PDF z znakiem wodnym)",
+    "payment_schedule_send": "Wyślij harmonogram (PDF)",
+    "payment_schedule_preview_ok": "Wersja robocza wysłana do czatu z botem."
   },
   "handover": {
     "title": "Protokół przekazania pomieszczeń",
@@ -3708,7 +3716,8 @@
       "errors": {
         "title": "Wpisz nazwę etapu.",
         "value": "Wpisz udział (od 0,01 do 100) albo kwotę większą od zera."
-      }
+      },
+      "pdf_button": "Harmonogram dla klienta (PDF)"
     },
     "hours": {
       "intro": "Twój dziennik pracy przy obiekcie: dzień i godziny. Służy do liczenia marży.",

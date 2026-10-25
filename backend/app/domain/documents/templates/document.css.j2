@@ -146,6 +146,24 @@ thead { display: table-header-group; }
 .annex .techcard h2, .annex .plan h2 { break-before: auto; }
 .contract .persons { margin-bottom: 2mm; }
 
+/* the payment schedule (V2-9a) */
+.pschedule h2 { font-size: 11pt; margin: 5mm 0 1.5mm 0; break-after: avoid; page-break-after: avoid; }
+.pschedule .as-of { color: #333; margin: 0 0 2mm 0; }
+.pschedule .muted { color: #666; }
+.pschedule table { width: 100%; }
+.pschedule th, .pschedule td { font-size: 8.5pt; padding: 1.4mm 1.2mm; vertical-align: top; }
+.pschedule .no { width: 8mm; text-align: right; }
+.pschedule .share { width: 13mm; white-space: nowrap; text-align: right; }
+.pschedule .day { white-space: nowrap; width: 21mm; }
+.pschedule .num { white-space: nowrap; text-align: right; width: 24mm; }
+.pschedule .state { width: 20mm; }
+.pschedule tr { break-inside: avoid; page-break-inside: avoid; }
+.pschedule .totals { margin-top: 1mm; }
+.pschedule .totals td { font-size: 10pt; }
+.pschedule .totals .grand td { font-weight: 700; font-size: 11pt; border-top: 0.5mm solid #111; border-bottom: 0; padding-top: 2.5mm; }
+.pschedule .note { margin-top: 2mm; font-size: 9pt; color: #333; }
+.pschedule .disclaimer { margin-top: 6mm; font-size: 8pt; color: #555; }
+
 /* the statement of settlements (IA-6a) */
 .settlement h2 { font-size: 11pt; margin: 5mm 0 1.5mm 0; break-after: avoid; page-break-after: avoid; }
 .settlement .as-of { color: #333; margin: 0 0 2mm 0; }

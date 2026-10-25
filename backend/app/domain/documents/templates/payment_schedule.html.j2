@@ -1,0 +1,38 @@
+{% extends "_layout.html.j2" %}
+{% block body %}
+<div class="pschedule">
+{% if doc.working %}<p class="notice">{{ t('payment_schedule.working_note') }}</p>{% endif %}
+<div class="object">
+  <div class="role">{{ t('estimate.object') }}</div>
+  <div><strong>{{ doc.object_name }}</strong></div>
+  {% for line in doc.object_lines %}<div>{{ line }}</div>{% endfor %}
+</div>
+<p class="as-of">{{ t('payment_schedule.as_of', date=(doc.as_of | date)) }}</p>
+
+<h2>{{ t('payment_schedule.stages') }}</h2>
+{% if doc.stages %}
+<table class="stages">
+  <thead>
+    <tr><th class="no">{{ t('payment_schedule.col_no') }}</th><th>{{ t('payment_schedule.col_stage') }}</th><th class="share">{{ t('payment_schedule.col_share') }}</th><th class="num">{{ t('payment_schedule.col_amount') }}</th><th class="day">{{ t('payment_schedule.col_due') }}</th><th class="num">{{ t('payment_schedule.col_paid') }}</th><th class="num">{{ t('payment_schedule.col_left') }}</th><th class="state">{{ t('payment_schedule.col_state') }}</th></tr>
+  </thead>
+  <tbody>
+    {% for s in doc.stages %}
+    <tr><td class="no">{{ s.number }}</td><td>{{ s.title }}</td><td class="share">{{ s.share }}</td><td class="num">{{ s.amount }}</td><td class="day">{% if s.due %}{{ s.due | date }}{% else %}<span class="muted">{{ t('payment_schedule.no_due') }}</span>{% endif %}</td><td class="num">{{ s.paid }}</td><td class="num">{{ s.left }}</td><td class="state">{{ s.state }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">{{ t('payment_schedule.empty') }}</p>
+{% endif %}
+
+<h2>{{ t('payment_schedule.summary') }}</h2>
+<table class="totals">
+  {% if doc.totals.agreed %}<tr><td>{{ t('payment_schedule.agreed') }}</td><td class="num">{{ doc.totals.agreed }}</td></tr>{% endif %}
+  <tr><td>{{ t('payment_schedule.total') }}</td><td class="num">{{ doc.totals.total }}</td></tr>
+  <tr><td>{{ t('payment_schedule.received') }}</td><td class="num">{{ doc.totals.received }}</td></tr>
+  {% if doc.totals.left %}<tr class="grand"><td>{{ t('payment_schedule.left') }}</td><td class="num">{{ doc.totals.left }}</td></tr>{% endif %}
+</table>
+{% if doc.totals.note %}<p class="note">{{ doc.totals.note }}</p>{% endif %}
+<p class="disclaimer">{{ t('payment_schedule.disclaimer') }}</p>
+</div>
+{% endblock %}

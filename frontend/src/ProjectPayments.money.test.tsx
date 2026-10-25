@@ -70,8 +70,8 @@ const LIST: PaymentList = {
   agreed_amount: '40000.00',
 };
 
-function renderScreen() {
-  return render(<I18nProvider><ProjectPayments projectId={projectId} /></I18nProvider>);
+function renderScreen(onOpenSchedule?: () => void) {
+  return render(<I18nProvider><ProjectPayments projectId={projectId} onOpenSchedule={onOpenSchedule} /></I18nProvider>);
 }
 const tab = async (id: string) => {
   await screen.findByLabelText('payments-tabs');
@@ -314,6 +314,31 @@ describe('the schedule', () => {
     expect(screen.getByLabelText('stage-receive-s1')).toBeDisabled();
     expect(screen.getByLabelText('stage-delete-s1')).toBeDisabled();
     expect(screen.getByLabelText('schedule-offline')).toHaveTextContent('Harmonogram zmienisz, gdy wróci zasięg.');
+  });
+});
+
+describe('the document of the schedule (V2-9a)', () => {
+  it('has a full-width button on the schedule tab that opens the document, and only when there is a stage and somewhere to open it', async () => {
+    const open = vi.fn();
+    renderScreen(open);
+    await tab('schedule');
+    const button = await screen.findByLabelText('schedule-pdf');
+    expect(button).toHaveTextContent('Harmonogram dla klienta (PDF)');
+    expect(button.className).toContain('min-h-11');
+    expect(button.className).toContain('w-full');
+    fireEvent.click(button);
+    expect(open).toHaveBeenCalledTimes(1);
+    cleanup();
+    renderScreen();
+    await tab('schedule');
+    await screen.findByLabelText('stage-s1');
+    expect(screen.queryByLabelText('schedule-pdf')).toBeNull(); // nowhere to open it
+    cleanup();
+    vi.mocked(moneyApi.fetchSchedule).mockResolvedValue(SCHEDULE([]));
+    renderScreen(open);
+    await tab('schedule');
+    await screen.findByLabelText('schedule-empty');
+    expect(screen.queryByLabelText('schedule-pdf')).toBeNull(); // no stage, nothing to print
   });
 });
 

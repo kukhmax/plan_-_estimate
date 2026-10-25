@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   issueMeasurements,
+  issuePaymentSchedule,
   issueProductionPlan,
   issueSettlement,
   issueTechCard,
   previewMeasurementsPdf,
+  previewPaymentSchedulePdf,
   previewProductionPlanPdf,
   previewSettlementPdf,
   previewTechCardPdf,
@@ -21,7 +23,7 @@ interface DocumentSectionProps {
   onIssued: () => void;
 }
 
-type SectionKind = 'tech-card' | 'production-plan' | 'settlement' | 'measurements';
+type SectionKind = 'tech-card' | 'production-plan' | 'settlement' | 'measurements' | 'payment-schedule';
 
 /** The surfaces the server named in `TECH_CARD_INCOMPLETE`, if that is what the error was. */
 function missingItems(error: unknown): TechCardMissingItem[] {
@@ -44,7 +46,9 @@ function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSec
       ? { title: text.tech_card, hint: text.tech_card_hint, preview: text.tech_card_preview, send: text.tech_card_send, previewOk: text.tech_card_preview_ok }
       : sectionKind === 'settlement'
         ? { title: text.settlement, hint: text.settlement_hint, preview: text.settlement_preview, send: text.settlement_send, previewOk: text.settlement_preview_ok }
-        : sectionKind === 'measurements'
+        : sectionKind === 'payment-schedule'
+          ? { title: text.payment_schedule_title, hint: text.payment_schedule_hint, preview: text.payment_schedule_preview, send: text.payment_schedule_send, previewOk: text.payment_schedule_preview_ok }
+          : sectionKind === 'measurements'
           ? { title: text.measurements_title, hint: text.measurements_hint, preview: text.measurements_preview, send: text.measurements_send, previewOk: text.measurements_preview_ok }
           : { title: text.production_plan, hint: text.production_plan_hint, preview: text.production_plan_preview, send: text.production_plan_send, previewOk: text.production_plan_preview_ok };
   const [withPhotos, setWithPhotos] = useState(false); // measurements only: the photos of the surfaces go under their sizes
@@ -53,12 +57,14 @@ function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSec
     'tech-card': () => previewTechCardPdf(projectId),
     settlement: () => previewSettlementPdf(projectId),
     measurements: () => previewMeasurementsPdf(projectId, withPhotos),
+    'payment-schedule': () => previewPaymentSchedulePdf(projectId),
     'production-plan': () => previewProductionPlanPdf(projectId),
   };
   const issuers = {
     'tech-card': () => issueTechCard(projectId),
     settlement: () => issueSettlement(projectId),
     measurements: () => issueMeasurements(projectId, withPhotos),
+    'payment-schedule': () => issuePaymentSchedule(projectId),
     'production-plan': () => issueProductionPlan(projectId),
   };
   const preview = previewers[sectionKind];
@@ -170,6 +176,11 @@ export function TechCardSection(props: DocumentSectionProps) {
 /** V2-8c — the measurements of the object (Obmiar obiektu): every size of every room, the same numbers as the screens. */
 export function MeasurementsSection(props: DocumentSectionProps) {
   return <DocumentSection {...props} kind="measurements" />;
+}
+
+/** V2-9a — the payment schedule of the object (Harmonogram płatności): the stages in which the client pays, with the day and the state of each. */
+export function PaymentScheduleSection(props: DocumentSectionProps) {
+  return <DocumentSection {...props} kind="payment-schedule" />;
 }
 
 /** Stage 16D.2 — the production plan: the order of the works, the technological breaks, the works of other contractors. */
