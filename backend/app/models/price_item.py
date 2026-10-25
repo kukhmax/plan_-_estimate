@@ -39,6 +39,10 @@ class PriceCategory(str, enum.Enum):
     MICROCEMENT = "MICROCEMENT"
     DECORATIVE = "DECORATIVE"
     REVEAL = "REVEAL"
+    ELECTRICAL = "ELECTRICAL"  # V2-10: the points (pcs) and routes (lm) of the electrician
+    PLUMBING = "PLUMBING"  # V2-10: the points and routes of the plumber
+    TILE = "TILE"  # V2-10
+    POINTS_ROUTES = "POINTS_ROUTES"  # V2-10: the universal points and routes, no trade
     MATERIAL = "MATERIAL"
     OTHER = "OTHER"
 

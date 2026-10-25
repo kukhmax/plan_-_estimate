@@ -16,6 +16,7 @@ from app.domain.services.price_book_service import PriceBookService
 from app.models.checklist import QualityLevel
 from app.models.price_item import PriceCategory, PriceScope, PriceUnit
 from app.models.user import User
+from app.schemas.room_point import PointsPackResponse
 from app.schemas.price import (
     PriceItemCreate,
     PriceItemListResponse,
@@ -142,6 +143,20 @@ async def update_price_item(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
     return PriceItemRead.model_validate(item)
+
+
+@router.post(
+    "/price-items/points-pack",
+    response_model=PointsPackResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Make the typical items of the trades that work in points and routes in the owner's price book (V2-10; idempotent, no prices)",
+)
+async def make_points_pack(
+    current_user: User = Depends(get_current_user),
+    price_book_service: PriceBookService = Depends(get_price_book_service),
+) -> PointsPackResponse:
+    created, existing = await price_book_service.ensure_points_pack(current_user.id)
+    return PointsPackResponse(created=created, existing=existing)
 
 
 @router.post(

@@ -11,6 +11,7 @@ import { resolveKey } from '../utils/i18nKeys';
 import { VAT_CHOICES, type VatChoice, vatChoiceOf, vatSettingOf } from '../utils/vat';
 import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
+import { EstimatePointsAction, type PointsMessage } from './EstimatePointsAction';
 import { Ico } from './Ico';
 
 // Stage 10G.3C — the backend rejects LABOR_AND_MATERIAL for MANUAL lines (no
@@ -169,6 +170,7 @@ function buildGroups(lines: EstimateLineRead[]): EstimateGroup[] {
 export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: EstimateShellProps) {
   const { t } = useI18n();
   const [detail, setDetail] = useState<EstimateRead | null>(null);
+  const [pointsMessage, setPointsMessage] = useState<PointsMessage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1373,6 +1375,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
     <div aria-label="estimate-secondary-actions" className="grid grid-cols-2 gap-2 items-start">
       {regenerationSection}
       {manualLineSection}
+      {detail.status === 'DRAFT' && <EstimatePointsAction projectId={estimate.project_id} estimateId={estimate.id} message={pointsMessage} onMessage={setPointsMessage} onAdded={() => void load()} />}
     </div>
   );
 

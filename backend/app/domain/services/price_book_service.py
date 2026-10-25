@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.domain.data.onboarding_data import STARTER_PRICE_CODES
+from app.domain.data.points_pack import POINTS_PACK
 from app.domain.data.price_book_seed import (
     LEGACY_GENERIC_CODES,
     MarketReferenceSeed,
@@ -461,6 +462,26 @@ class PriceBookService:
             ).scalar_one_or_none()
             if exists is None:
                 return code
+
+    async def ensure_points_pack(self, owner_id: uuid.UUID) -> tuple[int, int]:
+        """Make the typical items of the trades that work in points and routes (V2-10) in the owner's price book; returns (created, existing).
+
+        Idempotent: a row of the pack that the book has already (the same name in the same category, archived or not) is not made again. No price is set."""
+        rows = (await self.db.execute(select(PriceItem).where(PriceItem.owner_id == owner_id))).scalars().all()
+        have = {(row.display_name, row.category) for row in rows if row.display_name}
+        created = 0
+        for entry in POINTS_PACK:
+            if (entry.display_name, entry.category) in have:
+                continue
+            self.db.add(PriceItem(
+                owner_id=owner_id, code=await self.generate_custom_code(owner_id), display_name=entry.display_name, category=entry.category, unit=entry.unit,
+                price=None, currency="PLN", price_scope=PriceScope.LABOR,
+            ))
+            await self.db.flush()
+            created += 1
+        if created:
+            await self.db.commit()
+        return created, len(POINTS_PACK) - created
 
     async def create_custom_item(
         self,

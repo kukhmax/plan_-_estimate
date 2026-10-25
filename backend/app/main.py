@@ -36,6 +36,7 @@ from app.api.v1.endpoints.onboarding import router as onboarding_router
 from app.api.v1.endpoints.openings import router as openings_router
 from app.api.v1.endpoints.payment_purge import router as payment_purge_router
 from app.api.v1.endpoints.payment_schedule import router as payment_schedule_router
+from app.api.v1.endpoints.room_points import router as room_points_router
 from app.api.v1.endpoints.payments import router as payments_router
 from app.api.v1.endpoints.photo_archive import router as photo_archive_router
 from app.api.v1.endpoints.photo_purge import router as photo_purge_router
@@ -163,6 +164,7 @@ app.include_router(photos_router, prefix="/api", tags=["photos"])
 app.include_router(archive_structure_router, prefix="/api", tags=["archive"])
 app.include_router(payments_router, prefix="/api", tags=["payments"])
 app.include_router(payment_schedule_router, prefix="/api", tags=["payment-schedule"])
+app.include_router(room_points_router, prefix="/api", tags=["room-points"])
 app.include_router(payment_purge_router, prefix="/api", tags=["archive"])
 app.include_router(archived_documents_router, prefix="/api", tags=["archive"])
 app.include_router(photo_archive_router, prefix="/api", tags=["photo-archive"])

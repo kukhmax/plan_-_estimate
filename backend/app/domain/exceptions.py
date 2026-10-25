@@ -1052,6 +1052,18 @@ class WorkHourNotFoundError(Exception):
     """An entry of the work log that does not exist, is not on this object or is not this owner's (V2-9)."""
 
 
+class RoomPointNotFoundError(Exception):
+    """A point / route row that does not exist, is not in this room or is not this owner's (V2-10)."""
+
+
+class RoomPointInvalidError(Exception):
+    """A point / route row or its addition to an estimate that breaks a rule (V2-10): `code` is stable (POINT_ITEM_UNKNOWN, POINT_ITEM_ARCHIVED, POINT_UNIT_INVALID)."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 class ArchivedDocumentNotFoundError(Exception):
     """A contract / protocol that does not exist, is not this owner's or is of an unknown kind (archive of documents, AC-6)."""
 

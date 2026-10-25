@@ -44,6 +44,7 @@ from app.models.knowledge_document import KnowledgeDocument, KnowledgeDocumentFi
 from app.models.client_link import ClientConsent, ClientLink, ClientProposal
 from app.models.project_note import ProjectNote
 from app.models.payment_stage import PaymentStage, WorkHour
+from app.models.room_point import RoomPoint
 from app.models.project_payment import ProjectFinance, ProjectPayment
 from app.models.purge_ledger import PurgeLedger
 from app.models.work_schedule import WorkSchedule
@@ -128,6 +129,7 @@ __all__ = [
     "PaymentStage",
     "ProjectPayment",
     "WorkHour",
+    "RoomPoint",
     "ProjectFinance",
     "PurgeLedger",
     "WorkSchedule",

@@ -27,6 +27,7 @@ import { EstimateSummaryRead } from '../types/estimate';
 import { localizeApiError } from '../utils/apiErrors';
 import { formatMetric } from '../utils/format';
 import { AreaSegmentList } from './AreaSegmentList';
+import { RoomPointsSection } from './RoomPointsSection';
 import { EstimateList } from './EstimateList';
 import { EstimateShell } from './EstimateShell';
 import { InspectionFlow } from './InspectionFlow';
@@ -1328,6 +1329,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               openInspectionList({ kind: 'surface', surfaceId, surfaceName })
             }
           />
+
+          <RoomPointsSection projectId={selectedProject.id} roomId={selectedRoom.id} />
         </>
         )
       )}

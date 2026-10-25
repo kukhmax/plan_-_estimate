@@ -10,6 +10,10 @@ export type PriceCategoryValue =
   | 'MICROCEMENT'
   | 'DECORATIVE'
   | 'REVEAL'
+  | 'ELECTRICAL'
+  | 'PLUMBING'
+  | 'TILE'
+  | 'POINTS_ROUTES'
   | 'MATERIAL'
   | 'OTHER';
 
@@ -27,6 +31,10 @@ export const PRICE_CATEGORIES: readonly PriceCategoryValue[] = [
   'MICROCEMENT',
   'DECORATIVE',
   'REVEAL',
+  'ELECTRICAL',
+  'PLUMBING',
+  'TILE',
+  'POINTS_ROUTES',
   'MATERIAL',
   'OTHER',
 ];

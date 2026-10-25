@@ -60,6 +60,10 @@ class TestModelEnums:
             "MICROCEMENT",
             "DECORATIVE",
             "REVEAL",
+            "ELECTRICAL",
+            "PLUMBING",
+            "TILE",
+            "POINTS_ROUTES",
             "MATERIAL",
             "OTHER",
         ]
