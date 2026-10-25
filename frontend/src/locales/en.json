@@ -4019,6 +4019,7 @@
     "saved": "Saved.",
     "deleted": "Deleted.",
     "save_error": "Could not save.",
+    "edit": "Edit",
     "delete": "Delete",
     "delete_confirm": "Remove this entry from the list?",
     "delete_yes": "Yes, delete",

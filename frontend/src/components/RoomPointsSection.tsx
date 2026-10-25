@@ -10,7 +10,7 @@ import { MAX_POINT_NOTE_LENGTH } from '../types/roomPoints';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPlain, positiveAmount, toInput } from '../utils/paymentFormat';
 import { Ico } from './Ico';
-import { dangerButton, fieldClass, labelClass, primaryButton, secondaryButton } from './paymentUi';
+import { fieldClass, labelClass, primaryButton, secondaryButton } from './paymentUi';
 import { VoiceInput } from './VoiceInput';
 
 interface RoomPointsSectionProps {
@@ -22,6 +22,10 @@ type Eligible = Pick<PriceItem, 'id' | 'code' | 'name_key' | 'display_name' | 'u
 
 /** The categories of the trades that work in points and routes: while the price book has none of them, the typical items are offered. */
 const TRADE_CATEGORIES = ['ELECTRICAL', 'PLUMBING', 'TILE', 'POINTS_ROUTES'];
+
+/** The two buttons of a row stand side by side: a narrow half is enough, a long word wraps. */
+const compactButton = 'w-full min-h-11 px-2 py-2 text-sm leading-tight rounded-xl border border-slate-200 pe-surface text-slate-700 font-medium break-words hover:bg-slate-50 disabled:opacity-50';
+const compactDanger = 'w-full min-h-11 px-2 py-2 text-sm leading-tight rounded-xl border border-red-200 bg-red-50 text-red-800 font-semibold break-words hover:bg-red-100 disabled:opacity-50';
 
 /** The name of a price item as the owner reads it: the own name, else the built-in name of its key, else the code. */
 function itemName(item: { display_name: string | null; name_key: string | null; code: string }, t: unknown): string {
@@ -116,7 +120,7 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
   };
 
   return (
-    <section aria-label="room-points-section" className="w-full mt-5 space-y-3">
+    <section aria-label="room-points-section" className="w-full min-w-0 max-w-full mt-5 space-y-3">
       <button
         type="button"
         aria-label="room-points-toggle"
@@ -176,32 +180,36 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
               {rows.length === 0 ? (
                 <p aria-label="room-points-empty" className="text-sm text-slate-500 text-center py-3">{text.empty}</p>
               ) : (
-                <ul aria-label="room-points-list" className="space-y-2">
+                <ul aria-label="room-points-list" className="space-y-2 min-w-0">
                   {rows.map((row) => (
-                    <li key={row.id} aria-label={`room-point-${row.id}`} className="pe-card rounded-2xl p-4 shadow-sm space-y-2">
-                      <p className="text-sm font-semibold text-slate-900 break-words">{itemName(row.item, t)}</p>
-                      <p aria-label={`room-point-quantity-${row.id}`} className="text-lg font-bold text-slate-900">
-                        {formatPlain(row.quantity)} {row.item.unit === 'LM' ? text.unit_lm : text.unit_pcs}
-                      </p>
+                    <li key={row.id} aria-label={`room-point-${row.id}`} className="pe-card rounded-2xl p-3 shadow-sm space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 flex-1 text-sm font-semibold text-slate-900 break-words">{itemName(row.item, t)}</p>
+                        <p aria-label={`room-point-quantity-${row.id}`} className="shrink-0 text-base font-bold text-slate-900 whitespace-nowrap">
+                          {formatPlain(row.quantity)} {row.item.unit === 'LM' ? text.unit_lm : text.unit_pcs}
+                        </p>
+                      </div>
                       {row.note && <p className="text-xs text-slate-600 whitespace-pre-wrap break-words">{row.note}</p>}
                       {confirmId !== row.id ? (
-                        <div className="flex flex-col gap-2">
-                          <button type="button" aria-label={`room-point-edit-${row.id}`} disabled={offline} onClick={() => { setMessage(null); setForm({ row }); }} className={secondaryButton}>
-                            <Ico>✏️</Ico>{t.common.edit}
+                        <div className="grid grid-cols-2 gap-2">
+                          <button type="button" aria-label={`room-point-edit-${row.id}`} disabled={offline} onClick={() => { setMessage(null); setForm({ row }); }} className={compactButton}>
+                            <Ico>✏️</Ico>{text.edit}
                           </button>
-                          <button type="button" aria-label={`room-point-delete-${row.id}`} disabled={busyId === row.id || offline} onClick={() => setConfirmId(row.id)} className={secondaryButton}>
+                          <button type="button" aria-label={`room-point-delete-${row.id}`} disabled={busyId === row.id || offline} onClick={() => setConfirmId(row.id)} className={compactButton}>
                             <Ico>🗑️</Ico>{text.delete}
                           </button>
                         </div>
                       ) : (
                         <div aria-label={`room-point-confirm-${row.id}`} className="space-y-2">
                           <p className="text-sm text-slate-800 break-words">{text.delete_confirm}</p>
-                          <button type="button" aria-label={`room-point-delete-yes-${row.id}`} disabled={busyId === row.id} onClick={() => void remove(row)} className={dangerButton}>
-                            <Ico>🗑️</Ico>{text.delete_yes}
-                          </button>
-                          <button type="button" aria-label={`room-point-delete-no-${row.id}`} onClick={() => setConfirmId(null)} className={secondaryButton}>
-                            <Ico>✖️</Ico>{t.common.cancel}
-                          </button>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button type="button" aria-label={`room-point-delete-yes-${row.id}`} disabled={busyId === row.id} onClick={() => void remove(row)} className={compactDanger}>
+                              <Ico>🗑️</Ico>{text.delete_yes}
+                            </button>
+                            <button type="button" aria-label={`room-point-delete-no-${row.id}`} onClick={() => setConfirmId(null)} className={compactButton}>
+                              <Ico>✖️</Ico>{t.common.cancel}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </li>
