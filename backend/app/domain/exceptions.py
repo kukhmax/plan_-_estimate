@@ -1064,6 +1064,18 @@ class RoomPointInvalidError(Exception):
         self.code = code
 
 
+class MaterialNotFoundError(Exception):
+    """A norm or a calculation of materials that does not exist, is not this owner's or is not in this room (V2-11)."""
+
+
+class MaterialInvalidError(Exception):
+    """A norm or a calculation that breaks a rule (V2-11): `code` is stable (NORM_OUT_OF_RANGE, NORM_ITEM_UNKNOWN, NORM_ITEM_ARCHIVED, NORM_ITEM_UNIT_MISMATCH, NORM_NOT_A_NUMBER, NORM_NOT_A_MATERIAL)."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 class ArchivedDocumentNotFoundError(Exception):
     """A contract / protocol that does not exist, is not this owner's or is of an unknown kind (archive of documents, AC-6)."""
 

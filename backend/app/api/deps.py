@@ -39,6 +39,7 @@ from app.domain.services.password_login_service import PasswordLoginService
 from app.domain.services.payment_schedule_service import PaymentScheduleService
 from app.domain.services.payment_service import PaymentService
 from app.domain.services.project_margin_service import ProjectMarginService
+from app.domain.services.materials_service import MaterialsService
 from app.domain.services.room_points_service import RoomPointsService
 from app.domain.services.work_hours_service import WorkHoursService
 from app.domain.services.price_book_service import PriceBookService
@@ -208,6 +209,12 @@ async def get_payment_schedule_service(
     db: AsyncSession = Depends(get_db),
 ) -> PaymentScheduleService:
     return PaymentScheduleService(db)
+
+
+async def get_materials_service(
+    db: AsyncSession = Depends(get_db),
+) -> MaterialsService:
+    return MaterialsService(db)
 
 
 async def get_room_points_service(

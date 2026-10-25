@@ -11,6 +11,7 @@ import { resolveKey } from '../utils/i18nKeys';
 import { VAT_CHOICES, type VatChoice, vatChoiceOf, vatSettingOf } from '../utils/vat';
 import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
+import { EstimateMaterialsAction, type MaterialsMessage } from './EstimateMaterialsAction';
 import { EstimatePointsAction, type PointsMessage } from './EstimatePointsAction';
 import { Ico } from './Ico';
 
@@ -171,6 +172,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const { t } = useI18n();
   const [detail, setDetail] = useState<EstimateRead | null>(null);
   const [pointsMessage, setPointsMessage] = useState<PointsMessage | null>(null);
+  const [materialsMessage, setMaterialsMessage] = useState<MaterialsMessage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1376,6 +1378,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
       {regenerationSection}
       {manualLineSection}
       {detail.status === 'DRAFT' && <EstimatePointsAction projectId={estimate.project_id} estimateId={estimate.id} message={pointsMessage} onMessage={setPointsMessage} onAdded={() => void load()} />}
+      {detail.status === 'DRAFT' && <EstimateMaterialsAction projectId={estimate.project_id} estimateId={estimate.id} message={materialsMessage} onMessage={setMaterialsMessage} onAdded={() => void load()} />}
     </div>
   );
 

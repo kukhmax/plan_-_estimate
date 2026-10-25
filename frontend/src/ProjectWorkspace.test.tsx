@@ -1878,8 +1878,9 @@ describe('Room opening summary and object summary (Stage 13F-PRE)', () => {
     fireEvent.click(screen.getByLabelText('back-to-project'));
     const tiles = Array.from(screen.getByLabelText('object-hub').children).map((tile) => tile.getAttribute('aria-label'));
     expect(tiles[tiles.length - 1]).toBe('object-tile-summary');
-    expect(tiles[tiles.length - 2]).toBe('object-tile-payments');
-    expect(tiles[tiles.length - 3]).toBe('object-tile-legal');
+    expect(tiles[tiles.length - 2]).toBe('object-tile-materials');
+    expect(tiles[tiles.length - 3]).toBe('object-tile-payments');
+    expect(tiles[tiles.length - 4]).toBe('object-tile-legal');
     fireEvent.click(screen.getByLabelText('object-tile-summary'));
     const card = await screen.findByLabelText('object-summary');
     expect(screen.getByRole('navigation', { name: 'hierarchy-navigation' }).textContent).toContain('Podsumowanie obiektu');

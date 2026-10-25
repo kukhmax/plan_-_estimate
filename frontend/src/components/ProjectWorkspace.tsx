@@ -27,6 +27,8 @@ import { EstimateSummaryRead } from '../types/estimate';
 import { localizeApiError } from '../utils/apiErrors';
 import { formatMetric } from '../utils/format';
 import { AreaSegmentList } from './AreaSegmentList';
+import { MaterialsScreen } from './MaterialsScreen';
+import { RoomMaterialsSection } from './RoomMaterialsSection';
 import { RoomPointsSection } from './RoomPointsSection';
 import { EstimateList } from './EstimateList';
 import { EstimateShell } from './EstimateShell';
@@ -368,6 +370,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       documents: t.documents.title,
       legal: t.objectHub.legal,
       payments: t.payments.title,
+      materials: t.materials.title,
       summary: t.object_summary.title,
       notes: t.notes.title,
       client: t.client_link.title,
@@ -932,6 +935,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
 
           {objectSection === 'client' && <ProjectClientLink projectId={selectedProject.id} />}
 
+          {objectSection === 'materials' && <MaterialsScreen projectId={selectedProject.id} />}
+
           {objectSection === 'payments' && (
             <ProjectPayments
               projectId={selectedProject.id}
@@ -1331,6 +1336,18 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           />
 
           <RoomPointsSection projectId={selectedProject.id} roomId={selectedRoom.id} />
+
+          <RoomMaterialsSection
+            projectId={selectedProject.id}
+            roomId={selectedRoom.id}
+            areas={{
+              floor: selectedRoom.calculations?.floor_area ?? null,
+              ceiling: selectedRoom.calculations?.ceiling_area ?? null,
+              walls: selectedRoom.calculations?.net_wall_area ?? selectedRoom.calculations?.total_wall_area ?? null,
+              perimeter: selectedRoom.calculations?.perimeter ?? null,
+              height: selectedRoom.height ?? null,
+            }}
+          />
         </>
         )
       )}
