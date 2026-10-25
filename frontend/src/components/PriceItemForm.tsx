@@ -15,6 +15,7 @@ import {
 } from '../types/priceItem';
 import { normalizePriceInput } from '../utils/priceFormat';
 import { Ico } from './Ico';
+import { VoiceInput } from './VoiceInput';
 
 /**
  * Shared Price Book create/edit form (Stage 10G.4 extraction).
@@ -297,16 +298,18 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
             <span className="text-sm text-slate-700">{t.pricebook.price_unresolved}</span>
           </label>
           {priceMode === 'value' && (
-            <input
-              id={`${idPrefix}-price`}
-              aria-label={`${idPrefix}-price`}
-              type="text"
-              inputMode="decimal"
-              placeholder={t.pricebook.price_placeholder}
-              value={form.price}
-              onChange={(e) => handleFormChange('price', e.target.value)}
-              className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-            />
+            <VoiceInput name="price" mode="plain" onValue={(value) => handleFormChange('price', value.replace('.', ','))}>
+              <input
+                id={`${idPrefix}-price`}
+                aria-label={`${idPrefix}-price`}
+                type="text"
+                inputMode="decimal"
+                placeholder={t.pricebook.price_placeholder}
+                value={form.price}
+                onChange={(e) => handleFormChange('price', e.target.value)}
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-0 flex-1"
+              />
+            </VoiceInput>
           )}
           {formPriceError && (
             <p role="alert" className="text-sm text-red-600 font-medium mt-1">

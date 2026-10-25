@@ -8,6 +8,7 @@ import { localizeApiError } from '../utils/apiErrors';
 import { formatDay, formatMoney, formatPlain, percentAmount, positiveAmount, toInput } from '../utils/paymentFormat';
 import { Ico } from './Ico';
 import { dangerButton, fieldClass, labelClass, primaryButton, secondaryButton, segmentClass } from './paymentUi';
+import { VoiceInput } from './VoiceInput';
 
 interface PaymentScheduleTabProps {
   projectId: string;
@@ -323,7 +324,9 @@ function StageForm({ projectId, stage, onSaved, onCancel }: { projectId: string;
       </div>
       <div>
         <label htmlFor="stage-value" className={labelClass}>{mode === 'percent' ? text.percent_label : text.amount_label}</label>
-        <input id="stage-value" aria-label="stage-value" inputMode="decimal" autoComplete="off" value={value} placeholder={mode === 'percent' ? '30' : '0,00'} onChange={(event) => setValue(event.target.value)} className={fieldClass} />
+        <VoiceInput name="stage-value" mode="plain" onValue={(value) => setValue(value.replace('.', ','))}>
+          <input id="stage-value" aria-label="stage-value" inputMode="decimal" autoComplete="off" value={value} placeholder={mode === 'percent' ? '30' : '0,00'} onChange={(event) => setValue(event.target.value)} className={`${fieldClass} min-w-0 flex-1`} />
+        </VoiceInput>
         {errors.includes('value') && <p role="alert" className="text-xs text-red-600 mt-1">{text.errors.value}</p>}
       </div>
       <div>

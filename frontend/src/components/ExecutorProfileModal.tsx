@@ -6,6 +6,7 @@ import { ExecutorProfile, ExecutorProfileField, ExecutorProfilePayload } from '.
 import { positiveAmount, toInput } from '../utils/paymentFormat';
 import { VAT_CHOICES, VatChoice, vatChoiceOf, vatSettingOf } from '../utils/vat';
 import { Ico } from './Ico';
+import { VoiceInput } from './VoiceInput';
 
 interface ExecutorProfileModalProps {
   onClose: () => void;
@@ -203,6 +204,27 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
                   <label htmlFor={id} className="text-xs font-medium break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>
                     {text.fields[spec.name]}
                   </label>
+                  {spec.name === 'hourly_rate' ? (
+                    <VoiceInput name="hourly_rate" mode="plain" onValue={(value) => change('hourly_rate', value.replace('.', ','))}>
+                      <input
+                        id={id}
+                        name={spec.name}
+                        type={spec.type}
+                        inputMode={spec.inputMode}
+                        autoComplete={spec.autoComplete}
+                        placeholder={spec.placeholder ? placeholders[spec.name] : undefined}
+                        value={form[spec.name]}
+                        onChange={(event) => change(spec.name, event.target.value)}
+                        aria-invalid={error ? true : undefined}
+                        aria-describedby={error ? `${id}-error` : undefined}
+                        className={`min-w-0 flex-1 min-h-11 w-full rounded-lg border px-3 text-base ${error ? 'border-red-500' : 'border-slate-200'}`}
+                        style={{
+                          backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+                          color: 'var(--tg-theme-text-color)',
+                        }}
+                      />
+                    </VoiceInput>
+                  ) : (
                   <input
                     id={id}
                     name={spec.name}
@@ -220,6 +242,7 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
                       color: 'var(--tg-theme-text-color)',
                     }}
                   />
+                  )}
                   {spec.name === 'hourly_rate' && <p className="text-xs break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>{text.hourly_rate_hint}</p>}
                   {error && (
                     <p id={`${id}-error`} className="text-xs font-medium text-red-700 break-words">{error}</p>

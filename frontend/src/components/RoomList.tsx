@@ -282,7 +282,7 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
           </div>
 
           {roomShape === 'RECTANGLE' ? (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 min-[400px]:grid-cols-3 gap-2">
               <div>
                 <label className="block text-xs text-slate-500 mb-1">{t.rooms.length}</label>
                 <DimensionInput

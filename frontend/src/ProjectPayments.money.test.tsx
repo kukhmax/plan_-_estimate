@@ -317,6 +317,43 @@ describe('the schedule', () => {
   });
 });
 
+describe('the microphone of the money fields (V2-V)', () => {
+  it('types the amount of a payment that was said, and the record carries it with a point', async () => {
+    vi.mocked(paymentsApi.createPayment).mockResolvedValue(payment);
+    renderScreen();
+    await tab('client');
+    fireEvent.click(await screen.findByLabelText('payment-add'));
+    type('payment-title', 'Zaliczka');
+    fireEvent.click(screen.getByLabelText('voice-payment-amount'));
+    fireEvent.change(screen.getByLabelText('voice-text-payment-amount'), { target: { value: 'сто двадцать пять и пять' } });
+    fireEvent.click(screen.getByLabelText('voice-insert-payment-amount'));
+    expect((screen.getByLabelText('payment-amount') as HTMLInputElement).value).toBe('125,5');
+    fireEvent.click(screen.getByLabelText('payment-save'));
+    await waitFor(() => expect(paymentsApi.createPayment).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(paymentsApi.createPayment).mock.calls[0][3]).toMatchObject({ amount_gross: '125.5' });
+  });
+
+  it('types the share of a stage and the hours that were said', async () => {
+    vi.mocked(moneyApi.createStage).mockResolvedValue(PARTIAL);
+    vi.mocked(moneyApi.createHours).mockResolvedValue(HOURS.items[0]);
+    renderScreen();
+    await tab('schedule');
+    fireEvent.click(await screen.findByLabelText('stage-add'));
+    type('stage-title', 'Odbiór');
+    fireEvent.click(screen.getByLabelText('voice-stage-value'));
+    fireEvent.change(screen.getByLabelText('voice-text-stage-value'), { target: { value: 'trzydzieści procent' } });
+    fireEvent.click(screen.getByLabelText('voice-insert-stage-value'));
+    fireEvent.click(screen.getByLabelText('stage-save'));
+    await waitFor(() => expect(moneyApi.createStage).toHaveBeenCalledWith(projectId, { title: 'Odbiór', percent: '30', due_on: null }));
+    fireEvent.click(screen.getByLabelText('payments-tab-hours'));
+    fireEvent.click(await screen.findByLabelText('hours-add'));
+    fireEvent.click(screen.getByLabelText('voice-hours-value'));
+    fireEvent.change(screen.getByLabelText('voice-text-hours-value'), { target: { value: 'siedem i pół godziny' } });
+    fireEvent.click(screen.getByLabelText('voice-insert-hours-value'));
+    expect((screen.getByLabelText('hours-value') as HTMLInputElement).value).toBe('7,5');
+  });
+});
+
 describe('the document of the schedule (V2-9a)', () => {
   it('has a full-width button on the schedule tab that opens the document, and only when there is a stage and somewhere to open it', async () => {
     const open = vi.fn();

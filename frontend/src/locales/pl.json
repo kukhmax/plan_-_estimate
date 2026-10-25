@@ -3937,5 +3937,27 @@
     "copy": "Kopiuj raport",
     "copied": "Skopiowano. Wklej raport do czatu.",
     "copy_manual": "Nie udało się skopiować automatycznie: zaznacz tekst raportu i skopiuj go ręcznie."
+  },
+  "voice": {
+    "mic": "Powiedz liczbę (mikrofon)",
+    "stop": "Zatrzymaj nasłuchiwanie",
+    "listening": "Słucham… powiedz liczbę",
+    "heard": "Usłyszano „{text}” → {value}",
+    "not_understood": "Nie zrozumiałem „{text}”. Powiedz jeszcze raz albo wpisz liczbę.",
+    "no_speech": "Nic nie słychać. Spróbuj jeszcze raz.",
+    "denied": "Brak zgody na mikrofon. Zezwól na mikrofon w ustawieniach telefonu albo podyktuj liczbę klawiaturą.",
+    "no_mic": "Nie znaleziono mikrofonu.",
+    "unavailable": "Rozpoznawanie mowy jest tu niedostępne. Podyktuj liczbę klawiaturą telefonu.",
+    "language": "Język mowy",
+    "keyboard": "Podyktuj klawiaturą",
+    "dictate_title": "Podyktuj liczbę",
+    "dictate_hint": "Naciśnij mikrofon na klawiaturze telefonu i powiedz liczbę. Możesz też wpisać słowa.",
+    "examples_plain": "Np. „pięć przecinek dwa”, „sto dwadzieścia pięć”, „zero siedem pięć”.",
+    "examples_length": "Np. „dwa pięćdziesiąt”, „trzy metry osiemdziesiąt”, „250 cm”.",
+    "dictate_placeholder": "np. pięć przecinek dwa",
+    "dictate_none": "Nie rozumiem jeszcze liczby.",
+    "dictate_preview": "→ {value}",
+    "cm": "cm",
+    "insert": "Wstaw liczbę"
   }
 }

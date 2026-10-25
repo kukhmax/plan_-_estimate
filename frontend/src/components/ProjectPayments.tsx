@@ -14,6 +14,7 @@ import { PaymentScheduleTab } from './PaymentScheduleTab';
 import { PendingMark } from './PendingMark';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { WorkHoursTab } from './WorkHoursTab';
+import { VoiceInput } from './VoiceInput';
 
 interface ProjectPaymentsProps {
   projectId: string;
@@ -360,16 +361,18 @@ function SummaryCard({ projectId, list, onChanged }: { projectId: string; list: 
       ) : (
         <form aria-label="agreed-form" onSubmit={submit} noValidate className="space-y-2">
           <label htmlFor="agreed-amount" className="block text-xs font-semibold text-slate-600">{text.agreed.label}</label>
-          <input
-            id="agreed-amount"
-            aria-label="agreed-amount"
-            inputMode="decimal"
-            autoComplete="off"
-            value={value}
-            placeholder="0,00"
-            onChange={(event) => setValue(event.target.value)}
-            className="w-full min-h-11 border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 pe-surface"
-          />
+          <VoiceInput name="agreed-amount" mode="plain" onValue={(value) => setValue(value.replace('.', ','))}>
+            <input
+              id="agreed-amount"
+              aria-label="agreed-amount"
+              inputMode="decimal"
+              autoComplete="off"
+              value={value}
+              placeholder="0,00"
+              onChange={(event) => setValue(event.target.value)}
+              className="w-full min-h-11 border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 pe-surface min-w-0 flex-1"
+            />
+          </VoiceInput>
           {finance?.suggestion && (
             <button type="button" aria-label="agreed-suggestion" onClick={() => setValue(toInput(finance.suggestion?.amount))} className={secondary.replace('flex-1', 'w-full')}>
               {text.agreed.suggestion

@@ -3967,5 +3967,27 @@
     "copy": "Copy the report",
     "copied": "Copied. Paste the report into the chat.",
     "copy_manual": "Could not copy automatically: select the text of the report and copy it by hand."
+  },
+  "voice": {
+    "mic": "Say the number (microphone)",
+    "stop": "Stop listening",
+    "listening": "Listening… say the number",
+    "heard": "Heard “{text}” → {value}",
+    "not_understood": "Did not understand “{text}”. Say it again or type the number.",
+    "no_speech": "Nothing heard. Try again.",
+    "denied": "No access to the microphone. Allow the microphone in the settings of the phone or dictate with the keyboard.",
+    "no_mic": "No microphone found.",
+    "unavailable": "Speech recognition is not available here. Dictate the number with the keyboard of the phone.",
+    "language": "Language of speech",
+    "keyboard": "Dictate with the keyboard",
+    "dictate_title": "Dictate the number",
+    "dictate_hint": "Press the microphone on the keyboard of the phone and say the number. You may also type the words.",
+    "examples_plain": "For example: “five point two”, “one hundred twenty five”, “zero seven five”.",
+    "examples_length": "For example: “two fifty”, “three meters eighty”, “250 cm”.",
+    "dictate_placeholder": "for example: five point two",
+    "dictate_none": "No number understood yet.",
+    "dictate_preview": "→ {value}",
+    "cm": "cm",
+    "insert": "Insert the number"
   }
 }

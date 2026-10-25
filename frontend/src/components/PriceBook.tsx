@@ -31,6 +31,7 @@ import { HubTile } from './HubTile';
 import { PriceBookMarket } from './PriceBookMarket';
 import { PriceItemForm } from './PriceItemForm';
 import { Ico } from './Ico';
+import { VoiceInput } from './VoiceInput';
 
 // Secondary screen, only shown on the "Współczynniki" tab — kept out of the
 // main bundle.
@@ -429,16 +430,18 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
                     >
                       {t.pricebook.price}
                     </label>
-                    <input
-                      id={`inline-price-input-${item.id}`}
-                      aria-label={`inline-price-input-${item.id}`}
-                      type="text"
-                      inputMode="decimal"
-                      placeholder={t.pricebook.price_placeholder}
-                      value={inlinePrice}
-                      onChange={(e) => handleInlinePriceChange(e.target.value)}
-                      className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                    />
+                    <VoiceInput name={`inline-price-${item.id}`} mode="plain" onValue={(value) => handleInlinePriceChange(value.replace('.', ','))}>
+                      <input
+                        id={`inline-price-input-${item.id}`}
+                        aria-label={`inline-price-input-${item.id}`}
+                        type="text"
+                        inputMode="decimal"
+                        placeholder={t.pricebook.price_placeholder}
+                        value={inlinePrice}
+                        onChange={(e) => handleInlinePriceChange(e.target.value)}
+                        className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-0 flex-1"
+                      />
+                    </VoiceInput>
                     {inlineError && (
                       <p role="alert" className="text-sm text-red-600 font-medium mt-1">
                         {inlineError}

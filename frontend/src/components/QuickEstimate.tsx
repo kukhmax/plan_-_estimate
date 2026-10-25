@@ -213,7 +213,7 @@ export function QuickEstimate({ onDone, onClose, backSuspended = false, onOpenPr
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 min-[400px]:grid-cols-3 gap-2">
               {([['length', text.length], ['width', text.width], ['height', text.height]] as const).map(([field, label]) => (
                 <div key={field} className="min-w-0">
                   <label className="block text-xs text-slate-500 mb-1 break-words">{label}</label>

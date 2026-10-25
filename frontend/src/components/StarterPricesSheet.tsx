@@ -10,6 +10,7 @@ import { normalizePriceInput } from '../utils/priceFormat';
 import { resolveDisplayName } from '../utils/priceItemName';
 import { Ico } from './Ico';
 import { PriceBookMarket } from './PriceBookMarket';
+import { VoiceInput } from './VoiceInput';
 
 interface StarterPricesSheetProps {
   onClose: () => void;
@@ -114,16 +115,18 @@ export function StarterPricesSheet({ onClose, onSaved, onOpenAll, load = fetchSt
               {resolveDisplayName(item, t as unknown as Record<string, unknown>)}
             </label>
             <div className="flex items-center gap-2">
-              <input
-                id={`starter-price-${item.id}`}
-                aria-label={`starter-price-${item.code}`}
-                inputMode="decimal"
-                autoComplete="off"
-                placeholder={t.pricebook.price_not_set}
-                value={values[item.id] ?? ''}
-                onChange={(event) => setValues((current) => ({ ...current, [item.id]: event.target.value }))}
-                className="min-w-0 flex-1 min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-              />
+              <VoiceInput name={`starter-price-${item.code}`} className="min-w-0 flex-1" mode="plain" onValue={(value) => setValues((current) => ({ ...current, [item.id]: value.replace('.', ',') }))}>
+                <input
+                  id={`starter-price-${item.id}`}
+                  aria-label={`starter-price-${item.code}`}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder={t.pricebook.price_not_set}
+                  value={values[item.id] ?? ''}
+                  onChange={(event) => setValues((current) => ({ ...current, [item.id]: event.target.value }))}
+                  className="min-w-0 flex-1 min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-0 flex-1"
+                />
+              </VoiceInput>
               <span className="shrink-0 text-sm text-slate-600">PLN / {t.pricebook.units[item.unit]}</span>
             </div>
             <PriceBookMarket itemId={item.id} entry={evidence[item.id]} unitLabel={(value) => t.pricebook.units[value]} />

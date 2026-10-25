@@ -18,6 +18,7 @@ import type { PaymentStage } from '../types/paymentSchedule';
 import { localizeApiError } from '../utils/apiErrors';
 import { formatDay, formatMoney, optionalAmount, optionalRate, positiveAmount, todayInPoland, toInput, type PaymentTab } from '../utils/paymentFormat';
 import { Ico } from './Ico';
+import { VoiceInput } from './VoiceInput';
 
 interface PaymentFormProps {
   projectId: string;
@@ -195,16 +196,18 @@ export function PaymentForm({ projectId, tab, payment, invoices, stages = [], on
 
       <div>
         <label htmlFor="payment-amount" className={label}>{text.fields.amount}</label>
-        <input
-          id="payment-amount"
-          aria-label="payment-amount"
-          inputMode="decimal"
-          autoComplete="off"
-          value={amount}
-          placeholder="0,00"
-          onChange={(event) => setAmount(event.target.value)}
-          className={field}
-        />
+        <VoiceInput name="payment-amount" mode="plain" onValue={(value) => setAmount(value.replace('.', ','))}>
+          <input
+            id="payment-amount"
+            aria-label="payment-amount"
+            inputMode="decimal"
+            autoComplete="off"
+            value={amount}
+            placeholder="0,00"
+            onChange={(event) => setAmount(event.target.value)}
+            className={`${field} min-w-0 flex-1`}
+          />
+        </VoiceInput>
         {errors.includes('amount') && <p role="alert" className="text-xs text-red-600 mt-1">{text.errors.amount}</p>}
       </div>
 
@@ -270,12 +273,16 @@ export function PaymentForm({ projectId, tab, payment, invoices, stages = [], on
             <>
               <div>
                 <label htmlFor="payment-net" className={label}>{text.fields.net}</label>
-                <input id="payment-net" aria-label="payment-net" inputMode="decimal" autoComplete="off" value={net} onChange={(event) => setNet(event.target.value)} className={field} />
+                <VoiceInput name="payment-net" mode="plain" onValue={(value) => setNet(value.replace('.', ','))}>
+                  <input id="payment-net" aria-label="payment-net" inputMode="decimal" autoComplete="off" value={net} onChange={(event) => setNet(event.target.value)} className={`${field} min-w-0 flex-1`} />
+                </VoiceInput>
                 {errors.includes('net') && <p role="alert" className="text-xs text-red-600 mt-1">{text.errors.net}</p>}
               </div>
               <div>
                 <label htmlFor="payment-vat" className={label}>{text.fields.vat}</label>
-                <input id="payment-vat" aria-label="payment-vat" inputMode="decimal" autoComplete="off" value={vat} onChange={(event) => setVat(event.target.value)} className={field} />
+                <VoiceInput name="payment-vat" mode="plain" onValue={(value) => setVat(value.replace('.', ','))}>
+                  <input id="payment-vat" aria-label="payment-vat" inputMode="decimal" autoComplete="off" value={vat} onChange={(event) => setVat(event.target.value)} className={`${field} min-w-0 flex-1`} />
+                </VoiceInput>
                 {errors.includes('vat') && <p role="alert" className="text-xs text-red-600 mt-1">{text.errors.vat}</p>}
               </div>
             </>

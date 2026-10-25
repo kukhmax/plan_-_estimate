@@ -8,6 +8,7 @@ import { localizeApiError } from '../utils/apiErrors';
 import { formatDay, formatMoney, formatPlain, hoursAmount, todayInPoland, toInput } from '../utils/paymentFormat';
 import { Ico } from './Ico';
 import { dangerButton, fieldClass, labelClass, primaryButton, secondaryButton } from './paymentUi';
+import { VoiceInput } from './VoiceInput';
 
 interface WorkHoursTabProps {
   projectId: string;
@@ -185,7 +186,9 @@ function HoursForm({ projectId, entry, onSaved, onCancel }: { projectId: string;
       </div>
       <div>
         <label htmlFor="hours-value" className={labelClass}>{text.hours_label}</label>
-        <input id="hours-value" aria-label="hours-value" inputMode="decimal" autoComplete="off" value={hours} placeholder="8" onChange={(event) => setHours(event.target.value)} className={fieldClass} />
+        <VoiceInput name="hours-value" mode="plain" onValue={(value) => setHours(value.replace('.', ','))}>
+          <input id="hours-value" aria-label="hours-value" inputMode="decimal" autoComplete="off" value={hours} placeholder="8" onChange={(event) => setHours(event.target.value)} className={`${fieldClass} min-w-0 flex-1`} />
+        </VoiceInput>
         {bad && <p role="alert" className="text-xs text-red-600 mt-1">{text.errors.hours}</p>}
       </div>
       <div>
