@@ -1,12 +1,9 @@
 """V2-9a -- the payment schedule as a document for the client (Harmonogram płatności): the numbers are those of the screen, what is printed, what never is, the two forms."""
 import uuid
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 import pytest
-from httpx import AsyncClient
-from sqlalchemy import select
-
 from app.domain.documents import formatting
 from app.domain.documents.payment_schedule_document import (
     PaymentScheduleDocumentService,
@@ -18,6 +15,9 @@ from app.domain.services.payment_service import PaymentService
 from app.domain.services.work_hours_service import WorkHoursService
 from app.models.executor_profile import ExecutorProfile
 from app.models.issued_document import IssuedDocument
+from httpx import AsyncClient
+from sqlalchemy import select
+
 from tests.test_clients import OTHER_USER
 from tests.test_stage15e_photo_report import seed
 from tests.test_stage15f2_api import login, use_issuer  # noqa: F401  (a fixture)
