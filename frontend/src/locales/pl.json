@@ -2747,6 +2747,32 @@
       "OUT_OF_RANGE": "wartość poza dozwolonym zakresem"
     }
   },
+  "trades": {
+    "title": "Zawody (pakiety)",
+    "intro": "Zaznacz zawody, w których pracujesz. Cennik, plan prac, materiały pomieszczenia oraz punkty i trasy pokazują tylko je. Nic nie jest usuwane — to tylko ukrywa z list; pozycje, które już są w kosztorysach i obiektach, zostają.",
+    "loading": "Ładowanie…",
+    "load_failed": "Nie udało się wczytać zawodów. Do czasu wczytania nic nie jest ukryte.",
+    "save_failed": "Nie udało się zapisać wyboru. Spróbuj ponownie.",
+    "names": {
+      "FINISHING": "Wykończenia",
+      "DRYWALL": "Płyta g-k",
+      "MICROCEMENT": "Mikrocement",
+      "TILE": "Płytki",
+      "ELECTRIC": "Elektryka",
+      "PLUMBING": "Hydraulika"
+    },
+    "hints": {
+      "FINISHING": "przygotowanie, gładź, tynk, malowanie, welon, dekoracje, ościeża",
+      "DRYWALL": "sucha zabudowa, płyty, profile",
+      "MICROCEMENT": "mikrocement ścian i posadzek",
+      "TILE": "płytki, klej, fugi, hydroizolacja",
+      "ELECTRIC": "punkty i trasy elektryka, kable, osprzęt",
+      "PLUMBING": "punkty i trasy hydrauliczne, rury, armatura"
+    },
+    "price_show_all": "Pokaż wszystkie kategorie",
+    "price_hide": "Ukryj kategorie innych zawodów",
+    "price_all_hidden": "Wszystkie pozycje należą do wyłączonych zawodów. Pokaż wszystkie kategorie albo włącz zawód w profilu."
+  },
   "pressure": {
     "title": "Protokół próby ciśnieniowej",
     "intro": "Po zamontowaniu instalacji (woda, ogrzewanie, gaz, kanalizacja) i przed zakryciem — zapisz wynik próby i zrób zdjęcie manometru. Każde stuknięcie zapisuje się od razu.",

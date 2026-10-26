@@ -16,6 +16,7 @@ import {
 import { useI18n } from '../hooks/useI18n';
 import { useMarketEvidence } from '../hooks/useMarketEvidence';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
+import { useTrades } from '../hooks/useTrades';
 import { QualityLevelValue } from '../types/checklist';
 import {
   PRICE_CATEGORIES,
@@ -66,6 +67,9 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
   const [category, setCategory] = useState<PriceCategoryValue | ''>('');
   const [items, setItems] = useState<PriceItem[]>([]);
   const [total, setTotal] = useState(0);
+  // V2-13: the categories of the trades the owner does not work in are hidden; "show all" lifts it for the moment (it is not saved).
+  const trades = useTrades();
+  const [showAllTrades, setShowAllTrades] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -96,6 +100,12 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
 
   // Per-item market evidence (read-only; cached, never re-fetched per render).
   const evidence = useMarketEvidence(items.map((item) => item.id));
+  const shownItems = showAllTrades ? items : items.filter((item) => trades.categoryVisible(item.category));
+  const hiddenByTrades = items.length - shownItems.length;
+  const shownCategories = showAllTrades ? PRICE_CATEGORIES : PRICE_CATEGORIES.filter((value) => trades.categoryVisible(value));
+  useEffect(() => {
+    if (!showAllTrades && category && !trades.categoryVisible(category)) setCategory('');
+  }, [showAllTrades, category, trades]);
 
   const [starterOpen, setStarterOpen] = useState(false);
 
@@ -235,7 +245,9 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
     ? t.pricebook.empty_search
     : tab === 'archived'
       ? t.pricebook.empty_archived
-      : t.pricebook.empty;
+      : hiddenByTrades > 0
+        ? t.trades.price_all_hidden
+        : t.pricebook.empty;
 
   return (
     <section aria-label="price-book-section" className="w-full mt-4">
@@ -261,7 +273,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
           <span className="font-medium text-[var(--tg-theme-text-color)]">
             {mainTab === 'items' ? t.coefficients.tab_items : mainTab === 'coefficients' ? t.coefficients.tab_coefficients : t.processes.tab}
           </span>
-          {mainTab === 'items' && total > 0 && <span className="ml-auto text-xs text-slate-400">{total}</span>}
+          {mainTab === 'items' && total - hiddenByTrades > 0 && <span className="ml-auto text-xs text-slate-400">{total - hiddenByTrades}</span>}
         </nav>
       )}
 
@@ -283,7 +295,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
         <>
 
       {/* V2-3: while no row has a price, the five that matter first are one tap away */}
-      {tab === 'active' && !loading && !error && !search.trim() && !category && items.length > 0 && items.every((item) => item.price === null) && (
+      {tab === 'active' && !loading && !error && !search.trim() && !category && shownItems.length > 0 && shownItems.every((item) => item.price === null) && (
         <div aria-label="starter-prices-hint" className="pe-card rounded-2xl p-3 mb-3 shadow-sm space-y-2">
           <p className="text-sm font-semibold text-slate-900 break-words">{t.onboarding.prices_hint_title}</p>
           <p className="text-xs text-slate-600 break-words">{t.onboarding.prices_hint_text}</p>
@@ -348,11 +360,24 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
           className="min-h-11 border border-slate-200 rounded-xl px-2 py-2 text-sm pe-surface"
         >
           <option value="">{t.pricebook.all_categories}</option>
-          {PRICE_CATEGORIES.map((value) => (
+          {shownCategories.map((value) => (
             <option key={value} value={value}>{categoryLabel(value)}</option>
           ))}
         </select>
       </div>
+
+      {trades.anyHidden && (
+        <button
+          type="button"
+          aria-label="pricebook-show-all-trades"
+          aria-pressed={showAllTrades}
+          onClick={() => setShowAllTrades((value) => !value)}
+          className="w-full min-h-11 mb-3 px-3 py-2 text-sm font-medium rounded-xl border border-slate-200 pe-surface text-slate-700 break-words hover:bg-slate-50"
+        >
+          <Ico>{showAllTrades ? '🙈' : '👁️'}</Ico>
+          {showAllTrades ? t.trades.price_hide : `${t.trades.price_show_all}${hiddenByTrades > 0 ? ` (${hiddenByTrades})` : ''}`}
+        </button>
+      )}
 
       <button
         type="button"
@@ -383,14 +408,14 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
       {!loading && error && (
         <p role="alert" className="text-sm text-red-600 text-center py-4">{error}</p>
       )}
-      {!loading && !error && items.length === 0 && (
+      {!loading && !error && shownItems.length === 0 && (
         <p aria-label="pricebook-empty" className="text-sm text-slate-400 text-center py-6">
           {emptyMessage}
         </p>
       )}
-      {!loading && !error && items.length > 0 && (
+      {!loading && !error && shownItems.length > 0 && (
         <ul aria-label="pricebook-list" className="space-y-2">
-          {items.map((item) => (
+          {shownItems.map((item) => (
             <li
               key={item.id}
               aria-label={`price-item-${item.id}`}

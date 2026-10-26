@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 import uuid
 
 from sqlalchemy import BigInteger, DateTime, String, Uuid
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import JSON as GenericJSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -37,6 +39,8 @@ class User(Base):
         String(10),
         nullable=True,
     )
+    # The trades (packages of professions) the owner works in (V2-13): a list of keys of `domain/rules/trades.py`; NULL = never chosen = every trade on.
+    trades: Mapped[list | None] = mapped_column(JSONB().with_variant(GenericJSON(), "sqlite"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

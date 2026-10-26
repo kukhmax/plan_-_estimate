@@ -2752,6 +2752,32 @@
       "OUT_OF_RANGE": "value outside the allowed range"
     }
   },
+  "trades": {
+    "title": "Trades (packages)",
+    "intro": "Tick the trades you work in. The price book, the plan of works, the materials of a room and the points and routes show only those. Nothing is deleted — it only hides from the lists; items already in estimates and objects stay.",
+    "loading": "Loading…",
+    "load_failed": "Could not load the trades. Nothing is hidden until they load.",
+    "save_failed": "Could not save the choice. Try again.",
+    "names": {
+      "FINISHING": "Finishing",
+      "DRYWALL": "Drywall",
+      "MICROCEMENT": "Microcement",
+      "TILE": "Tile",
+      "ELECTRIC": "Electrics",
+      "PLUMBING": "Plumbing"
+    },
+    "hints": {
+      "FINISHING": "preparation, skim coat, plaster, painting, fleece, decorative, reveals",
+      "DRYWALL": "plasterboard, boards, profiles",
+      "MICROCEMENT": "microcement of walls and floors",
+      "TILE": "tile, adhesive, grout, waterproofing",
+      "ELECTRIC": "electrical points and routes, cable, fittings",
+      "PLUMBING": "plumbing points and routes, pipes, fittings"
+    },
+    "price_show_all": "Show all categories",
+    "price_hide": "Hide categories of other trades",
+    "price_all_hidden": "Every item belongs to a trade that is off. Show all categories or turn the trade on in the profile."
+  },
   "pressure": {
     "title": "Pressure test protocol",
     "intro": "After the system (water, heating, gas, sewer) is installed and before it is covered, record the test result and photograph the manometer. Every tap is saved at once.",

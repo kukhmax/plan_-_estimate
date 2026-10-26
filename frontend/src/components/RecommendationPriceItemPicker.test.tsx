@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as priceItemsApi from '../api/priceItems';
+import * as tradesApi from '../api/trades';
+import { resetTrades } from '../hooks/useTrades';
+import { CATALOG } from '../test/tradesFixture';
 import { I18nProvider } from '../hooks/useI18n';
 import { PriceItem } from '../types/priceItem';
 import { RecommendationPriceItemPicker } from './RecommendationPriceItemPicker';
@@ -8,6 +11,7 @@ import { RecommendationPriceItemPicker } from './RecommendationPriceItemPicker';
 vi.mock('../api/priceItems', () => ({
   fetchPriceItems: vi.fn(),
 }));
+vi.mock('../api/trades', () => ({ fetchTrades: vi.fn(), saveTrades: vi.fn() }));
 
 function priceItem(overrides: Partial<PriceItem> = {}): PriceItem {
   return {
@@ -136,5 +140,27 @@ describe('RecommendationPriceItemPicker (Stage 11D.2)', () => {
     expect(item).toHaveClass('min-h-11');
     expect(screen.getByLabelText('Potwierdź wybór')).toHaveClass('min-h-11');
     expect(screen.getByLabelText('Szukaj w cenniku')).toHaveClass('min-h-11');
+  });
+});
+
+describe('RecommendationPriceItemPicker — the trades of the owner (V2-13)', () => {
+  beforeEach(() => {
+    resetTrades();
+    vi.clearAllMocks();
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({
+      items: [priceItem(), priceItem({ id: 'price-2', code: 'EL_PT', display_name: 'Punkt elektryczny', category: 'ELECTRICAL', unit: 'PCS' })],
+      total: 2,
+    } as never);
+    vi.mocked(tradesApi.fetchTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING'] });
+  });
+
+  it('offers the works of the trades that are on and lifts the filter on "show all"', async () => {
+    renderPicker();
+    expect(await screen.findByText('Malowanie ścian')).toBeInTheDocument();
+    expect(screen.queryByText('Punkt elektryczny')).toBeNull();
+    const toggle = await screen.findByLabelText('recommendation-picker-show-all-trades');
+    expect(toggle.className).toContain('min-h-11');
+    fireEvent.click(toggle);
+    expect(await screen.findByText('Punkt elektryczny')).toBeInTheDocument();
   });
 });

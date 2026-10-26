@@ -19,6 +19,7 @@ from app.api.v1.endpoints.clients import router as clients_router
 from app.api.v1.endpoints.communications import router as communications_router
 from app.api.v1.endpoints.concealed_works import router as concealed_works_router
 from app.api.v1.endpoints.pressure_tests import router as pressure_tests_router
+from app.api.v1.endpoints.trades import router as trades_router
 from app.api.v1.endpoints.contract_catalog import router as contract_catalog_router
 from app.api.v1.endpoints.contracts import router as contracts_router
 from app.api.v1.endpoints.decisions import router as decisions_router
@@ -142,6 +143,7 @@ app.include_router(contracts_router, prefix="/api", tags=["contracts"])
 app.include_router(handovers_router, prefix="/api", tags=["handovers"])
 app.include_router(concealed_works_router, prefix="/api", tags=["concealed-works"])
 app.include_router(pressure_tests_router, prefix="/api", tags=["pressure-tests"])
+app.include_router(trades_router, prefix="/api", tags=["trades"])
 app.include_router(acceptances_router, prefix="/api", tags=["acceptances"])
 app.include_router(decisions_router, prefix="/api", tags=["decisions"])
 app.include_router(downtimes_router, prefix="/api", tags=["downtimes"])

@@ -9,6 +9,7 @@ import {
   putSurfaceWorkPlan,
 } from '../api/workPlans';
 import { useI18n } from '../hooks/useI18n';
+import { useTrades } from '../hooks/useTrades';
 import { QualityLevelValue, SubstrateValue } from '../types/checklist';
 import { PriceItem } from '../types/priceItem';
 import {
@@ -198,6 +199,9 @@ export function SurfaceWorkPlanEditor({
   const [allPriceItems, setAllPriceItems] = useState<PriceItem[]>([]);
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
+  // V2-13: the works of the trades the owner does not work in are not offered; "show all" lifts it while the list is open.
+  const trades = useTrades();
+  const [pickerAllTrades, setPickerAllTrades] = useState(false);
   // Inline "+ Dodaj nową pracę do cennika" creation, shown inside the picker.
   const [creatingPriceItem, setCreatingPriceItem] = useState(false);
 
@@ -587,8 +591,9 @@ export function SurfaceWorkPlanEditor({
   // Client-side search across display name, name_key (localized), code, category, scope, unit.
   const filteredPickerItems = useMemo(() => {
     const q = pickerSearch.trim().toLowerCase();
-    if (!q) return allPriceItems;
-    return allPriceItems.filter((item) => {
+    const offered = pickerAllTrades ? allPriceItems : allPriceItems.filter((item) => trades.categoryVisible(item.category));
+    if (!q) return offered;
+    return offered.filter((item) => {
       const name = priceItemDisplayName(item).toLowerCase();
       const cat = t.pricebook.categories[item.category]?.toLowerCase() ?? '';
       const scope = t.pricebook.scopes[item.price_scope]?.toLowerCase() ?? '';
@@ -601,7 +606,7 @@ export function SurfaceWorkPlanEditor({
         item.code.toLowerCase().includes(q)
       );
     });
-  }, [allPriceItems, pickerSearch, t]);
+  }, [allPriceItems, pickerSearch, pickerAllTrades, trades, t]);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -1197,6 +1202,17 @@ export function SurfaceWorkPlanEditor({
                     onChange={(e) => setPickerSearch(e.target.value)}
                     className="w-full min-h-11 rounded-xl border px-3 py-2 text-sm bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)]"
                   />
+                  {trades.anyHidden && (
+                    <button
+                      type="button"
+                      aria-label={`picker-show-all-trades-${surfaceId}`}
+                      aria-pressed={pickerAllTrades}
+                      onClick={() => setPickerAllTrades((value) => !value)}
+                      className="w-full min-h-11 rounded-xl border px-3 py-2 text-sm font-medium break-words border-[var(--tg-control-border-color)] bg-[var(--tg-theme-secondary-bg-color)] text-[var(--tg-theme-text-color)]"
+                    >
+                      {pickerAllTrades ? t.trades.price_hide : t.trades.price_show_all}
+                    </button>
+                  )}
 
                   {filteredPickerItems.length === 0 ? (
                     <p className="py-3 text-sm text-center text-[var(--tg-theme-hint-color)]">

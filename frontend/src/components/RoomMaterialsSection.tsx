@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../api/http';
 import { createCalc, deleteCalc, fetchCalcs, fetchRouteTotals, updateCalc } from '../api/materials';
 import { useI18n } from '../hooks/useI18n';
+import { useTrades } from '../hooks/useTrades';
 import { useConnection } from '../offline/connection';
 import type { CalcFields, DrywallParams, ElectricParams, MaterialCalc, MaterialPackage, PlumbingParams, RouteTotals, TileParams } from '../types/materials';
 import { areaFromSides, buyWord, calcSummary, countValue, needWord, positiveDecimal } from '../utils/materialsFormat';
@@ -46,6 +47,7 @@ const chip = 'min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-200 pe-s
 export function RoomMaterialsSection({ projectId, roomId, areas }: RoomMaterialsSectionProps) {
   const { t } = useI18n();
   const text = t.materials;
+  useTrades(); // the answer about the trades is asked for when the section appears, so the form that opens later already knows which packages to offer
   const { offline } = useConnection();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<MaterialCalc[] | null>(null);
@@ -199,7 +201,16 @@ function CalcForm({
   const text = t.materials;
   const areas = asTexts(rawAreas);
   const p = calc?.params ?? {};
-  const [pkg, setPkg] = useState<MaterialPackage>(calc?.package ?? 'TILE');
+  // V2-13: the packages of the trades the owner works in are offered; the first of them is the start (a calculation that exists keeps its own package).
+  const trades = useTrades();
+  const ALL_PACKAGES = ['TILE', 'DRYWALL', 'ELECTRIC', 'PLUMBING'] as const;
+  const offered = ALL_PACKAGES.filter((p) => trades.packageVisible(p));
+  const offeredPackages = offered.length > 0 ? offered : ALL_PACKAGES; // with every trade off the owner is not left without a package
+  const [pkg, setPkg] = useState<MaterialPackage>(calc?.package ?? offeredPackages[0]);
+  useEffect(() => {
+    // the answer about the trades may come after the form opened: a new calculation never stays on a package that is not offered
+    if (!calc && !offeredPackages.includes(pkg as (typeof ALL_PACKAGES)[number])) setPkg(offeredPackages[0]);
+  }, [calc, offeredPackages, pkg]);
   const [title, setTitle] = useState(calc?.title ?? '');
   const [area, setArea] = useState(toInput(p.area_m2));
   // the area is given either directly or by the two sides of the surface: only one way at a time
@@ -359,7 +370,7 @@ function CalcForm({
         <div>
           <span className={labelClass}>{text.package_label}</span>
           <div className="grid grid-cols-2 gap-2">
-            {([['TILE', text.pkg_TILE], ['DRYWALL', text.pkg_DRYWALL], ['ELECTRIC', text.pkg_ELECTRIC], ['PLUMBING', text.pkg_PLUMBING]] as const).map(([value, label]) => (
+            {([['TILE', text.pkg_TILE], ['DRYWALL', text.pkg_DRYWALL], ['ELECTRIC', text.pkg_ELECTRIC], ['PLUMBING', text.pkg_PLUMBING]] as const).filter(([value]) => offeredPackages.includes(value)).map(([value, label]) => (
               <button key={value} type="button" aria-label={`material-package-${value}`} aria-pressed={pkg === value} onClick={() => { setPkg(value); setErrors([]); }} className={segmentClass(pkg === value)}>{label}</button>
             ))}
           </div>

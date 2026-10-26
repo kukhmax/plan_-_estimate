@@ -76,7 +76,7 @@ def test_revision_chain_and_single_head():
     assert module.revision == "0080_photo_utilities" and module.down_revision == "0079_material_packages" and len(module.revision) <= 32
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0083_pressure_encrypted_text"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0084_user_trades"]
 
 
 def test_upgrade_adds_four_nullable_columns_and_leaves_the_marker_alone():

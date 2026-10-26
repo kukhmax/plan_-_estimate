@@ -2,6 +2,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as pointsApi from '../api/roomPoints';
 import * as itemsApi from '../api/priceItems';
+import * as tradesApi from '../api/trades';
+import { resetTrades } from '../hooks/useTrades';
+import { CATALOG } from '../test/tradesFixture';
 import { ApiError } from '../api/http';
 import { I18nProvider } from '../hooks/useI18n';
 import { reportNetworkFailure, resetConnectionForTests } from '../offline/connection';
@@ -19,6 +22,7 @@ vi.mock('../api/roomPoints', () => ({
   makePointsPack: vi.fn(),
 }));
 vi.mock('../api/priceItems', () => ({ fetchPriceItems: vi.fn() }));
+vi.mock('../api/trades', () => ({ fetchTrades: vi.fn(), saveTrades: vi.fn() }));
 
 // V2-10 — the list "Punkty i trasy" of a room and the button of the estimate: the screen shows what the server sent and counts nothing.
 
@@ -54,6 +58,7 @@ beforeEach(() => {
   vi.mocked(itemsApi.fetchPriceItems).mockResolvedValue({ items: [SOCKET, CHASE, AREA, BUILT_IN], total: 4 } as never);
 });
 afterEach(() => {
+  resetTrades();
   cleanup();
   vi.clearAllMocks();
   resetConnectionForTests();
@@ -259,5 +264,27 @@ describe('the button of the estimate', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Dodano.');
     reportNetworkFailure();
     await waitFor(() => expect(screen.getByLabelText('estimate-add-points-action')).toBeDisabled());
+  });
+});
+
+describe('the trades of the owner (V2-13)', () => {
+  it('offers in the form only the items of the trades that are on, and keeps the item of a row that is already there', async () => {
+    vi.mocked(tradesApi.fetchTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING', 'TILE'] });
+    vi.mocked(itemsApi.fetchPriceItems).mockResolvedValue({ items: [SOCKET, CHASE, BUILT_IN, item({ id: 'i6', code: 'CUSTOM_DDD', display_name: 'Punkt płytek', unit: 'PCS', category: 'TILE' })], total: 4 } as never);
+    renderSection();
+    await open();
+    await waitFor(() => expect(tradesApi.fetchTrades).toHaveBeenCalled());
+    fireEvent.click(await screen.findByLabelText('room-point-add'));
+    await waitFor(() => {
+      const names = Array.from(screen.getByLabelText('room-point-item').querySelectorAll('option')).map((o) => o.textContent ?? '');
+      expect(names.some((n) => n.includes('Punkt płytek'))).toBe(true);
+      expect(names.some((n) => n.includes('Gniazdko') || n.includes('Bruzda'))).toBe(false); // the electrician's items: the trade is off
+    });
+    cleanup();
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('room-point-edit-r1'));
+    const names = Array.from(screen.getByLabelText('room-point-item').querySelectorAll('option')).map((o) => o.textContent ?? '');
+    expect(names.some((n) => n.includes('Gniazdko'))).toBe(true); // the row being edited keeps its own item
   });
 });

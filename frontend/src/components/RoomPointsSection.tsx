@@ -3,6 +3,7 @@ import { ApiError } from '../api/http';
 import { fetchPriceItems } from '../api/priceItems';
 import { createRoomPoint, deleteRoomPoint, fetchRoomPoints, makePointsPack, updateRoomPoint } from '../api/roomPoints';
 import { useI18n } from '../hooks/useI18n';
+import { useTrades } from '../hooks/useTrades';
 import { useConnection } from '../offline/connection';
 import type { PriceItem } from '../types/priceItem';
 import type { PointItem, RoomPoint } from '../types/roomPoints';
@@ -18,7 +19,7 @@ interface RoomPointsSectionProps {
   roomId: string;
 }
 
-type Eligible = Pick<PriceItem, 'id' | 'code' | 'name_key' | 'display_name' | 'unit'>;
+type Eligible = Pick<PriceItem, 'id' | 'code' | 'name_key' | 'display_name' | 'unit' | 'category'>;
 
 /** The categories of the trades that work in points and routes: while the price book has none of them, the typical items are offered. */
 const TRADE_CATEGORIES = ['ELECTRICAL', 'PLUMBING', 'TILE', 'POINTS_ROUTES'];
@@ -43,6 +44,8 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<RoomPoint[] | null>(null);
   const [eligible, setEligible] = useState<Eligible[]>([]);
+  // V2-13: the form offers the items of the trades the owner works in (a row that is already there keeps its own item).
+  const trades = useTrades();
   const [hasTradeItems, setHasTradeItems] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -167,7 +170,7 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
                   projectId={projectId}
                   roomId={roomId}
                   row={form.row}
-                  eligible={eligible}
+                  eligible={eligible.filter((item) => trades.categoryVisible(item.category))}
                   onSaved={() => void saved()}
                   onCancel={() => setForm(null)}
                 />

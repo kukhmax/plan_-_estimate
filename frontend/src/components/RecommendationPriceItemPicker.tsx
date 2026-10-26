@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
+import { useTrades } from '../hooks/useTrades';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice } from '../utils/priceFormat';
 import { fetchPriceItems } from '../api/priceItems';
@@ -38,6 +39,9 @@ export function RecommendationPriceItemPicker({
   const [items, setItems] = useState<PriceItem[]>([]);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // V2-13: only the works of the trades the owner works in are offered; "show all" lifts it while the picker is open.
+  const trades = useTrades();
+  const [allTrades, setAllTrades] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,13 +62,14 @@ export function RecommendationPriceItemPicker({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((item) => {
+    const offered = allTrades ? items : items.filter((item) => trades.categoryVisible(item.category));
+    if (!q) return offered;
+    return offered.filter((item) => {
       const name = priceItemTitle(t, item).toLowerCase();
       const cat = t.pricebook.categories[item.category]?.toLowerCase() ?? '';
       return name.includes(q) || cat.includes(q) || item.code.toLowerCase().includes(q);
     });
-  }, [items, search, t]);
+  }, [items, search, allTrades, trades, t]);
 
   const selected = items.find((item) => item.id === selectedId) ?? null;
 
@@ -104,6 +109,17 @@ export function RecommendationPriceItemPicker({
             onChange={(event) => setSearch(event.target.value)}
             className="min-h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
           />
+          {trades.anyHidden && (
+            <button
+              type="button"
+              aria-label="recommendation-picker-show-all-trades"
+              aria-pressed={allTrades}
+              onClick={() => setAllTrades((value) => !value)}
+              className="min-h-11 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium break-words"
+            >
+              {allTrades ? t.trades.price_hide : t.trades.price_show_all}
+            </button>
+          )}
 
           {filtered.length === 0 ? (
             <p className="text-sm text-neutral-500">{t.recommendations.picker_empty}</p>

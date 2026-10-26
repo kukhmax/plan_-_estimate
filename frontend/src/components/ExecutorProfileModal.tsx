@@ -6,6 +6,7 @@ import { ExecutorProfile, ExecutorProfileField, ExecutorProfilePayload } from '.
 import { positiveAmount, toInput } from '../utils/paymentFormat';
 import { VAT_CHOICES, VatChoice, vatChoiceOf, vatSettingOf } from '../utils/vat';
 import { Ico } from './Ico';
+import { TradesPicker } from './TradesPicker';
 import { VoiceInput } from './VoiceInput';
 
 interface ExecutorProfileModalProps {
@@ -168,7 +169,9 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
             ×
           </button>
         </div>
-        <p className="mt-1 text-sm break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>{text.intro}</p>
+        <TradesPicker />
+
+        <p className="mt-4 text-sm break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>{text.intro}</p>
 
         {loading && (
           <p role="status" className="mt-6 text-sm" style={{ color: 'var(--tg-theme-hint-color)' }}>

@@ -1,6 +1,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../api/materials';
+import * as tradesApi from '../api/trades';
+import { resetTrades } from '../hooks/useTrades';
+import { CATALOG } from '../test/tradesFixture';
 import { I18nProvider } from '../hooks/useI18n';
 import { reportNetworkFailure, resetConnectionForTests } from '../offline/connection';
 import type { MaterialCalc, MaterialLine } from '../types/materials';
@@ -18,6 +21,8 @@ vi.mock('../api/materials', () => ({
   updateNorm: vi.fn(),
   addMaterialsToEstimate: vi.fn(),
 }));
+
+vi.mock('../api/trades', () => ({ fetchTrades: vi.fn(), saveTrades: vi.fn() }));
 
 // V2-11 — the calculations of materials of a room and the button of the estimate: the screen sends the data and shows what the server counted.
 
@@ -49,6 +54,7 @@ beforeEach(() => {
   vi.mocked(api.fetchRouteTotals).mockResolvedValue({ electrical_m: '12.50', plumbing_m: '0.00' });
 });
 afterEach(() => {
+  resetTrades();
   cleanup();
   vi.clearAllMocks();
   resetConnectionForTests();
@@ -347,5 +353,35 @@ describe('the button of the estimate (materials)', () => {
     vi.mocked(api.addMaterialsToEstimate).mockRejectedValueOnce(new ApiError('x', 409, 'ESTIMATE_NOT_DRAFT'));
     fireEvent.click(screen.getByLabelText('estimate-add-materials-action'));
     await waitFor(() => expect(onMessage).toHaveBeenLastCalledWith({ kind: 'error', text: 'Pozycje można dodawać tylko do wersji roboczej kosztorysu.' }));
+  });
+});
+
+describe('the trades of the owner (V2-13)', () => {
+  const packages = () => ['TILE', 'DRYWALL', 'ELECTRIC', 'PLUMBING'].filter((p) => screen.queryByLabelText(`material-package-${p}`));
+
+  it('offers only the packages of the trades that are on, and starts on the first of them', async () => {
+    vi.mocked(tradesApi.fetchTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING', 'DRYWALL', 'PLUMBING'] });
+    renderSection();
+    await open();
+    await waitFor(() => expect(tradesApi.fetchTrades).toHaveBeenCalled());
+    fireEvent.click(await screen.findByLabelText('material-calc-add'));
+    await waitFor(() => expect(packages()).toEqual(['DRYWALL', 'PLUMBING']));
+    expect(screen.getByLabelText('material-package-DRYWALL')).toHaveAttribute('aria-pressed', 'true'); // not on the tile: that trade is off
+  });
+
+  it('with every package off does not leave the owner without one', async () => {
+    vi.mocked(tradesApi.fetchTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING'] });
+    renderSection();
+    await open();
+    await waitFor(() => expect(tradesApi.fetchTrades).toHaveBeenCalled());
+    fireEvent.click(await screen.findByLabelText('material-calc-add'));
+    await waitFor(() => expect(packages()).toEqual(['TILE', 'DRYWALL', 'ELECTRIC', 'PLUMBING']));
+  });
+
+  it('still lists the calculation of a package that is off', async () => {
+    vi.mocked(tradesApi.fetchTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING'] });
+    renderSection();
+    await open();
+    expect(await screen.findByLabelText('material-calc-edit-c1')).toBeInTheDocument();
   });
 });
