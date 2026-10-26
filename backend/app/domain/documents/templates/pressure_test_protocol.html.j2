@@ -28,8 +28,8 @@
 {% endif %}
 <h2>{{ t('pressure.photos') }}</h2>
 <table class="works photos">
-  <thead><tr><th>{{ t('pressure.photos.no') }}</th><th>{{ t('pressure.photos.taken') }}</th><th>{{ t('pressure.photos.caption') }}</th><th>{{ t('pressure.photos.ref') }}</th></tr></thead>
-  <tbody>{% for p in doc.photos %}<tr><td>{{ p.number }}</td><td>{{ p.taken or '' }}</td><td>{{ p.caption or '' }}</td><td>{{ p.ref or '' }}</td></tr>{% endfor %}</tbody>
+  <thead><tr><th>{{ t('pressure.photos.no') }}</th><th>{{ t('pressure.photos.taken') }}</th><th>{{ t('pressure.photos.caption') }}</th></tr></thead>
+  <tbody>{% for p in doc.photos %}<tr><td>{{ p.number }}</td><td>{{ p.taken or '' }}</td><td>{{ p.caption or '' }}</td></tr>{% endfor %}</tbody>
 </table>
 <h2>{{ t('pressure.result') }}</h2>
 {{ boxes(doc.results) }}

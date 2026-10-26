@@ -96,7 +96,7 @@ def build_pressure_document(
     absent_text = labels("pressure.absent", day=_day(data.get("notified_on")) or "……………") if absent else None
     chosen = list(data.get("photo_ids") or [])
     photos = tuple(
-        PhotoLine(n, _taken(sources.photos[p].captured_at, sources.photos[p].created_at), sources.photos[p].caption, p[:8])
+        PhotoLine(n, _taken(sources.photos[p].captured_at, sources.photos[p].created_at), " · ".join(x for x in (sources.photos[p].caption, sources.photos[p].place) if x) or None, None)
         for n, p in enumerate((p for p in chosen if p in sources.photos), start=1)
     )
     if working and not photos:
