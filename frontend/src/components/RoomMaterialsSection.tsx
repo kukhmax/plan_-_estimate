@@ -1,10 +1,10 @@
-import { FormEvent, useCallback, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../api/http';
-import { createCalc, deleteCalc, fetchCalcs, updateCalc } from '../api/materials';
+import { createCalc, deleteCalc, fetchCalcs, fetchRouteTotals, updateCalc } from '../api/materials';
 import { useI18n } from '../hooks/useI18n';
 import { useConnection } from '../offline/connection';
-import type { CalcFields, DrywallParams, MaterialCalc, MaterialPackage, TileParams } from '../types/materials';
-import { areaFromSides, buyWord, calcSummary, needWord, positiveDecimal } from '../utils/materialsFormat';
+import type { CalcFields, DrywallParams, ElectricParams, MaterialCalc, MaterialPackage, PlumbingParams, RouteTotals, TileParams } from '../types/materials';
+import { areaFromSides, buyWord, calcSummary, countValue, needWord, positiveDecimal } from '../utils/materialsFormat';
 import { formatPlain, toInput } from '../utils/paymentFormat';
 import { Ico } from './Ico';
 import { fieldClass, labelClass, primaryButton, secondaryButton, segmentClass } from './paymentUi';
@@ -144,7 +144,7 @@ export function RoomMaterialsSection({ projectId, roomId, areas }: RoomMaterials
                   {rows.map((calc) => (
                     <li key={calc.id} aria-label={`material-calc-${calc.id}`} className="pe-card rounded-2xl p-3 shadow-sm space-y-2">
                       <div>
-                        <p className="text-sm font-semibold text-slate-900 break-words">{calc.title ?? (calc.package === 'TILE' ? text.pkg_TILE : text.pkg_DRYWALL)}</p>
+                        <p className="text-sm font-semibold text-slate-900 break-words">{calc.title ?? { TILE: text.pkg_TILE, DRYWALL: text.pkg_DRYWALL, ELECTRIC: text.pkg_ELECTRIC, PLUMBING: text.pkg_PLUMBING }[calc.package]}</p>
                         <p className="text-xs text-slate-600 break-words">{summary(calc)}</p>
                       </div>
                       <ul aria-label={`material-lines-${calc.id}`} className="divide-y divide-slate-100">
@@ -220,17 +220,37 @@ function CalcForm({
   const [layers, setLayers] = useState<1 | 2>(p.layers === 2 ? 2 : 1);
   const [height, setHeight] = useState(toInput(p.height_m ?? areas.height ?? ''));
   const [perimeter, setPerimeter] = useState(toInput(p.perimeter_m ?? areas.perimeter ?? ''));
+  // the electrician and the plumber: whole counts of points, the length of the routes (optional)
+  const count = (value: number | undefined) => (value ? String(value) : '');
+  const [sockets, setSockets] = useState(count(p.sockets));
+  const [switches, setSwitches] = useState(count(p.switches));
+  const [lights, setLights] = useState(count(p.lights));
+  const [circuits, setCircuits] = useState(count(p.circuits));
+  const [routeM, setRouteM] = useState(toInput(p.route_m ?? ''));
+  const [waterPoints, setWaterPoints] = useState(count(p.water_points));
+  const [drainPoints, setDrainPoints] = useState(count(p.drain_points));
+  const [outlets, setOutlets] = useState(count(p.manifold_outlets));
+  const [pipeM, setPipeM] = useState(toInput(p.pipe_m ?? ''));
+  const [routes, setRoutes] = useState<RouteTotals | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  const numberField = (id: string, value: string, set: (v: string) => void, label: string, placeholder?: string) => (
+  // the metres of the routes of the room are only an offer: without them the form works, there is just no button
+  useEffect(() => {
+    if (pkg !== 'ELECTRIC' && pkg !== 'PLUMBING') return;
+    let live = true;
+    fetchRouteTotals(projectId, roomId).then((found) => { if (live) setRoutes(found); }, () => { if (live) setRoutes(null); });
+    return () => { live = false; };
+  }, [pkg, projectId, roomId]);
+
+  const numberField = (id: string, value: string, set: (v: string) => void, label: string, placeholder?: string, whole = false) => (
     <div>
       <label htmlFor={id} className={labelClass}>{label}</label>
       <VoiceInput name={id} mode="plain" onValue={(v) => set(v.replace('.', ','))}>
-        <input id={id} aria-label={id} inputMode="decimal" autoComplete="off" value={value} placeholder={placeholder} onChange={(event) => set(event.target.value)} className={`${fieldClass} min-w-0 flex-1`} />
+        <input id={id} aria-label={id} inputMode={whole ? 'numeric' : 'decimal'} autoComplete="off" value={value} placeholder={placeholder} onChange={(event) => set(event.target.value)} className={`${fieldClass} min-w-0 flex-1`} />
       </VoiceInput>
-      {errors.includes(id) && <p role="alert" className="text-xs text-red-600 mt-1">{text[`err_${id.replace('material-', '')}` as keyof typeof text] as string}</p>}
+      {errors.includes(id) && <p role="alert" className="text-xs text-red-600 mt-1">{((text as Record<string, unknown>)[`err_${id.replace('material-', '')}`] as string | undefined) ?? text.err_count}</p>}
     </div>
   );
 
@@ -242,8 +262,10 @@ function CalcForm({
       if (value === null) found.push(id);
       return value ?? '';
     };
-    let areaValue: string;
-    if (areaMode === 'AREA') areaValue = need('material-area', positiveDecimal(area, 2, 100000));
+    const surface = pkg === 'TILE' || pkg === 'DRYWALL';
+    let areaValue = '';
+    if (!surface) areaValue = '';
+    else if (areaMode === 'AREA') areaValue = need('material-area', positiveDecimal(area, 2, 100000));
     else {
       const lengthOk = positiveDecimal(sideLength, 2, 1000) !== null;
       const widthOk = positiveDecimal(sideWidth, 2, 1000) !== null;
@@ -253,8 +275,29 @@ function CalcForm({
       if (lengthOk && widthOk && product === null) found.push('material-area');
       areaValue = product ?? '';
     }
+    const whole = (id: string, raw: string, max: number) => {
+      const value = countValue(raw, max);
+      if (value === null) found.push(id);
+      return value ?? 0;
+    };
+    const optional = (id: string, raw: string) => (raw.trim() === '' ? null : need(id, positiveDecimal(raw, 2, 100000)));
+    const name = title.trim() !== '' ? title.trim() : null;
     let fields: CalcFields;
-    if (pkg === 'TILE') {
+    if (pkg === 'ELECTRIC') {
+      const params: ElectricParams = {
+        sockets: whole('material-sockets', sockets, 500), switches: whole('material-switches', switches, 500), lights: whole('material-lights', lights, 500),
+        circuits: whole('material-circuits', circuits, 100), route_m: optional('material-route_m', routeM),
+      };
+      if (found.length === 0 && params.sockets + params.switches + params.lights + params.circuits === 0 && params.route_m === null) found.push('material-points');
+      fields = { package: 'ELECTRIC', title: name, params };
+    } else if (pkg === 'PLUMBING') {
+      const params: PlumbingParams = {
+        water_points: whole('material-water_points', waterPoints, 500), drain_points: whole('material-drain_points', drainPoints, 500),
+        manifold_outlets: whole('material-outlets', outlets, 50), pipe_m: optional('material-pipe_m', pipeM),
+      };
+      if (found.length === 0 && params.water_points + params.drain_points + params.manifold_outlets === 0 && params.pipe_m === null) found.push('material-points');
+      fields = { package: 'PLUMBING', title: name, params };
+    } else if (pkg === 'TILE') {
       const params: TileParams = {
         area_m2: areaValue,
         length_cm: need('material-length', positiveDecimal(length, 1, 1000)),
@@ -268,12 +311,12 @@ function CalcForm({
       };
       if (waterproof && wpArea.trim() !== '') params.waterproof_area_m2 = need('material-wp_area', positiveDecimal(wpArea, 2, 100000));
       if (waterproof && tape.trim() !== '') params.tape_m = need('material-tape', positiveDecimal(tape, 2, 100000));
-      fields = { package: 'TILE', title: title.trim() !== '' ? title.trim() : null, params };
+      fields = { package: 'TILE', title: name, params };
     } else {
       const params: DrywallParams = { kind: ceiling ? 'CEILING' : 'WALL', area_m2: areaValue, layers, height_m: null, perimeter_m: null };
       if (ceiling) params.perimeter_m = need('material-perimeter', positiveDecimal(perimeter, 2, 100000));
       else params.height_m = need('material-height', positiveDecimal(height, 2, 100000));
-      fields = { package: 'DRYWALL', title: title.trim() !== '' ? title.trim() : null, params };
+      fields = { package: 'DRYWALL', title: name, params };
     }
     setErrors(found);
     if (found.length > 0) return;
@@ -295,6 +338,12 @@ function CalcForm({
         {label}
       </button>
     );
+  const routeChip = (total: string | undefined, set: (v: string) => void) =>
+    total !== undefined && Number(total) > 0 ? (
+      <div className="flex flex-wrap gap-2">
+        <button type="button" aria-label="material-use-routes" onClick={() => set(toInput(total))} className={chip}>{text.use_routes.replace('{v}', formatPlain(total))}</button>
+      </div>
+    ) : null;
   const areaModes: ['AREA' | 'DIMS', string][] = [['AREA', text.area_mode_area], ['DIMS', text.area_mode_dims]];
   const sidesArea = areaFromSides(sideLength, sideWidth);
   const chips = [
@@ -309,9 +358,10 @@ function CalcForm({
       {!calc && (
         <div>
           <span className={labelClass}>{text.package_label}</span>
-          <div className="flex gap-2">
-            <button type="button" aria-label="material-package-TILE" aria-pressed={pkg === 'TILE'} onClick={() => setPkg('TILE')} className={segmentClass(pkg === 'TILE')}>{text.pkg_TILE}</button>
-            <button type="button" aria-label="material-package-DRYWALL" aria-pressed={pkg === 'DRYWALL'} onClick={() => setPkg('DRYWALL')} className={segmentClass(pkg === 'DRYWALL')}>{text.pkg_DRYWALL}</button>
+          <div className="grid grid-cols-2 gap-2">
+            {([['TILE', text.pkg_TILE], ['DRYWALL', text.pkg_DRYWALL], ['ELECTRIC', text.pkg_ELECTRIC], ['PLUMBING', text.pkg_PLUMBING]] as const).map(([value, label]) => (
+              <button key={value} type="button" aria-label={`material-package-${value}`} aria-pressed={pkg === value} onClick={() => { setPkg(value); setErrors([]); }} className={segmentClass(pkg === value)}>{label}</button>
+            ))}
           </div>
         </div>
       )}
@@ -328,40 +378,44 @@ function CalcForm({
           </div>
         </div>
       )}
-      <div>
-        <span id="material-area-mode-label" className={labelClass}>{text.area_mode_label}</span>
-        <div role="radiogroup" aria-labelledby="material-area-mode-label" className="flex flex-col gap-2">
-          {areaModes.map(([mode, label]) => (
-            <button
-              key={mode}
-              type="button"
-              role="radio"
-              aria-checked={areaMode === mode}
-              aria-label={`material-area-mode-${mode}`}
-              onClick={() => { setAreaMode(mode); setErrors([]); }}
-              className={`${radioRow} ${areaMode === mode ? 'border-blue-600' : 'border-slate-200'}`}
-            >
-              <span aria-hidden="true" className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center ${areaMode === mode ? 'border-blue-600' : 'border-slate-400'}`}>
-                {areaMode === mode && <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
-              </span>
-              <span className="min-w-0 break-words">{label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      {areaMode === 'AREA' ? (
+      {(pkg === 'TILE' || pkg === 'DRYWALL') && (
         <>
-          {numberField('material-area', area, setArea, text.area_label)}
-          {chips.length > 0 && <div aria-label="material-area-chips" className="flex flex-wrap gap-2">{chips}</div>}
-        </>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
-            {numberField('material-surface_length', sideLength, setSideLength, text.surface_length)}
-            {numberField('material-surface_width', sideWidth, setSideWidth, text.surface_width)}
+        <div>
+          <span id="material-area-mode-label" className={labelClass}>{text.area_mode_label}</span>
+          <div role="radiogroup" aria-labelledby="material-area-mode-label" className="flex flex-col gap-2">
+            {areaModes.map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                role="radio"
+                aria-checked={areaMode === mode}
+                aria-label={`material-area-mode-${mode}`}
+                onClick={() => { setAreaMode(mode); setErrors([]); }}
+                className={`${radioRow} ${areaMode === mode ? 'border-blue-600' : 'border-slate-200'}`}
+              >
+                <span aria-hidden="true" className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center ${areaMode === mode ? 'border-blue-600' : 'border-slate-400'}`}>
+                  {areaMode === mode && <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                </span>
+                <span className="min-w-0 break-words">{label}</span>
+              </button>
+            ))}
           </div>
-          {sidesArea !== null && <p aria-label="material-area-result" className="text-sm font-semibold text-slate-900 break-words">{text.area_result.replace('{v}', formatPlain(sidesArea))}</p>}
-          {errors.includes('material-area') && <p role="alert" className="text-xs text-red-600">{text.err_area}</p>}
+        </div>
+        {areaMode === 'AREA' ? (
+          <>
+            {numberField('material-area', area, setArea, text.area_label)}
+            {chips.length > 0 && <div aria-label="material-area-chips" className="flex flex-wrap gap-2">{chips}</div>}
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
+              {numberField('material-surface_length', sideLength, setSideLength, text.surface_length)}
+              {numberField('material-surface_width', sideWidth, setSideWidth, text.surface_width)}
+            </div>
+            {sidesArea !== null && <p aria-label="material-area-result" className="text-sm font-semibold text-slate-900 break-words">{text.area_result.replace('{v}', formatPlain(sidesArea))}</p>}
+            {errors.includes('material-area') && <p role="alert" className="text-xs text-red-600">{text.err_area}</p>}
+          </>
+        )}
         </>
       )}
       {pkg === 'TILE' ? (
@@ -398,7 +452,7 @@ function CalcForm({
             </>
           )}
         </>
-      ) : (
+      ) : pkg === 'DRYWALL' ? (
         <>
           <div>
             <span className={labelClass}>{text.layers_label}</span>
@@ -408,6 +462,31 @@ function CalcForm({
             </div>
           </div>
           {ceiling ? numberField('material-perimeter', perimeter, setPerimeter, text.perimeter_label) : numberField('material-height', height, setHeight, text.height_label)}
+        </>
+      ) : pkg === 'ELECTRIC' ? (
+        <>
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
+            {numberField('material-sockets', sockets, setSockets, text.sockets_label, undefined, true)}
+            {numberField('material-switches', switches, setSwitches, text.switches_label, undefined, true)}
+            {numberField('material-lights', lights, setLights, text.lights_label, undefined, true)}
+            {numberField('material-circuits', circuits, setCircuits, text.circuits_label, undefined, true)}
+          </div>
+          {numberField('material-route_m', routeM, setRouteM, text.route_label)}
+          {routeChip(routes?.electrical_m, setRouteM)}
+          <p className="text-xs text-[var(--tg-theme-hint-color)] break-words">{text.electric_hint}</p>
+          {errors.includes('material-points') && <p role="alert" className="text-xs text-red-600">{text.err_need_any}</p>}
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
+            {numberField('material-water_points', waterPoints, setWaterPoints, text.water_points_label, undefined, true)}
+            {numberField('material-drain_points', drainPoints, setDrainPoints, text.drain_points_label, undefined, true)}
+          </div>
+          {numberField('material-outlets', outlets, setOutlets, text.outlets_label, undefined, true)}
+          {numberField('material-pipe_m', pipeM, setPipeM, text.pipe_label)}
+          {routeChip(routes?.plumbing_m, setPipeM)}
+          <p className="text-xs text-[var(--tg-theme-hint-color)] break-words">{text.plumbing_hint}</p>
+          {errors.includes('material-points') && <p role="alert" className="text-xs text-red-600">{text.err_need_any}</p>}
         </>
       )}
       {failure && <p role="alert" className="text-sm text-red-600 break-words">{failure}</p>}

@@ -43,6 +43,8 @@ const NORMS: MaterialNorm[] = [
   norm({}),
   norm({ id: 'n2', code: 'TILE_ADHESIVE', kind: 'MATERIAL', name: 'Klej do płytek (worek)', default_name: 'Klej do płytek (worek)', value: null, default_value: null, minimum: null, maximum: null, unit_text: 'bag', billing_unit: 'PCS' }),
   norm({ id: 'n3', code: 'GK_WASTE', package: 'DRYWALL', value: '10', default_value: '10' }),
+  norm({ id: 'n4', code: 'ELEC_CABLE_M_SOCKET', package: 'ELECTRIC', value: '6', default_value: '6', unit_text: 'm' }),
+  norm({ id: 'n5', code: 'PL_PIPE_M_POINT', package: 'PLUMBING', value: '4', default_value: '4', unit_text: 'm' }),
 ];
 const ITEMS = [
   { id: 'p1', code: 'CUSTOM_A', name_key: null, display_name: 'Klej Atlas 25 kg', unit: 'PCS' },
@@ -110,6 +112,17 @@ describe('the norms of consumption', () => {
     fireEvent.click(screen.getByLabelText('material-norms-group-TILE'));
     expect(screen.getByLabelText('material-norms-list-TILE')).toBeInTheDocument();
     expect(screen.queryByLabelText('material-norm-GK_WASTE')).toBeNull();
+  });
+
+  it('has the groups of the electrician and of the plumber, with the names of their numbers', async () => {
+    await openNorms();
+    expect(screen.getByLabelText('material-norms-group-ELECTRIC')).toHaveTextContent('Elektryka');
+    expect(screen.getByLabelText('material-norms-group-PLUMBING')).toHaveTextContent('Hydraulika');
+    fireEvent.click(screen.getByLabelText('material-norms-group-ELECTRIC'));
+    expect(screen.getByLabelText('material-norm-ELEC_CABLE_M_SOCKET')).toHaveTextContent('Kabel na jedno gniazdo, m');
+    expect(screen.queryByLabelText('material-norm-PL_PIPE_M_POINT')).toBeNull();
+    fireEvent.click(screen.getByLabelText('material-norms-group-PLUMBING'));
+    expect(screen.getByLabelText('material-norm-PL_PIPE_M_POINT')).toHaveTextContent('Rura wodna na punkt wody, m');
   });
 
   it('changes a number (the point taken from a comma) and returns it to the starting one', async () => {

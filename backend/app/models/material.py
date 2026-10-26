@@ -1,4 +1,4 @@
-"""The materials of the packages "Płytki" and "GKL" (V2-11): the owner's norms and the owner's calculations of a room.
+"""The materials of the packages "Płytki", "GKL" (V2-11), "Elektryka" and "Hydraulika" (V2-12): the owner's norms and the owner's calculations of a room.
 
 `MaterialNorm` is a row of the owner's reference of consumption norms (`data/material_norms.py` holds the starting rows, made when the owner first opens them): a number (`PARAM`)
 or a material (`MATERIAL`) that may name the Price Book item giving its price. `MaterialCalc` is one calculation of a room: a package (tile or drywall), an optional title the owner
@@ -38,7 +38,7 @@ class MaterialNorm(Base):
     __tablename__ = "material_norms"
     __table_args__ = (
         UniqueConstraint("owner_id", "code", name="uq_material_norms_owner_code"),
-        CheckConstraint("package IN ('TILE', 'DRYWALL')", name="ck_material_norms_package"),
+        CheckConstraint("package IN ('TILE', 'DRYWALL', 'ELECTRIC', 'PLUMBING')", name="ck_material_norms_package"),
         CheckConstraint("kind IN ('PARAM', 'MATERIAL')", name="ck_material_norms_kind"),
         CheckConstraint("(kind = 'PARAM' AND value IS NOT NULL AND value >= 0) OR (kind = 'MATERIAL' AND value IS NULL)", name="ck_material_norms_value"),
         CheckConstraint("kind = 'MATERIAL' OR price_item_id IS NULL", name="ck_material_norms_price_only_material"),
@@ -59,7 +59,7 @@ class MaterialNorm(Base):
 class MaterialCalc(Base):
     __tablename__ = "material_calcs"
     __table_args__ = (
-        CheckConstraint("package IN ('TILE', 'DRYWALL')", name="ck_material_calcs_package"),
+        CheckConstraint("package IN ('TILE', 'DRYWALL', 'ELECTRIC', 'PLUMBING')", name="ck_material_calcs_package"),
         CheckConstraint("position >= 0", name="ck_material_calcs_position"),
         Index("ix_material_calcs_room", "room_id", "position"),
         Index("ix_material_calcs_project", "project_id"),

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import pl from '../locales/pl.json';
 import ru from '../locales/ru.json';
 import type { MaterialCalc, MaterialLine } from '../types/materials';
-import { areaFromSides, buyWord, calcSummary, needWord, positiveDecimal, unitWord } from './materialsFormat';
+import { areaFromSides, buyWord, calcSummary, countValue, needWord, positiveDecimal, unitWord } from './materialsFormat';
 
 const line = (over: Partial<MaterialLine>): MaterialLine => ({
   code: 'TILE_ADHESIVE', name: 'Klej', quantity: '50.00', unit_text: 'kg', pack_size: '25', packs: 2, pieces: null, billing_unit: 'PCS', billing_quantity: '2.00', ...over,
@@ -62,5 +62,27 @@ describe('areaFromSides', () => {
     expect(areaFromSides('3', '2,555')).toBeNull();
     expect(areaFromSides('1000', '101')).toBeNull();
     expect(areaFromSides('0,01', '0,01')).toBeNull(); // 0.0001 rounds to zero
+  });
+});
+
+describe('countValue', () => {
+  it('takes whole numbers up to the limit, an empty field is zero, nothing else', () => {
+    expect(countValue('', 500)).toBe(0);
+    expect(countValue(' 12 ', 500)).toBe(12);
+    expect(countValue('500', 500)).toBe(500);
+    expect(countValue('501', 500)).toBeNull();
+    expect(countValue('2,5', 500)).toBeNull();
+    expect(countValue('-1', 500)).toBeNull();
+    expect(countValue('x', 500)).toBeNull();
+  });
+});
+
+describe('calcSummary of the electrician and of the plumber', () => {
+  const base = { id: 'c', room_id: 'r', title: null, materials: [], created_at: '', updated_at: '' };
+  it('names only what is not zero, in the language of the screen', () => {
+    const electric: MaterialCalc = { ...base, package: 'ELECTRIC', params: { sockets: 4, switches: 0, lights: 3, circuits: 0, route_m: '12.50' } };
+    expect(calcSummary(electric, pl.materials)).toBe('Gniazda: 4 · Światła: 3 · Kabel: 12,5 m');
+    const plumbing: MaterialCalc = { ...base, package: 'PLUMBING', params: { water_points: 3, drain_points: 0, manifold_outlets: 4, pipe_m: null } };
+    expect(calcSummary(plumbing, ru.materials)).toBe('Точки воды: 3 · Выходы: 4');
   });
 });

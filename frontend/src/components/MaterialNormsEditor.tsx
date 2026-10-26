@@ -80,7 +80,7 @@ export function MaterialNormsEditor({ onChanged }: { onChanged: () => void }) {
               <button type="button" aria-label="material-norms-retry" onClick={() => void load()} className={primaryButton}><Ico>🔄</Ico>{text.retry}</button>
             </div>
           )}
-          {norms && (['TILE', 'DRYWALL'] as const).map((pkg) => (
+          {norms && (['TILE', 'DRYWALL', 'ELECTRIC', 'PLUMBING'] as const).map((pkg) => (
             <div key={pkg} className="space-y-2">
               <button
                 type="button"
@@ -89,7 +89,7 @@ export function MaterialNormsEditor({ onChanged }: { onChanged: () => void }) {
                 onClick={() => setGroup(group === pkg ? null : pkg)}
                 className="w-full min-h-11 px-4 py-2 flex items-center justify-between gap-3 text-left text-sm font-semibold text-slate-900 pe-card rounded-2xl"
               >
-                <span>{pkg === 'TILE' ? text.group_TILE : text.group_DRYWALL}</span>
+                <span>{{ TILE: text.group_TILE, DRYWALL: text.group_DRYWALL, ELECTRIC: text.group_ELECTRIC, PLUMBING: text.group_PLUMBING }[pkg]}</span>
                 <span className="text-blue-700">{group === pkg ? text.hide : text.show}</span>
               </button>
               {group === pkg && (

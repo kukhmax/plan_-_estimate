@@ -30,6 +30,7 @@ from app.schemas.material import (
     NormRead,
     NormsResponse,
     NormUpdate,
+    RouteTotalsResponse,
     StatementCalc,
     StatementResponse,
     TotalRead,
@@ -173,6 +174,20 @@ async def delete_calc(
     except FAILURES as exc:
         raise _http_error(exc) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/projects/{project_id}/rooms/{room_id}/route-totals", response_model=RouteTotalsResponse, summary="The metres of the routes of the room by trade (to offer them to the calculations)")
+async def route_totals(
+    project_id: uuid.UUID,
+    room_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    service: MaterialsService = Depends(get_materials_service),
+) -> RouteTotalsResponse:
+    try:
+        electrical, plumbing = await service.route_totals(current_user.id, project_id, room_id)
+    except FAILURES as exc:
+        raise _http_error(exc) from exc
+    return RouteTotalsResponse(electrical_m=electrical, plumbing_m=plumbing)
 
 
 @router.get("/projects/{project_id}/materials", response_model=StatementResponse, summary="The statement of materials of an object: the totals by material (packs over the sum) and the calculations")

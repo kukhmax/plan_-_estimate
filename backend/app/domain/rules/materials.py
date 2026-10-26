@@ -1,4 +1,4 @@
-"""The consumption of materials for the packages "Płytki" and "GKL" (V2-11). Pure functions: the data of a calculation and the numbers of the owner's norms in, the quantities out.
+"""The consumption of materials for the packages "Płytki", "GKL" (V2-11), "Elektryka" and "Hydraulika" (V2-12). Pure functions: the data of a calculation and the numbers of the owner's norms in, the quantities out.
 
 No money here (the price of a material is the Price Book's, joined later) and no database. Every quantity is a `Decimal`; what is bought in packs is rounded **up** to whole packs
 (`ceil`), and the packs of a whole object are rounded once over the sum of its calculations (`total`), not calculation by calculation. The numbers are the owner's norms
@@ -46,6 +46,23 @@ class DrywallInput:
     layers: int = 1
     height_m: Decimal | None = None  # a wall
     perimeter_m: Decimal | None = None  # a ceiling
+
+
+@dataclass(frozen=True)
+class ElectricInput:
+    sockets: int = 0
+    switches: int = 0
+    lights: int = 0
+    circuits: int = 0
+    route_m: Decimal | None = None  # the cable the owner will lay; None: counted from the points
+
+
+@dataclass(frozen=True)
+class PlumbingInput:
+    water_points: int = 0
+    drain_points: int = 0
+    manifold_outlets: int = 0
+    pipe_m: Decimal | None = None  # the supply pipe the owner will lay; None: counted from the points
 
 
 def ceil_to(value: Decimal, places: Decimal) -> Decimal:
@@ -115,6 +132,46 @@ def drywall_materials(data: DrywallInput, norms: Norms) -> list[MaterialQty]:
         MaterialQty("GK_FILLER", area * norms["GK_FILLER_KG_M2"], "kg", norms["GK_FILLER_BAG_KG"]),
         MaterialQty("GK_TAPE", area * norms["GK_TAPE_M_PER_M2"], "m", norms["GK_TAPE_ROLL_M"]),
     ]
+    return found
+
+
+def _add(found: list[MaterialQty], code: str, quantity: Decimal, unit_text: str, pack_size: Decimal) -> None:
+    """A material is in the list only when something of it is needed."""
+    if quantity > 0:
+        found.append(MaterialQty(code, quantity, unit_text, pack_size))
+
+
+def electric_materials(data: ElectricInput, norms: Norms) -> list[MaterialQty]:
+    points = data.sockets + data.switches + data.lights
+    if data.route_m is not None:
+        length = data.route_m
+    else:
+        length = data.sockets * norms["ELEC_CABLE_M_SOCKET"] + data.switches * norms["ELEC_CABLE_M_SWITCH"] + data.lights * norms["ELEC_CABLE_M_LIGHT"]
+    waste = 1 + norms["ELEC_CABLE_WASTE"] / HUNDRED
+    one = Decimal(1)
+    found: list[MaterialQty] = []
+    _add(found, "ELEC_CABLE", length * waste, "m", norms["ELEC_CABLE_COIL_M"])
+    _add(found, "ELEC_CONDUIT", length * norms["ELEC_CONDUIT_SHARE"] / HUNDRED * waste, "m", norms["ELEC_CONDUIT_COIL_M"])
+    _add(found, "ELEC_FLUSH_BOX", Decimal(data.sockets + data.switches), "pcs", one)
+    _add(found, "ELEC_SOCKETS", Decimal(data.sockets), "pcs", one)
+    _add(found, "ELEC_SWITCHES", Decimal(data.switches), "pcs", one)
+    _add(found, "ELEC_BREAKERS", Decimal(data.circuits), "pcs", one)
+    _add(found, "ELEC_JBOX", data.circuits * norms["ELEC_JBOX_PER_CIRCUIT"], "pcs", one)
+    _add(found, "ELEC_TERMINALS", points * norms["ELEC_TERMINALS_PER_POINT"], "pcs", norms["ELEC_TERMINALS_PACK"])
+    return found
+
+
+def plumbing_materials(data: PlumbingInput, norms: Norms) -> list[MaterialQty]:
+    pipe = data.pipe_m if data.pipe_m is not None else data.water_points * norms["PL_PIPE_M_POINT"]
+    one = Decimal(1)
+    found: list[MaterialQty] = []
+    _add(found, "PL_PIPE", pipe * (1 + norms["PL_PIPE_WASTE"] / HUNDRED), "m", norms["PL_PIPE_COIL_M"])
+    _add(found, "PL_FITTINGS", data.water_points * norms["PL_FITTINGS_PER_POINT"], "pcs", one)
+    _add(found, "PL_VALVES", data.water_points * norms["PL_VALVES_PER_POINT"], "pcs", one)
+    _add(found, "PL_MANIFOLD", Decimal(data.manifold_outlets), "pcs", one)
+    _add(found, "PL_CLIPS", pipe * norms["PL_CLIPS_PER_M"], "pcs", norms["PL_CLIPS_PACK"])
+    _add(found, "PL_DRAIN_PIPE", data.drain_points * norms["PL_DRAIN_M_POINT"], "m", norms["PL_DRAIN_BAR_M"])
+    _add(found, "PL_DRAIN_FITTINGS", data.drain_points * norms["PL_DRAIN_FITTINGS_PER_POINT"], "pcs", one)
     return found
 
 

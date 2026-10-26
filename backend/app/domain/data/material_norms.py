@@ -1,4 +1,4 @@
-"""The reference of the consumption norms for the packages "Płytki" and "GKL" (V2-11): the starting numbers and the materials, one row each.
+"""The reference of the consumption norms for the packages "Płytki", "GKL" (V2-11), "Elektryka" and "Hydraulika" (V2-12): the starting numbers and the materials, one row each.
 
 A row is either a **number** (`PARAM`: a waste in percent, a consumption per m², the size of a pack, a step) or a **material** (`MATERIAL`: the name the owner reads, the unit it is
 bought in, and -- set by the owner -- the Price Book item that gives its price). The numbers here are the **starting** ones: typical figures to start from, to be checked against the
@@ -7,7 +7,7 @@ data sheets of the materials the owner really uses; the owner edits every number
 from dataclasses import dataclass
 from decimal import Decimal
 
-TILE, DRYWALL = "TILE", "DRYWALL"
+TILE, DRYWALL, ELECTRIC, PLUMBING = "TILE", "DRYWALL", "ELECTRIC", "PLUMBING"
 PARAM, MATERIAL = "PARAM", "MATERIAL"
 
 
@@ -77,6 +77,43 @@ NORMS: tuple[NormDef, ...] = (
     _m("GK_SCREWS", DRYWALL, "Wkręty do płyt g-k (opakowanie)", "box", "PCS"),
     _m("GK_FILLER", DRYWALL, "Szpachla do spoin (worek)", "bag", "PCS"),
     _m("GK_TAPE", DRYWALL, "Taśma do spoin (rolka)", "roll", "PCS"),
+    # --- the electrician (V2-12) ------------------------------------------------------------------------------------------------------------
+    _p("ELEC_CABLE_M_SOCKET", ELECTRIC, "m", "6", "0", "100"),
+    _p("ELEC_CABLE_M_SWITCH", ELECTRIC, "m", "4", "0", "100"),
+    _p("ELEC_CABLE_M_LIGHT", ELECTRIC, "m", "5", "0", "100"),
+    _p("ELEC_CABLE_WASTE", ELECTRIC, "%", "10", "0", "100"),
+    _p("ELEC_CABLE_COIL_M", ELECTRIC, "m", "100", "1", "1000"),
+    _p("ELEC_CONDUIT_SHARE", ELECTRIC, "%", "100", "0", "100"),
+    _p("ELEC_CONDUIT_COIL_M", ELECTRIC, "m", "50", "1", "1000"),
+    _p("ELEC_JBOX_PER_CIRCUIT", ELECTRIC, "pcs", "1", "0", "20"),
+    _p("ELEC_TERMINALS_PER_POINT", ELECTRIC, "pcs", "3", "0", "50"),
+    _p("ELEC_TERMINALS_PACK", ELECTRIC, "pcs", "50", "1", "10000"),
+    _m("ELEC_CABLE", ELECTRIC, "Przewód elektryczny (kręg)", "coil", "PCS"),
+    _m("ELEC_CONDUIT", ELECTRIC, "Rura osłonowa / peszel (kręg)", "coil", "PCS"),
+    _m("ELEC_FLUSH_BOX", ELECTRIC, "Puszka podtynkowa", "pc", "PCS"),
+    _m("ELEC_SOCKETS", ELECTRIC, "Gniazdo", "pc", "PCS"),
+    _m("ELEC_SWITCHES", ELECTRIC, "Łącznik", "pc", "PCS"),
+    _m("ELEC_BREAKERS", ELECTRIC, "Wyłącznik nadprądowy", "pc", "PCS"),
+    _m("ELEC_JBOX", ELECTRIC, "Puszka rozgałęźna", "pc", "PCS"),
+    _m("ELEC_TERMINALS", ELECTRIC, "Złączki instalacyjne (opakowanie)", "pack", "PCS"),
+    # --- the plumber (V2-12) ----------------------------------------------------------------------------------------------------------------
+    _p("PL_PIPE_M_POINT", PLUMBING, "m", "4", "0", "100"),
+    _p("PL_PIPE_WASTE", PLUMBING, "%", "10", "0", "100"),
+    _p("PL_PIPE_COIL_M", PLUMBING, "m", "100", "1", "1000"),
+    _p("PL_FITTINGS_PER_POINT", PLUMBING, "pcs", "4", "0", "50"),
+    _p("PL_VALVES_PER_POINT", PLUMBING, "pcs", "1", "0", "10"),
+    _p("PL_CLIPS_PER_M", PLUMBING, "pcs/m", "2", "0", "20"),
+    _p("PL_CLIPS_PACK", PLUMBING, "pcs", "100", "1", "10000"),
+    _p("PL_DRAIN_M_POINT", PLUMBING, "m", "2", "0", "50"),
+    _p("PL_DRAIN_BAR_M", PLUMBING, "m", "2", "0.5", "10"),
+    _p("PL_DRAIN_FITTINGS_PER_POINT", PLUMBING, "pcs", "3", "0", "50"),
+    _m("PL_PIPE", PLUMBING, "Rura wodna (kręg)", "coil", "PCS"),
+    _m("PL_FITTINGS", PLUMBING, "Kształtki do rur wodnych", "pc", "PCS"),
+    _m("PL_VALVES", PLUMBING, "Zawór kulowy", "pc", "PCS"),
+    _m("PL_MANIFOLD", PLUMBING, "Rozdzielacz (wylot)", "pc", "PCS"),
+    _m("PL_CLIPS", PLUMBING, "Uchwyty do rur (opakowanie)", "pack", "PCS"),
+    _m("PL_DRAIN_PIPE", PLUMBING, "Rura kanalizacyjna (sztuka)", "bar", "PCS"),
+    _m("PL_DRAIN_FITTINGS", PLUMBING, "Kształtki kanalizacyjne", "pc", "PCS"),
 )
 
 BY_CODE: dict[str, NormDef] = {n.code: n for n in NORMS}

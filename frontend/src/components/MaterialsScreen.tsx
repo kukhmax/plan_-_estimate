@@ -81,7 +81,7 @@ export function MaterialsScreen({ projectId }: { projectId: string }) {
                 {statement.calcs.map((calc) => (
                   <li key={calc.id} className="pe-card rounded-2xl p-3 shadow-sm">
                     <p className="text-sm font-semibold text-slate-900 break-words">{calc.room_name}{calc.title ? ` · ${calc.title}` : ''}</p>
-                    <p className="text-xs text-slate-600 break-words">{(calc.package === 'TILE' ? text.pkg_TILE : text.pkg_DRYWALL)} · {calcSummary(calc, text)}</p>
+                    <p className="text-xs text-slate-600 break-words">{{ TILE: text.pkg_TILE, DRYWALL: text.pkg_DRYWALL, ELECTRIC: text.pkg_ELECTRIC, PLUMBING: text.pkg_PLUMBING }[calc.package]} · {calcSummary(calc, text)}</p>
                   </li>
                 ))}
               </ul>

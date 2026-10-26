@@ -1,4 +1,4 @@
-import type { AddMaterialsResult, CalcFields, MaterialCalc, MaterialNorm, NormChanges, Statement } from '../types/materials';
+import type { AddMaterialsResult, CalcFields, MaterialCalc, MaterialNorm, NormChanges, RouteTotals, Statement } from '../types/materials';
 import { apiRequest } from './http';
 
 const calcs = (projectId: string, roomId: string) => `/api/projects/${projectId}/rooms/${roomId}/material-calcs`;
@@ -18,6 +18,11 @@ export function updateCalc(projectId: string, roomId: string, calcId: string, fi
 
 export function deleteCalc(projectId: string, roomId: string, calcId: string): Promise<void> {
   return apiRequest(`${calcs(projectId, roomId)}/${calcId}`, { method: 'DELETE' });
+}
+
+/** The metres of the routes listed in a room, by trade: offered to the calculations of the room. */
+export function fetchRouteTotals(projectId: string, roomId: string): Promise<RouteTotals> {
+  return apiRequest(`/api/projects/${projectId}/rooms/${roomId}/route-totals`);
 }
 
 /** The statement of an object: the totals by material (packs once over the sum) and every calculation. */

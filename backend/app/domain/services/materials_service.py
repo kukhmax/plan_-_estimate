@@ -25,10 +25,11 @@ from app.domain.rules import materials as rules
 from app.domain.services.estimate_service import EstimateService, _compute_amount
 from app.models.estimate import EstimateLine, EstimateStatus, LineOrigin, QuantitySource
 from app.models.material import MaterialCalc, MaterialNorm
-from app.models.price_item import PriceItem, PriceScope, PriceUnit
+from app.models.price_item import PriceCategory, PriceItem, PriceScope, PriceUnit
 from app.models.project import Project
+from app.models.room_point import RoomPoint
 from app.models.room import Room
-from app.schemas.material import DrywallParams, TileParams
+from app.schemas.material import DrywallParams, ElectricParams, PlumbingParams, TileParams
 
 CENT = Decimal("0.01")
 NAMESPACE = uuid.UUID("5d0c6f0e-6a53-4f0a-9d3b-2f6b0a1c7e11")  # the identity of the lines of the statement: made from the object and the material
@@ -200,6 +201,12 @@ class MaterialsService:
                 ),
                 numbers,
             )
+        if row.package == "ELECTRIC":
+            e = ElectricParams.model_validate(row.params)
+            return rules.electric_materials(rules.ElectricInput(e.sockets, e.switches, e.lights, e.circuits, e.route_m), numbers)
+        if row.package == "PLUMBING":
+            w = PlumbingParams.model_validate(row.params)
+            return rules.plumbing_materials(rules.PlumbingInput(w.water_points, w.drain_points, w.manifold_outlets, w.pipe_m), numbers)
         d = DrywallParams.model_validate(row.params)
         return rules.drywall_materials(rules.DrywallInput(d.kind == "CEILING", d.area_m2, d.layers, d.height_m, d.perimeter_m), numbers)
 
@@ -239,7 +246,7 @@ class MaterialsService:
         if "title" in changes:
             row.title = _title(changes["title"])
         if changes.get("params") is not None:
-            model = TileParams if row.package == "TILE" else DrywallParams
+            model = {"TILE": TileParams, "DRYWALL": DrywallParams, "ELECTRIC": ElectricParams, "PLUMBING": PlumbingParams}[row.package]
             row.params = model.model_validate(changes["params"]).model_dump(mode="json")  # a ValidationError is the caller's 422
         row.updated_at = datetime.now(UTC)
         await self.db.commit()
@@ -250,6 +257,18 @@ class MaterialsService:
         row = await self._get(owner_id, project_id, room_id, calc_id)
         await self.db.execute(delete(MaterialCalc).where(MaterialCalc.id == row.id))
         await self.db.commit()
+
+    async def route_totals(self, owner_id: uuid.UUID, project_id: uuid.UUID, room_id: uuid.UUID) -> tuple[Decimal, Decimal]:
+        """The metres of the routes the owner listed in a room (points and routes whose item is in metres), as (electrical, plumbing)."""
+        await self._ensure_room(owner_id, project_id, room_id)
+        rows = (await self.db.execute(
+            select(PriceItem.category, func.coalesce(func.sum(RoomPoint.quantity), 0))
+            .join(PriceItem, PriceItem.id == RoomPoint.price_item_id)
+            .where(RoomPoint.room_id == room_id, RoomPoint.owner_id == owner_id, PriceItem.unit == PriceUnit.LM, PriceItem.category.in_((PriceCategory.ELECTRICAL, PriceCategory.PLUMBING)))
+            .group_by(PriceItem.category)
+        )).all()
+        found = {category: Decimal(total) for category, total in rows}
+        return found.get(PriceCategory.ELECTRICAL, Decimal(0)), found.get(PriceCategory.PLUMBING, Decimal(0))
 
     # -- the statement -----------------------------------------------------------
 

@@ -9,6 +9,7 @@ import { RoomMaterialsSection } from './RoomMaterialsSection';
 
 vi.mock('../api/materials', () => ({
   fetchCalcs: vi.fn(),
+  fetchRouteTotals: vi.fn(),
   createCalc: vi.fn(),
   updateCalc: vi.fn(),
   deleteCalc: vi.fn(),
@@ -45,6 +46,7 @@ const type = (label: string, value: string) => fireEvent.change(screen.getByLabe
 beforeEach(() => {
   localStorage.setItem('locale', 'pl');
   vi.mocked(api.fetchCalcs).mockResolvedValue([calc()]);
+  vi.mocked(api.fetchRouteTotals).mockResolvedValue({ electrical_m: '12.50', plumbing_m: '0.00' });
 });
 afterEach(() => {
   cleanup();
@@ -154,6 +156,78 @@ describe('the calculations of materials of a room', () => {
     fireEvent.click(screen.getByLabelText('material-calc-save'));
     await waitFor(() => expect(api.createCalc).toHaveBeenCalledTimes(1));
     expect(vi.mocked(api.createCalc).mock.calls[0][2].params).toMatchObject({ kind: 'WALL', area_m2: '13.00' });
+  });
+
+  it('sends an electrical calculation with whole counts, the route of the room taken with one tap', async () => {
+    vi.mocked(api.createCalc).mockResolvedValue(calc());
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('material-calc-add'));
+    fireEvent.click(screen.getByLabelText('material-package-ELECTRIC'));
+    expect(screen.queryByLabelText('material-area')).toBeNull();
+    expect(screen.queryByLabelText('material-area-mode-AREA')).toBeNull();
+    type('material-sockets', '4');
+    type('material-switches', '2');
+    type('material-lights', '3');
+    type('material-circuits', '2');
+    fireEvent.click(await screen.findByLabelText('material-use-routes'));
+    expect((screen.getByLabelText('material-route_m') as HTMLInputElement).value).toBe('12,50');
+    fireEvent.click(screen.getByLabelText('material-calc-save'));
+    await waitFor(() => expect(api.createCalc).toHaveBeenCalledTimes(1));
+    expect(api.createCalc).toHaveBeenCalledWith(projectId, roomId, {
+      package: 'ELECTRIC', title: null, params: { sockets: 4, switches: 2, lights: 3, circuits: 2, route_m: '12.50' },
+    });
+  });
+
+  it('sends a plumbing calculation, with no route button when the room has no pipe routes', async () => {
+    vi.mocked(api.createCalc).mockResolvedValue(calc());
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('material-calc-add'));
+    fireEvent.click(screen.getByLabelText('material-package-PLUMBING'));
+    await waitFor(() => expect(api.fetchRouteTotals).toHaveBeenCalled());
+    expect(screen.queryByLabelText('material-use-routes')).toBeNull();
+    type('material-water_points', '3');
+    type('material-drain_points', '2');
+    type('material-outlets', '4');
+    fireEvent.click(screen.getByLabelText('material-calc-save'));
+    await waitFor(() => expect(api.createCalc).toHaveBeenCalledTimes(1));
+    expect(api.createCalc).toHaveBeenCalledWith(projectId, roomId, {
+      package: 'PLUMBING', title: null, params: { water_points: 3, drain_points: 2, manifold_outlets: 4, pipe_m: null },
+    });
+  });
+
+  it('asks for a point, a circuit or a route, and for whole numbers', async () => {
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('material-calc-add'));
+    fireEvent.click(screen.getByLabelText('material-package-ELECTRIC'));
+    fireEvent.click(screen.getByLabelText('material-calc-save'));
+    expect(await screen.findByText('Wpisz co najmniej jeden punkt, obwód albo długość trasy.')).toBeInTheDocument();
+    type('material-sockets', '2,5');
+    type('material-route_m', '-3');
+    fireEvent.click(screen.getByLabelText('material-calc-save'));
+    expect(await screen.findAllByText('Wpisz liczbę całkowitą, 0 lub więcej.')).toHaveLength(1);
+    expect(screen.getByText('Wpisz długość większą od zera.')).toBeInTheDocument();
+    expect(api.createCalc).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('material-package-PLUMBING'));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('opens a saved electrical calculation with its numbers', async () => {
+    vi.mocked(api.fetchCalcs).mockResolvedValue([calc({ package: 'ELECTRIC', title: null, params: { sockets: 4, switches: 0, lights: 3, circuits: 2, route_m: null } })]);
+    vi.mocked(api.updateCalc).mockResolvedValue(calc());
+    renderSection();
+    await open();
+    expect(await screen.findByText(/Gniazda: 4 · Światła: 3 · Obwody: 2/)).toBeInTheDocument();
+    expect(screen.getByText('Elektryka')).toBeInTheDocument(); // the heading of an untitled calculation is its package
+    fireEvent.click(await screen.findByLabelText('material-calc-edit-c1'));
+    expect((screen.getByLabelText('material-sockets') as HTMLInputElement).value).toBe('4');
+    expect((screen.getByLabelText('material-switches') as HTMLInputElement).value).toBe('');
+    type('material-switches', '1');
+    fireEvent.click(screen.getByLabelText('material-calc-save'));
+    await waitFor(() => expect(api.updateCalc).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.updateCalc).mock.calls[0][3]).toEqual({ title: null, params: { sockets: 4, switches: 1, lights: 3, circuits: 2, route_m: null } });
   });
 
   it('offers the perimeter of the room for the tape', async () => {

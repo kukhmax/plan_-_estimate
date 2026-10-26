@@ -1,7 +1,7 @@
-/** The norms, the calculations and the statement of materials (V2-11); mirrors backend `schemas/material.py`. Quantities arrive as strings; the server counts everything. */
+/** The norms, the calculations and the statement of materials (V2-11, V2-12); mirrors backend `schemas/material.py`. Quantities arrive as strings; the server counts everything. */
 import type { PointItem } from './roomPoints';
 
-export type MaterialPackage = 'TILE' | 'DRYWALL';
+export type MaterialPackage = 'TILE' | 'DRYWALL' | 'ELECTRIC' | 'PLUMBING';
 
 export interface TileParams {
   area_m2: string;
@@ -23,6 +23,27 @@ export interface DrywallParams {
   perimeter_m: string | null;
 }
 
+export interface ElectricParams {
+  sockets: number;
+  switches: number;
+  lights: number;
+  circuits: number;
+  route_m: string | null;
+}
+
+export interface PlumbingParams {
+  water_points: number;
+  drain_points: number;
+  manifold_outlets: number;
+  pipe_m: string | null;
+}
+
+/** The metres of the routes the owner listed in a room, by trade. */
+export interface RouteTotals {
+  electrical_m: string;
+  plumbing_m: string;
+}
+
 export interface MaterialLine {
   code: string;
   name: string;
@@ -42,7 +63,7 @@ export interface MaterialCalc {
   room_id: string;
   package: MaterialPackage;
   title: string | null;
-  params: Partial<TileParams> & Partial<DrywallParams>;
+  params: Partial<TileParams> & Partial<DrywallParams> & Partial<ElectricParams> & Partial<PlumbingParams>;
   materials: MaterialLine[];
   created_at: string;
   updated_at: string;
@@ -50,7 +71,9 @@ export interface MaterialCalc {
 
 export type CalcFields =
   | { package: 'TILE'; title: string | null; params: TileParams }
-  | { package: 'DRYWALL'; title: string | null; params: DrywallParams };
+  | { package: 'DRYWALL'; title: string | null; params: DrywallParams }
+  | { package: 'ELECTRIC'; title: string | null; params: ElectricParams }
+  | { package: 'PLUMBING'; title: string | null; params: PlumbingParams };
 
 export interface MaterialTotal extends MaterialLine {
   package: MaterialPackage;

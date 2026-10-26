@@ -1,4 +1,4 @@
-"""The norms and the calculations of materials (V2-11). Quantities go out as strings with two places (`schemas/payment.py`); a norm as a plain number without needless zeros."""
+"""The norms and the calculations of materials (V2-11, V2-12). Quantities go out as strings with two places (`schemas/payment.py`); a norm as a plain number without needless zeros."""
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -54,6 +54,40 @@ class DrywallParams(BaseModel):
         return self
 
 
+Count = Annotated[int, Field(ge=0, le=500)]
+
+
+class ElectricParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sockets: Count = 0
+    switches: Count = 0
+    lights: Count = 0
+    circuits: Annotated[int, Field(ge=0, le=100)] = 0
+    route_m: Metres | None = None
+
+    @model_validator(mode="after")
+    def _needs(self) -> "ElectricParams":
+        if self.sockets + self.switches + self.lights == 0 and self.route_m is None and self.circuits == 0:
+            raise ValueError("an electrical calculation needs at least one point, circuit or route")
+        return self
+
+
+class PlumbingParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    water_points: Count = 0
+    drain_points: Count = 0
+    manifold_outlets: Annotated[int, Field(ge=0, le=50)] = 0
+    pipe_m: Metres | None = None
+
+    @model_validator(mode="after")
+    def _needs(self) -> "PlumbingParams":
+        if self.water_points + self.drain_points + self.manifold_outlets == 0 and self.pipe_m is None:
+            raise ValueError("a plumbing calculation needs at least one point, outlet or pipe")
+        return self
+
+
 class TileCalcCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -70,7 +104,24 @@ class DrywallCalcCreate(BaseModel):
     params: DrywallParams
 
 
-CalcCreate = Annotated[TileCalcCreate | DrywallCalcCreate, Field(discriminator="package")]
+class ElectricCalcCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    package: Literal["ELECTRIC"]
+    title: str | None = Field(default=None, max_length=120)
+    params: ElectricParams
+
+
+class PlumbingCalcCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    package: Literal["PLUMBING"]
+    title: str | None = Field(default=None, max_length=120)
+    params: PlumbingParams
+
+
+CalcCreate = Annotated[TileCalcCreate | DrywallCalcCreate | ElectricCalcCreate | PlumbingCalcCreate, Field(discriminator="package")]
+PackageName = Literal["TILE", "DRYWALL", "ELECTRIC", "PLUMBING"]
 
 
 class CalcUpdate(BaseModel):
@@ -97,7 +148,7 @@ class MaterialRead(BaseModel):
 class CalcRead(BaseModel):
     id: uuid.UUID
     room_id: uuid.UUID
-    package: Literal["TILE", "DRYWALL"]
+    package: PackageName
     title: str | None
     params: dict
     materials: list[MaterialRead]
@@ -110,7 +161,7 @@ class CalcsResponse(BaseModel):
 
 
 class TotalRead(MaterialRead):
-    package: Literal["TILE", "DRYWALL"]
+    package: PackageName
     price_item_id: uuid.UUID | None
     unit_price: Out | None
     amount: Out | None  # the packs by the price of the linked item; none without a price
@@ -130,7 +181,7 @@ class StatementResponse(BaseModel):
 class NormRead(BaseModel):
     id: uuid.UUID
     code: str
-    package: Literal["TILE", "DRYWALL"]
+    package: PackageName
     kind: Literal["PARAM", "MATERIAL"]
     name: str
     default_name: str
@@ -162,3 +213,10 @@ class AddMaterialsResponse(BaseModel):
     added: int
     already: int
     skipped: list[str]  # the codes of the materials whose item has gone (archived, another unit)
+
+
+class RouteTotalsResponse(BaseModel):
+    """The routes (metres) the owner listed in a room as points and routes, by trade: they are offered to the calculations of the room."""
+
+    electrical_m: Out
+    plumbing_m: Out

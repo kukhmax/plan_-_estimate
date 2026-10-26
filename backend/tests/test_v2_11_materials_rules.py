@@ -19,7 +19,7 @@ def tile(**over):
 
 
 def test_the_reference_has_every_number_the_formulas_read_and_every_material_they_make():
-    assert {n.code for n in NORMS if n.kind == MATERIAL} == {
+    assert {n.code for n in NORMS if n.kind == MATERIAL and n.package in ("TILE", "DRYWALL")} == {
         "TILE_TILES", "TILE_ADHESIVE", "TILE_GROUT", "TILE_WATERPROOF", "TILE_WATERPROOF_TAPE", "TILE_SPACERS",
         "GK_SHEETS", "GK_UD", "GK_CD", "GK_HANGERS", "GK_SCREWS", "GK_FILLER", "GK_TAPE",
     }
