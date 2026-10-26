@@ -528,3 +528,35 @@ def test_the_check_of_the_migration_is_the_check_of_the_model():
     module = load_migration("0082_pressure_tests")
     model = next(c for c in IssuedDocument.__table__.constraints if getattr(c, "name", None) == "ck_issued_documents_kind")
     assert " ".join(module.KINDS_NEW.split()) == " ".join(str(model.sqltext).split())
+
+
+def engine_0083():
+    engine = engine_0082()
+    run(engine, "0083_pressure_encrypted_text", "upgrade")
+    return engine
+
+
+def test_the_hotfix_migration_chain_and_that_every_encrypted_column_is_text():
+    module = load_migration("0083_pressure_encrypted_text")
+    assert module.revision == "0083_pressure_encrypted_text" and module.down_revision == "0082_pressure_tests" and len(module.revision) <= 32
+    from app.domain.services.data_reencode_service import encrypted_columns  # the registry the verification of the encryption walks
+
+    engine = engine_0083()
+    types = {c["name"]: str(c["type"]).upper() for c in inspect(engine).get_columns("pressure_test_protocols")}
+    ours = [c.column for c in encrypted_columns() if c.table == "pressure_test_protocols"]
+    assert sorted(ours) == ["attendees", "document_html", "remarks", "section", "snapshot"]
+    # the encryption stores `enc1:...` and counts with LIKE: a JSON(B) column breaks both on a real PostgreSQL (found on the first production run)
+    assert {name: types[name] for name in ours} == dict.fromkeys(ours, "TEXT")
+
+
+def test_encrypted_text_survives_in_the_two_columns_and_the_downgrade_refuses_only_while_it_is_stored():
+    engine = engine_0083()
+    with engine.begin() as conn:
+        conn.execute(text(ROW.replace("'[]', '[]'", "'enc1:abc', '[]'")), {"id": "a", "sequence": 1, "status": "ISSUED", **FROZEN, "snapshot": "enc1:def"})
+    with pytest.raises(RuntimeError, match="2 value"):
+        run(engine, "0083_pressure_encrypted_text", "downgrade")
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM pressure_test_protocols"))
+        conn.execute(text(ROW), {"id": "b", "sequence": 1, "status": "ARCHIVED", **BLANK})
+    run(engine, "0083_pressure_encrypted_text", "downgrade")
+    run(engine, "0083_pressure_encrypted_text", "upgrade")
