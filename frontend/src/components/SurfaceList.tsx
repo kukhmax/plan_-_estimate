@@ -43,6 +43,7 @@ import { PendingMark } from './PendingMark';
 import { fetchRoomWorkPlan, followRoomWorkPlan, RoomPlanRequestError } from '../api/roomWorkPlans';
 import { SurfacePlanState } from '../types/roomWorkPlan';
 import { SurfaceDimensions } from './SurfaceDimensions';
+import { SurfaceNote } from './SurfaceNote';
 import { SurfaceRowButton } from './SurfaceRowButton';
 import { previewArea } from '../offline/preview';
 
@@ -1397,7 +1398,7 @@ export function SurfaceList({
                       </p>
                     )}
 
-                    {surface.description && <p className="text-xs text-slate-500">{surface.description}</p>}
+                    {surface.description && <SurfaceNote surfaceId={surface.id} text={surface.description} />}
 
                     <PlanExecutionTabs surfaceId={surface.id} planOpen={isWorkPlanOpen} executionOpen={isExecutionOpen} onPlan={() => toggleWorkPlan(surface.id)} onExecution={() => toggleExecution(surface.id)} />
 
@@ -1523,7 +1524,7 @@ export function SurfaceList({
                         <strong className="text-slate-800">{formatMetric(surface.gross_area)} {t.common.unit_m2}</strong>
                       </p>
                     )}
-                    {surface.description && <p className="text-xs text-slate-500">{surface.description}</p>}
+                    {surface.description && <SurfaceNote surfaceId={surface.id} text={surface.description} />}
 
                     <PlanExecutionTabs surfaceId={surface.id} planOpen={isWorkPlanOpen} executionOpen={isExecutionOpen} onPlan={() => toggleWorkPlan(surface.id)} onExecution={() => toggleExecution(surface.id)} />
 

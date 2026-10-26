@@ -19,6 +19,12 @@ vi.mock('../api/pressureTests', () => ({
 }));
 vi.mock('../api/documents', () => ({ previewPressureTestPdf: vi.fn() }));
 vi.mock('../api/representatives', () => ({ fetchRepresentatives: vi.fn() }));
+// the picker and the upload queue have their own tests; here a button stands for "the photo has arrived"
+vi.mock('./PressurePhotoAdd', () => ({
+  PressurePhotoAdd: ({ onUploaded }: { onUploaded: (id: string) => void }) => (
+    <button type="button" aria-label="fake-photo-arrived" onClick={() => { onUploaded('new1'); onUploaded('new2'); }}>photo</button>
+  ),
+}));
 
 const PHOTOS = ['f1', 'f2', 'f3', 'f4', 'f5'].map((id, i) => ({
   id, caption: i === 0 ? 'Manometr' : null, place: i === 0 ? 'Łazienka' : null, captured_at: null, created_at: '2026-10-20T08:05:00',
@@ -124,6 +130,29 @@ describe('ProjectPressureTests (V2-12b)', () => {
     expect(screen.getByLabelText('pressure-photo-f5')).toBeDisabled();
     await act(async () => { fireEvent.click(screen.getByLabelText('pressure-photo-f1')); });
     expect(lastChange()).toEqual({ photo_ids: ['f2', 'f3', 'f4'] });
+  });
+
+  it('ticks a photo taken in the form at once, both photos of a pair, and keeps the limit of four', async () => {
+    vi.mocked(api.openPressureDraft).mockResolvedValue(protocol({ photo_ids: ['f1'] }));
+    let ids: string[] = ['f1'];
+    vi.mocked(api.updatePressure).mockImplementation(async (_p, _id, changes) => {
+      if (changes.photo_ids) ids = changes.photo_ids;
+      return protocol({ photo_ids: ids });
+    });
+    await begin();
+    await act(async () => { fireEvent.click(screen.getByLabelText('fake-photo-arrived')); });
+    await waitFor(() => expect(vi.mocked(api.updatePressure).mock.calls.map((c) => c[2].photo_ids)).toEqual([['f1', 'new1'], ['f1', 'new1', 'new2']]));
+    // the room is full: the third photo is not ticked and the sentence says why
+    ids = ['f1', 'f2', 'f3', 'f4'];
+    vi.mocked(api.updatePressure).mockClear();
+    vi.mocked(api.openPressureDraft).mockResolvedValue(protocol({ photo_ids: ids }));
+    cleanup();
+    await begin();
+    vi.mocked(api.fetchPressureTests).mockClear();
+    await act(async () => { fireEvent.click(screen.getByLabelText('fake-photo-arrived')); });
+    await waitFor(() => expect(api.fetchPressureTests).toHaveBeenCalledTimes(2)); // one refresh per photo that arrived
+    expect(api.updatePressure).not.toHaveBeenCalled();
+    expect(await screen.findByLabelText('pressure-note')).toHaveTextContent('maksymalną liczbę zdjęć');
   });
 
   it('swaps the people present for the day of the notice when the customer did not come', async () => {

@@ -10,6 +10,7 @@ import type { ProjectRepresentative } from '../types/representative';
 import { documentErrorText } from '../utils/documentErrors';
 import { CommitText, FIELD } from './CommitText';
 import { Ico } from './Ico';
+import { PressurePhotoAdd } from './PressurePhotoAdd';
 
 interface ProjectPressureTestsProps {
   projectId: string;
@@ -55,6 +56,8 @@ export function ProjectPressureTests({ projectId }: ProjectPressureTestsProps) {
   const [confirmAbandon, setConfirmAbandon] = useState(false);
   const [extra, setExtra] = useState('');
   const alive = useRef(true);
+  const draftRef = useRef<Pressure | null>(null);
+  draftRef.current = draft;
   const queue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
@@ -92,24 +95,35 @@ export function ProjectPressureTests({ projectId }: ProjectPressureTestsProps) {
     return text.errors.UNKNOWN;
   };
 
-  /** One request at a time, in the order of the taps; the answer replaces the screen's copy of the protocol. */
-  const save = (changes: PressureChange, id?: string) => {
-    const target = id ?? draft?.id;
-    if (!target) return;
+  /** One request of the queue: the answer (the whole protocol) replaces the screen's copy. */
+  const apply = async (target: string, changes: PressureChange) => {
+    setSaving((n) => n + 1);
+    try {
+      const next = await updatePressure(projectId, target, changes);
+      draftRef.current = next;
+      if (alive.current) {
+        setDraft(next);
+        setError(null);
+      }
+    } catch (err) {
+      if (alive.current) setError(reasonText(err));
+    } finally {
+      if (alive.current) setSaving((n) => n - 1);
+    }
+  };
+
+  /**
+   * One request at a time, in the order of the taps. A change may be a function of the protocol AS IT IS when its turn comes (two photos that arrive together must both be ticked,
+   * not the second over the first); a function that answers null changes nothing.
+   */
+  const save = (change: PressureChange | ((current: Pressure) => PressureChange | null), id?: string) => {
     queue.current = queue.current.then(async () => {
       if (!alive.current) return;
-      setSaving((n) => n + 1);
-      try {
-        const next = await updatePressure(projectId, target, changes);
-        if (alive.current) {
-          setDraft(next);
-          setError(null);
-        }
-      } catch (err) {
-        if (alive.current) setError(reasonText(err));
-      } finally {
-        if (alive.current) setSaving((n) => n - 1);
-      }
+      const current = draftRef.current;
+      const target = id ?? current?.id;
+      if (!target) return;
+      const changes = typeof change === 'function' ? (current ? change(current) : null) : change;
+      if (changes !== null) await apply(target, changes);
     });
   };
 
@@ -216,7 +230,7 @@ export function ProjectPressureTests({ projectId }: ProjectPressureTestsProps) {
 
   const togglePhoto = (id: string) => {
     if (!draft) return;
-    save({ photo_ids: draft.photo_ids.includes(id) ? draft.photo_ids.filter((x) => x !== id) : [...draft.photo_ids, id] });
+    save((current) => ({ photo_ids: current.photo_ids.includes(id) ? current.photo_ids.filter((x) => x !== id) : [...current.photo_ids, id] }));
   };
 
   const photoLabel = (caption: string | null, place: string | null, takenAt: string | null): string => {
@@ -234,6 +248,25 @@ export function ProjectPressureTests({ projectId }: ProjectPressureTestsProps) {
     return save({ duration_min: minutes });
   };
   const commitBar = (field: 'test_pressure_bar' | 'pressure_drop_bar', value: string) => save({ [field]: value.trim() === '' ? null : value.trim() });
+
+  /** A photo of the manometer taken here: ticked at once while there is room; when four are ticked it only joins the list below (the sentence says so). */
+  const tickUploaded = (attachmentId: string) => {
+    queue.current = queue.current.then(async () => {
+      const current = draftRef.current;
+      if (!alive.current || !current || current.photo_ids.includes(attachmentId)) return;
+      if (current.photo_ids.length < MAX_PRESSURE_PHOTOS) return apply(current.id, { photo_ids: [...current.photo_ids, attachmentId] });
+      setNote(text.photos_limit.replace('{max}', String(MAX_PRESSURE_PHOTOS)));
+      try {
+        const fresh = (await fetchPressureTests(projectId)).items.find((p) => p.id === current.id);
+        if (fresh && alive.current) {
+          draftRef.current = fresh;
+          setDraft(fresh);
+        }
+      } catch {
+        if (alive.current) setError(text.load_failed);
+      }
+    });
+  };
 
   const atLimit = (draft?.photo_ids.length ?? 0) >= MAX_PRESSURE_PHOTOS;
 
@@ -264,7 +297,7 @@ export function ProjectPressureTests({ projectId }: ProjectPressureTestsProps) {
         <div aria-label="pressure-form" className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-slate-900">{text.system_label}</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
               {PRESSURE_SYSTEMS.map((system) => (
                 <button key={system} type="button" aria-label={`pressure-system-${system}`} aria-pressed={draft.system === system} onClick={() => save({ system })} className={`${CHOICE} ${draft.system === system ? ON : OFF}`}>
                   {text.systems[system]}
@@ -315,6 +348,7 @@ export function ProjectPressureTests({ projectId }: ProjectPressureTestsProps) {
           <fieldset className="space-y-1">
             <legend className="text-sm font-semibold text-slate-900">{text.photos}</legend>
             <p className="text-xs text-slate-600 break-words">{text.photos_hint.replace('{max}', String(MAX_PRESSURE_PHOTOS))}</p>
+            <PressurePhotoAdd projectId={projectId} onUploaded={tickUploaded} />
             {draft.photo_options.length === 0 && <p className="text-xs text-amber-800 break-words">{text.photos_none}</p>}
             {atLimit && <p className="text-xs text-slate-600 break-words">{text.photos_limit.replace('{max}', String(MAX_PRESSURE_PHOTOS))}</p>}
             {draft.photo_options.map((photo) => {

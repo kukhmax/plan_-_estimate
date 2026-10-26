@@ -2788,7 +2788,7 @@
     "held_on": "Test date",
     "held_time": "Time",
     "photos": "Manometer photos",
-    "photos_hint": "Tick up to {max} manometer photos from the object's photos.",
+    "photos_hint": "Take a photo of the manometer or add one from the gallery — it is ticked by itself. You can also tick up to {max} photos from the object's photos.",
     "photos_none": "The object has no photos yet. Add the manometer photo in the object or room card, then come back.",
     "photos_limit": "The maximum number of photos ({max}) is chosen. Untick one to choose another.",
     "photo_untitled": "Photo without a caption",

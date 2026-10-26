@@ -2783,7 +2783,7 @@
     "held_on": "Data próby",
     "held_time": "Godzina",
     "photos": "Zdjęcia manometru",
-    "photos_hint": "Zaznacz do {max} zdjęć manometru spośród zdjęć obiektu.",
+    "photos_hint": "Zrób zdjęcie manometru lub dodaj je z galerii — zaznaczy się samo. Możesz też zaznaczyć do {max} zdjęć spośród zdjęć obiektu.",
     "photos_none": "Obiekt nie ma jeszcze zdjęć. Dodaj zdjęcie manometru w karcie obiektu lub pomieszczenia, a potem wróć tutaj.",
     "photos_limit": "Wybrano maksymalną liczbę zdjęć ({max}). Odznacz jedno, aby wybrać inne.",
     "photo_untitled": "Zdjęcie bez opisu",
