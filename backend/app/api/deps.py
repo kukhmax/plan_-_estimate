@@ -21,6 +21,8 @@ from app.domain.services.calendar_service import CalendarService
 from app.domain.services.checklist_service import ChecklistService
 from app.domain.services.client_link_service import ClientLinkService
 from app.domain.services.client_portal_service import ClientPortalService
+from app.domain.services.trade_link_service import TradeLinkService
+from app.domain.services.trade_portal_service import TradePortalService
 from app.domain.services.client_service import ClientService
 from app.domain.services.communication_service import CommunicationService
 from app.domain.services.concealed_service import ConcealedService
@@ -258,6 +260,18 @@ async def get_client_portal_service(
     db: AsyncSession = Depends(get_db),
 ) -> ClientPortalService:
     return ClientPortalService(db, settings.JWT_SECRET_KEY, settings.CALENDAR_WEB_APP_URL)
+
+
+async def get_trade_link_service(
+    db: AsyncSession = Depends(get_db),
+) -> TradeLinkService:
+    return TradeLinkService(db)
+
+
+async def get_trade_portal_service(
+    db: AsyncSession = Depends(get_db),
+) -> TradePortalService:
+    return TradePortalService(db, settings.JWT_SECRET_KEY, settings.CALENDAR_WEB_APP_URL)
 
 
 async def get_downtime_service(

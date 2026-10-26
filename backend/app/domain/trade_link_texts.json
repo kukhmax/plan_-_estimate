@@ -1,0 +1,20 @@
+{
+  "trade_ELECTRIC": {
+    "pl": "elektryk",
+    "ru": "электрик",
+    "uk": "електрик",
+    "en": "electrician"
+  },
+  "trade_PLUMBING": {
+    "pl": "hydraulik",
+    "ru": "сантехник",
+    "uk": "сантехнік",
+    "en": "plumber"
+  },
+  "notice_submit": {
+    "pl": "Odpowiedź mistrza ({trade}): {master} wysłał(a) odpowiedź dla obiektu „{project}” — pozycji: {count}.",
+    "ru": "Ответ мастера ({trade}): {master} отправил(а) ответ по объекту «{project}» — позиций: {count}.",
+    "uk": "Відповідь майстра ({trade}): {master} надіслав(ла) відповідь щодо об’єкта «{project}» — позицій: {count}.",
+    "en": "Craftsman's answer ({trade}): {master} sent an answer for the object \"{project}\" — positions: {count}."
+  }
+}

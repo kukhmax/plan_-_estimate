@@ -126,21 +126,21 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     vi.mocked(photosApi.fetchPhotos).mockResolvedValue({ items: [], total: 0, limit: 30, offset: 0 } as never);
   });
 
-  it('is nine large tiles after the card of the object: the rooms first, then the estimate, the link for the client, photos, documents, agreement and protocols, invoices and advances, materials, the summary last', async () => {
+  it('is ten large tiles after the card of the object: the rooms first, then the estimate, the link for the client, the links for the craftsmen, photos, documents, agreement and protocols, invoices and advances, materials, the summary last', async () => {
     renderWorkspace();
     await openHub();
     expect(screen.getByLabelText('project-detail')).toBeInTheDocument();
     const hub = screen.getByLabelText('object-hub');
     const tiles = Array.from(hub.children) as HTMLElement[];
     expect(tiles.map((tile) => tile.getAttribute('aria-label'))).toEqual([
-      'object-tile-rooms', 'open-estimates', 'object-tile-client', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal', 'object-tile-payments', 'object-tile-materials', 'object-tile-summary',
+      'object-tile-rooms', 'open-estimates', 'object-tile-client', 'object-tile-masters', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal', 'object-tile-payments', 'object-tile-materials', 'object-tile-summary',
     ]);
     expect(tiles.map((tile) => tile.textContent?.replace(/[›\d]/g, '').replace(/\p{Extended_Pictographic}️?/gu, '').trim())).toEqual([
-      'Pomieszczenia', 'Kosztorys', 'Link dla klienta', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Faktury i zaliczki', 'Materiały', 'Podsumowanie obiektu',
+      'Pomieszczenia', 'Kosztorys', 'Link dla klienta', 'Linki dla mistrzów', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Faktury i zaliczki', 'Materiały', 'Podsumowanie obiektu',
     ]);
     for (const tile of tiles) expect(tile.className).toContain('min-h-14');
     // every tile starts with its own decorative icon, hidden from the accessible name (Stage 18G)
-    expect(tiles.map((tile) => tile.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['🚪', '🧮', '🔗', '📷', '📄', '⚖️', '💰', '🧱', '📊']);
+    expect(tiles.map((tile) => tile.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(['🚪', '🧮', '🔗', '🔌', '📷', '📄', '⚖️', '💰', '🧱', '📊']);
     expect(screen.getByRole('button', { name: 'open-estimates' })).toBeInTheDocument();
     expect(tiles[1].className).toContain('bg-amber-500');
     // the rooms tile has the wide dark-green border

@@ -21,6 +21,10 @@ OPEN_OPERATIONS = {
     ("GET", "/api/public/client"),
     ("POST", "/api/public/client/estimate/decide"),
     ("POST", "/api/public/client/proposals/{proposal_id}/decide"),
+    # V2-14: the page of the electrician and the plumber, built the same way (tests/test_v2_14_trade_links.py)
+    ("GET", "/api/public/trade"),
+    ("PUT", "/api/public/trade/rooms/{room_id}"),
+    ("POST", "/api/public/trade/submit"),
 }
 METHODS = ("get", "post", "put", "patch", "delete")
 CONTRACT = app.openapi()

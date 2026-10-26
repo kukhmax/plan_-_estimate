@@ -53,6 +53,7 @@ import { ProjectSummaryCard } from './ProjectSummaryCard';
 import { ProjectPayments } from './ProjectPayments';
 import { DocumentsMenu, DocumentsSection, LegalMenu, LegalSection, ObjectPhotos, ObjectSection, ProjectHub } from './ProjectHub';
 import { PrepareOfflineButton } from './PrepareOfflineButton';
+import { ProjectTradeLinks } from './ProjectTradeLinks';
 import { ProjectClientLink } from './ProjectClientLink';
 import { ProjectNotes } from './ProjectNotes';
 import { SurfaceList } from './SurfaceList';
@@ -375,6 +376,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       summary: t.object_summary.title,
       notes: t.notes.title,
       client: t.client_link.title,
+      masters: t.trade_links.title,
     })[section];
 
   const documentsTitle = (section: DocumentsSection) =>
@@ -937,6 +939,8 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           {objectSection === 'notes' && <ProjectNotes projectId={selectedProject.id} />}
 
           {objectSection === 'client' && <ProjectClientLink projectId={selectedProject.id} />}
+
+          {objectSection === 'masters' && <ProjectTradeLinks projectId={selectedProject.id} />}
 
           {objectSection === 'materials' && <MaterialsScreen projectId={selectedProject.id} />}
 

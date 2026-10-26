@@ -8,7 +8,7 @@ import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 // The screen of an object is a hub of large tiles; each tile opens one screen of its own (Stage 16K.3).
 // The cards of the earlier stages live on those screens unchanged.
 
-export type ObjectSection = 'rooms' | 'photos' | 'documents' | 'legal' | 'payments' | 'materials' | 'summary' | 'notes' | 'client';
+export type ObjectSection = 'rooms' | 'photos' | 'documents' | 'legal' | 'payments' | 'materials' | 'summary' | 'notes' | 'client' | 'masters';
 // 'notes' has no tile: the notes of an object are opened with the button of its card in the list of objects.
 
 /** What the screen of documents lists: each piece of it is opened alone. */
@@ -52,6 +52,7 @@ export function ProjectHub({ onOpenEstimates, onOpenSection }: ProjectHubProps) 
       <HubTile tone="green" icon="🚪" ariaLabel="object-tile-rooms" label={t.rooms.title} onOpen={() => onOpenSection('rooms')} />
       <HubTile accent icon="🧮" ariaLabel="open-estimates" label={t.estimates.title} onOpen={onOpenEstimates} />
       <HubTile tone="sky" icon="🔗" ariaLabel="object-tile-client" label={t.client_link.title} onOpen={() => onOpenSection('client')} />
+      <HubTile tone="sky" icon="🔌" ariaLabel="object-tile-masters" label={t.trade_links.title} onOpen={() => onOpenSection('masters')} />
       <HubTile
         tone="sky"
         icon="📷"

@@ -520,14 +520,14 @@ def test_the_journal_has_no_door_that_changes_it():
     assert {m for m in paths["/api/projects/{project_id}/client-journal"]} == {"get"}
 
 
-def test_exactly_three_open_operations_belong_to_the_client():
+def test_exactly_three_open_operations_belong_to_the_client():  # the page of the craftsman (V2-14) has its own three, see test_v2_14_trade_links.py
     from app.main import app
 
     opened = {
         (method.upper(), path)
         for path, ops in app.openapi()["paths"].items()
         for method, op in ops.items()
-        if path.startswith("/api/public/") and not op.get("security")
+        if path.startswith("/api/public/client") and not op.get("security")
     }
     assert opened == {("GET", PUBLIC), ("POST", PUBLIC + "/estimate/decide"), ("POST", PUBLIC + "/proposals/{proposal_id}/decide")}
 

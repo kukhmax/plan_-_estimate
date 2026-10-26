@@ -25,6 +25,7 @@ import { clearLastProject, readLastProject, writeLastProject } from './utils/las
 import { LoginScreen } from './components/LoginScreen';
 import { QuickEstimate } from './components/QuickEstimate';
 import { ClientPage, isClientPagePath, tokenFromHash } from './components/ClientPage';
+import { isMasterPagePath, MasterPage } from './components/MasterPage';
 
 type Section = 'clients' | 'projects' | 'quick' | 'calendar' | 'pricebook' | 'archive' | 'documents' | 'knowledge' | 'access' | 'security';
 
@@ -358,11 +359,18 @@ const AppContent: React.FC = () => {
   );
 };
 
-/** V2-8: `/c#<secret>` is the open page of the client -- no login, no Telegram, no offline copies, and the language is never written to the storage of the application. */
+/**
+ * V2-8: `/c#<secret>` is the open page of the client; V2-14: `/m#<secret>` is the open page of the electrician or the plumber. No login, no Telegram,
+ * no offline copies, and the language is never written to the storage of the application.
+ */
 export const App: React.FC = () =>
   typeof window !== 'undefined' && isClientPagePath(window.location.pathname) ? (
     <I18nProvider persist={false}>
       <ClientPage token={tokenFromHash(window.location.hash)} />
+    </I18nProvider>
+  ) : typeof window !== 'undefined' && isMasterPagePath(window.location.pathname) ? (
+    <I18nProvider persist={false}>
+      <MasterPage token={tokenFromHash(window.location.hash)} />
     </I18nProvider>
   ) : (
     <I18nProvider>
