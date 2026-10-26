@@ -300,3 +300,54 @@ async def load_downtime_sources(db: AsyncSession, owner_id: uuid.UUID, project_i
             str(attachment.id), room_id, names.get(room_id) if room_id else None, attachment.caption, captured_at, attachment.created_at,
         )
     return DowntimeSources(base, rooms, photos)
+
+
+@dataclass(frozen=True, slots=True)
+class PressurePhoto:
+    """A photo of the object that may be the picture of the manometer: where it was taken and when."""
+
+    id: str
+    caption: str | None
+    place: str | None  # the room (and the surface) it is attached to; None: the object itself
+    captured_at: datetime | None
+    created_at: datetime
+
+
+@dataclass(slots=True)
+class PressureSources:
+    base: HandoverSources
+    photos: dict[str, PressurePhoto]  # the active photos of the object (the object, its rooms and surfaces), newest first, by id
+
+
+PRESSURE_PHOTO_LIMIT = 100
+
+
+async def load_pressure_sources(db: AsyncSession, owner_id: uuid.UUID, project_id: uuid.UUID) -> PressureSources:
+    """Raises ProjectNotFoundError for a project that is not this owner's. The photos offered are the newest `PRESSURE_PHOTO_LIMIT` of the object that are not archived."""
+    base = await load_handover_sources(db, owner_id, project_id)
+    rooms = {room_id: name for room_id, name, _ in base.rooms}
+    surfaces = {
+        str(surface.id): (str(room.id), surface.name)
+        for surface, room in (await db.execute(select(Surface, Room).join(Room, Room.id == Surface.room_id).where(Room.project_id == project_id))).all()
+    }
+    rows = await db.execute(
+        select(PhotoAttachment, PhotoAsset.captured_at)
+        .join(PhotoAsset, PhotoAsset.id == PhotoAttachment.asset_id)
+        .where(
+            PhotoAttachment.project_id == project_id,
+            PhotoAttachment.context.in_([PhotoAttachmentContext.PROJECT, PhotoAttachmentContext.ROOM, PhotoAttachmentContext.SURFACE]),
+            PhotoAttachment.archived_at.is_(None),
+        )
+        .order_by(PhotoAttachment.created_at.desc(), PhotoAttachment.id)
+        .limit(PRESSURE_PHOTO_LIMIT)
+    )
+    photos: dict[str, PressurePhoto] = {}
+    for attachment, captured_at in rows.all():
+        place = None
+        if attachment.context == PhotoAttachmentContext.ROOM and attachment.room_id is not None:
+            place = rooms.get(str(attachment.room_id))
+        elif attachment.context == PhotoAttachmentContext.SURFACE and attachment.surface_id is not None:
+            room_id, surface_name = surfaces.get(str(attachment.surface_id), (None, None))
+            place = " › ".join(part for part in (rooms.get(room_id or ""), surface_name) if part) or None
+        photos[str(attachment.id)] = PressurePhoto(str(attachment.id), attachment.caption, place, captured_at, attachment.created_at)
+    return PressureSources(base, photos)

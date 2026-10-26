@@ -27,6 +27,7 @@ class DocumentKind(str, enum.Enum):
     TECH_CARD = "TECH_CARD"  # Karta technologiczna: the substrate, the standard and the works of every surface (16C)
     SETTLEMENT = "SETTLEMENT"  # Rozliczenie: what was invoiced to the client and what the client paid (IA-6a)
     MEASUREMENTS = "MEASUREMENTS"  # Obmiar obiektu: every size of every room, as the screens show them (V2-8c)
+    PRESSURE_TEST_PROTOCOL = "PRESSURE_TEST_PROTOCOL"  # Protokół próby ciśnieniowej: an installation tested under pressure before it is covered (V2-12b)
     INSTALLATION_MAP = "INSTALLATION_MAP"  # Mapa instalacji ukrytych: the photos with the markers of hidden utilities, with what lies where (V2-12a)
     PAYMENT_SCHEDULE = "PAYMENT_SCHEDULE"  # Harmonogram płatności: the stages in which the client pays, with the day of each (V2-9a)
 
@@ -49,6 +50,7 @@ TEMPLATES: dict[DocumentKind, DocumentTemplate] = {
     DocumentKind.SETTLEMENT: DocumentTemplate(DocumentKind.SETTLEMENT, "1", "settlement.html.j2", "ROZL"),
     DocumentKind.MEASUREMENTS: DocumentTemplate(DocumentKind.MEASUREMENTS, "1", "measurements.html.j2", "OBM"),
     DocumentKind.PAYMENT_SCHEDULE: DocumentTemplate(DocumentKind.PAYMENT_SCHEDULE, "1", "payment_schedule.html.j2", "HPL"),
+    DocumentKind.PRESSURE_TEST_PROTOCOL: DocumentTemplate(DocumentKind.PRESSURE_TEST_PROTOCOL, "1", "pressure_test_protocol.html.j2", "PPC"),
     DocumentKind.INSTALLATION_MAP: DocumentTemplate(DocumentKind.INSTALLATION_MAP, "1", "installation_map.html.j2", "MAP"),
     DocumentKind.CONTRACT: DocumentTemplate(
         DocumentKind.CONTRACT, "2", "contract.html.j2", "UMOWA",

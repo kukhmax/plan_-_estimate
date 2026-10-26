@@ -58,11 +58,11 @@ def turn_encryption_on():
 def test_the_columns_come_from_the_models():
     columns = encrypted_columns()
     names = {f"{c.table}.{c.column}" for c in columns}
-    assert len(columns) == 69 and "clients.first_name" in names and "projects.name" in names and "project_notes.body" in names  # 20 of EN-2a + 37 of EN-2b-2 + 4 of EN-2b-3 + 3 of V2-8 (two words of a proposal, the name of a signer) + 2 of V2-9 (the title of a payment stage, the note of an hour entry) + 1 of V2-8b (the reason of a refusal) + 1 of V2-10 (the note of a point or a route) + 1 of V2-11 (the title of a calculation of materials)
+    assert len(columns) == 74 and "clients.first_name" in names and "projects.name" in names and "project_notes.body" in names  # 20 of EN-2a + 37 of EN-2b-2 + 4 of EN-2b-3 + 3 of V2-8 (two words of a proposal, the name of a signer) + 2 of V2-9 (the title of a payment stage, the note of an hour entry) + 1 of V2-8b (the reason of a refusal) + 1 of V2-10 (the note of a point or a route) + 1 of V2-11 (the title of a calculation of materials) + 5 of V2-12b (the people present, the tested section, the remarks, the snapshot and the page of a pressure test protocol)
     assert {c.table for c in columns} == {
         "clients", "projects", "project_representatives", "project_notes",
         "contracts", "handover_protocols", "concealed_works_protocols", "acceptance_protocols", "decision_protocols", "downtime_episodes", "issued_documents", "project_payments",
-        "client_proposals", "client_consents", "payment_stages", "work_hours", "room_points", "material_calcs",
+        "client_proposals", "client_consents", "payment_stages", "work_hours", "room_points", "material_calcs", "pressure_test_protocols",
     }
     assert all(c.label == f"{c.table}.{c.column}" for c in columns)
     assert {c.owner_column for c in columns if c.table == "clients"} == {"owner_user_id"} and {c.owner_column for c in columns if c.table == "projects"} == {"owner_id"}

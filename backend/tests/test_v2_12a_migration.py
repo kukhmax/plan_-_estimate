@@ -54,8 +54,10 @@ def test_the_check_of_the_migration_is_the_check_of_the_model():
     from app.models.issued_document import IssuedDocument
 
     module = load_migration(NAME)
+    latest = load_migration("0082_pressure_tests")  # the model follows the newest widening; this one is the step before it
     model = next(c for c in IssuedDocument.__table__.constraints if getattr(c, "name", None) == "ck_issued_documents_kind")
-    assert " ".join(module.KINDS_NEW.split()) == " ".join(str(model.sqltext).split())
+    assert " ".join(latest.KINDS_NEW.split()) == " ".join(str(model.sqltext).split())
+    assert " ".join(latest.KINDS_OLD.split()) == " ".join(module.KINDS_NEW.split())
 
 
 def test_the_downgrade_refuses_while_a_schedule_is_in_the_journal_and_then_restores_the_old_check():

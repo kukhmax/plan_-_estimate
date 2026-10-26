@@ -33,6 +33,7 @@ from app.domain.services.media_purger import MediaPurger
 from app.domain.services.photo_purge_service import PhotoPurgeService
 from app.models.acceptance_protocol import AcceptanceProtocol
 from app.models.concealed_works_protocol import ConcealedWorksProtocol
+from app.models.pressure_test_protocol import PressureTestProtocol
 from app.models.contract import Contract
 from app.models.decision_protocol import DecisionProtocol
 from app.models.downtime_episode import DowntimeEpisode
@@ -57,6 +58,7 @@ _DOCUMENT_MODELS = (
     ("CONTRACT", Contract),
     ("HANDOVER", HandoverProtocol),
     ("CONCEALED_WORKS", ConcealedWorksProtocol),
+    ("PRESSURE_TEST", PressureTestProtocol),
     ("DECISION", DecisionProtocol),
     ("ACCEPTANCE", AcceptanceProtocol),
     ("DOWNTIME", DowntimeEpisode),

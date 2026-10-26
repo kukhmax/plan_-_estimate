@@ -133,6 +133,11 @@ export function previewConcealedPdf(projectId: string): Promise<DocumentPreviewR
   return apiRequest(`${base(projectId)}/documents/concealed-works/preview`, { method: 'POST' });
 }
 
+/** The working version of the protocol of a pressure test (pale watermark, empty lines and boxes) to the owner's chat, to fill in during the test. */
+export function previewPressureTestPdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/pressure-test/preview`, { method: 'POST' });
+}
+
 /** The working version of the acceptance protocol (pale watermark, empty boxes and lines) to the owner's chat, to fill in at the wall. */
 export function previewAcceptancePdf(projectId: string): Promise<DocumentPreviewResult> {
   return apiRequest(`${base(projectId)}/documents/acceptance/preview`, { method: 'POST' });

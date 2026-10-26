@@ -52,6 +52,7 @@ vi.mock('./components/ProjectAdjacentWorks', () => ({ ProjectAdjacentWorks: stub
 vi.mock('./components/ProjectContract', () => ({ ProjectContract: stub('contract') }));
 vi.mock('./components/ProjectHandover', () => ({ ProjectHandover: stub('handover') }));
 vi.mock('./components/ProjectConcealedWorks', () => ({ ProjectConcealedWorks: stub('concealed') }));
+vi.mock('./components/ProjectPressureTests', () => ({ ProjectPressureTests: stub('pressure') }));
 vi.mock('./components/ProjectAcceptance', () => ({ ProjectAcceptance: stub('acceptance') }));
 vi.mock('./components/ProjectDecisions', () => ({ ProjectDecisions: stub('decisions') }));
 vi.mock('./components/ProjectDowntime', () => ({ ProjectDowntime: stub('downtime') }));
@@ -152,7 +153,7 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
   it('keeps every card of the earlier stages off the hub', async () => {
     renderWorkspace();
     await openHub();
-    for (const name of ['rooms', 'summary', 'representatives', 'adjacent', 'contract', 'handover', 'concealed', 'acceptance', 'decisions', 'downtime']) {
+    for (const name of ['rooms', 'summary', 'representatives', 'adjacent', 'contract', 'handover', 'concealed', 'pressure', 'acceptance', 'decisions', 'downtime']) {
       expect(screen.queryByLabelText(`stub-${name}`)).toBeNull();
     }
     expect(screen.queryByLabelText('project-photos')).toBeNull();
@@ -306,10 +307,10 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     const rows = within(menu).getAllByRole('button');
     expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual([
       'legal-tile-representatives', 'legal-tile-adjacent', 'legal-tile-contract',
-      'legal-tile-handover', 'legal-tile-concealed', 'legal-tile-acceptance', 'legal-tile-decisions', 'legal-tile-downtime',
+      'legal-tile-handover', 'legal-tile-concealed', 'legal-tile-pressure', 'legal-tile-acceptance', 'legal-tile-decisions', 'legal-tile-downtime',
     ]);
     for (const row of rows) expect(row.className).toContain('min-h-14');
-    for (const name of ['representatives', 'adjacent', 'contract', 'handover', 'concealed', 'acceptance', 'decisions', 'downtime']) {
+    for (const name of ['representatives', 'adjacent', 'contract', 'handover', 'concealed', 'pressure', 'acceptance', 'decisions', 'downtime']) {
       expect(screen.queryByLabelText(`stub-${name}`)).toBeNull();
     }
     expect(crumbs()).toBe('Obiekty/Mieszkanie Mokotów/Umowa i protokoły');
@@ -321,6 +322,7 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     ['contract', 'Umowa'],
     ['handover', 'Protokół przekazania pomieszczeń'],
     ['concealed', 'Protokół odbioru robót zanikających'],
+    ['pressure', 'Protokół próby ciśnieniowej'],
     ['acceptance', 'Protokół odbioru prac'],
     ['decisions', 'Protokół informacji i decyzji'],
     ['downtime', 'Przestój po stronie Zamawiającego'],

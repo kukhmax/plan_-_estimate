@@ -54,11 +54,13 @@ def test_the_check_of_the_migration_is_the_check_of_the_model():
     from app.models.issued_document import IssuedDocument
 
     module = load_migration(NAME)
-    latest = load_migration("0081_installation_map_doc")  # the model follows the newest widening; the ones between are chained below
+    latest = load_migration("0082_pressure_tests")  # the model follows the newest widening; the ones between are chained below
+    map_ = load_migration("0081_installation_map_doc")
     schedule = load_migration("0076_payment_schedule_doc")
     model = next(c for c in IssuedDocument.__table__.constraints if getattr(c, "name", None) == "ck_issued_documents_kind")
     assert " ".join(latest.KINDS_NEW.split()) == " ".join(str(model.sqltext).split())
-    assert " ".join(latest.KINDS_OLD.split()) == " ".join(schedule.KINDS_NEW.split())
+    assert " ".join(latest.KINDS_OLD.split()) == " ".join(map_.KINDS_NEW.split())
+    assert " ".join(map_.KINDS_OLD.split()) == " ".join(schedule.KINDS_NEW.split())
     assert " ".join(module.KINDS_NEW.split()) == " ".join(schedule.KINDS_OLD.split())
 
 

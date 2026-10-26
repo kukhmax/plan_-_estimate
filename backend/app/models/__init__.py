@@ -51,6 +51,7 @@ from app.models.purge_ledger import PurgeLedger
 from app.models.work_schedule import WorkSchedule
 from app.models.adjacent_work import AdjacentWork, AdjacentWorkOrder
 from app.models.concealed_works_protocol import ConcealedStatus, ConcealedWorksProtocol
+from app.models.pressure_test_protocol import PressureStatus, PressureTestProtocol
 from app.models.contract import Contract, ContractStatus
 from app.models.handover_protocol import HandoverProtocol, HandoverStatus
 from app.models.project_representative import ProjectRepresentative, RepresentativeSide
@@ -154,6 +155,8 @@ __all__ = [
     "Contract",
     "ConcealedStatus",
     "ConcealedWorksProtocol",
+    "PressureStatus",
+    "PressureTestProtocol",
     "ContractStatus",
     "HandoverProtocol",
     "HandoverStatus",

@@ -67,6 +67,13 @@ from app.domain.documents.handover_document import (
 )
 from app.domain.documents.handover_document import snapshot_of as handover_snapshot_of
 from app.domain.documents.installation_map_document import InstallationMapDocumentService
+from app.domain.documents.pressure_test_document import (
+    build_pressure_document,
+    render_pressure_html,
+)
+from app.domain.documents.pressure_test_document import (
+    snapshot_of as pressure_snapshot_of,
+)
 from app.domain.documents.measurements_document import MeasurementsDocumentService
 from app.domain.documents.payment_schedule_document import (
     PaymentScheduleDocumentService,
@@ -82,6 +89,8 @@ from app.domain.exceptions import (
     AcceptanceNotEditableError,
     ConcealedGateError,
     ConcealedNotEditableError,
+    PressureGateError,
+    PressureNotEditableError,
     ContractGateError,
     ContractNotEditableError,
     DecisionGateError,
@@ -99,6 +108,7 @@ from app.domain.exceptions import (
 from app.domain.protocols.sources import (
     load_acceptance_sources,
     load_concealed_sources,
+    load_pressure_sources,
     load_decision_sources,
     load_downtime_sources,
     load_handover_sources,
@@ -106,6 +116,8 @@ from app.domain.protocols.sources import (
 from app.domain.services.acceptance_service import AcceptanceService
 from app.domain.services.acceptance_service import data_of as acceptance_data
 from app.domain.services.concealed_service import ConcealedService
+from app.domain.services.pressure_service import PressureService
+from app.domain.services.pressure_service import data_of as pressure_data
 from app.domain.services.concealed_service import data_of as concealed_data
 from app.domain.services.contract_service import ContractService
 from app.domain.services.data_key_service import DataKeyService
@@ -123,6 +135,7 @@ from app.domain.services.issued_document_service import (
 from app.domain.services.media_storage import MediaStorage
 from app.models.acceptance_protocol import AcceptanceProtocol
 from app.models.concealed_works_protocol import ConcealedWorksProtocol
+from app.models.pressure_test_protocol import PressureTestProtocol
 from app.models.contract import Contract
 from app.models.decision_protocol import DecisionProtocol
 from app.models.downtime_episode import DowntimeEpisode
@@ -632,6 +645,67 @@ class DocumentIssuer:
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
+    async def start_pressure_test(self, db: AsyncSession, user: User, project_id: uuid.UUID, protocol_id: uuid.UUID) -> Reservation:
+        """Issue a draft of the protocol of a pressure test: the gate first (a refusal lists what to fix and takes no number), then the number, then the freeze -- what was tested,
+        the photos of the manometer, the exact page -- and the slow part (the PDF and its delivery) in the background."""
+        self._ensure_capacity()
+        owner_id = user.id
+        service = PressureService(db)
+        row, sources, blockers = await service.gate(project_id, protocol_id, owner_id)
+        if row.status != "DRAFT":
+            raise PressureNotEditableError(f"protocol {protocol_id} is {row.status}: only a draft is issued")
+        if blockers:
+            raise PressureGateError(blockers)
+        data = pressure_data(row)
+        build_pressure_document(data, sources, working=False, issued_on=self._today())  # a refusal here takes no number
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.PRESSURE_TEST_PROTOCOL,
+            title=f"Protokół próby ciśnieniowej — nr {row.sequence}",
+            template_version=get_template(DocumentKind.PRESSURE_TEST_PROTOCOL).version,
+            source_id=row.id,
+            source_version=row.sequence,
+            client_id=sources.base.project.client_id,
+        )
+        if reservation.reused:
+            return reservation
+        try:
+            document = build_pressure_document(
+                data, sources, working=False, issued_on=self._today(),
+                number=reservation.document.number, sequence=reservation.document.project_seq,
+            )
+            await service.mark_issued(
+                project_id, row.id, owner_id,
+                issued_at=self.clock(),
+                snapshot=pressure_snapshot_of(data, sources, document),
+                document_html=render_pressure_html(document),
+            )
+        except Exception:
+            logger.exception("freezing pressure test protocol %s failed", protocol_id)
+            await db.rollback()
+            await IssuedDocumentService(db, clock=self.clock).mark_failed(owner_id, reservation.document.id, "INTERNAL_ERROR")
+            raise
+        await db.refresh(reservation.document)  # the freeze committed: the journal row is read again, not left expired
+        return self._launch(reservation)
+
+    async def preview_pressure_test(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version of the protocol of a pressure test (pale watermark, no number, no journal row) to the owner's chat, to fill in on the spot during the test. It never
+        refuses; it follows the open draft, or is a blank form."""
+        owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
+        sources = await load_pressure_sources(db, owner_id, project_id)
+        drafts = [r for r in await PressureService(db).list(project_id, owner_id) if r.status == "DRAFT"]
+        data = pressure_data(drafts[0]) if drafts else {}
+        document = build_pressure_document(data, sources, working=True, issued_on=self._today())
+        rendered = await self.renderer.render(render_pressure_html(document))
+        await self.delivery.send_document(
+            chat_id,
+            "Protokol-proby-cisnieniowej-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — Protokół próby ciśnieniowej — {sources.base.project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
     async def start_acceptance(self, db: AsyncSession, user: User, project_id: uuid.UUID, protocol_id: uuid.UUID) -> Reservation:
         """Issue a draft of the acceptance protocol: the gate first (a refusal lists what to fix and takes no number), then the number,
         then the freeze -- the assessment with its derived result, the exact page and the contract -- and the slow part (the PDF and
@@ -1006,6 +1080,13 @@ class DocumentIssuer:
             ).scalar_one_or_none()
             if protocol is None or not protocol.document_html:
                 raise DocumentDataError("CONCEALED_NOT_ISSUED", "the protocol of this document is not frozen")
+            return await self.renderer.render(protocol.document_html)
+        if document.kind == IssuedDocumentKind.PRESSURE_TEST_PROTOCOL.value:
+            protocol = (
+                await db.execute(select(PressureTestProtocol).where(PressureTestProtocol.id == document.source_id, PressureTestProtocol.owner_id == document.owner_id))
+            ).scalar_one_or_none()
+            if protocol is None or not protocol.document_html:
+                raise DocumentDataError("PRESSURE_NOT_ISSUED", "the protocol of this document is not frozen")
             return await self.renderer.render(protocol.document_html)
         if document.kind == IssuedDocumentKind.HANDOVER_PROTOCOL.value:
             protocol = (

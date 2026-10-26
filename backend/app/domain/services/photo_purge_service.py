@@ -32,6 +32,7 @@ from app.domain.services.media_purger import MediaPurger
 from app.domain.services.photo_attachment_service import PhotoAttachmentService
 from app.models.acceptance_protocol import AcceptanceProtocol
 from app.models.concealed_works_protocol import ConcealedWorksProtocol
+from app.models.pressure_test_protocol import PressureTestProtocol
 from app.models.downtime_episode import DowntimeEpisode
 from app.models.photo_annotation import PhotoAnnotation
 from app.models.photo_asset import PhotoAsset
@@ -182,6 +183,8 @@ class PhotoPurgeService:
         refs: list[ProtocolRef] = []
         for row in (await self.db.execute(select(ConcealedWorksProtocol).where(ConcealedWorksProtocol.project_id == project_id))).scalars():
             refs.append(ProtocolRef("CONCEALED_WORKS", row.id, row.status, frozenset(str(p) for p in row.photo_ids or [])))
+        for row in (await self.db.execute(select(PressureTestProtocol).where(PressureTestProtocol.project_id == project_id))).scalars():
+            refs.append(ProtocolRef("PRESSURE_TEST", row.id, row.status, frozenset(str(p) for p in row.photo_ids or [])))
         for row in (await self.db.execute(select(DowntimeEpisode).where(DowntimeEpisode.project_id == project_id))).scalars():
             refs.append(ProtocolRef("DOWNTIME", row.id, row.status, frozenset(str(p) for p in row.photo_ids or [])))
         for row in (await self.db.execute(select(AcceptanceProtocol).where(AcceptanceProtocol.project_id == project_id))).scalars():

@@ -21,6 +21,7 @@ const LEGAL_ICONS: Record<string, string> = {
   contract: '📜',
   handover: '🔑',
   concealed: '🧱',
+  pressure: '💧',
   acceptance: '✅',
   decisions: '🖊️',
   downtime: '⏸️',
@@ -32,6 +33,7 @@ export type LegalSection =
   | 'contract'
   | 'handover'
   | 'concealed'
+  | 'pressure'
   | 'acceptance'
   | 'decisions'
   | 'downtime';
@@ -114,6 +116,7 @@ export function LegalMenu({ onOpen }: LegalMenuProps) {
       items: [
         { id: 'handover', label: t.handover.title },
         { id: 'concealed', label: t.concealed.title },
+        { id: 'pressure', label: t.pressure.title },
         { id: 'acceptance', label: t.acceptance.title },
         { id: 'decisions', label: t.decisions.title },
         { id: 'downtime', label: t.downtime.title },

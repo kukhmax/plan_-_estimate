@@ -34,4 +34,4 @@ def test_an_object_without_documents_or_a_document_of_an_unknown_kind_is_not_hel
 
 
 def test_every_kind_of_document_has_a_rule():
-    assert set(OBJECT_BLOCKING_STATUSES) == {"CONTRACT", "HANDOVER", "CONCEALED_WORKS", "DECISION", "ACCEPTANCE", "DOWNTIME"}
+    assert set(OBJECT_BLOCKING_STATUSES) == {"CONTRACT", "HANDOVER", "CONCEALED_WORKS", "PRESSURE_TEST", "DECISION", "ACCEPTANCE", "DOWNTIME"}

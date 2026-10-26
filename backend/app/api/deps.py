@@ -24,6 +24,7 @@ from app.domain.services.client_portal_service import ClientPortalService
 from app.domain.services.client_service import ClientService
 from app.domain.services.communication_service import CommunicationService
 from app.domain.services.concealed_service import ConcealedService
+from app.domain.services.pressure_service import PressureService
 from app.domain.services.contract_service import ContractService
 from app.domain.services.data_key_service import DataKeyService
 from app.domain.services.decision_service import DecisionService
@@ -179,6 +180,12 @@ async def get_concealed_service(
     db: AsyncSession = Depends(get_db),
 ) -> ConcealedService:
     return ConcealedService(db)
+
+
+async def get_pressure_service(
+    db: AsyncSession = Depends(get_db),
+) -> PressureService:
+    return PressureService(db)
 
 
 async def get_acceptance_service(

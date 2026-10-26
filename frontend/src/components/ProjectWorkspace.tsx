@@ -41,6 +41,7 @@ import { ProjectDocuments } from './ProjectDocuments';
 import { ProjectAdjacentWorks } from './ProjectAdjacentWorks';
 import { ProjectAcceptance } from './ProjectAcceptance';
 import { ProjectConcealedWorks } from './ProjectConcealedWorks';
+import { ProjectPressureTests } from './ProjectPressureTests';
 import { ProjectDecisions } from './ProjectDecisions';
 import { ProjectDowntime } from './ProjectDowntime';
 import { ProjectContract } from './ProjectContract';
@@ -395,6 +396,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       contract: t.contract.title,
       handover: t.handover.title,
       concealed: t.concealed.title,
+      pressure: t.pressure.title,
       acceptance: t.acceptance.title,
       decisions: t.decisions.title,
       downtime: t.downtime.title,
@@ -991,6 +993,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
 
           {/* Stage 16G.2: the protocol of acceptance of concealed works (before the next layer covers them). */}
           {objectSection === 'legal' && legalSection === 'concealed' && <ProjectConcealedWorks projectId={selectedProject.id} />}
+          {objectSection === 'legal' && legalSection === 'pressure' && <ProjectPressureTests projectId={selectedProject.id} />}
 
           {/* Stage 16H.3: the final or partial acceptance of the work (the result is derived from the works and the remarks). */}
           {objectSection === 'legal' && legalSection === 'acceptance' && <ProjectAcceptance projectId={selectedProject.id} />}

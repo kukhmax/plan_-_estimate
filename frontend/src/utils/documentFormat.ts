@@ -34,6 +34,7 @@ export interface DocumentKindTexts {
   kind_measurements: string;
   kind_payment_schedule: string;
   kind_installation_map: string;
+  kind_pressure_test: string;
 }
 
 export function documentKindLabel(text: DocumentKindTexts, kind: DocumentKind): string {
@@ -53,6 +54,7 @@ export function documentKindLabel(text: DocumentKindTexts, kind: DocumentKind): 
     MEASUREMENTS: text.kind_measurements,
     PAYMENT_SCHEDULE: text.kind_payment_schedule,
     INSTALLATION_MAP: text.kind_installation_map,
+    PRESSURE_TEST_PROTOCOL: text.kind_pressure_test,
   };
   return labels[kind];
 }

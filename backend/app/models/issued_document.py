@@ -44,6 +44,7 @@ class IssuedDocumentKind(str, enum.Enum):
     SETTLEMENT = "SETTLEMENT"  # Rozliczenie: what was invoiced to the client and what the client paid (IA-6a)
     MEASUREMENTS = "MEASUREMENTS"  # Obmiar obiektu: every size of every room (V2-8c)
     PAYMENT_SCHEDULE = "PAYMENT_SCHEDULE"  # Harmonogram płatności: the stages of the payments of the client (V2-9a)
+    PRESSURE_TEST_PROTOCOL = "PRESSURE_TEST_PROTOCOL"  # Protokół próby ciśnieniowej: a tested installation, frozen when issued (V2-12b)
     INSTALLATION_MAP = "INSTALLATION_MAP"  # Mapa instalacji ukrytych: the photos with the markers of hidden utilities (V2-12a)
 
 
@@ -83,7 +84,7 @@ class IssuedDocument(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("kind IN ('ESTIMATE', 'PHOTO_REPORT', 'TECH_CARD', 'PRODUCTION_PLAN', 'CONTRACT', 'HANDOVER_PROTOCOL', 'CONCEALED_WORKS_PROTOCOL', 'FINAL_PROTOCOL', 'DECISION_PROTOCOL', 'DOWNTIME_NOTICE', 'DOWNTIME_PROTOCOL', 'SETTLEMENT', 'MEASUREMENTS', 'PAYMENT_SCHEDULE', 'INSTALLATION_MAP')", name="ck_issued_documents_kind"),
+        CheckConstraint("kind IN ('ESTIMATE', 'PHOTO_REPORT', 'TECH_CARD', 'PRODUCTION_PLAN', 'CONTRACT', 'HANDOVER_PROTOCOL', 'CONCEALED_WORKS_PROTOCOL', 'FINAL_PROTOCOL', 'DECISION_PROTOCOL', 'DOWNTIME_NOTICE', 'DOWNTIME_PROTOCOL', 'SETTLEMENT', 'MEASUREMENTS', 'PAYMENT_SCHEDULE', 'INSTALLATION_MAP', 'PRESSURE_TEST_PROTOCOL')", name="ck_issued_documents_kind"),
         CheckConstraint("status IN ('PENDING', 'SENT', 'FAILED')", name="ck_issued_documents_status"),
         CheckConstraint("project_seq >= 1", name="ck_issued_documents_seq_positive"),
         CheckConstraint("length(number) > 0", name="ck_issued_documents_number_not_empty"),

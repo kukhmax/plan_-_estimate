@@ -155,6 +155,37 @@ class ConcealedGateError(Exception):
         self.blockers = blockers
 
 
+class PressureNotFoundError(Exception):
+    """Raised when a pressure test protocol is not found within an owned project (V2-12b)."""
+
+
+class PressureNotEditableError(Exception):
+    """Raised when a pressure test protocol that is no longer a draft is changed (V2-12b)."""
+
+    code = "PRESSURE_NOT_EDITABLE"
+
+
+class PressureInvalidError(Exception):
+    """Raised when an entry of the pressure test protocol does not fit (V2-12b): `key` is the field, `reason` a stable code the screen has a sentence for."""
+
+    code = "PRESSURE_INVALID"
+
+    def __init__(self, key: str, reason: str) -> None:
+        super().__init__(f"pressure test {key!r}: {reason}")
+        self.key = key
+        self.reason = reason
+
+
+class PressureGateError(Exception):
+    """Raised when a pressure test protocol cannot be issued yet (V2-12b): `blockers` is what to fix."""
+
+    code = "PRESSURE_GATE_BLOCKED"
+
+    def __init__(self, blockers: list) -> None:
+        super().__init__("the protocol cannot be issued yet: " + ", ".join(b.code for b in blockers))
+        self.blockers = blockers
+
+
 class AcceptanceNotFoundError(Exception):
     """Raised when an acceptance protocol is not found within an owned project (Stage 16H)."""
 

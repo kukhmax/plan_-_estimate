@@ -14,7 +14,7 @@ BLOCKING_EXCEPT_STATUS = "ARCHIVED"
 
 @dataclass(frozen=True, slots=True)
 class ProtocolRef:
-    kind: str  # CONCEALED_WORKS | DOWNTIME | ACCEPTANCE
+    kind: str  # CONCEALED_WORKS | PRESSURE_TEST | DOWNTIME | ACCEPTANCE
     id: uuid.UUID
     status: str
     photo_ids: frozenset[str]
@@ -59,6 +59,7 @@ OBJECT_BLOCKING_STATUSES: dict[str, frozenset[str]] = {
     "CONTRACT": frozenset({"ISSUED", "SIGNED"}),
     "HANDOVER": frozenset({"ISSUED"}),
     "CONCEALED_WORKS": frozenset({"ISSUED"}),
+    "PRESSURE_TEST": frozenset({"ISSUED"}),
     "DECISION": frozenset({"ISSUED"}),
     "ACCEPTANCE": frozenset({"ISSUED"}),
     "DOWNTIME": frozenset({"NOTICED", "CLOSED"}),
