@@ -59,6 +59,10 @@ export interface TradesView {
   packageVisible: (pkg: string) => boolean;
   /** At least one category is hidden by the choice (the price book then offers "show all"). */
   anyHidden: boolean;
+  /** The section "Punkty i trasy" of a room belongs to a trade that is on. */
+  pointsVisible: boolean;
+  /** At least one package of the materials of a room belongs to a trade that is on. */
+  materialsVisible: boolean;
   /** Save the choice; the answer replaces the snapshot. Rejects on a failure so that the screen can say so. */
   save: (enabled: TradeKey[]) => Promise<void>;
 }
@@ -71,6 +75,8 @@ const NOTHING_HIDDEN: TradesView = {
   categoryVisible: () => true,
   packageVisible: () => true,
   anyHidden: false,
+  pointsVisible: true,
+  materialsVisible: true,
   save: async (enabled) => {
     publish({ status: 'ready', data: await saveTrades(enabled) });
   },
@@ -94,6 +100,8 @@ export function useTrades(): TradesView {
     categoryVisible: (category) => !hiddenCategories.has(category),
     packageVisible: (pkg) => !data.trades.some((t) => !owner(t.key) && t.material_packages.includes(pkg)),
     anyHidden: hiddenCategories.size > 0,
+    pointsVisible: data.trades.some((t) => t.room_points && owner(t.key)),
+    materialsVisible: data.trades.some((t) => t.material_packages.length > 0 && owner(t.key)),
     save: NOTHING_HIDDEN.save,
   };
 }

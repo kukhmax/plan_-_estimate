@@ -369,11 +369,18 @@ describe('the trades of the owner (V2-13)', () => {
     expect(screen.getByLabelText('material-package-DRYWALL')).toHaveAttribute('aria-pressed', 'true'); // not on the tile: that trade is off
   });
 
-  it('with every package off does not leave the owner without one', async () => {
+  it('with every package trade off and no calculation the section is not there at all', async () => {
+    vi.mocked(tradesApi.fetchTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING', 'MICROCEMENT'] });
+    vi.mocked(api.fetchCalcs).mockResolvedValue([]);
+    renderSection();
+    await waitFor(() => expect(api.fetchCalcs).toHaveBeenCalled()); // it looks once for calculations that must not be hidden
+    await waitFor(() => expect(screen.queryByLabelText('room-materials-section')).toBeNull());
+  });
+
+  it('with every package trade off but a calculation already there the section stays, and a new one may take any package', async () => {
     vi.mocked(tradesApi.fetchTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING'] });
     renderSection();
     await open();
-    await waitFor(() => expect(tradesApi.fetchTrades).toHaveBeenCalled());
     fireEvent.click(await screen.findByLabelText('material-calc-add'));
     await waitFor(() => expect(packages()).toEqual(['TILE', 'DRYWALL', 'ELECTRIC', 'PLUMBING']));
   });

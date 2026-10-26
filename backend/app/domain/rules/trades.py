@@ -23,16 +23,18 @@ class Trade:
     key: str
     price_categories: tuple[str, ...]
     material_packages: tuple[str, ...] = ()
+    # The trade works in the points and routes of a room (the section "Punkty i trasy" is offered to an owner who has at least one such trade on).
+    room_points: bool = False
 
 
 # In the order the owner reads them (microcement stands before the tile, V2-13 decision of 2026-11-02).
 TRADES: tuple[Trade, ...] = (
     Trade(FINISHING, ("PREPARATION", "SKIM_COAT", "PLASTER", "PAINTING", "GLASS_FIBER", "DECORATIVE", "REVEAL")),
-    Trade(DRYWALL, ("DRYWALL",), ("DRYWALL",)),
+    Trade(DRYWALL, ("DRYWALL",), ("DRYWALL",), room_points=True),
     Trade(MICROCEMENT, ("MICROCEMENT",)),
-    Trade(TILE, ("TILE",), ("TILE",)),
-    Trade(ELECTRIC, ("ELECTRICAL",), ("ELECTRIC",)),
-    Trade(PLUMBING, ("PLUMBING",), ("PLUMBING",)),
+    Trade(TILE, ("TILE",), ("TILE",), room_points=True),
+    Trade(ELECTRIC, ("ELECTRICAL",), ("ELECTRIC",), room_points=True),
+    Trade(PLUMBING, ("PLUMBING",), ("PLUMBING",), room_points=True),
 )
 TRADE_KEYS: tuple[str, ...] = tuple(t.key for t in TRADES)
 # The categories that belong to no trade: always offered.

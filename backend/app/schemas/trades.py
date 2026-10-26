@@ -6,6 +6,7 @@ class TradeRead(BaseModel):
     key: str
     price_categories: list[str]
     material_packages: list[str]
+    room_points: bool
 
 
 class TradesRead(BaseModel):

@@ -75,4 +75,15 @@ describe('useTrades (V2-13)', () => {
     expect(result.current.known).toBe(true);
     expect(result.current.categoryVisible('ELECTRICAL')).toBe(false);
   });
+
+  it('offers the points of a room and the materials only while a trade that works in them is on', async () => {
+    vi.mocked(api.fetchTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING', 'MICROCEMENT'] });
+    const { result } = renderHook(() => useTrades());
+    await waitFor(() => expect(result.current.known).toBe(true));
+    expect([result.current.pointsVisible, result.current.materialsVisible]).toEqual([false, false]);
+    vi.mocked(api.saveTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING', 'PLUMBING'] });
+    await act(async () => result.current.save(['FINISHING', 'PLUMBING']));
+    expect([result.current.pointsVisible, result.current.materialsVisible]).toEqual([true, true]);
+  });
 });
+

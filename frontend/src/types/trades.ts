@@ -7,6 +7,8 @@ export interface Trade {
   price_categories: string[];
   /** The packages of the materials of a room this trade owns. */
   material_packages: string[];
+  /** The trade works in the points and routes of a room. */
+  room_points: boolean;
 }
 
 export interface TradesResponse {

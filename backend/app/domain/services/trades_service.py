@@ -8,7 +8,7 @@ from app.schemas.trades import TradeRead, TradesRead
 
 def read_of(user: User) -> TradesRead:
     return TradesRead(
-        trades=[TradeRead(key=t.key, price_categories=list(t.price_categories), material_packages=list(t.material_packages)) for t in TRADES],
+        trades=[TradeRead(key=t.key, price_categories=list(t.price_categories), material_packages=list(t.material_packages), room_points=t.room_points) for t in TRADES],
         always_categories=list(ALWAYS_CATEGORIES),
         enabled=list(enabled_of(user.trades)),
     )

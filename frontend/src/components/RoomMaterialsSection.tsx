@@ -47,7 +47,7 @@ const chip = 'min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-200 pe-s
 export function RoomMaterialsSection({ projectId, roomId, areas }: RoomMaterialsSectionProps) {
   const { t } = useI18n();
   const text = t.materials;
-  useTrades(); // the answer about the trades is asked for when the section appears, so the form that opens later already knows which packages to offer
+  const trades = useTrades(); // asked for when the section appears, so the form that opens later already knows which packages to offer
   const { offline } = useConnection();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<MaterialCalc[] | null>(null);
@@ -93,6 +93,25 @@ export function RoomMaterialsSection({ projectId, roomId, areas }: RoomMaterials
   };
 
   const summary = (calc: MaterialCalc): string => calcSummary(calc, text);
+
+  // V2-13: an owner who works in none of the trades with a package of materials does not get the section -- unless the room already has calculations.
+  const hiddenByTrades = !trades.materialsVisible;
+  const [hasCalcs, setHasCalcs] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!hiddenByTrades) {
+      setHasCalcs(null);
+      return undefined;
+    }
+    let current = true;
+    fetchCalcs(projectId, roomId).then(
+      (found) => current && setHasCalcs(found.length > 0),
+      () => current && setHasCalcs(true), // no answer: show the section rather than hide calculations that may be there
+    );
+    return () => {
+      current = false;
+    };
+  }, [hiddenByTrades, projectId, roomId]);
+  if (hiddenByTrades && hasCalcs !== true) return null;
 
   return (
     <section aria-label="room-materials-section" className="w-full min-w-0 max-w-full mt-5 space-y-3">

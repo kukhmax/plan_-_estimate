@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../api/http';
 import { fetchPriceItems } from '../api/priceItems';
 import { createRoomPoint, deleteRoomPoint, fetchRoomPoints, makePointsPack, updateRoomPoint } from '../api/roomPoints';
@@ -121,6 +121,25 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
       setPackBusy(false);
     }
   };
+
+  // V2-13: an owner who works in no trade of the points and routes does not get the section -- unless the room already has rows (they are never hidden by force).
+  const hiddenByTrades = !trades.pointsVisible;
+  const [hasRows, setHasRows] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!hiddenByTrades) {
+      setHasRows(null);
+      return undefined;
+    }
+    let current = true;
+    fetchRoomPoints(projectId, roomId).then(
+      (found) => current && setHasRows(found.length > 0),
+      () => current && setHasRows(true), // no answer: show the section rather than hide rows that may be there
+    );
+    return () => {
+      current = false;
+    };
+  }, [hiddenByTrades, projectId, roomId]);
+  if (hiddenByTrades && hasRows !== true) return null;
 
   return (
     <section aria-label="room-points-section" className="w-full min-w-0 max-w-full mt-5 space-y-3">

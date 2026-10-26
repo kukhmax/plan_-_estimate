@@ -287,4 +287,18 @@ describe('the trades of the owner (V2-13)', () => {
     const names = Array.from(screen.getByLabelText('room-point-item').querySelectorAll('option')).map((o) => o.textContent ?? '');
     expect(names.some((n) => n.includes('Gniazdko'))).toBe(true); // the row being edited keeps its own item
   });
+
+  it('is not there for an owner without a trade of the points and routes, unless the room already has rows', async () => {
+    vi.mocked(tradesApi.fetchTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING', 'MICROCEMENT'] });
+    vi.mocked(pointsApi.fetchRoomPoints).mockResolvedValue([]);
+    renderSection();
+    await waitFor(() => expect(pointsApi.fetchRoomPoints).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByLabelText('room-points-section')).toBeNull());
+    cleanup();
+    resetTrades();
+    vi.mocked(pointsApi.fetchRoomPoints).mockResolvedValue([row()]);
+    renderSection();
+    await waitFor(() => expect(pointsApi.fetchRoomPoints).toHaveBeenCalledTimes(2)); // the room is looked at once for rows that must not be hidden
+    expect(await screen.findByLabelText('room-points-section')).toBeInTheDocument();
+  });
 });

@@ -61,7 +61,8 @@ async def test_a_new_owner_has_every_trade_and_the_catalogue_comes_with_it(async
     assert body["enabled"] == list(T.TRADE_KEYS)
     assert [t["key"] for t in body["trades"]] == list(T.TRADE_KEYS)
     tile = next(t for t in body["trades"] if t["key"] == "TILE")
-    assert tile == {"key": "TILE", "price_categories": ["TILE"], "material_packages": ["TILE"]}
+    assert tile == {"key": "TILE", "price_categories": ["TILE"], "material_packages": ["TILE"], "room_points": True}
+    assert [t["key"] for t in body["trades"] if t["room_points"]] == ["DRYWALL", "TILE", "ELECTRIC", "PLUMBING"]  # the finisher and the microcement do not work in points and routes
     assert body["always_categories"] == ["POINTS_ROUTES", "MATERIAL", "OTHER"]
 
 
