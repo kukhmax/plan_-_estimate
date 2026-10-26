@@ -32,7 +32,8 @@ import { hapticNotify } from '../utils/telegramHaptics';
 import { PhotoFullscreen } from './PhotoFullscreen';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, ExpandIcon, PinIcon } from './PhotoIcons';
 import { PointMarkerLayer } from './PointMarkerLayer';
-import { PointMarkerPopup } from './PointMarkerPopup';
+import { MarkerLegend } from './MarkerLegend';
+import { MarkerChanges, PointMarkerPopup } from './PointMarkerPopup';
 import { Ico } from './Ico';
 
 // Full-screen sheet (contract §7). Loads the detail for the DISPLAY image (lists carry thumbnails only), edits the
@@ -335,11 +336,11 @@ export function PhotoViewer({
     }
   };
 
-  const saveMarkerLabel = async (marker: PhotoAnnotationRead, label: string | null) => {
+  const saveMarker = async (marker: PhotoAnnotationRead, changes: MarkerChanges) => {
     setMarkerBusy(true);
     setMarkerError(null);
     try {
-      const updated = await patchPhotoAnnotation(projectId, attachment.id, marker.id, { label });
+      const updated = await patchPhotoAnnotation(projectId, attachment.id, marker.id, changes);
       commitMarkers(
         attachment.id,
         markers.map((entry) => (entry.id === updated.id ? updated : entry)),
@@ -637,6 +638,7 @@ export function PhotoViewer({
               {!markMode && markers.length > 0 && (
                 <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">{t.photos.markers.hint_view}</p>
               )}
+              <MarkerLegend markers={markers} />
               {atMarkerLimit && !markersReadOnly && (
                 <p className="break-words text-xs text-[var(--tg-theme-hint-color)]">
                   {t.photos.markers.limit_reached.replace('{max}', String(markerLimit))}
@@ -887,7 +889,7 @@ export function PhotoViewer({
           readOnly={markersReadOnly}
           busy={markerBusy}
           error={markerError}
-          onSaveLabel={(label) => void saveMarkerLabel(selectedMarker, label)}
+          onSave={(changes) => void saveMarker(selectedMarker, changes)}
           hasOutline={selectedMarker.outline !== null}
           onDrawOutline={() => startDrawing(selectedMarker)}
           onRemoveOutline={() => void saveOutline(selectedMarker, null)}

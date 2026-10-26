@@ -38,6 +38,20 @@ class PhotoAnnotationKind(str, enum.Enum):
     POINT = "POINT"  # v1; rectangle / freehand / arrow / text tools are not planned
 
 
+class PhotoUtility(str, enum.Enum):
+    """What a hidden utility is (V2-12a, the map of hidden utilities): a marker of a wall photographed before it is closed."""
+
+    CABLE = "CABLE"
+    WATER_COLD = "WATER_COLD"
+    WATER_HOT = "WATER_HOT"
+    SEWER = "SEWER"
+    HEATING = "HEATING"
+    GAS = "GAS"
+
+
+UTILITY_VALUES = tuple(item.value for item in PhotoUtility)
+MAX_DISTANCE_CM = 1000  # depth in the wall, distance from the floor / from a corner: centimetres, one decimal
+
 MAX_ANNOTATIONS_PER_ATTACHMENT = 10  # owner decision Q1 (2026-10-08)
 MAX_LABEL_LENGTH = 40
 # Contour drawn around a defect (Stage 14G.4, owner decisions 2026-10-08): one freehand line per marker.
@@ -48,6 +62,10 @@ ANNOTATION_CHECKS: tuple[tuple[str, str], ...] = (
     ("ck_photo_annotations_x_range", "x >= 0 AND x <= 1"),
     ("ck_photo_annotations_y_range", "y >= 0 AND y <= 1"),
     ("ck_photo_annotations_position_nonneg", "position >= 0"),
+    ("ck_photo_annotations_utility", "utility IS NULL OR utility IN ('CABLE', 'WATER_COLD', 'WATER_HOT', 'SEWER', 'HEATING', 'GAS')"),
+    ("ck_photo_annotations_depth_cm", "depth_cm IS NULL OR (depth_cm >= 0 AND depth_cm <= 1000)"),
+    ("ck_photo_annotations_from_floor_cm", "from_floor_cm IS NULL OR (from_floor_cm >= 0 AND from_floor_cm <= 1000)"),
+    ("ck_photo_annotations_from_corner_cm", "from_corner_cm IS NULL OR (from_corner_cm >= 0 AND from_corner_cm <= 1000)"),
 )
 
 
@@ -68,6 +86,11 @@ class PhotoAnnotation(Base):
     # [[x, y], ...] in the same fractions as x / y (3..120 points, validated by the service); SQL NULL = no contour
     # (`none_as_null`: a cleared contour is NULL, not the JSON document `null`; Stage 14J).
     outline: Mapped[list[list[float]] | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    # V2-12a: the type of a hidden utility the marker shows and where it lies (cm, one decimal); all optional, NULL = not said.
+    utility: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    depth_cm: Mapped[float | None] = mapped_column(Numeric(5, 1, asdecimal=False), nullable=True)
+    from_floor_cm: Mapped[float | None] = mapped_column(Numeric(5, 1, asdecimal=False), nullable=True)
+    from_corner_cm: Mapped[float | None] = mapped_column(Numeric(5, 1, asdecimal=False), nullable=True)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)

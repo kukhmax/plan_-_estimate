@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as documentsApi from '../api/documents';
 import { ApiError } from '../api/http';
 import { I18nProvider } from '../hooks/useI18n';
-import { MeasurementsSection, PaymentScheduleSection, ProductionPlanSection, SettlementSection, TechCardSection } from './TechCardSection';
+import { InstallationMapSection, MeasurementsSection, PaymentScheduleSection, ProductionPlanSection, SettlementSection, TechCardSection } from './TechCardSection';
 
 vi.mock('../api/documents', () => ({
   issueTechCard: vi.fn(),
@@ -15,6 +15,8 @@ vi.mock('../api/documents', () => ({
   issueMeasurements: vi.fn(),
   previewMeasurementsPdf: vi.fn(),
   issuePaymentSchedule: vi.fn(),
+  issueInstallationMap: vi.fn(),
+  previewInstallationMapPdf: vi.fn(),
   previewPaymentSchedulePdf: vi.fn(),
 }));
 
@@ -417,6 +419,63 @@ describe('PaymentScheduleSection (V2-9a)', () => {
       renderSchedule();
       await press('send-payment-schedule');
       expect(await screen.findByLabelText('payment-schedule-error')).toHaveTextContent(unpriced);
+      cleanup();
+    }
+    expect(onIssued).not.toHaveBeenCalled();
+  });
+});
+
+describe('InstallationMapSection (V2-12a)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+  afterEach(cleanup);
+
+  const renderMap = () => render(<I18nProvider><InstallationMapSection projectId="p1" onIssued={onIssued} /></I18nProvider>);
+
+  it('says what the document holds and offers two full-width touch-sized actions', () => {
+    renderMap();
+    expect(screen.getByText('Mapa instalacji ukrytych dla klienta')).toBeInTheDocument();
+    expect(screen.getByText(/kolor znacznika zależy od rodzaju/)).toBeInTheDocument();
+    for (const name of ['preview-installation-map', 'send-installation-map']) {
+      expect(screen.getByRole('button', { name })).toHaveClass('w-full', 'min-h-11');
+    }
+    expect(screen.queryByRole('checkbox')).toBeNull();
+  });
+
+  it('the working version goes to the chat and issues nothing; the numbered one is issued and the journal is told', async () => {
+    vi.mocked(documentsApi.previewInstallationMapPdf).mockResolvedValue({ sent: true, pages: 1, byte_size: 9000 });
+    vi.mocked(documentsApi.issueInstallationMap).mockResolvedValue({} as never);
+    renderMap();
+    await press('preview-installation-map');
+    expect(documentsApi.previewInstallationMapPdf).toHaveBeenCalledWith('p1');
+    expect(await screen.findByLabelText('installation-map-note')).toHaveTextContent('Wersja robocza wysłana do czatu z botem');
+    expect(documentsApi.issueInstallationMap).not.toHaveBeenCalled();
+    await press('send-installation-map');
+    expect(documentsApi.issueInstallationMap).toHaveBeenCalledWith('p1');
+    expect(onIssued).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers an object without a marked photo and too many photos with the words of the code, in four languages', async () => {
+    for (const [lang, empty, limit] of [
+      ['pl', 'Żadne zdjęcie nie ma jeszcze znacznika z rodzajem instalacji', 'Zdjęć z instalacjami jest za dużo na jeden dokument (70 > 60)'],
+      ['ru', 'Ни у одного фото нет метки с типом коммуникации', 'Фото с коммуникациями слишком много для одного документа (70 > 60)'],
+      ['uk', 'Жодне фото ще не має позначки з типом комунікації', 'Фото з комунікаціями забагато для одного документа (70 > 60)'],
+      ['en', 'No photo has a marker with a type of utility yet', 'There are too many photos with utilities for one document (70 > 60)'],
+    ] as const) {
+      localStorage.setItem('locale', lang);
+      vi.mocked(documentsApi.issueInstallationMap).mockRejectedValueOnce(new ApiError('Request failed', 422, 'INSTALLATION_MAP_EMPTY', { code: 'INSTALLATION_MAP_EMPTY' }));
+      renderMap();
+      await press('send-installation-map');
+      expect(await screen.findByLabelText('installation-map-error')).toHaveTextContent(empty);
+      cleanup();
+      vi.mocked(documentsApi.issueInstallationMap).mockRejectedValueOnce(
+        new ApiError('Request failed', 422, 'INSTALLATION_MAP_PHOTO_LIMIT_EXCEEDED', { code: 'INSTALLATION_MAP_PHOTO_LIMIT_EXCEEDED', details: { count: 70, limit: 60 } }),
+      );
+      renderMap();
+      await press('send-installation-map');
+      expect(await screen.findByLabelText('installation-map-error')).toHaveTextContent(limit);
       cleanup();
     }
     expect(onIssued).not.toHaveBeenCalled();

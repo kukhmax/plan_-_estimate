@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  issueInstallationMap,
   issueMeasurements,
   issuePaymentSchedule,
   issueProductionPlan,
   issueSettlement,
   issueTechCard,
+  previewInstallationMapPdf,
   previewMeasurementsPdf,
   previewPaymentSchedulePdf,
   previewProductionPlanPdf,
@@ -23,7 +25,7 @@ interface DocumentSectionProps {
   onIssued: () => void;
 }
 
-type SectionKind = 'tech-card' | 'production-plan' | 'settlement' | 'measurements' | 'payment-schedule';
+type SectionKind = 'tech-card' | 'production-plan' | 'settlement' | 'measurements' | 'payment-schedule' | 'installation-map';
 
 /** The surfaces the server named in `TECH_CARD_INCOMPLETE`, if that is what the error was. */
 function missingItems(error: unknown): TechCardMissingItem[] {
@@ -46,7 +48,9 @@ function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSec
       ? { title: text.tech_card, hint: text.tech_card_hint, preview: text.tech_card_preview, send: text.tech_card_send, previewOk: text.tech_card_preview_ok }
       : sectionKind === 'settlement'
         ? { title: text.settlement, hint: text.settlement_hint, preview: text.settlement_preview, send: text.settlement_send, previewOk: text.settlement_preview_ok }
-        : sectionKind === 'payment-schedule'
+        : sectionKind === 'installation-map'
+          ? { title: text.installation_map_title, hint: text.installation_map_hint, preview: text.installation_map_preview, send: text.installation_map_send, previewOk: text.installation_map_preview_ok }
+          : sectionKind === 'payment-schedule'
           ? { title: text.payment_schedule_title, hint: text.payment_schedule_hint, preview: text.payment_schedule_preview, send: text.payment_schedule_send, previewOk: text.payment_schedule_preview_ok }
           : sectionKind === 'measurements'
           ? { title: text.measurements_title, hint: text.measurements_hint, preview: text.measurements_preview, send: text.measurements_send, previewOk: text.measurements_preview_ok }
@@ -58,6 +62,7 @@ function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSec
     settlement: () => previewSettlementPdf(projectId),
     measurements: () => previewMeasurementsPdf(projectId, withPhotos),
     'payment-schedule': () => previewPaymentSchedulePdf(projectId),
+    'installation-map': () => previewInstallationMapPdf(projectId),
     'production-plan': () => previewProductionPlanPdf(projectId),
   };
   const issuers = {
@@ -65,6 +70,7 @@ function DocumentSection({ projectId, onIssued, kind: sectionKind }: DocumentSec
     settlement: () => issueSettlement(projectId),
     measurements: () => issueMeasurements(projectId, withPhotos),
     'payment-schedule': () => issuePaymentSchedule(projectId),
+    'installation-map': () => issueInstallationMap(projectId),
     'production-plan': () => issueProductionPlan(projectId),
   };
   const preview = previewers[sectionKind];
@@ -181,6 +187,11 @@ export function MeasurementsSection(props: DocumentSectionProps) {
 /** V2-9a — the payment schedule of the object (Harmonogram płatności): the stages in which the client pays, with the day and the state of each. */
 export function PaymentScheduleSection(props: DocumentSectionProps) {
   return <DocumentSection {...props} kind="payment-schedule" />;
+}
+
+/** V2-12a — the map of hidden utilities (Mapa instalacji ukrytych): the photos whose markers name a cable or a pipe, with what lies where. */
+export function InstallationMapSection(props: DocumentSectionProps) {
+  return <DocumentSection {...props} kind="installation-map" />;
 }
 
 /** Stage 16D.2 — the production plan: the order of the works, the technological breaks, the works of other contractors. */

@@ -33,6 +33,7 @@ export interface DocumentKindTexts {
   kind_settlement: string;
   kind_measurements: string;
   kind_payment_schedule: string;
+  kind_installation_map: string;
 }
 
 export function documentKindLabel(text: DocumentKindTexts, kind: DocumentKind): string {
@@ -51,6 +52,7 @@ export function documentKindLabel(text: DocumentKindTexts, kind: DocumentKind): 
     SETTLEMENT: text.kind_settlement,
     MEASUREMENTS: text.kind_measurements,
     PAYMENT_SCHEDULE: text.kind_payment_schedule,
+    INSTALLATION_MAP: text.kind_installation_map,
   };
   return labels[kind];
 }

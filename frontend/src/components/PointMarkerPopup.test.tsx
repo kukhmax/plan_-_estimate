@@ -8,7 +8,7 @@ import { PointMarkerPopup } from './PointMarkerPopup';
 const ATT = 'b0000000-0000-4000-8000-000000000001';
 
 function renderPopup(over: Partial<React.ComponentProps<typeof PointMarkerPopup>> = {}, registry: { register: (close: () => void) => () => void } | null = null) {
-  const handlers = { onSaveLabel: vi.fn(), onDrawOutline: vi.fn(), onRemoveOutline: vi.fn(), onDelete: vi.fn(), onClose: vi.fn() };
+  const handlers = { onSave: vi.fn(), onDrawOutline: vi.fn(), onRemoveOutline: vi.fn(), onDelete: vi.fn(), onClose: vi.fn() };
   const marker = over.marker ?? makeMarker(ATT, { label: 'rysa przy oknie' });
   const view = render(
     <I18nProvider>
@@ -40,20 +40,20 @@ describe('PointMarkerPopup', () => {
   });
 
   it('saving is only possible after a change and sends the trimmed label', () => {
-    const { onSaveLabel } = renderPopup();
-    const save = screen.getByRole('button', { name: 'Zapisz podpis' });
+    const { onSave } = renderPopup();
+    const save = screen.getByRole('button', { name: 'Zapisz' });
     expect(save).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Podpis znacznika'), { target: { value: '  pęknięcie  ' } });
     expect(save).toBeEnabled();
     fireEvent.click(save);
-    expect(onSaveLabel).toHaveBeenCalledWith('pęknięcie');
+    expect(onSave).toHaveBeenCalledWith({ label: 'pęknięcie' });
   });
 
   it('an emptied label is saved as no label (null)', () => {
-    const { onSaveLabel } = renderPopup();
+    const { onSave } = renderPopup();
     fireEvent.change(screen.getByLabelText('Podpis znacznika'), { target: { value: '   ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Zapisz podpis' }));
-    expect(onSaveLabel).toHaveBeenCalledWith(null);
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
+    expect(onSave).toHaveBeenCalledWith({ label: null });
   });
 
   it('deletes and closes through their own buttons', () => {
@@ -106,7 +106,7 @@ describe('PointMarkerPopup', () => {
     renderPopup({ readOnly: true });
     expect(screen.getByTestId('marker-label-text')).toHaveTextContent('rysa przy oknie');
     expect(screen.queryByRole('textbox')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Zapisz podpis' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Zapisz' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Usuń znacznik' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Zamknij' })).toBeInTheDocument();
   });
@@ -165,5 +165,49 @@ describe('PointMarkerPopup', () => {
     renderPopup({ hasOutline: true });
     expect(screen.getByRole('button', { name: 'Обвести заново' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Удалить контур' })).toBeInTheDocument();
+  });
+  it('names the type of a hidden utility with one tap and sends only what changed', () => {
+    const { onSave } = renderPopup();
+    expect(screen.queryByLabelText('marker-depth_cm')).toBeNull(); // the distances come with a type
+    fireEvent.click(screen.getByLabelText('marker-utility-WATER_HOT'));
+    expect(screen.getByLabelText('marker-utility-WATER_HOT')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByLabelText('marker-utility-none')).toHaveAttribute('aria-checked', 'false');
+    fireEvent.change(screen.getByLabelText('marker-from_floor_cm'), { target: { value: '30,5' } });
+    fireEvent.change(screen.getByLabelText('marker-depth_cm'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
+    expect(onSave).toHaveBeenCalledWith({ utility: 'WATER_HOT', from_floor_cm: 30.5, depth_cm: 3 });
+  });
+
+  it('shows the stored type and distances, and a wrong distance blocks saving', () => {
+    const marker = makeMarker(ATT, { label: 'rura', utility: 'CABLE', depth_cm: 2, from_floor_cm: 40, from_corner_cm: null });
+    const { onSave } = renderPopup({ marker });
+    expect(screen.getByLabelText('marker-utility-CABLE')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByLabelText('marker-depth_cm')).toHaveValue('2');
+    expect(screen.getByLabelText('marker-from_floor_cm')).toHaveValue('40');
+    expect(screen.getByLabelText('marker-from_corner_cm')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('marker-from_corner_cm'), { target: { value: '1200' } });
+    expect(screen.getByText('Wpisz liczbę od 0 do 1000.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zapisz' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('marker-from_corner_cm'), { target: { value: '15' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
+    expect(onSave).toHaveBeenCalledWith({ from_corner_cm: 15 });
+  });
+
+  it('taking the type away is a change to null; an emptied distance is null too', () => {
+    const marker = makeMarker(ATT, { utility: 'GAS', depth_cm: 5 });
+    const { onSave } = renderPopup({ marker });
+    fireEvent.change(screen.getByLabelText('marker-depth_cm'), { target: { value: '' } });
+    fireEvent.click(screen.getByLabelText('marker-utility-none'));
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
+    expect(onSave).toHaveBeenCalledWith({ utility: null, depth_cm: null });
+  });
+
+  it('a read-only marker shows its type and distances as text, with no inputs', () => {
+    const marker = makeMarker(ATT, { utility: 'SEWER', from_floor_cm: 12.5 });
+    renderPopup({ marker, readOnly: true });
+    expect(screen.getByTestId('marker-utility-text')).toHaveTextContent('Kanalizacja');
+    expect(screen.getByText('Od podłogi, cm: 12,5')).toBeInTheDocument();
+    expect(screen.queryByLabelText('marker-depth_cm')).toBeNull();
+    expect(screen.queryByLabelText('marker-utility-GAS')).toBeNull();
   });
 });

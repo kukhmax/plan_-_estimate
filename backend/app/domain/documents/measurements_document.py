@@ -32,6 +32,7 @@ from app.domain.documents.photo_report_document import (
     OutlineShape,
     PhotoReportDocumentService,
     PrintImage,
+    legend_entries,
     marker_shapes,
     outline_shapes,
 )
@@ -234,7 +235,7 @@ class _Thumbs:
                     caption=photo.caption or None,
                     markers=marker_shapes(photo.markers, image.width, image.height),
                     outlines=outline_shapes(photo.markers, image.width, image.height),
-                    legend=tuple((index, marker.label or None) for index, marker in enumerate(photo.markers, start=1)),
+                    legend=legend_entries(photo.markers),
                 )
             )
         return tuple(views)

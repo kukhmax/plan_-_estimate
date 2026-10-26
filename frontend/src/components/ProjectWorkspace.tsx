@@ -383,6 +383,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
       plan: t.documents.kind_production_plan,
       settlement: t.documents.kind_settlement,
       payment_schedule: t.documents.kind_payment_schedule,
+      installation_map: t.documents.kind_installation_map,
       photo_report: t.documents.photo_report,
       journal: t.documents.journal_title,
     })[section];

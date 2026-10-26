@@ -115,6 +115,61 @@ def prepare_print_image(raw: bytes, *, max_pixels: int = MAX_SOURCE_PIXELS) -> P
 # --- what the template prints ---------------------------------------------------------------------------------------
 
 
+# V2-12a: the colour of a marker follows the type of the hidden utility it shows (the same palette as the screen,
+# `frontend/src/utils/photoUtilities.ts`); an ordinary marker stays red.
+DEFAULT_MARKER_COLOR = "#dc2626"
+UTILITY_COLORS: dict[str, str] = {
+    "CABLE": "#ea580c",
+    "WATER_COLD": "#2563eb",
+    "WATER_HOT": "#dc2626",
+    "SEWER": "#6b7280",
+    "HEATING": "#9333ea",
+    "GAS": "#a16207",
+}
+
+
+def marker_color(marker: ReportMarker) -> str:
+    return UTILITY_COLORS.get(marker.utility or "", DEFAULT_MARKER_COLOR)
+
+
+def _cm(value: float) -> str:
+    """Centimetres as the document prints them: no needless zeros, a comma ("30", "2,5")."""
+    return str(round(value * 10) / 10).removesuffix(".0").replace(".", ",")
+
+
+def utility_names(labels: Labels) -> dict[str, str]:
+    """The Polish names of the types of hidden utilities (one static list, so the label check sees every key)."""
+    return {
+        "CABLE": labels("photo_report.utility.cable"),
+        "WATER_COLD": labels("photo_report.utility.water_cold"),
+        "WATER_HOT": labels("photo_report.utility.water_hot"),
+        "SEWER": labels("photo_report.utility.sewer"),
+        "HEATING": labels("photo_report.utility.heating"),
+        "GAS": labels("photo_report.utility.gas"),
+    }
+
+
+def legend_entries(markers: tuple[ReportMarker, ...]) -> tuple[tuple[int, str | None], ...]:
+    """(marker number, the text of the legend or None) for every marker: the type of the utility, the label, then where it lies."""
+    labels = Labels()
+    names = utility_names(labels)
+    entries: list[tuple[int, str | None]] = []
+    for number, marker in enumerate(markers, start=1):
+        parts: list[str] = []
+        if marker.utility in names:
+            parts.append(names[marker.utility])
+        if marker.label:
+            parts.append(marker.label)
+        if marker.from_floor_cm is not None:
+            parts.append(labels("photo_report.utility_from_floor", v=_cm(marker.from_floor_cm)))
+        if marker.from_corner_cm is not None:
+            parts.append(labels("photo_report.utility_from_corner", v=_cm(marker.from_corner_cm)))
+        if marker.depth_cm is not None:
+            parts.append(labels("photo_report.utility_depth", v=_cm(marker.depth_cm)))
+        entries.append((number, " · ".join(parts) or None))
+    return tuple(entries)
+
+
 @dataclass(frozen=True, slots=True)
 class MarkerShape:
     number: int
@@ -124,6 +179,7 @@ class MarkerShape:
     r: str
     font: str
     stroke: str
+    fill: str = DEFAULT_MARKER_COLOR
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +187,7 @@ class OutlineShape:
     points: str
     under_width: str
     width: str
+    color: str = DEFAULT_MARKER_COLOR
 
 
 @dataclass(frozen=True, slots=True)
@@ -508,6 +565,7 @@ def marker_shapes(markers: tuple[ReportMarker, ...], width: int, height: int) ->
             r=_n(radius),
             font=_n(radius * 1.15),
             stroke=_n(max(1.0, radius * 0.14)),
+            fill=marker_color(marker),
         )
         for index, marker in enumerate(markers, start=1)
     )
@@ -519,6 +577,7 @@ def outline_shapes(markers: tuple[ReportMarker, ...], width: int, height: int) -
             points=" ".join(f"{_n(_clamp(x) * width)},{_n(_clamp(y) * height)}" for x, y in marker.outline),
             under_width=_n(max(1.0, OUTLINE_UNDER_WIDTH * width)),
             width=_n(max(0.6, OUTLINE_WIDTH * width)),
+            color=marker_color(marker),
         )
         for marker in markers
         if marker.outline and len(marker.outline) > 1
@@ -569,7 +628,7 @@ def build_photo_report_document(
                     taken_on=photo.captured_at or photo.uploaded_at,
                     markers=marker_shapes(photo.markers, image.width, image.height),
                     outlines=outline_shapes(photo.markers, image.width, image.height),
-                    legend=tuple((i, m.label or None) for i, m in enumerate(photo.markers, start=1)),
+                    legend=legend_entries(photo.markers),
                 )
             )
         rows = tuple(tuple(views[i : i + PHOTOS_PER_ROW]) for i in range(0, len(views), PHOTOS_PER_ROW))

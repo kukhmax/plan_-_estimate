@@ -81,6 +81,16 @@ export function previewPaymentSchedulePdf(projectId: string): Promise<DocumentPr
   return apiRequest(`${base(projectId)}/documents/payment-schedule/preview`, { method: 'POST' });
 }
 
+/** The numbered map of hidden utilities (Mapa instalacji ukrytych): the photos whose markers name a utility (V2-12a; the server refuses it while there is none). */
+export function issueInstallationMap(projectId: string): Promise<IssuedDocument> {
+  return apiRequest(`${base(projectId)}/documents`, { method: 'POST', body: JSON.stringify({ kind: 'INSTALLATION_MAP' }) });
+}
+
+/** The working version of the map of hidden utilities (watermark, no number) to the owner's chat. */
+export function previewInstallationMapPdf(projectId: string): Promise<DocumentPreviewResult> {
+  return apiRequest(`${base(projectId)}/documents/installation-map/preview`, { method: 'POST' });
+}
+
 /**
  * The numbered measurements of the object (Obmiar obiektu): every size of every room (the server refuses it while the object has no room).
  * `withPhotos` (V2-8d) adds the photos attached to the walls, ceilings and floors under their sizes.

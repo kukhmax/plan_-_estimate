@@ -92,6 +92,11 @@ class PhotoAnnotationRead(BaseModel):
     label: str | None
     # A contour drawn around the defect (Stage 14G.4): [[x, y], ...] in the same fractions; null = none.
     outline: list[list[float]] | None = None
+    # V2-12a: the hidden utility the marker shows (null = an ordinary marker) and where it lies, in cm.
+    utility: str | None = None
+    depth_cm: float | None = None
+    from_floor_cm: float | None = None
+    from_corner_cm: float | None = None
     position: int
     created_at: datetime
     updated_at: datetime
@@ -114,13 +119,18 @@ class PhotoAnnotationCreate(BaseModel):
 
 
 class PhotoAnnotationPatch(BaseModel):
-    """Label and contour only: a marker is never moved or reordered (owner decision Q5). `null` clears a field; the
+    """Label, contour and (V2-12a) the hidden utility with its distances: a marker is never moved or reordered (owner decision Q5). `null` clears a field; the
     contour's point count and range are checked by the service, so every refusal comes in the photo error envelope."""
 
     model_config = ConfigDict(extra="forbid")
 
     label: str | None = None
     outline: list[list[StrictInt | StrictFloat]] | None = None
+    # V2-12a: the type of a hidden utility and its distances (cm); the service checks the type and the range.
+    utility: str | None = None
+    depth_cm: StrictInt | StrictFloat | None = None
+    from_floor_cm: StrictInt | StrictFloat | None = None
+    from_corner_cm: StrictInt | StrictFloat | None = None
 
 
 class PhotoStorageRead(BaseModel):

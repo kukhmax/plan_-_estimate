@@ -32,11 +32,13 @@ from app.domain.exceptions import (
 from app.domain.services.photo_attachment_service import PhotoAttachmentService
 from app.models.photo_annotation import (
     MAX_ANNOTATIONS_PER_ATTACHMENT,
+    MAX_DISTANCE_CM,
     MAX_LABEL_LENGTH,
     MAX_OUTLINE_POINTS,
     MIN_OUTLINE_POINTS,
     PhotoAnnotation,
     PhotoAnnotationKind,
+    PhotoUtility,
 )
 from app.models.photo_asset import PhotoAsset, PhotoAssetStatus
 from app.models.photo_attachment import PhotoAttachment
@@ -85,6 +87,27 @@ def normalize_outline(outline: Any) -> list[list[float]] | None:
     if len({(x, y) for x, y in points}) < 2:
         raise PhotoAnnotationValidationError("outline must not be a single point")
     return points
+
+
+def normalize_utility(value: Any) -> str | None:
+    """A known type of hidden utility, or None (an ordinary marker)."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or value not in {item.value for item in PhotoUtility}:
+        raise PhotoAnnotationValidationError("utility must be one of the known types")
+    return value
+
+
+def normalize_distance(value: Any, name: str) -> float | None:
+    """Centimetres 0..1000, one decimal (bool, text, NaN and infinity are rejected); None = not said."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise PhotoAnnotationValidationError(f"{name} must be a number")
+    number = float(value)
+    if not math.isfinite(number) or number < 0.0 or number > MAX_DISTANCE_CM:
+        raise PhotoAnnotationValidationError(f"{name} must be between 0 and {MAX_DISTANCE_CM} cm")
+    return round(number, 1)
 
 
 class PhotoAnnotationService:
@@ -171,17 +194,31 @@ class PhotoAnnotationService:
         *,
         label: Any = _UNSET,
         outline: Any = _UNSET,
+        utility: Any = _UNSET,
+        depth_cm: Any = _UNSET,
+        from_floor_cm: Any = _UNSET,
+        from_corner_cm: Any = _UNSET,
     ) -> PhotoAnnotation:
-        """The editable fields are the label and the contour (coordinates and order never change, Q5): a new contour
-        replaces the old one, `None` removes it."""
+        """The editable fields are the label, the contour and the hidden utility with its distances (coordinates and order never
+        change, Q5): a new contour replaces the old one, `None` removes it; what is not sent stays."""
         label_value = normalize_label(label) if label is not _UNSET else _UNSET
         outline_value = normalize_outline(outline) if outline is not _UNSET else _UNSET
+        utility_value = normalize_utility(utility) if utility is not _UNSET else _UNSET
+        distances = {
+            name: normalize_distance(value, name)
+            for name, value in (("depth_cm", depth_cm), ("from_floor_cm", from_floor_cm), ("from_corner_cm", from_corner_cm))
+            if value is not _UNSET
+        }
         await self._writable_attachment(owner_id, project_id, attachment_id)
         marker = await self._get_marker(attachment_id, annotation_id)
         if label_value is not _UNSET:
             marker.label = label_value
         if outline_value is not _UNSET:
             marker.outline = outline_value
+        if utility_value is not _UNSET:
+            marker.utility = utility_value
+        for name, value in distances.items():
+            setattr(marker, name, value)
         await self.db.commit()
         await self.db.refresh(marker)
         return marker

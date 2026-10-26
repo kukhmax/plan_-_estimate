@@ -1,6 +1,7 @@
 import { useI18n } from '../hooks/useI18n';
 import { PhotoAnnotationRead } from '../types/photo';
 import { OutlinePoint, polylinePoints } from '../utils/outline';
+import { DEFAULT_MARKER_COLOR, markerColor } from '../utils/photoUtilities';
 
 // Point markers drawn over a photo (Stage 14G). The layer fills the box of the picture (its parent is positioned exactly
 // over the image), and every marker sits at its stored fraction of that box, so it stays on the same spot whatever the
@@ -25,7 +26,7 @@ interface PointMarkerLayerProps {
 const OUTLINE_UNDER_WIDTH = 3.5;
 const OUTLINE_WIDTH = 1.5;
 
-function Line({ points, inverseScale }: { points: readonly OutlinePoint[]; inverseScale: number }) {
+function Line({ points, inverseScale, color = DEFAULT_MARKER_COLOR }: { points: readonly OutlinePoint[]; inverseScale: number; color?: string }) {
   const common = {
     points: polylinePoints(points),
     fill: 'none',
@@ -36,7 +37,7 @@ function Line({ points, inverseScale }: { points: readonly OutlinePoint[]; inver
   return (
     <>
       <polyline {...common} stroke="#ffffff" strokeWidth={OUTLINE_UNDER_WIDTH * inverseScale} />
-      <polyline {...common} stroke="#dc2626" strokeWidth={OUTLINE_WIDTH * inverseScale} />
+      <polyline {...common} stroke={color} strokeWidth={OUTLINE_WIDTH * inverseScale} />
     </>
   );
 }
@@ -62,7 +63,7 @@ export function PointMarkerLayer({
         {markers.map((marker) =>
           marker.outline && marker.outline.length > 1 ? (
             <g key={marker.id} data-testid="marker-outline">
-              <Line points={marker.outline} inverseScale={inverseScale} />
+              <Line points={marker.outline} inverseScale={inverseScale} color={markerColor(marker)} />
             </g>
           ) : null,
         )}
@@ -98,9 +99,10 @@ export function PointMarkerLayer({
           >
             <span
               aria-hidden="true"
-              className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-xs font-bold leading-none shadow ${
-                selected ? 'bg-[var(--tg-theme-link-color)] text-white ring-2 ring-white' : 'bg-red-600 text-white'
+              className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-xs font-bold leading-none text-white shadow ${
+                selected ? 'bg-[var(--tg-theme-link-color)] ring-2 ring-white' : ''
               }`}
+              style={selected ? undefined : { backgroundColor: markerColor(marker) }}
             >
               {number}
             </span>

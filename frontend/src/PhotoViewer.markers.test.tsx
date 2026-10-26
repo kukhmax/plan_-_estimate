@@ -231,7 +231,7 @@ describe('PhotoViewer — markers on the picture', () => {
     await ready();
     fireEvent.click(screen.getByTestId('photo-marker'));
     fireEvent.change(screen.getByLabelText('Podpis znacznika'), { target: { value: ' nowy ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Zapisz podpis' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
     await waitFor(() => expect(patchPhotoAnnotation).toHaveBeenCalledWith(PROJECT_ID, item.attachment.id, marker.id, { label: 'nowy' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Znacznik 1' })).toBeNull());
     expect(screen.getByRole('button', { name: 'Znacznik 1: nowy' })).toBeInTheDocument();

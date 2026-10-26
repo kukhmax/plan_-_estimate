@@ -1,0 +1,50 @@
+{% extends "_layout.html.j2" %}
+{% block body %}
+<div class="report">
+<p class="summary">{{ t('installation_map.summary', n=doc.photo_count) }}</p>
+<p class="notice">{{ t('installation_map.note') }}</p>
+<div class="object">
+  <div class="role">{{ t('estimate.object') }}</div>
+  <div><strong>{{ doc.object_name }}</strong></div>
+  {% for line in doc.object_lines %}<div>{{ line }}</div>{% endfor %}
+</div>
+{% if doc.keys %}
+<div class="legend map-key">{{ t('installation_map.key') }}: {% for k in doc.keys %}<span style="color: {{ k.color }}; font-weight: 700">●</span> {{ k.name }}{% if not loop.last %}; {% endif %}{% endfor %}</div>
+{% endif %}
+{% for g in doc.groups %}
+<h2>{{ g.title }}</h2>
+<table class="photos">
+  {% for row in g.rows %}
+  <tr>
+    {% for p in row %}
+    <td>
+      <div class="frame" style="width: {{ p.frame_mm }}mm">
+        <img src="assets/{{ p.asset_name }}" alt="">
+        {% if p.markers or p.outlines %}
+        <svg class="overlay" viewBox="0 0 {{ p.width }} {{ p.height }}">
+          {% for o in p.outlines %}
+          <polyline points="{{ o.points }}" fill="none" stroke="#ffffff" stroke-width="{{ o.under_width }}" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="{{ o.points }}" fill="none" stroke="{{ o.color }}" stroke-width="{{ o.width }}" stroke-linecap="round" stroke-linejoin="round"/>
+          {% endfor %}
+          {% for m in p.markers %}
+          <circle cx="{{ m.cx }}" cy="{{ m.cy }}" r="{{ m.r }}" fill="{{ m.fill }}" stroke="#ffffff" stroke-width="{{ m.stroke }}"/>
+          <text x="{{ m.cx }}" y="{{ m.ty }}" text-anchor="middle" font-family="DejaVu Sans" font-weight="700" font-size="{{ m.font }}" fill="#ffffff">{{ m.number }}</text>
+          {% endfor %}
+        </svg>
+        {% endif %}
+      </div>
+      <div class="photo-caption">
+        <div class="place">{{ p.place }}</div>
+        <strong>{{ t('photo_report.photo', n=p.number) }}</strong> · {{ p.taken_on | datetime }}
+        {% if p.caption %}<div>{{ p.caption }}</div>{% endif %}
+        {% if p.legend %}<div class="legend">{{ t('photo_report.markers') }}: {% for number, label in p.legend %}{{ number }} – {% if label %}{{ label }}{% else %}{{ t('photo_report.marker_no_label') }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}</div>{% endif %}
+      </div>
+    </td>
+    {% endfor %}
+    {% if row | length < 2 %}<td></td>{% endif %}
+  </tr>
+  {% endfor %}
+</table>
+{% endfor %}
+</div>
+{% endblock %}

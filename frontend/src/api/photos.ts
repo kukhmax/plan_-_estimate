@@ -315,7 +315,14 @@ export function patchPhotoAnnotation(
   projectId: string,
   attachmentId: string,
   annotationId: string,
-  patch: { label?: string | null; outline?: Array<[number, number]> | null },
+  patch: {
+    label?: string | null;
+    outline?: Array<[number, number]> | null;
+    utility?: string | null;
+    depth_cm?: number | null;
+    from_floor_cm?: number | null;
+    from_corner_cm?: number | null;
+  },
 ): Promise<PhotoAnnotationRead> {
   return apiRequest(`${annotationsPath(projectId, attachmentId)}/${annotationId}`, {
     method: 'PATCH',

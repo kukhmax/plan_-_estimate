@@ -12,9 +12,9 @@ export type ObjectSection = 'rooms' | 'photos' | 'documents' | 'legal' | 'paymen
 // 'notes' has no tile: the notes of an object are opened with the button of its card in the list of objects.
 
 /** What the screen of documents lists: each piece of it is opened alone. */
-export type DocumentsSection = 'measurements' | 'tech_card' | 'plan' | 'settlement' | 'payment_schedule' | 'photo_report' | 'journal';
+export type DocumentsSection = 'measurements' | 'tech_card' | 'plan' | 'settlement' | 'payment_schedule' | 'installation_map' | 'photo_report' | 'journal';
 
-const DOCUMENT_ICONS: Record<string, string> = { measurements: '📐', tech_card: '📋', plan: '🗓️', settlement: '🧾', payment_schedule: '📆', photo_report: '🖼️', journal: '📨' };
+const DOCUMENT_ICONS: Record<string, string> = { measurements: '📐', tech_card: '📋', plan: '🗓️', settlement: '🧾', payment_schedule: '📆', installation_map: '🧰', photo_report: '🖼️', journal: '📨' };
 const LEGAL_ICONS: Record<string, string> = {
   representatives: '🤝',
   adjacent: '🔧',
@@ -80,6 +80,7 @@ export function DocumentsMenu({ onOpen }: DocumentsMenuProps) {
     { id: 'plan', label: t.documents.kind_production_plan },
     { id: 'settlement', label: t.documents.kind_settlement },
     { id: 'payment_schedule', label: t.documents.kind_payment_schedule },
+    { id: 'installation_map', label: t.documents.kind_installation_map },
     { id: 'photo_report', label: t.documents.photo_report },
     { id: 'journal', label: t.documents.journal_title },
   ];

@@ -12,7 +12,7 @@ import {
   previewEstimatePdf,
   previewProductionPlanPdf,
   previewSettlementPdf,
-  previewTechCardPdf, issueMeasurements, previewMeasurementsPdf, issuePaymentSchedule, previewPaymentSchedulePdf } from './documents';
+  previewTechCardPdf, issueMeasurements, previewMeasurementsPdf, issuePaymentSchedule, previewPaymentSchedulePdf, issueInstallationMap, previewInstallationMapPdf } from './documents';
 
 function respond(status: number, body: unknown) {
   vi.mocked(fetch).mockResolvedValueOnce({ ok: status < 400, status, json: vi.fn().mockResolvedValue(body) } as unknown as Response);
@@ -110,6 +110,21 @@ describe('documents API', () => {
     await previewMeasurementsPdf('p1');
     call = lastCall();
     expect(call.url).toBe('/api/projects/p1/documents/measurements/preview');
+    expect(call.init.method).toBe('POST');
+    expect(call.init.body).toBeUndefined();
+  });
+
+  it('issues the map of hidden utilities of the whole object and previews its working version (V2-12a)', async () => {
+    respond(202, {});
+    await issueInstallationMap('p1');
+    let call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents');
+    expect(JSON.parse(String(call.init.body))).toEqual({ kind: 'INSTALLATION_MAP' });
+    vi.mocked(fetch).mockClear();
+    respond(200, { sent: true, pages: 1, byte_size: 10 });
+    await previewInstallationMapPdf('p1');
+    call = lastCall();
+    expect(call.url).toBe('/api/projects/p1/documents/installation-map/preview');
     expect(call.init.method).toBe('POST');
     expect(call.init.body).toBeUndefined();
   });

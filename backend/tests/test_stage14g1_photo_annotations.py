@@ -82,7 +82,7 @@ def test_revision_chain_and_single_head():
     assert module.down_revision == "0034_finding_lineage"
     config = Config(str(BACKEND / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND / "alembic"))
-    assert ScriptDirectory.from_config(config).get_heads() == ["0079_material_packages"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["0081_installation_map_doc"]
 
 
 def test_upgrade_creates_the_model_table_and_downgrade_removes_only_it():
@@ -93,7 +93,7 @@ def test_upgrade_creates_the_model_table_and_downgrade_removes_only_it():
     assert set(insp.get_table_names()) == before | {"photo_annotations"}
     columns = {c["name"]: c for c in insp.get_columns("photo_annotations")}
     # 0035 alone: the contour column (14G.4, migration 0036) is not there yet
-    model_columns = {c.name: c for c in PhotoAnnotation.__table__.columns if c.name != "outline"}
+    model_columns = {c.name: c for c in PhotoAnnotation.__table__.columns if c.name not in ("outline", "utility", "depth_cm", "from_floor_cm", "from_corner_cm")}
     assert set(columns) == set(model_columns) == {
         "id", "attachment_id", "kind", "x", "y", "label", "position", "created_at", "updated_at",
     }
@@ -248,7 +248,7 @@ async def test_create_returns_the_marker(http, api, photo):
     r = await put(http, api, attachment, x=0.25, y=0.75, label="  rysa przy oknie ")
     assert r.status_code == 201, r.text
     marker = r.json()
-    assert set(marker) == {"id", "attachment_id", "kind", "x", "y", "label", "outline", "position", "created_at", "updated_at"}
+    assert set(marker) == {"id", "attachment_id", "kind", "x", "y", "label", "outline", "utility", "depth_cm", "from_floor_cm", "from_corner_cm", "position", "created_at", "updated_at"}
     assert marker["outline"] is None
     assert marker["attachment_id"] == attachment and marker["kind"] == "POINT"
     assert (marker["x"], marker["y"]) == (0.25, 0.75)

@@ -120,6 +120,11 @@ export interface PhotoAnnotationRead {
   label: string | null;
   /** A freehand contour around the defect (Stage 14G.4): points as fractions 0..1 like x / y; null = none. */
   outline: Array<[number, number]> | null;
+  /** V2-12a: the hidden utility the marker shows (null = an ordinary marker) and where it lies, in cm. */
+  utility?: string | null;
+  depth_cm?: number | null;
+  from_floor_cm?: number | null;
+  from_corner_cm?: number | null;
   position: number;
   created_at: string;
   updated_at: string;

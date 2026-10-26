@@ -60,6 +60,10 @@ class ReportMarker:
     label: str | None
     position: int
     outline: tuple[tuple[float, float], ...] | None
+    utility: str | None = None  # V2-12a: the type of a hidden utility (PhotoUtility value) and where it lies, in cm
+    depth_cm: float | None = None
+    from_floor_cm: float | None = None
+    from_corner_cm: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -409,7 +413,10 @@ class PhotoReportReadModel:
         for marker in await PhotoAnnotationService(self.db).list_for_attachments(attachment_ids):
             outline = tuple((float(point[0]), float(point[1])) for point in marker.outline) if marker.outline else None
             found.setdefault(marker.attachment_id, []).append(
-                ReportMarker(marker.id, float(marker.x), float(marker.y), marker.label, marker.position, outline)
+                ReportMarker(
+                    marker.id, float(marker.x), float(marker.y), marker.label, marker.position, outline,
+                    marker.utility, marker.depth_cm, marker.from_floor_cm, marker.from_corner_cm,
+                )
             )
         return {attachment_id: tuple(items) for attachment_id, items in found.items()}
 

@@ -66,6 +66,7 @@ from app.domain.documents.handover_document import (
     render_handover_html,
 )
 from app.domain.documents.handover_document import snapshot_of as handover_snapshot_of
+from app.domain.documents.installation_map_document import InstallationMapDocumentService
 from app.domain.documents.measurements_document import MeasurementsDocumentService
 from app.domain.documents.payment_schedule_document import (
     PaymentScheduleDocumentService,
@@ -367,6 +368,39 @@ class DocumentIssuer:
             "Obmiar-obiektu-wersja-robocza.pdf",
             rendered.pdf,
             f"WERSJA ROBOCZA — Obmiar obiektu — {project.name}",
+        )
+        return PreviewResult(rendered.pages, rendered.byte_size)
+
+    async def start_installation_map(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> Reservation:
+        """The numbered map of hidden utilities (Mapa instalacji ukrytych): checked now (refused with a stable code while no photo has a marker with a utility, the photos are more than one
+        document holds, or the executor profile is empty), so a number is never given to a document that cannot be made; the slow part runs in the background."""
+        self._ensure_capacity()
+        owner_id = user.id
+        document = await InstallationMapDocumentService(db, self._photo_service(db)).build(
+            owner_id, project_id, working=False, issued_on=self._today(), read_photos=False
+        )
+        project = await self._project(db, owner_id, project_id)
+        reservation = await IssuedDocumentService(db, clock=self.clock).reserve(
+            owner_id,
+            project_id,
+            IssuedDocumentKind.INSTALLATION_MAP,
+            title=document.layout.meta.title,
+            template_version=get_template(DocumentKind.INSTALLATION_MAP).version,
+            client_id=project.client_id,
+        )
+        return self._launch(reservation)
+
+    async def preview_installation_map(self, db: AsyncSession, user: User, project_id: uuid.UUID) -> PreviewResult:
+        """The working version (watermark, no number, no journal row) to the owner's chat; it never refuses for missing photos (only for too many of them)."""
+        owner_id, chat_id = user.id, user.telegram_user_id  # read once: a rollback below would expire the object
+        document = await InstallationMapDocumentService(db, self._photo_service(db)).build(owner_id, project_id, working=True, issued_on=self._today())
+        project = await self._project(db, owner_id, project_id)
+        rendered = await self.renderer.render(InstallationMapDocumentService.html(document), document.assets)
+        await self.delivery.send_document(
+            chat_id,
+            "Mapa-instalacji-wersja-robocza.pdf",
+            rendered.pdf,
+            f"WERSJA ROBOCZA — Mapa instalacji ukrytych — {project.name}",
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
@@ -992,6 +1026,11 @@ class DocumentIssuer:
             )
         if document.kind == IssuedDocumentKind.SETTLEMENT.value:
             return await SettlementDocumentService(db).render(
+                document.owner_id, document.project_id, self.renderer,
+                working=False, issued_on=issued_on, number=document.number, sequence=document.project_seq,
+            )
+        if document.kind == IssuedDocumentKind.INSTALLATION_MAP.value:
+            return await InstallationMapDocumentService(db, self._photo_service(db)).render(
                 document.owner_id, document.project_id, self.renderer,
                 working=False, issued_on=issued_on, number=document.number, sequence=document.project_seq,
             )
