@@ -21,6 +21,7 @@ import {
   type TypicalAnswer,
 } from '../types/tradeLink';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { shareLink } from '../utils/shareLink';
 import { formatQuantity } from '../utils/format';
 import { LOCALES, LOCALE_NAMES, type Locale } from '../utils/locale';
 import { formatNoteTime } from '../utils/noteFormat';
@@ -175,14 +176,7 @@ function TradeCard(props: { projectId: string; trade: LinkTrade; link: TradeLink
   const share = () => {
     if (!url) return;
     const shareText = text.share_text.replace('{trade}', text.trade_short[trade]);
-    const telegram = window.Telegram?.WebApp;
-    if (telegram?.openTelegramLink) {
-      telegram.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(shareText)}`);
-    } else if (typeof navigator.share === 'function') {
-      void navigator.share({ url, text: shareText }).catch(() => undefined);
-    } else {
-      void copy();
-    }
+    shareLink(url, shareText, () => void copy());
   };
 
   const noteField = (

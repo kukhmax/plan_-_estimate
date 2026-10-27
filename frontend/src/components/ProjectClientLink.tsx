@@ -13,6 +13,7 @@ import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import { clientLinkUrl, type ClientConsent, type ClientLinkInfo, type ClientProposal } from '../types/clientLink';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { shareLink } from '../utils/shareLink';
 import { formatDecimalMoney } from '../utils/format';
 import { LOCALES, LOCALE_NAMES, type Locale } from '../utils/locale';
 import { formatNoteTime } from '../utils/noteFormat';
@@ -150,14 +151,7 @@ export function ProjectClientLink({ projectId }: ProjectClientLinkProps) {
   const share = () => {
     if (!url) return;
     const shareText = text.share_text;
-    const telegram = window.Telegram?.WebApp;
-    if (telegram?.openTelegramLink) {
-      telegram.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(shareText)}`);
-    } else if (typeof navigator.share === 'function') {
-      void navigator.share({ url, text: shareText }).catch(() => undefined);
-    } else {
-      void copy();
-    }
+    shareLink(url, shareText, () => void copy());
   };
 
   const statusLabel = (status: ClientProposal['status']) =>

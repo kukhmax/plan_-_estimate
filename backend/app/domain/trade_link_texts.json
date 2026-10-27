@@ -12,7 +12,7 @@
     "en": "plumber"
   },
   "notice_submit": {
-    "pl": "Odpowiedź mistrza ({trade}): {master} wysłał(a) odpowiedź dla obiektu „{project}” — pozycji: {count}.",
+    "pl": "Odpowiedź majstra ({trade}): {master} wysłał(a) odpowiedź dla obiektu „{project}” — pozycji: {count}.",
     "ru": "Ответ мастера ({trade}): {master} отправил(а) ответ по объекту «{project}» — позиций: {count}.",
     "uk": "Відповідь майстра ({trade}): {master} надіслав(ла) відповідь щодо об’єкта «{project}» — позицій: {count}.",
     "en": "Craftsman's answer ({trade}): {master} sent an answer for the object \"{project}\" — positions: {count}."

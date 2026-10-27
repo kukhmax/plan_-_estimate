@@ -97,6 +97,7 @@ describe('sending the address', () => {
     const sent = decodeURIComponent(open.mock.calls[0][0] as string);
     expect(sent).toContain(`${window.location.origin}/m#${TOKEN}`);
     expect(sent).toContain('Elektryk');
+    expect(sent.indexOf('Elektryk')).toBeLessThan(sent.indexOf(`${window.location.origin}/m#${TOKEN}`)); // the description first, the address under it
   });
 });
 

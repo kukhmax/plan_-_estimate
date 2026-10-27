@@ -97,7 +97,7 @@ describe('the preview', () => {
 
   it('says how many own positions of the craftsman stay out', async () => {
     show();
-    expect(await screen.findByLabelText('trade-transfer-own-ELECTRIC')).toHaveTextContent('Własne pozycje mistrza (2) nie są przenoszone');
+    expect(await screen.findByLabelText('trade-transfer-own-ELECTRIC')).toHaveTextContent('Własne pozycje majstra (2) nie są przenoszone');
   });
 
   it('shows the preview again with the choice of the owner when he picks another item or none', async () => {

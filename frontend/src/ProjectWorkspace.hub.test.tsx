@@ -136,7 +136,7 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
       'object-tile-rooms', 'open-estimates', 'object-tile-client', 'object-tile-masters', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal', 'object-tile-payments', 'object-tile-materials', 'object-tile-summary',
     ]);
     expect(tiles.map((tile) => tile.textContent?.replace(/[›\d]/g, '').replace(/\p{Extended_Pictographic}️?/gu, '').trim())).toEqual([
-      'Pomieszczenia', 'Kosztorys', 'Link dla klienta', 'Linki dla mistrzów', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Faktury i zaliczki', 'Materiały', 'Podsumowanie obiektu',
+      'Pomieszczenia', 'Kosztorys', 'Link dla klienta', 'Linki dla majstrów', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Faktury i zaliczki', 'Materiały', 'Podsumowanie obiektu',
     ]);
     for (const tile of tiles) expect(tile.className).toContain('min-h-14');
     // every tile starts with its own decorative icon, hidden from the accessible name (Stage 18G)

@@ -126,6 +126,9 @@ describe('the link', () => {
     const shared = String(openTelegramLink.mock.calls[0][0]);
     expect(shared.startsWith('https://t.me/share/url?url=')).toBe(true);
     expect(decodeURIComponent(shared)).toContain(`/c#${TOKEN}`);
+    const decoded = decodeURIComponent(shared);
+    expect(decoded.indexOf('Wycena do wglądu')).toBeGreaterThan(-1);
+    expect(decoded.indexOf('Wycena do wglądu')).toBeLessThan(decoded.indexOf(`/c#${TOKEN}`)); // the description first, the address under it
   });
 
   it('says that the link could not be made', async () => {
