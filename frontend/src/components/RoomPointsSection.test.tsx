@@ -300,5 +300,10 @@ describe('the trades of the owner (V2-13)', () => {
     renderSection();
     await waitFor(() => expect(pointsApi.fetchRoomPoints).toHaveBeenCalledTimes(2)); // the room is looked at once for rows that must not be hidden
     expect(await screen.findByLabelText('room-points-section')).toBeInTheDocument();
+    // the rows are there to read and edit, but nothing new is offered while no trade of the points is on
+    await open();
+    expect(await screen.findByLabelText('room-point-edit-r1')).toBeInTheDocument();
+    expect(screen.queryByLabelText('room-point-add')).toBeNull();
+    expect(screen.queryByLabelText('room-points-pack-card')).toBeNull();
   });
 });

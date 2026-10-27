@@ -4196,6 +4196,7 @@
   "materials": {
     "title": "Materials",
     "room_title": "Materials (tiles, drywall, electrics, plumbing)",
+    "room_title_plain": "Materials",
     "show": "Show",
     "hide": "Collapse",
     "intro": "Tiles, drywall, electrics and plumbing: enter the data and the app counts the materials by your norms.",

@@ -167,12 +167,12 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
             <>
               {form === null ? (
                 <>
-                  {eligible.length > 0 && (
+                  {eligible.length > 0 && !hiddenByTrades && (
                     <button type="button" aria-label="room-point-add" disabled={offline} onClick={() => { setMessage(null); setForm({}); }} className={primaryButton}>
                       <Ico>➕</Ico>{text.add}
                     </button>
                   )}
-                  {!hasTradeItems && (
+                  {!hasTradeItems && !hiddenByTrades && (
                     <div aria-label="room-points-pack-card" className="pe-card rounded-2xl p-4 shadow-sm space-y-2">
                       <p className="text-sm text-slate-800 break-words">{eligible.length === 0 ? text.no_items : text.pack_prompt}</p>
                       <p className="text-xs text-slate-600 break-words">{text.pack_hint}</p>

@@ -377,12 +377,14 @@ describe('the trades of the owner (V2-13)', () => {
     await waitFor(() => expect(screen.queryByLabelText('room-materials-section')).toBeNull());
   });
 
-  it('with every package trade off but a calculation already there the section stays, and a new one may take any package', async () => {
+  it('with every package trade off but a calculation already there the section stays under a plain title, and offers no new calculation', async () => {
     vi.mocked(tradesApi.fetchTrades).mockResolvedValue({ ...CATALOG, enabled: ['FINISHING'] });
     renderSection();
+    await waitFor(() => expect(screen.getByLabelText('room-materials-toggle')).toHaveTextContent(/^🧱?\s*Materiały(?!\s*\()/));
     await open();
-    fireEvent.click(await screen.findByLabelText('material-calc-add'));
-    await waitFor(() => expect(packages()).toEqual(['TILE', 'DRYWALL', 'ELECTRIC', 'PLUMBING']));
+    expect(await screen.findByLabelText('material-calc-edit-c1')).toBeInTheDocument();
+    expect(screen.queryByLabelText('material-calc-add')).toBeNull();
+    expect(screen.getByLabelText('room-materials-toggle')).not.toHaveTextContent('elektryka');
   });
 
   it('still lists the calculation of a package that is off', async () => {

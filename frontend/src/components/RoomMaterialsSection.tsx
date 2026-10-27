@@ -122,7 +122,7 @@ export function RoomMaterialsSection({ projectId, roomId, areas }: RoomMaterials
         onClick={toggle}
         className="w-full min-h-11 px-4 py-2 flex flex-wrap items-center justify-between gap-x-3 text-left text-base font-bold text-slate-900 pe-card rounded-2xl shadow-sm"
       >
-        <span className="break-words"><Ico>🧱</Ico>{text.room_title}</span>
+        <span className="break-words"><Ico>🧱</Ico>{hiddenByTrades ? text.room_title_plain : text.room_title}</span>
         <span className="text-sm font-semibold text-blue-700">{open ? text.hide : text.show}</span>
       </button>
       {open && (
@@ -139,9 +139,12 @@ export function RoomMaterialsSection({ projectId, roomId, areas }: RoomMaterials
             <>
               {form === null ? (
                 <>
-                  <button type="button" aria-label="material-calc-add" disabled={offline} onClick={() => { setMessage(null); setForm({}); }} className={primaryButton}>
-                    <Ico>➕</Ico>{text.add}
-                  </button>
+                  {/* only the calculations that are already here: a new one is not offered while no trade with a package of materials is on */}
+                  {!hiddenByTrades && (
+                    <button type="button" aria-label="material-calc-add" disabled={offline} onClick={() => { setMessage(null); setForm({}); }} className={primaryButton}>
+                      <Ico>➕</Ico>{text.add}
+                    </button>
+                  )}
                   {offline && <p aria-label="room-materials-offline" className="text-xs text-slate-500 break-words">{text.needs_connection}</p>}
                 </>
               ) : (

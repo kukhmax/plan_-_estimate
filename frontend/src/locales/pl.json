@@ -4166,6 +4166,7 @@
   "materials": {
     "title": "Materiały",
     "room_title": "Materiały (płytki, g-k, elektryka, hydraulika)",
+    "room_title_plain": "Materiały",
     "show": "Pokaż",
     "hide": "Zwiń",
     "intro": "Płytki, płyty g-k, elektryka i hydraulika: wpisz dane, a aplikacja policzy materiały według Twoich norm.",
