@@ -21,9 +21,9 @@ from app.models.project import Project
 from app.models.room_point import RoomPoint
 from app.models.trade_link import TradeAnswer
 from app.schemas.material import ElectricParams, PlumbingParams
-from app.schemas.room_point import PointItemRead
 from app.schemas.trade_transfer import (
     MaterialPlan,
+    CandidateRead,
     PositionPlan,
     RoomPlan,
     RowPlan,
@@ -65,9 +65,10 @@ class TradeTransferService:
         )
 
     @staticmethod
-    def _read(item: PriceItem) -> PointItemRead:
-        return PointItemRead(
-            id=item.id, code=item.code, name_key=item.name_key, display_name=item.display_name, category=item.category, unit=item.unit, price=item.price, is_archived=item.is_archived
+    def _read(item: PriceItem, trade: str) -> CandidateRead:
+        return CandidateRead(
+            id=item.id, code=item.code, name_key=item.name_key, display_name=item.display_name, category=item.category, unit=item.unit, price=item.price, is_archived=item.is_archived,
+            relevant=rules.is_relevant(trade, item.category.value),
         )
 
     async def _plan(self, owner_id: uuid.UUID, project_id: uuid.UUID, trade: str, given: dict[str, uuid.UUID | None]) -> _Plan:
@@ -168,7 +169,7 @@ class TradeTransferService:
                 answered_rooms=answered[pos.key],
                 item_id=chosen[pos.key],
                 default_item_id=defaults[pos.key],
-                candidates=[self._read(i) for i in items if i.unit.value == pos.unit] if rules.default_item_name(pos.key) is not None else [],
+                candidates=sorted((self._read(i, trade) for i in items if i.unit.value == pos.unit), key=lambda c: not c.relevant) if rules.default_item_name(pos.key) is not None else [],
             )
             for pos in positions
         ]
@@ -180,6 +181,7 @@ class TradeTransferService:
             rooms=room_plans,
             own_not_carried=own,
             nothing=idle and no_answers,
+            offer_pack=any(p.goes_to_points and p.answered_rooms > 0 and p.item_id is None for p in position_plans),
         )
         return plan
 

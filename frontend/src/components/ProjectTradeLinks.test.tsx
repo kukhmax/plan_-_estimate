@@ -191,7 +191,7 @@ describe('the load', () => {
 describe('carrying over (V2-14a)', () => {
   it('offers the button only once the craftsman has answered, and opens the panel in the card', async () => {
     vi.mocked(api.fetchTradeLinks).mockResolvedValue({ electric: LINK({ answers_count: 3 }), plumbing: LINK({ trade: 'PLUMBING', answers_count: 0 }) });
-    vi.mocked(api.previewTradeTransfer).mockResolvedValue({ trade: 'ELECTRIC', positions: [], rooms: [], own_not_carried: 0, nothing: true });
+    vi.mocked(api.previewTradeTransfer).mockResolvedValue({ trade: 'ELECTRIC', positions: [], rooms: [], own_not_carried: 0, nothing: true, offer_pack: false });
     show();
     expect(await screen.findByLabelText('trade-transfer-open-ELECTRIC')).toBeInTheDocument();
     expect(screen.queryByLabelText('trade-transfer-open-PLUMBING')).toBeNull();

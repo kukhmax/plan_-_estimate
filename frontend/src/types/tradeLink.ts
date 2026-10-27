@@ -146,6 +146,8 @@ export interface TransferCandidate {
   unit: PositionUnit;
   price: string | null;
   is_archived: boolean;
+  /** The category belongs to the trade (or is the universal "Punkty i trasy"): offered first, the rest only on request. */
+  relevant: boolean;
 }
 
 export interface TransferPosition {
@@ -179,6 +181,8 @@ export interface TransferPreview {
   rooms: TransferRoom[];
   own_not_carried: number;
   nothing: boolean;
+  /** An answered position has no item of the price book: the typical items may be made. */
+  offer_pack: boolean;
 }
 
 export interface TransferResult {

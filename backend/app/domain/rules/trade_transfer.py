@@ -34,7 +34,17 @@ MATERIAL_PARAM: dict[str, dict[str, str]] = {
     PLUMBING: {"WATER_POINT": "water_points", "DRAIN_POINT": "drain_points", "MANIFOLD_OUT": "manifold_outlets", "PIPE_ROUTE": "pipe_m"},
 }
 
+# The categories of the price book that belong to a trade's points and routes: the owner is offered these first, the rest only on request.
+RELEVANT_CATEGORIES: dict[str, frozenset[str]] = {
+    ELECTRIC: frozenset({"ELECTRICAL", "POINTS_ROUTES"}),
+    PLUMBING: frozenset({"PLUMBING", "POINTS_ROUTES"}),
+}
+
 NEW, CHANGE, SAME, REMOVE = "NEW", "CHANGE", "SAME", "REMOVE"
+
+
+def is_relevant(trade: str, category: str) -> bool:
+    return category in RELEVANT_CATEGORIES[package_of(trade)]
 
 
 def package_of(trade: str) -> str:

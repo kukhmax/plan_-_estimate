@@ -118,6 +118,26 @@ async def test_the_preview_finds_the_items_by_name_and_writes_nothing(async_clie
     assert await points(db_session) == [] and await calcs(db_session) == []
 
 
+async def test_the_items_of_the_trade_come_first_the_others_are_marked_and_the_pack_is_offered_only_when_something_has_no_item(async_client, db_session):
+    w = await electric_world(async_client, db_session)
+    stair = await item(db_session, w.owner.id, "Mikrocement na schody", category=PriceCategory.PREPARATION)
+    universal = await item(db_session, w.owner.id, "Punkt", category=PriceCategory.POINTS_ROUTES)
+    water = await item(db_session, w.owner.id, "Punkt wodny", category=PriceCategory.PLUMBING)
+    body = (await post(async_client, w, "/preview")).json()
+    socket = next(p for p in body["positions"] if p["key"] == "SOCKET")
+    flags = {c["id"]: c["relevant"] for c in socket["candidates"]}
+    assert flags[str(w.point.id)] and flags[str(universal.id)] and not flags[str(stair.id)] and not flags[str(water.id)]
+    order = [c["relevant"] for c in socket["candidates"]]
+    assert order == sorted(order, reverse=True)  # the relevant ones first
+    assert body["offer_pack"] is False  # every answered position that has an item found its item
+    for row in (await db_session.execute(select(PriceItem).where(PriceItem.id.in_([w.point.id, w.light.id])))).scalars():
+        row.display_name = "Inna nazwa " + row.display_name
+    await db_session.commit()
+    assert (await post(async_client, w, "/preview")).json()["offer_pack"] is True  # nothing is found by the name any more
+    plumbing = await async_client.post(f"{w.base}/PLUMBING/transfer/preview", json={}, headers=w.headers)
+    assert plumbing.json()["offer_pack"] is False  # nothing answered for the plumber
+
+
 async def test_the_preview_counts_the_own_positions_of_the_craftsman_that_cannot_be_carried(async_client, db_session):
     w = await electric_world(async_client, db_session)
     await own_answer(db_session, w, w.salon, "Gniazdo siłowe")

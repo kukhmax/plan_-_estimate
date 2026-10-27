@@ -4485,6 +4485,13 @@
     }
   },
   "trade_transfer": {
+    "show_all": "Pokaż wszystkie pozycje cennika",
+    "show_relevant": "Tylko pozycje tej branży",
+    "pack_prompt": "W cenniku brakuje pozycji dla niektórych punktów i tras.",
+    "pack_hint": "Typowe pozycje (bez cen) powstaną w cenniku; ceny wpiszesz tam sam. Potem pozycje dobiorą się po nazwie.",
+    "pack_button": "Dodaj typowe pozycje do cennika",
+    "pack_done": "Dodano pozycji do cennika: {n}.",
+    "pack_none": "Typowe pozycje już są w cenniku.",
     "title": "Przenieś do pomieszczeń",
     "intro": "Odpowiedzi mistrza trafią do „Punkty i trasy” i do materiałów pomieszczeń — tylko po Twoim kliknięciu. Twoje własne wpisy nie są zmieniane; ponowne przeniesienie aktualizuje tylko to, co już przeniesiono.",
     "loading": "Ładowanie…",

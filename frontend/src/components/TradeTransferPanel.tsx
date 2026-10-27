@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../api/http';
+import { makePointsPack } from '../api/roomPoints';
 import { previewTradeTransfer, runTradeTransfer } from '../api/tradeLinks';
 import { useI18n } from '../hooks/useI18n';
 import type { LinkTrade, TransferCandidate, TransferKind, TransferMapping, TransferMaterialKind, TransferPreview, TransferRow } from '../types/tradeLink';
@@ -58,6 +59,7 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
   const [points, setPoints] = useState(true);
   const [materials, setMaterials] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const request = useRef(0);
 
@@ -96,6 +98,21 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
     setMapping(next);
     setMessage(null);
     void load(next);
+  };
+
+  const makePack = async () => {
+    if (busy) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const made = await makePointsPack();
+      setMessage({ kind: 'ok', text: made.created > 0 ? text.pack_done.replace('{n}', String(made.created)) : text.pack_none });
+      await load(mapping);
+    } catch (err) {
+      setMessage({ kind: 'error', text: errorText(err) });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const run = async () => {
@@ -144,6 +161,7 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
 
   const visibleRooms = (preview?.rooms ?? []).filter((room) => room.rows.length > 0 || room.material.kind !== 'NONE');
   const answered = (preview?.positions ?? []).filter((p) => p.goes_to_points && p.answered_rooms > 0);
+  const hasHidden = answered.some((p) => p.candidates.some((c) => !c.relevant && c.id !== p.item_id));
   const hasInvalid = visibleRooms.some((room) => room.material.kind === 'INVALID');
 
   return (
@@ -175,13 +193,31 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
                     className={`${FIELD} mt-1`}
                   >
                     <option value="">{text.pick_none}</option>
-                    {position.candidates.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>{itemName(candidate, t)}</option>
-                    ))}
+                    {position.candidates
+                      .filter((candidate) => showAll || candidate.relevant || candidate.id === position.item_id)
+                      .map((candidate) => (
+                        <option key={candidate.id} value={candidate.id}>{itemName(candidate, t)}</option>
+                      ))}
                   </select>
                   {position.item_id === null && <span className="block text-xs text-slate-500 font-normal break-words">{text.item_missing}</span>}
                 </label>
               ))}
+            </div>
+          )}
+
+          {answered.length > 0 && hasHidden && (
+            <button type="button" aria-label={`trade-transfer-show-all-${trade}`} onClick={() => setShowAll((value) => !value)} className={SECONDARY}>
+              {showAll ? text.show_relevant : text.show_all}
+            </button>
+          )}
+
+          {preview.offer_pack && (
+            <div aria-label={`trade-transfer-pack-${trade}`} className="rounded-xl border border-slate-200 p-3 space-y-2">
+              <p className="text-sm text-slate-800 break-words">{text.pack_prompt}</p>
+              <p className="text-xs text-slate-600 break-words">{text.pack_hint}</p>
+              <button type="button" aria-label={`trade-transfer-pack-run-${trade}`} disabled={busy} onClick={() => void makePack()} className={SECONDARY}>
+                <Ico>{busy ? '⏳' : '📦'}</Ico>{text.pack_button}
+              </button>
             </div>
           )}
 

@@ -23,6 +23,10 @@ class TransferRequest(TransferPreviewRequest):
     materials: bool = True
 
 
+class CandidateRead(PointItemRead):
+    relevant: bool  # the category belongs to the trade (or is the universal "Punkty i trasy"): offered first, the rest only on request
+
+
 class PositionPlan(BaseModel):
     key: str
     unit: Literal["PCS", "LM"]
@@ -30,7 +34,7 @@ class PositionPlan(BaseModel):
     answered_rooms: int
     item_id: uuid.UUID | None  # the choice now in force (the owner's or the default)
     default_item_id: uuid.UUID | None
-    candidates: list[PointItemRead]
+    candidates: list[CandidateRead]  # the relevant ones first
 
 
 class RowPlan(BaseModel):
@@ -60,6 +64,7 @@ class TransferPreview(BaseModel):
     rooms: list[RoomPlan]
     own_not_carried: int  # the positions the craftsman wrote himself: they have no item of the price book and stay in his answer
     nothing: bool  # no answer to carry over and nothing carried earlier to take away
+    offer_pack: bool  # an answered position has no item of the price book: the typical items may be made
 
 
 class TransferResult(BaseModel):

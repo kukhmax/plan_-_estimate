@@ -4515,6 +4515,13 @@
     }
   },
   "trade_transfer": {
+    "show_all": "Show all price book items",
+    "show_relevant": "Only the items of this trade",
+    "pack_prompt": "The price book lacks items for some points and routes.",
+    "pack_hint": "The typical items (no prices) are made in the price book; you enter the prices there. Then the items are found by name.",
+    "pack_button": "Add the typical items to the price book",
+    "pack_done": "Items added to the price book: {n}.",
+    "pack_none": "The typical items are already in the price book.",
     "title": "Carry over into the rooms",
     "intro": "The craftsman’s answers go into “Points and routes” and the materials of the rooms — only when you press the button. Your own entries are not changed; carrying over again updates only what was carried over before.",
     "loading": "Loading…",
