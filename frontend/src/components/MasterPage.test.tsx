@@ -30,11 +30,12 @@ const PAGE = (overrides: Partial<PortalTradePage> = {}): PortalTradePage => ({
   owner_note: null,
   positions: ELECTRIC_POSITIONS,
   rooms: [
-    { id: 'r1', name: 'Salon', length: '5.00', width: '4.00', height: '2.60', floor_area: '20.00', perimeter: '18.00', typical: [], own: [] },
-    { id: 'r2', name: 'Łazienka', length: null, width: null, height: null, floor_area: null, perimeter: null, typical: [], own: [] },
+    { id: 'r1', name: 'Salon', length: '5.00', width: '4.00', height: '2.60', floor_area: '20.00', perimeter: '18.00', typical: [], own: [], photos: [], route_map: [] },
+    { id: 'r2', name: 'Łazienka', length: null, width: null, height: null, floor_area: null, perimeter: null, typical: [], own: [], photos: [], route_map: [] },
   ],
   submissions_count: 0,
   last_submitted_at: null,
+  photos_expire_at: null,
   ...overrides,
 });
 
@@ -135,6 +136,7 @@ describe('the page', () => {
             id: 'r1', name: 'Salon', length: null, width: null, height: null, floor_area: null, perimeter: null,
             typical: [{ key: 'SOCKET', unit: 'PCS', quantity: '6.00', note: 'przy TV' }, { key: 'CABLE_ROUTE', unit: 'LM', quantity: '12.50', note: null }],
             own: [{ name: 'Gniazdo siłowe', quantity: '1.00', unit: 'PCS', note: null }],
+            photos: [], route_map: [],
           },
         ],
         submissions_count: 1,
@@ -150,6 +152,32 @@ describe('the page', () => {
   });
 });
 
+describe('the photos', () => {
+  it('shows the photos of a room and the route map of the trade inside its card', async () => {
+    const photo = { id: 'p1', thumb_url: 'https://f.example/p1/t', url: 'https://f.example/p1/d', width: 100, height: 100, place: 'Ściana A', markers: [{ x: 0.5, y: 0.5, label: null, utility: 'CABLE', depth_cm: null, from_floor_cm: 110, from_corner_cm: null }] };
+    const page = PAGE();
+    page.rooms[0].photos = [{ ...photo, id: 'p0', place: null, markers: [] }];
+    page.rooms[0].route_map = [photo];
+    vi.mocked(api.fetchTradePage).mockResolvedValue(page);
+    show();
+    expect(await screen.findByLabelText('master-room-photos-Salon')).toBeInTheDocument();
+    expect(screen.getByLabelText('master-route-map-Salon')).toBeInTheDocument();
+    expect(screen.queryByLabelText('master-room-photos-Łazienka')).toBeNull();
+    expect(screen.getByText('Przewód elektryczny · od podłogi 110 cm')).toBeInTheDocument();
+  });
+
+  it('reads the page again when the link of a picture has run out', async () => {
+    const page = PAGE();
+    page.rooms[0].photos = [{ id: 'p0', thumb_url: 'https://f.example/t', url: 'https://f.example/d', width: 10, height: 10, place: null, markers: [] }];
+    vi.mocked(api.fetchTradePage).mockResolvedValue(page);
+    show();
+    fireEvent.click(await screen.findByLabelText('master-photo-p0'));
+    fireEvent.error(screen.getByRole('dialog').querySelector('img') as HTMLImageElement);
+    fireEvent.click(screen.getByLabelText('master-photo-reload'));
+    await waitFor(() => expect(api.fetchTradePage).toHaveBeenCalledTimes(2));
+  });
+});
+
 describe('saving a room', () => {
   it('sends only the answered positions and the own ones, then shows the room as saved', async () => {
     vi.mocked(api.fetchTradePage).mockResolvedValue(PAGE());
@@ -157,7 +185,7 @@ describe('saving a room', () => {
       rooms: [
         { id: 'r1', name: 'Salon', length: null, width: null, height: null, floor_area: null, perimeter: null,
           typical: [{ key: 'SOCKET', unit: 'PCS', quantity: '6.00', note: null }, { key: 'CABLE_ROUTE', unit: 'LM', quantity: '12.50', note: null }],
-          own: [{ name: 'Gniazdo siłowe', quantity: '1.00', unit: 'PCS', note: null }] },
+          own: [{ name: 'Gniazdo siłowe', quantity: '1.00', unit: 'PCS', note: null }], photos: [], route_map: [] },
         PAGE().rooms[1],
       ],
     });

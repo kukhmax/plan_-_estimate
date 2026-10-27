@@ -4409,6 +4409,12 @@
     }
   },
   "master_page": {
+    "photos_title": "Zdjęcia pomieszczenia ({count})",
+    "route_map_title": "Mapa tras ({count})",
+    "route_map_hint": "Kolorowe punkty to instalacje ukryte w ścianie Twojej branży; numery odpowiadają liście pod zdjęciem. Stuknij zdjęcie, aby powiększyć.",
+    "photo_close": "Zamknij zdjęcie",
+    "photo_expired": "Link do zdjęcia wygasł. Odśwież stronę.",
+    "photo_reload": "Odśwież",
     "loading": "Ładowanie…",
     "language": "Język",
     "not_found_title": "Nieprawidłowy link",

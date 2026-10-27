@@ -275,12 +275,6 @@ async def get_trade_transfer_service(
     return TradeTransferService(db)
 
 
-async def get_trade_portal_service(
-    db: AsyncSession = Depends(get_db),
-) -> TradePortalService:
-    return TradePortalService(db, settings.JWT_SECRET_KEY, settings.CALENDAR_WEB_APP_URL)
-
-
 async def get_downtime_service(
     db: AsyncSession = Depends(get_db),
 ) -> DowntimeService:
@@ -435,6 +429,13 @@ def get_photo_runtime() -> PhotoRuntime:
             admission=UploadAdmission(MAX_CONCURRENT_UPLOAD_REQUESTS),
         )
     return _photo_runtime
+
+
+async def get_trade_portal_service(
+    db: AsyncSession = Depends(get_db),
+    runtime: PhotoRuntime = Depends(get_photo_runtime),
+) -> TradePortalService:
+    return TradePortalService(db, settings.JWT_SECRET_KEY, settings.CALENDAR_WEB_APP_URL, runtime.storage)
 
 
 _media_purger = None

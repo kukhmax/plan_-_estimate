@@ -85,6 +85,28 @@ export interface PortalTradeContractor {
   city: string | null;
 }
 
+/** V2-14b: a marker of the trade of the link on a photo, in fractions of the picture, distances in cm. */
+export interface PortalMarker {
+  x: number;
+  y: number;
+  label: string | null;
+  utility: string | null;
+  depth_cm: number | null;
+  from_floor_cm: number | null;
+  from_corner_cm: number | null;
+}
+
+/** V2-14b: a photo of a room; the links are signed for a short time (`thumb_url` for the grid, `url` for the full picture). */
+export interface PortalPhoto {
+  id: string;
+  thumb_url: string;
+  url: string;
+  width: number;
+  height: number;
+  place: string | null;
+  markers: PortalMarker[];
+}
+
 export interface PortalTradeRoom {
   id: string;
   name: string;
@@ -95,6 +117,8 @@ export interface PortalTradeRoom {
   perimeter: string | null;
   typical: TypicalAnswer[];
   own: OwnAnswer[];
+  photos: PortalPhoto[];
+  route_map: PortalPhoto[];
 }
 
 export interface PortalTradePage {
@@ -108,6 +132,7 @@ export interface PortalTradePage {
   rooms: PortalTradeRoom[];
   submissions_count: number;
   last_submitted_at: string | null;
+  photos_expire_at: string | null;
 }
 
 export interface TypicalWrite {

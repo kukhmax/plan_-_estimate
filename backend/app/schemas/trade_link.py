@@ -103,6 +103,30 @@ class PortalContractor(BaseModel):
     city: str | None = None
 
 
+class PortalMarker(BaseModel):
+    """A marker of the trade of the link on a photo: where (fractions of the picture), what it is and where it lies (cm) -- no outline, no caption."""
+
+    x: float
+    y: float
+    label: str | None
+    utility: str | None
+    depth_cm: float | None
+    from_floor_cm: float | None
+    from_corner_cm: float | None
+
+
+class PortalPhoto(BaseModel):
+    """A photo of a room with links signed for a short time (`thumb_url` for the grid, `url` for the full picture)."""
+
+    id: uuid.UUID
+    thumb_url: str
+    url: str
+    width: int
+    height: int
+    place: str | None  # the wall the photo belongs to
+    markers: list[PortalMarker]
+
+
 class PortalRoom(BaseModel):
     id: uuid.UUID
     name: str
@@ -113,6 +137,8 @@ class PortalRoom(BaseModel):
     perimeter: Decimal | None
     typical: list[TypicalRead]
     own: list[OwnRead]
+    photos: list[PortalPhoto] = []  # V2-14b: the photos of the room itself
+    route_map: list[PortalPhoto] = []  # V2-14b: the photos with the markers of his trade
 
 
 class PortalLinkInfo(BaseModel):
@@ -131,6 +157,7 @@ class PortalTradePage(BaseModel):
     rooms: list[PortalRoom]
     submissions_count: int
     last_submitted_at: datetime | None
+    photos_expire_at: datetime | None = None  # V2-14b: when the links of the photos stop working
 
 
 class TypicalWrite(BaseModel):

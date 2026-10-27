@@ -4439,6 +4439,12 @@
     }
   },
   "master_page": {
+    "photos_title": "Photos of the room ({count})",
+    "route_map_title": "Route map ({count})",
+    "route_map_hint": "The coloured dots are the hidden utilities of your trade in the wall; the numbers match the list under the photo. Tap a photo to enlarge it.",
+    "photo_close": "Close photo",
+    "photo_expired": "The link of the photo has expired. Refresh the page.",
+    "photo_reload": "Refresh",
     "loading": "Loading…",
     "language": "Language",
     "not_found_title": "Invalid link",

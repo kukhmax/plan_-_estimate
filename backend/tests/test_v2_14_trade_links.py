@@ -233,11 +233,11 @@ async def test_the_page_has_the_rooms_with_their_sizes_the_checklist_and_nothing
     for header, value in (("cache-control", "no-store"), ("x-robots-tag", "noindex, nofollow"), ("referrer-policy", "no-referrer"), ("x-content-type-options", "nosniff")):
         assert response.headers[header] == value
     page = response.json()
-    assert set(page) == {"link", "lang", "trade", "contractor", "project_name", "owner_note", "positions", "rooms", "submissions_count", "last_submitted_at"}
+    assert set(page) == {"link", "lang", "trade", "contractor", "project_name", "owner_note", "positions", "rooms", "submissions_count", "last_submitted_at", "photos_expire_at"}
     assert (page["trade"], page["project_name"], page["owner_note"], page["lang"]) == ("ELECTRIC", "Mokotów", "Pion C", "pl")
     assert [p["key"] for p in page["positions"]] == ["SOCKET", "SWITCH", "LIGHT_POINT", "CIRCUIT", "CABLE_ROUTE"]
     salon = next(r for r in page["rooms"] if r["name"] == "Salon")
-    assert set(salon) == {"id", "name", "length", "width", "height", "floor_area", "perimeter", "typical", "own"}
+    assert set(salon) == {"id", "name", "length", "width", "height", "floor_area", "perimeter", "typical", "own", "photos", "route_map"}
     assert (Decimal(salon["length"]), Decimal(salon["floor_area"]), Decimal(salon["perimeter"])) == (Decimal(4), Decimal(14), Decimal(15))
     assert salon["typical"] == [] and salon["own"] == []
     dump = response.text

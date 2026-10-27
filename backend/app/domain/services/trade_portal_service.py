@@ -3,6 +3,7 @@
 The only door is the secret of the link. Nothing here takes an owner or an object id from the request: both come from the link row. The key of the owner is put in force after the
 link is found, so the encrypted words of the object can be read and written. A craftsman writes the answers of one room at a time; they replace the earlier answers of that room.
 """
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -16,8 +17,10 @@ from app.domain.rules import trade_checklist as rules
 from app.domain.services.calendar_service import CalendarService
 from app.domain.services.client_link_service import aware
 from app.domain.services.data_key_service import DataKeyService
+from app.domain.services.media_storage import MediaStorage
 from app.domain.services.room_service import RoomService
 from app.domain.services.trade_link_service import own_of, typical_in_order
+from app.domain.services.trade_media_service import TradeMedia, TradeMediaService
 from app.models.executor_profile import ExecutorProfile
 from app.models.project import Project
 from app.models.trade_link import TradeAnswer, TradeLink, TradeSubmission
@@ -31,12 +34,15 @@ from app.schemas.trade_link import (
     PositionRead,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class TradePortalService:
-    def __init__(self, db: AsyncSession, secret: str, web_app_url: str = "") -> None:
+    def __init__(self, db: AsyncSession, secret: str, web_app_url: str = "", storage: MediaStorage | None = None) -> None:
         self.db = db
         self.secret = secret
         self.web_app_url = web_app_url
+        self.storage = storage  # V2-14b: signs the links of the photos; None = no photos on the page
 
     # -- the door ---------------------------------------------------------------------------------------------------------------
 
@@ -74,6 +80,14 @@ class TradePortalService:
             by_room.setdefault(row.room_id, []).append(row)
         return by_room
 
+    async def _media(self, link: TradeLink) -> TradeMedia:
+        """The photos of the rooms; whatever goes wrong with them the page of the craftsman still opens (and the failure is logged, without any name or address)."""
+        try:
+            return await TradeMediaService(self.db, self.storage).for_trade(link.owner_id, link.project_id, link.trade)
+        except Exception:
+            logger.exception("the photos of a craftsman's page could not be made")
+            return TradeMedia()
+
     async def page(self, link: TradeLink, lang: str | None, *, now: datetime | None = None, touch: bool = False) -> PortalTradePage:
         lang = links.clean_language(lang or link.language)
         now = now or datetime.now(UTC)
@@ -85,6 +99,7 @@ class TradePortalService:
             await self.db.refresh(link)
         rooms, _total = await RoomService(self.db).list_rooms(link.project_id, link.owner_id)
         by_room = await self._answers(link)
+        media = await self._media(link)
         portal_rooms: list[PortalRoom] = []
         for room in rooms:
             read = RoomRead.model_validate(room)
@@ -101,6 +116,8 @@ class TradePortalService:
                     perimeter=calc.perimeter if calc else None,
                     typical=typical_in_order(link.trade, mine),
                     own=own_of(mine),
+                    photos=media.rooms[room.id].photos if room.id in media.rooms else [],
+                    route_map=media.rooms[room.id].route_map if room.id in media.rooms else [],
                 )
             )
         count, last = (
@@ -121,6 +138,7 @@ class TradePortalService:
             rooms=portal_rooms,
             submissions_count=count,
             last_submitted_at=last,
+            photos_expire_at=media.expires_at,
         )
 
     # -- the answers ------------------------------------------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import { TRADE_LINK_LIMITS, type PortalTradePage, type PortalTradeRoom, type Pos
 import { formatQuantity } from '../utils/format';
 import { isLocale, LOCALES, LOCALE_NAMES, type Locale } from '../utils/locale';
 import { formatNoteTime } from '../utils/noteFormat';
+import { MasterPhotos } from './MasterPhotos';
 
 /** Where the open page of the electrician and the plumber lives: `/m` (the secret is in the fragment). */
 export function isMasterPagePath(pathname: string): boolean {
@@ -314,6 +315,8 @@ export function MasterPage({ token }: { token: string }) {
               {size && <p className="text-xs text-slate-500 break-words">{size}</p>}
               <p className="text-xs text-slate-500">{text.room_filled.replace('{count}', String(filled))}</p>
             </div>
+
+            <MasterPhotos photos={room.photos} routeMap={room.route_map} roomName={room.name} onExpired={() => void load(locale)} />
 
             <ul className="space-y-3">
               {positions.map((position) => {
