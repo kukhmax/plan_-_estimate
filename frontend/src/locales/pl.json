@@ -4354,6 +4354,7 @@
     }
   },
   "trade_links": {
+    "transfer_open": "Przenieś do pomieszczeń",
     "title": "Linki dla mistrzów",
     "loading": "Ładowanie…",
     "load_error": "Nie udało się wczytać linków.",
@@ -4480,6 +4481,43 @@
       "UNIT_INVALID": "Wybierz jednostkę: szt. albo m.b.",
       "NOTHING_TO_SEND": "Najpierw wypełnij choć jedną pozycję.",
       "LINK_BUSY": "Trwa zapis. Spróbuj za chwilę.",
+      "NOT_FOUND": "Nie znaleziono."
+    }
+  },
+  "trade_transfer": {
+    "title": "Przenieś do pomieszczeń",
+    "intro": "Odpowiedzi mistrza trafią do „Punkty i trasy” i do materiałów pomieszczeń — tylko po Twoim kliknięciu. Twoje własne wpisy nie są zmieniane; ponowne przeniesienie aktualizuje tylko to, co już przeniesiono.",
+    "loading": "Ładowanie…",
+    "retry": "Spróbuj ponownie",
+    "items_title": "Pozycje cennika",
+    "pick_none": "— nie przenoś —",
+    "item_missing": "Brak pozycji w cenniku. Wybierz inną albo utwórz typowe pozycje w „Punkty i trasy”.",
+    "opt_points": "Punkty i trasy",
+    "opt_materials": "Materiały (obliczenie)",
+    "nothing": "Nie ma czego przenosić.",
+    "material_label": "Materiały",
+    "material_invalid": "Liczba poza zakresem obliczenia — popraw odpowiedź albo wyłącz materiały.",
+    "invalid_hint": "Jedna z liczb jest za duża dla obliczenia materiałów. Wyłącz „Materiały”, aby przenieść same punkty.",
+    "own_note": "Własne pozycje mistrza ({count}) nie są przenoszone: nie ma ich w cenniku.",
+    "was": "było {q}",
+    "run": "Przenieś",
+    "close": "Zamknij",
+    "done": "Punkty: dodano {pa}, zmieniono {pc}, usunięto {pr}. Materiały: dodano {ma}, zmieniono {mc}, usunięto {mr}.",
+    "done_nothing": "Wszystko już jest przeniesione — nic się nie zmieniło.",
+    "kind": {
+      "NEW": "nowe",
+      "CHANGE": "zmiana",
+      "SAME": "bez zmian",
+      "REMOVE": "usunąć",
+      "NONE": "—",
+      "INVALID": "błąd"
+    },
+    "errors": {
+      "GENERIC": "Nie udało się przenieść. Spróbuj ponownie.",
+      "TRANSFER_NOTHING": "Mistrz nie odpowiedział jeszcze niczego, co można przenieść.",
+      "TRANSFER_ITEM_INVALID": "Wybrana pozycja cennika nie pasuje (archiwalna, cudza albo w innej jednostce).",
+      "TRANSFER_MATERIALS_INVALID": "Liczba w odpowiedzi jest poza zakresem obliczenia materiałów.",
+      "UNKNOWN_TRADE": "Nieznana branża.",
       "NOT_FOUND": "Nie znaleziono."
     }
   }

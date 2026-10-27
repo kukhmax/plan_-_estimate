@@ -1,4 +1,13 @@
-import type { LinkTrade, TradeAnswersResponse, TradeLinkCreated, TradeLinkInfo, TradeLinksResponse } from '../types/tradeLink';
+import type {
+  LinkTrade,
+  TradeAnswersResponse,
+  TradeLinkCreated,
+  TradeLinkInfo,
+  TradeLinksResponse,
+  TransferMapping,
+  TransferPreview,
+  TransferResult,
+} from '../types/tradeLink';
 import type { Locale } from '../utils/locale';
 import { apiRequest } from './http';
 
@@ -26,4 +35,12 @@ export function revokeTradeLink(projectId: string, trade: LinkTrade): Promise<vo
 
 export function fetchTradeAnswers(projectId: string, trade: LinkTrade): Promise<TradeAnswersResponse> {
   return apiRequest(`${base(projectId)}/${trade}/answers`);
+}
+
+export function previewTradeTransfer(projectId: string, trade: LinkTrade, mapping: TransferMapping): Promise<TransferPreview> {
+  return apiRequest(`${base(projectId)}/${trade}/transfer/preview`, { method: 'POST', body: JSON.stringify({ mapping }) });
+}
+
+export function runTradeTransfer(projectId: string, trade: LinkTrade, mapping: TransferMapping, points: boolean, materials: boolean): Promise<TransferResult> {
+  return apiRequest(`${base(projectId)}/${trade}/transfer`, { method: 'POST', body: JSON.stringify({ mapping, points, materials }) });
 }

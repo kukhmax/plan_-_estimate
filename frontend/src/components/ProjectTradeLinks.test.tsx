@@ -14,6 +14,8 @@ vi.mock('../api/tradeLinks', () => ({
   extendTradeLink: vi.fn(),
   revokeTradeLink: vi.fn(),
   fetchTradeAnswers: vi.fn(),
+  previewTradeTransfer: vi.fn(),
+  runTradeTransfer: vi.fn(),
 }));
 
 const TOKEN = 'abcDEF0123456789abcDEF0123456789abcDEF01234';
@@ -183,5 +185,21 @@ describe('the load', () => {
     show();
     fireEvent.click(await screen.findByLabelText('trade-links-retry'));
     expect(await screen.findByLabelText('trade-card-ELECTRIC')).toBeInTheDocument();
+  });
+});
+
+describe('carrying over (V2-14a)', () => {
+  it('offers the button only once the craftsman has answered, and opens the panel in the card', async () => {
+    vi.mocked(api.fetchTradeLinks).mockResolvedValue({ electric: LINK({ answers_count: 3 }), plumbing: LINK({ trade: 'PLUMBING', answers_count: 0 }) });
+    vi.mocked(api.previewTradeTransfer).mockResolvedValue({ trade: 'ELECTRIC', positions: [], rooms: [], own_not_carried: 0, nothing: true });
+    show();
+    expect(await screen.findByLabelText('trade-transfer-open-ELECTRIC')).toBeInTheDocument();
+    expect(screen.queryByLabelText('trade-transfer-open-PLUMBING')).toBeNull();
+    fireEvent.click(screen.getByLabelText('trade-transfer-open-ELECTRIC'));
+    expect(await screen.findByLabelText('trade-transfer-ELECTRIC')).toBeInTheDocument();
+    await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenCalledWith('proj1', 'ELECTRIC', {}));
+    fireEvent.click(screen.getByLabelText('trade-transfer-close-ELECTRIC'));
+    expect(screen.queryByLabelText('trade-transfer-ELECTRIC')).toBeNull();
+    expect(screen.getByLabelText('trade-transfer-open-ELECTRIC')).toBeInTheDocument();
   });
 });

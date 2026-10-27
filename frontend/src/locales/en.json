@@ -4384,6 +4384,7 @@
     }
   },
   "trade_links": {
+    "transfer_open": "Carry over into the rooms",
     "title": "Links for craftsmen",
     "loading": "Loading…",
     "load_error": "Could not load the links.",
@@ -4510,6 +4511,43 @@
       "UNIT_INVALID": "Choose a unit: pcs or lm.",
       "NOTHING_TO_SEND": "Fill in at least one position first.",
       "LINK_BUSY": "Saving in progress. Try again in a moment.",
+      "NOT_FOUND": "Not found."
+    }
+  },
+  "trade_transfer": {
+    "title": "Carry over into the rooms",
+    "intro": "The craftsman’s answers go into “Points and routes” and the materials of the rooms — only when you press the button. Your own entries are not changed; carrying over again updates only what was carried over before.",
+    "loading": "Loading…",
+    "retry": "Try again",
+    "items_title": "Price book items",
+    "pick_none": "— do not carry over —",
+    "item_missing": "No such item in the price book. Pick another or make the typical items in “Points and routes”.",
+    "opt_points": "Points and routes",
+    "opt_materials": "Materials (calculation)",
+    "nothing": "Nothing to carry over.",
+    "material_label": "Materials",
+    "material_invalid": "A number is out of the range of the calculation — fix the answer or switch materials off.",
+    "invalid_hint": "One of the numbers is too large for the calculation of materials. Switch “Materials” off to carry over the points only.",
+    "own_note": "The craftsman’s own positions ({count}) are not carried over: they are not in the price book.",
+    "was": "was {q}",
+    "run": "Carry over",
+    "close": "Close",
+    "done": "Points: added {pa}, changed {pc}, removed {pr}. Materials: added {ma}, changed {mc}, removed {mr}.",
+    "done_nothing": "Everything is already carried over — nothing changed.",
+    "kind": {
+      "NEW": "new",
+      "CHANGE": "change",
+      "SAME": "no change",
+      "REMOVE": "remove",
+      "NONE": "—",
+      "INVALID": "error"
+    },
+    "errors": {
+      "GENERIC": "Could not carry over. Try again.",
+      "TRANSFER_NOTHING": "The craftsman has not answered anything that can be carried over.",
+      "TRANSFER_ITEM_INVALID": "The chosen price book item does not fit (archived, not yours or in another unit).",
+      "TRANSFER_MATERIALS_INVALID": "A number in the answer is out of the range of the calculation of materials.",
+      "UNKNOWN_TRADE": "Unknown trade.",
       "NOT_FOUND": "Not found."
     }
   }

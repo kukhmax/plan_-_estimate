@@ -72,6 +72,7 @@ class MaterialCalc(Base):
     package: Mapped[str] = mapped_column(String(8), nullable=False)
     title: Mapped[str | None] = mapped_column(EncryptedText("material_calcs.title"), nullable=True)
     params: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
+    source: Mapped[str | None] = mapped_column(String(16), nullable=True)  # V2-14a: see `RoomPoint.source`
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now, onupdate=_now)

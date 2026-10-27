@@ -138,6 +138,6 @@ def test_the_models_are_what_the_migration_makes():
     engine = engine_0078()
     names = inspect(engine)
     for model in (MaterialNorm, MaterialCalc):
-        assert {c["name"] for c in names.get_columns(model.__tablename__)} == {c.name for c in model.__table__.columns}
+        assert {c["name"] for c in names.get_columns(model.__tablename__)} == {c.name for c in model.__table__.columns} - {"source"}  # `source` is made by 0086
         migration_checks = {c["name"] for c in names.get_check_constraints(model.__tablename__)}
         assert migration_checks == {c.name for c in model.__table__.constraints if getattr(c, "name", None) and c.__class__.__name__ == "CheckConstraint"}

@@ -117,6 +117,6 @@ def test_the_model_is_what_the_migration_makes():
 
     engine = engine_0077()
     names = inspect(engine)
-    assert {c["name"] for c in names.get_columns("room_points")} == {c.name for c in RoomPoint.__table__.columns}
+    assert {c["name"] for c in names.get_columns("room_points")} == {c.name for c in RoomPoint.__table__.columns} - {"source"}  # `source` is made by 0086
     migration_checks = {c["name"] for c in names.get_check_constraints("room_points")}
     assert migration_checks == {c.name for c in RoomPoint.__table__.constraints if getattr(c, "name", None) and c.__class__.__name__ == "CheckConstraint"}

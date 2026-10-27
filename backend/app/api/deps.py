@@ -21,12 +21,9 @@ from app.domain.services.calendar_service import CalendarService
 from app.domain.services.checklist_service import ChecklistService
 from app.domain.services.client_link_service import ClientLinkService
 from app.domain.services.client_portal_service import ClientPortalService
-from app.domain.services.trade_link_service import TradeLinkService
-from app.domain.services.trade_portal_service import TradePortalService
 from app.domain.services.client_service import ClientService
 from app.domain.services.communication_service import CommunicationService
 from app.domain.services.concealed_service import ConcealedService
-from app.domain.services.pressure_service import PressureService
 from app.domain.services.contract_service import ContractService
 from app.domain.services.data_key_service import DataKeyService
 from app.domain.services.decision_service import DecisionService
@@ -35,18 +32,17 @@ from app.domain.services.downtime_service import DowntimeService
 from app.domain.services.estimate_service import EstimateService
 from app.domain.services.handover_service import HandoverService
 from app.domain.services.inspection_service import InspectionService
+from app.domain.services.materials_service import MaterialsService
 from app.domain.services.media_storage import MediaStorage
 from app.domain.services.opening_reveal_work_service import OpeningRevealWorkService
 from app.domain.services.opening_service import OpeningService
 from app.domain.services.password_login_service import PasswordLoginService
 from app.domain.services.payment_schedule_service import PaymentScheduleService
 from app.domain.services.payment_service import PaymentService
-from app.domain.services.project_margin_service import ProjectMarginService
-from app.domain.services.materials_service import MaterialsService
-from app.domain.services.room_points_service import RoomPointsService
-from app.domain.services.work_hours_service import WorkHoursService
+from app.domain.services.pressure_service import PressureService
 from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.price_coefficient_service import PriceCoefficientService
+from app.domain.services.project_margin_service import ProjectMarginService
 from app.domain.services.project_note_service import ProjectNoteService
 from app.domain.services.project_representative_service import (
     ProjectRepresentativeService,
@@ -54,11 +50,16 @@ from app.domain.services.project_representative_service import (
 from app.domain.services.project_service import ProjectService
 from app.domain.services.quick_estimate_service import QuickEstimateService
 from app.domain.services.risk_service import RiskService
+from app.domain.services.room_points_service import RoomPointsService
 from app.domain.services.room_service import RoomService
 from app.domain.services.room_work_plan_service import RoomWorkPlanService
 from app.domain.services.surface_service import SurfaceService
+from app.domain.services.trade_link_service import TradeLinkService
+from app.domain.services.trade_portal_service import TradePortalService
+from app.domain.services.trade_transfer_service import TradeTransferService
 from app.domain.services.wall_merge_service import WallMergeService
 from app.domain.services.work_execution_service import SurfaceWorkExecutionService
+from app.domain.services.work_hours_service import WorkHoursService
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.domain.services.work_recommendation_service import WorkRecommendationService
 from app.domain.services.workflow_template_service import WorkflowTemplateService
@@ -266,6 +267,12 @@ async def get_trade_link_service(
     db: AsyncSession = Depends(get_db),
 ) -> TradeLinkService:
     return TradeLinkService(db)
+
+
+async def get_trade_transfer_service(
+    db: AsyncSession = Depends(get_db),
+) -> TradeTransferService:
+    return TradeTransferService(db)
 
 
 async def get_trade_portal_service(

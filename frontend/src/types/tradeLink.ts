@@ -131,3 +131,64 @@ export interface RoomWrite {
 export function tradeLinkUrl(origin: string, token: string): string {
   return `${origin.replace(/\/$/, '')}/m#${token}`;
 }
+
+// --- V2-14a: carrying the answers over into the rooms (mirrors backend/app/schemas/trade_transfer.py) ----------------------------
+
+export type TransferKind = 'NEW' | 'CHANGE' | 'SAME' | 'REMOVE';
+export type TransferMaterialKind = 'NONE' | 'NEW' | 'CHANGE' | 'SAME' | 'REMOVE' | 'INVALID';
+
+export interface TransferCandidate {
+  id: string;
+  code: string;
+  name_key: string | null;
+  display_name: string | null;
+  category: string;
+  unit: PositionUnit;
+  price: string | null;
+  is_archived: boolean;
+}
+
+export interface TransferPosition {
+  key: string;
+  unit: PositionUnit;
+  goes_to_points: boolean;
+  answered_rooms: number;
+  item_id: string | null;
+  default_item_id: string | null;
+  candidates: TransferCandidate[];
+}
+
+export interface TransferRow {
+  kind: TransferKind;
+  item_id: string;
+  quantity: string;
+  was_quantity: string | null;
+  note: string | null;
+}
+
+export interface TransferRoom {
+  room_id: string;
+  room_name: string;
+  rows: TransferRow[];
+  material: { kind: TransferMaterialKind; package: LinkTrade; numbers: Record<string, string> };
+}
+
+export interface TransferPreview {
+  trade: LinkTrade;
+  positions: TransferPosition[];
+  rooms: TransferRoom[];
+  own_not_carried: number;
+  nothing: boolean;
+}
+
+export interface TransferResult {
+  points_added: number;
+  points_changed: number;
+  points_removed: number;
+  materials_added: number;
+  materials_changed: number;
+  materials_removed: number;
+}
+
+/** The choice of the owner: a key that is absent takes the default of the server, `null` carries the position nowhere. */
+export type TransferMapping = Record<string, string | null>;

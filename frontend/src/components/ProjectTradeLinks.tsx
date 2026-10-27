@@ -25,6 +25,7 @@ import { formatQuantity } from '../utils/format';
 import { LOCALES, LOCALE_NAMES, type Locale } from '../utils/locale';
 import { formatNoteTime } from '../utils/noteFormat';
 import { Ico } from './Ico';
+import { TradeTransferPanel } from './TradeTransferPanel';
 
 interface ProjectTradeLinksProps {
   projectId: string;
@@ -102,6 +103,7 @@ function TradeCard(props: { projectId: string; trade: LinkTrade; link: TradeLink
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   const say = (kind: 'ok' | 'error', value: string) => setMessage({ kind, text: value });
   const fail = (err: unknown) => {
@@ -282,6 +284,15 @@ function TradeCard(props: { projectId: string; trade: LinkTrade; link: TradeLink
       )}
 
       {answers && link && <Answers data={answers} trade={trade} />}
+
+      {link && link.answers_count > 0 &&
+        (transferOpen ? (
+          <TradeTransferPanel projectId={projectId} trade={trade} onClose={() => setTransferOpen(false)} />
+        ) : (
+          <button type="button" aria-label={`trade-transfer-open-${trade}`} onClick={() => setTransferOpen(true)} className={SECONDARY}>
+            <Ico>📥</Ico>{text.transfer_open}
+          </button>
+        ))}
     </section>
   );
 }

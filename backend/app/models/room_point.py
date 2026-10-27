@@ -15,6 +15,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    String,
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -43,6 +44,8 @@ class RoomPoint(Base):
     price_item_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("price_items.id"), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     note: Mapped[str | None] = mapped_column(EncryptedText("room_points.note"), nullable=True)
+    # V2-14a: NULL = typed by the owner; 'TRADE_LINK' = carried over from the answer of a craftsman (a second carrying over updates exactly these rows and never touches the owner's own)
+    source: Mapped[str | None] = mapped_column(String(16), nullable=True)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now, onupdate=_now)
