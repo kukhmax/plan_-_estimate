@@ -434,6 +434,53 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     });
   });
 
+  describe('the add-wall sheet of an irregular room that has walls (owner 2026-10-27)', () => {
+    const existing = { ...surface, name: 'Ściana 1', position: 0, width: '2.000', height: '2.700', gross_area: '5.400', net_area: '5.400' } as SurfaceType;
+
+    it('hides the card under the list and offers "+ Dodaj ścianę" at the heading', async () => {
+      vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [existing], total: 1 });
+      renderSurfaces({ roomHeight: 2.7, wallMode: 'CUSTOM' });
+      const open = await screen.findByLabelText('wall-adder-open');
+      expect(screen.queryByLabelText('custom-wall-entry')).toBeNull();
+      expect(open.className).toContain('min-h-11');
+      fireEvent.click(open);
+      const sheet = screen.getByRole('dialog', { name: 'Dodawanie ścian' });
+      expect(within(sheet).getByLabelText('custom-wall-entry')).toBeInTheDocument();
+      expect(within(sheet).getByText('Ściana 2')).toBeInTheDocument();
+      expect(within(sheet).getByLabelText('custom-wall-width')).toHaveFocus();
+    });
+
+    it('adds a wall and stays open for the next one', async () => {
+      vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [existing], total: 1 });
+      vi.mocked(surfacesApi.createSurface).mockResolvedValue({ ...existing, id: 'new', name: 'Ściana 2', position: 1 });
+      renderSurfaces({ roomHeight: 2.7, wallMode: 'CUSTOM' });
+      fireEvent.click(await screen.findByLabelText('wall-adder-open'));
+      vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [existing, { ...existing, id: 'new', name: 'Ściana 2', position: 1 }], total: 2 });
+      fireEvent.change(screen.getByLabelText('custom-wall-width'), { target: { value: '310' } });
+      fireEvent.submit(screen.getByLabelText('custom-wall-form'));
+      await waitFor(() => expect(surfacesApi.createSurface).toHaveBeenCalledWith(projectId, roomId, expect.objectContaining({ name: 'Ściana 2', width: 3.1, height: 2.7 })));
+      expect(await within(screen.getByRole('dialog', { name: 'Dodawanie ścian' })).findByText('Ściana 3')).toBeInTheDocument();
+    });
+
+    it('closes with ✕ and with Escape', async () => {
+      vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [existing], total: 1 });
+      renderSurfaces({ roomHeight: 2.7, wallMode: 'CUSTOM' });
+      fireEvent.click(await screen.findByLabelText('wall-adder-open'));
+      fireEvent.click(screen.getByLabelText('wall-adder-close'));
+      expect(screen.queryByRole('dialog')).toBeNull();
+      fireEvent.click(screen.getByLabelText('wall-adder-open'));
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('is not offered in a rectangular room', async () => {
+      vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [existing], total: 1 });
+      renderSurfaces({ roomHeight: 2.7, wallMode: 'RECTANGLE', hasRoomDimensions: true });
+      await screen.findByText('Ściana 1');
+      expect(screen.queryByLabelText('wall-adder-open')).toBeNull();
+    });
+  });
+
   it('does not persist the next empty wall row (no phantom request)', async () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
     renderSurfaces({ roomHeight: 2.7, wallMode: 'CUSTOM' });

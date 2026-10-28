@@ -46,6 +46,7 @@ import { SurfaceDimensions } from './SurfaceDimensions';
 import { SurfaceNote } from './SurfaceNote';
 import { SurfaceRowButton } from './SurfaceRowButton';
 import { previewArea } from '../offline/preview';
+import { moveItem, useDragReorder } from '../hooks/useDragReorder';
 
 /** Header type-pill: a single neutral style legible against any card tint
  * (WALL cards no longer share one fixed background — see surfaceColorTint). */
@@ -400,24 +401,33 @@ export function SurfaceList({
     const known = code ? (t.surfaces.merge_errors as Record<string, string>)[code] : undefined;
     return known ?? (err instanceof Error ? err.message : t.surfaces.error);
   };
+  /** The add-wall sheet of an irregular room that already has walls. */
+  const [wallAdderOpen, setWallAdderOpen] = useState(false);
+  const openWallAdder = () => {
+    setError(null);
+    setSuccess(null);
+    setFormError(null);
+    setWallAdderOpen(true);
+  };
+  const closeWallAdder = () => {
+    setWallAdderOpen(false);
+    setFormError(null);
+  };
   /** Order mode (backlog "менять очередность в списке стен"): the active walls get ↑ ↓; every move is saved at once. */
   const [reordering, setReordering] = useState(false);
   const [orderBusy, setOrderBusy] = useState(false);
   /** A refused move is told next to the list (the global error would replace the list). */
   const [orderError, setOrderError] = useState<string | null>(null);
-  const moveWall = async (wallIds: string[], surfaceId: string, delta: -1 | 1) => {
-    const from = wallIds.indexOf(surfaceId);
-    const to = from + delta;
-    if (from < 0 || to < 0 || to >= wallIds.length) return;
-    const next = [...wallIds];
-    [next[from], next[to]] = [next[to], next[from]];
-    // the screen answers at once; the server confirms (a refusal brings the real order back)
+  /** Saves a new order of the active walls: the screen answers at once, the server confirms (a refusal brings the real order back). */
+  const saveWallOrder = async (next: string[]) => {
     setSurfaces((current) => {
-      const a = current.findIndex((candidate) => candidate.id === wallIds[from]);
-      const b = current.findIndex((candidate) => candidate.id === wallIds[to]);
-      if (a < 0 || b < 0) return current;
+      const slots = current.map((candidate, index) => (next.includes(candidate.id) ? index : -1)).filter((index) => index >= 0);
+      if (slots.length !== next.length) return current;
+      const byId = new Map(current.map((candidate) => [candidate.id, candidate]));
       const copy = [...current];
-      [copy[a], copy[b]] = [copy[b], copy[a]];
+      slots.forEach((slot, i) => {
+        copy[slot] = byId.get(next[i]) ?? copy[slot];
+      });
       return copy;
     });
     setOrderBusy(true);
@@ -430,6 +440,12 @@ export function SurfaceList({
     } finally {
       setOrderBusy(false);
     }
+  };
+  const moveWall = async (wallIds: string[], surfaceId: string, delta: -1 | 1) => {
+    const from = wallIds.indexOf(surfaceId);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= wallIds.length) return;
+    await saveWallOrder(moveItem(wallIds, from, to));
   };
   const startSelecting = (firstId?: string) => {
     setError(null);
@@ -560,17 +576,18 @@ export function SurfaceList({
     setFormError(null);
   };
 
-  // the form is a sheet over the walls: Escape and the Telegram BackButton close it
-  useTelegramBackButton(showForm, closeForm);
+  // the form and the add-wall sheet lie over the walls: Escape and the Telegram BackButton close the one that is open
+  const closeSheet = () => (showForm ? closeForm() : closeWallAdder());
+  useTelegramBackButton(showForm || wallAdderOpen, closeSheet);
   useEffect(() => {
-    if (!showForm) return undefined;
+    if (!showForm && !wallAdderOpen) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeForm();
+      if (event.key === 'Escape') closeSheet();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showForm]);
+  }, [showForm, wallAdderOpen]);
 
   const startEdit = (surface: SurfaceType) => {
     setSuccess(null);
@@ -703,6 +720,11 @@ export function SurfaceList({
   /** The walls the order mode works on: active walls, merged ones included. */
   const activeWalls = visibleSurfaces.filter((surface) => surface.surface_type === 'WALL' && !surface.is_archived);
   const activeWallIds = activeWalls.map((surface) => surface.id);
+  /** Press-and-hold drag in the order mode (owner 2026-10-27: many walls of a staircase, the arrows were too slow). */
+  const wallDrag = useDragReorder({ ids: activeWallIds, onDrop: (next) => void saveWallOrder(next), disabled: !reordering || orderBusy });
+  const listedSurfaces = reordering
+    ? wallDrag.order.map((id) => activeWalls.find((surface) => surface.id === id)).filter((surface): surface is SurfaceType => !!surface)
+    : visibleSurfaces;
   const nameOf = (surfaceId: string | null | undefined) => {
     const found = surfaces.find((candidate) => candidate.id === surfaceId);
     return found ? getSurfaceDisplayName(found, surfaceDisplayLabels) : '';
@@ -753,9 +775,116 @@ export function SurfaceList({
     };
   };
 
+  /** Irregular room: the add-wall card stays inline while the room has no walls; with walls it is a sheet opened by "+ Dodaj ścianę" at the heading (owner 2026-10-27: the card pushed a long list of walls down). */
+  const wallAdderInline = activeWalls.length === 0;
+  const customWallCard = (
+    <div
+      aria-label="custom-wall-entry"
+      className={`pe-card rounded-2xl p-4 shadow-sm ${wallAdderInline ? 'mb-3' : 'pb-[calc(1rem+env(safe-area-inset-bottom))]'}`}
+    >
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <h4 className="min-w-0 text-sm font-semibold text-slate-900 break-words">{t.surfaces.custom_walls_title}</h4>
+        <span className="shrink-0 flex items-center gap-2">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
+            {t.surfaces.wall} {nextWallNumber}
+          </span>
+          {!wallAdderInline && (
+            <button
+              type="button"
+              aria-label="wall-adder-close"
+              title={t.common.close}
+              onClick={closeWallAdder}
+              className="min-h-11 min-w-11 rounded-xl border border-slate-300 text-lg text-slate-700"
+            >
+              <span aria-hidden="true">✕</span>
+            </button>
+          )}
+        </span>
+      </div>
+      <p className="text-xs text-slate-500 mb-3">{t.surfaces.custom_walls_hint}</p>
+
+      <form
+        aria-label="custom-wall-form"
+        onSubmit={handleCustomWallSubmit}
+        className="space-y-2.5"
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">{t.surfaces.width}</label>
+            <DimensionInput
+              aria-label="custom-wall-width"
+              placeholder="200"
+              autoFocus
+              value={customWall.width}
+              onValueChange={(meters) => setCustomWall((cur) => ({ ...cur, width: meters }))}
+              className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">{t.surfaces.height}</label>
+            {customWall.differentHeight ? (
+              <DimensionInput
+                aria-label="custom-wall-height"
+                placeholder="270"
+                value={customWall.height}
+                onValueChange={(meters) => setCustomWall((cur) => ({ ...cur, height: meters }))}
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            ) : (
+              <input
+                aria-label="custom-wall-height"
+                type="text"
+                readOnly
+                value={`${formatMetric(hasRoomHeight ? roomHeightNum : null)} ${t.common.unit_m}`}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-500"
+              />
+            )}
+          </div>
+        </div>
+
+        <label className="flex items-center min-h-11 gap-1.5 text-xs text-slate-500 cursor-pointer">
+          <input
+            aria-label="custom-wall-different-height"
+            type="checkbox"
+            checked={customWall.differentHeight}
+            onChange={(e) => setCustomWall((cur) => ({
+              ...cur,
+              differentHeight: e.target.checked,
+              height: e.target.checked ? cur.height || roomHeightStr : roomHeightStr,
+            }))}
+          />
+          {t.surfaces.use_different_height}
+        </label>
+
+        {formError && <p role="alert" className="text-sm text-red-600 font-medium">{formError}</p>}
+
+        <button
+          type="submit"
+          aria-label="add-custom-wall"
+          disabled={saving}
+          className="w-full min-h-11 px-3 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+        >
+          {saving ? t.common.saving : t.surfaces.add_wall}
+        </button>
+      </form>
+    </div>
+  );
+
   return (
     <section aria-label="surfaces-section" className="w-full mt-5">
-      <h3 className="text-lg font-bold text-[var(--tg-theme-text-color)] mb-3">{t.surfaces.walls_section_title}</h3>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="min-w-0 text-lg font-bold text-[var(--tg-theme-text-color)] break-words">{t.surfaces.walls_section_title}</h3>
+        {effectiveWallMode === 'CUSTOM' && !wallAdderInline && !reordering && !selecting && (
+          <button
+            type="button"
+            aria-label="wall-adder-open"
+            onClick={openWallAdder}
+            className="shrink-0 min-h-11 px-3 rounded-xl bg-blue-600 text-white text-sm font-semibold"
+          >
+            <span aria-hidden="true">＋ </span>{t.surfaces.add_wall}
+          </button>
+        )}
+      </div>
 
       {effectiveWallMode === 'RECTANGLE' && hasRoomDimensions && roomHasWalls === false && (
         <div className="mb-3">
@@ -777,84 +906,22 @@ export function SurfaceList({
         </div>
       )}
 
-      {effectiveWallMode === 'CUSTOM' && (
+      {effectiveWallMode === 'CUSTOM' && wallAdderInline && customWallCard}
+      {effectiveWallMode === 'CUSTOM' && !wallAdderInline && wallAdderOpen && createPortal(
         <div
-          aria-label="custom-wall-entry"
-          className="pe-card rounded-2xl p-4 mb-3 shadow-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t.surfaces.custom_walls_title}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeWallAdder();
+          }}
         >
-          <div className="flex items-center justify-between mb-1.5">
-            <h4 className="text-sm font-semibold text-slate-900">{t.surfaces.custom_walls_title}</h4>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
-              {t.surfaces.wall} {nextWallNumber}
-            </span>
+          <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl pb-[env(safe-area-inset-bottom)]">
+            {customWallCard}
           </div>
-          <p className="text-xs text-slate-500 mb-3">{t.surfaces.custom_walls_hint}</p>
-
-          <form
-            aria-label="custom-wall-form"
-            onSubmit={handleCustomWallSubmit}
-            className="space-y-2.5"
-          >
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">{t.surfaces.width}</label>
-                <DimensionInput
-                  aria-label="custom-wall-width"
-                  placeholder="200"
-                  autoFocus
-                  value={customWall.width}
-                  onValueChange={(meters) => setCustomWall((cur) => ({ ...cur, width: meters }))}
-                  className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">{t.surfaces.height}</label>
-                {customWall.differentHeight ? (
-                  <DimensionInput
-                    aria-label="custom-wall-height"
-                    placeholder="270"
-                    value={customWall.height}
-                    onValueChange={(meters) => setCustomWall((cur) => ({ ...cur, height: meters }))}
-                    className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm"
-                  />
-                ) : (
-                  <input
-                    aria-label="custom-wall-height"
-                    type="text"
-                    readOnly
-                    value={`${formatMetric(hasRoomHeight ? roomHeightNum : null)} ${t.common.unit_m}`}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-500"
-                  />
-                )}
-              </div>
-            </div>
-
-            <label className="flex items-center min-h-11 gap-1.5 text-xs text-slate-500 cursor-pointer">
-              <input
-                aria-label="custom-wall-different-height"
-                type="checkbox"
-                checked={customWall.differentHeight}
-                onChange={(e) => setCustomWall((cur) => ({
-                  ...cur,
-                  differentHeight: e.target.checked,
-                  height: e.target.checked ? cur.height || roomHeightStr : roomHeightStr,
-                }))}
-              />
-              {t.surfaces.use_different_height}
-            </label>
-
-            {formError && <p role="alert" className="text-sm text-red-600 font-medium">{formError}</p>}
-
-            <button
-              type="submit"
-              aria-label="add-custom-wall"
-              disabled={saving}
-              className="w-full min-h-11 px-3 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
-            >
-              {saving ? t.common.saving : t.surfaces.add_wall}
-            </button>
-          </form>
-        </div>
+        </div>,
+        document.body,
       )}
 
       <label className="flex items-center gap-2 min-h-11 text-sm text-slate-600 mb-3 cursor-pointer">
@@ -1026,7 +1093,7 @@ export function SurfaceList({
       )}
       {!loading && !error && visibleSurfaces.length > 0 && (
         <ul aria-label="surfaces-list" className="space-y-3">
-          {visibleSurfaces.map((surface, _index, all) => {
+          {listedSurfaces.map((surface, _index, all) => {
             const hasDimensions = surface.width !== null && surface.width !== undefined &&
                                   surface.height !== null && surface.height !== undefined;
             const isWall = surface.surface_type === 'WALL';
@@ -1052,13 +1119,28 @@ export function SurfaceList({
             if (reordering) {
               if (!isWall || surface.is_archived) return null;
               const at = activeWallIds.indexOf(surface.id);
+              const held = wallDrag.heldId === surface.id;
               const buttonClass = 'shrink-0 min-h-11 min-w-11 rounded-xl border border-slate-300 text-lg font-bold text-slate-800 disabled:opacity-30';
+              const { ref: rowRef, ...holdProps } = wallDrag.rowProps(surface.id);
               return (
                 <li
                   key={surface.id}
+                  ref={rowRef}
+                  {...holdProps}
                   aria-label={`surface-item-${surface.id}`}
-                  className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
+                  data-held={held ? 'true' : undefined}
+                  className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-xl pl-1 pr-3 py-1.5 min-h-11 w-full flex items-center gap-2 select-none transition-shadow ${held ? 'shadow-xl ring-2 ring-blue-500 scale-[1.02] relative z-10' : 'shadow-sm'}`}
+                  style={{ WebkitTouchCallout: 'none' }}
                 >
+                  <span
+                    aria-label={`wall-drag-${surface.id}`}
+                    title={t.surfaces.drag_wall}
+                    {...wallDrag.handleProps(surface.id)}
+                    className="shrink-0 min-h-11 min-w-9 flex items-center justify-center text-xl text-slate-500 cursor-grab"
+                    style={{ touchAction: 'none' }}
+                  >
+                    <span aria-hidden="true">⠿</span>
+                  </span>
                   <span className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-slate-900 text-sm break-words">{displayName}</span>
                     {(surface.parts?.length ?? 0) > 0 && (

@@ -909,10 +909,11 @@
   "surfaces": {
     "duplicate_wall": "Duplicate",
     "reorder_start": "Change the order",
-    "reorder_hint": "Move the walls with the arrows. Changes are saved at once.",
+    "reorder_hint": "Press and hold a wall, then drag it to a new place (or grab ⠿). The arrows move it by one. Changes are saved at once.",
     "reorder_done": "Done",
     "move_wall_up": "Move the wall up",
     "move_wall_down": "Move the wall down",
+    "drag_wall": "Drag the wall",
     "merge_start": "Merge walls",
     "merge_hint": "Tick the walls to merge. The first one ticked stays, and the work plan is taken from it.",
     "merge_selected": "Selected: {count}",

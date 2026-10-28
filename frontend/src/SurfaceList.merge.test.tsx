@@ -362,6 +362,79 @@ describe('the order of the walls', () => {
     expect(screen.getByLabelText('reorder-walls-start')).toBeInTheDocument();
   });
 
+  describe('dragging (press and hold)', () => {
+    // jsdom has no layout: every row is 50 px tall, stacked from y = 100 in the order it has in the DOM
+    let rects: { mockRestore: () => void };
+    beforeEach(() => {
+      rects = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+        const rows = Array.from(document.querySelectorAll('[aria-label^="surface-item-"]'));
+        const i = rows.indexOf(this);
+        const top = i < 0 ? 0 : 100 + i * 50;
+        return { top, bottom: top + 50, height: 50, left: 0, right: 300, width: 300, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+      });
+      vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+    });
+    afterEach(() => rects.mockRestore());
+    const touch = (y: number) => ({ touches: [{ clientX: 50, clientY: y }] });
+
+    it('takes a wall by its ⠿ handle and puts it at the end with ONE save', async () => {
+      vi.mocked(surfacesApi.reorderSurfaces).mockResolvedValue({ items: [W2, W3, W1], total: 3 });
+      renderList();
+      fireEvent.click(await screen.findByLabelText('reorder-walls-start'));
+      fireEvent.pointerDown(screen.getByLabelText(`wall-drag-${W1.id}`), { clientY: 125, pointerType: 'touch' });
+      expect(screen.getByLabelText(`surface-item-${W1.id}`)).toHaveAttribute('data-held', 'true');
+      fireEvent.touchMove(document, touch(180));
+      expect(order()).toEqual(['Ściana 2', 'Ściana 1', 'Ściana 3']);
+      fireEvent.touchMove(document, touch(240));
+      expect(order()).toEqual(['Ściana 2', 'Ściana 3', 'Ściana 1']);
+      expect(surfacesApi.reorderSurfaces).not.toHaveBeenCalled(); // nothing is saved while the finger moves
+      fireEvent.touchEnd(document);
+      await waitFor(() => expect(surfacesApi.reorderSurfaces).toHaveBeenCalledTimes(1));
+      expect(surfacesApi.reorderSurfaces).toHaveBeenCalledWith(projectId, roomId, [W2.id, W3.id, W1.id]);
+      expect(order()).toEqual(['Ściana 2', 'Ściana 3', 'Ściana 1']);
+      expect(screen.getByLabelText(`surface-item-${W1.id}`)).not.toHaveAttribute('data-held');
+    });
+
+    it('picks a wall up after holding the row, and moves it to the top', async () => {
+      vi.mocked(surfacesApi.reorderSurfaces).mockResolvedValue({ items: [W3, W1, W2], total: 3 });
+      renderList();
+      fireEvent.click(await screen.findByLabelText('reorder-walls-start'));
+      vi.useFakeTimers();
+      fireEvent.touchStart(screen.getByLabelText(`surface-item-${W3.id}`), touch(225));
+      act(() => { vi.advanceTimersByTime(400); });
+      expect(screen.getByLabelText(`surface-item-${W3.id}`)).toHaveAttribute('data-held', 'true');
+      fireEvent.touchMove(document, touch(105));
+      fireEvent.touchEnd(document);
+      vi.useRealTimers();
+      expect(order()).toEqual(['Ściana 3', 'Ściana 1', 'Ściana 2']);
+      await waitFor(() => expect(surfacesApi.reorderSurfaces).toHaveBeenCalledWith(projectId, roomId, [W3.id, W1.id, W2.id]));
+    });
+
+    it('a quick swipe scrolls the page and picks nothing up', async () => {
+      renderList();
+      fireEvent.click(await screen.findByLabelText('reorder-walls-start'));
+      vi.useFakeTimers();
+      fireEvent.touchStart(screen.getByLabelText(`surface-item-${W1.id}`), touch(125));
+      fireEvent.touchMove(document, touch(160)); // moved 35 px before the hold time
+      act(() => { vi.advanceTimersByTime(400); });
+      fireEvent.touchEnd(document);
+      vi.useRealTimers();
+      expect(screen.getByLabelText(`surface-item-${W1.id}`)).not.toHaveAttribute('data-held');
+      expect(order()).toEqual(['Ściana 1', 'Ściana 2', 'Ściana 3']);
+      expect(surfacesApi.reorderSurfaces).not.toHaveBeenCalled();
+    });
+
+    it('a wall let go at its own place saves nothing', async () => {
+      renderList();
+      fireEvent.click(await screen.findByLabelText('reorder-walls-start'));
+      fireEvent.pointerDown(screen.getByLabelText(`wall-drag-${W2.id}`), { clientY: 175, pointerType: 'touch' });
+      fireEvent.touchMove(document, touch(170));
+      fireEvent.touchEnd(document);
+      await act(async () => { await Promise.resolve(); });
+      expect(surfacesApi.reorderSurfaces).not.toHaveBeenCalled();
+    });
+  });
+
   it('speaks Russian', async () => {
     localStorage.setItem('locale', 'ru');
     renderList();

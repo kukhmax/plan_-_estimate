@@ -909,10 +909,11 @@
   "surfaces": {
     "duplicate_wall": "Duplikuj",
     "reorder_start": "Zmień kolejność",
-    "reorder_hint": "Przesuwaj ściany strzałkami. Zmiany zapisują się od razu.",
+    "reorder_hint": "Przytrzymaj ścianę i przeciągnij ją w nowe miejsce (albo chwyć ⠿). Strzałki przesuwają o jedno miejsce. Zmiany zapisują się od razu.",
     "reorder_done": "Gotowe",
     "move_wall_up": "Przesuń ścianę wyżej",
     "move_wall_down": "Przesuń ścianę niżej",
+    "drag_wall": "Przeciągnij ścianę",
     "merge_start": "Połącz ściany",
     "merge_hint": "Zaznacz ściany do połączenia. Pierwsza zaznaczona zostaje, plan prac pochodzi z niej.",
     "merge_selected": "Zaznaczone: {count}",

@@ -35,6 +35,8 @@ export interface TelegramBackButton {
 
 export interface TelegramHapticFeedback {
   notificationOccurred?: (type: 'error' | 'success' | 'warning') => void;
+  impactOccurred?: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
+  selectionChanged?: () => void;
 }
 
 /** What the Mini App sees of the storages of Telegram (EN-1 spike): each is optional, the older clients of Telegram do not have them. */
