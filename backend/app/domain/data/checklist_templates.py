@@ -165,6 +165,168 @@ def _drywall_questions() -> tuple[TemplateQuestionData, ...]:
     )
 
 
+def _floor_questions() -> tuple[TemplateQuestionData, ...]:
+    """The common floor checks (UX walk B4): moisture, cracks, expansion joints, flatness, level, the state of the surface.
+
+    Findings reuse the keys the risk engine already knows (CRACK, HIGH_MOISTURE, UNEVENNESS, LOOSE / DUSTY / OILY_SUBSTRATE) and add
+    the facts only a floor has (EXPANSION_JOINT_MISSING, FLOOR_LEVEL_DEVIATION), recorded as findings of the inspection.
+    """
+    return (
+        TemplateQuestionData(
+            key="floor_moisture_measured",
+            text_key="checklist.question.floor_moisture_measured",
+            hint_key="checklist.hint.floor_moisture_measured",
+            unit_key="checklist.unit.percent",
+            answer_type=AnswerType.NUMBER,
+        ),
+        TemplateQuestionData(
+            key="floor_moisture_high",
+            text_key="checklist.question.floor_moisture_high",
+            hint_key="checklist.hint.floor_moisture_high",
+            answer_type=AnswerType.BOOLEAN,
+            finding_key="HIGH_MOISTURE",
+        ),
+        TemplateQuestionData(
+            key="cracks_present",
+            text_key="checklist.question.floor_cracks_present",
+            hint_key="checklist.hint.floor_cracks_present",
+            answer_type=AnswerType.BOOLEAN,
+            finding_key="CRACK",
+        ),
+        TemplateQuestionData(
+            key="expansion_joints_missing",
+            text_key="checklist.question.expansion_joints_missing",
+            hint_key="checklist.hint.expansion_joints_missing",
+            answer_type=AnswerType.BOOLEAN,
+            finding_key="EXPANSION_JOINT_MISSING",
+        ),
+        TemplateQuestionData(
+            key="floor_flatness_mm",
+            text_key="checklist.question.floor_flatness_mm",
+            hint_key="checklist.hint.floor_flatness_mm",
+            unit_key="mm",
+            answer_type=AnswerType.NUMBER,
+            finding_key="UNEVENNESS",
+        ),
+        TemplateQuestionData(
+            key="floor_level_deviation_mm",
+            text_key="checklist.question.floor_level_deviation_mm",
+            hint_key="checklist.hint.floor_level_deviation_mm",
+            unit_key="mm",
+            answer_type=AnswerType.NUMBER,
+            finding_key="FLOOR_LEVEL_DEVIATION",
+        ),
+        TemplateQuestionData(
+            key="substrate_condition",
+            text_key="checklist.question.floor_surface_condition",
+            answer_type=AnswerType.SINGLE_CHOICE,
+            options=(
+                TemplateOptionData("SOLID", "checklist.option.substrate_solid"),
+                TemplateOptionData("LOOSE", "checklist.option.substrate_loose", finding_key="LOOSE_SUBSTRATE"),
+                TemplateOptionData("DUSTY", "checklist.option.substrate_dusty", finding_key="DUSTY_SUBSTRATE"),
+                TemplateOptionData("OILY", "checklist.option.substrate_oily", finding_key="OILY_SUBSTRATE"),
+            ),
+        ),
+        TemplateQuestionData(
+            key="notes",
+            text_key="checklist.question.notes",
+            answer_type=AnswerType.TEXT,
+        ),
+    )
+
+
+def _screed_questions() -> tuple[TemplateQuestionData, ...]:
+    return (
+        TemplateQuestionData(
+            key="screed_type",
+            text_key="checklist.question.screed_type",
+            answer_type=AnswerType.SINGLE_CHOICE,
+            options=(
+                TemplateOptionData("CEMENT", "checklist.option.screed_cement"),
+                TemplateOptionData("ANHYDRITE", "checklist.option.screed_anhydrite"),
+                TemplateOptionData("OTHER", "checklist.option.screed_other"),
+            ),
+        ),
+        TemplateQuestionData(
+            key="underfloor_heating",
+            text_key="checklist.question.underfloor_heating",
+            hint_key="checklist.hint.underfloor_heating",
+            answer_type=AnswerType.BOOLEAN,
+        ),
+        TemplateQuestionData(
+            key="screed_hollow",
+            text_key="checklist.question.screed_hollow",
+            hint_key="checklist.hint.screed_hollow",
+            answer_type=AnswerType.BOOLEAN,
+            finding_key="DELAMINATION",
+        ),
+        TemplateQuestionData(
+            key="screed_weak_surface",
+            text_key="checklist.question.screed_weak_surface",
+            hint_key="checklist.hint.screed_weak_surface",
+            answer_type=AnswerType.BOOLEAN,
+            finding_key="WEAK_ADHESION",
+        ),
+    )
+
+
+def _old_tile_questions() -> tuple[TemplateQuestionData, ...]:
+    return (
+        TemplateQuestionData(
+            key="tiles_hollow",
+            text_key="checklist.question.tiles_hollow",
+            hint_key="checklist.hint.tiles_hollow",
+            answer_type=AnswerType.BOOLEAN,
+            finding_key="DELAMINATION",
+        ),
+        TemplateQuestionData(
+            key="tiles_glazed",
+            text_key="checklist.question.tiles_glazed",
+            hint_key="checklist.hint.tiles_glazed",
+            answer_type=AnswerType.BOOLEAN,
+        ),
+        TemplateQuestionData(
+            key="tiles_layers",
+            text_key="checklist.question.tiles_layers",
+            hint_key="checklist.hint.tiles_layers",
+            answer_type=AnswerType.SINGLE_CHOICE,
+            options=(
+                TemplateOptionData("ONE", "checklist.option.tiles_one_layer"),
+                TemplateOptionData("TWO", "checklist.option.tiles_two_layers"),
+            ),
+        ),
+    )
+
+
+def _wood_boards_questions() -> tuple[TemplateQuestionData, ...]:
+    return (
+        TemplateQuestionData(
+            key="boards_flex",
+            text_key="checklist.question.boards_flex",
+            hint_key="checklist.hint.boards_flex",
+            answer_type=AnswerType.BOOLEAN,
+            finding_key="BOARDS_FLEX",
+        ),
+        TemplateQuestionData(
+            key="wood_decay",
+            text_key="checklist.question.wood_decay",
+            hint_key="checklist.hint.wood_decay",
+            answer_type=AnswerType.BOOLEAN,
+            finding_key="WOOD_DECAY",
+        ),
+        TemplateQuestionData(
+            key="boards_coating",
+            text_key="checklist.question.boards_coating",
+            answer_type=AnswerType.SINGLE_CHOICE,
+            options=(
+                TemplateOptionData("NONE", "checklist.option.coating_none"),
+                TemplateOptionData("VARNISH_OIL", "checklist.option.coating_varnish_oil"),
+                TemplateOptionData("PAINT", "checklist.option.coating_paint"),
+            ),
+        ),
+    )
+
+
 _GENERIC_SECTION = TemplateSectionData(
     key="general_conditions",
     title_key="checklist.section.general_conditions",
@@ -177,6 +339,34 @@ _DRYWALL_SECTION = TemplateSectionData(
     title_key="checklist.section.drywall_joints",
     description_key="checklist.section.drywall_joints_desc",
     questions=_drywall_questions(),
+)
+
+_FLOOR_SECTION = TemplateSectionData(
+    key="floor_conditions",
+    title_key="checklist.section.floor_conditions",
+    description_key="checklist.section.floor_conditions_desc",
+    questions=_floor_questions(),
+)
+
+_SCREED_SECTION = TemplateSectionData(
+    key="screed_specific",
+    title_key="checklist.section.screed_specific",
+    description_key="checklist.section.screed_specific_desc",
+    questions=_screed_questions(),
+)
+
+_OLD_TILE_SECTION = TemplateSectionData(
+    key="old_tile_specific",
+    title_key="checklist.section.old_tile_specific",
+    description_key="checklist.section.old_tile_specific_desc",
+    questions=_old_tile_questions(),
+)
+
+_WOOD_BOARDS_SECTION = TemplateSectionData(
+    key="wood_boards_specific",
+    title_key="checklist.section.wood_boards_specific",
+    description_key="checklist.section.wood_boards_specific_desc",
+    questions=_wood_boards_questions(),
 )
 
 def build_baseline_templates() -> list[ChecklistTemplateData]:
@@ -223,5 +413,26 @@ def build_baseline_templates() -> list[ChecklistTemplateData]:
             substrate=Substrate.OTHER,
             title_key="checklist.template.other.title",
             sections=(_GENERIC_SECTION,),
+        ),
+        ChecklistTemplateData(
+            code="substrate-screed",
+            version=1,
+            substrate=Substrate.SCREED,
+            title_key="checklist.template.screed.title",
+            sections=(_FLOOR_SECTION, _SCREED_SECTION),
+        ),
+        ChecklistTemplateData(
+            code="substrate-old-tile",
+            version=1,
+            substrate=Substrate.OLD_TILE,
+            title_key="checklist.template.old_tile.title",
+            sections=(_FLOOR_SECTION, _OLD_TILE_SECTION),
+        ),
+        ChecklistTemplateData(
+            code="substrate-wood-boards",
+            version=1,
+            substrate=Substrate.WOOD_BOARDS,
+            title_key="checklist.template.wood_boards.title",
+            sections=(_FLOOR_SECTION, _WOOD_BOARDS_SECTION),
         ),
     ]

@@ -1283,7 +1283,10 @@
     "error_number_precision": "Maksymalnie 3 miejsca po przecinku.",
     "error_unauthorized": "Sesja wygasła. Zaloguj się ponownie.",
     "error_not_found": "Badanie nie istnieje.",
-    "unanswered_note": "Bez odpowiedzi — pytania bez odpowiedzi nie utworzą ustaleń."
+    "unanswered_note": "Bez odpowiedzi — pytania bez odpowiedzi nie utworzą ustaleń.",
+    "substrate_screed": "Jastrych",
+    "substrate_old_tile": "Stara płytka",
+    "substrate_wood_boards": "Podłoga z desek"
   },
   "risk": {
     "section_title": "Ryzyka",
@@ -1640,13 +1643,24 @@
       },
       "other": {
         "title": "Badanie pozostałych podłoży"
-      }
+      },
+      "screed": {"title": "Badanie jastrychu"},
+      "old_tile": {"title": "Badanie starych płytek"},
+      "wood_boards": {"title": "Badanie podłogi z desek"}
     },
     "section": {
       "general_conditions": "Stan ogólny",
       "general_conditions_desc": "Ogólna ocena stanu podłoża",
       "drywall_joints": "Połączenia płyt g-k",
-      "drywall_joints_desc": "Ocena spoin i łączeń suchej zabudowy"
+      "drywall_joints_desc": "Ocena spoin i łączeń suchej zabudowy",
+      "floor_conditions": "Stan podłogi",
+      "floor_conditions_desc": "Wilgotność, pęknięcia, dylatacje, płaskość i poziom",
+      "screed_specific": "Jastrych",
+      "screed_specific_desc": "Rodzaj, wytrzymałość i związanie z podłożem",
+      "old_tile_specific": "Stare płytki",
+      "old_tile_specific_desc": "Przyczepność, szkliwo i liczba warstw",
+      "wood_boards_specific": "Podłoga z desek",
+      "wood_boards_specific_desc": "Sztywność, stan drewna i dotychczasowe pokrycie"
     },
     "question": {
       "cracks_present": "Czy występują pęknięcia?",
@@ -1659,14 +1673,45 @@
       "joint_tape_missing": "Czy brakuje taśmy na spoinach?",
       "board_movement": "Czy płyty g-k się ruszają?",
       "fastener_corrosion": "Czy łączniki korodują?",
-      "joint_gap_mm": "Szczelina na łączeniu"
+      "joint_gap_mm": "Szczelina na łączeniu",
+      "floor_moisture_measured": "Zmierzona wilgotność",
+      "floor_moisture_high": "Czy wilgotność jest podwyższona?",
+      "floor_cracks_present": "Czy występują pęknięcia?",
+      "expansion_joints_missing": "Czy brakuje dylatacji?",
+      "floor_flatness_mm": "Płaskość podłogi",
+      "floor_level_deviation_mm": "Odchylenie od poziomu",
+      "floor_surface_condition": "Stan powierzchni",
+      "screed_type": "Rodzaj jastrychu",
+      "underfloor_heating": "Czy jest ogrzewanie podłogowe?",
+      "screed_hollow": "Czy jastrych dudni głucho?",
+      "screed_weak_surface": "Czy powierzchnia jastrychu jest słaba?",
+      "tiles_hollow": "Czy płytki dźwięczą głucho lub są luźne?",
+      "tiles_glazed": "Czy płytki są szkliwione lub polerowane?",
+      "tiles_layers": "Liczba warstw płytek",
+      "boards_flex": "Czy deski uginają się lub skrzypią?",
+      "wood_decay": "Czy widać zgniliznę, grzyb lub owady?",
+      "boards_coating": "Dotychczasowe pokrycie desek"
     },
     "hint": {
       "cracks_present": "Pęknięcia, rysy, mikropęknięcia powierzchni",
       "unevenness_mm": "Maksymalna nierówność powierzchni (mm)",
       "moisture_high": "Np. > 3% CM dla betonu, > 1% dla tynku gipsowego",
       "adhesion_weak": "Odpryski, łuszczenie, luźne fragmenty",
-      "board_movement": "Naciśnij płytę — sprawdź odspojenie i sprężystość"
+      "board_movement": "Naciśnij płytę — sprawdź odspojenie i sprężystość",
+      "floor_moisture_measured": "Wynik pomiaru metodą CM (jastrych) lub wilgotnościomierzem (drewno), w %",
+      "floor_moisture_high": "Orientacyjnie: jastrych cementowy > 2% CM (ogrzewany > 1,8%), anhydrytowy > 0,5% CM (ogrzewany > 0,3%). Rozstrzyga karta producenta okładziny; wilgotność drewna wg zaleceń producenta pokrycia",
+      "floor_cracks_present": "Pęknięcia jastrychu, płytek lub desek — zrób zdjęcie z miarką",
+      "expansion_joints_missing": "Brak dylatacji obwodowej przy ścianach i słupach, w progach lub w polach dylatacyjnych",
+      "floor_flatness_mm": "Łata 2 m: największa szczelina pod łatą (mm)",
+      "floor_level_deviation_mm": "Poziomica lub niwelator: różnica wysokości na długości pomieszczenia (mm)",
+      "underfloor_heating": "Zmienia dopuszczalną wilgotność i wymaga wygrzania jastrychu",
+      "screed_hollow": "Opukaj podłogę: głuchy dźwięk oznacza jastrych odspojony od podłoża",
+      "screed_weak_surface": "Zarysuj powierzchnię np. gwoździem: kruszy się lub pyli, brak twardej warstwy",
+      "tiles_hollow": "Opukaj płytki: głuchy dźwięk, luźne lub odspojone płytki",
+      "tiles_glazed": "Szkliwo i gres polerowany wymagają specjalnego gruntu lub zmatowienia",
+      "tiles_layers": "Sprawdź na krawędzi lub w progu",
+      "boards_flex": "Ugięcie, skrzypienie, luźne deski lub legary",
+      "wood_decay": "Zgnilizna, grzyb, ślady korników — sprawdź przy ścianach i pod oknami"
     },
     "option": {
       "substrate_solid": "Zwarte",
@@ -1676,10 +1721,19 @@
       "defect_delamination": "Odpryski",
       "defect_blow_holes": "Raki / pęcherze",
       "defect_efflorescence": "Wykwity",
-      "defect_mold": "Pleśń / grzyb"
+      "defect_mold": "Pleśń / grzyb",
+      "screed_cement": "Cementowy",
+      "screed_anhydrite": "Anhydrytowy",
+      "screed_other": "Inny",
+      "tiles_one_layer": "Jedna warstwa",
+      "tiles_two_layers": "Dwie warstwy",
+      "coating_none": "Surowe drewno",
+      "coating_varnish_oil": "Lakier lub olej",
+      "coating_paint": "Farba"
     },
     "unit": {
-      "mm": "mm"
+      "mm": "mm",
+      "percent": "%"
     }
   },
   "pricebook": {

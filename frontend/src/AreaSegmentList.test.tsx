@@ -732,7 +732,7 @@ describe('AreaSegmentList plane inspection in Opcje (13F-PRE)', () => {
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(canonicalPlanes);
   });
 
-  it('CEILING inspection is on the card of the ceiling, outside Opcje (Stage 18G); FLOOR offers none (FIX.2)', async () => {
+  it('the inspection of the ceiling and of the floor is on its card, outside Opcje (Stage 18G; the floor since UX walk B4)', async () => {
     const onInspectPlane = vi.fn();
     renderAreaSegments(vi.fn(), onInspectPlane);
     const floorToggle = await screen.findByLabelText('options-toggle-floor');
@@ -743,12 +743,16 @@ describe('AreaSegmentList plane inspection in Opcje (13F-PRE)', () => {
 
     fireEvent.click(floorToggle);
     expect(screen.getByLabelText('add-floor-rectangle')).toBeInTheDocument(); // Opcje open
-    expect(screen.queryByLabelText('inspect-floor')).not.toBeInTheDocument();
+    const floorButton = screen.getByLabelText('inspect-floor');
+    expect(floorButton).toHaveTextContent('Badanie podłogi');
+    expect(floorButton.compareDocumentPosition(floorToggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // above Opcje, like the ceiling's
 
     expect(ceilingButton).toHaveTextContent('Badanie sufitu');
     fireEvent.click(ceilingButton);
     expect(onInspectPlane).toHaveBeenCalledTimes(1);
     expect(onInspectPlane).toHaveBeenCalledWith('CEILING');
+    fireEvent.click(floorButton);
+    expect(onInspectPlane).toHaveBeenLastCalledWith('FLOOR');
   });
 
   it('plane controls are compact (owner request, Stage 18G): 40 px high with little vertical padding, the inspection a calm green', async () => {

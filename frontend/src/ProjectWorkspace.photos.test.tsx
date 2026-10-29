@@ -774,7 +774,9 @@ describe('ProjectWorkspace photos — inspection photos are marked on the "Badan
     expect(button).toHaveTextContent('Badanie sufitu');
     const floor = await screen.findByLabelText('floor-segments');
     fireEvent.click(within(floor).getByLabelText('options-toggle-floor'));
-    expect(within(floor).queryByLabelText('inspect-floor')).toBeNull();
+    const floorButton = await within(floor).findByLabelText('inspect-floor');
+    await waitFor(() => expect(within(floorButton).getByTestId('inspection-photo-badge')).toHaveTextContent('3'));
+    expect(floorButton).toHaveTextContent('Badanie podłogi');
   });
 
   it('the ceiling button also counts the photos of inspections that did target the ceiling surface itself', async () => {

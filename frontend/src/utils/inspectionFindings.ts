@@ -1,16 +1,18 @@
 import { QualityLevelValue, SubstrateValue } from '../types/checklist';
 import { InspectionAnswerPayload } from '../types/inspection';
+import { hasNoQualityScale } from './substrates';
 
 const Q_LEVELS: QualityLevelValue[] = ['Q1', 'Q2', 'Q3', 'Q4'];
 const S_LEVELS: QualityLevelValue[] = ['S1', 'S2', 'S3', 'S4'];
 
 /**
  * Quality levels offered for a substrate, mirroring the backend scale rule.
- * PAINTED/OTHER have no forced family (undefined = quality target is optional).
+ * PAINTED/OTHER have no forced family (undefined = quality target is optional); the floor substrates have no scale at all (an empty list).
  */
 export function qualityLevelsForSubstrate(
   substrate: SubstrateValue,
 ): QualityLevelValue[] | undefined {
+  if (hasNoQualityScale(substrate)) return [];
   if (substrate === 'GYPSUM_BOARD') return Q_LEVELS;
   if (
     substrate === 'CONCRETE' ||

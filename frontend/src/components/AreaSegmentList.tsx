@@ -59,7 +59,8 @@ const PLANES: AreaPlane[] = ['FLOOR', 'CEILING'];
  * checklists are wall/ceiling finishing checklists; there is no floor
  * checklist yet ("Floor Inspection & Floor Preparation Catalog", deferred),
  * so FLOOR offers no inspection rather than a meaningless one. */
-const INSPECTABLE_PLANES: readonly AreaPlane[] = ['CEILING'];
+// the floor has its own checklists since UX walk B4 (screed, old tile, wooden boards); until then it offered no inspection
+const INSPECTABLE_PLANES: readonly AreaPlane[] = ['FLOOR', 'CEILING'];
 
 function segmentArea(segment: AreaSegmentType): number {
   const width = Number(segment.width);

@@ -41,6 +41,9 @@ const substrateKey: Record<SubstrateValue, string> = {
   GYPSUM_BOARD: 'substrate_gypsum_board',
   PAINTED: 'substrate_painted',
   OTHER: 'substrate_other',
+  SCREED: 'substrate_screed',
+  OLD_TILE: 'substrate_old_tile',
+  WOOD_BOARDS: 'substrate_wood_boards',
 };
 
 function levelsFor(substrate: SubstrateValue): QualityLevelValue[] {

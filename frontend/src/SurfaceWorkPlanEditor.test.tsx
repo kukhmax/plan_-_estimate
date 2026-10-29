@@ -1572,3 +1572,47 @@ describe('SurfaceWorkPlanEditor — reveal placement', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('UX walk B4: the work plan of a floor', () => {
+  const renderFloor = () =>
+    render(
+      <I18nProvider>
+        <SurfaceWorkPlanEditor projectId={projectId} roomId={roomId} surfaceId={surfaceId} surfaceName="Podłoga" surfaceType="FLOOR" onClose={vi.fn()} />
+      </I18nProvider>,
+    );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(new ApiError('Surface work plan not found', 404));
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue(makePriceItemListResponse([]));
+  });
+
+  it('offers the floor substrates and none of the wall plasters; a screed has no quality field', async () => {
+    renderFloor();
+    const substrate = await screen.findByLabelText(`work-plan-substrate-${surfaceId}`);
+    const names = within(substrate).getAllByRole('option').map((o) => o.textContent);
+    expect(names).toEqual(['Wybierz podłoże', 'Jastrych', 'Beton', 'Stara płytka', 'Podłoga z desek', 'Stara farba', 'Inne']);
+    expect(screen.getByLabelText(`work-plan-quality-${surfaceId}`)).toBeDisabled(); // no substrate yet
+    fireEvent.change(substrate, { target: { value: 'SCREED' } });
+    expect(screen.queryByLabelText(`work-plan-quality-${surfaceId}`)).toBeNull();
+    fireEvent.change(substrate, { target: { value: 'CONCRETE' } });
+    expect(screen.getByLabelText(`work-plan-quality-${surfaceId}`)).toBeInTheDocument(); // a neutral substrate keeps its optional class
+  });
+
+  it('keeps a substrate the plan already has even when the floor does not offer it', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(makePlan({ substrate: 'GYPSUM_PLASTER', quality_target: 'S2' }));
+    renderFloor();
+    const substrate = await screen.findByLabelText(`work-plan-substrate-${surfaceId}`);
+    expect(substrate).toHaveValue('GYPSUM_PLASTER');
+    expect(within(substrate).getByRole('option', { name: 'Tynk gipsowy' })).toBeInTheDocument();
+  });
+
+  it('a wall does not offer the floor substrates', async () => {
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(new ApiError('Surface work plan not found', 404));
+    renderEditor();
+    const substrate = await screen.findByLabelText(`work-plan-substrate-${surfaceId}`);
+    expect(within(substrate).queryByRole('option', { name: 'Jastrych' })).toBeNull();
+    expect(within(substrate).getAllByRole('option')).toHaveLength(7);
+  });
+});

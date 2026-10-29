@@ -34,6 +34,10 @@ _S_SCALE_SUBSTRATES: frozenset[Substrate] = frozenset(
 )
 # Substrates whose agreed quality target must use the Q scale (drywall).
 _Q_SCALE_SUBSTRATES: frozenset[Substrate] = frozenset({Substrate.GYPSUM_BOARD})
+# Floor substrates (UX walk B4): S1-S4 / Q1-Q4 describe wall and ceiling finishes, so no quality target is agreed for them.
+NO_SCALE_SUBSTRATES: frozenset[Substrate] = frozenset(
+    {Substrate.SCREED, Substrate.OLD_TILE, Substrate.WOOD_BOARDS}
+)
 
 
 def assert_quality_scale_valid(
@@ -43,11 +47,16 @@ def assert_quality_scale_valid(
     """Validate the agreed quality target against the substrate's quality family.
 
     GYPSUM_BOARD -> Q scale only; concrete/gypsum/cement-lime plaster -> S scale
-    only. PAINTED and OTHER are not yet restricted to a family. None is always
-    allowed (no target agreed yet).
+    only. PAINTED and OTHER are not yet restricted to a family. Floor substrates
+    (screed, old tile, wooden boards) take no quality target at all. None is
+    always allowed (no target agreed yet).
     """
     if quality_target is None:
         return
+    if substrate in NO_SCALE_SUBSTRATES:
+        raise QualityScaleMismatchError(
+            f"Substrate {substrate.value} has no quality scale, got {quality_target.value}"
+        )
     if substrate in _Q_SCALE_SUBSTRATES:
         if quality_target not in Q_LEVELS:
             raise QualityScaleMismatchError(

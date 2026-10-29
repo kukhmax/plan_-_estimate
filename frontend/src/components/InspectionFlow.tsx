@@ -38,6 +38,7 @@ import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { RiskPanel } from './RiskPanel';
 import { RecommendationPanel } from './RecommendationPanel';
 import { CommunicationPanel } from './CommunicationPanel';
+import { substratesFor } from '../utils/substrates';
 import { Ico } from './Ico';
 import { FieldHelp } from './FieldHelp';
 
@@ -52,14 +53,6 @@ export interface InspectionFlowProps {
 
 type Step = 'substrate' | 'quality' | 'active' | 'review';
 
-const SUBSTRATES: SubstrateValue[] = [
-  'CONCRETE',
-  'GYPSUM_PLASTER',
-  'CEMENT_LIME_PLASTER',
-  'GYPSUM_BOARD',
-  'PAINTED',
-  'OTHER',
-];
 
 function substrateLabel(
   t: ReturnType<typeof useI18n>['t'],
@@ -651,7 +644,7 @@ export function InspectionFlow({
         <div className="flex flex-col gap-3">
           <p className="text-sm text-neutral-600">{targetLabel(t, target)}</p>
           <div className="grid grid-cols-2 gap-2">
-            {SUBSTRATES.map((value) => (
+            {substratesFor(isFloorTarget ? 'FLOOR' : 'WALL').map((value) => (
               <button
                 key={value}
                 type="button"

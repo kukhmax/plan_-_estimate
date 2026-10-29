@@ -924,5 +924,106 @@
         "text": "Treść zgodna z docs/stage-12-architecture.md §27.2 oraz regułami modułu (suma procentowa, ostrzeżenie powyżej 50%). Zasada własna aplikacji: zatwierdza właściciel."
       }
     ]
+  },
+  {
+    "code": "TECH.FLOOR-SCREED",
+    "source": "TDS.BARLINEK-PODLOGOWKA",
+    "locator": "jastrych — wilgotność i ogrzewanie",
+    "title_pl": "Wilgotność jastrychu przed ułożeniem podłogi",
+    "title_ru": "Влажность стяжки перед укладкой пола",
+    "summary_pl": "Przed ułożeniem okładziny mierzy się wilgotność jastrychu metodą CM. Producenci podają najczęściej: jastrych cementowy do ok. 2,0% CM (z ogrzewaniem podłogowym ok. 1,8%), anhydrytowy do ok. 0,5% CM (z ogrzewaniem ok. 0,3%); niektóre karty podają też wartości w % wilgotności względnej, a wartości różnią się między producentami, dlatego rozstrzyga karta okładziny. Jastrych z ogrzewaniem podłogowym wymaga wygrzania według protokołu, a po nim ponownego pomiaru wilgotności. Dylatacje obwodowe i w polach jastrychu wykonuje się wg projektu i karty jastrychu.",
+    "explanation_ru": "Перед укладкой покрытия влажность стяжки меряют CM-методом. Типичные пороги: цементная ≈ 2,0% CM (с тёплым полом ≈ 1,8%), ангидритовая ≈ 0,5% CM (с тёплым полом ≈ 0,3%); у производителей цифры разные, решает карта покрытия. Стяжку с подогревом прогревают по протоколу и после него снова меряют влажность. Периметральные и межпольные швы — по проекту и карте стяжки.",
+    "tags": [
+      "wilgotnosc",
+      "cm",
+      "jastrych",
+      "ogrzewanie-podlogowe",
+      "dylatacje"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-PROGI-JASTRYCH",
+        "text": "Progi 2,0 / 1,8 / 0,5 / 0,3 % CM zgadzają się z kilkoma kartami producentów (wyniki wyszukiwania), ale wartości są zależne od okładziny; dopisać kartę konkretnej okładziny i normę (np. wg PN-EN 13813 / zaleceń producenta jastrychu) po sprawdzeniu.",
+        "status": "OPEN"
+      },
+      {
+        "ref": "L-DYLATACJE",
+        "text": "Rozstaw i szerokość dylatacji — źródła podają je ogólnie; nie ma liczb w tym wpisie, dopisać z kartą jastrychu.",
+        "status": "OPEN"
+      }
+    ],
+    "substrates": [
+      "SCREED"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-OLD-TILE",
+    "source": "MURATOR.PLYTKI-NA-PLYTKI",
+    "locator": "ocena starej okładziny",
+    "title_pl": "Stare płytki jako podłoże pod nowe płytki",
+    "title_ru": "Старая плитка как основание под новую",
+    "summary_pl": "Najpierw sprawdza się wytrzymałość i przyczepność starej okładziny: opukaniem wyszukuje się płytki głuche i luźne. Pojedyncze głuche płytki usuwa się, a ubytki wypełnia; jeśli głucho brzmi duża część powierzchni (poradnik podaje orientacyjnie ponad 20%), stare płytki skuwa się. Pęknięcie biegnące przez kilka płytek może oznaczać pęknięty jastrych pod spodem. Podłoże czyści się i odtłuszcza; bardzo gładkie szkliwo matuje się, a następnie gruntuje gruntem z kruszywem kwarcowym (nie samym wodnistym gruntem głęboko penetrującym). Na starą glazurę poleca się kleje o podwyższonej przyczepności i elastyczne (np. klasy C2 / reaktywne R2), a spoiny nowych płytek przesuwa się względem starych. Podłoga się podnosi o grubość nowej warstwy.",
+    "explanation_ru": "Сначала проверяют прочность и сцепление старой плитки: простукиванием находят глухие и шатающиеся плитки. Единичные глухие удаляют и заделывают; если глухо звучит большая часть пола (в пособии ориентир — более 20%), плитку сбивают. Трещина через несколько плиток — возможно, треснула стяжка. Основание чистят и обезжиривают; очень гладкую глазурь матируют и грунтуют грунтом с кварцевым песком (не просто водянистым грунтом глубокого проникновения). Клей — повышенной адгезии, эластичный (C2 / реактивный R2); швы новой плитки смещают относительно старых. Пол поднимается на толщину слоя.",
+    "tags": [
+      "plytki",
+      "stare-plytki",
+      "przyczepnosc",
+      "szkliwo",
+      "grunt-kwarcowy"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-ZRODLO",
+        "text": "Źródło jest artykułem branżowym, nie kartą techniczną — dopisać kartę kleju / gruntu kwarcowego użytego wyrobu; próg 20% jest wskazówką poradnika, nie normą.",
+        "status": "OPEN"
+      }
+    ],
+    "substrates": [
+      "OLD_TILE"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-WOOD-BOARDS",
+    "source": "KB.LEGARY",
+    "locator": "legary — ugięcie i skrzypienie",
+    "title_pl": "Podłoga z desek — ugięcie, skrzypienie i stan legarów",
+    "title_ru": "Пол из досок — прогиб, скрип и состояние лаг",
+    "summary_pl": "Zbyt duży rozstaw legarów (poradnik podaje jako granicę ok. 60 cm) i luźne deski powodują ugięcie i skrzypienie podłogi. Legary powinny być zaimpregnowane przed wilgocią i szkodnikami, wypoziomowane i niestykające się bezpośrednio ze ścianą lub podłożem. Przed wykończeniem sprawdza się więc sztywność podłogi, stan drewna (zgnilizna, grzyb, ślady owadów) i wilgotność drewna według zaleceń producenta pokrycia; uszkodzone elementy wymienia się, a deski dokręca.",
+    "explanation_ru": "Слишком большой шаг лаг (в пособии граница ≈ 60 см) и шатающиеся доски дают прогиб и скрип. Лаги должны быть пропитаны от влаги и вредителей, выровнены и не касаться стены или основания. Перед отделкой проверяют жёсткость пола, состояние древесины (гниль, грибок, следы жучка) и влажность дерева по рекомендации производителя покрытия; повреждённое заменяют, доски докручивают.",
+    "tags": [
+      "deski",
+      "legary",
+      "ugiecie",
+      "zgnilizna",
+      "wilgotnosc-drewna"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-ZRODLO",
+        "text": "Źródło jest artykułem branżowym, nie normą ani kartą producenta — rozstaw legarów i dopuszczalna wilgotność drewna (zależna od pokrycia) dopisać z kartą pokrycia / normą po sprawdzeniu.",
+        "status": "OPEN"
+      }
+    ],
+    "substrates": [
+      "WOOD_BOARDS"
+    ]
   }
 ]

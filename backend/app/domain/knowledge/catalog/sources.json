@@ -106,5 +106,29 @@
     "title_pl": "Plan & Estimate — standardy wykonawcy: wykończenie powierzchni S1–S4 i współczynniki cen (zasady aplikacji)",
     "designation": "Plan & Estimate, docs/stage-12-architecture.md §27.1–27.2",
     "status": "DRAFT"
+  },
+  {
+    "code": "TDS.BARLINEK-PODLOGOWKA",
+    "kind": "OTHER",
+    "title_pl": "Barlinek — podłogi na systemach ogrzewania i chłodzenia podłogowego (wymagania dla jastrychu)",
+    "designation": "wytyczne producenta podłóg",
+    "url": "https://www.barlinek.com.pl/wp-content/uploads/2025/02/podlogi-barlinka-na-systemach-ogrzewania-i-chlodzenia-podlogowego.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "MURATOR.PLYTKI-NA-PLYTKI",
+    "kind": "OTHER",
+    "title_pl": "Murator — jak ułożyć nowe płytki ceramiczne na starych płytkach",
+    "designation": "artykuł branżowy",
+    "url": "https://muratordom.pl/remont-domu/odnawianie-wnetrz/jak-ulozyc-nowe-plytki-ceramiczne-na-starych-plytkach-remont-lazienki-bez-skuwania-glazury-aa-3PJ4-MT5n-UrTW.html",
+    "status": "DRAFT"
+  },
+  {
+    "code": "KB.LEGARY",
+    "kind": "OTHER",
+    "title_pl": "Budujemy Dom (kb.pl) — podłoga skrzypi i ugina się: przyczyna może tkwić pod deskami (legary)",
+    "designation": "artykuł branżowy",
+    "url": "https://kb.pl/aktualnosci/budowa-domu/legary-drewniane-rodzaje-i-zastoswanie-_z/",
+    "status": "DRAFT"
   }
 ]

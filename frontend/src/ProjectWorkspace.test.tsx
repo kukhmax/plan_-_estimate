@@ -1482,16 +1482,15 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     await screen.findByLabelText('surfaces-section');
   };
 
-  it('exposes only ceiling and wall inspection entry points; no room-level or floor inspection (13F-PRE FIX.2)', async () => {
+  it('exposes the ceiling, floor and wall inspection entry points; no room-level inspection (13F-PRE FIX.2; the floor since UX walk B4)', async () => {
     await openRoomView();
     // No standalone "Badania podłoża" section and no generic room inspection CTA.
     expect(screen.queryByLabelText('room-inspection-entry')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('inspect-room')).not.toBeInTheDocument();
     expect(screen.queryByText('Badanie pomieszczenia')).not.toBeInTheDocument();
-    // FLOOR: no real floor checklist yet -> no inspection offered, even in Opcje.
+    // FLOOR: it has checklists of its own now (screed, old tile, wooden boards).
     fireEvent.click(await screen.findByLabelText('options-toggle-floor'));
-    expect(screen.queryByLabelText('inspect-floor')).not.toBeInTheDocument();
-    expect(screen.queryByText('Badanie podłogi')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('inspect-floor')).toHaveTextContent('Badanie podłogi');
     // CEILING and WALL keep their inspection.
     fireEvent.click(screen.getByLabelText('options-toggle-ceiling'));
     expect(screen.getByLabelText('inspect-ceiling')).toBeInTheDocument();
@@ -1515,12 +1514,12 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     }
   };
 
-  it('hiding the FLOOR inspection entry never touches stored floor inspections (13F-PRE FIX.2)', async () => {
+  it('showing the FLOOR inspection entry never touches stored floor inspections (13F-PRE FIX.2)', async () => {
     vi.mocked(inspectionsApi.fetchInspections).mockResolvedValue({ items: [inspection, floorDone, ceilingDone], total: 3 });
     await openRoomView();
     fireEvent.click(await screen.findByLabelText('options-toggle-floor'));
-    expect(screen.queryByLabelText('inspect-floor')).not.toBeInTheDocument();
-    expectNoInspectionMutation(); // records stay in storage; the UI simply offers no floor workflow
+    expect(screen.getByLabelText('inspect-floor')).toBeInTheDocument();
+    expectNoInspectionMutation(); // records stay in storage; only opening the entry reads them
   });
 
   it('opens an existing COMPLETED ceiling inspection from CEILING Opcje without mutating it (13F-PRE)', async () => {

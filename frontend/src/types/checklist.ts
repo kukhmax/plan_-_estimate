@@ -4,7 +4,10 @@ export type SubstrateValue =
   | 'CEMENT_LIME_PLASTER'
   | 'GYPSUM_BOARD'
   | 'PAINTED'
-  | 'OTHER';
+  | 'OTHER'
+  | 'SCREED'
+  | 'OLD_TILE'
+  | 'WOOD_BOARDS';
 
 export type QualityLevelValue =
   | 'S1'

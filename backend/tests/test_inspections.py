@@ -148,7 +148,7 @@ class TestTemplateCatalog:
         assert response.status_code == 200
         body = response.json()
         templates = body["items"]
-        assert body["total"] == 6
+        assert body["total"] == 9  # six of the walls + three of the floor (UX walk B4)
         substrates = {item["substrate"] for item in templates}
         assert substrates == {
             "CONCRETE",
@@ -157,6 +157,9 @@ class TestTemplateCatalog:
             "GYPSUM_BOARD",
             "PAINTED",
             "OTHER",
+            "SCREED",
+            "OLD_TILE",
+            "WOOD_BOARDS",
         }
         assert all(item["version"] == 1 for item in templates)
         assert all(item["active"] is True for item in templates)
@@ -168,7 +171,7 @@ class TestTemplateCatalog:
                 "/api/checklist-templates",
                 headers=auth_header(token),
             )
-            assert response.json()["total"] == 6
+            assert response.json()["total"] == 9
 
     async def test_gypsum_board_template_carries_drywall_section(
         self, async_client: AsyncClient

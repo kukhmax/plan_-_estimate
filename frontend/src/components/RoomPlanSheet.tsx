@@ -22,6 +22,7 @@ interface RoomPlanSheetProps {
   onSaved: () => void;
 }
 
+// the plan of a room covers walls and the ceiling: the substrates of a floor are chosen on the floor
 const SUBSTRATES: SubstrateValue[] = ['GYPSUM_PLASTER', 'CEMENT_LIME_PLASTER', 'CONCRETE', 'GYPSUM_BOARD', 'PAINTED', 'OTHER'];
 const S_LEVELS: QualityLevelValue[] = ['S1', 'S2', 'S3', 'S4'];
 const Q_LEVELS: QualityLevelValue[] = ['Q1', 'Q2', 'Q3', 'Q4'];
@@ -33,6 +34,9 @@ const substrateKey: Record<SubstrateValue, string> = {
   GYPSUM_BOARD: 'substrate_gypsum_board',
   PAINTED: 'substrate_painted',
   OTHER: 'substrate_other',
+  SCREED: 'substrate_screed',
+  OLD_TILE: 'substrate_old_tile',
+  WOOD_BOARDS: 'substrate_wood_boards',
 };
 
 function levelsFor(substrate: SubstrateValue): QualityLevelValue[] {

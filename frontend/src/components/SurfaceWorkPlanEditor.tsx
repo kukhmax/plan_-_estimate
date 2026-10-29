@@ -35,6 +35,7 @@ import { ExecutionDetachDialog } from './ExecutionDetachDialog';
 import { PriceItemForm } from './PriceItemForm';
 import { WorkflowTemplateApplySheet } from './WorkflowTemplateApplySheet';
 import { SurfaceTypeValue } from '../types/surface';
+import { hasNoQualityScale, substratesFor } from '../utils/substrates';
 import { Ico } from './Ico';
 import { FieldHelp } from './FieldHelp';
 
@@ -101,14 +102,6 @@ interface DraftOccurrence {
   execution: PlannedWorkExecutionRead | null;
 }
 
-const SUBSTRATES: readonly SubstrateValue[] = [
-  'CONCRETE',
-  'GYPSUM_PLASTER',
-  'CEMENT_LIME_PLASTER',
-  'GYPSUM_BOARD',
-  'PAINTED',
-  'OTHER',
-];
 const S_QUALITY_LEVELS: readonly QualityLevelValue[] = ['S1', 'S2', 'S3', 'S4'];
 const Q_QUALITY_LEVELS: readonly QualityLevelValue[] = ['Q1', 'Q2', 'Q3', 'Q4'];
 const ALL_QUALITY_LEVELS: readonly QualityLevelValue[] = [
@@ -117,6 +110,7 @@ const ALL_QUALITY_LEVELS: readonly QualityLevelValue[] = [
 ];
 
 function qualityLevelsForSubstrate(substrate: SubstrateValue | ''): readonly QualityLevelValue[] {
+  if (hasNoQualityScale(substrate)) return [];
   if (substrate === 'GYPSUM_BOARD') return Q_QUALITY_LEVELS;
   if (
     substrate === 'CONCRETE' ||
@@ -302,6 +296,10 @@ export function SurfaceWorkPlanEditor({
     };
   }, [loadAttempt, projectId, roomId, surfaceId, t]);
 
+  // a floor offers its own substrates, a wall or a ceiling theirs; a substrate the plan already has stays selectable
+  const offeredSubstrates: readonly SubstrateValue[] =
+    substrate !== '' && !substratesFor(surfaceType).includes(substrate) ? [...substratesFor(surfaceType), substrate] : substratesFor(surfaceType);
+
   const substrateLabel = (value: SubstrateValue): string => {
     const labels: Record<SubstrateValue, string> = {
       CONCRETE: t.inspections.substrate_concrete,
@@ -310,6 +308,9 @@ export function SurfaceWorkPlanEditor({
       GYPSUM_BOARD: t.inspections.substrate_gypsum_board,
       PAINTED: t.inspections.substrate_painted,
       OTHER: t.inspections.substrate_other,
+      SCREED: t.inspections.substrate_screed,
+      OLD_TILE: t.inspections.substrate_old_tile,
+      WOOD_BOARDS: t.inspections.substrate_wood_boards,
     };
     return labels[value];
   };
@@ -318,7 +319,7 @@ export function SurfaceWorkPlanEditor({
     const nextLevels = qualityLevelsForSubstrate(next);
     setSubstrate(next);
     setQualityTarget((current) => {
-      if (next === 'PAINTED' || next === 'OTHER') return null;
+      if (next === 'PAINTED' || next === 'OTHER' || hasNoQualityScale(next)) return null;
       return current !== null && nextLevels.includes(current) ? current : null;
     });
     setSaveError(null);
@@ -764,12 +765,13 @@ export function SurfaceWorkPlanEditor({
               className="mt-1 w-full min-h-11 rounded-xl border px-3 py-2 text-base disabled:opacity-60"
             >
               <option value="">{t.inspections.select_substrate}</option>
-              {SUBSTRATES.map((value) => (
+              {offeredSubstrates.map((value) => (
                 <option key={value} value={value}>{substrateLabel(value)}</option>
               ))}
             </select>
           </div>
 
+          {!hasNoQualityScale(substrate) && (
           <div className="text-sm font-medium text-[var(--tg-theme-text-color)]">
             <div className="flex items-center justify-between gap-2">
               <span className="min-w-0 break-words">{t.inspections.quality_target}</span>
@@ -792,6 +794,7 @@ export function SurfaceWorkPlanEditor({
               ))}
             </select>
           </div>
+          )}
 
           {/* Planned works draft */}
           <div className="space-y-2 min-w-0">

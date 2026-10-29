@@ -133,3 +133,34 @@ describe('InspectionFlow target rules (13F-PRE FIX.2)', () => {
     expect(await screen.findByText('Odpowiedzi: 0 / 2')).toBeInTheDocument();
   });
 });
+
+describe('UX walk B4: the substrates a surface offers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(checklistsApi.fetchChecklistTemplates).mockResolvedValue({ items: [template('CONCRETE')], total: 1 });
+    vi.mocked(checklistsApi.fetchChecklistTemplate).mockResolvedValue(template('CONCRETE'));
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(new Error('404'));
+  });
+
+  it('a floor offers screed, old tile and wooden boards (and the neutral ones), none of the wall plasters', async () => {
+    renderFlow({ kind: 'plane', plane: 'FLOOR' });
+    for (const label of ['Jastrych', 'Stara płytka', 'Podłoga z desek', 'Beton', 'Inne']) expect(await screen.findByLabelText(label)).toBeInTheDocument();
+    for (const label of ['Tynk gipsowy', 'Tynk cem.-wap.', 'Płyta g-k']) expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+  });
+
+  it('a wall and a ceiling offer their six substrates and none of the floor ones', async () => {
+    renderFlow({ kind: 'surface', surfaceId: 'wall-1', surfaceName: 'Ściana 1' });
+    for (const label of ['Beton', 'Tynk gipsowy', 'Płyta g-k']) expect(await screen.findByLabelText(label)).toBeInTheDocument();
+    for (const label of ['Jastrych', 'Stara płytka', 'Podłoga z desek']) expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+  });
+
+  it('a floor inspection of a screed starts at once with no quality target', async () => {
+    const target: InspectionTarget = { kind: 'plane', plane: 'FLOOR' };
+    vi.mocked(inspectionsApi.createInspection).mockResolvedValue({ ...created(target, 'CONCRETE'), substrate: 'SCREED' });
+    renderFlow(target);
+    fireEvent.click(await screen.findByLabelText('Jastrych'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await waitFor(() => expect(inspectionsApi.createInspection).toHaveBeenCalledWith('p', 'r', expect.objectContaining({ plane: 'FLOOR', substrate: 'SCREED', quality_target: null })));
+  });
+});

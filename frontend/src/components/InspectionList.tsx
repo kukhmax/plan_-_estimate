@@ -8,6 +8,7 @@ import {
 } from '../api/inspections';
 import { Inspection, InspectionTarget } from '../types/inspection';
 import { QualityLevelValue, SubstrateValue } from '../types/checklist';
+import { ALL_SUBSTRATES } from '../utils/substrates';
 import { Ico } from './Ico';
 import { PendingMark } from './PendingMark';
 
@@ -19,14 +20,7 @@ export interface InspectionListProps {
   onOpen: (inspectionId: string) => void;
 }
 
-const SUBSTRATE_ORDER: SubstrateValue[] = [
-  'CONCRETE',
-  'GYPSUM_PLASTER',
-  'CEMENT_LIME_PLASTER',
-  'GYPSUM_BOARD',
-  'PAINTED',
-  'OTHER',
-];
+const SUBSTRATE_ORDER: SubstrateValue[] = [...ALL_SUBSTRATES];
 
 function substrateLabel(t: ReturnType<typeof useI18n>['t'], substrate: SubstrateValue): string {
   const key = `substrate_${substrate.toLowerCase()}` as keyof typeof t.inspections;

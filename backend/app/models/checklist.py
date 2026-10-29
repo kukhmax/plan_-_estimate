@@ -25,6 +25,10 @@ class Substrate(str, enum.Enum):
     GYPSUM_BOARD = "GYPSUM_BOARD"
     PAINTED = "PAINTED"
     OTHER = "OTHER"
+    # Floor substrates (UX walk B4, owner 2026-10-29): no quality scale (S / Q) applies to them.
+    SCREED = "SCREED"
+    OLD_TILE = "OLD_TILE"
+    WOOD_BOARDS = "WOOD_BOARDS"
 
 
 class QualityLevel(str, enum.Enum):

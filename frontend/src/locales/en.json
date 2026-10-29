@@ -1283,7 +1283,10 @@
     "error_number_precision": "At most 3 decimal places.",
     "error_unauthorized": "The session has expired. Sign in again.",
     "error_not_found": "The inspection was not found.",
-    "unanswered_note": "Unanswered questions do not create findings."
+    "unanswered_note": "Unanswered questions do not create findings.",
+    "substrate_screed": "Screed",
+    "substrate_old_tile": "Old tile",
+    "substrate_wood_boards": "Wooden boards"
   },
   "risk": {
     "section_title": "Risks",
@@ -1640,13 +1643,24 @@
       },
       "other": {
         "title": "Inspection of other substrates"
-      }
+      },
+      "screed": {"title": "Screed inspection"},
+      "old_tile": {"title": "Old tile inspection"},
+      "wood_boards": {"title": "Wooden boards inspection"}
     },
     "section": {
       "general_conditions": "General condition",
       "general_conditions_desc": "General assessment of the condition of the substrate",
       "drywall_joints": "Plasterboard joints",
-      "drywall_joints_desc": "Assessment of the joints and connections of dry construction"
+      "drywall_joints_desc": "Assessment of the joints and connections of dry construction",
+      "floor_conditions": "Condition of the floor",
+      "floor_conditions_desc": "Moisture, cracks, expansion joints, flatness and level",
+      "screed_specific": "Screed",
+      "screed_specific_desc": "Type, strength and bond to the base",
+      "old_tile_specific": "Old tiles",
+      "old_tile_specific_desc": "Bond, glaze and number of layers",
+      "wood_boards_specific": "Wooden boards",
+      "wood_boards_specific_desc": "Stiffness, the wood and the present coating"
     },
     "question": {
       "cracks_present": "Are there cracks?",
@@ -1659,14 +1673,45 @@
       "joint_tape_missing": "Is the tape missing on the joints?",
       "board_movement": "Do the plasterboard sheets move?",
       "fastener_corrosion": "Are the fasteners corroding?",
-      "joint_gap_mm": "Gap on the joint"
+      "joint_gap_mm": "Gap on the joint",
+      "floor_moisture_measured": "Measured moisture",
+      "floor_moisture_high": "Is the moisture high?",
+      "floor_cracks_present": "Are there cracks?",
+      "expansion_joints_missing": "Are expansion joints missing?",
+      "floor_flatness_mm": "Flatness of the floor",
+      "floor_level_deviation_mm": "Deviation from level",
+      "floor_surface_condition": "Condition of the surface",
+      "screed_type": "Type of screed",
+      "underfloor_heating": "Is there underfloor heating?",
+      "screed_hollow": "Does the screed sound hollow?",
+      "screed_weak_surface": "Is the surface of the screed weak?",
+      "tiles_hollow": "Do the tiles sound hollow or move?",
+      "tiles_glazed": "Are the tiles glazed or polished?",
+      "tiles_layers": "Number of tile layers",
+      "boards_flex": "Do the boards flex or squeak?",
+      "wood_decay": "Is there rot, fungus or insect damage?",
+      "boards_coating": "Present coating of the boards"
     },
     "hint": {
       "cracks_present": "Cracks and micro-cracks on the surface",
       "unevenness_mm": "Maximum unevenness of the surface (mm)",
       "moisture_high": "E.g. > 3% CM for concrete, > 1% for gypsum plaster",
       "adhesion_weak": "Flaking, crumbling, loose fragments",
-      "board_movement": "Press the sheet — check for detachment and springiness"
+      "board_movement": "Press the sheet — check for detachment and springiness",
+      "floor_moisture_measured": "Result of the CM measurement (screed) or a moisture meter (wood), in %",
+      "floor_moisture_high": "Roughly: cement screed > 2% CM (heated > 1.8%), anhydrite > 0.5% CM (heated > 0.3%). The data sheet of the floor covering decides; the moisture of wood — as the maker of the covering recommends",
+      "floor_cracks_present": "Cracks of the screed, tiles or boards — take a photo with a ruler",
+      "expansion_joints_missing": "No perimeter joint at walls and columns, at thresholds or between the fields of the screed",
+      "floor_flatness_mm": "2 m straightedge: the largest gap under it (mm)",
+      "floor_level_deviation_mm": "Spirit level or laser level: the difference in height along the room (mm)",
+      "underfloor_heating": "Changes the permitted moisture and needs the screed to be heated up",
+      "screed_hollow": "Tap the floor: a hollow sound means the screed has come off the base",
+      "screed_weak_surface": "Scratch the surface, e.g. with a nail: it crumbles or dusts, no hard layer",
+      "tiles_hollow": "Tap the tiles: a hollow sound, loose or detached tiles",
+      "tiles_glazed": "Glaze and polished porcelain need a special primer or roughening",
+      "tiles_layers": "Check at an edge or a threshold",
+      "boards_flex": "Deflection, squeaking, loose boards or joists",
+      "wood_decay": "Rot, fungus, signs of woodworm — check by the walls and under the windows"
     },
     "option": {
       "substrate_solid": "Solid",
@@ -1676,10 +1721,19 @@
       "defect_delamination": "Flaking",
       "defect_blow_holes": "Blow holes / bubbles",
       "defect_efflorescence": "Efflorescence",
-      "defect_mold": "Mould / fungus"
+      "defect_mold": "Mould / fungus",
+      "screed_cement": "Cement",
+      "screed_anhydrite": "Anhydrite",
+      "screed_other": "Other",
+      "tiles_one_layer": "One layer",
+      "tiles_two_layers": "Two layers",
+      "coating_none": "Bare wood",
+      "coating_varnish_oil": "Varnish or oil",
+      "coating_paint": "Paint"
     },
     "unit": {
-      "mm": "mm"
+      "mm": "mm",
+      "percent": "%"
     }
   },
   "pricebook": {
