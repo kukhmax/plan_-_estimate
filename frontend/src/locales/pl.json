@@ -4288,7 +4288,19 @@
     "estimate_skipped": "Pominięto: {skipped} (pozycja w archiwum lub zmieniona jednostka).",
     "estimate_nothing": "Nie ma punktów ani tras do dodania.",
     "estimate_error": "Nie udało się dodać punktów i tras.",
-    "estimate_not_draft": "Pozycje można dodawać tylko do wersji roboczej kosztorysu."
+    "estimate_not_draft": "Pozycje można dodawać tylko do wersji roboczej kosztorysu.",
+    "qa_open": "Dodaj kilka punktów naraz",
+    "qa_title": "Punkty i trasy — kilka naraz",
+    "qa_hint": "Wpisz ilości przy tych pozycjach, które są w pomieszczeniu, i zapisz jednym przyciskiem. Puste pole = bez zmian.",
+    "qa_typical": "Typowy zestaw: po 1 szt. każdego punktu",
+    "qa_none": "W cenniku nie ma pozycji punktów ani tras. Użyj przycisku „Dodaj punkt lub trasę”.",
+    "qa_others_show": "Pokaż pozostałe pozycje ({n})",
+    "qa_others_hide": "Ukryj pozostałe pozycje",
+    "qa_save": "Zapisz ({n})",
+    "qa_saved": "Zapisano pozycji: {n}.",
+    "qa_there": "Już na liście: {n} — wpisana ilość zostanie dodana do tego wiersza.",
+    "duplicate_warning": "Ta pozycja już jest na liście pomieszczenia. Zapis doda drugi wiersz — ilość możesz też zmienić w istniejącym.",
+    "other_items": "Pozostałe pozycje"
   },
   "materials": {
     "title": "Materiały",

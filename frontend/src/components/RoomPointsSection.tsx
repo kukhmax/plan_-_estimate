@@ -11,6 +11,7 @@ import { MAX_POINT_NOTE_LENGTH } from '../types/roomPoints';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPlain, positiveAmount, toInput } from '../utils/paymentFormat';
 import { Ico } from './Ico';
+import { RoomPointsQuickAdd } from './RoomPointsQuickAdd';
 import { fieldClass, labelClass, primaryButton, secondaryButton } from './paymentUi';
 import { VoiceInput } from './VoiceInput';
 
@@ -50,6 +51,7 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [form, setForm] = useState<{ row?: RoomPoint } | null>(null);
+  const [quickAdd, setQuickAdd] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [packBusy, setPackBusy] = useState(false);
@@ -165,10 +167,28 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
           )}
           {rows && (
             <>
-              {form === null ? (
+              {quickAdd && form === null ? (
+                <RoomPointsQuickAdd
+                  projectId={projectId}
+                  roomId={roomId}
+                  eligible={eligible.filter((item) => trades.categoryVisible(item.category))}
+                  rows={rows}
+                  onSaved={(written) => {
+                    setQuickAdd(false);
+                    setMessage({ kind: 'ok', text: text.qa_saved.replace('{n}', String(written)) });
+                    void load();
+                  }}
+                  onCancel={() => setQuickAdd(false)}
+                />
+              ) : form === null ? (
                 <>
                   {eligible.length > 0 && !hiddenByTrades && (
-                    <button type="button" aria-label="room-point-add" disabled={offline} onClick={() => { setMessage(null); setForm({}); }} className={primaryButton}>
+                    <button type="button" aria-label="room-points-quick-add-open" disabled={offline} onClick={() => { setMessage(null); setQuickAdd(true); }} className={primaryButton}>
+                      <Ico>⚡</Ico>{text.qa_open}
+                    </button>
+                  )}
+                  {eligible.length > 0 && !hiddenByTrades && (
+                    <button type="button" aria-label="room-point-add" disabled={offline} onClick={() => { setMessage(null); setForm({}); }} className={secondaryButton}>
                       <Ico>➕</Ico>{text.add}
                     </button>
                   )}
@@ -189,6 +209,7 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
                   projectId={projectId}
                   roomId={roomId}
                   row={form.row}
+                  rows={rows}
                   eligible={eligible.filter((item) => trades.categoryVisible(item.category))}
                   onSaved={() => void saved()}
                   onCancel={() => setForm(null)}
@@ -254,8 +275,8 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
 }
 
 function PointForm({
-  projectId, roomId, row, eligible, onSaved, onCancel,
-}: { projectId: string; roomId: string; row?: RoomPoint; eligible: Eligible[]; onSaved: () => void; onCancel: () => void }) {
+  projectId, roomId, row, rows, eligible, onSaved, onCancel,
+}: { projectId: string; roomId: string; row?: RoomPoint; rows: RoomPoint[]; eligible: Eligible[]; onSaved: () => void; onCancel: () => void }) {
   const { t } = useI18n();
   const text = t.roomPoints;
   // the item of a row may have left the list of the live ones (archived, another unit): it stays chosen until the owner picks another
@@ -267,6 +288,13 @@ function PointForm({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const chosen = choices.find((item) => item.id === itemId);
+  // B8: the items of the trades of the points and routes first, the corners, seams and so on under a heading of their own
+  const isPoint = (item: { category: string }) => TRADE_CATEGORIES.includes(item.category) && item.category !== 'TILE';
+  const pointChoices = choices.filter(isPoint);
+  const otherChoices = choices.filter((item) => !isPoint(item));
+  const optionOf = (item: Eligible | PointItem) => (
+    <option key={item.id} value={item.id}>{`${itemName(item, t)} · ${item.unit === 'LM' ? text.unit_lm : text.unit_pcs}`}</option>
+  );
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -303,11 +331,13 @@ function PointForm({
         <label htmlFor="room-point-item" className={labelClass}>{text.item_label}</label>
         <select id="room-point-item" aria-label="room-point-item" value={itemId} onChange={(event) => setItemId(event.target.value)} className={fieldClass}>
           <option value="">{text.item_placeholder}</option>
-          {choices.map((item) => (
-            <option key={item.id} value={item.id}>{`${itemName(item, t)} · ${item.unit === 'LM' ? text.unit_lm : text.unit_pcs}`}</option>
-          ))}
+          {pointChoices.map(optionOf)}
+          {otherChoices.length > 0 && <optgroup label={text.other_items}>{otherChoices.map(optionOf)}</optgroup>}
         </select>
         {errors.includes('item') && <p role="alert" className="text-xs text-red-600 mt-1">{text.err_item}</p>}
+        {!row && itemId !== '' && rows.some((other) => other.item.id === itemId) && (
+          <p aria-label="room-point-duplicate" className="text-xs text-amber-700 mt-1 break-words">{text.duplicate_warning}</p>
+        )}
       </div>
       <div>
         <label htmlFor="room-point-quantity" className={labelClass}>{chosen?.unit === 'LM' ? text.quantity_lm : text.quantity_pcs}</label>

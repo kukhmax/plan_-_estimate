@@ -4318,7 +4318,19 @@
     "estimate_skipped": "Skipped: {skipped} (item archived or its unit changed).",
     "estimate_nothing": "There are no points or routes to add.",
     "estimate_error": "Could not add the points and routes.",
-    "estimate_not_draft": "Items can be added to a draft estimate only."
+    "estimate_not_draft": "Items can be added to a draft estimate only.",
+    "qa_open": "Add several points at once",
+    "qa_title": "Points and routes — several at once",
+    "qa_hint": "Type the quantities of the items the room has and save them with one button. An empty field changes nothing.",
+    "qa_typical": "Typical set: 1 piece of every point",
+    "qa_none": "The price book has no points or routes. Use the button \"Add a point or a route\".",
+    "qa_others_show": "Show the other items ({n})",
+    "qa_others_hide": "Hide the other items",
+    "qa_save": "Save ({n})",
+    "qa_saved": "Items saved: {n}.",
+    "qa_there": "Already on the list: {n} — the quantity you type is added to that row.",
+    "duplicate_warning": "This item is already on the room's list. Saving adds a second row — you can also change the quantity in the existing one.",
+    "other_items": "Other items"
   },
   "materials": {
     "title": "Materials",

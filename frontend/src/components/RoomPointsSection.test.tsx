@@ -315,3 +315,64 @@ describe('the trades of the owner (V2-13)', () => {
     expect(screen.queryByLabelText('room-points-pack-card')).toBeNull();
   });
 });
+
+describe('several points at once (B8)', () => {
+  const WATER = item({ id: 'i6', code: 'CUSTOM_WWW', display_name: 'Punkt wodny', category: 'PLUMBING' });
+  beforeEach(() => {
+    vi.mocked(tradesApi.fetchTrades).mockResolvedValue(CATALOG);
+    vi.mocked(itemsApi.fetchPriceItems).mockResolvedValue({ items: [SOCKET, CHASE, WATER, BUILT_IN], total: 4 } as never);
+  });
+
+  it('lists the points and routes first, keeps the corners and seams behind a button, and marks what the room has', async () => {
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('room-points-quick-add-open'));
+    expect(screen.getByLabelText('room-qa-qty-i1')).toBeInTheDocument();
+    expect(screen.getByLabelText('room-qa-qty-i6')).toBeInTheDocument();
+    expect(screen.queryByLabelText('room-qa-qty-i4')).toBeNull(); // the drywall corner
+    expect(screen.getByLabelText('room-qa-there-i1')).toHaveTextContent('12');
+    fireEvent.click(screen.getByLabelText('room-qa-others'));
+    expect(screen.getByLabelText('room-qa-qty-i4')).toBeInTheDocument();
+  });
+
+  it('saves all the typed quantities with one button: new rows, and the quantity added to a row the room has', async () => {
+    vi.mocked(pointsApi.createRoomPoint).mockResolvedValue(row({ id: 'r2' }));
+    vi.mocked(pointsApi.updateRoomPoint).mockResolvedValue(row());
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('room-points-quick-add-open'));
+    expect(screen.getByLabelText('room-qa-save')).toBeDisabled();
+    type('room-qa-qty-i6', '3');
+    type('room-qa-qty-i1', '2,5');
+    fireEvent.click(screen.getByLabelText('room-qa-save'));
+
+    await waitFor(() => expect(pointsApi.updateRoomPoint).toHaveBeenCalledWith(projectId, roomId, 'r1', { quantity: '14.50' }));
+    expect(pointsApi.createRoomPoint).toHaveBeenCalledWith(projectId, roomId, { price_item_id: 'i6', quantity: '3', note: null });
+    expect(await screen.findByText('Zapisano pozycji: 2.')).toBeInTheDocument();
+  });
+
+  it('puts one piece into every electric and plumbing point with the typical set, and sends nothing for a bad quantity', async () => {
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('room-points-quick-add-open'));
+    fireEvent.click(screen.getByLabelText('room-qa-typical'));
+    expect((screen.getByLabelText('room-qa-qty-i1') as HTMLInputElement).value).toBe('1');
+    expect((screen.getByLabelText('room-qa-qty-i6') as HTMLInputElement).value).toBe('1');
+    expect((screen.getByLabelText('room-qa-qty-i2') as HTMLInputElement).value).toBe(''); // a route is not a point
+    type('room-qa-qty-i6', 'abc');
+    fireEvent.click(screen.getByLabelText('room-qa-save'));
+    expect(await screen.findByText(/większą od zera/)).toBeInTheDocument();
+    expect(pointsApi.createRoomPoint).not.toHaveBeenCalled();
+    expect(pointsApi.updateRoomPoint).not.toHaveBeenCalled();
+  });
+
+  it('warns in the single form when the chosen item is already on the list', async () => {
+    renderSection();
+    await open();
+    fireEvent.click(await screen.findByLabelText('room-point-add'));
+    type('room-point-item', 'i6');
+    expect(screen.queryByLabelText('room-point-duplicate')).toBeNull();
+    type('room-point-item', 'i1');
+    expect(screen.getByLabelText('room-point-duplicate')).toBeInTheDocument();
+  });
+});
