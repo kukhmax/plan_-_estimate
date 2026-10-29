@@ -274,3 +274,27 @@ describe('compact row (usability U-4)', () => {
     expect(screen.queryByLabelText(/^occurrence-execution-/)).toBeNull();
   });
 });
+
+describe('UX walk B4: a greyed "Zapisz" says why', () => {
+  it('asks for the substrate on a wall with no plan, and says nothing once a plan can be saved', async () => {
+    const { ApiError } = await import('./api/http');
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockRejectedValue(new ApiError('Surface work plan not found', 404));
+    renderEditor();
+    const reason = await screen.findByLabelText(`save-blocked-${S}`);
+    expect(screen.getByLabelText(`save-work-plan-${S}`)).toBeDisabled();
+    expect(reason).toHaveTextContent('Aby zapisać plan, wybierz podłoże');
+    fireEvent.change(screen.getByLabelText(`work-plan-substrate-${S}`), { target: { value: 'CONCRETE' } });
+    expect(screen.queryByLabelText(`save-blocked-${S}`)).toBeNull();
+  });
+
+  it('names a technological break that is not a number', async () => {
+    renderEditor();
+    await screen.findByLabelText(`planned-works-${S}`);
+    expect(screen.queryByLabelText(`save-blocked-${S}`)).toBeNull(); // nothing changed: no reason to name
+    openOccurrenceMenu(keyOf(2));
+    fireEvent.click(screen.getByLabelText(`edit-wait-${keyOf(2)}`));
+    fireEvent.change(screen.getByLabelText(`wait-input-${keyOf(2)}`), { target: { value: 'abc' } });
+    expect(screen.getByLabelText(`save-work-plan-${S}`)).toBeDisabled();
+    expect(screen.getByLabelText(`save-blocked-${S}`)).toHaveTextContent('popraw przerwę technologiczną');
+  });
+});

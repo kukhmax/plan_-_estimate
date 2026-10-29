@@ -6163,3 +6163,9 @@ Owner 2026-10-29: a separate editor of the standard terms in the profile; when i
 * **Tests:** backend `test_ux_b2_contract_prefill.py` (+3: the terms API and per-owner isolation, the profile first and the latest contract for the rest, the migration up / down); vitest `ContractTerms.test.tsx` (3).
 * **Verification:** PASS -- backend shards on Python 3.12, vitest full, tsc, build; local `alembic upgrade head` 0087 -> 0088; live (390 px PL): empty terms -> "z ostatniej umowy (obiekt „ul. Długa 15/4”)", filled 24 / 30 from it, changed to 36 + "poza lokalem" -> "Zapisano warunków: 3.", no horizontal scroll.
 
+### UX walk B4: a greyed "Zapisz" of a work plan says why (2026-10-29; branch `ver-2`; NO MIGRATION)
+Found in the UX walk: "Zapisz" of the plan stayed grey until a substrate was chosen and did not say so.
+* **Changed (frontend):** `SurfaceWorkPlanEditor`: under a disabled "Zapisz" a line names the reason -- "Aby zapisać plan, wybierz podłoże" (no substrate) or "popraw przerwę technologiczną" (a break that is not a number); nothing is said while there is simply nothing to save. Locale keys x4.
+* **Not done (owner's decision):** floor substrates (screed, old tiles, boards): `substrate` is a PostgreSQL enum shared by checklists, inspections, risks, phrases and plans; new values need a migration and a decision on their quality scale, checklist and risks.
+* **Tests:** vitest `SurfaceWorkPlanWaits.test.tsx` (+2).
+* **Verification:** PASS -- vitest full, tsc, build; live (390 px PL): the floor of "Kuchnia" without a plan -> "Aby zapisać plan, wybierz podłoże (pole „Podłoże” powyżej)." under the grey button, no horizontal scroll. No backend change.

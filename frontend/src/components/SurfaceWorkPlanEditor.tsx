@@ -1118,6 +1118,12 @@ export function SurfaceWorkPlanEditor({
           >
             <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
           </button>
+          {/* B4: a greyed "Zapisz" says why (the substrate first, then a technological break that is not a number) */}
+          {!saving && (!substrate || invalidWait) && (
+            <p aria-label={`save-blocked-${surfaceId}`} className="text-xs text-amber-700 break-words">
+              {!substrate ? t.work_plan.save_needs_substrate : t.work_plan.save_needs_wait}
+            </p>
+          )}
         </form>
 
         {/* Rendered as a SIBLING of the form above, never nested inside it —

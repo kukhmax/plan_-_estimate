@@ -1148,6 +1148,8 @@
     "wait_hours_label": "Number of hours",
     "wait_none": "No pause set",
     "wait_invalid": "Enter a whole number of hours (at least 1) or leave it empty.",
+    "save_needs_substrate": "To save the plan, choose the substrate (the “Substrate” field above).",
+    "save_needs_wait": "To save the plan, correct the technological break (a number of hours).",
     "wait_help": "the minimum pause after this work before the next one begins (not the duration of the work)",
     "wait_hours_value": "{hours} h",
     "wait_days": {

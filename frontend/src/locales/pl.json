@@ -1148,6 +1148,8 @@
     "wait_hours_label": "Liczba godzin",
     "wait_none": "Brak określonej przerwy",
     "wait_invalid": "Podaj pełną liczbę godzin (co najmniej 1) lub zostaw puste.",
+    "save_needs_substrate": "Aby zapisać plan, wybierz podłoże (pole „Podłoże” powyżej).",
+    "save_needs_wait": "Aby zapisać plan, popraw przerwę technologiczną (liczba godzin).",
     "wait_help": "minimalna przerwa po tej pracy, zanim zacznie się kolejna (nie czas trwania pracy)",
     "wait_hours_value": "{hours} h",
     "wait_days": {
