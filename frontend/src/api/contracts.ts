@@ -1,4 +1,4 @@
-import { Contract, ContractAnswersChange, ContractGate, ContractListResponse } from '../types/contract';
+import { Contract, ContractAnswersChange, ContractGate, ContractListResponse, ContractPrefill } from '../types/contract';
 import type { IssuedDocument } from '../types/document';
 import { apiRequest } from './http';
 
@@ -17,6 +17,11 @@ export function openContractDraft(projectId: string): Promise<Contract> {
 
 export function saveContractAnswers(projectId: string, contractId: string, answers: ContractAnswersChange): Promise<Contract> {
   return apiRequest(`${basePath(projectId)}/${contractId}/answers`, { method: 'PATCH', body: JSON.stringify({ answers }) });
+}
+
+/** UX walk B2: fill the empty answers from the facts of the object and the owner's latest contract of another object. */
+export function prefillContract(projectId: string, contractId: string): Promise<ContractPrefill> {
+  return apiRequest(`${basePath(projectId)}/${contractId}/prefill`, { method: 'POST' });
 }
 
 export function abandonContractDraft(projectId: string, contractId: string): Promise<Contract> {

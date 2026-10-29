@@ -25,6 +25,7 @@ from app.schemas.contract import (
     ContractAnswersUpdate,
     ContractGateRead,
     ContractListResponse,
+    ContractPrefillRead,
     ContractRead,
     ContractSignRequest,
     GateBlockerRead,
@@ -118,6 +119,24 @@ async def update_contract_answers(
     except FAILURES as exc:
         raise _http_error(exc) from exc
     return contract_read(row)
+
+
+@router.post(
+    BASE + "/{contract_id}/prefill",
+    response_model=ContractPrefillRead,
+    summary="Fill the empty answers of a draft from the facts of the object and the owner's latest contract of another object",
+)
+async def prefill_contract(
+    project_id: uuid.UUID,
+    contract_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    service: ContractService = Depends(get_contract_service),
+) -> ContractPrefillRead:
+    try:
+        row, filled, terms_from = await service.prefill(project_id, contract_id, current_user.id)
+    except FAILURES as exc:
+        raise _http_error(exc) from exc
+    return ContractPrefillRead(contract=contract_read(row), filled=filled, terms_from=terms_from)
 
 
 @router.post(BASE + "/{contract_id}/archive", response_model=ContractRead, summary="Abandon a draft")

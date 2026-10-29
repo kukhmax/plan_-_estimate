@@ -56,3 +56,11 @@ class GateBlockerRead(BaseModel):
 class ContractGateRead(BaseModel):
     ready: bool
     blockers: list[GateBlockerRead]
+
+
+class ContractPrefillRead(BaseModel):
+    """UX walk B2: the draft after its empty answers were filled, which keys were filled and the object the owner's terms came from."""
+
+    contract: ContractRead
+    filled: list[str]
+    terms_from: str | None = None

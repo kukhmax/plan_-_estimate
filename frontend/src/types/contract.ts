@@ -58,3 +58,10 @@ export interface ContractGate {
   ready: boolean;
   blockers: GateBlocker[];
 }
+
+/** UX walk B2: the draft after its empty answers were filled, the keys filled and the object the owner's terms came from. */
+export interface ContractPrefill {
+  contract: Contract;
+  filled: string[];
+  terms_from: string | null;
+}

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchContractCatalog } from '../api/contractCatalog';
-import { abandonContractDraft, closeContract, fetchContractGate, fetchContracts, issueContract, openContractDraft, saveContractAnswers, signContract } from '../api/contracts';
+import { abandonContractDraft, closeContract, fetchContractGate, fetchContracts, issueContract, openContractDraft, prefillContract, saveContractAnswers, signContract } from '../api/contracts';
 import { previewContractPdf } from '../api/documents';
 import { ApiError } from '../api/http';
 import { documentErrorText } from '../utils/documentErrors';
 import { fetchRepresentatives } from '../api/representatives';
 import { useI18n } from '../hooks/useI18n';
-import type { Contract, ContractAnswersChange, ContractGate, GateBlocker } from '../types/contract';
+import type { Contract, ContractAnswersChange, ContractGate, ContractPrefill, GateBlocker } from '../types/contract';
 import type { ContractCatalog, ContractQuestion, PremisesRequirement, QuestionGroup } from '../types/contractCatalog';
 import type { ProjectRepresentative } from '../types/representative';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
@@ -53,6 +53,9 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
   const [confirmClose, setConfirmClose] = useState(false);
   const [gate, setGate] = useState<ContractGate | null>(null);
   const [gateFailed, setGateFailed] = useState(false);
+  // B2: the questions filled by "Uzupełnij puste pola" in this visit, marked until the owner changes them
+  const [prefilled, setPrefilled] = useState<Set<string>>(new Set());
+  const [prefillNote, setPrefillNote] = useState<string | null>(null);
   const alive = useRef(true);
 
   useEffect(() => {
@@ -124,6 +127,18 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
       setDraft(contract);
       fill(contract, loadedCatalog);
       setOpen(true);
+      setPrefilled(new Set());
+      setPrefillNote(null);
+      // B2: a draft nobody has answered yet is filled at once with what is known (the owner sees and changes every field)
+      if (Object.keys(contract.answers ?? {}).length === 0) {
+        try {
+          applyPrefill(await prefillContract(projectId, contract.id), loadedCatalog);
+          const again = await fetchRepresentatives(projectId); // the client may have just become the person who accepts
+          if (alive.current) setPeople(again.items.filter((p) => !p.is_archived));
+        } catch {
+          // the questionnaire stays as it was: "Uzupełnij puste pola" tries again
+        }
+      }
       void loadGate(contract.id);
     } catch {
       if (alive.current) setError(text.load_failed);
@@ -133,6 +148,21 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
   };
 
   const questions: ContractQuestion[] = catalog?.questionnaire.items ?? [];
+
+  const applyPrefill = (result: ContractPrefill, source: ContractCatalog) => {
+    if (!alive.current) return;
+    setDraft(result.contract);
+    fill(result.contract, source);
+    setPrefilled(new Set(result.filled));
+    if (result.filled.length === 0) {
+      setPrefillNote(text.prefill_nothing);
+      return;
+    }
+    const parts = [text.prefill_done.replace('{n}', String(result.filled.length))];
+    if (result.terms_from) parts.push(text.prefill_terms_from.replace('{name}', result.terms_from));
+    parts.push(text.prefill_check);
+    setPrefillNote(parts.join(' '));
+  };
 
   const changes = (): ContractAnswersChange => {
     const result: ContractAnswersChange = {};
@@ -172,6 +202,32 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
         setError(text.errors.NOT_EDITABLE);
       } else {
         setError(text.errors.UNKNOWN);
+      }
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  };
+
+  const prefillNow = async () => {
+    if (!draft || !catalog || busy) return;
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      const diff = changes();
+      if (Object.keys(diff).length > 0) await saveContractAnswers(projectId, draft.id, diff); // what is typed is kept, then the rest is filled
+      applyPrefill(await prefillContract(projectId, draft.id), catalog);
+      const again = await fetchRepresentatives(projectId);
+      if (alive.current) setPeople(again.items.filter((p) => !p.is_archived));
+      void loadGate(draft.id);
+    } catch (err) {
+      if (!alive.current) return;
+      if (err instanceof ApiError && err.code === 'CONTRACT_ANSWER_INVALID') {
+        const details = (err.detail as { details?: { key?: string; reason?: string } } | null)?.details;
+        const label = details?.key ? catalogText.questions[details.key as keyof typeof catalogText.questions] ?? details.key : '';
+        setError(`${label}: ${text.errors[(details?.reason ?? '') as keyof typeof text.errors] ?? text.errors.UNKNOWN}`);
+      } else {
+        setError(err instanceof ApiError && err.code === 'CONTRACT_NOT_EDITABLE' ? text.errors.NOT_EDITABLE : text.errors.UNKNOWN);
       }
     } finally {
       if (alive.current) setBusy(false);
@@ -292,7 +348,15 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
     }
   };
 
-  const setField = (key: string, value: FieldValue) => setFields((current) => ({ ...current, [key]: value }));
+  const setField = (key: string, value: FieldValue) => {
+    setFields((current) => ({ ...current, [key]: value }));
+    setPrefilled((current) => {
+      if (!current.has(key)) return current;
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+  };
   const setRequirement = (key: string, requirement: string, patch: Partial<RequirementField>) =>
     setFields((current) => {
       const all = (current[key] ?? {}) as Record<string, RequirementField>;
@@ -505,6 +569,16 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
               </ul>
             </div>
           )}
+          <section aria-label="contract-prefill-box" className="space-y-1.5">
+            <button type="button" aria-label="contract-prefill" disabled={busy} onClick={() => void prefillNow()} className="w-full min-h-11 px-3 text-sm font-semibold text-blue-700 border border-blue-300 rounded-xl hover:bg-blue-50 disabled:opacity-60 transition break-words">
+              <Ico>✨</Ico>{text.prefill}
+            </button>
+            {prefillNote ? (
+              <p role="status" aria-label="contract-prefill-note" className="text-xs text-emerald-800 break-words">{prefillNote}</p>
+            ) : (
+              <p className="text-xs text-slate-500 break-words">{text.prefill_hint}</p>
+            )}
+          </section>
           {groups.map((group) => (
             <fieldset key={group} className="space-y-3">
               <legend className="text-sm font-semibold text-slate-900 break-words">{catalogText.groups.questions[group]}</legend>
@@ -517,6 +591,11 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
                       <span className={`ml-2 text-xs font-normal ${question.requirement === 'REQUIRED' ? 'text-red-700' : 'text-slate-500'}`}>
                         {question.requirement === 'REQUIRED' ? text.required : text.optional}
                       </span>
+                      {prefilled.has(question.key) && (
+                        <span aria-label={`contract-prefilled-${question.key}`} className="ml-2 inline-block rounded-md bg-emerald-50 border border-emerald-200 px-1.5 text-xs font-normal text-emerald-800">
+                          {text.prefilled_badge}
+                        </span>
+                      )}
                     </span>
                     {hint && <span className="block text-xs text-slate-600 break-words">{hint}</span>}
                     {renderInput(question)}

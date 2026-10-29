@@ -15,12 +15,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.contracts.answers import effective_answers, merge_answers, missing_required
 from app.domain.contracts.gate import Blocker, GateData, evaluate_gate, load_gate_data
 from app.domain.contracts.catalog import load_contract_catalog
+from app.domain.contracts.prefill import PrefillFacts, prefill_changes
 from app.domain.documents.formatting import local_datetime
-from app.domain.exceptions import ContractNotEditableError, ContractNotFoundError, ContractSignError, ProjectNotFoundError
+from app.domain.exceptions import (
+    ContractAnswerInvalidError,
+    ContractNotEditableError,
+    ContractNotFoundError,
+    ContractSignError,
+    ProjectNotFoundError,
+)
+from app.models.client import Client, ClientType
 from app.models.estimate import Estimate, EstimateStatus
 from app.models.contract import Contract, ContractStatus
 from app.models.project import Project
-from app.models.project_representative import ProjectRepresentative
+from app.models.project_representative import ProjectRepresentative, RepresentativeSide
 from app.schemas.contract import ContractRead
 
 
@@ -138,6 +146,90 @@ class ContractService:
         await self.db.commit()
         await self.db.refresh(row)
         return row
+
+    async def _terms_source(self, project_id: uuid.UUID, owner_id: uuid.UUID) -> tuple[dict[str, Any], str | None]:
+        """The answers of the owner's latest contract of ANOTHER object (an issued one first, else a draft) and the name of that object."""
+        others = select(Contract, Project.name).join(Project, Project.id == Contract.project_id).where(
+            Contract.owner_id == owner_id, Contract.project_id != project_id
+        )
+        found = (
+            await self.db.execute(others.where(Contract.issued_at.is_not(None)).order_by(Contract.issued_at.desc()).limit(1))
+        ).first() or (
+            await self.db.execute(others.where(Contract.status == ContractStatus.DRAFT.value).order_by(Contract.updated_at.desc()).limit(1))
+        ).first()
+        if found is None:
+            return {}, None
+        contract, name = found
+        return dict(contract.answers or {}), name
+
+    async def prefill(self, project_id: uuid.UUID, contract_id: uuid.UUID, owner_id: uuid.UUID) -> "tuple[Contract, list[str], str | None]":
+        """UX walk B2: fill the empty answers of the draft from the facts of the object and the owner's own terms (his latest contract
+        of another object). Returns the draft, the keys filled and the name of the object the terms came from. A private client with no
+        person of the customer's side gets one (himself, may accept the work and sign), so "who accepts" needs no other screen."""
+        row = await self.get(project_id, contract_id, owner_id)
+        if row.status != ContractStatus.DRAFT.value:
+            raise ContractNotEditableError(f"contract {contract_id} is {row.status}: only a draft is filled")
+        project = (await self.db.execute(select(Project).where(Project.id == project_id, Project.owner_id == owner_id))).scalar_one()
+        client = (
+            await self.db.execute(select(Client).where(Client.id == project.client_id, Client.owner_user_id == owner_id))
+        ).scalar_one_or_none() if project.client_id is not None else None
+        private = client is not None and client.client_type == ClientType.PRIVATE_PERSON
+        people = list(
+            (
+                await self.db.execute(
+                    select(ProjectRepresentative).where(
+                        ProjectRepresentative.project_id == project_id,
+                        ProjectRepresentative.owner_id == owner_id,
+                        ProjectRepresentative.is_archived.is_(False),
+                    ).order_by(ProjectRepresentative.created_at, ProjectRepresentative.id)
+                )
+            ).scalars()
+        )
+        customers = [p for p in people if p.side == RepresentativeSide.CUSTOMER.value]
+        stored = dict(row.answers or {})
+        if private and not customers and not stored.get("who_accepts"):
+            name = " ".join(part for part in (client.first_name, client.last_name) if part and part.strip()).strip()
+            if name:
+                person = ProjectRepresentative(
+                    owner_id=owner_id, project_id=project_id, side=RepresentativeSide.CUSTOMER.value, name=name,
+                    role_title=None, phone=client.phone, email=client.email, may_accept_and_sign=True,
+                )
+                self.db.add(person)
+                await self.db.flush()
+                people.append(person)
+                customers = [person]
+        estimate = (
+            await self.db.execute(
+                select(Estimate)
+                .where(Estimate.project_id == project_id, Estimate.owner_id == owner_id, Estimate.status != EstimateStatus.ARCHIVED)
+                .order_by(Estimate.version.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        terms, source = await self._terms_source(project_id, owner_id)
+        facts = PrefillFacts(
+            today=local_datetime(datetime.now(UTC)).date(),
+            place=(project.city or "").strip() or None,
+            vat_rate_percent=estimate.vat_rate_percent if estimate is not None and estimate.vat_mode == "RATE" else None,
+            private_client=private,
+            customer_ids=tuple(str(p.id) for p in customers if p.may_accept_and_sign),
+        )
+        catalog = load_contract_catalog()
+        person_ids = {str(p.id) for p in people}
+        authorised_ids = {str(p.id) for p in people if p.may_accept_and_sign}
+        filled: list[str] = []
+        answers = stored
+        for key, value in prefill_changes(stored, facts, terms).items():
+            try:  # one answer at a time: a carried term the questionnaire no longer admits is simply left out
+                answers = merge_answers(answers, {key: value}, person_ids=person_ids, authorised_ids=authorised_ids, catalog=catalog)
+            except ContractAnswerInvalidError:
+                continue
+            filled.append(key)
+        row.answers = answers
+        await self.db.commit()
+        await self.db.refresh(row)
+        used_terms = any(key not in {"contract_date", "contract_place", "vat_rate_percent", "client_status", "who_accepts"} for key in filled)
+        return row, filled, source if used_terms else None
 
     async def archive_draft(self, project_id: uuid.UUID, contract_id: uuid.UUID, owner_id: uuid.UUID) -> Contract:
         row = await self.get(project_id, contract_id, owner_id)
