@@ -224,7 +224,21 @@
     "back_to_plan": "Wróć do planu pokoju",
     "back_done": "Plan wrócił do planu pokoju.",
     "back_started": "Prace na tej ścianie już się rozpoczęły; jej plan nie został zmieniony.",
-    "back_failed": "Nie udało się zastosować planu pokoju."
+    "back_failed": "Nie udało się zastosować planu pokoju.",
+    "process_open": "Z procesu technologicznego",
+    "process_need_quality": "Najpierw wybierz klasę jakości — procesy są dobrane do podłoża i klasy.",
+    "process_steps": "Kroki: {n}",
+    "process_insert": "Wstaw kroki ({n})",
+    "process_replace": "Zastąp listę krokami",
+    "process_append": "Dodaj kroki na końcu",
+    "process_back": "Inny proces",
+    "process_inserted": "Wstawiono kroki: {n}. Naciśnij „Zapisz i zastosuj”, aby przenieść je na ściany.",
+    "copy_room_pick": "Skopiuj plan z innego pomieszczenia",
+    "copy_room_button": "Kopiuj",
+    "copy_room_hint": "Przenosi podłoże, klasę i obie listy prac. Nic się nie zapisze, dopóki nie naciśniesz „Zapisz i zastosuj”.",
+    "copy_room_none": "W tym pomieszczeniu nie ma jeszcze planu prac.",
+    "copy_room_failed": "Nie udało się wczytać planu tego pomieszczenia.",
+    "copy_room_done": "Skopiowano plan z: {name}. Sprawdź i zapisz."
   },
   "quick": {
     "title": "Szybka wycena",

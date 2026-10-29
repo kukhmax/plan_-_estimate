@@ -74,6 +74,9 @@ html[data-color-scheme='dark'] .bg-blue-50 {
 html[data-color-scheme='dark'] .bg-blue-50\/50 {
   background-color: rgba(59, 130, 246, 0.06);
 }
+html[data-color-scheme='dark'] .bg-blue-50\/60 {
+  background-color: rgba(59, 130, 246, 0.072);
+}
 html[data-color-scheme='dark'] .bg-cyan-100 {
   background-color: rgba(6, 182, 212, 0.18);
 }

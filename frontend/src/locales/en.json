@@ -224,7 +224,21 @@
     "back_to_plan": "Back to the room plan",
     "back_done": "The plan was set back to the room plan.",
     "back_started": "Work on this wall has already started; its plan was not changed.",
-    "back_failed": "Could not apply the room plan."
+    "back_failed": "Could not apply the room plan.",
+    "process_open": "From a technological process",
+    "process_need_quality": "Choose the quality class first — processes are matched to the substrate and the class.",
+    "process_steps": "Steps: {n}",
+    "process_insert": "Insert the steps ({n})",
+    "process_replace": "Replace the list with the steps",
+    "process_append": "Add the steps at the end",
+    "process_back": "Another process",
+    "process_inserted": "Steps inserted: {n}. Press “Save and apply” to bring them to the walls.",
+    "copy_room_pick": "Copy the plan of another room",
+    "copy_room_button": "Copy",
+    "copy_room_hint": "Brings over the substrate, the class and both lists of works. Nothing is saved until you press “Save and apply”.",
+    "copy_room_none": "This room has no work plan yet.",
+    "copy_room_failed": "Could not load the plan of this room.",
+    "copy_room_done": "Plan copied from: {name}. Check it and save."
   },
   "quick": {
     "title": "Quick estimate",

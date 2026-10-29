@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchPriceItems } from '../api/priceItems';
+import { fetchRooms } from '../api/rooms';
 import { fetchRoomWorkPlan, RoomPlanRequestError, saveRoomWorkPlan } from '../api/roomWorkPlans';
 import { fetchSurfaceWorkPlan } from '../api/workPlans';
 import { useI18n } from '../hooks/useI18n';
@@ -11,6 +12,7 @@ import { RoomWorkPlanResponse, SurfacePlanState } from '../types/roomWorkPlan';
 import { resolveDisplayName } from '../utils/priceItemName';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { Ico } from './Ico';
+import { RoomPlanProcessPicker } from './RoomPlanProcessPicker';
 
 interface RoomPlanSheetProps {
   projectId: string;
@@ -63,6 +65,11 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
   const [sources, setSources] = useState<SurfacePlanState[]>([]);
   const [source, setSource] = useState('');
   const [loadingSource, setLoadingSource] = useState(false);
+  const [rooms, setRooms] = useState<{ id: string; name: string }[]>([]);
+  const [otherRoom, setOtherRoom] = useState('');
+  const [copying, setCopying] = useState(false);
+  const [processFor, setProcessFor] = useState<Target | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useTelegramBackButton(true, report ? () => { onSaved(); onClose(); } : onClose);
   useEffect(() => {
@@ -92,6 +99,12 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
       .catch(() => {
         if (!cancelled) setLoadFailed(true);
       });
+    // the other rooms of the object, for "Skopiuj plan z innego pomieszczenia"; without them the choice is simply not shown
+    void fetchRooms(projectId)
+      .then((found) => {
+        if (!cancelled) setRooms(found.items.filter((room) => room.id !== roomId).map((room) => ({ id: room.id, name: room.name })));
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -159,6 +172,56 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
     }
   };
 
+  // B1 "Skopiuj plan z innego pomieszczenia": its plan of the room; a room without one gives the plans of its first wall and its ceiling
+  const copyFromRoom = async () => {
+    const chosen = rooms.find((room) => room.id === otherRoom);
+    if (!chosen) return;
+    setCopying(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const found = await fetchRoomWorkPlan(projectId, chosen.id);
+      if (found.plan) {
+        setSubstrate(found.plan.substrate);
+        setQuality(found.plan.quality_target ?? '');
+        setLists({ walls: found.plan.walls, ceiling: found.plan.ceiling });
+      } else {
+        const planned = found.surfaces.filter((surface) => surface.state !== 'NONE');
+        const firstWall = planned.find((surface) => surface.surface_type === 'WALL');
+        const ceiling = planned.find((surface) => surface.surface_type === 'CEILING');
+        if (!firstWall && !ceiling) {
+          setError(text.copy_room_none);
+          return;
+        }
+        const [wallPlan, ceilingPlan] = await Promise.all([
+          firstWall ? fetchSurfaceWorkPlan(projectId, chosen.id, firstWall.surface_id) : Promise.resolve(null),
+          ceiling ? fetchSurfaceWorkPlan(projectId, chosen.id, ceiling.surface_id) : Promise.resolve(null),
+        ]);
+        const lead = wallPlan ?? ceilingPlan;
+        if (lead) {
+          setSubstrate(lead.substrate);
+          setQuality(lead.quality_target ?? '');
+        }
+        setLists({
+          walls: wallPlan ? wallPlan.planned_works.map((work) => work.price_item_id) : [],
+          ceiling: ceilingPlan ? ceilingPlan.planned_works.map((work) => work.price_item_id) : [],
+        });
+      }
+      setNotice(text.copy_room_done.replace('{name}', chosen.name));
+    } catch {
+      setError(text.copy_room_failed);
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  const pickProcess = (target: Target, ids: string[], mode: 'replace' | 'append') => {
+    setLists((current) => ({ ...current, [target]: mode === 'replace' ? ids : [...current[target], ...ids] }));
+    setProcessFor(null);
+    setError(null);
+    setNotice(text.process_inserted.replace('{n}', String(ids.length)));
+  };
+
   const finish = () => {
     onSaved();
     onClose();
@@ -192,6 +255,22 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
             {loadFailed && <p role="alert" className="text-sm text-red-600 break-words">{text.load_failed}</p>}
             {items && (
               <>
+                {rooms.length > 0 && (
+                  <section aria-label="room-plan-copy-room" className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <select aria-label="room-plan-copy-room-pick" value={otherRoom} onChange={(event) => setOtherRoom(event.target.value)} className={`${inputClass} min-w-0 flex-1`}>
+                        <option value="">{text.copy_room_pick}</option>
+                        {rooms.map((room) => (
+                          <option key={room.id} value={room.id}>{room.name}</option>
+                        ))}
+                      </select>
+                      <button type="button" aria-label="room-plan-copy-room-button" disabled={!otherRoom || copying} onClick={() => void copyFromRoom()} className="shrink-0 min-h-11 px-3 text-sm font-semibold rounded-xl border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-40 break-words">
+                        <Ico>📋</Ico>{text.copy_room_button}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 break-words">{text.copy_room_hint}</p>
+                  </section>
+                )}
                 {sources.length > 0 && (
                   <section aria-label="room-plan-load" className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
@@ -256,10 +335,26 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
                         <Ico>➕</Ico>{text.add_work}
                       </button>
                     </div>
+                    {processFor === target ? (
+                      <RoomPlanProcessPicker
+                        target={target}
+                        substrate={substrate}
+                        quality={quality}
+                        hasWorks={lists[target].length > 0}
+                        nameOf={nameOf}
+                        onPick={(ids, mode) => pickProcess(target, ids, mode)}
+                        onClose={() => setProcessFor(null)}
+                      />
+                    ) : (
+                      <button type="button" aria-label={`room-plan-${target}-process-open`} onClick={() => { setProcessFor(target); setNotice(null); }} className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-blue-300 text-blue-700 hover:bg-blue-50 break-words">
+                        <Ico>📂</Ico>{text.process_open}
+                      </button>
+                    )}
                   </section>
                 ))}
               </>
             )}
+            {notice && !error && <p role="status" aria-label="room-plan-notice" className="text-sm text-emerald-700 break-words">{notice}</p>}
             {error && <p role="alert" className="text-sm text-red-600 font-medium break-words">{error}</p>}
             <div className="flex gap-2 justify-end">
               <button type="button" aria-label="room-plan-cancel" onClick={onClose} className="min-h-11 px-3 py-1 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50">
