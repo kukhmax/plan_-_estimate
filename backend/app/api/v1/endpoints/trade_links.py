@@ -130,7 +130,7 @@ async def transfer_preview(
     service: TradeTransferService = Depends(get_trade_transfer_service),
 ) -> TransferPreview:
     try:
-        return await service.preview(current_user.id, project_id, trade, payload.mapping)
+        return await service.preview(current_user.id, project_id, trade, payload.mapping, own=payload.own)
     except FAILURES as exc:
         raise _http_error(exc) from exc
 
@@ -144,6 +144,6 @@ async def transfer(
     service: TradeTransferService = Depends(get_trade_transfer_service),
 ) -> TransferResult:
     try:
-        return await service.apply(current_user.id, project_id, trade, payload.mapping, points=payload.points, materials=payload.materials)
+        return await service.apply(current_user.id, project_id, trade, payload.mapping, points=payload.points, materials=payload.materials, own=payload.own)
     except FAILURES as exc:
         raise _http_error(exc) from exc

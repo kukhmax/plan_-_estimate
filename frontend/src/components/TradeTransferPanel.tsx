@@ -3,7 +3,7 @@ import { ApiError } from '../api/http';
 import { makePointsPack } from '../api/roomPoints';
 import { previewTradeTransfer, runTradeTransfer } from '../api/tradeLinks';
 import { useI18n } from '../hooks/useI18n';
-import type { LinkTrade, TransferCandidate, TransferKind, TransferMapping, TransferMaterialKind, TransferPreview, TransferRow } from '../types/tradeLink';
+import type { LinkTrade, TransferCandidate, TransferKind, TransferMapping, TransferMaterialKind, TransferOwnMode, TransferPreview, TransferRow } from '../types/tradeLink';
 import { formatQuantity } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
 import { Ico } from './Ico';
@@ -43,7 +43,11 @@ const BADGE: Record<TransferKind | TransferMaterialKind, string> = {
   REMOVE: 'bg-red-100 text-red-800',
   NONE: 'bg-slate-200 text-slate-700',
   INVALID: 'bg-red-100 text-red-800',
+  TAKE_OVER: 'bg-amber-100 text-amber-800',
+  REMOVE_OWN: 'bg-red-100 text-red-800',
+  SKIP: 'bg-slate-200 text-slate-700',
 };
+const OWN_MODES: TransferOwnMode[] = ['REPLACE', 'ADD', 'SKIP'];
 
 /**
  * V2-14a — carrying the answers of a craftsman over into "Punkty i trasy" and the materials of the rooms. First a preview (nothing is written): which item of the price book each typical
@@ -60,6 +64,8 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
   const [materials, setMaterials] = useState(true);
   const [busy, setBusy] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  /** The owner's own rows with the same item in a room: replaced by the craftsman's number (default), kept next to it, or kept alone (owner 2026-10-27: no double count). */
+  const [own, setOwn] = useState<TransferOwnMode>('REPLACE');
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const request = useRef(0);
 
@@ -73,12 +79,12 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
   );
 
   const load = useCallback(
-    async (choice: TransferMapping) => {
+    async (choice: TransferMapping, ownMode: TransferOwnMode = 'REPLACE') => {
       const mine = ++request.current;
       setLoading(true);
       setLoadError(null);
       try {
-        const loaded = await previewTradeTransfer(projectId, trade, choice);
+        const loaded = await previewTradeTransfer(projectId, trade, choice, ownMode);
         if (mine === request.current) setPreview(loaded);
       } catch (err) {
         if (mine === request.current) setLoadError(errorText(err));
@@ -97,7 +103,12 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
     const next = { ...mapping, [key]: value === '' ? null : value };
     setMapping(next);
     setMessage(null);
-    void load(next);
+    void load(next, own);
+  };
+  const chooseOwn = (mode: TransferOwnMode) => {
+    setOwn(mode);
+    setMessage(null);
+    void load(mapping, mode);
   };
 
   const makePack = async () => {
@@ -107,7 +118,7 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
     try {
       const made = await makePointsPack();
       setMessage({ kind: 'ok', text: made.created > 0 ? text.pack_done.replace('{n}', String(made.created)) : text.pack_none });
-      await load(mapping);
+      await load(mapping, own);
     } catch (err) {
       setMessage({ kind: 'error', text: errorText(err) });
     } finally {
@@ -120,7 +131,7 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
     setBusy(true);
     setMessage(null);
     try {
-      const done = await runTradeTransfer(projectId, trade, mapping, points, materials);
+      const done = await runTradeTransfer(projectId, trade, mapping, points, materials, own);
       const changed = done.points_added + done.points_changed + done.points_removed + done.materials_added + done.materials_changed + done.materials_removed;
       setMessage({
         kind: 'ok',
@@ -135,7 +146,7 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
                 .replace('{mc}', String(done.materials_changed))
                 .replace('{mr}', String(done.materials_removed)),
       });
-      await load(mapping);
+      await load(mapping, own);
     } catch (err) {
       setMessage({ kind: 'error', text: errorText(err) });
     } finally {
@@ -152,7 +163,8 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
     const unit = item?.unit ?? 'PCS';
     const unitLabel = unit === 'LM' ? t.master_page.unit_LM : t.master_page.unit_PCS;
     const was = row.was_quantity !== null ? ` (${text.was.replace('{q}', formatQuantity(row.was_quantity, unit))})` : '';
-    return `${item ? itemName(item, t) : '—'}: ${formatQuantity(row.quantity, unit)} ${unitLabel}${was}`;
+    const mine = row.own_quantity != null && (row.kind === 'NEW' || row.kind === 'SKIP') ? ` · ${text.own_has.replace('{q}', `${formatQuantity(row.own_quantity, unit)} ${unitLabel}`)}` : '';
+    return `${item ? itemName(item, t) : '—'}: ${formatQuantity(row.quantity, unit)} ${unitLabel}${was}${mine}`;
   };
   const numbersText = (numbers: Record<string, string>) =>
     Object.entries(numbers)
@@ -219,6 +231,27 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
                 <Ico>{busy ? '⏳' : '📦'}</Ico>{text.pack_button}
               </button>
             </div>
+          )}
+
+          {(preview.own_conflicts ?? 0) > 0 && (
+            <fieldset aria-label={`trade-transfer-own-choice-${trade}`} className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-1">
+              <legend className="px-1 text-sm font-semibold text-slate-900 break-words">{text.own_title}</legend>
+              <p className="text-xs text-slate-700 break-words">{text.own_hint.replace('{n}', String(preview.own_conflicts))}</p>
+              {OWN_MODES.map((mode) => (
+                <label key={mode} className="flex items-start gap-3 text-sm text-slate-800 min-h-11 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`trade-transfer-own-${trade}`}
+                    aria-label={`trade-transfer-own-${trade}-${mode}`}
+                    checked={own === mode}
+                    disabled={busy}
+                    onChange={() => chooseOwn(mode)}
+                    className="mt-1 h-6 w-6 shrink-0"
+                  />
+                  <span className="break-words">{(text.own_modes as Record<string, string>)[mode]}</span>
+                </label>
+              ))}
+            </fieldset>
           )}
 
           <div className="space-y-1">

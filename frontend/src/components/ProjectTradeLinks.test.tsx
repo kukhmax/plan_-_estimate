@@ -198,7 +198,7 @@ describe('carrying over (V2-14a)', () => {
     expect(screen.queryByLabelText('trade-transfer-open-PLUMBING')).toBeNull();
     fireEvent.click(screen.getByLabelText('trade-transfer-open-ELECTRIC'));
     expect(await screen.findByLabelText('trade-transfer-ELECTRIC')).toBeInTheDocument();
-    await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenCalledWith('proj1', 'ELECTRIC', {}));
+    await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenCalledWith('proj1', 'ELECTRIC', {}, 'REPLACE'));
     fireEvent.click(screen.getByLabelText('trade-transfer-close-ELECTRIC'));
     expect(screen.queryByLabelText('trade-transfer-ELECTRIC')).toBeNull();
     expect(screen.getByLabelText('trade-transfer-open-ELECTRIC')).toBeInTheDocument();

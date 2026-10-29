@@ -206,7 +206,14 @@ export function RoomPointsSection({ projectId, roomId }: RoomPointsSectionProps)
                   {rows.map((row) => (
                     <li key={row.id} aria-label={`room-point-${row.id}`} className="pe-card rounded-2xl p-3 shadow-sm space-y-2">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="min-w-0 flex-1 text-sm font-semibold text-slate-900 break-words">{itemName(row.item, t)}</p>
+                        <p className="min-w-0 flex-1 text-sm font-semibold text-slate-900 break-words">
+                          {itemName(row.item, t)}
+                          {row.source === 'TRADE_LINK' && (
+                            <span aria-label={`room-point-from-master-${row.id}`} className="ml-2 inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 align-middle">
+                              {text.from_master}
+                            </span>
+                          )}
+                        </p>
                         <p aria-label={`room-point-quantity-${row.id}`} className="shrink-0 text-base font-bold text-slate-900 whitespace-nowrap">
                           {formatPlain(row.quantity)} {row.item.unit === 'LM' ? text.unit_lm : text.unit_pcs}
                         </p>

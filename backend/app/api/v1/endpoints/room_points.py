@@ -45,7 +45,7 @@ def _http_error(exc: Exception) -> HTTPException:
 def _read(view: PointView) -> PointRead:
     row, item = view.row, view.item
     return PointRead(
-        id=row.id, room_id=row.room_id, quantity=row.quantity, note=row.note, created_at=row.created_at, updated_at=row.updated_at,
+        id=row.id, room_id=row.room_id, quantity=row.quantity, note=row.note, source=row.source, created_at=row.created_at, updated_at=row.updated_at,
         item=PointItemRead(
             id=item.id, code=item.code, name_key=item.name_key, display_name=item.display_name, category=item.category, unit=item.unit, price=item.price,
             is_archived=item.is_archived,

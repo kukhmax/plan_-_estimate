@@ -1,8 +1,12 @@
 """Carrying the answers of a craftsman over into the rooms (V2-14a; docs/V2_14A_PLAN_RU.md): which typical position becomes which row of "Punkty i trasy" and which number of a
 calculation of materials. Pure rules, no database: the service reads the rows and writes what these functions decide.
 
-The rows made here carry `source = TRADE_LINK`. A second carrying over updates exactly those rows (and removes the ones the craftsman no longer asks for); a row the owner typed is never
-touched, even when it names the same item of the Price Book.
+The rows made here carry `source = TRADE_LINK`. A second carrying over updates exactly those rows (and removes the ones the craftsman no longer asks for).
+
+A row the owner typed himself with the SAME item in the same room is the same thing counted twice (owner 2026-10-27: 4 water points of the owner + 5 of the craftsman = 9 in the
+estimate). The owner chooses once for the whole carrying over (`own`): REPLACE (the default) takes the owner's row over -- it gets the craftsman's number and becomes a carried row,
+further rows of the owner with that item are removed; ADD keeps both (the old behaviour, the preview says how many the owner already has); SKIP leaves the owner's row and does not
+carry that item into that room. Rows of other items are never touched.
 """
 import uuid
 from dataclasses import dataclass
@@ -41,6 +45,9 @@ RELEVANT_CATEGORIES: dict[str, frozenset[str]] = {
 }
 
 NEW, CHANGE, SAME, REMOVE = "NEW", "CHANGE", "SAME", "REMOVE"
+TAKE_OVER, REMOVE_OWN, SKIP = "TAKE_OVER", "REMOVE_OWN", "SKIP"  # what happens to a row the owner typed with the same item (see the module text)
+REPLACE, ADD = "REPLACE", "ADD"
+OWN_MODES = (REPLACE, ADD, SKIP)
 
 
 def is_relevant(trade: str, category: str) -> bool:
@@ -80,13 +87,14 @@ class ExistingRow:
 
 @dataclass(frozen=True, slots=True)
 class RowAction:
-    kind: str  # NEW | CHANGE | SAME | REMOVE
+    kind: str  # NEW | CHANGE | SAME | REMOVE | TAKE_OVER | REMOVE_OWN | SKIP
     item_id: uuid.UUID
     quantity: Decimal  # what the row will say (REMOVE: what it said)
     note: str | None
     row_id: uuid.UUID | None = None  # CHANGE / SAME / REMOVE: the row of an earlier carrying over
     was_quantity: Decimal | None = None  # CHANGE: what the row said before
     keys: tuple[str, ...] = ()
+    own_quantity: Decimal | None = None  # what the owner's own rows of this item in this room say together (None: he has none)
 
 
 def _q(value: Decimal) -> Decimal:
@@ -108,15 +116,29 @@ def wanted_rows(typical: dict[str, Answer], mapping: dict[str, uuid.UUID | None]
     return [Wanted(item_id, _q(total), " · ".join(notes.get(item_id, []))[:NOTE_LIMIT] or None) for item_id, total in sums.items()]
 
 
-def plan_rows(wanted: list[Wanted], existing: list[ExistingRow], scope: set[uuid.UUID]) -> list[RowAction]:
+def plan_rows(
+    wanted: list[Wanted], existing: list[ExistingRow], scope: set[uuid.UUID], own: list[ExistingRow] | None = None, own_mode: str = ADD
+) -> list[RowAction]:
     """What carrying over does to the rows of one room. `existing`: the rows an earlier carrying over made; `scope`: the items this trade's choice names (a row of another item, which
-    belongs to the other craftsman, is left alone)."""
+    belongs to the other craftsman, is left alone); `own`: the rows the owner typed in this room, `own_mode`: what happens to the ones with an item the craftsman also gives."""
+    if own_mode not in OWN_MODES:
+        raise TradeChecklistError("TRANSFER_OWN_INVALID", "the choice for your own rows is REPLACE, ADD or SKIP", "own")
+    own = own or []
     actions: list[RowAction] = []
     taken: set[uuid.UUID] = set()
     for want in wanted:
         match = next((row for row in existing if row.item_id == want.item_id and row.id not in taken), None)
         if match is None:
-            actions.append(RowAction(NEW, want.item_id, want.quantity, want.note))
+            mine = [row for row in own if row.item_id == want.item_id]
+            own_total = _q(sum((row.quantity for row in mine), Decimal(0))) if mine else None
+            if mine and own_mode == REPLACE:
+                first = mine[0]
+                actions.append(RowAction(TAKE_OVER, want.item_id, want.quantity, want.note, first.id, _q(first.quantity), own_quantity=own_total))
+                actions.extend(RowAction(REMOVE_OWN, row.item_id, _q(row.quantity), row.note, row.id) for row in mine[1:])
+            elif mine and own_mode == SKIP:
+                actions.append(RowAction(SKIP, want.item_id, want.quantity, want.note, own_quantity=own_total))
+            else:
+                actions.append(RowAction(NEW, want.item_id, want.quantity, want.note, own_quantity=own_total))
             continue
         taken.add(match.id)
         same = _q(match.quantity) == want.quantity and (match.note or None) == want.note

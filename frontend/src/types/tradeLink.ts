@@ -159,8 +159,10 @@ export function tradeLinkUrl(origin: string, token: string): string {
 
 // --- V2-14a: carrying the answers over into the rooms (mirrors backend/app/schemas/trade_transfer.py) ----------------------------
 
-export type TransferKind = 'NEW' | 'CHANGE' | 'SAME' | 'REMOVE';
-export type TransferMaterialKind = 'NONE' | 'NEW' | 'CHANGE' | 'SAME' | 'REMOVE' | 'INVALID';
+export type TransferKind = 'NEW' | 'CHANGE' | 'SAME' | 'REMOVE' | 'TAKE_OVER' | 'REMOVE_OWN' | 'SKIP';
+export type TransferMaterialKind = 'NONE' | 'NEW' | 'CHANGE' | 'SAME' | 'REMOVE' | 'INVALID' | 'TAKE_OVER' | 'SKIP';
+/** What happens to a row the owner typed with the same item in the same room (owner 2026-10-27: no double count). */
+export type TransferOwnMode = 'REPLACE' | 'ADD' | 'SKIP';
 
 export interface TransferCandidate {
   id: string;
@@ -191,13 +193,15 @@ export interface TransferRow {
   quantity: string;
   was_quantity: string | null;
   note: string | null;
+  /** The owner's own rows of this item in this room, together (null: he has none). */
+  own_quantity?: string | null;
 }
 
 export interface TransferRoom {
   room_id: string;
   room_name: string;
   rows: TransferRow[];
-  material: { kind: TransferMaterialKind; package: LinkTrade; numbers: Record<string, string> };
+  material: { kind: TransferMaterialKind; package: LinkTrade; numbers: Record<string, string>; own?: boolean };
 }
 
 export interface TransferPreview {
@@ -208,6 +212,9 @@ export interface TransferPreview {
   nothing: boolean;
   /** An answered position has no item of the price book: the typical items may be made. */
   offer_pack: boolean;
+  own?: TransferOwnMode;
+  /** Rows / calculations of the owner that name what the craftsman also gives: the choice is shown only when above 0. */
+  own_conflicts?: number;
 }
 
 export interface TransferResult {

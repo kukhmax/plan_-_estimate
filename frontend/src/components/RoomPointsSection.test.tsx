@@ -89,6 +89,14 @@ describe('the list of the points and routes of a room', () => {
     expect(screen.getByLabelText('room-point-r2')).toHaveTextContent('Wykończenie naroży zewnętrznych g-k');
   });
 
+  it('marks a row carried over from a craftsman, and not a row the owner typed', async () => {
+    vi.mocked(pointsApi.fetchRoomPoints).mockResolvedValue([row(), row({ id: 'r9', source: 'TRADE_LINK' })]);
+    renderSection();
+    await open();
+    expect(await screen.findByLabelText('room-point-from-master-r9')).toHaveTextContent('od majstra');
+    expect(screen.queryByLabelText('room-point-from-master-r1')).toBeNull();
+  });
+
   it('says so when the room has none, and when the list cannot be read it can be read again', async () => {
     vi.mocked(pointsApi.fetchRoomPoints).mockRejectedValueOnce(new Error('down'));
     renderSection();

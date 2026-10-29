@@ -4153,6 +4153,7 @@
     "insert": "Insert the number"
   },
   "roomPoints": {
+    "from_master": "from the craftsman",
     "title": "Points and routes",
     "intro": "Sockets, water points (pcs) and routes: chases, cables, pipes (m). A price-book item and a quantity; the estimate takes the quantity from this list.",
     "show": "Show",
@@ -4533,7 +4534,11 @@
     "pack_done": "Items added to the price book: {n}.",
     "pack_none": "The typical items are already in the price book.",
     "title": "Carry over into the rooms",
-    "intro": "The craftsman’s answers go into “Points and routes” and the materials of the rooms — only when you press the button. Your own entries are not changed; carrying over again updates only what was carried over before.",
+    "intro": "The craftsman's answers go to \"Points and routes\" and to the materials of the rooms — only when you press the button. Carrying over again updates what was carried before. If a room already has your own entry of the same item, choose below what happens to it.",
+    "own_title": "Your entries of the same items",
+    "own_hint": "The rooms already have your own entries of what the craftsman gave ({n}). So that nothing is counted twice:",
+    "own_has": "your entry: {q}",
+    "own_modes": {"REPLACE": "Replace with the craftsman's number (recommended)", "ADD": "Add next to it (both entries stay)", "SKIP": "Keep my entry, do not carry this item"},
     "loading": "Loading…",
     "retry": "Try again",
     "items_title": "Price book items",
@@ -4557,7 +4562,10 @@
       "SAME": "no change",
       "REMOVE": "remove",
       "NONE": "—",
-      "INVALID": "error"
+      "INVALID": "error",
+      "TAKE_OVER": "replaces your entry",
+      "REMOVE_OWN": "remove your duplicate",
+      "SKIP": "skipped"
     },
     "errors": {
       "GENERIC": "Could not carry over. Try again.",

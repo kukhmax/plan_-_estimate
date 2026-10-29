@@ -18,6 +18,8 @@ export interface RoomPoint {
   quantity: string;
   note: string | null;
   item: PointItem;
+  /** 'TRADE_LINK': carried over from a craftsman's answer; null: typed by the owner. */
+  source?: string | null;
   created_at: string;
   updated_at: string;
 }

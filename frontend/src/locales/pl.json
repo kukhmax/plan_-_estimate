@@ -4123,6 +4123,7 @@
     "insert": "Wstaw liczbę"
   },
   "roomPoints": {
+    "from_master": "od majstra",
     "title": "Punkty i trasy",
     "intro": "Gniazdka, punkty wodne (szt.) oraz trasy: bruzdy, kable, rury (mb). Pozycja z cennika i ilość; kosztorys bierze ilość z tej listy.",
     "show": "Pokaż",
@@ -4503,7 +4504,11 @@
     "pack_done": "Dodano pozycji do cennika: {n}.",
     "pack_none": "Typowe pozycje już są w cenniku.",
     "title": "Przenieś do pomieszczeń",
-    "intro": "Odpowiedzi majstra trafią do „Punkty i trasy” i do materiałów pomieszczeń — tylko po Twoim kliknięciu. Twoje własne wpisy nie są zmieniane; ponowne przeniesienie aktualizuje tylko to, co już przeniesiono.",
+    "intro": "Odpowiedzi majstra trafią do „Punkty i trasy” i do materiałów pomieszczeń — tylko po Twoim kliknięciu. Ponowne przeniesienie aktualizuje to, co już przeniesiono. Jeśli w pomieszczeniu jest Twój wpis tej samej pozycji, wybierz niżej, co z nim zrobić.",
+    "own_title": "Twoje wpisy tych samych pozycji",
+    "own_hint": "W pomieszczeniach są już Twoje wpisy tego, co podał majster ({n}). Żeby nic nie liczyło się podwójnie:",
+    "own_has": "Twój wpis: {q}",
+    "own_modes": {"REPLACE": "Zastąp liczbą majstra (zalecane)", "ADD": "Dodaj obok (oba wpisy zostaną)", "SKIP": "Zostaw mój wpis, tej pozycji nie przenoś"},
     "loading": "Ładowanie…",
     "retry": "Spróbuj ponownie",
     "items_title": "Pozycje cennika",
@@ -4527,7 +4532,10 @@
       "SAME": "bez zmian",
       "REMOVE": "usunąć",
       "NONE": "—",
-      "INVALID": "błąd"
+      "INVALID": "błąd",
+      "TAKE_OVER": "zastąpi Twój wpis",
+      "REMOVE_OWN": "usunąć Twój duplikat",
+      "SKIP": "pominięte"
     },
     "errors": {
       "GENERIC": "Nie udało się przenieść. Spróbuj ponownie.",

@@ -7,8 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.payment import Out
 from app.schemas.room_point import PointItemRead
 
-Kind = Literal["NEW", "CHANGE", "SAME", "REMOVE"]
-MaterialKind = Literal["NONE", "NEW", "CHANGE", "SAME", "REMOVE", "INVALID"]
+Kind = Literal["NEW", "CHANGE", "SAME", "REMOVE", "TAKE_OVER", "REMOVE_OWN", "SKIP"]
+MaterialKind = Literal["NONE", "NEW", "CHANGE", "SAME", "REMOVE", "INVALID", "TAKE_OVER", "SKIP"]
+OwnMode = Literal["REPLACE", "ADD", "SKIP"]
 
 
 class TransferPreviewRequest(BaseModel):
@@ -16,6 +17,8 @@ class TransferPreviewRequest(BaseModel):
 
     # The item of the price book each typical position goes to; a key that is not here takes the default (found by the name), `null` means "do not carry this position over".
     mapping: dict[str, uuid.UUID | None] = Field(default_factory=dict, max_length=20)
+    # What happens to a row the owner typed himself with the same item in the same room: REPLACE (the craftsman's number takes its place), ADD (both stay), SKIP (it stays alone).
+    own: OwnMode = "REPLACE"
 
 
 class TransferRequest(TransferPreviewRequest):
@@ -43,12 +46,14 @@ class RowPlan(BaseModel):
     quantity: Out
     was_quantity: Out | None
     note: str | None
+    own_quantity: Out | None = None  # the owner's own rows of this item in this room, together (None: he has none)
 
 
 class MaterialPlan(BaseModel):
     kind: MaterialKind
     package: Literal["ELECTRIC", "PLUMBING"]
     numbers: dict[str, str]  # what the calculation will hold (the names of `schemas/material.py`)
+    own: bool = False  # the room has the owner's own calculation of this package
 
 
 class RoomPlan(BaseModel):
@@ -65,6 +70,8 @@ class TransferPreview(BaseModel):
     own_not_carried: int  # the positions the craftsman wrote himself: they have no item of the price book and stay in his answer
     nothing: bool  # no answer to carry over and nothing carried earlier to take away
     offer_pack: bool  # an answered position has no item of the price book: the typical items may be made
+    own: OwnMode = "REPLACE"  # the choice the preview was made with
+    own_conflicts: int = 0  # rows / calculations of the owner that name what the craftsman also gives (the choice matters only when this is above 0)
 
 
 class TransferResult(BaseModel):

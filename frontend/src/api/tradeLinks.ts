@@ -6,6 +6,7 @@ import type {
   TradeLinksResponse,
   TransferMapping,
   TransferPreview,
+  TransferOwnMode,
   TransferResult,
 } from '../types/tradeLink';
 import type { Locale } from '../utils/locale';
@@ -37,10 +38,12 @@ export function fetchTradeAnswers(projectId: string, trade: LinkTrade): Promise<
   return apiRequest(`${base(projectId)}/${trade}/answers`);
 }
 
-export function previewTradeTransfer(projectId: string, trade: LinkTrade, mapping: TransferMapping): Promise<TransferPreview> {
-  return apiRequest(`${base(projectId)}/${trade}/transfer/preview`, { method: 'POST', body: JSON.stringify({ mapping }) });
+export function previewTradeTransfer(projectId: string, trade: LinkTrade, mapping: TransferMapping, own: TransferOwnMode = 'REPLACE'): Promise<TransferPreview> {
+  return apiRequest(`${base(projectId)}/${trade}/transfer/preview`, { method: 'POST', body: JSON.stringify({ mapping, own }) });
 }
 
-export function runTradeTransfer(projectId: string, trade: LinkTrade, mapping: TransferMapping, points: boolean, materials: boolean): Promise<TransferResult> {
-  return apiRequest(`${base(projectId)}/${trade}/transfer`, { method: 'POST', body: JSON.stringify({ mapping, points, materials }) });
+export function runTradeTransfer(
+  projectId: string, trade: LinkTrade, mapping: TransferMapping, points: boolean, materials: boolean, own: TransferOwnMode = 'REPLACE',
+): Promise<TransferResult> {
+  return apiRequest(`${base(projectId)}/${trade}/transfer`, { method: 'POST', body: JSON.stringify({ mapping, points, materials, own }) });
 }

@@ -67,7 +67,7 @@ describe('the preview', () => {
   it('asks the server first with no choice of the owner and writes nothing', async () => {
     show();
     expect(await screen.findByLabelText('trade-transfer-rooms-ELECTRIC')).toBeInTheDocument();
-    expect(api.previewTradeTransfer).toHaveBeenCalledWith('proj1', 'ELECTRIC', {});
+    expect(api.previewTradeTransfer).toHaveBeenCalledWith('proj1', 'ELECTRIC', {}, 'REPLACE');
     expect(api.runTradeTransfer).not.toHaveBeenCalled();
   });
 
@@ -103,9 +103,9 @@ describe('the preview', () => {
   it('shows the preview again with the choice of the owner when he picks another item or none', async () => {
     show();
     fireEvent.change(await screen.findByLabelText('trade-transfer-item-ELECTRIC-SOCKET'), { target: { value: 'i2' } });
-    await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenLastCalledWith('proj1', 'ELECTRIC', { SOCKET: 'i2' }));
+    await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenLastCalledWith('proj1', 'ELECTRIC', { SOCKET: 'i2' }, 'REPLACE'));
     fireEvent.change(screen.getByLabelText('trade-transfer-item-ELECTRIC-LIGHT_POINT'), { target: { value: '' } });
-    await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenLastCalledWith('proj1', 'ELECTRIC', { SOCKET: 'i2', LIGHT_POINT: null }));
+    await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenLastCalledWith('proj1', 'ELECTRIC', { SOCKET: 'i2', LIGHT_POINT: null }, 'REPLACE'));
   });
 
   it('offers to try again when the preview does not load', async () => {
@@ -169,7 +169,7 @@ describe('carrying over', () => {
     fireEvent.change(await screen.findByLabelText('trade-transfer-item-ELECTRIC-SOCKET'), { target: { value: 'i2' } });
     await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByLabelText('trade-transfer-run-ELECTRIC'));
-    await waitFor(() => expect(api.runTradeTransfer).toHaveBeenCalledWith('proj1', 'ELECTRIC', { SOCKET: 'i2' }, true, true));
+    await waitFor(() => expect(api.runTradeTransfer).toHaveBeenCalledWith('proj1', 'ELECTRIC', { SOCKET: 'i2' }, true, true, 'REPLACE'));
     expect(await screen.findByText('Punkty: dodano 2, zmieniono 1, usunięto 1. Materiały: dodano 1, zmieniono 0, usunięto 0.')).toBeInTheDocument();
     await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenCalledTimes(3));
   });
@@ -186,7 +186,7 @@ describe('carrying over', () => {
     show();
     fireEvent.click(await screen.findByLabelText('trade-transfer-materials-ELECTRIC'));
     fireEvent.click(screen.getByLabelText('trade-transfer-run-ELECTRIC'));
-    await waitFor(() => expect(api.runTradeTransfer).toHaveBeenLastCalledWith('proj1', 'ELECTRIC', {}, true, false));
+    await waitFor(() => expect(api.runTradeTransfer).toHaveBeenLastCalledWith('proj1', 'ELECTRIC', {}, true, false, 'REPLACE'));
     await screen.findByText(/Punkty: dodano 1/);
     fireEvent.click(screen.getByLabelText('trade-transfer-materials-ELECTRIC'));
     fireEvent.click(screen.getByLabelText('trade-transfer-points-ELECTRIC'));
@@ -222,5 +222,54 @@ describe('carrying over', () => {
     expect(await screen.findByText('Liczba w odpowiedzi jest poza zakresem obliczenia materiałów.')).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('trade-transfer-close-ELECTRIC'));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('the owner\'s own entries of the same items (owner 2026-10-27: no double count)', () => {
+  const CONFLICT = () =>
+    PREVIEW({
+      own: 'REPLACE',
+      own_conflicts: 1,
+      rooms: [
+        {
+          room_id: 'r1', room_name: 'Łazienka',
+          rows: [{ kind: 'TAKE_OVER', item_id: 'i1', quantity: '5.00', was_quantity: '4.00', note: null, own_quantity: '4.00' }],
+          material: { kind: 'NONE', package: 'ELECTRIC', numbers: {} },
+        },
+      ],
+    });
+
+  it('hides the choice while nothing of the owner is in play', async () => {
+    show();
+    await screen.findByLabelText('trade-transfer-rooms-ELECTRIC');
+    expect(screen.queryByLabelText('trade-transfer-own-choice-ELECTRIC')).toBeNull();
+  });
+
+  it('offers replace (chosen) / add / skip, shows the owner\'s number and reads the preview again with the choice', async () => {
+    vi.mocked(api.previewTradeTransfer).mockResolvedValue(CONFLICT());
+    show();
+    const choice = await screen.findByLabelText('trade-transfer-own-choice-ELECTRIC');
+    expect(within(choice).getByLabelText('trade-transfer-own-ELECTRIC-REPLACE')).toBeChecked();
+    expect(within(choice).getByText('Zastąp liczbą majstra (zalecane)')).toBeInTheDocument();
+    expect(within(choice).getByLabelText('trade-transfer-own-ELECTRIC-ADD').closest('label')?.className).toContain('min-h-11');
+    const rooms = screen.getByLabelText('trade-transfer-rooms-ELECTRIC');
+    expect(within(rooms).getByText('zastąpi Twój wpis')).toBeInTheDocument();
+    expect(within(rooms).getByText('Punkt elektryczny - gniazdko / włącznik: 5 szt. (było 4)')).toBeInTheDocument();
+    vi.mocked(api.previewTradeTransfer).mockResolvedValue(
+      PREVIEW({ own: 'ADD', own_conflicts: 1, rooms: [{ room_id: 'r1', room_name: 'Łazienka', rows: [{ kind: 'NEW', item_id: 'i1', quantity: '5.00', was_quantity: null, note: null, own_quantity: '4.00' }], material: { kind: 'NONE', package: 'ELECTRIC', numbers: {} } }] }),
+    );
+    fireEvent.click(within(choice).getByLabelText('trade-transfer-own-ELECTRIC-ADD'));
+    await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenLastCalledWith('proj1', 'ELECTRIC', {}, 'ADD'));
+    expect(await within(screen.getByLabelText('trade-transfer-rooms-ELECTRIC')).findByText(/Twój wpis: 4 szt\./)).toBeInTheDocument();
+  });
+
+  it('carries over with the chosen way', async () => {
+    vi.mocked(api.previewTradeTransfer).mockResolvedValue(CONFLICT());
+    vi.mocked(api.runTradeTransfer).mockResolvedValue({ points_added: 0, points_changed: 1, points_removed: 0, materials_added: 0, materials_changed: 0, materials_removed: 0 });
+    show();
+    fireEvent.click(await screen.findByLabelText('trade-transfer-own-ELECTRIC-SKIP'));
+    await waitFor(() => expect(api.previewTradeTransfer).toHaveBeenLastCalledWith('proj1', 'ELECTRIC', {}, 'SKIP'));
+    fireEvent.click(screen.getByLabelText('trade-transfer-run-ELECTRIC'));
+    await waitFor(() => expect(api.runTradeTransfer).toHaveBeenCalledWith('proj1', 'ELECTRIC', {}, true, true, 'SKIP'));
   });
 });

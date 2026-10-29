@@ -1,7 +1,8 @@
 """Carrying the answers of a craftsman over into the rooms (V2-14a; docs/V2_14A_PLAN_RU.md): the owner's button. Reads the answers, plans what the pure rules
 (`domain/rules/trade_transfer.py`) decide, shows it (preview) and writes it in one transaction (apply). Owner-scoped like every service.
 
-Only rows marked `source = TRADE_LINK` are ever changed or removed; what the owner typed is not touched. The estimate is not touched either (it keeps its snapshot).
+Rows marked `source = TRADE_LINK` are changed or removed freely; a row the owner typed is touched only when it names what the craftsman also gives AND the owner chose
+REPLACE (taken over / removed, shown in the preview). The estimate is not touched (it keeps its snapshot).
 """
 import uuid
 from datetime import UTC, datetime
@@ -71,7 +72,7 @@ class TradeTransferService:
             relevant=rules.is_relevant(trade, item.category.value),
         )
 
-    async def _plan(self, owner_id: uuid.UUID, project_id: uuid.UUID, trade: str, given: dict[str, uuid.UUID | None]) -> _Plan:
+    async def _plan(self, owner_id: uuid.UUID, project_id: uuid.UUID, trade: str, given: dict[str, uuid.UUID | None], own_mode: str = rules.REPLACE) -> _Plan:
         trade = checklist.clean_trade(trade)
         await self._ensure_project(owner_id, project_id)
         positions = checklist.positions_of(trade)
@@ -125,7 +126,25 @@ class TradeTransferService:
                 )
             ).scalars()
         )
+        # what the owner typed himself (the same item / package in a room is the same thing counted twice)
+        owners = list(
+            (
+                await self.db.execute(
+                    select(RoomPoint).where(RoomPoint.project_id == project_id, RoomPoint.owner_id == owner_id, RoomPoint.source.is_(None)).order_by(RoomPoint.position, RoomPoint.id)
+                )
+            ).scalars()
+        )
+        owner_calcs = list(
+            (
+                await self.db.execute(
+                    select(MaterialCalc)
+                    .where(MaterialCalc.project_id == project_id, MaterialCalc.owner_id == owner_id, MaterialCalc.source.is_(None), MaterialCalc.package == rules.package_of(trade))
+                    .order_by(MaterialCalc.position, MaterialCalc.id)
+                )
+            ).scalars()
+        )
         scope = {i for i in chosen.values() if i is not None}
+        conflicts = 0
         plan = _Plan()
         room_plans: list[RoomPlan] = []
         package = rules.package_of(trade)
@@ -133,12 +152,15 @@ class TradeTransferService:
             answers = typical.get(room.id, {})
             wanted = rules.wanted_rows(answers, chosen, keys)
             existing = [rules.ExistingRow(r.id, r.price_item_id, Decimal(r.quantity), r.note) for r in ours if r.room_id == room.id]
-            actions = rules.plan_rows(wanted, existing, scope)
+            own_rows = [rules.ExistingRow(r.id, r.price_item_id, Decimal(r.quantity), r.note) for r in owners if r.room_id == room.id]
+            actions = rules.plan_rows(wanted, existing, scope, own_rows, own_mode)
+            conflicts += sum(1 for a in actions if a.own_quantity is not None)
             plan.rows[room.id] = actions
 
             numbers = rules.material_numbers(trade, answers)
             mine = [c for c in calcs if c.room_id == room.id]
             first, extra = (mine[0] if mine else None), mine[1:]
+            own_calc = next((c for c in owner_calcs if c.room_id == room.id), None)
             kind, params = "NONE", None
             if numbers is not None:
                 try:
@@ -147,6 +169,12 @@ class TradeTransferService:
                     kind = "INVALID"
                 else:
                     kind = "NEW" if first is None else ("SAME" if rules.same_numbers(first.params, params) else "CHANGE")
+                    if kind == "NEW" and own_calc is not None:
+                        conflicts += 1
+                        if own_mode == rules.REPLACE:
+                            kind, first = "TAKE_OVER", own_calc
+                        elif own_mode == rules.SKIP:
+                            kind = "SKIP"
             elif first is not None:
                 kind = "REMOVE"
             plan.material[room.id] = (kind, params, first, extra)
@@ -155,8 +183,11 @@ class TradeTransferService:
                 RoomPlan(
                     room_id=room.id,
                     room_name=room.name,
-                    rows=[RowPlan(kind=a.kind, item_id=a.item_id, quantity=a.quantity, was_quantity=a.was_quantity, note=a.note) for a in actions],  # type: ignore[arg-type]
-                    material=MaterialPlan(kind=kind, package=package, numbers=shown),  # type: ignore[arg-type]
+                    rows=[
+                        RowPlan(kind=a.kind, item_id=a.item_id, quantity=a.quantity, was_quantity=a.was_quantity, note=a.note, own_quantity=a.own_quantity)  # type: ignore[arg-type]
+                        for a in actions
+                    ],
+                    material=MaterialPlan(kind=kind, package=package, numbers=shown, own=own_calc is not None),  # type: ignore[arg-type]
                 )
             )
 
@@ -173,7 +204,7 @@ class TradeTransferService:
             )
             for pos in positions
         ]
-        idle = all(a.kind == rules.SAME for acts in plan.rows.values() for a in acts) and all(k in ("NONE", "SAME") for k, *_ in plan.material.values())
+        idle = all(a.kind in (rules.SAME, rules.SKIP) for acts in plan.rows.values() for a in acts) and all(k in ("NONE", "SAME", "SKIP") for k, *_ in plan.material.values())
         no_answers = not any(answered.values())
         plan.preview = TransferPreview(
             trade=trade,  # type: ignore[arg-type]
@@ -182,18 +213,21 @@ class TradeTransferService:
             own_not_carried=own,
             nothing=idle and no_answers,
             offer_pack=any(p.goes_to_points and p.answered_rooms > 0 and p.item_id is None for p in position_plans),
+            own=own_mode,  # type: ignore[arg-type]
+            own_conflicts=conflicts,
         )
         return plan
 
-    async def preview(self, owner_id: uuid.UUID, project_id: uuid.UUID, trade: str, mapping: dict[str, uuid.UUID | None]) -> TransferPreview:
-        plan = await self._plan(owner_id, project_id, trade, mapping)
+    async def preview(self, owner_id: uuid.UUID, project_id: uuid.UUID, trade: str, mapping: dict[str, uuid.UUID | None], own: str = rules.REPLACE) -> TransferPreview:
+        plan = await self._plan(owner_id, project_id, trade, mapping, own)
         assert plan.preview is not None
         return plan.preview
 
     async def apply(
-        self, owner_id: uuid.UUID, project_id: uuid.UUID, trade: str, mapping: dict[str, uuid.UUID | None], *, points: bool = True, materials: bool = True
+        self, owner_id: uuid.UUID, project_id: uuid.UUID, trade: str, mapping: dict[str, uuid.UUID | None], *, points: bool = True, materials: bool = True,
+        own: str = rules.REPLACE,
     ) -> TransferResult:
-        plan = await self._plan(owner_id, project_id, trade, mapping)
+        plan = await self._plan(owner_id, project_id, trade, mapping, own)
         assert plan.preview is not None
         if plan.preview.nothing:
             raise checklist.TradeChecklistError("TRANSFER_NOTHING", "the craftsman has not answered anything that could be carried over")
@@ -227,6 +261,16 @@ class TradeTransferService:
                     elif act.kind == rules.REMOVE:
                         await self.db.execute(delete(RoomPoint).where(RoomPoint.id == act.row_id, RoomPoint.source == rules.SOURCE))
                         result["points_removed"] += 1
+                    elif act.kind == rules.TAKE_OVER:  # the owner's own row gets the craftsman's number and is carried from now on
+                        row = (await self.db.execute(select(RoomPoint).where(RoomPoint.id == act.row_id, RoomPoint.source.is_(None)))).scalar_one()
+                        row.quantity = act.quantity
+                        row.note = act.note
+                        row.source = rules.SOURCE
+                        row.updated_at = now
+                        result["points_changed"] += 1
+                    elif act.kind == rules.REMOVE_OWN:  # a second own row of the same item: the craftsman's number is the whole count
+                        await self.db.execute(delete(RoomPoint).where(RoomPoint.id == act.row_id, RoomPoint.source.is_(None)))
+                        result["points_removed"] += 1
 
         if materials:
             for room_id, (kind, params, first, extra) in plan.material.items():
@@ -241,8 +285,9 @@ class TradeTransferService:
                         )
                     )
                     result["materials_added"] += 1
-                elif kind == "CHANGE" and first is not None:
+                elif kind in ("CHANGE", "TAKE_OVER") and first is not None:
                     first.params = params
+                    first.source = rules.SOURCE
                     first.updated_at = now
                     result["materials_changed"] += 1
                 elif kind == "REMOVE" and first is not None:

@@ -49,6 +49,7 @@ class PointRead(BaseModel):
     quantity: Out
     note: str | None
     item: PointItemRead
+    source: str | None = None  # TRADE_LINK: carried over from the answer of a craftsman (the list marks it); None: typed by the owner
     created_at: datetime
     updated_at: datetime
 

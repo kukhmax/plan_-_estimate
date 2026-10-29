@@ -179,7 +179,7 @@ async def test_carrying_over_makes_the_rows_and_the_calculation_marked_as_carrie
     manual_calc = MaterialCalc(owner_id=w.owner.id, project_id=w.project.id, room_id=w.salon.id, package="ELECTRIC", params={"sockets": 1}, position=0)
     db_session.add_all([mine, manual_calc])
     await db_session.commit()
-    done = await post(async_client, w, "")
+    done = await post(async_client, w, "", {"own": "ADD"})  # "add next to it": the owner's rows stay (the default REPLACE is tested in test_transfer_own_rows.py)
     assert done.status_code == 200, done.text
     assert done.json() == {"points_added": 4, "points_changed": 0, "points_removed": 0, "materials_added": 2, "materials_changed": 0, "materials_removed": 0}
     rows = await points(db_session)
@@ -236,11 +236,11 @@ async def test_when_everything_is_zero_the_carried_things_go_and_the_owners_own_
     mine = RoomPoint(owner_id=w.owner.id, project_id=w.project.id, room_id=w.kuchnia.id, price_item_id=w.point.id, quantity=Decimal("2.00"), position=0)
     db_session.add(mine)
     await db_session.commit()
-    await post(async_client, w, "")
+    await post(async_client, w, "", {"own": "ADD"})
     for row in (await db_session.execute(select(TradeAnswer))).scalars():
         row.quantity = Decimal(0)
     await db_session.commit()
-    done = (await post(async_client, w, "")).json()
+    done = (await post(async_client, w, "", {"own": "ADD"})).json()
     assert done["points_removed"] == 4 and done["materials_removed"] == 2
     left = await points(db_session)
     assert [r.id for r in left] == [mine.id] and await calcs(db_session) == []
