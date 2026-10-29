@@ -6111,3 +6111,9 @@ Found in the UX walk: the lines added by "Dodaj punkty i trasy" / "Dodaj materia
 * **Tests:** backend `test_fill_prices.py` (4); vitest `EstimateShellVat.test.tsx` (+2).
 * **Verification:** PASS -- backend tests of estimates / points / materials / VAT / prices / client page (875), vitest full (4326), tsc, build; live (390 px PL): 2 point lines without a price -> priced Punkt wodny / kanalizacyjny 120 zł in the price book -> "Uzupełniono z cennika: 2.", gross 2837,12 -> 3797,12, the notice gone; the deploy-script markers are in the build.
 
+### UX walk A1: the search of the price book finds the catalogue by the names the owner sees (2026-10-29; branch `ver-2`; NO MIGRATION)
+Found in the UX walk: "Шпаклевка", "Malowanie", "потолк" found none of the 49 catalogue rows (the server searched code / name_key / display_name; a catalogue row has no stored name, only a key translated on the screen).
+* **Changed (frontend):** the price book loads the rows of the tab / category and searches them itself: `utils/priceItemName.priceItemMatches` over the name in the language of the screen AND in Polish, the own name, the code and the category; case, accents, ł / ё folded (`foldForSearch`); every word must be found, in any order; `priceItemRank` puts a name that starts with the query first. The count next to "Pozycje cennika" is the number shown. The server search parameter stays (unused here).
+* **Tests:** vitest `priceSearch.test.ts` (3), `PriceBook.test.tsx`: the old "sends the search to the server" test replaced by two (PL names, accents, two words, own name, nothing found; Russian screen with Russian and Polish names).
+* **Verification:** PASS -- vitest full (4330), tsc, build; live (390 px RU): "шпаклевка 2" -> "Шпаклевка — 2 слоя (пакет)" first, "Покраска потолков" -> 3, "gladz" -> 17, "Punkt wodny" -> 2. No backend change.
+

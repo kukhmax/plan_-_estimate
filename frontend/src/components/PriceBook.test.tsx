@@ -273,16 +273,38 @@ describe('PriceBook — filters', () => {
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
   });
 
-  it('requests the backend search parameter on typing', async () => {
+  it('searches the names the owner sees, not the server (UX walk A1: catalogue rows have only a key)', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [seedPrep, seedPaint, custom], total: 3 });
     renderBook();
-    fireEvent.change(screen.getByLabelText('pricebook-search'), {
-      target: { value: 'lateks' },
-    });
-    await waitFor(() =>
-      expect(priceItemsApi.fetchPriceItems).toHaveBeenLastCalledWith(
-        expect.objectContaining({ search: 'lateks' }),
-      ),
-    );
+    await screen.findByLabelText('price-item-item-1');
+    fireEvent.change(screen.getByLabelText('pricebook-search'), { target: { value: 'tapet' } });
+    expect(screen.getByLabelText('price-item-item-1')).toBeInTheDocument();
+    expect(screen.queryByLabelText('price-item-item-2')).toBeNull();
+    expect(priceItemsApi.fetchPriceItems).not.toHaveBeenCalledWith(expect.objectContaining({ search: expect.anything() }));
+    // without the Polish letters, and two words in any order
+    fireEvent.change(screen.getByLabelText('pricebook-search'), { target: { value: 'scian malowanie' } });
+    expect(screen.getByLabelText('price-item-item-2')).toBeInTheDocument();
+    expect(screen.queryByLabelText('price-item-item-1')).toBeNull();
+    // the owner's own name and the code still count
+    fireEvent.change(screen.getByLabelText('pricebook-search'), { target: { value: 'lateks' } });
+    expect(screen.getByLabelText('price-item-item-3')).toBeInTheDocument();
+    expect(screen.queryByLabelText('price-item-item-2')).toBeNull();
+    fireEvent.change(screen.getByLabelText('pricebook-search'), { target: { value: 'nic takiego' } });
+    expect(screen.queryByLabelText('pricebook-list')).toBeNull();
+  });
+
+  it('finds a catalogue row by its Russian name, and by its Polish one on a Russian screen', async () => {
+    localStorage.setItem('locale', 'ru');
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [seedPrep, seedPaint], total: 2 });
+    renderBook();
+    await screen.findByLabelText('price-item-item-2');
+    fireEvent.change(screen.getByLabelText('pricebook-search'), { target: { value: 'покраска' } });
+    expect(screen.getByLabelText('price-item-item-2')).toBeInTheDocument();
+    expect(screen.queryByLabelText('price-item-item-1')).toBeNull();
+    fireEvent.change(screen.getByLabelText('pricebook-search'), { target: { value: 'tapety' } });
+    expect(screen.queryByLabelText('price-item-item-1')).toBeNull(); // "tapety" is not in "tapet (zdzieranie" -- a word must be contained
+    fireEvent.change(screen.getByLabelText('pricebook-search'), { target: { value: 'tapet' } });
+    expect(screen.getByLabelText('price-item-item-1')).toBeInTheDocument();
   });
 
   it('requests the backend category filter', async () => {

@@ -25,7 +25,8 @@ import {
   PriceScopeValue,
   PriceUnitValue,
 } from '../types/priceItem';
-import { resolveDisplayName } from '../utils/priceItemName';
+import { priceItemMatches, priceItemRank, resolveDisplayName } from '../utils/priceItemName';
+import plDictionary from '../locales/pl.json';
 import { StarterPricesSheet } from './StarterPricesSheet';
 import { formatPrice, normalizePriceInput } from '../utils/priceFormat';
 import { HubTile } from './HubTile';
@@ -100,8 +101,16 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
 
   // Per-item market evidence (read-only; cached, never re-fetched per render).
   const evidence = useMarketEvidence(items.map((item) => item.id));
-  const shownItems = showAllTrades ? items : items.filter((item) => trades.categoryVisible(item.category));
-  const hiddenByTrades = items.length - shownItems.length;
+  const query = search.trim();
+  const found = query
+    ? items
+        .filter((item) => priceItemMatches(item, query, [t as unknown as Record<string, unknown>, plDictionary as unknown as Record<string, unknown>], [t.pricebook.categories[item.category]]))
+        .map((item, index) => ({ item, index, rank: priceItemRank(item, query, t as unknown as Record<string, unknown>) }))
+        .sort((a, b) => a.rank - b.rank || a.index - b.index)
+        .map((entry) => entry.item)
+    : items;
+  const shownItems = showAllTrades ? found : found.filter((item) => trades.categoryVisible(item.category));
+  const hiddenByTrades = found.length - shownItems.length;
   const shownCategories = showAllTrades ? PRICE_CATEGORIES : PRICE_CATEGORIES.filter((value) => trades.categoryVisible(value));
   useEffect(() => {
     if (!showAllTrades && category && !trades.categoryVisible(category)) setCategory('');
@@ -113,9 +122,9 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
     setLoading(true);
     setError(null);
     try {
+      // the search is done here, over the names the owner sees (UX walk A1: the catalogue rows have only a key, the server cannot match their names)
       const data = await fetchPriceItems({
         archived: tab,
-        search: search.trim() || undefined,
         category: category || undefined,
       });
       setItems(data.items);
@@ -125,7 +134,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
     } finally {
       setLoading(false);
     }
-  }, [tab, search, category, t.pricebook.error_load]);
+  }, [tab, category, t.pricebook.error_load]);
 
   useEffect(() => {
     if (mainTab === 'items') void load();
@@ -273,7 +282,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
           <span className="font-medium text-[var(--tg-theme-text-color)]">
             {mainTab === 'items' ? t.coefficients.tab_items : mainTab === 'coefficients' ? t.coefficients.tab_coefficients : t.processes.tab}
           </span>
-          {mainTab === 'items' && total - hiddenByTrades > 0 && <span className="ml-auto text-xs text-slate-400">{total - hiddenByTrades}</span>}
+          {mainTab === 'items' && (query ? shownItems.length : total - hiddenByTrades) > 0 && <span className="ml-auto text-xs text-slate-400">{query ? shownItems.length : total - hiddenByTrades}</span>}
         </nav>
       )}
 
