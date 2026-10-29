@@ -201,6 +201,22 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
     }
   };
 
+  // UX walk B7: the market reference becomes the owner's price by one tap of his, only for a row that has no price yet
+  const [referenceBusy, setReferenceBusy] = useState<string | null>(null);
+  const takeReference = async (item: PriceItem, price: string) => {
+    if (referenceBusy) return;
+    setReferenceBusy(item.id);
+    setInlineError(null);
+    try {
+      const updated = await updatePriceItem(item.id, { price });
+      setItems((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+    } catch {
+      setError(t.pricebook.error_save);
+    } finally {
+      setReferenceBusy(null);
+    }
+  };
+
   const openCreate = () => {
     closeInline();
     setEditing(null);
@@ -561,7 +577,14 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
                 )
               )}
 
-              <PriceBookMarket itemId={item.id} entry={evidence[item.id]} unitLabel={unitLabel} />
+              <PriceBookMarket
+                itemId={item.id}
+                entry={evidence[item.id]}
+                unitLabel={unitLabel}
+                itemUnit={item.unit}
+                onUseReference={item.price === null && !item.is_archived ? (price) => void takeReference(item, price) : undefined}
+                useBusy={referenceBusy === item.id}
+              />
             </li>
           ))}
         </ul>

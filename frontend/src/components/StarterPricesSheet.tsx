@@ -6,7 +6,7 @@ import { useI18n } from '../hooks/useI18n';
 import { useMarketEvidence } from '../hooks/useMarketEvidence';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { PriceItem, PriceItemListResponse } from '../types/priceItem';
-import { normalizePriceInput } from '../utils/priceFormat';
+import { formatPrice, normalizePriceInput } from '../utils/priceFormat';
 import { resolveDisplayName } from '../utils/priceItemName';
 import { Ico } from './Ico';
 import { PriceBookMarket } from './PriceBookMarket';
@@ -20,13 +20,16 @@ interface StarterPricesSheetProps {
   onOpenAll?: () => void;
   /** Which rows the sheet asks for; the five starter rows by default (the quick estimate asks for the rows of the chosen works). */
   load?: () => Promise<PriceItemListResponse>;
+  /** Another title / introduction (UX walk B7: the rows without a price of an estimate). */
+  title?: string;
+  intro?: string;
 }
 
 /**
  * "5 cen na start" (V2-3): the five price rows a new contractor needs first, in a sheet over the screen. Only the rows that were filled in are saved
  * (through the ordinary price update); the market window of a row is shown as a hint and is never filled in for the owner.
  */
-export function StarterPricesSheet({ onClose, onSaved, onOpenAll, load = fetchStarterPrices }: StarterPricesSheetProps) {
+export function StarterPricesSheet({ onClose, onSaved, onOpenAll, load = fetchStarterPrices, title, intro }: StarterPricesSheetProps) {
   const { t } = useI18n();
   const [items, setItems] = useState<PriceItem[] | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -63,6 +66,20 @@ export function StarterPricesSheet({ onClose, onSaved, onOpenAll, load = fetchSt
     // the rows are read once, when the sheet opens
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // UX walk B7: the reference of the market in the unit of the row, put into the field only by a tap of the owner (he saves it)
+  const referenceOf = (item: PriceItem): string | null => {
+    const reference = evidence[item.id]?.references?.[0];
+    return reference && reference.reference_price !== null && reference.unit === item.unit ? reference.reference_price : null;
+  };
+  const toField = (price: string) => price.replace('.', ',');
+  const emptyWithReference = (items ?? []).filter((item) => (values[item.id] ?? '').trim() === '' && referenceOf(item) !== null);
+  const useAllReferences = () =>
+    setValues((current) => {
+      const next = { ...current };
+      for (const item of emptyWithReference) next[item.id] = toField(referenceOf(item) as string);
+      return next;
+    });
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -105,8 +122,21 @@ export function StarterPricesSheet({ onClose, onSaved, onOpenAll, load = fetchSt
         onSubmit={handleSubmit}
         className="pe-card w-full max-w-lg rounded-t-2xl sm:rounded-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-xl space-y-3 max-h-[92vh] overflow-y-auto"
       >
-        <h4 className="font-semibold text-slate-900 break-words">{text.prices_title}</h4>
-        <p className="text-xs text-slate-600 break-words">{text.prices_intro}</p>
+        <h4 className="font-semibold text-slate-900 break-words">{title ?? text.prices_title}</h4>
+        <p className="text-xs text-slate-600 break-words">{intro ?? text.prices_intro}</p>
+        {emptyWithReference.length > 0 && (
+          <div className="space-y-1">
+            <button
+              type="button"
+              aria-label="starter-use-all-references"
+              onClick={useAllReferences}
+              className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-blue-300 text-blue-700 hover:bg-blue-50 break-words"
+            >
+              <Ico>📊</Ico>{text.use_all_references.replace('{n}', String(emptyWithReference.length))}
+            </button>
+            <p className="text-xs text-slate-500 break-words">{text.reference_note}</p>
+          </div>
+        )}
         {!items && !loadFailed && <p className="text-sm text-slate-500 text-center py-4">{t.pricebook.loading}</p>}
         {loadFailed && <p role="alert" className="text-sm text-red-600 break-words">{t.pricebook.error_load}</p>}
         {items?.map((item) => (
@@ -129,6 +159,16 @@ export function StarterPricesSheet({ onClose, onSaved, onOpenAll, load = fetchSt
               </VoiceInput>
               <span className="shrink-0 text-sm text-slate-600">PLN / {t.pricebook.units[item.unit]}</span>
             </div>
+            {referenceOf(item) !== null && (values[item.id] ?? '').replace(',', '.') !== referenceOf(item) && (
+              <button
+                type="button"
+                aria-label={`starter-use-reference-${item.code}`}
+                onClick={() => setValues((current) => ({ ...current, [item.id]: toField(referenceOf(item) as string) }))}
+                className="min-h-11 px-2 text-sm font-medium text-blue-700 hover:underline break-words text-left"
+              >
+                {text.use_reference.replace('{price}', `${formatPrice(referenceOf(item) as string)} ${t.pricebook.currency_symbol}`)}
+              </button>
+            )}
             <PriceBookMarket itemId={item.id} entry={evidence[item.id]} unitLabel={(value) => t.pricebook.units[value]} />
           </div>
         ))}

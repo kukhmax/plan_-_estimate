@@ -612,3 +612,42 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
     expect(await screen.findByLabelText('price-sources-viewer-item-9')).toBeInTheDocument();
   });
 });
+
+describe('UX walk B7: the market reference becomes the owner price by one tap', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValue({ items: [], total: 0 });
+  });
+
+  it('offers it only for a row without a price and saves the reference', async () => {
+    const unpriced = { ...item, price: null };
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [unpriced], total: 1 });
+    vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValue({ items: [makeReference({ reference_price: '65.00' })], total: 1 });
+    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValue({ ...unpriced, price: '65.00' });
+    renderBook();
+    const take = await screen.findByLabelText('price-item-use-reference-item-1');
+    expect(take).toHaveTextContent('Ustaw jako moją cenę: 65,00 zł');
+    expect(take.className).toContain('min-h-11');
+    fireEvent.click(take);
+    await waitFor(() => expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-1', { price: '65.00' }));
+    await waitFor(() => expect(screen.queryByLabelText('price-item-use-reference-item-1')).toBeNull()); // the row has a price now
+  });
+
+  it('never offers it over a price, for another unit or without a reference', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [item], total: 1 });
+    vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValue({ items: [makeReference({ reference_price: '65.00' })], total: 1 });
+    const view = renderBook();
+    await screen.findByLabelText('price-item-market-item-1');
+    expect(screen.queryByLabelText('price-item-use-reference-item-1')).toBeNull();
+    view.unmount();
+
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [{ ...item, id: 'item-2', price: null }], total: 1 });
+    vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValue({ items: [makeReference({ reference_price: '65.00', unit: 'MB' as never })], total: 1 });
+    renderBook();
+    await screen.findByLabelText('price-item-market-item-2');
+    expect(screen.queryByLabelText('price-item-use-reference-item-2')).toBeNull();
+    expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
+  });
+});

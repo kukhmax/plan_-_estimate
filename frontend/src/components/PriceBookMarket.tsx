@@ -10,6 +10,10 @@ interface PriceBookMarketProps {
   itemId: string;
   entry: MarketEvidenceEntry | undefined;
   unitLabel: (value: PriceUnitValue) => string;
+  /** UX walk B7: the unit of the row and the one-tap "take the reference as my price" (given only while the row has no price). */
+  itemUnit?: PriceUnitValue;
+  onUseReference?: (price: string) => void;
+  useBusy?: boolean;
 }
 
 /**
@@ -22,7 +26,7 @@ interface PriceBookMarketProps {
  * is loading (compact muted line), missing (small "no market data" state), or
  * failed (collapses silently) never breaks the card.
  */
-export function PriceBookMarket({ itemId, entry, unitLabel }: PriceBookMarketProps) {
+export function PriceBookMarket({ itemId, entry, unitLabel, itemUnit, onUseReference, useBusy = false }: PriceBookMarketProps) {
   const { t } = useI18n();
   const [viewerOpen, setViewerOpen] = useState(false);
 
@@ -78,6 +82,17 @@ export function PriceBookMarket({ itemId, entry, unitLabel }: PriceBookMarketPro
         <p className="text-xs text-slate-500">
           {t.pricebook.market.reference}: {formatPrice(reference.reference_price)} {currency}
         </p>
+      )}
+      {reference.reference_price !== null && onUseReference && reference.unit === itemUnit && (
+        <button
+          type="button"
+          aria-label={`price-item-use-reference-${itemId}`}
+          disabled={useBusy}
+          onClick={() => onUseReference(reference.reference_price as string)}
+          className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-60 break-words"
+        >
+          {t.pricebook.market.use_reference.replace('{price}', `${formatPrice(reference.reference_price)} ${currency}`)}
+        </button>
       )}
 
       <button

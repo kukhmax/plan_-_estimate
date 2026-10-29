@@ -13,7 +13,9 @@ import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { EstimateMaterialsAction, type MaterialsMessage } from './EstimateMaterialsAction';
 import { EstimatePointsAction, type PointsMessage } from './EstimatePointsAction';
+import { fetchPriceItems } from '../api/priceItems';
 import { Ico } from './Ico';
+import { StarterPricesSheet } from './StarterPricesSheet';
 
 // Stage 10G.3C — the backend rejects LABOR_AND_MATERIAL for MANUAL lines (no
 // PriceBook source to split into labor/material components), so the manual
@@ -196,16 +198,20 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // UX walk A3 — the lines without a price are not in the total: say how many, and fill the ones whose item now has a price in the price book.
   const [fillBusy, setFillBusy] = useState(false);
   const [fillMessage, setFillMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [pricesOpen, setPricesOpen] = useState(false);
+  const [fillPlanned, setFillPlanned] = useState(0);
   const fillPrices = async () => {
     if (fillBusy) return;
     setFillBusy(true);
     setFillMessage(null);
+    setFillPlanned(0);
     try {
       const done = await fillEstimatePrices(estimate.project_id, estimate.id);
       setDetail(await getEstimate(estimate.project_id, estimate.id));
       const parts = [t.estimates.fill_done.replace('{n}', String(done.filled))];
       if (done.missing > done.missing_planned) parts.push(t.estimates.fill_still.replace('{n}', String(done.missing - done.missing_planned)));
       if (done.missing_planned > 0) parts.push(t.estimates.fill_planned.replace('{n}', String(done.missing_planned)));
+      setFillPlanned(done.missing_planned);
       setFillMessage({ kind: 'ok', text: parts.join(' ') });
     } catch {
       setFillMessage({ kind: 'error', text: t.estimates.fill_failed });
@@ -742,6 +748,10 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // reload error, so it never regresses to the stale prop once available.
   const headerSource: EstimateSummaryRead = detail ?? estimate;
   const unpricedCount = detail ? detail.lines.filter((line) => line.unit_price === null).length : 0;
+  // UX walk B7: the items of the price book behind the lines without a price, to price them right here
+  const unpricedItemIds = detail
+    ? [...new Set(detail.lines.filter((line) => line.unit_price === null && line.price_item_id).map((line) => line.price_item_id as string))]
+    : [];
 
   const header = (
     <div className="pe-card rounded-2xl p-4 shadow-sm space-y-2">
@@ -794,6 +804,18 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
       {unpricedCount > 0 && (
         <div aria-label="estimate-unpriced" className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 space-y-2">
           <p className="text-sm font-medium text-amber-900 break-words">{t.estimates.unpriced.replace('{n}', String(unpricedCount))}</p>
+          <p className="text-xs text-amber-900 break-words">{t.estimates.unpriced_hint}</p>
+          {headerSource.status === 'DRAFT' && unpricedItemIds.length > 0 && (
+            <button
+              type="button"
+              aria-label="estimate-set-prices"
+              disabled={fillBusy}
+              onClick={() => setPricesOpen(true)}
+              className="w-full min-h-11 px-3 rounded-xl border border-amber-600 text-amber-900 pe-surface text-sm font-semibold disabled:opacity-60 break-words"
+            >
+              <Ico>🏷️</Ico>{t.estimates.set_prices.replace('{n}', String(unpricedItemIds.length))}
+            </button>
+          )}
           {headerSource.status === 'DRAFT' && (
             <button
               type="button"
@@ -807,8 +829,35 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           )}
         </div>
       )}
+      {pricesOpen && (
+        <StarterPricesSheet
+          title={t.estimates.set_prices_title}
+          intro={t.estimates.set_prices_intro}
+          load={async () => {
+            const all = await fetchPriceItems();
+            const items = all.items.filter((item) => unpricedItemIds.includes(item.id));
+            return { items, total: items.length };
+          }}
+          onSaved={() => void fillPrices()}
+          onClose={() => setPricesOpen(false)}
+        />
+      )}
       {fillMessage && (
         <p role={fillMessage.kind === 'error' ? 'alert' : 'status'} className={`text-sm break-words ${fillMessage.kind === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>{fillMessage.text}</p>
+      )}
+      {/* B7: the works of the plan are priced with their coefficients by "Sprawdź zmiany": one tap opens it, the owner sees the change and applies it */}
+      {fillPlanned > 0 && headerSource.status === 'DRAFT' && !previewOpen && (
+        <button
+          type="button"
+          aria-label="estimate-fill-check-changes"
+          onClick={() => {
+            void openPreview();
+            (document.querySelector('[aria-label="estimate-regeneration"]') as HTMLElement | null)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+          }}
+          className="w-full min-h-11 px-3 rounded-xl bg-amber-600 text-white text-sm font-semibold break-words"
+        >
+          <Ico>🔍</Ico>{t.estimates.fill_check_changes.replace('{n}', String(fillPlanned))}
+        </button>
       )}
 
       {headerSource.status === 'DRAFT' && (
