@@ -1856,6 +1856,12 @@
     "included_off": "VAT is added to the sum: the sum of the lines is the net."
   },
   "estimates": {
+    "unpriced": "No price: {n} lines — not in the total.",
+    "fill_button": "Fill prices from the price book",
+    "fill_done": "Filled from the price book: {n}.",
+    "fill_still": "Still without a price: {n} — enter the price in the price book or in the line (Options).",
+    "fill_planned": "Planned works without a price: {n} — after pricing them use \"Check the changes\".",
+    "fill_failed": "Could not fill the prices.",
     "title": "Estimate",
     "version": "Version",
     "status": "Status",

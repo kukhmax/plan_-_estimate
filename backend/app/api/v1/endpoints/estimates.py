@@ -34,6 +34,7 @@ from app.schemas.estimate import (
     LineChangeEntryRead,
     ManualLineCreate,
     RegenerationPreviewResponse,
+    FillPricesResponse,
 )
 
 router = APIRouter()
@@ -243,6 +244,27 @@ async def add_manual_line(
 # ---------------------------------------------------------------------------
 # G. Update editable draft line (quantity / price overrides, MANUAL description)
 # ---------------------------------------------------------------------------
+
+@router.post(
+    "/projects/{project_id}/estimates/{estimate_id}/fill-prices",
+    response_model=FillPricesResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Price the lines of a DRAFT that still have no price from their items of the price book (never replaces a price)",
+)
+async def fill_prices(
+    project_id: uuid.UUID,
+    estimate_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    service: EstimateService = Depends(get_estimate_service),
+) -> FillPricesResponse:
+    try:
+        done = await service.fill_prices(project_id, estimate_id, current_user.id)
+    except (EstimateNotFoundError, ProjectNotFoundError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estimate not found")
+    except EstimateStateError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    return FillPricesResponse(filled=done.filled, missing=done.missing, missing_planned=done.missing_planned)
+
 
 @router.put(
     "/projects/{project_id}/estimates/{estimate_id}/vat",

@@ -144,6 +144,13 @@ def _item_description(item: PriceItem) -> str:
     return item.code
 
 
+@dataclass(frozen=True)
+class FilledPrices:
+    filled: int  # lines priced now from their item of the price book
+    missing: int  # lines that still have no price (they are not in the total)
+    missing_planned: int  # of these: planned works ("Sprawdź zmiany" prices them)
+
+
 def _compute_amount(
     quantity: Decimal, unit_price: Decimal | None
 ) -> Decimal | None:
@@ -1826,6 +1833,38 @@ class EstimateService:
         self.recalculate_totals(estimate)
         await self.db.commit()
         return line
+
+    async def fill_prices(self, project_id: uuid.UUID, estimate_id: uuid.UUID, owner_id: uuid.UUID) -> "FilledPrices":
+        """UX walk A3: the lines added from the rooms (points and routes, materials) are a snapshot taken with the price the item had THEN; an item that had no price
+        leaves the line "do ustalenia" even after the owner priced it. This fills such a line from its item of the price book now: only a DRAFT, only a line with NO
+        price yet (a price the owner typed is never replaced), only a line that is not a planned work (those are priced with their coefficients by "Sprawdź
+        zmiany"), only a live own item in the unit of the line. Says how many were filled and how many still have no price."""
+        estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
+        if estimate.status != EstimateStatus.DRAFT:
+            raise EstimateStateError(f"Prices can only be filled on DRAFT estimates; estimate {estimate_id} is {estimate.status.value}")
+        wanted = {line.price_item_id for line in estimate.lines if line.unit_price is None and line.origin != LineOrigin.PLANNED_WORK and line.price_item_id is not None}
+        items = (
+            {i.id: i for i in (await self.db.execute(select(PriceItem).where(PriceItem.id.in_(wanted), PriceItem.owner_id == owner_id))).scalars()} if wanted else {}
+        )
+        filled = 0
+        for line in estimate.lines:
+            if line.unit_price is not None or line.origin == LineOrigin.PLANNED_WORK or line.price_item_id is None:
+                continue
+            item = items.get(line.price_item_id)
+            if item is None or item.is_archived or item.price is None or item.unit != line.unit:
+                continue
+            line.unit_price = item.price
+            line.amount = _compute_amount(Decimal(line.quantity), item.price)
+            filled += 1
+        if filled:
+            self.recalculate_totals(estimate)
+        await self.db.commit()
+        missing = [line for line in estimate.lines if line.unit_price is None]
+        return FilledPrices(
+            filled=filled,
+            missing=len(missing),
+            missing_planned=sum(1 for line in missing if line.origin == LineOrigin.PLANNED_WORK),
+        )
 
     async def set_vat(
         self,

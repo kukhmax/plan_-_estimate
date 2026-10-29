@@ -15,6 +15,7 @@ vi.mock('../api/estimates', () => ({
   addManualEstimateLine: vi.fn(),
   deleteEstimateLine: vi.fn(),
   finalizeEstimate: vi.fn(),
+  fillEstimatePrices: vi.fn(),
 }));
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -130,4 +131,46 @@ describe('EstimateShell VAT (V2-6)', () => {
       expect(screen.getByLabelText('estimate-vat-included').closest('label')?.className).toContain('min-h-11');
     });
   });
+
+  describe('lines without a price (UX walk A3)', () => {
+    const LINE = (id: string, unit_price: string | null) => ({
+      id, estimate_id: 'est-1', origin: 'MANUAL', position: 0, description: 'Punkt wodny', unit: 'PCS', quantity: '4.000', unit_price, amount: unit_price ? '480.00' : null,
+    });
+
+    it('says how many lines are not in the total and fills them from the price book', async () => {
+      localStorage.setItem('locale', 'pl');
+      const base = summary({ total: '1000.00' });
+      vi.mocked(estimatesApi.getEstimate)
+        .mockResolvedValueOnce({ ...base, lines: [LINE('l1', null), LINE('l2', '120.00')] } as never)
+        .mockResolvedValueOnce({ ...base, total: '1480.00', lines: [LINE('l1', '120.00'), LINE('l2', '120.00')] } as never);
+      vi.mocked(estimatesApi.fillEstimatePrices).mockResolvedValue({ filled: 1, missing: 0, missing_planned: 0 });
+      render(
+        <I18nProvider>
+          <EstimateShell estimate={base} onBack={vi.fn()} selectedGroupKey={null} onGroupKeyChange={vi.fn()} />
+        </I18nProvider>,
+      );
+      expect(await screen.findByLabelText('estimate-unpriced')).toHaveTextContent('Bez ceny: 1 poz. — nie są wliczone do sumy.');
+      const button = screen.getByLabelText('estimate-fill-prices');
+      expect(button.className).toContain('min-h-11');
+      fireEvent.click(button);
+      expect(await screen.findByRole('status')).toHaveTextContent('Uzupełniono z cennika: 1.');
+      expect(estimatesApi.fillEstimatePrices).toHaveBeenCalledWith(PROJECT_ID, 'est-1');
+      await waitFor(() => expect(screen.queryByLabelText('estimate-unpriced')).toBeNull());
+      expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('1480,00 PLN');
+    });
+
+    it('says what is still missing, and offers no button on a finished estimate', async () => {
+      localStorage.setItem('locale', 'pl');
+      const base = summary({ status: 'FINAL' });
+      vi.mocked(estimatesApi.getEstimate).mockResolvedValue({ ...base, lines: [LINE('l1', null)] } as never);
+      render(
+        <I18nProvider>
+          <EstimateShell estimate={base} onBack={vi.fn()} selectedGroupKey={null} onGroupKeyChange={vi.fn()} />
+        </I18nProvider>,
+      );
+      expect(await screen.findByLabelText('estimate-unpriced')).toHaveTextContent('Bez ceny: 1');
+      expect(screen.queryByLabelText('estimate-fill-prices')).toBeNull();
+    });
+  });
 });
+

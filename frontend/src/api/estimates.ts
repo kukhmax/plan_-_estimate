@@ -101,3 +101,9 @@ export function finalizeEstimate(
     method: 'POST',
   });
 }
+
+/** UX walk A3: price the lines of a DRAFT that still have no price from their items of the price book (a typed price is never replaced). */
+export function fillEstimatePrices(projectId: string, estimateId: string): Promise<{ filled: number; missing: number; missing_planned: number }> {
+  return apiRequest(`${estimatesPath(projectId)}/${estimateId}/fill-prices`, { method: 'POST' });
+}
+

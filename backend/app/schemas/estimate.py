@@ -227,3 +227,12 @@ class EstimateVatWrite(BaseModel):
     vat_mode: Literal["EXEMPT", "RATE"] | None = None
     vat_rate_percent: int | None = None
     vat_included: bool = False  # only with a rate: the prices already include the VAT (it is taken out of the sum, not added on top)
+
+
+class FillPricesResponse(BaseModel):
+    """UX walk A3: the lines of a draft priced now from the price book, and what still has no price."""
+
+    filled: int
+    missing: int
+    missing_planned: int
+

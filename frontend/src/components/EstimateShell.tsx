@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { addManualEstimateLine, deleteEstimateLine, finalizeEstimate, getEstimate, patchEstimateLine, previewEstimateRegeneration, regenerateEstimate, setEstimateVat } from '../api/estimates';
+import { addManualEstimateLine, deleteEstimateLine, fillEstimatePrices, finalizeEstimate, getEstimate, patchEstimateLine, previewEstimateRegeneration, regenerateEstimate, setEstimateVat } from '../api/estimates';
 import { useI18n } from '../hooks/useI18n';
 import { EstimateDocumentActions } from './EstimateDocumentActions';
 import type { EstimateLineRead, EstimateLineUpdatePayload, EstimateRead, EstimateSummaryRead, EstimateStatusValue, LineOriginValue, LineChangeEntry, LineChangeTypeValue, ManualLineCreatePayload, RegenerationPreviewResponse } from '../types/estimate';
@@ -192,6 +192,27 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // UX walk A3 — the lines without a price are not in the total: say how many, and fill the ones whose item now has a price in the price book.
+  const [fillBusy, setFillBusy] = useState(false);
+  const [fillMessage, setFillMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const fillPrices = async () => {
+    if (fillBusy) return;
+    setFillBusy(true);
+    setFillMessage(null);
+    try {
+      const done = await fillEstimatePrices(estimate.project_id, estimate.id);
+      setDetail(await getEstimate(estimate.project_id, estimate.id));
+      const parts = [t.estimates.fill_done.replace('{n}', String(done.filled))];
+      if (done.missing > done.missing_planned) parts.push(t.estimates.fill_still.replace('{n}', String(done.missing - done.missing_planned)));
+      if (done.missing_planned > 0) parts.push(t.estimates.fill_planned.replace('{n}', String(done.missing_planned)));
+      setFillMessage({ kind: 'ok', text: parts.join(' ') });
+    } catch {
+      setFillMessage({ kind: 'error', text: t.estimates.fill_failed });
+    } finally {
+      setFillBusy(false);
+    }
+  };
 
   // V2-6 — the VAT of a DRAFT estimate. The answer is the summary of the estimate; the lines stay as they are.
   const [vatBusy, setVatBusy] = useState(false);
@@ -720,6 +741,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // successful load(); `detail` is never cleared afterward, even on a later
   // reload error, so it never regresses to the stale prop once available.
   const headerSource: EstimateSummaryRead = detail ?? estimate;
+  const unpricedCount = detail ? detail.lines.filter((line) => line.unit_price === null).length : 0;
 
   const header = (
     <div className="pe-card rounded-2xl p-4 shadow-sm space-y-2">
@@ -768,6 +790,26 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           <div aria-label="estimate-shell-vat-exempt" className="text-slate-500">{t.vat.exempt}</div>
         )}
       </div>
+
+      {unpricedCount > 0 && (
+        <div aria-label="estimate-unpriced" className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 space-y-2">
+          <p className="text-sm font-medium text-amber-900 break-words">{t.estimates.unpriced.replace('{n}', String(unpricedCount))}</p>
+          {headerSource.status === 'DRAFT' && (
+            <button
+              type="button"
+              aria-label="estimate-fill-prices"
+              disabled={fillBusy}
+              onClick={() => void fillPrices()}
+              className="w-full min-h-11 px-3 rounded-xl bg-amber-600 text-white text-sm font-semibold disabled:opacity-60"
+            >
+              {fillBusy ? t.common.saving : t.estimates.fill_button}
+            </button>
+          )}
+        </div>
+      )}
+      {fillMessage && (
+        <p role={fillMessage.kind === 'error' ? 'alert' : 'status'} className={`text-sm break-words ${fillMessage.kind === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>{fillMessage.text}</p>
+      )}
 
       {headerSource.status === 'DRAFT' && (
         <div className="flex flex-col gap-1 pt-1">

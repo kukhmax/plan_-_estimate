@@ -1851,6 +1851,12 @@
     "included_off": "VAT jest doliczany do sumy: suma pozycji to netto."
   },
   "estimates": {
+    "unpriced": "Bez ceny: {n} poz. — nie są wliczone do sumy.",
+    "fill_button": "Uzupełnij ceny z cennika",
+    "fill_done": "Uzupełniono z cennika: {n}.",
+    "fill_still": "Nadal bez ceny: {n} — wpisz cenę w cenniku albo w pozycji (Opcje).",
+    "fill_planned": "Prace z planu bez ceny: {n} — po wpisaniu cen w cenniku użyj „Sprawdź zmiany”.",
+    "fill_failed": "Nie udało się uzupełnić cen.",
     "title": "Kosztorys",
     "version": "Wersja",
     "status": "Status",
