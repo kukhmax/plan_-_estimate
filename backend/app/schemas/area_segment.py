@@ -68,6 +68,13 @@ class AreaSegmentUpdate(BaseModel):
         return self
 
 
+class AreaSegmentReorder(BaseModel):
+    """All the active rectangles of one plane (floor or ceiling) in the order the owner chose; the first one goes first."""
+
+    plane: AreaPlane
+    segment_ids: list[uuid.UUID] = Field(min_length=2, max_length=200)
+
+
 class AreaSegmentRead(BaseModel):
     id: uuid.UUID
     room_id: uuid.UUID

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api.deps import get_area_segment_service, get_current_user
 from app.domain.exceptions import (
     AreaSegmentNotFoundError,
+    AreaSegmentReorderError,
     AreaSegmentSurfaceMismatchError,
     CanonicalPlaneMissingError,
     NegativeNetAreaError,
@@ -19,6 +20,7 @@ from app.schemas.area_segment import (
     AreaSegmentCreate,
     AreaSegmentListResponse,
     AreaSegmentRead,
+    AreaSegmentReorder,
     AreaSegmentUpdate,
     PlaneAreaSummary,
 )
@@ -58,6 +60,10 @@ async def list_area_segments(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Room not found",
         )
+    return _list_response(items, total, plane_totals)
+
+
+def _list_response(items, total, plane_totals) -> AreaSegmentListResponse:
     return AreaSegmentListResponse(
         items=[AreaSegmentRead.model_validate(segment) for segment in items],
         total=total,
@@ -74,6 +80,36 @@ async def list_area_segments(
             for plane, totals in plane_totals.items()
         },
     )
+
+
+@router.post(
+    "/projects/{project_id}/rooms/{room_id}/area-segments/reorder",
+    response_model=AreaSegmentListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Set the order of the active rectangles of the floor or of the ceiling of a room",
+)
+async def reorder_area_segments(
+    project_id: uuid.UUID,
+    room_id: uuid.UUID,
+    payload: AreaSegmentReorder,
+    current_user: User = Depends(get_current_user),
+    area_segment_service: AreaSegmentService = Depends(get_area_segment_service),
+) -> AreaSegmentListResponse:
+    try:
+        await area_segment_service.reorder_area_segments(
+            project_id, room_id, current_user.id, payload.plane, payload.segment_ids
+        )
+        items, total, plane_totals = await area_segment_service.list_area_segments(
+            project_id, room_id, owner_id=current_user.id
+        )
+    except ProjectNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    except RoomNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+    except AreaSegmentReorderError as e:
+        http_status = 422 if e.code == "AREA_REORDER_NEED_TWO" else status.HTTP_409_CONFLICT
+        raise HTTPException(status_code=http_status, detail={"code": e.code, "message": e.message})
+    return _list_response(items, total, plane_totals)
 
 
 @router.post(

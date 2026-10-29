@@ -1,5 +1,6 @@
 import { apiRequest } from './http';
 import {
+  AreaPlane,
   AreaSegmentCreatePayload,
   AreaSegmentListResponse,
   AreaSegmentType,
@@ -27,6 +28,19 @@ export function createAreaSegment(
   return apiRequest(areaSegmentsPath(projectId, roomId), {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+/** The order of the active rectangles of one plane (all of them, the first goes first); the answer is the list as it now is. */
+export function reorderAreaSegments(
+  projectId: string,
+  roomId: string,
+  plane: AreaPlane,
+  segmentIds: string[],
+): Promise<AreaSegmentListResponse> {
+  return apiRequest(`${areaSegmentsPath(projectId, roomId)}/reorder`, {
+    method: 'POST',
+    body: JSON.stringify({ plane, segment_ids: segmentIds }),
   });
 }
 

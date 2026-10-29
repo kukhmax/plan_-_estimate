@@ -4,10 +4,13 @@ import {
   archiveAreaSegment,
   createAreaSegment,
   fetchAreaSegments,
+  reorderAreaSegments,
   restoreAreaSegment,
   updateAreaSegment,
 } from '../api/areaSegments';
 import { fetchSurfaces } from '../api/surfaces';
+import { ApiError } from '../api/http';
+import { moveItem, useDragReorder } from '../hooks/useDragReorder';
 import { useI18n } from '../hooks/useI18n';
 import {
   AreaOperation,
@@ -122,6 +125,12 @@ export function AreaSegmentList({
     FLOOR: null,
     CEILING: null,
   });
+
+  /** Order mode of one plane (owner 2026-10-29, like the order of the walls): the rectangles get ↑ ↓ and a handle; every move is saved at once. */
+  const [reorderingPlane, setReorderingPlane] = useState<AreaPlane | null>(null);
+  const [orderBusy, setOrderBusy] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const idsOf = (plane: AreaPlane) => segments.filter((candidate) => candidate.plane === plane).map((candidate) => candidate.id);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -260,6 +269,67 @@ export function AreaSegmentList({
     }
   };
 
+  /** Saves a new order of the rectangles of a plane: the screen answers at once, the server confirms (a refusal brings the real order back). */
+  const saveSegmentOrder = async (plane: AreaPlane, next: string[]) => {
+    setSegments((current) => {
+      const slots = current.map((candidate, index) => (candidate.plane === plane ? index : -1)).filter((index) => index >= 0);
+      if (slots.length !== next.length) return current;
+      const byId = new Map(current.map((candidate) => [candidate.id, candidate]));
+      const copy = [...current];
+      slots.forEach((slot, i) => {
+        copy[slot] = byId.get(next[i]) ?? copy[slot];
+      });
+      return copy;
+    });
+    setOrderBusy(true);
+    setOrderError(null);
+    try {
+      await reorderAreaSegments(projectId, roomId, plane, next);
+    } catch (err) {
+      setOrderError(err instanceof ApiError && err.code === 'AREA_REORDER_NOT_CURRENT' ? t.area_segments.reorder_stale : t.area_segments.reorder_failed);
+      await load(); // the list as it really is
+    } finally {
+      setOrderBusy(false);
+    }
+  };
+  const moveSegment = async (plane: AreaPlane, ids: string[], segmentId: string, delta: -1 | 1) => {
+    const from = ids.indexOf(segmentId);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    await saveSegmentOrder(plane, moveItem(ids, from, to));
+  };
+  const floorDrag = useDragReorder({ ids: idsOf('FLOOR'), onDrop: (next) => void saveSegmentOrder('FLOOR', next), disabled: reorderingPlane !== 'FLOOR' || orderBusy });
+  const ceilingDrag = useDragReorder({ ids: idsOf('CEILING'), onDrop: (next) => void saveSegmentOrder('CEILING', next), disabled: reorderingPlane !== 'CEILING' || orderBusy });
+
+  /** The same rectangle once more on the same plane (the rooms of a staircase have many alike): the copy stands right behind the original. */
+  const duplicateSegment = async (segment: AreaSegmentType) => {
+    setError(null);
+    setSuccess(null);
+    try {
+      const created = await createAreaSegment(projectId, roomId, {
+        plane: segment.plane,
+        operation: segment.operation,
+        width: Number(segment.width),
+        height: Number(segment.height),
+        label: segment.label,
+      });
+      const ids = idsOf(segment.plane);
+      const at = ids.indexOf(segment.id);
+      if (at >= 0 && ids.length >= 1) {
+        try {
+          await reorderAreaSegments(projectId, roomId, segment.plane, [...ids.slice(0, at + 1), created.id, ...ids.slice(at + 1)]);
+        } catch {
+          // the copy exists and stands at the end of the list: the order can be set by hand
+        }
+      }
+      setSuccess(t.area_segments.duplicated);
+      await load();
+      onMeasurementChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.area_segments.error);
+    }
+  };
+
   const changeArchiveState = async (segment: AreaSegmentType) => {
     setError(null);
     setSuccess(null);
@@ -330,6 +400,7 @@ export function AreaSegmentList({
     const rectangleBase = summary !== undefined && summary.base_area !== null;
     const hasPlaneArea = rectangleBase || planeSegments.length > 0;
     const planeKey = plane === 'FLOOR' ? 'floor' : 'ceiling';
+    const planeDrag = plane === 'FLOOR' ? floorDrag : ceilingDrag;
     const isOptionsOpen = !!expandedOptions[plane];
     const planeSurface = planeSurfaces[plane];
     const planeSurfaceId = planeSurface?.id ?? null;
@@ -590,7 +661,100 @@ export function AreaSegmentList({
 
             {!editingId && segmentForm}
 
-            {planeSegments.length === 0 ? (
+            {planeSegments.length >= 2 && reorderingPlane !== plane && (
+              <button
+                type="button"
+                aria-label={`reorder-${planeKey}-start`}
+                onClick={() => {
+                  setError(null);
+                  setSuccess(null);
+                  setOrderError(null);
+                  closeForm();
+                  setReorderingPlane(plane);
+                }}
+                className="w-full min-h-11 px-3 py-2 text-sm rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 transition"
+              >
+                <Ico>↕️</Ico>{t.surfaces.reorder_start}
+              </button>
+            )}
+
+            {reorderingPlane === plane && (
+              <div className="space-y-2">
+                <p aria-label={`reorder-${planeKey}-hint`} className="text-xs text-slate-600 break-words">{t.area_segments.reorder_hint}</p>
+                {orderError && <p role="alert" className="text-sm text-red-600 break-words">{orderError}</p>}
+                <ul className="space-y-1.5">
+                  {planeDrag.order.map((id) => planeSegments.find((candidate) => candidate.id === id)).filter((segment): segment is AreaSegmentType => !!segment).map((segment) => {
+                    const ids = planeSegments.map((candidate) => candidate.id);
+                    const at = ids.indexOf(segment.id);
+                    const held = planeDrag.heldId === segment.id;
+                    const arrow = 'shrink-0 min-h-11 min-w-11 rounded-xl border border-slate-300 text-lg font-bold text-slate-800 disabled:opacity-30';
+                    const { ref: rowRef, ...holdProps } = planeDrag.rowProps(segment.id);
+                    return (
+                      <li
+                        key={segment.id}
+                        ref={rowRef}
+                        {...holdProps}
+                        aria-label={`segment-order-${segment.id}`}
+                        data-held={held ? 'true' : undefined}
+                        className={`bg-slate-50 border border-slate-200/80 rounded-xl pl-1 pr-2 py-1.5 min-h-11 w-full flex items-center gap-1.5 select-none transition-shadow ${held ? 'shadow-xl ring-2 ring-blue-500 scale-[1.02] relative z-10' : 'shadow-sm'}`}
+                        style={{ WebkitTouchCallout: 'none' }}
+                      >
+                        <span
+                          aria-label={`segment-drag-${segment.id}`}
+                          title={t.area_segments.drag}
+                          {...planeDrag.handleProps(segment.id)}
+                          className="shrink-0 min-h-11 min-w-9 flex items-center justify-center text-xl text-slate-500 cursor-grab"
+                          style={{ touchAction: 'none' }}
+                        >
+                          <span aria-hidden="true">⠿</span>
+                        </span>
+                        <span className="min-w-0 flex-1 text-xs">
+                          <span className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${segment.operation === 'ADD' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700'}`}>
+                              {operationLabel(segment.operation)}
+                            </span>
+                            {segment.label && <span className="font-semibold text-slate-800 break-words">{segment.label}</span>}
+                          </span>
+                          <span className="block text-slate-500 break-words">
+                            {formatMetric(segment.width)} × {formatMetric(segment.height)} {t.common.unit_m} = <strong className="text-slate-800">{formatMetric(segment.area ?? segmentArea(segment))} {t.common.unit_m2}</strong>
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`segment-up-${segment.id}`}
+                          title={t.area_segments.move_up}
+                          disabled={orderBusy || at <= 0}
+                          onClick={() => void moveSegment(plane, ids, segment.id, -1)}
+                          className={arrow}
+                        >
+                          <span aria-hidden="true">↑</span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`segment-down-${segment.id}`}
+                          title={t.area_segments.move_down}
+                          disabled={orderBusy || at < 0 || at >= ids.length - 1}
+                          onClick={() => void moveSegment(plane, ids, segment.id, 1)}
+                          className={arrow}
+                        >
+                          <span aria-hidden="true">↓</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <button
+                  type="button"
+                  aria-label={`reorder-${planeKey}-done`}
+                  onClick={() => setReorderingPlane(null)}
+                  className="w-full min-h-11 px-3 text-sm rounded-xl bg-blue-600 text-white font-semibold"
+                >
+                  {t.surfaces.reorder_done}
+                </button>
+              </div>
+            )}
+
+            {reorderingPlane === plane ? null : planeSegments.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-2">
                 {plane === 'FLOOR'
                   ? t.area_segments.empty_floor
@@ -644,6 +808,16 @@ export function AreaSegmentList({
                       >
                         <Ico>✏️</Ico>{t.common.edit}
                       </button>
+                      {!segment.is_archived && (
+                        <button
+                          type="button"
+                          aria-label={`duplicate-segment-${segment.id}`}
+                          onClick={() => void duplicateSegment(segment)}
+                          className="min-h-11 text-xs px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100 transition"
+                        >
+                          <Ico>📑</Ico>{t.area_segments.duplicate}
+                        </button>
+                      )}
                       {!segment.is_archived && (
                         <button
                           type="button"

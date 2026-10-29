@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import (
     AreaSegmentNotFoundError,
+    AreaSegmentReorderError,
     AreaSegmentSurfaceMismatchError,
     CanonicalPlaneMissingError,
     NegativeNetAreaError,
@@ -228,6 +229,32 @@ class AreaSegmentService:
         await self.db.commit()
         await self.db.refresh(segment)
         return segment
+
+    async def reorder_area_segments(
+        self,
+        project_id: uuid.UUID,
+        room_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        plane: AreaPlane,
+        segment_ids: list[uuid.UUID],
+    ) -> None:
+        """Put the active rectangles of one plane in the order the owner chose: the position of each is its place in `segment_ids`.
+
+        The list must be exactly the active rectangles of the plane (a rectangle another device added or archived meanwhile makes the
+        screen's list stale: the answer says so and the screen reads the list again), so the positions of the whole plane stay one
+        sequence 0, 1, 2 ...
+        """
+        await self._ensure_room_owned(project_id, room_id, owner_id)
+        if len(set(segment_ids)) != len(segment_ids) or len(segment_ids) < 2:
+            raise AreaSegmentReorderError("AREA_REORDER_NEED_TWO", "Choose the order of at least two different rectangles")
+        active = {segment.id: segment for segment in await self._get_active_segments(room_id, plane)}
+        if set(active) != set(segment_ids):
+            raise AreaSegmentReorderError(
+                "AREA_REORDER_NOT_CURRENT", "The list of the rectangles of this plane has changed; read it again"
+            )
+        for position, segment_id in enumerate(segment_ids):
+            active[segment_id].position = position
+        await self.db.commit()
 
     async def get_area_segment(
         self,

@@ -24,11 +24,12 @@ def test_area_segments_route_family_registered_under_api_prefix() -> None:
         SEGMENT_PATH,
         f"{SEGMENT_PATH}/archive",
         f"{SEGMENT_PATH}/restore",
+        f"{LIST_PATH}/reorder",  # the order of the rectangles of a plane (UX walk B8-pre)
     }
 
 
 def test_area_segments_route_family_has_no_duplicate_endpoints() -> None:
-    assert len([p for p in _paths() if "area-segments" in p]) == 4
+    assert len([p for p in _paths() if "area-segments" in p]) == 5
 
 
 def test_area_segments_methods_match_frontend_client() -> None:
@@ -37,3 +38,4 @@ def test_area_segments_methods_match_frontend_client() -> None:
     assert set(schema[SEGMENT_PATH]) == {"get", "patch"}
     assert set(schema[f"{SEGMENT_PATH}/archive"]) == {"post"}
     assert set(schema[f"{SEGMENT_PATH}/restore"]) == {"post"}
+    assert set(schema[f"{LIST_PATH}/reorder"]) == {"post"}

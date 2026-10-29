@@ -1222,7 +1222,15 @@
     "archived": "Prostokąt został zarchiwizowany",
     "restored": "Prostokąt został przywrócony",
     "base_area": "Powierzchnia bazowa",
-    "adjustments": "Korekty"
+    "adjustments": "Korekty",
+    "duplicate": "Duplikuj",
+    "duplicated": "Prostokąt zduplikowano — kopia stoi zaraz za oryginałem",
+    "reorder_hint": "Przytrzymaj prostokąt i przeciągnij go w nowe miejsce (albo chwyć ⠿). Strzałki przesuwają o jedno miejsce. Zmiany zapisują się od razu.",
+    "drag": "Przeciągnij, aby zmienić kolejność",
+    "move_up": "Wyżej",
+    "move_down": "Niżej",
+    "reorder_failed": "Nie udało się zapisać kolejności",
+    "reorder_stale": "Lista się zmieniła — pokazuję aktualną kolejność"
   },
   "inspections": {
     "autosave_saving": "Zapisywanie…",

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as areaSegmentsApi from './api/areaSegments';
 import * as surfacesApi from './api/surfaces';
 import * as workPlansApi from './api/workPlans';
+import { ApiError } from './api/http';
 import { AreaSegmentList } from './components/AreaSegmentList';
 import { I18nProvider } from './hooks/useI18n';
 import { ProjectPhotosContext } from './hooks/ProjectPhotosContext';
@@ -16,6 +17,7 @@ vi.mock('./api/areaSegments', () => ({
   updateAreaSegment: vi.fn(),
   archiveAreaSegment: vi.fn(),
   restoreAreaSegment: vi.fn(),
+  reorderAreaSegments: vi.fn(),
 }));
 
 vi.mock('./api/surfaces', () => ({
@@ -1042,5 +1044,95 @@ describe('AreaSegmentList: the rows of the rectangles (owner request, Stage 19)'
 
     expect(await screen.findByText(/4,00 × 2,00 m/)).toBeInTheDocument();
     expect(screen.queryByLabelText(`segment-editing-${floorAdd.id}`)).toBeNull();
+  });
+});
+
+
+describe('AreaSegmentList duplicate and order (owner 2026-10-29)', () => {
+  const second: AreaSegmentType = { ...floorAdd, id: 'dddddddd-dddd-dddd-dddd-dddddddddddd', width: 4, height: 1, area: '4.000', position: 1, label: 'Drugi' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [floorAdd, second], total: 2 });
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue(canonicalPlanes);
+  });
+
+  it('duplicates a rectangle and puts the copy right behind the original', async () => {
+    const onMeasurementChanged = vi.fn();
+    const copy = { ...floorAdd, id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', position: null };
+    vi.mocked(areaSegmentsApi.createAreaSegment).mockResolvedValue(copy);
+    vi.mocked(areaSegmentsApi.reorderAreaSegments).mockResolvedValue({ items: [floorAdd, copy, second], total: 3 });
+    renderAreaSegments(onMeasurementChanged);
+
+    await expandPlane('floor');
+    fireEvent.click(await screen.findByLabelText(`duplicate-segment-${floorAdd.id}`));
+
+    await waitFor(() =>
+      expect(areaSegmentsApi.createAreaSegment).toHaveBeenCalledWith(projectId, roomId, {
+        plane: 'FLOOR',
+        operation: 'ADD',
+        width: 3,
+        height: 2,
+        label: 'Parkiet wejście',
+      }),
+    );
+    await waitFor(() =>
+      expect(areaSegmentsApi.reorderAreaSegments).toHaveBeenCalledWith(projectId, roomId, 'FLOOR', [floorAdd.id, copy.id, second.id]),
+    );
+    expect(onMeasurementChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the copy when only the ordering fails', async () => {
+    const copy = { ...floorAdd, id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', position: null };
+    vi.mocked(areaSegmentsApi.createAreaSegment).mockResolvedValue(copy);
+    vi.mocked(areaSegmentsApi.reorderAreaSegments).mockRejectedValue(new Error('down'));
+    renderAreaSegments();
+
+    await expandPlane('floor');
+    fireEvent.click(await screen.findByLabelText(`duplicate-segment-${floorAdd.id}`));
+
+    expect(await screen.findByText(/zduplikowano/)).toBeInTheDocument();
+  });
+
+  it('shows the order button only with two or more rectangles', async () => {
+    vi.mocked(areaSegmentsApi.fetchAreaSegments).mockResolvedValue({ items: [floorAdd], total: 1 });
+    renderAreaSegments();
+    await expandPlane('floor');
+    await screen.findByLabelText(`duplicate-segment-${floorAdd.id}`);
+    expect(screen.queryByLabelText('reorder-floor-start')).toBeNull();
+  });
+
+  it('moves a rectangle with the arrows, saves the order at once and leaves with Gotowe', async () => {
+    vi.mocked(areaSegmentsApi.reorderAreaSegments).mockResolvedValue({ items: [second, floorAdd], total: 2 });
+    renderAreaSegments();
+
+    await expandPlane('floor');
+    fireEvent.click(await screen.findByLabelText('reorder-floor-start'));
+    expect(screen.getByLabelText(`segment-up-${floorAdd.id}`)).toBeDisabled();
+    expect(screen.getByLabelText(`segment-down-${second.id}`)).toBeDisabled();
+
+    fireEvent.click(screen.getByLabelText(`segment-up-${second.id}`));
+    await waitFor(() =>
+      expect(areaSegmentsApi.reorderAreaSegments).toHaveBeenCalledWith(projectId, roomId, 'FLOOR', [second.id, floorAdd.id]),
+    );
+    const rows = screen.getAllByLabelText(/^segment-order-/).map((row) => row.getAttribute('aria-label'));
+    expect(rows).toEqual([`segment-order-${second.id}`, `segment-order-${floorAdd.id}`]);
+
+    fireEvent.click(screen.getByLabelText('reorder-floor-done'));
+    expect(screen.queryByLabelText('reorder-floor-done')).toBeNull();
+  });
+
+  it('reloads the real order and tells it when the server says the list has changed', async () => {
+    vi.mocked(areaSegmentsApi.reorderAreaSegments).mockRejectedValue(new ApiError('x', 409, 'AREA_REORDER_NOT_CURRENT'));
+    renderAreaSegments();
+
+    await expandPlane('floor');
+    fireEvent.click(await screen.findByLabelText('reorder-floor-start'));
+    const loads = vi.mocked(areaSegmentsApi.fetchAreaSegments).mock.calls.length;
+    fireEvent.click(screen.getByLabelText(`segment-up-${second.id}`));
+
+    expect(await screen.findByText(/Lista się zmieniła/)).toBeInTheDocument();
+    expect(vi.mocked(areaSegmentsApi.fetchAreaSegments).mock.calls.length).toBeGreaterThan(loads);
   });
 });

@@ -1222,7 +1222,15 @@
     "archived": "The rectangle was archived",
     "restored": "The rectangle was restored",
     "base_area": "Base area",
-    "adjustments": "Adjustments"
+    "adjustments": "Adjustments",
+    "duplicate": "Duplicate",
+    "duplicated": "Rectangle duplicated — the copy stands right after the original",
+    "reorder_hint": "Press and hold a rectangle and drag it to a new place (or grab ⠿). The arrows move it one place. Changes are saved at once.",
+    "drag": "Drag to change the order",
+    "move_up": "Move up",
+    "move_down": "Move down",
+    "reorder_failed": "Could not save the order",
+    "reorder_stale": "The list has changed — showing the current order"
   },
   "inspections": {
     "autosave_saving": "Saving…",
