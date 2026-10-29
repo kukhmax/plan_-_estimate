@@ -6117,3 +6117,9 @@ Found in the UX walk: "Шпаклевка", "Malowanie", "потолк" found no
 * **Tests:** vitest `priceSearch.test.ts` (3), `PriceBook.test.tsx`: the old "sends the search to the server" test replaced by two (PL names, accents, two words, own name, nothing found; Russian screen with Russian and Polish names).
 * **Verification:** PASS -- vitest full (4330), tsc, build; live (390 px RU): "шпаклевка 2" -> "Шпаклевка — 2 слоя (пакет)" first, "Покраска потолков" -> 3, "gladz" -> 17, "Punkt wodny" -> 2. No backend change.
 
+### UX walk A4: the answers of an inspection save themselves (2026-10-29; branch `ver-2`; NO MIGRATION)
+Found in the UX walk: the answers of the checklist were kept only by "Zapisz szkic" / "Zakończ"; a phone call, Telegram closed or the Back button lost them.
+* **Changed (frontend):** `InspectionFlow` saves the answers itself (`PUT .../answers`) 1 s after the last change, when the app goes to the background (`visibilitychange` hidden, `pagehide`) and when the screen is left; only what changed since the last save, never a completed inspection, never while a number is invalid, one save at a time. A status line above the buttons: "Zapisywanie…" / "Odpowiedzi zapisane automatycznie." / "Nie udało się zapisać automatycznie — spróbuj „Zapisz szkic”.". Locale keys x4.
+* **Tests:** vitest `InspectionAutosave.test.tsx` (6, fake timers).
+* **Verification:** PASS -- vitest full, tsc, build; live (390 px PL): two answers, reload without "Zapisz szkic" -> "Odpowiedzi: 2 / 7".
+

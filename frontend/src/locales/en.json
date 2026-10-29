@@ -1197,6 +1197,9 @@
     "adjustments": "Adjustments"
   },
   "inspections": {
+    "autosave_saving": "Saving…",
+    "autosave_saved": "Answers saved automatically.",
+    "autosave_failed": "Could not save automatically — use \"Save draft\".",
     "title": "Substrate inspection",
     "start": "New inspection",
     "empty": "No substrate inspections",

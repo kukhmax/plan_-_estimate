@@ -1197,6 +1197,9 @@
     "adjustments": "Korekty"
   },
   "inspections": {
+    "autosave_saving": "Zapisywanie…",
+    "autosave_saved": "Odpowiedzi zapisane automatycznie.",
+    "autosave_failed": "Nie udało się zapisać automatycznie — spróbuj „Zapisz szkic”.",
     "title": "Badania podłoża",
     "start": "Nowe badanie",
     "empty": "Brak badań podłoża",

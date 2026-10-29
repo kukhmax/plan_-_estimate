@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import { resolveKey } from '../utils/i18nKeys';
 import {
@@ -140,6 +140,9 @@ function seedAnswersFromDetail(
   return seeded;
 }
 
+/** UX walk A4: an answer is saved this long after the last tap. */
+const AUTOSAVE_DELAY_MS = 1000;
+
 export function InspectionFlow({
   projectId,
   roomId,
@@ -166,6 +169,12 @@ export function InspectionFlow({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [numberErrors, setNumberErrors] = useState<Record<string, string>>({});
+  // UX walk A4: the answers are saved by themselves (a phone call or a minimised Telegram must not lose them). `edits` counts the owner's changes,
+  // `savedEdits` the count the last save carried; a change that came while a save was on the way is saved next.
+  const [autoState, setAutoState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
+  const edits = useRef(0);
+  const savedEdits = useRef(0);
+  const autoBusy = useRef(false);
 
   const isCompleted = inspection?.status === 'COMPLETED';
   const isFloorTarget = target.kind === 'plane' && target.plane === 'FLOOR';
@@ -292,6 +301,7 @@ export function InspectionFlow({
       const current = prev[questionId] ?? { question_id: questionId };
       return { ...prev, [questionId]: { ...current, ...patch, question_id: questionId } };
     });
+    edits.current += 1;
     // Editing a question clears its precision error; the corrected value is
     // re-validated on blur and again at submission.
     setNumberErrors((prev) => {
@@ -319,6 +329,7 @@ export function InspectionFlow({
         [questionId]: { ...current, value_number: normalized, question_id: questionId },
       };
     });
+    edits.current += 1;
     setNumberErrors((prev) => {
       if (message === null) {
         if (!(questionId in prev)) return prev;
@@ -428,9 +439,54 @@ export function InspectionFlow({
     }
   }
 
+  /** Saves the answers without a word unless it fails: only a DRAFT, only when something changed, never a number with too many decimals (its field says so). */
+  async function autoSave(): Promise<void> {
+    if (!inspection || inspection.status === 'COMPLETED' || autoBusy.current || saving) return;
+    const seq = edits.current;
+    if (seq === savedEdits.current) return;
+    const { payload, errors } = prepareAnswersForSubmit();
+    if (Object.keys(errors).length > 0) return;
+    autoBusy.current = true;
+    setAutoState('saving');
+    try {
+      await putInspectionAnswers(projectId, roomId, inspection.id, { answers: payload });
+      savedEdits.current = Math.max(savedEdits.current, seq);
+      setAutoState('saved');
+    } catch {
+      setAutoState('failed');
+    } finally {
+      autoBusy.current = false;
+    }
+  }
+  const autoSaveRef = useRef(autoSave);
+  autoSaveRef.current = autoSave;
+
+  // a change is saved a second after the last tap; a save that was on the way when another change came is followed by one more
+  useEffect(() => {
+    if (!inspection || isCompleted || edits.current === savedEdits.current) return undefined;
+    const timer = window.setTimeout(() => void autoSaveRef.current(), AUTOSAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [answers, autoState, inspection, isCompleted]);
+
+  // leaving at once (Telegram minimised, the page closed, the screen left) saves at once
+  useEffect(() => {
+    const flush = () => {
+      if (document.visibilityState === 'hidden') void autoSaveRef.current();
+    };
+    const leave = () => void autoSaveRef.current();
+    document.addEventListener('visibilitychange', flush);
+    window.addEventListener('pagehide', leave);
+    return () => {
+      document.removeEventListener('visibilitychange', flush);
+      window.removeEventListener('pagehide', leave);
+      void autoSaveRef.current();
+    };
+  }, []);
+
   async function saveDraft(): Promise<void> {
     if (!inspection) return;
     setError(null);
+    const seq = edits.current;
     const prepared = prepareForSubmit();
     if (!prepared.ok) return;
     setAnswers((prev) => {
@@ -443,6 +499,7 @@ export function InspectionFlow({
       await putInspectionAnswers(projectId, roomId, inspection.id, {
         answers: prepared.payload,
       });
+      savedEdits.current = Math.max(savedEdits.current, seq);
       setNotice(t.inspections.saved);
     } catch (err) {
       setError(
@@ -472,6 +529,7 @@ export function InspectionFlow({
       await putInspectionAnswers(projectId, roomId, inspection.id, {
         answers: prepared.payload,
       });
+      savedEdits.current = edits.current;
       const completed = await completeInspection(projectId, roomId, inspection.id);
       const findingsResult = await fetchInspectionFindings(
         projectId,
@@ -726,6 +784,15 @@ export function InspectionFlow({
                 t={t}
               />
             ))
+          )}
+          {autoState !== 'idle' && (
+            <p
+              aria-label="inspection-autosave"
+              aria-live="polite"
+              className={`text-xs break-words ${autoState === 'failed' ? 'text-red-600' : 'text-slate-500'}`}
+            >
+              {autoState === 'saving' ? t.inspections.autosave_saving : autoState === 'saved' ? t.inspections.autosave_saved : t.inspections.autosave_failed}
+            </p>
           )}
           <div className="flex flex-col gap-2">
             <button
