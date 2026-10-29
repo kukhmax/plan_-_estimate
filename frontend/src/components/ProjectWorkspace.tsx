@@ -114,6 +114,22 @@ function clientName(client: ClientType): string {
   return [client.first_name, client.last_name].filter(Boolean).join(' ') || '—';
 }
 
+/** B3: the address of the client in the address of the object -- only the empty fields unless `overwrite`; an empty name takes the street. */
+function withClientAddress(form: ProjectFormState, client: ClientType, overwrite: boolean): ProjectFormState {
+  const take = (current: string, value: string | null) => (value && (overwrite || current.trim() === '') ? value : current);
+  return {
+    ...form,
+    name: form.name.trim() === '' && client.street ? client.street : form.name,
+    address: take(form.address, client.street),
+    city: take(form.city, client.city),
+    postal_code: take(form.postal_code, client.postal_code),
+  };
+}
+
+function hasAddress(client: ClientType | undefined): client is ClientType {
+  return Boolean(client && (client.street || client.city || client.postal_code));
+}
+
 function formFromProject(project: ProjectType): ProjectFormState {
   return {
     name: project.name,
@@ -554,6 +570,14 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetSignal]);
 
+  // B3: a new object opened from a client takes the address of the client once the clients are known (only while the address is empty)
+  useEffect(() => {
+    if (!showForm || editingId || !form.client_id) return;
+    if (form.address || form.city || form.postal_code) return;
+    const client = clients.find((item) => item.id === form.client_id);
+    if (hasAddress(client)) setForm((current) => withClientAddress(current, client, false));
+  }, [clients, showForm, editingId, form.client_id, form.address, form.city, form.postal_code]);
+
   // One request is handled once: the effect depends on its token only.
   useEffect(() => {
     if (!openRequest) return;
@@ -778,6 +802,42 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           <h3 className="font-semibold text-slate-900">
             {editingId ? t.projects.edit : t.projects.add}
           </h3>
+          {/* B3: the client first -- choosing one fills the empty address fields with the address of the client */}
+          <div className="space-y-1.5">
+            <label htmlFor="project-client" className="block text-xs text-slate-500">{t.projects.client}</label>
+            <select
+              id="project-client"
+              aria-label="project-client"
+              value={form.client_id}
+              onChange={(event) => {
+                const clientId = event.target.value;
+                const client = clients.find((item) => item.id === clientId);
+                setForm((current) => (hasAddress(client) ? withClientAddress({ ...current, client_id: clientId }, client, false) : { ...current, client_id: clientId }));
+              }}
+              className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">{t.projects.no_client}</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>{clientName(client)}</option>
+              ))}
+            </select>
+            {(() => {
+              const client = clients.find((item) => item.id === form.client_id);
+              if (!hasAddress(client)) return null;
+              const same = (client.street ?? form.address) === form.address && (client.city ?? form.city) === form.city && (client.postal_code ?? form.postal_code) === form.postal_code;
+              if (same) return null;
+              return (
+                <button
+                  type="button"
+                  aria-label="project-use-client-address"
+                  onClick={() => setForm((current) => withClientAddress(current, client, true))}
+                  className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl border border-blue-300 text-blue-700 hover:bg-blue-50 break-words"
+                >
+                  <Ico>📍</Ico>{t.projects.use_client_address}
+                </button>
+              );
+            })()}
+          </div>
           <input
             aria-label="project-name"
             required
@@ -827,17 +887,6 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           >
             {(['PLANNING', 'IN_PROGRESS', 'COMPLETED'] as const).map((value) => (
               <option key={value} value={value}>{statusLabel(value)}</option>
-            ))}
-          </select>
-          <select
-            aria-label="project-client"
-            value={form.client_id}
-            onChange={(event) => setForm((current) => ({ ...current, client_id: event.target.value }))}
-            className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">{t.projects.no_client}</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>{clientName(client)}</option>
             ))}
           </select>
           <textarea

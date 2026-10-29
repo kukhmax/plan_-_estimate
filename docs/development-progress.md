@@ -6136,3 +6136,9 @@ Found in the UX walk: the plan of a room was built work by work (11 times "pick 
 * **Tests:** vitest `RoomPlanProcesses.test.tsx` (9).
 * **Verification:** PASS -- vitest full, tsc, build; live (local stack): 390 / 320 px PL "Tynk gipsowy — S2" -> 3 required steps of 8 inserted, saved -> plans of 3 surfaces; RU 390 px "Salon" copied the plan of "Kuchnia" (4 works); no horizontal scroll. No backend change.
 
+### UX walk B3: a new object takes the address of its client (2026-10-29; branch `ver-2`; NO MIGRATION)
+Found in the UX walk: the client was the last field of the form of an object and the address of the object was typed again.
+* **Changed (frontend):** `ProjectWorkspace`: "Klient" is the first field (with a label); choosing a client fills the EMPTY address / city / postal code with the client's (and an empty name with the street); typed values stay; "Wstaw adres klienta" overwrites them when they differ; a new object opened from a client gets the address once the clients are loaded. Locale key x4.
+* **Tests:** vitest `ProjectWorkspace.test.tsx` (+2).
+* **Verification:** PASS -- vitest full (4349), tsc, build; live (390 px PL): "Anna Nowak" (city only) -> "Kraków" filled, the client the first field, no horizontal scroll. No backend change.
+

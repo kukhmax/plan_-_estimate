@@ -769,6 +769,7 @@
     "status": "Status",
     "client": "Client",
     "no_client": "No client assigned",
+    "use_client_address": "Use the client's address",
     "client_unavailable": "Client unavailable",
     "planning": "Planning",
     "in_progress": "In progress",

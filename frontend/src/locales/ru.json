@@ -769,6 +769,7 @@
     "status": "Статус",
     "client": "Клиент",
     "no_client": "Без назначенного клиента",
+    "use_client_address": "Подставить адрес клиента",
     "client_unavailable": "Клиент недоступен",
     "planning": "Планирование",
     "in_progress": "В работе",

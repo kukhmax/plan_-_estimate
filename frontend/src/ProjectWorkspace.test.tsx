@@ -1690,6 +1690,44 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     expect(projectsApi.fetchProject).not.toHaveBeenCalled();
   });
 
+  // B3: the address of the client goes into the object
+  const anna: ClientType = { ...client, id: '44444444-4444-4444-4444-444444444444', first_name: 'Anna', last_name: 'Nowak', street: 'ul. Długa 15/4', postal_code: '31-147', city: 'Kraków' };
+
+  it('the client comes first and fills the empty address and name of a new object; a typed field stays (B3)', async () => {
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client, anna], total: 2 });
+    vi.mocked(projectsApi.createProject).mockResolvedValue({ ...project, client_id: anna.id });
+    render(<I18nProvider><ProjectWorkspace /></I18nProvider>);
+    fireEvent.click(await screen.findByLabelText('add-project'));
+    const form = screen.getByLabelText('project-form');
+    expect(form.querySelector('select, input')).toBe(within(form).getByLabelText('project-client')); // the first field
+    fireEvent.change(within(form).getByLabelText('project-city'), { target: { value: 'Wieliczka' } });
+    fireEvent.change(within(form).getByLabelText('project-client'), { target: { value: anna.id } });
+    expect(within(form).getByLabelText('project-name')).toHaveValue('ul. Długa 15/4');
+    expect(within(form).getByLabelText('project-address')).toHaveValue('ul. Długa 15/4');
+    expect(within(form).getByLabelText('project-postal-code')).toHaveValue('31-147');
+    expect(within(form).getByLabelText('project-city')).toHaveValue('Wieliczka'); // typed: kept
+    fireEvent.click(within(form).getByLabelText('project-use-client-address'));
+    expect(within(form).getByLabelText('project-city')).toHaveValue('Kraków');
+    expect(within(form).queryByLabelText('project-use-client-address')).toBeNull(); // the address is the client's now
+    fireEvent.submit(form);
+    await waitFor(() => expect(projectsApi.createProject).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'ul. Długa 15/4', address: 'ul. Długa 15/4', city: 'Kraków', postal_code: '31-147', client_id: anna.id,
+    })));
+  });
+
+  it('a new object opened from a client takes the address of the client; a client without an address changes nothing (B3)', async () => {
+    vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client, anna], total: 2 });
+    render(<I18nProvider><ProjectWorkspace openRequest={{ token: 1, clientId: anna.id, view: 'new-project' }} /></I18nProvider>);
+    const form = await screen.findByLabelText('project-form');
+    await waitFor(() => expect(within(form).getByLabelText('project-address')).toHaveValue('ul. Długa 15/4'));
+    expect(within(form).getByLabelText('project-city')).toHaveValue('Kraków');
+    fireEvent.change(within(form).getByLabelText('project-client'), { target: { value: client.id } });
+    expect(within(form).getByLabelText('project-address')).toHaveValue('ul. Długa 15/4');
+    expect(within(form).queryByLabelText('project-use-client-address')).toBeNull();
+  });
+
   it('shows "Od czego zacząć" on the empty list of objects: the first step leads to the form of an object when a client exists, the second to the price book (U-3)', async () => {
     vi.mocked(projectsApi.fetchProjects).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [client], total: 1 });
