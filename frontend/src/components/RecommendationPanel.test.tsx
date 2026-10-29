@@ -1007,3 +1007,38 @@ describe('RecommendationPanel duplicates of one work (Stage 15H.2, variant A)', 
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 });
+
+describe('"Dodaj wszystkie do prac" (UX walk A5)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('adds every card that can go into a plan, one per work and wall, skipping room advice, works already in the plan and archived items', async () => {
+    const list = [
+      recommendation({ id: 'a', surface_id: 'w1', recommended_work_code: 'SKIM_M2' }),
+      recommendation({ id: 'b', surface_id: 'w1', recommended_work_code: 'SKIM_M2' }), // the same work on the same wall
+      recommendation({ id: 'c', surface_id: 'w1', recommended_work_code: 'PRIMER' }),
+      recommendation({ id: 'd', surface_id: 'w2', recommended_work_code: 'SKIM_M2', in_plan_count: 1 }),
+      recommendation({ id: 'e', surface_id: null, target_kind: 'ROOM', recommended_work_code: 'X' }),
+      recommendation({ id: 'f', surface_id: 'w3', recommended_work_code: 'OLD', current_price_item: priceItem({ is_archived: true }) }),
+    ];
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: list, total: list.length });
+    vi.mocked(workRecommendationsApi.acceptWorkRecommendation).mockImplementation(async (_p, id) =>
+      recommendation({ id: String(id), status: 'ACCEPTED', accepted_at: '2026-10-29T09:00:00Z' }));
+    renderPanel();
+    const button = await screen.findByLabelText('recommendations-accept-all');
+    expect(button).toHaveTextContent('Dodaj wszystkie do prac (2)');
+    expect(button.className).toContain('min-h-11');
+    fireEvent.click(button);
+    expect(await screen.findByText('Dodano do planów prac: 2.')).toBeInTheDocument();
+    expect(vi.mocked(workRecommendationsApi.acceptWorkRecommendation).mock.calls.map((call) => call[1])).toEqual(['a', 'c']);
+  });
+
+  it('is not offered for a single card', async () => {
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: [recommendation()], total: 1 });
+    renderPanel();
+    await screen.findByText('Gładź gipsowa');
+    expect(screen.queryByLabelText('recommendations-accept-all')).toBeNull();
+  });
+});

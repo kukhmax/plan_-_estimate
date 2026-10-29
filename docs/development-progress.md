@@ -6123,3 +6123,9 @@ Found in the UX walk: the answers of the checklist were kept only by "Zapisz szk
 * **Tests:** vitest `InspectionAutosave.test.tsx` (6, fake timers).
 * **Verification:** PASS -- vitest full, tsc, build; live (390 px PL): two answers, reload without "Zapisz szkic" -> "Odpowiedzi: 2 / 7".
 
+### UX walk A5: "Dodaj do prac" makes the plan of the wall from the inspection; "Dodaj wszystkie do prac" (2026-10-29; branch `ver-2`; NO MIGRATION)
+Found in the UX walk: on a wall without a work plan "Dodaj do prac" answered "brak planu prac" and the owner had to leave the inspection, make the plan and come back, card by card.
+* **Changed (backend):** `WorkRecommendationService.accept_recommendation`: no plan of the surface -> one is made from the inspection of the card (its substrate; its quality target only when it fits the scale of the substrate, else none); a missing inspection is still 404.
+* **Changed (frontend):** `RecommendationPanel`: "Dodaj wszystkie do prac (N)" when two or more pending wall / floor / ceiling cards have a live price item, are not REVEAL and are not in the plan yet (one per surface and work); accepts them one by one, then reads the list again: "Dodano do planów prac: N.". Locale keys x4.
+* **Tests:** backend `test_work_recommendation_accept.py` (the two "no auto-create" tests replaced: plan made with S3, Q3 on concrete not carried), `test_work_recommendation_api.py` (404 -> 200 with the plan). Vitest `RecommendationPanel.test.tsx` (+2).
+* **Verification:** PASS -- backend shards on Python 3.12, vitest full, tsc, build; live (390 px PL): "Kuchnia", wall 1 without a plan, PAINTED / S3 inspection -> "Dodaj wszystkie do prac (3)" -> "Dodano do planów prac: 3.", the plan PAINTED / S3 with 3 works, no horizontal scroll.

@@ -1453,6 +1453,8 @@
     "error_accept": "Could not add the work to the plan. Try again.",
     "error_invalid_selection": "The chosen item is not supported for this recommendation.",
     "missing_work_plan": "First set up “Types of work and quality” for this surface.",
+    "accept_all": "Add all to the works ({n})",
+    "accept_all_done": "Added to the work plans: {n}.",
     "fallback_button": "Pick the item manually",
     "picker_title": "Pick a price list item",
     "picker_cancel": "Cancel",

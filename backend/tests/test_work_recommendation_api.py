@@ -750,7 +750,8 @@ class TestAcceptEndpointWiring:
         resp = await async_client.post(_accept_url(project.id, rec.id), headers=auth_header(token))
         assert resp.status_code == 422, resp.text
 
-    async def test_accept_missing_workplan_returns_404(self, async_client: AsyncClient, db_session):
+    async def test_accept_without_a_workplan_makes_it_from_the_inspection(self, async_client: AsyncClient, db_session):
+        """UX walk A5: no dead end -- the plan of the wall is made from the inspection in the same call."""
         token = await get_token(async_client, VALID_USER)
         owner = await _owner(db_session, VALID_USER)
         project = await _make_project(db_session, owner.id)
@@ -762,7 +763,10 @@ class TestAcceptEndpointWiring:
         rec = await _make_actionable_recommendation(db_session, room, inspection, wall)
 
         resp = await async_client.post(_accept_url(project.id, rec.id), headers=auth_header(token))
-        assert resp.status_code == 404, resp.text
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "ACCEPTED"
+        plan = (await db_session.execute(select(SurfaceWorkPlan).where(SurfaceWorkPlan.surface_id == wall.id))).scalar_one()
+        assert plan.substrate == inspection.substrate
 
     async def test_accept_reveal_category_returns_422(self, async_client: AsyncClient, db_session):
         token = await get_token(async_client, VALID_USER)

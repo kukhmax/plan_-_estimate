@@ -1453,6 +1453,8 @@
     "error_accept": "Nie udało się dodać pracy do planu. Spróbuj ponownie.",
     "error_invalid_selection": "Wybrana pozycja nie jest obsługiwana dla tego zalecenia.",
     "missing_work_plan": "Najpierw skonfiguruj „Rodzaje prac i jakość” dla tej powierzchni.",
+    "accept_all": "Dodaj wszystkie do prac ({n})",
+    "accept_all_done": "Dodano do planów prac: {n}.",
     "fallback_button": "Wybierz pozycję ręcznie",
     "picker_title": "Wybierz pozycję cennika",
     "picker_cancel": "Anuluj",

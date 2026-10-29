@@ -22,6 +22,7 @@ from app.domain.data.work_recommendation_rules import (
     recommended_work_allows_target,
 )
 from app.domain.exceptions import (
+    QualityScaleMismatchError,
     PriceItemNotFoundError,
     ProjectNotFoundError,
     RoomNotFoundError,
@@ -31,6 +32,7 @@ from app.domain.exceptions import (
     WorkRecommendationStateError,
     WorkRecommendationTargetError,
 )
+from app.domain.rules.inspection_rules import assert_quality_scale_valid
 from app.domain.rules.risk_rules import compute_source_signature, derive_target_type
 from app.domain.services.canonical_planes import find_active_plane_surface
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
@@ -780,6 +782,26 @@ class WorkRecommendationService:
             )
         return item
 
+    async def _plan_from_inspection(self, recommendation: WorkRecommendation) -> SurfaceWorkPlan:
+        """The work plan of a surface that has none, made from the inspection of the recommendation (flushed, not committed)."""
+        inspection = (
+            await self.db.execute(select(Inspection).where(Inspection.id == recommendation.inspection_id))
+        ).scalar_one_or_none()
+        if inspection is None:
+            raise SurfaceWorkPlanNotFoundError(
+                f"Surface {recommendation.surface_id} has no work plan yet"
+            )
+        quality = inspection.quality_target
+        if quality is not None:
+            try:
+                assert_quality_scale_valid(inspection.substrate, quality)
+            except QualityScaleMismatchError:
+                quality = None  # e.g. a Q-class on a plaster: the plan starts without a class rather than with a wrong one
+        plan = SurfaceWorkPlan(surface_id=recommendation.surface_id, substrate=inspection.substrate, quality_target=quality)
+        self.db.add(plan)
+        await self.db.flush()
+        return plan
+
     async def accept_recommendation(
         self,
         project_id: uuid.UUID,
@@ -792,9 +814,16 @@ class WorkRecommendationService:
 
         append exactly one SurfacePlannedWork occurrence + recommendation
         PENDING -> ACCEPTED + resolved_price_item_id + accepted_at, all in
-        ONE commit. Never mutates Estimate/EstimateLine, never auto-creates
-        a SurfaceWorkPlan, never reactivates is_active (only evaluation
-        does that), and never renumbers or deletes existing planned works.
+        ONE commit. Never mutates Estimate/EstimateLine, never reactivates
+        is_active (only evaluation does that), and never renumbers or deletes
+        existing planned works.
+
+        UX walk A5 (owner 2026-10-28): a surface with no work plan yet gets
+        one in the same commit, from the inspection the recommendation came
+        from -- its substrate, and its quality target when that target is on
+        the scale of the substrate (else none). Before, the owner hit a dead
+        end ("set up the work plan first") although the inspection already
+        knew both.
 
         Lock ordering is deterministic and must never be inverted:
         1. WorkRecommendation row (same-recommendation idempotency)
@@ -837,9 +866,7 @@ class WorkRecommendationService:
         work_plan_service = SurfaceWorkPlanService(self.db)
         plan = await work_plan_service.lock_plan(recommendation.surface_id)
         if plan is None:
-            raise SurfaceWorkPlanNotFoundError(
-                f"Surface {recommendation.surface_id} has no work plan yet"
-            )
+            plan = await self._plan_from_inspection(recommendation)
 
         selected_item = await self._resolve_accept_price_item(
             owner_id, recommendation, price_item_id

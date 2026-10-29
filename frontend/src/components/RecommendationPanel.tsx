@@ -111,6 +111,9 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
   const [listLoading, setListLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // UX walk A5: "Dodaj wszystkie do prac" -- every card that can go into a plan, one per work and wall, nothing that is already in the plan
+  const [allBusy, setAllBusy] = useState(false);
+  const [allDone, setAllDone] = useState<string | null>(null);
   // Session-local only (never persisted): distinguishes "never evaluated
   // yet" from "evaluated successfully and found zero" so the primary action
   // doesn't look like it silently did nothing. Reset on remount (a fresh
@@ -257,6 +260,55 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
     setFallbackOpen((prev) => prev.filter((entry) => entry !== id));
   }
 
+  const addable = (() => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      const summary = item.current_price_item;
+      const ok =
+        item.status === 'PENDING' &&
+        item.target_kind !== 'ROOM' &&
+        item.surface_id !== null &&
+        item.in_plan_count === 0 &&
+        summary !== null &&
+        !summary.is_archived &&
+        summary.category !== 'REVEAL';
+      const key = `${item.surface_id}:${item.recommended_work_code}`;
+      if (!ok || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
+
+  async function handleAcceptAll(): Promise<void> {
+    if (allBusy || addable.length === 0) return;
+    const ids = addable.map((item) => item.id);
+    setAllBusy(true);
+    setAllDone(null);
+    setError(null);
+    setPending((prev) => [...prev, ...ids]);
+    let done = 0;
+    try {
+      for (const id of ids) {
+        const updated = await acceptWorkRecommendation(projectId, id, {});
+        setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+        setJustAccepted((prev) => [...prev, id]);
+        done += 1;
+      }
+    } catch (err) {
+      setError(localizedAcceptError(t, err, t.recommendations.error_accept));
+    } finally {
+      setPending((prev) => prev.filter((entry) => !ids.includes(entry)));
+      setAllBusy(false);
+      if (done > 0) setAllDone(t.recommendations.accept_all_done.replace('{n}', String(done)));
+      try {
+        const refreshed = await fetchWorkRecommendations(projectId, roomId, { activity });
+        setItems(forThisInspection(refreshed.items));
+      } catch {
+        // the accepted cards are already updated; the next list load refreshes the rest
+      }
+    }
+  }
+
   const anyActive = items.some((item) => item.is_active);
 
   return (
@@ -316,6 +368,19 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
             : t.recommendations.no_recommendations}
         </p>
       ) : (
+        <>
+        {addable.length >= 2 && (
+          <button
+            type="button"
+            aria-label="recommendations-accept-all"
+            className="min-h-11 rounded-lg bg-emerald-600 px-3 font-medium text-white disabled:opacity-50"
+            disabled={allBusy}
+            onClick={() => void handleAcceptAll()}
+          >
+            {allBusy ? t.common.saving : t.recommendations.accept_all.replace('{n}', String(addable.length))}
+          </button>
+        )}
+        {allDone && <p role="status" className="text-sm text-emerald-700 break-words">{allDone}</p>}
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
             <RecommendationCard
@@ -339,6 +404,7 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
             />
           ))}
         </ul>
+        </>
       )}
     </div>
   );

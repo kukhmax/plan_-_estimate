@@ -54,7 +54,7 @@ from app.domain.exceptions import (
 )
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.domain.services.work_recommendation_service import WorkRecommendationService
-from app.models.checklist import ChecklistTemplate, Substrate
+from app.models.checklist import ChecklistTemplate, QualityLevel, Substrate
 from app.models.inspection import Inspection, InspectionStatus
 from app.models.price_item import PriceCategory, PriceItem, PriceScope, PriceUnit
 from app.models.project import Project
@@ -447,40 +447,54 @@ class TestInvalidStateOrTarget:
         assert refreshed.accepted_at is None
         assert refreshed.resolved_price_item_id is None
 
-    async def test_missing_surface_workplan_fails_with_404_error(self, db_session):
+    async def test_missing_workplan_is_made_from_the_inspection(self, db_session):
+        """UX walk A5 (owner 2026-10-28): accepting into a surface with no plan makes the plan from the
+        inspection (its substrate and quality target) in the same commit, instead of a dead end."""
         user = await _make_user(db_session, 311043)
         project = await _make_project(db_session, user.id)
         room = await _make_room(db_session, project.id)
         wall = await _make_surface(db_session, room.id, SurfaceType.WALL)
         template = await _make_template(db_session)
         inspection = await _make_inspection(db_session, room.id, template.id)
-        await _make_price_item(db_session, user.id, code="SKIM_Q3_M2")
+        inspection.quality_target = QualityLevel.S3
+        await db_session.commit()
+        item = await _make_price_item(db_session, user.id, code="SKIM_Q3_M2")
         rec = await _make_recommendation(db_session, room, inspection, wall)
         service = WorkRecommendationService(db_session)
 
-        with pytest.raises(SurfaceWorkPlanNotFoundError):
-            await service.accept_recommendation(project.id, rec.id, user.id)
+        accepted = await service.accept_recommendation(project.id, rec.id, user.id)
 
-    async def test_missing_workplan_does_not_auto_create_one(self, db_session):
+        assert accepted.status == WorkRecommendationStatus.ACCEPTED
+        plan = (
+            await db_session.execute(
+                select(SurfaceWorkPlan).where(SurfaceWorkPlan.surface_id == wall.id)
+            )
+        ).scalar_one()
+        assert plan.substrate == Substrate.CONCRETE and plan.quality_target == QualityLevel.S3
+        works = (
+            await db_session.execute(select(SurfacePlannedWork).where(SurfacePlannedWork.work_plan_id == plan.id))
+        ).scalars().all()
+        assert [w.price_item_id for w in works] == [item.id]
+
+    async def test_a_quality_off_the_scale_of_the_substrate_is_not_carried_into_the_new_plan(self, db_session):
         user = await _make_user(db_session, 311044)
         project = await _make_project(db_session, user.id)
         room = await _make_room(db_session, project.id)
         wall = await _make_surface(db_session, room.id, SurfaceType.WALL)
         template = await _make_template(db_session)
         inspection = await _make_inspection(db_session, room.id, template.id)
+        inspection.quality_target = QualityLevel.Q3  # a Q-class on concrete
+        await db_session.commit()
         await _make_price_item(db_session, user.id, code="SKIM_Q3_M2")
         rec = await _make_recommendation(db_session, room, inspection, wall)
         service = WorkRecommendationService(db_session)
 
-        with pytest.raises(SurfaceWorkPlanNotFoundError):
-            await service.accept_recommendation(project.id, rec.id, user.id)
+        await service.accept_recommendation(project.id, rec.id, user.id)
 
         plan = (
-            await db_session.execute(
-                select(SurfaceWorkPlan).where(SurfaceWorkPlan.surface_id == wall.id)
-            )
-        ).scalar_one_or_none()
-        assert plan is None
+            await db_session.execute(select(SurfaceWorkPlan).where(SurfaceWorkPlan.surface_id == wall.id))
+        ).scalar_one()
+        assert plan.substrate == Substrate.CONCRETE and plan.quality_target is None
 
 
 class TestPriceItemResolution:
