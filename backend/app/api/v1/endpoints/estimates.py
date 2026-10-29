@@ -258,7 +258,7 @@ async def put_vat(
     service: EstimateService = Depends(get_estimate_service),
 ) -> EstimateSummaryRead:
     try:
-        estimate = await service.set_vat(project_id, estimate_id, current_user.id, payload.vat_mode, payload.vat_rate_percent)
+        estimate = await service.set_vat(project_id, estimate_id, current_user.id, payload.vat_mode, payload.vat_rate_percent, payload.vat_included)
     except (EstimateNotFoundError, ProjectNotFoundError):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estimate not found")
     except EstimateStateError as e:

@@ -217,9 +217,9 @@ def _requirements(answers: dict[str, Any], catalog: ContractCatalog) -> tuple[Re
 
 def _price(data: GateData) -> str | None:
     estimate = data.estimate
-    if estimate is None or estimate.total is None:
+    if estimate is None or estimate.net_total is None:
         return None
-    return formatting.format_money(estimate.total, estimate.currency)
+    return formatting.format_money(estimate.net_total, estimate.currency)
 
 
 def _options(answer: Any, options: tuple[tuple[str, str], ...]) -> tuple[CheckOption, ...]:

@@ -81,7 +81,8 @@ def estimate_hash(estimate: Any) -> str:
             "id": str(estimate.id),
             "version": estimate.version,
             "currency": estimate.currency,
-            "vat": [estimate.vat_mode, estimate.vat_rate_percent],
+            # "INCLUDED" only when set, so the hash of every estimate made before stays the same
+            "vat": [estimate.vat_mode, estimate.vat_rate_percent] + (["INCLUDED"] if getattr(estimate, "vat_included", False) else []),
             "total": _money(estimate.total),
             "gross": _money(estimate.gross_total),
             "lines": [

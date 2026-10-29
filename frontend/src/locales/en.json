@@ -1850,7 +1850,10 @@
     "gross": "Total gross",
     "exempt": "VAT: zw. (exempt)",
     "draft_only": "The VAT rate can only be changed in a draft estimate.",
-    "save_failed": "Could not change the VAT rate."
+    "save_failed": "Could not change the VAT rate.",
+    "included": "Prices include VAT",
+    "included_on": "VAT is taken out of the sum: gross = the sum of the lines, net and VAT are counted from it.",
+    "included_off": "VAT is added to the sum: the sum of the lines is the net."
   },
   "estimates": {
     "title": "Estimate",

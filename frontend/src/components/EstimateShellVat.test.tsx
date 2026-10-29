@@ -77,7 +77,7 @@ describe('EstimateShell VAT (V2-6)', () => {
     );
     fireEvent.change(select, { target: { value: '8' } });
     await waitFor(() => expect(screen.getByLabelText('estimate-shell-gross').textContent).toBe('3064,09 PLN'));
-    expect(estimatesApi.setEstimateVat).toHaveBeenCalledWith(PROJECT_ID, 'est-1', { vat_mode: 'RATE', vat_rate_percent: 8 });
+    expect(estimatesApi.setEstimateVat).toHaveBeenCalledWith(PROJECT_ID, 'est-1', { vat_mode: 'RATE', vat_rate_percent: 8, vat_included: false });
     expect(estimatesApi.getEstimate).toHaveBeenCalledTimes(1);
   });
 
@@ -94,5 +94,40 @@ describe('EstimateShell VAT (V2-6)', () => {
     show(summary({ status: 'FINAL', vat_mode: 'RATE', vat_rate_percent: 23, vat_amount: '652.54', gross_total: '3489.66' }));
     await screen.findByLabelText('estimate-shell-gross');
     expect(screen.queryByLabelText('estimate-vat-select')).toBeNull();
+  });
+
+  describe('prices that already include the VAT (owner 2026-10-27)', () => {
+    it('offers the checkbox only with a rate', async () => {
+      show(summary({ vat_mode: 'EXEMPT' }));
+      await screen.findByLabelText('estimate-vat-select');
+      expect(screen.queryByLabelText('estimate-vat-included')).toBeNull();
+    });
+
+    it('takes the VAT out of the sum when ticked: net, VAT and gross from the server', async () => {
+      show(summary({ vat_mode: 'RATE', vat_rate_percent: 8, vat_amount: '226.97', gross_total: '3064.09', net_total: '2837.12', vat_included: false }));
+      const box = await screen.findByLabelText('estimate-vat-included');
+      expect(box).not.toBeChecked();
+      expect(screen.getByText('VAT jest doliczany do sumy: suma pozycji to netto.')).toBeInTheDocument();
+      vi.mocked(estimatesApi.setEstimateVat).mockResolvedValue(
+        summary({ vat_mode: 'RATE', vat_rate_percent: 8, vat_included: true, net_total: '2626.96', vat_amount: '210.16', gross_total: '2837.12' }),
+      );
+      fireEvent.click(box);
+      await waitFor(() => expect(screen.getByLabelText('estimate-shell-gross').textContent).toBe('2837,12 PLN'));
+      expect(estimatesApi.setEstimateVat).toHaveBeenCalledWith(PROJECT_ID, 'est-1', { vat_mode: 'RATE', vat_rate_percent: 8, vat_included: true });
+      expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('2626,96 PLN');
+      expect(screen.getByLabelText('estimate-shell-vat').textContent).toBe('210,16 PLN');
+      expect(screen.getByLabelText('estimate-vat-included')).toBeChecked();
+      expect(screen.getByText('Ceny zawierają VAT')).toBeInTheDocument();
+    });
+
+    it('keeps "included" when the rate is changed, and speaks Russian', async () => {
+      show(summary({ vat_mode: 'RATE', vat_rate_percent: 8, vat_included: true, net_total: '2626.96', vat_amount: '210.16', gross_total: '2837.12' }), 'ru');
+      const select = await screen.findByLabelText('estimate-vat-select');
+      expect(screen.getByText('Цены уже с НДС')).toBeInTheDocument();
+      vi.mocked(estimatesApi.setEstimateVat).mockResolvedValue(summary({ vat_mode: 'RATE', vat_rate_percent: 23, vat_included: true, net_total: '2306.60', vat_amount: '530.52', gross_total: '2837.12' }));
+      fireEvent.change(select, { target: { value: '23' } });
+      await waitFor(() => expect(estimatesApi.setEstimateVat).toHaveBeenCalledWith(PROJECT_ID, 'est-1', { vat_mode: 'RATE', vat_rate_percent: 23, vat_included: true }));
+      expect(screen.getByLabelText('estimate-vat-included').closest('label')?.className).toContain('min-h-11');
+    });
   });
 });

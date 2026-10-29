@@ -26,7 +26,7 @@ from app.domain.documents.surface_names import surface_title_or_none
 from app.domain.documents.templating import render_html
 from app.domain.exceptions import DocumentDataError
 from app.domain.rules.polish_identifiers import format_nip, normalize_nip
-from app.domain.rules.vat import vat_totals
+from app.domain.rules.vat import vat_split
 from app.domain.services.estimate_service import EstimateService
 from app.domain.services.executor_profile_service import ExecutorProfileService
 from app.models.client import Client
@@ -69,6 +69,9 @@ class EstimateDocument:
     vat_rate: int | None = None
     vat_amount: Decimal | None = None
     gross: Decimal | None = None
+    # the prices of the lines include the VAT: `total` is then the gross, `net` and `vat_amount` are taken out of it
+    vat_included: bool = False
+    net: Decimal | None = None
 
     def context(self) -> dict[str, object]:
         return {"layout": self.layout, "doc": self}
@@ -167,7 +170,10 @@ def build_estimate_document(
         draft=draft,
     )
     # the VAT is counted here from the sum of the lines (never taken on trust from the stored value)
-    vat_amount, gross = vat_totals(total, estimate.vat_mode, estimate.vat_rate_percent)
+    included = bool(getattr(estimate, "vat_included", False))
+    net, vat_amount, gross = vat_split(total, estimate.vat_mode, estimate.vat_rate_percent, included)
+    if estimate.vat_mode is None:
+        vat_amount, gross = None, None
     return EstimateDocument(
         layout=layout,
         name=estimate.name,
@@ -181,6 +187,8 @@ def build_estimate_document(
         vat_rate=estimate.vat_rate_percent,
         vat_amount=vat_amount,
         gross=gross,
+        vat_included=included and estimate.vat_mode == "RATE",
+        net=net,
     )
 
 

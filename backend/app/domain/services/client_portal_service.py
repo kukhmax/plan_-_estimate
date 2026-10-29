@@ -133,6 +133,8 @@ class ClientPortalService:
                 total=read.total,
                 vat_mode=read.vat_mode,
                 vat_rate_percent=read.vat_rate_percent,
+                vat_included=read.vat_included,
+                net_total=read.net_total,
                 vat_amount=read.vat_amount,
                 gross_total=read.gross_total,
                 hash=rules.estimate_hash(read),

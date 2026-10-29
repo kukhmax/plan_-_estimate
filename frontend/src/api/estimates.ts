@@ -17,7 +17,7 @@ export function generateEstimate(projectId: string): Promise<EstimateSummaryRead
 export function setEstimateVat(
   projectId: string,
   estimateId: string,
-  vat: { vat_mode: 'EXEMPT' | 'RATE' | null; vat_rate_percent: number | null },
+  vat: { vat_mode: 'EXEMPT' | 'RATE' | null; vat_rate_percent: number | null; vat_included?: boolean },
 ): Promise<EstimateSummaryRead> {
   return apiRequest(`${estimatesPath(projectId)}/${estimateId}/vat`, { method: 'PUT', body: JSON.stringify(vat) });
 }

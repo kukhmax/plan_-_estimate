@@ -1845,7 +1845,10 @@
     "gross": "Razem brutto",
     "exempt": "VAT: zw. (zwolniony)",
     "draft_only": "Stawkę VAT można zmienić tylko w roboczym kosztorysie.",
-    "save_failed": "Nie udało się zmienić stawki VAT."
+    "save_failed": "Nie udało się zmienić stawki VAT.",
+    "included": "Ceny zawierają VAT",
+    "included_on": "VAT jest wyodrębniany z sumy: brutto = suma pozycji, netto i VAT liczone z niej.",
+    "included_off": "VAT jest doliczany do sumy: suma pozycji to netto."
   },
   "estimates": {
     "title": "Kosztorys",

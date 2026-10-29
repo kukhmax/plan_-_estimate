@@ -1444,6 +1444,8 @@ class EstimateService:
             "currency": estimate.currency,
             "vat_mode": estimate.vat_mode,
             "vat_rate_percent": estimate.vat_rate_percent,
+            "vat_included": bool(estimate.vat_included),
+            "net_total": estimate.net_total,
             "vat_amount": estimate.vat_amount,
             "gross_total": estimate.gross_total,
             "created_at": estimate.created_at,
@@ -1832,8 +1834,10 @@ class EstimateService:
         owner_id: uuid.UUID,
         mode: str | None,
         rate: int | None,
+        included: bool = False,
     ) -> Estimate:
-        """V2-6: the VAT of a DRAFT estimate (the lines and the net total do not change). A finished estimate keeps the VAT it was finished with."""
+        """V2-6: the VAT of a DRAFT estimate (the lines do not change). A finished estimate keeps the VAT it was finished with.
+        `included`: the prices of the lines already include the VAT (only with a rate; dropped for "not set" and "zw.")."""
         estimate = await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
         if estimate.status != EstimateStatus.DRAFT:
             raise EstimateStateError(
@@ -1843,6 +1847,7 @@ class EstimateService:
             estimate.vat_mode, estimate.vat_rate_percent = validate_vat(mode, rate)
         except VatError as error:
             raise EstimateValidationError(str(error)) from error
+        estimate.vat_included = bool(included) and estimate.vat_mode == "RATE"
         await self.db.commit()
         return await self._fetch_estimate(estimate_id, owner_id, project_id=project_id)
 

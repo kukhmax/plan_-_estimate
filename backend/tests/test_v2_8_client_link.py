@@ -243,7 +243,7 @@ async def test_the_page_shows_the_estimate_with_its_sums_and_nothing_else(async_
     assert page["lang"] == "pl" and page["contractor"]["name"] == "Vvv Remonty" and page["project"]["city"] == "Kraków"
     est = page["estimate"]
     assert est["status"] == "FINAL" and est["consent"] is None and est["version"] == 1
-    assert set(est) == {"id", "version", "status", "name", "currency", "total", "vat_mode", "vat_rate_percent", "vat_amount", "gross_total", "hash", "lines", "consent", "accept_statement", "decline_statement"}
+    assert set(est) == {"id", "version", "status", "name", "currency", "total", "vat_mode", "vat_rate_percent", "vat_included", "net_total", "vat_amount", "gross_total", "hash", "lines", "consent", "accept_statement", "decline_statement"}
     assert Decimal(est["total"]) == Decimal("2837.12") and Decimal(est["gross_total"]) == Decimal("3489.66") and Decimal(est["vat_amount"]) == Decimal("652.54")
     assert est["lines"] and set(est["lines"][0]) == {"position", "room_name", "surface_name", "description", "unit", "quantity", "unit_price", "amount"}
     assert sum(Decimal(ln["amount"]) for ln in est["lines"]) == Decimal(est["total"])

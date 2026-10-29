@@ -75,6 +75,16 @@ describe('the address', () => {
 });
 
 describe('the estimate', () => {
+  it('shows the net taken out of a gross sum when the prices include the VAT', async () => {
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE({
+      estimate: ESTIMATE({ total: '2837.12', vat_rate_percent: 8, vat_included: true, net_total: '2626.96', vat_amount: '210.16', gross_total: '2837.12' }),
+    }));
+    show();
+    expect(await screen.findByLabelText('client-total-net')).toHaveTextContent('2626,96 PLN');
+    expect(screen.getByLabelText('client-total-vat')).toHaveTextContent('210,16 PLN');
+    expect(screen.getByLabelText('client-total-gross')).toHaveTextContent('2837,12 PLN');
+  });
+
   it('shows the contractor, the object, the lines by room and the sums', async () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
     show();

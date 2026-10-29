@@ -196,12 +196,12 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // V2-6 — the VAT of a DRAFT estimate. The answer is the summary of the estimate; the lines stay as they are.
   const [vatBusy, setVatBusy] = useState(false);
   const [vatError, setVatError] = useState<string | null>(null);
-  const changeVat = async (choice: VatChoice) => {
+  const changeVat = async (choice: VatChoice, included = false) => {
     if (vatBusy) return;
     setVatBusy(true);
     setVatError(null);
     try {
-      const summary = await setEstimateVat(estimate.project_id, estimate.id, vatSettingOf(choice));
+      const summary = await setEstimateVat(estimate.project_id, estimate.id, vatSettingOf(choice, included));
       setDetail((current) => (current ? { ...current, ...summary, lines: current.lines } : current));
     } catch {
       setVatError(t.vat.save_failed);
@@ -741,10 +741,10 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
 
       <div className="text-xs text-slate-500 space-y-0.5">
         <div>
-          <span className="text-slate-400">{t.estimates.total}: </span>
+          <span className="text-slate-400">{headerSource.vat_mode === 'RATE' ? t.vat.net : t.estimates.total}: </span>
           <span className="font-medium text-slate-700" aria-label="estimate-shell-total">
             {headerSource.total !== null
-              ? `${formatDecimalMoney(headerSource.total)} ${headerSource.currency}`
+              ? `${formatDecimalMoney(headerSource.net_total ?? headerSource.total)} ${headerSource.currency}`
               : '—'}
           </span>
         </div>
@@ -777,13 +777,30 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
             aria-label="estimate-vat-select"
             value={vatChoiceOf(headerSource)}
             disabled={vatBusy}
-            onChange={(event) => void changeVat(event.target.value as VatChoice)}
+            onChange={(event) => void changeVat(event.target.value as VatChoice, !!headerSource.vat_included)}
             className="min-h-11 w-full px-3 text-sm rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-control-bg-color)] text-[var(--tg-control-text-color)]"
           >
             {VAT_CHOICES.map((choice) => (
               <option key={choice || 'none'} value={choice}>{t.vat.choices[choice || 'none']}</option>
             ))}
           </select>
+          {headerSource.vat_mode === 'RATE' && (
+            <label className="flex items-start gap-2 min-h-11 py-1 text-sm text-slate-700 cursor-pointer">
+              <input
+                id="estimate-vat-included"
+                aria-label="estimate-vat-included"
+                type="checkbox"
+                className="mt-1 h-5 w-5 shrink-0"
+                checked={!!headerSource.vat_included}
+                disabled={vatBusy}
+                onChange={(event) => void changeVat(vatChoiceOf(headerSource), event.target.checked)}
+              />
+              <span className="min-w-0 break-words">
+                <span className="font-medium">{t.vat.included}</span>
+                <span className="block text-xs text-slate-500">{headerSource.vat_included ? t.vat.included_on : t.vat.included_off}</span>
+              </span>
+            </label>
+          )}
           {vatError && <p role="alert" className="text-xs font-medium text-red-600 break-words">{vatError}</p>}
         </div>
       )}

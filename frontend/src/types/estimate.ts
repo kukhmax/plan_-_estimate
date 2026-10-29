@@ -28,6 +28,9 @@ export interface EstimateSummaryRead {
   /** V2-6: null/null = the VAT was not set (the total is shown as it was, without VAT). */
   vat_mode: 'EXEMPT' | 'RATE' | null;
   vat_rate_percent: number | null;
+  /** The prices of the lines already include the VAT: `total` is then the gross and `net_total` is taken out of it (owner 2026-10-27). */
+  vat_included?: boolean;
+  net_total?: string | null;
   vat_amount: string | null;
   gross_total: string | null;
   created_at: string;

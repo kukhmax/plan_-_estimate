@@ -37,11 +37,28 @@
       <td class="num">{% if group.subtotal is none %}<span class="pending">{{ t('estimate.to_be_set') }}</span>{% else %}{{ group.subtotal | money(doc.currency) }}{% endif %}</td>
     </tr>
   {% endfor %}
+    {% if doc.vat_included %}
+    <tr class="grand-total">
+      <td colspan="5" class="num">{{ t('estimate.total_gross') }}</td>
+      <td class="num">{% if doc.total is none %}<span class="pending">{{ t('estimate.to_be_set') }}</span>{% else %}{{ doc.total | money(doc.currency) }}{% endif %}</td>
+    </tr>
+    {% if doc.total is not none %}
+    <tr class="vat">
+      <td colspan="5" class="num">{{ t('estimate.included_net') }}</td>
+      <td class="num">{{ doc.net | money(doc.currency) }}</td>
+    </tr>
+    <tr class="vat">
+      <td colspan="5" class="num">{{ t('estimate.included_vat', rate=doc.vat_rate) }}</td>
+      <td class="num">{{ doc.vat_amount | money(doc.currency) }}</td>
+    </tr>
+    {% endif %}
+    {% else %}
     <tr class="grand-total">
       <td colspan="5" class="num">{% if doc.vat_mode == 'RATE' %}{{ t('estimate.total_net') }}{% else %}{{ t('estimate.total') }}{% endif %}</td>
       <td class="num">{% if doc.total is none %}<span class="pending">{{ t('estimate.to_be_set') }}</span>{% else %}{{ doc.total | money(doc.currency) }}{% endif %}</td>
     </tr>
-    {% if doc.vat_mode == 'RATE' and doc.total is not none %}
+    {% endif %}
+    {% if doc.vat_mode == 'RATE' and doc.total is not none and not doc.vat_included %}
     <tr class="vat">
       <td colspan="5" class="num">{{ t('estimate.vat', rate=doc.vat_rate) }}</td>
       <td class="num">{{ doc.vat_amount | money(doc.currency) }}</td>
@@ -53,5 +70,5 @@
     {% endif %}
   </tbody>
 </table>
-{% if doc.vat_mode == 'RATE' %}<p class="detail">{{ t('estimate.vat_note_rate') }}</p>{% elif doc.vat_mode == 'EXEMPT' %}<p class="detail">{{ t('estimate.vat_note_exempt') }}</p>{% endif %}
+{% if doc.vat_included %}<p class="detail">{{ t('estimate.vat_note_included', rate=doc.vat_rate) }}</p>{% elif doc.vat_mode == 'RATE' %}<p class="detail">{{ t('estimate.vat_note_rate') }}</p>{% elif doc.vat_mode == 'EXEMPT' %}<p class="detail">{{ t('estimate.vat_note_exempt') }}</p>{% endif %}
 {% endblock %}

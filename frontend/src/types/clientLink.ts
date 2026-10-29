@@ -117,6 +117,8 @@ export interface PortalEstimate {
   total: string | null;
   vat_mode: string | null;
   vat_rate_percent: number | null;
+  vat_included?: boolean;
+  net_total?: string | null;
   vat_amount: string | null;
   gross_total: string | null;
   hash: string;

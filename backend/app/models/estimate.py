@@ -36,7 +36,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON as GenericJSON
 
 from app.core.database import Base
-from app.domain.rules.vat import vat_totals
+from app.domain.rules.vat import vat_split, vat_totals
 from app.models.price_item import PriceScope, PriceUnit
 
 # JSONB on PostgreSQL (production), plain JSON on SQLite (tests) -- the
@@ -108,6 +108,8 @@ class Estimate(Base):
     # NULL / NULL = not set (older estimates): no VAT is shown; EXEMPT / NULL = "zw."; RATE / 8 or 23.
     vat_mode: Mapped[str | None] = mapped_column(String(8), nullable=True)
     vat_rate_percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # the prices of the lines already include the VAT (only with a rate): the sum of the lines is the gross, the VAT is taken out of it
+    vat_included: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -119,12 +121,17 @@ class Estimate(Base):
     )
 
     @property
+    def net_total(self) -> Decimal | None:
+        """The net of the estimate: the sum of the lines, or what is left of it after taking the VAT out when the prices include the VAT."""
+        return vat_split(self.total, self.vat_mode, self.vat_rate_percent, bool(self.vat_included))[0]
+
+    @property
     def vat_amount(self) -> Decimal | None:
-        return vat_totals(self.total, self.vat_mode, self.vat_rate_percent)[0]
+        return vat_totals(self.total, self.vat_mode, self.vat_rate_percent, bool(self.vat_included))[0]
 
     @property
     def gross_total(self) -> Decimal | None:
-        return vat_totals(self.total, self.vat_mode, self.vat_rate_percent)[1]
+        return vat_totals(self.total, self.vat_mode, self.vat_rate_percent, bool(self.vat_included))[1]
 
     lines: Mapped[list["EstimateLine"]] = relationship(
         back_populates="estimate",
@@ -142,6 +149,7 @@ class Estimate(Base):
             "OR (vat_mode = 'RATE' AND vat_rate_percent IN (8, 23))",
             name="ck_estimates_vat",
         ),
+        CheckConstraint("vat_included = false OR vat_mode = 'RATE'", name="ck_estimates_vat_included"),
     )
 
 

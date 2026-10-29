@@ -130,7 +130,7 @@ function Totals({ estimate }: { estimate: PortalEstimate }) {
         <>
           <div className={row}>
             <span>{text.total_net}</span>
-            <span aria-label="client-total-net">{money(estimate.total)}</span>
+            <span aria-label="client-total-net">{money(estimate.net_total ?? estimate.total)}</span>
           </div>
           {vatLine ? (
             <div className={row}>

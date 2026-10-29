@@ -53,6 +53,8 @@ class PortalEstimate(BaseModel):
     total: Decimal | None = None
     vat_mode: str | None = None
     vat_rate_percent: int | None = None
+    vat_included: bool = False
+    net_total: Decimal | None = None
     vat_amount: Decimal | None = None
     gross_total: Decimal | None = None
     hash: str

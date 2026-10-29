@@ -236,8 +236,8 @@ class PaymentService:
                 select(Estimate).where(Estimate.project_id == project_id, Estimate.status == status, Estimate.total.is_not(None), Estimate.total > 0)
                 .order_by(Estimate.version.desc()).limit(1)
             )).scalar_one_or_none()
-            if estimate is not None and estimate.total is not None:
-                return AgreedSuggestion(amount=estimate.total, estimate_id=estimate.id, estimate_version=estimate.version, status=status.value)
+            if estimate is not None and estimate.net_total is not None:
+                return AgreedSuggestion(amount=estimate.net_total, estimate_id=estimate.id, estimate_version=estimate.version, status=status.value)
         return None
 
     async def get_finance(self, owner_id: uuid.UUID, project_id: uuid.UUID) -> FinanceView:

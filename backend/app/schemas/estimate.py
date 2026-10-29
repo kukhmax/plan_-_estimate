@@ -29,6 +29,8 @@ class EstimateSummaryRead(BaseModel):
     currency: str
     vat_mode: str | None = None
     vat_rate_percent: int | None = None
+    vat_included: bool = False  # the prices of the lines already include the VAT: `total` is then the gross and `net_total` is taken out of it
+    net_total: Decimal | None = None
     vat_amount: Decimal | None = None
     gross_total: Decimal | None = None
     created_at: datetime
@@ -97,6 +99,8 @@ class EstimateRead(BaseModel):
     # V2-6: the VAT (a snapshot of the executor profile; NULL = not set) and what follows from it: the lines and `total` are NET
     vat_mode: str | None = None
     vat_rate_percent: int | None = None
+    vat_included: bool = False  # the prices of the lines already include the VAT: `total` is then the gross and `net_total` is taken out of it
+    net_total: Decimal | None = None
     vat_amount: Decimal | None = None
     gross_total: Decimal | None = None
     lines: list[EstimateLineRead] = Field(default_factory=list)
@@ -222,3 +226,4 @@ class EstimateVatWrite(BaseModel):
 
     vat_mode: Literal["EXEMPT", "RATE"] | None = None
     vat_rate_percent: int | None = None
+    vat_included: bool = False  # only with a rate: the prices already include the VAT (it is taken out of the sum, not added on top)
