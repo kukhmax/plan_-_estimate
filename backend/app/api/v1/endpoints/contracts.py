@@ -19,7 +19,9 @@ from app.domain.exceptions import (
     DocumentQueueFullError,
     ProjectNotFoundError,
 )
+from app.domain.contracts.prefill import STANDARD_TERM_KEYS
 from app.domain.services.contract_service import ContractService, contract_read
+from app.domain.services.contract_terms_service import ContractTermsService
 from app.models.user import User
 from app.schemas.contract import (
     ContractAnswersUpdate,
@@ -28,7 +30,10 @@ from app.schemas.contract import (
     ContractPrefillRead,
     ContractRead,
     ContractSignRequest,
+    ContractTermsRead,
+    ContractTermsWrite,
     GateBlockerRead,
+    LatestContractTerms,
 )
 from app.schemas.issued_document import IssuedDocumentRead
 
@@ -133,10 +138,10 @@ async def prefill_contract(
     service: ContractService = Depends(get_contract_service),
 ) -> ContractPrefillRead:
     try:
-        row, filled, terms_from = await service.prefill(project_id, contract_id, current_user.id)
+        row, filled, terms_from, from_profile = await service.prefill(project_id, contract_id, current_user.id)
     except FAILURES as exc:
         raise _http_error(exc) from exc
-    return ContractPrefillRead(contract=contract_read(row), filled=filled, terms_from=terms_from)
+    return ContractPrefillRead(contract=contract_read(row), filled=filled, terms_from=terms_from, terms_from_profile=from_profile)
 
 
 @router.post(BASE + "/{contract_id}/archive", response_model=ContractRead, summary="Abandon a draft")
@@ -214,3 +219,36 @@ async def issue_contract(
     except ISSUE_FAILURES as exc:
         raise _http_error(exc) from exc
     return IssuedDocumentRead.model_validate(reservation.document)
+
+
+# --- the owner's standard terms ("Moje standardowe warunki umowy", UX walk B2) -------------------------------------------------
+
+
+async def _terms_read(db: AsyncSession, service: ContractService, owner_id: uuid.UUID, answers: dict) -> ContractTermsRead:
+    latest, name = await service.latest_terms(owner_id)
+    return ContractTermsRead(
+        answers=answers, keys=list(STANDARD_TERM_KEYS), latest=LatestContractTerms(answers=latest, project_name=name) if latest else None
+    )
+
+
+@router.get("/contract-terms", response_model=ContractTermsRead, summary="The owner's standard terms of a contract")
+async def get_contract_terms(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    service: ContractService = Depends(get_contract_service),
+) -> ContractTermsRead:
+    return await _terms_read(db, service, current_user.id, await ContractTermsService(db).get(current_user.id))
+
+
+@router.put("/contract-terms", response_model=ContractTermsRead, summary="Replace the owner's standard terms of a contract")
+async def put_contract_terms(
+    payload: ContractTermsWrite,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    service: ContractService = Depends(get_contract_service),
+) -> ContractTermsRead:
+    try:
+        saved = await ContractTermsService(db).save(current_user.id, payload.answers)
+    except ContractAnswerInvalidError as exc:
+        raise _http_error(exc) from exc
+    return await _terms_read(db, service, current_user.id, saved)

@@ -64,4 +64,6 @@ export interface ContractPrefill {
   contract: Contract;
   filled: string[];
   terms_from: string | null;
+  /** A filled term came from "Moje standardowe warunki umowy". */
+  terms_from_profile?: boolean;
 }

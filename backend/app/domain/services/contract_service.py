@@ -15,7 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.contracts.answers import effective_answers, merge_answers, missing_required
 from app.domain.contracts.gate import Blocker, GateData, evaluate_gate, load_gate_data
 from app.domain.contracts.catalog import load_contract_catalog
-from app.domain.contracts.prefill import PrefillFacts, prefill_changes
+from app.domain.contracts.prefill import STANDARD_TERM_KEYS, PrefillFacts, prefill_changes
+from app.domain.services.contract_terms_service import ContractTermsService
 from app.domain.documents.formatting import local_datetime
 from app.domain.exceptions import (
     ContractAnswerInvalidError,
@@ -147,11 +148,17 @@ class ContractService:
         await self.db.refresh(row)
         return row
 
-    async def _terms_source(self, project_id: uuid.UUID, owner_id: uuid.UUID) -> tuple[dict[str, Any], str | None]:
+    async def latest_terms(self, owner_id: uuid.UUID, project_id: uuid.UUID | None = None) -> tuple[dict[str, Any], str | None]:
+        """The standard terms of the owner's latest contract (of an object other than `project_id`): an issued one first, else a
+        draft; and the name of that object."""
+        answers, name = await self._terms_source(project_id, owner_id)
+        return {key: value for key, value in answers.items() if key in STANDARD_TERM_KEYS}, name
+
+    async def _terms_source(self, project_id: uuid.UUID | None, owner_id: uuid.UUID) -> tuple[dict[str, Any], str | None]:
         """The answers of the owner's latest contract of ANOTHER object (an issued one first, else a draft) and the name of that object."""
-        others = select(Contract, Project.name).join(Project, Project.id == Contract.project_id).where(
-            Contract.owner_id == owner_id, Contract.project_id != project_id
-        )
+        others = select(Contract, Project.name).join(Project, Project.id == Contract.project_id).where(Contract.owner_id == owner_id)
+        if project_id is not None:
+            others = others.where(Contract.project_id != project_id)
         found = (
             await self.db.execute(others.where(Contract.issued_at.is_not(None)).order_by(Contract.issued_at.desc()).limit(1))
         ).first() or (
@@ -162,10 +169,14 @@ class ContractService:
         contract, name = found
         return dict(contract.answers or {}), name
 
-    async def prefill(self, project_id: uuid.UUID, contract_id: uuid.UUID, owner_id: uuid.UUID) -> "tuple[Contract, list[str], str | None]":
-        """UX walk B2: fill the empty answers of the draft from the facts of the object and the owner's own terms (his latest contract
-        of another object). Returns the draft, the keys filled and the name of the object the terms came from. A private client with no
-        person of the customer's side gets one (himself, may accept the work and sign), so "who accepts" needs no other screen."""
+    async def prefill(
+        self, project_id: uuid.UUID, contract_id: uuid.UUID, owner_id: uuid.UUID
+    ) -> "tuple[Contract, list[str], str | None, bool]":
+        """UX walk B2: fill the empty answers of the draft from the facts of the object and the owner's own terms -- his standard
+        terms of the profile first, his latest contract of another object for a term left empty there. Returns the draft, the keys
+        filled, the name of the object a filled term came from (None: none did) and whether a filled term came from the profile. A
+        private client with no person of the customer's side gets one (himself, may accept the work and sign), so "who accepts"
+        needs no other screen."""
         row = await self.get(project_id, contract_id, owner_id)
         if row.status != ContractStatus.DRAFT.value:
             raise ContractNotEditableError(f"contract {contract_id} is {row.status}: only a draft is filled")
@@ -206,7 +217,9 @@ class ContractService:
                 .limit(1)
             )
         ).scalar_one_or_none()
-        terms, source = await self._terms_source(project_id, owner_id)
+        latest, source = await self.latest_terms(owner_id, project_id)
+        profile = await ContractTermsService(self.db).get(owner_id)
+        terms = {**latest, **profile}
         facts = PrefillFacts(
             today=local_datetime(datetime.now(UTC)).date(),
             place=(project.city or "").strip() or None,
@@ -228,8 +241,9 @@ class ContractService:
         row.answers = answers
         await self.db.commit()
         await self.db.refresh(row)
-        used_terms = any(key not in {"contract_date", "contract_place", "vat_rate_percent", "client_status", "who_accepts"} for key in filled)
-        return row, filled, source if used_terms else None
+        from_profile = any(key in profile for key in filled)
+        from_latest = any(key in STANDARD_TERM_KEYS and key not in profile for key in filled)
+        return row, filled, source if from_latest else None, from_profile
 
     async def archive_draft(self, project_id: uuid.UUID, contract_id: uuid.UUID, owner_id: uuid.UUID) -> Contract:
         row = await self.get(project_id, contract_id, owner_id)

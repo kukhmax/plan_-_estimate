@@ -514,6 +514,7 @@
     "prefill_hint": "The date (today), the place (the city of the object), the VAT of the estimate, a consumer for a private person, the client as the person who accepts the work and your usual terms (warranty, advance, payment, penalties, downtime, acceptance) from your latest contract of another object. Filled fields are not changed.",
     "prefill_done": "Fields filled automatically: {n}.",
     "prefill_terms_from": "Your usual terms come from the contract of the object “{name}”.",
+    "prefill_terms_profile": "Your usual terms come from “My standard contract terms”.",
     "prefill_check": "Check them before issuing.",
     "prefill_nothing": "Nothing to fill — the remaining fields need your decision.",
     "prefilled_badge": "filled",
@@ -2503,6 +2504,19 @@
       "sizing": "The first shot takes longer: choosing the 4:3 format…",
       "torch_failed": "Could not switch the torch."
     }
+  },
+  "contract_terms": {
+    "button": "My standard contract terms",
+    "title": "My standard contract terms",
+    "intro": "The terms that are the same in every contract: warranty, advance, payment, penalties, downtime, acceptance, requirements for the premises. A new contract gets them automatically; a field left empty here is taken from your latest contract.",
+    "load_failed": "Could not load the terms.",
+    "save": "Save the terms",
+    "saved": "Terms saved: {n}. New contracts will get them automatically.",
+    "save_failed": "Could not save the terms.",
+    "empty_latest": "No terms saved yet — new contracts take them from your latest contract (object “{name}”).",
+    "empty_none": "No terms saved yet and no earlier contract.",
+    "from_latest": "Fill from the latest contract (object “{name}”)",
+    "from_latest_done": "Filled from the latest contract. Check and press “Save the terms”."
   },
   "executor_profile": {
     "button": "Contractor profile",

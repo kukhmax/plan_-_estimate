@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { User } from '../types/auth';
+import { ContractTermsModal } from './ContractTermsModal';
 import { ExecutorProfileModal } from './ExecutorProfileModal';
 import { Ico } from './Ico';
 import { usePhotoUploadQueue } from '../hooks/usePhotoUploadQueue';
@@ -20,6 +21,7 @@ interface AccountModalProps {
 
 export function AccountModal({ user, isDevAuth, onClose, onOpenSync, onSignOut }: AccountModalProps) {
   const { t } = useI18n();
+  const [showTerms, setShowTerms] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const { pending, failed } = useOutboxCounts();
@@ -250,6 +252,20 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync, onSignOut }
 
           <button
             type="button"
+            aria-label="open-contract-terms"
+            onClick={() => setShowTerms(true)}
+            className="min-h-11 w-full mt-2 px-3 text-sm font-semibold rounded-xl border break-words"
+            style={{
+              backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+              color: 'var(--tg-theme-text-color)',
+              borderColor: 'var(--tg-control-border-color, var(--tg-theme-hint-color))',
+            }}
+          >
+            <Ico>📄</Ico>{t.contract_terms.button}
+          </button>
+
+          <button
+            type="button"
             onClick={onClose}
             className="min-h-11 w-full mt-2 text-sm font-semibold rounded-xl border border-slate-200 transition"
             style={{
@@ -264,6 +280,7 @@ export function AccountModal({ user, isDevAuth, onClose, onOpenSync, onSignOut }
       </div>
       {/* A sibling, not a child: clicks inside the profile screen must not reach this dialog's backdrop. */}
       {showProfile && <ExecutorProfileModal onClose={() => setShowProfile(false)} />}
+      {showTerms && <ContractTermsModal onClose={() => setShowTerms(false)} />}
     </>
   );
 }

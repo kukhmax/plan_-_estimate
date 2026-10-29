@@ -514,6 +514,7 @@
     "prefill_hint": "Data (dziś), miejsce (miasto obiektu), VAT z kosztorysu, konsument dla osoby prywatnej, klient jako osoba odbierająca prace oraz Twoje stałe warunki (gwarancja, zaliczka, płatność, kary, przestoje, odbiór) z ostatniej umowy innego obiektu. Wypełnione pola nie są zmieniane.",
     "prefill_done": "Uzupełniono automatycznie pól: {n}.",
     "prefill_terms_from": "Stałe warunki wzięto z umowy obiektu „{name}”.",
+    "prefill_terms_profile": "Stałe warunki wzięto z „Moich standardowych warunków umowy”.",
     "prefill_check": "Sprawdź je przed wystawieniem.",
     "prefill_nothing": "Nie ma czego uzupełnić — pozostałe pola wymagają Twojej decyzji.",
     "prefilled_badge": "uzupełnione",
@@ -2498,6 +2499,19 @@
       "sizing": "Pierwsze zdjęcie trwa dłużej: dobieram format 4:3…",
       "torch_failed": "Nie udało się przełączyć latarki."
     }
+  },
+  "contract_terms": {
+    "button": "Moje standardowe warunki umowy",
+    "title": "Moje standardowe warunki umowy",
+    "intro": "Warunki, które są takie same w każdej umowie: gwarancja, zaliczka, płatność, kary, przestoje, odbiór, wymagania dla pomieszczeń. Nowa umowa dostaje je automatycznie; pole puste tutaj zostanie wzięte z Twojej ostatniej umowy.",
+    "load_failed": "Nie udało się wczytać warunków.",
+    "save": "Zapisz warunki",
+    "saved": "Zapisano warunków: {n}. Nowe umowy dostaną je automatycznie.",
+    "save_failed": "Nie udało się zapisać warunków.",
+    "empty_latest": "Nie zapisano jeszcze warunków — nowe umowy biorą je z ostatniej umowy (obiekt „{name}”).",
+    "empty_none": "Nie zapisano jeszcze warunków i nie ma wcześniejszej umowy.",
+    "from_latest": "Wypełnij z ostatniej umowy (obiekt „{name}”)",
+    "from_latest_done": "Wypełniono z ostatniej umowy. Sprawdź i naciśnij „Zapisz warunki”."
   },
   "executor_profile": {
     "button": "Profil wykonawcy",

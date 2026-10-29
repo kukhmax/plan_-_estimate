@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Выпуск «НДС внутри цен» + доработки стен + V2-14b: (1) в смете с НДС 8 %/23 % галочка «Ceny zawierają VAT» — сумма позиций считается брутто, нетто и НДС выделяются из неё (а не добавляются сверху); PDF, страница клиента и сумма договора берут нетто; (2) стены нерегулярного помещения: перетаскивание удержанием в «Zmień kolejność», кнопка «＋ Dodaj ścianę» у заголовка открывает окно добавления; (3) перенос ответа мастера без двойного счёта: если в помещении уже есть ваша строка той же позиции, предпросмотр предлагает «заменить числом мастера» (по умолчанию) / «добавить рядом» / «оставить мою»; строки от мастера помечены «od majstra»; (4) в смете плашка «Bez ceny: N» и кнопка «Uzupełnij ceny z cennika» (строки из помещений берут цену, заданную в прайсе позже); (5) V2-14b (фото помещения и карта трасс на странице мастера) и исправление порядка «описание, потом ссылка» / «majster» — выкладка С ОДНОЙ МИГРАЦИЕЙ 0087 (новая колонка `vat_included` у смет, NOT NULL, по умолчанию false: все существующие сметы считаются как раньше).
-# Что меняется в данных: только новая колонка (у всех существующих смет false). Откат миграции просто убирает колонку.
+# Что меняется в данных: миграция 0087 — новая колонка (у всех существующих смет false); миграция 0088 — новая пустая таблица «Мои стандартные условия договора». Откат миграций убирает колонку и таблицу.
 # Откат образами БЕЗОПАСЕН: прежний образ не знает колонки и не мешает ей; теги pre-v2vata. Останавливается на первом непройденном условии (FAIL). Ворота B: контейнеры пересоздаются только после того, как вы САМИ введёте фразу.
 # Запуск (в НОВОЙ SSH-сессии на VM; файл берётся из origin без pull, поэтому код на VM не меняется до проверок):
 #   cd ~/apps/plan_-_estimate && git fetch -q origin ver-2 && git show origin/ver-2:docs/V2_VAT_DEPLOY_RU.sh > ~/deploy_v2vat.sh && bash ~/deploy_v2vat.sh
@@ -27,18 +27,21 @@ restore() { git checkout -q -B "$PREV" "$PREV_SHA" 2>/dev/null; }
 H=$(curl -fsS https://plan-estimate.pl/api/health) || fail "G0" "health недоступен"
 has '"status":"ok"' "$H" || fail "G0" "health не ok до выкладки: $H"
 AL=$(docker exec plan_estimate_backend alembic current 2>/dev/null)
-if has '0087_estimate_vat_included' "$AL"; then FIRST=no; echo "повторный запуск: миграция 0087 уже применена"
-elif has '0086_transfer_source' "$AL"; then FIRST=yes
-else fail "G0" "alembic current не 0086_transfer_source и не 0087_estimate_vat_included: $AL (этот выпуск ставится на базу V2-14a, голова 0086; сначала выложите V2-14a)"; fi
+M87=backend/alembic/versions/0087_estimate_vat_included.py; M88=backend/alembic/versions/0088_owner_contract_terms.py
+if has '0088_owner_contract_terms' "$AL"; then FIRST=no; START=0088; echo "повторный запуск: миграции 0087 и 0088 уже применены"
+elif has '0087_estimate_vat_included' "$AL"; then FIRST=yes; START=0087; echo "база на 0087: применится одна миграция 0088"
+elif has '0086_transfer_source' "$AL"; then FIRST=yes; START=0086; echo "база на 0086: применятся две миграции, 0087 и 0088"
+else fail "G0" "alembic current не 0086_transfer_source, не 0087_estimate_vat_included и не 0088_owner_contract_terms: $AL (этот выпуск ставится на базу V2-14a, голова 0086; сначала выложите V2-14a)"; fi
+HEAD_NOW=$(grep -oE '00(86_transfer_source|87_estimate_vat_included|88_owner_contract_terms)' <<<"$AL" | head -1)
 [ "$(docker inspect -f '{{.State.Health.Status}}' plan_estimate_backend)" = "healthy" ] || fail "G0" "backend не healthy"
 FREE=$(df --output=avail -BG / | tail -1 | tr -dc '0-9'); [ "$FREE" -ge 5 ] || fail "G0" "Свободно ${FREE} ГБ (< 5)"
 STRICT_ENV=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(str(s.DATA_STRICT_READ).lower(), bool(s.DATA_KEK.get_secret_value()) if s.DATA_KEK else False)")
 [ "$STRICT_ENV" = "true True" ] || fail "G0" "строгое чтение / ключ шифрования в контейнере: '$STRICT_ENV', ожидалось 'true True' (состояние после EN-2b-2)"
-# бэкап (A9) не старше суток: миграция добавляет одну новую колонку (бэкап под голову 0086_transfer_source делается из ветки ver-2, текущий коммит VM)
+# бэкап (A9) не старше суток: миграции добавляют колонку и пустую таблицу (бэкап под текущую голову $HEAD_NOW делается из ветки ver-2, текущий коммит VM)
 LASTRUN=$(ls -1t "$R/data/encrypted" 2>/dev/null | head -1)
-[ -n "$LASTRUN" ] || fail "G0" "нет ни одного запуска бэкапа в $R/data/encrypted: сначала A9 (BACKUP_BRANCH=ver-2 BACKUP_COMMIT=$(git rev-parse --short HEAD) BACKUP_HEAD=0086_transfer_source bash ~/backup_a9.sh)"
+[ -n "$LASTRUN" ] || fail "G0" "нет ни одного запуска бэкапа в $R/data/encrypted: сначала A9 (BACKUP_BRANCH=ver-2 BACKUP_COMMIT=$(git rev-parse --short HEAD) BACKUP_HEAD=$HEAD_NOW bash ~/backup_a9.sh)"
 AGE_H=$(( ( $(date +%s) - $(stat -c %Y "$R/data/encrypted/$LASTRUN") ) / 3600 ))
-[ "$AGE_H" -le 24 ] || fail "G0" "последний бэкап $LASTRUN старше суток (${AGE_H} ч). Сделайте свежий: cd ~/apps/plan_-_estimate && git fetch -q origin ver-2 && git show origin/ver-2:docs/STAGE_18_BACKUP_A9_RU.sh > ~/backup_a9.sh && BACKUP_BRANCH=ver-2 BACKUP_COMMIT=$(git rev-parse --short HEAD) BACKUP_HEAD=0086_transfer_source bash ~/backup_a9.sh (в НОВОЙ сессии, потом закрыть её)"
+[ "$AGE_H" -le 24 ] || fail "G0" "последний бэкап $LASTRUN старше суток (${AGE_H} ч). Сделайте свежий: cd ~/apps/plan_-_estimate && git fetch -q origin ver-2 && git show origin/ver-2:docs/STAGE_18_BACKUP_A9_RU.sh > ~/backup_a9.sh && BACKUP_BRANCH=ver-2 BACKUP_COMMIT=$(git rev-parse --short HEAD) BACKUP_HEAD=$HEAD_NOW bash ~/backup_a9.sh (в НОВОЙ сессии, потом закрыть её)"
 echo "последний бэкап: $LASTRUN (${AGE_H} ч назад)"
 KEKTXT=$(grep -E '^DATA_KEK=' .env.production | head -1 | cut -d= -f2-)
 [ -n "$KEKTXT" ] && [ "$(printf '%s' "$KEKTXT" | base64 -d 2>/dev/null | wc -c)" = "32" ] || fail "G0" "DATA_KEK в .env.production отсутствует или не base64 из 32 байт (ключ НЕ МЕНЯТЬ и не удалять)"
@@ -50,10 +53,13 @@ INFRA=$(git diff --name-only HEAD "origin/$BR" -- Caddyfile backend/Dockerfile b
 NEWMIG=$(git diff --name-only --diff-filter=A HEAD "origin/$BR" -- backend/alembic/versions | grep -v '__pycache__' || true)
 CHGMIG=$(git diff --name-only --diff-filter=MD HEAD "origin/$BR" -- backend/alembic/versions | grep -v '__pycache__' || true)
 [ -z "$CHGMIG" ] || fail "G0" "существующие миграции изменены или удалены: $CHGMIG"
-[ "$NEWMIG" = "backend/alembic/versions/0087_estimate_vat_included.py" ] || [ "$FIRST" = no -a -z "$NEWMIG" ] || fail "G0" "в релизе должна быть ровно одна новая миграция (0087_estimate_vat_included.py), а здесь: '$NEWMIG'"
-OTHERALEMBIC=$(git diff --name-only HEAD "origin/$BR" -- backend/alembic | grep -v '__pycache__' | grep -Ev '^backend/alembic/versions/0087_estimate_vat_included.py$' || true)
-[ -z "$OTHERALEMBIC" ] || fail "G0" "в alembic изменено что-то кроме миграции 0087: $OTHERALEMBIC"
-BADALL=$(git diff --name-only HEAD "origin/$BR" | grep -Ev '^(README.md|backend/app/|backend/alembic/versions/0087_estimate_vat_included.py|backend/tests/|frontend/src/|docs/)' || true)
+BADMIG=$(grep -vxF -e "$M87" -e "$M88" <<<"$NEWMIG" | grep -v '^$' || true)
+[ -z "$BADMIG" ] || fail "G0" "в релизе допустимы только новые миграции 0087_estimate_vat_included.py и 0088_owner_contract_terms.py, а здесь ещё: '$BADMIG'"
+if [ "$START" = 0086 ] && [ -n "$NEWMIG" ]; then has "$M87" "$NEWMIG" && has "$M88" "$NEWMIG" || fail "G0" "база на 0086, а в релизе нет обеих миграций 0087 и 0088: '$NEWMIG'"; fi
+if [ "$START" = 0087 ] && [ -n "$NEWMIG" ]; then has "$M88" "$NEWMIG" || fail "G0" "база на 0087, а в релизе нет миграции 0088: '$NEWMIG'"; fi
+OTHERALEMBIC=$(git diff --name-only HEAD "origin/$BR" -- backend/alembic | grep -v '__pycache__' | grep -Ev '^backend/alembic/versions/008[78]_(estimate_vat_included|owner_contract_terms).py$' || true)
+[ -z "$OTHERALEMBIC" ] || fail "G0" "в alembic изменено что-то кроме миграций 0087 и 0088: $OTHERALEMBIC"
+BADALL=$(git diff --name-only HEAD "origin/$BR" | grep -Ev '^(README.md|backend/app/|backend/alembic/versions/0087_estimate_vat_included.py|backend/alembic/versions/0088_owner_contract_terms.py|backend/tests/|frontend/src/|docs/)' || true)
 [ -z "$BADALL" ] || fail "G0" "Неожиданные файлы в выкладке: $BADALL"
 DOMAIN=$(grep -E '^APP_DOMAIN=' .env.production | head -1 | cut -d= -f2-)
 [ -n "$DOMAIN" ] || fail "G0" "в .env.production нет APP_DOMAIN"
@@ -86,9 +92,10 @@ if tag_pre frontend; then FRONT_ROLLBACK=yes; else FRONT_ROLLBACK=no; echo "ВН
 PC build backend frontend > /tmp/build_v2vat.log 2>&1 || { tail -n 30 /tmp/build_v2vat.log; fail1 "G1" "сборка не удалась (старая версия продолжает работать)"; }
 ok "G1 (сборка backend и frontend, теги pre-v2vat)"
 
-echo; echo "################ ВОРОТА B: пересоздание контейнеров и миграция 0087 ################"
+echo; echo "################ ВОРОТА B: пересоздание контейнеров и миграции 0087, 0088 ################"
 echo "Что произойдёт: пересоздаются backend и frontend из собранных образов."
 echo "  • Миграция 0087 (при старте backend): у таблицы смет появляется колонка «цены уже с НДС» (у всех существующих смет — нет, считаются как раньше: НДС сверху). Ни одна существующая строка не меняется. Откат миграции просто убирает колонку."
+echo "  • Миграция 0088 (при старте backend): новая пустая таблица «Мои стандартные условия договора» (одна строка на владельца, ответы зашифрованы). Существующие данные не читаются и не меняются."
 echo "  • Ключ шифрования и строгое чтение остаются как были. Ничего не удаляется. Вход по паролю остаётся выключенным."
 echo "  • Простой API при пересоздании backend: около 30–60 секунд."
 echo "  • Откат образами безопасен (прежний образ не знает новых видов и не мешает им): retag pre-v2vat и up --no-deps --no-build backend frontend. Команда напечатается при любом отказе."
@@ -113,17 +120,19 @@ for i in $(seq 1 36); do
 done
 [ "$(docker inspect -f '{{.State.Health.Status}}' plan_estimate_backend)" = "healthy" ] || { docker logs plan_estimate_backend --tail 40; fail "G2" "backend не стал healthy за 3 минуты. $ROLLALL"; }
 LOG=$(docker logs plan_estimate_backend 2>&1)
-if [ "$FIRST" = yes ]; then has "Running upgrade 0086_transfer_source -> 0087_estimate_vat_included" "$LOG" || fail "G2" "в логе нет применения миграции 0087. $ROLLALL"; fi
-[ "$(grep -c 'Running upgrade' <<<"$LOG")" -le 1 ] || fail "G2" "в логе применяется больше одной миграции. $ROLLALL"
+if [ "$START" = 0086 ]; then has "Running upgrade 0086_transfer_source -> 0087_estimate_vat_included" "$LOG" || fail "G2" "в логе нет применения миграции 0087. $ROLLALL"; fi
+if [ "$FIRST" = yes ]; then has "Running upgrade 0087_estimate_vat_included -> 0088_owner_contract_terms" "$LOG" || fail "G2" "в логе нет применения миграции 0088. $ROLLALL"; fi
+EXPECTED_UP=$( [ "$START" = 0086 ] && echo 2 || { [ "$START" = 0087 ] && echo 1 || echo 0; } )
+[ "$(grep -c 'Running upgrade' <<<"$LOG")" -le "$EXPECTED_UP" ] || fail "G2" "в логе применяется больше миграций, чем $EXPECTED_UP. $ROLLALL"
 grep -qE "Traceback|KnowledgeCatalogError|CalendarTextsError" <<<"$LOG" && { tail -40 <<<"$LOG"; fail "G2" "в логе ошибка. $ROLLALL"; }
 has "Application startup complete" "$LOG" || fail "G2" "нет Application startup complete. $ROLLALL"
-AL2=$(docker exec plan_estimate_backend alembic current 2>/dev/null); has '0087_estimate_vat_included' "$AL2" || fail "G2" "alembic не 0087: $AL2. $ROLLALL"
+AL2=$(docker exec plan_estimate_backend alembic current 2>/dev/null); has '0088_owner_contract_terms' "$AL2" || fail "G2" "alembic не 0088: $AL2. $ROLLALL"
 STRICT=$(docker exec plan_estimate_backend python -c "from app.core.config import settings as s; print(str(s.DATA_STRICT_READ).lower())")
 [ "$STRICT" = "true" ] || fail "G2" "строгое чтение в контейнере: $STRICT, ожидалось true. $ROLLALL"
 API=$(docker exec plan_estimate_backend python -c "
 from app.main import app
 p = app.openapi()['paths']
-need = ['/api/projects/{project_id}/rooms/{room_id}/surfaces/merge', '/api/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}/unmerge', '/api/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}/parts/{part_id}', '/api/projects/{project_id}/rooms/{room_id}/work-plan', '/api/auth/telegram', '/api/me']
+need = ['/api/projects/{project_id}/rooms/{room_id}/surfaces/merge', '/api/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}/unmerge', '/api/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}/parts/{part_id}', '/api/projects/{project_id}/rooms/{room_id}/work-plan', '/api/auth/telegram', '/api/me', '/api/contract-terms', '/api/projects/{project_id}/contracts/{contract_id}/prefill', '/api/projects/{project_id}/estimates/{estimate_id}/fill-prices']
 print(all(n in p for n in need))")
 [ "$API" = "True" ] || fail "G2" "в API нет нужных маршрутов: $API. $ROLLALL"
 # на настоящей базе (ТОЛЬКО ЧТЕНИЕ): новые таблицы есть и пусты; маршруты ссылки для клиента на месте; вход по паролю выключен
@@ -131,7 +140,12 @@ VI=$(PSQL "select count(*) from information_schema.columns where table_name = 'e
 VISET=$(PSQL "select count(*) from estimates where vat_included")
 echo "новая колонка vat_included: $VI из 1; смет с «цены уже с НДС»: $VISET (при первом запуске 0); строк журнала отправленных: $(PSQL "select count(*) from issued_documents") (было $IDOC_BEFORE)"
 [ "$VI" = "1" ] || fail "G2" "нет колонки vat_included (boolean, not null): $VI. $ROLLALL"
-if [ "$FIRST" = yes ]; then [ "$VISET" = "0" ] || fail "G2" "после миграции ни у одной сметы не должно быть «цены уже с НДС»: $VISET. $ROLLALL"; fi
+if [ "$START" = 0086 ]; then [ "$VISET" = "0" ] || fail "G2" "после миграции ни у одной сметы не должно быть «цены уже с НДС»: $VISET. $ROLLALL"; fi
+CT=$(PSQL "select count(*) from information_schema.columns where table_name = 'owner_contract_terms' and column_name in ('id','owner_id','answers','created_at','updated_at')")
+CTROWS=$(PSQL "select count(*) from owner_contract_terms")
+echo "новая таблица owner_contract_terms: колонок $CT из 5; строк $CTROWS (при первом запуске 0)"
+[ "$CT" = "5" ] || fail "G2" "нет таблицы owner_contract_terms с 5 колонками: $CT. $ROLLALL"
+if [ "$FIRST" = yes ]; then [ "$CTROWS" = "0" ] || fail "G2" "новая таблица owner_contract_terms не пуста: $CTROWS. $ROLLALL"; fi
 [ "$(PSQL "select count(*) from issued_documents")" = "$IDOC_BEFORE" ] || fail "G2" "число строк журнала отправленных изменилось. $ROLLALL"
 ST=$(PSQL "select count(*) from payment_stages"); WH=$(PSQL "select count(*) from work_hours")
 echo "ваших этапов: $ST; записей часов: $WH (эта миграция их не затрагивает)"
@@ -148,7 +162,7 @@ docker exec plan_estimate_backend python -m app.cli.reencode_data verify > /dev/
 AFTER=$(docker exec plan_estimate_postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Atc '$Q'" | tr '\n' ' ')
 [ "$AFTER" = "$BEFORE" ] || fail "G2" "данные изменились: было $BEFORE стало $AFTER. $ROLLALL"
 H=$(curl -fsS https://plan-estimate.pl/api/health) && has '"status":"ok"' "$H" || fail "G2" "health не ok. $ROLLALL"
-ok "G2 (backend: миграция 0087 применена, база на 0087, строгое чтение включено, колонка vat_included есть и у всех смет false, журнал цел, маршруты на месте, вход по паролю выключен, данные те же)"
+ok "G2 (backend: миграции применены, база на 0088, таблица условий договора есть, строгое чтение включено, колонка vat_included есть и у всех смет false, журнал цел, маршруты на месте, вход по паролю выключен, данные те же)"
 
 echo; echo "################ G3: frontend ################"
 PC up -d --no-deps frontend || fail "G3" "up frontend не удался. $ROLLALL"
@@ -158,7 +172,7 @@ NOTRUN=$(PC ps --format '{{.Name}} {{.State}}' | grep -v ' running' || true); [ 
 PAGE=$(curl -fsS https://plan-estimate.pl/) && has "assets/index-" "$PAGE" || fail "G3" "главная страница не отдаёт сборку. $ROLLALL"
 JS=$(grep -o 'assets/index-[^"]*\.js' <<<"$PAGE" | head -1)
 BUNDLE=$( [ -n "$JS" ] && curl -fsS "https://plan-estimate.pl/$JS" || true )
-for MARK in show-access login-email login-submit account-sign-out reorder-walls-start merge-walls-start bottom-nav field-help- start-quick-estimate quick-estimate-form room-plan-open room-plan-sheet estimate-vat-select executor-profile-vat language-switch language-list lang- Українська English object-tile-client client-link-create client-estimate-decline X-Client-Link docs-tile documents/measurements/preview Obmiar with_photos payment-stages work-hours margin-card schedule-tab hours-tab stage-form hours-form payment-schedule/preview schedule-pdf 'Harmonogram płatności' voice- stage-due-hint room-points-toggle room-point-form estimate-add-points-action price-items/points-pack 'Punkty i trasy' object-tile-materials room-materials-toggle material-calc-form material-norms-toggle estimate-add-materials-action material-norms 'Normy zużycia' 'Dodaj materiały do kosztorysu' 'Нормы расхода' 'Consumption norms' TILE_WASTE_STRAIGHT material-use-routes route-totals ELEC_CABLE_M_SOCKET PL_PIPE_M_POINT 'Elektryka' 'Hydraulika' 'Электрика' 'Сантехника' 'Electrics' 'Plumbing' docs-tile installation-map/preview marker-utility- marker-legend 'Mapa instalacji ukrytych' 'Карта скрытых коммуникаций' 'Карта прихованих комунікацій' 'Map of hidden utilities' 'Co to jest (instalacja ukryta)' 'Woda zimna' pressure-tests documents/pressure-test/preview pressure-system- pressure-result- 'Protokół próby ciśnieniowej' 'Протокол опрессовки' 'Протокол опресування' 'Pressure test protocol' 'Protokół próby szczelności' pressure-photo-add surface-note- trades-picker trade- pricebook-show-all-trades recommendation-picker-show-all-trades '/api/trades' 'Zawody (pakiety)' 'Профессии (пакеты)' 'Професії (пакети)' 'Trades (packages)' 'Pokaż wszystkie kategorie' trade-transfer-open- trade-transfer-run- trade-transfer-item- master-route-map- master-room-photos- master-map-photo- master-photo-close 'Mapa tras ({count})' 'Zdjęcia pomieszczenia ({count})' 'Карта трасс ({count})' 'Route map ({count})' estimate-vat-included 'Ceny zawierają VAT' 'Цены уже с НДС' 'Ціни вже з ПДВ' 'Prices include VAT' wall-adder-open wall-adder-close wall-drag- 'Przeciągnij ścianę' trade-transfer-own-choice- room-point-from-master- estimate-unpriced estimate-fill-prices 'Uzupełnij ceny z cennika' inspection-autosave recommendations-accept-all 'Odpowiedzi zapisane automatycznie.' 'Dodaj wszystkie do prac ({n})' room-plan-copy-room-pick room-plan-process- 'Z procesu technologicznego' 'Skopiuj plan z innego pomieszczenia' 'Скопировать план из другого помещения' project-use-client-address 'Wstaw adres klienta' agreed-from-estimate 'Przyjmij kwotę netto z kosztorysu' contract-prefill 'Uzupełnij puste pola' 'Заполнить пустые поля' 'Подставить цены из прайса' 'Zastąp liczbą majstra (zalecane)' 'Twoje wpisy tych samych pozycji' 'od majstra' 'Przenieś do pomieszczeń' 'Перенести в помещения' 'Перенести в приміщення' 'Carry over into the rooms' object-tile-masters trade-link-create- 'Linki dla majstrów' 'Ссылки для мастеров' 'Посилання для майстрів' 'Links for craftsmen' X-Trade-Link master-submit master-room-save- 'Elektryk — punkty i trasy' 'Hydraulik — punkty i trasy'; do
+for MARK in show-access login-email login-submit account-sign-out reorder-walls-start merge-walls-start bottom-nav field-help- start-quick-estimate quick-estimate-form room-plan-open room-plan-sheet estimate-vat-select executor-profile-vat language-switch language-list lang- Українська English object-tile-client client-link-create client-estimate-decline X-Client-Link docs-tile documents/measurements/preview Obmiar with_photos payment-stages work-hours margin-card schedule-tab hours-tab stage-form hours-form payment-schedule/preview schedule-pdf 'Harmonogram płatności' voice- stage-due-hint room-points-toggle room-point-form estimate-add-points-action price-items/points-pack 'Punkty i trasy' object-tile-materials room-materials-toggle material-calc-form material-norms-toggle estimate-add-materials-action material-norms 'Normy zużycia' 'Dodaj materiały do kosztorysu' 'Нормы расхода' 'Consumption norms' TILE_WASTE_STRAIGHT material-use-routes route-totals ELEC_CABLE_M_SOCKET PL_PIPE_M_POINT 'Elektryka' 'Hydraulika' 'Электрика' 'Сантехника' 'Electrics' 'Plumbing' docs-tile installation-map/preview marker-utility- marker-legend 'Mapa instalacji ukrytych' 'Карта скрытых коммуникаций' 'Карта прихованих комунікацій' 'Map of hidden utilities' 'Co to jest (instalacja ukryta)' 'Woda zimna' pressure-tests documents/pressure-test/preview pressure-system- pressure-result- 'Protokół próby ciśnieniowej' 'Протокол опрессовки' 'Протокол опресування' 'Pressure test protocol' 'Protokół próby szczelności' pressure-photo-add surface-note- trades-picker trade- pricebook-show-all-trades recommendation-picker-show-all-trades '/api/trades' 'Zawody (pakiety)' 'Профессии (пакеты)' 'Професії (пакети)' 'Trades (packages)' 'Pokaż wszystkie kategorie' trade-transfer-open- trade-transfer-run- trade-transfer-item- master-route-map- master-room-photos- master-map-photo- master-photo-close 'Mapa tras ({count})' 'Zdjęcia pomieszczenia ({count})' 'Карта трасс ({count})' 'Route map ({count})' estimate-vat-included 'Ceny zawierają VAT' 'Цены уже с НДС' 'Ціни вже з ПДВ' 'Prices include VAT' wall-adder-open wall-adder-close wall-drag- 'Przeciągnij ścianę' trade-transfer-own-choice- room-point-from-master- estimate-unpriced estimate-fill-prices 'Uzupełnij ceny z cennika' inspection-autosave recommendations-accept-all 'Odpowiedzi zapisane automatycznie.' 'Dodaj wszystkie do prac ({n})' room-plan-copy-room-pick room-plan-process- 'Z procesu technologicznego' 'Skopiuj plan z innego pomieszczenia' 'Скопировать план из другого помещения' project-use-client-address 'Wstaw adres klienta' agreed-from-estimate 'Przyjmij kwotę netto z kosztorysu' contract-prefill 'Uzupełnij puste pola' 'Заполнить пустые поля' open-contract-terms save-contract-terms 'Moje standardowe warunki umowy' 'Мои стандартные условия договора' 'Подставить цены из прайса' 'Zastąp liczbą majstra (zalecane)' 'Twoje wpisy tych samych pozycji' 'od majstra' 'Przenieś do pomieszczeń' 'Перенести в помещения' 'Перенести в приміщення' 'Carry over into the rooms' object-tile-masters trade-link-create- 'Linki dla majstrów' 'Ссылки для мастеров' 'Посилання для майстрів' 'Links for craftsmen' X-Trade-Link master-submit master-room-save- 'Elektryk — punkty i trasy' 'Hydraulik — punkty i trasy'; do
   has "$MARK" "$BUNDLE" || fail "G3" "в выданной сборке нет '$MARK'. $ROLLALL"
 done
 # страница клиента отдаётся по /c, а открытое API без секрета отвечает 404 и не кэшируется (через Caddy, как у клиента)
@@ -184,7 +198,7 @@ has '"ok":true' "$R1" || fail "G4" "setChatMenuButton: $R1 (приложение
 has "?v=${NEW}" "$R2" || fail "G4" "getChatMenuButton не показывает ?v=${NEW}: $R2"
 ok "G4 (кнопка ?v=$NEW)"
 
-echo; echo "=============== ВСЁ PASS: версия $NEW выложена (миграция 0087, база на 0087), данные те же, ничего не удалено ==============="
+echo; echo "=============== ВСЁ PASS: версия $NEW выложена (миграции 0087 и 0088, база на 0088), данные те же, ничего не удалено ==============="
 echo "Дальше (по порядку, каждый шаг — после вашей проверки):"
 echo "  1) полностью закройте Telegram и откройте Mini App по кнопке меню: вход как обычно, всё прежнее на месте;"
 echo "  2) смета-черновик с НДС 8 %: под выбором НДС галочка «Ceny zawierają VAT». Включите — «Razem brutto» станет равна сумме позиций, «Razem netto» и «VAT 8 %» выделятся из неё; выключите — НДС снова добавляется сверху. PDF-черновик: «Razem brutto», «w tym wartość netto», «w tym VAT 8%»;"
@@ -199,8 +213,9 @@ echo "  6e) помещение → «Plan pomieszczenia»: основание и
 echo "  6f) «Obiekty» → «Dodaj obiekt»: первым полем «Klient»; клиент с адресом заполняет пустые адрес, город, индекс (и название);"
 echo "  6g) объект с финальной/принятой сметой без договорной суммы → «Faktury i zaliczki»: в сводке «Przyjmij kwotę netto z kosztorysu (wersja N): …» → сумма записана, кнопка исчезла;"
 echo "  6h) объект с частным клиентом → «Umowa i protokoły» → «Umowa» → «Skomponuj umowę»: дата, место, НДС, «Konsument» и клиент как принимающий работы уже стоят (метка «uzupełnione»); во втором объекте подтягиваются гарантия/аванс/неустойки из первого договора;"
+echo "  6i) меню ☰ → «Moje standardowe warunki umowy»: пока пусто — «Wypełnij z ostatniej umowy»; задайте гарантию/аванс → «Zapisz warunki»; новый договор другого объекта берёт их первыми (под кнопкой «z „Moich standardowych warunków umowy”»), остальное — из последнего договора;"
 echo "  6) страница мастера: под размерами помещения «Mapa tras» (фото с метками его профессии) и «Zdjęcia pomieszczenia»; сообщение со ссылкой: сначала описание, потом адрес; по-польски «majster»;"
 echo "  7) подробно — README.md: «Замеры» (стены нерегулярного помещения) и «Смета» (НДС внутри цен);"
-echo "  8) бэкап под новую голову: cd ~/apps/plan_-_estimate && BACKUP_BRANCH=$BR BACKUP_HEAD=0087_estimate_vat_included bash ~/backup_a9.sh  (в НОВОЙ сессии, потом закрыть её);"
+echo "  8) бэкап под новую голову: cd ~/apps/plan_-_estimate && BACKUP_BRANCH=$BR BACKUP_HEAD=0088_owner_contract_terms bash ~/backup_a9.sh  (в НОВОЙ сессии, потом закрыть её);"
 echo "  9) слияние $BR → main — только по отдельному «да»."
 )

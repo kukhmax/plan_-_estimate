@@ -63,4 +63,26 @@ class ContractPrefillRead(BaseModel):
 
     contract: ContractRead
     filled: list[str]
-    terms_from: str | None = None
+    terms_from: str | None = None  # the object whose latest contract gave a filled term
+    terms_from_profile: bool = False  # a filled term came from "Moje standardowe warunki umowy"
+
+
+class ContractTermsWrite(BaseModel):
+    """The owner's standard terms, all of them (a missing or null key is no term)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answers: dict[str, Any]
+
+
+class LatestContractTerms(BaseModel):
+    answers: dict[str, Any]
+    project_name: str | None
+
+
+class ContractTermsRead(BaseModel):
+    """The owner's standard terms, the keys a term may have, and the terms of his latest contract (to start from)."""
+
+    answers: dict[str, Any]
+    keys: list[str]
+    latest: LatestContractTerms | None = None

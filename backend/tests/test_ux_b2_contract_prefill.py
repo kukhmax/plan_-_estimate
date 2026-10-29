@@ -136,3 +136,73 @@ async def test_only_a_draft_of_the_owner_is_filled(async_client: AsyncClient, db
     await async_client.post(url(project, f"/{contract}/archive"), headers=headers)
     closed = await async_client.post(url(project, f"/{contract}/prefill"), headers=headers)
     assert closed.status_code == 409 and closed.json()["detail"]["code"] == "CONTRACT_NOT_EDITABLE"
+
+
+# --- "Moje standardowe warunki umowy" ---------------------------------------------------------------------------------------------
+
+
+async def test_the_standard_terms_are_saved_checked_and_kept_per_owner(async_client: AsyncClient, db_session, web):  # noqa: F811
+    headers = await _signed_in(async_client, db_session)
+    empty = await async_client.get("/api/contract-terms", headers=headers)
+    assert empty.status_code == 200, empty.text
+    assert empty.json()["answers"] == {} and empty.json()["latest"] is None
+    assert set(empty.json()["keys"]) == set(STANDARD_TERM_KEYS)
+
+    saved = await async_client.put("/api/contract-terms", json={"answers": {
+        "warranty_months": 36, "advance_percent": 20, "downtime_rate_per_day": "150,5", "conclusion_mode": "OFF_PREMISES", "work_hours": None,
+    }}, headers=headers)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["answers"] == {"warranty_months": 36, "advance_percent": 20, "downtime_rate_per_day": "150.50", "conclusion_mode": "OFF_PREMISES"}
+
+    for bad, reason in (({"contract_place": "Kraków"}, "UNKNOWN_QUESTION"), ({"advance_percent": 500}, "OUT_OF_RANGE")):
+        refused = await async_client.put("/api/contract-terms", json={"answers": bad}, headers=headers)
+        assert refused.status_code == 422 and refused.json()["detail"]["details"]["reason"] == reason
+    assert (await async_client.get("/api/contract-terms", headers=headers)).json()["answers"]["warranty_months"] == 36  # nothing changed
+
+    replaced = (await async_client.put("/api/contract-terms", json={"answers": {"warranty_months": 24}}, headers=headers)).json()
+    assert replaced["answers"] == {"warranty_months": 24}  # the whole set is replaced
+
+    other = auth_header(await get_token(async_client, OTHER_USER))
+    assert (await async_client.get("/api/contract-terms", headers=other)).json()["answers"] == {}
+    assert (await async_client.get("/api/contract-terms")).status_code == 401
+    assert (await async_client.put("/api/contract-terms", json={"answers": {}, "x": 1}, headers=headers)).status_code == 422
+
+
+async def test_the_profile_terms_come_first_and_the_latest_contract_fills_the_rest(async_client: AsyncClient, db_session, web):  # noqa: F811
+    headers = await _signed_in(async_client, db_session)
+    await _price(async_client, headers)
+    first = (await _quick(async_client, headers))["project_id"]
+    first_contract = await _draft(async_client, headers, first)
+    await async_client.patch(url(first, f"/{first_contract}/answers"), json={"answers": {"warranty_months": 24, "advance_percent": 30}}, headers=headers)
+    first_name = (await async_client.get(f"/api/projects/{first}", headers=headers)).json()["name"]
+    latest = (await async_client.get("/api/contract-terms", headers=headers)).json()["latest"]
+    assert latest == {"answers": {"warranty_months": 24, "advance_percent": 30}, "project_name": first_name}  # to start the editor from
+
+    await async_client.put("/api/contract-terms", json={"answers": {"warranty_months": 36, "conclusion_mode": "OFF_PREMISES"}}, headers=headers)
+    second = (await _quick(async_client, headers))["project_id"]
+    contract = await _draft(async_client, headers, second)
+    body = (await async_client.post(url(second, f"/{contract}/prefill"), headers=headers)).json()
+    answers = body["contract"]["answers"]
+    assert (answers["warranty_months"], answers["conclusion_mode"], answers["advance_percent"]) == (36, "OFF_PREMISES", 30)
+    assert body["terms_from_profile"] is True and body["terms_from"] == first_name  # the advance came from the latest contract
+
+    await async_client.put("/api/contract-terms", json={"answers": {"warranty_months": 36, "advance_percent": 10, "conclusion_mode": "OFF_PREMISES"}}, headers=headers)
+    third = (await _quick(async_client, headers))["project_id"]
+    body = (await async_client.post(url(third, f"/{await _draft(async_client, headers, third)}/prefill"), headers=headers)).json()
+    assert body["contract"]["answers"]["advance_percent"] == 10 and body["terms_from"] is None and body["terms_from_profile"] is True
+
+
+def test_the_migration_makes_the_table_and_the_downgrade_drops_it():
+    from sqlalchemy import inspect
+
+    from tests.test_stage16e2_contract import contract_engine, load_migration, run
+
+    module = load_migration("0088_owner_contract_terms")
+    assert module.down_revision == "0087_estimate_vat_included" and len(module.revision) <= 32
+    engine = contract_engine()
+    run(engine, "0088_owner_contract_terms", "upgrade")
+    columns = {c["name"]: c for c in inspect(engine).get_columns("owner_contract_terms")}
+    assert set(columns) == {"id", "owner_id", "answers", "created_at", "updated_at"} and columns["answers"]["nullable"] is False
+    assert any(u["column_names"] == ["owner_id"] for u in inspect(engine).get_unique_constraints("owner_contract_terms"))
+    run(engine, "0088_owner_contract_terms", "downgrade")
+    assert "owner_contract_terms" not in inspect(engine).get_table_names()

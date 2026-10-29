@@ -10,7 +10,8 @@ import type { Contract, ContractAnswersChange, ContractGate, ContractPrefill, Ga
 import type { ContractCatalog, ContractQuestion, PremisesRequirement, QuestionGroup } from '../types/contractCatalog';
 import type { ProjectRepresentative } from '../types/representative';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
-import { FieldValue, RequirementField, sameAnswer, toAnswer, toField } from '../utils/contractAnswers';
+import { FieldValue, sameAnswer, toAnswer, toField } from '../utils/contractAnswers';
+import { ContractQuestionInput } from './ContractQuestionInput';
 import { Ico } from './Ico';
 
 interface ProjectContractProps {
@@ -18,7 +19,6 @@ interface ProjectContractProps {
 }
 
 const FIELD = 'w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base pe-surface text-slate-900';
-const NUMERIC_KINDS = new Set(['NUMBER', 'PERCENT', 'DAYS', 'MONTHS']);
 
 function todayIso(): string {
   const now = new Date();
@@ -159,6 +159,7 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
       return;
     }
     const parts = [text.prefill_done.replace('{n}', String(result.filled.length))];
+    if (result.terms_from_profile) parts.push(text.prefill_terms_profile);
     if (result.terms_from) parts.push(text.prefill_terms_from.replace('{name}', result.terms_from));
     parts.push(text.prefill_check);
     setPrefillNote(parts.join(' '));
@@ -357,16 +358,10 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
       return next;
     });
   };
-  const setRequirement = (key: string, requirement: string, patch: Partial<RequirementField>) =>
-    setFields((current) => {
-      const all = (current[key] ?? {}) as Record<string, RequirementField>;
-      return { ...current, [key]: { ...all, [requirement]: { ...all[requirement], ...patch } } };
-    });
 
   const groups: QuestionGroup[] = [];
   for (const question of questions) if (!groups.includes(question.group)) groups.push(question.group);
 
-  const unit = (u: string | null) => (u ? catalogText.units[u as keyof typeof catalogText.units] ?? u : null);
   const requiredTotal = questions.filter((q) => q.requirement === 'REQUIRED').length;
   const requiredDone = draft ? requiredTotal - draft.missing_required.length : 0;
   const questionLabel = (key: string) => catalogText.questions[key as keyof typeof catalogText.questions] ?? key;
@@ -388,104 +383,6 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
         .replace('{status}', text.estimate_status[(details?.status ?? 'DRAFT') as keyof typeof text.estimate_status] ?? '');
     }
     return sentence;
-  };
-
-  const renderInput = (question: ContractQuestion) => {
-    const value = fields[question.key];
-    const aria = `contract-q-${question.key}`;
-    switch (question.kind) {
-      case 'PERSON_LIST': {
-        const chosen = (value as string[]) ?? [];
-        return authorised.length === 0 ? (
-          <p className="text-sm text-amber-800 break-words">{text.persons_none}</p>
-        ) : (
-          <div className="space-y-1">
-            {authorised.map((person) => (
-              <label key={person.id} className="flex items-center gap-3 min-h-11 text-sm text-slate-900">
-                <input
-                  type="checkbox"
-                  aria-label={`${aria}-${person.id}`}
-                  className="h-5 w-5 shrink-0"
-                  checked={chosen.includes(person.id)}
-                  onChange={() => setField(question.key, chosen.includes(person.id) ? chosen.filter((x) => x !== person.id) : [...chosen, person.id])}
-                />
-                <span className="min-w-0 break-words">
-                  {person.name}
-                  {person.role_title ? ` · ${person.role_title}` : ''}
-                </span>
-              </label>
-            ))}
-          </div>
-        );
-      }
-      case 'YES_NO':
-        return (
-          <select aria-label={aria} value={value as string} onChange={(e) => setField(question.key, e.target.value)} className={FIELD}>
-            <option value="">{text.not_set}</option>
-            <option value="yes">{text.yes}</option>
-            <option value="no">{text.no}</option>
-          </select>
-        );
-      case 'CHOICE':
-        return (
-          <select aria-label={aria} value={value as string} onChange={(e) => setField(question.key, e.target.value)} className={FIELD}>
-            <option value="">{text.not_set}</option>
-            {(question.options ?? []).map((option) => (
-              <option key={option} value={option}>
-                {catalogText.choices[option as keyof typeof catalogText.choices] ?? option}
-              </option>
-            ))}
-          </select>
-        );
-      case 'REQUIREMENT_VALUES':
-        return (
-          <div className="space-y-3">
-            {requirements.map((requirement) => {
-              const entry = ((value as Record<string, RequirementField>) ?? {})[requirement.key];
-              const requirementLabel = catalogText.requirements[requirement.key as keyof typeof catalogText.requirements] ?? requirement.key;
-              const suffix = unit(requirement.unit);
-              return (
-                <div key={requirement.key} className="space-y-1">
-                  <span className="block text-xs font-medium text-slate-700 break-words">{requirementLabel}{suffix ? ` (${suffix})` : ''}</span>
-                  {requirement.value_kind === 'YES_NO' && (
-                    <select aria-label={`contract-r-${requirement.key}`} value={entry?.yesNo ?? ''} onChange={(e) => setRequirement(question.key, requirement.key, { yesNo: e.target.value as RequirementField['yesNo'] })} className={FIELD}>
-                      <option value="">{text.not_set}</option>
-                      <option value="yes">{text.yes}</option>
-                      <option value="no">{text.no}</option>
-                    </select>
-                  )}
-                  {requirement.value_kind === 'NUMBER' && (
-                    <input aria-label={`contract-r-${requirement.key}`} inputMode="decimal" value={entry?.value ?? ''} onChange={(e) => setRequirement(question.key, requirement.key, { value: e.target.value })} className={FIELD} />
-                  )}
-                  {requirement.value_kind === 'NUMBER_RANGE' && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <input aria-label={`contract-r-${requirement.key}-min`} placeholder={text.range_min} inputMode="decimal" value={entry?.min ?? ''} onChange={(e) => setRequirement(question.key, requirement.key, { min: e.target.value })} className={FIELD} />
-                      <input aria-label={`contract-r-${requirement.key}-max`} placeholder={text.range_max} inputMode="decimal" value={entry?.max ?? ''} onChange={(e) => setRequirement(question.key, requirement.key, { max: e.target.value })} className={FIELD} />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-      case 'DATE':
-        return <input aria-label={aria} type="date" value={value as string} onChange={(e) => setField(question.key, e.target.value)} className={FIELD} />;
-      default: {
-        const suffix = unit(question.unit);
-        return (
-          <div className="flex items-center gap-2">
-            <input
-              aria-label={aria}
-              value={value as string}
-              inputMode={question.kind === 'MONEY_PLN' ? 'decimal' : NUMERIC_KINDS.has(question.kind) ? 'numeric' : 'text'}
-              onChange={(e) => setField(question.key, e.target.value)}
-              className={FIELD}
-            />
-            {suffix && <span className="shrink-0 text-sm text-slate-600">{suffix}</span>}
-          </div>
-        );
-      }
-    }
   };
 
   return (
@@ -598,7 +495,7 @@ export function ProjectContract({ projectId }: ProjectContractProps) {
                       )}
                     </span>
                     {hint && <span className="block text-xs text-slate-600 break-words">{hint}</span>}
-                    {renderInput(question)}
+                    <ContractQuestionInput question={question} value={fields[question.key]} requirements={requirements} authorised={authorised} onChange={(value) => setField(question.key, value)} />
                   </div>
                 );
               })}
