@@ -6142,3 +6142,9 @@ Found in the UX walk: the client was the last field of the form of an object and
 * **Tests:** vitest `ProjectWorkspace.test.tsx` (+2).
 * **Verification:** PASS -- vitest full (4349), tsc, build; live (390 px PL): "Anna Nowak" (city only) -> "Kraków" filled, the client the first field, no horizontal scroll. No backend change.
 
+### UX walk B5: the agreed amount from the estimate on the summary, one tap (2026-10-29; branch `ver-2`; NO MIGRATION)
+Found in the UX walk: the client accepted the estimate and "Faktury i zaliczki" still said "Umówiona kwota: nie ustawiono"; the amount of the estimate was offered only inside the form.
+* **Changed (frontend):** `ProjectPayments` summary reads `GET .../finance` itself; while no agreed amount is set, or it differs from the accepted (else final) estimate, a button "Przyjmij kwotę netto z kosztorysu (wersja N): X" saves it at once (`PUT` the agreed amount, the totals read again); a differing amount is named first; disabled without the connection. The amount is the net total of the estimate, as before (the button says "netto"). Locale keys x4.
+* **Tests:** vitest `ProjectPaymentsAgreed.test.tsx` (3).
+* **Verification:** PASS -- vitest full, tsc, build; live (390 px PL): FINAL estimate 3797,12 brutto (VAT 8 % included) -> "Przyjmij kwotę netto z kosztorysu (wersja 1): 3515,85 zł" -> "Umówiona kwota 3515,85 zł", the button gone, no horizontal scroll. No backend change.
+

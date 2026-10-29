@@ -3878,6 +3878,8 @@
       "change": "Change the agreed amount",
       "label": "Agreed amount for the whole object, zł",
       "suggestion": "From the estimate (version {version}): {amount}",
+      "take_from_estimate": "Take the net amount of the estimate (version {version}): {amount}",
+      "differs": "The agreed amount differs from the estimate (version {version}).",
       "clear": "Clear the amount",
       "needs_connection": "You can change the agreed amount when the connection is back.",
       "save_error": "Could not save the amount."

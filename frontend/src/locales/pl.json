@@ -3848,6 +3848,8 @@
       "change": "Zmień umówioną kwotę",
       "label": "Umówiona kwota za cały obiekt, zł",
       "suggestion": "Z kosztorysu (wersja {version}): {amount}",
+      "take_from_estimate": "Przyjmij kwotę netto z kosztorysu (wersja {version}): {amount}",
+      "differs": "Umówiona kwota różni się od kosztorysu (wersja {version}).",
       "clear": "Wyczyść kwotę",
       "needs_connection": "Umówioną kwotę zmienisz, gdy wróci zasięg.",
       "save_error": "Nie udało się zapisać kwoty."

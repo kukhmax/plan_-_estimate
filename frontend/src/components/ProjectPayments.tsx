@@ -278,6 +278,23 @@ function SummaryCard({ projectId, list, onChanged }: { projectId: string; list: 
   const [error, setError] = useState<string | null>(null);
   // the agreed amount is the server's (the estimate suggests it, the totals follow it): it is changed with a signal only
   const { offline } = useConnection();
+  // B5: the amount of the accepted (else final) estimate is offered on the summary itself, not only inside the form
+  const [hint, setHint] = useState<Finance['suggestion']>(null);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve()
+      .then(() => fetchFinance(projectId))
+      .then((found) => {
+        if (!cancelled) setHint(found?.suggestion ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setHint(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, list.agreed_amount]);
+  const hintDiffers = hint !== null && (list.agreed_amount === null || Number(hint.amount) !== Number(list.agreed_amount));
 
   const open = async () => {
     setEditing(true);
@@ -351,6 +368,17 @@ function SummaryCard({ projectId, list, onChanged }: { projectId: string; list: 
         </dl>
       )}
 
+      {!editing && hint && hintDiffers && (
+        <div aria-label="agreed-from-estimate-box" className="space-y-1.5">
+          {list.agreed_amount !== null && (
+            <p className="text-xs text-amber-700 break-words">{text.agreed.differs.replace('{version}', String(hint.estimate_version))}</p>
+          )}
+          <button type="button" aria-label="agreed-from-estimate" disabled={offline || busy} onClick={() => void persist(hint.amount)} className={primary}>
+            <Ico>📄</Ico>{text.agreed.take_from_estimate.replace('{amount}', formatMoney(hint.amount)).replace('{version}', String(hint.estimate_version))}
+          </button>
+          {error && <p role="alert" className="text-sm text-red-600 break-words">{error}</p>}
+        </div>
+      )}
       {!editing ? (
         <>
           <button type="button" aria-label="agreed-edit" disabled={offline} onClick={() => void open()} className={secondary.replace('flex-1', 'w-full')}>
