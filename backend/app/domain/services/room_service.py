@@ -461,7 +461,8 @@ class RoomService:
         ):
             opening_rows_by_room[row[0]].append(row)
 
-        stmt = stmt.order_by(Room.created_at.desc())
+        # UX walk: the rooms in the order they were entered (the walk through the flat), not the newest first
+        stmt = stmt.order_by(Room.created_at.asc(), Room.id)
         result = await self.db.execute(stmt)
         rows = result.all()
 

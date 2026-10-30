@@ -104,7 +104,9 @@ async def test_a_plane_without_rows_still_shows_its_photos_under_its_heading(db_
     klatka = next(block for block in document.rooms if block.name == "Klatka")
     assert klatka.floor.rows == () and len(klatka.floor.photos) == 1  # no rectangle and no segment: only the photo
     html = MeasurementsDocumentService.html(document)
-    assert html[html.index("<h2>Klatka</h2>"):html.index("<h2>Salon</h2>")].count("Podłoga: ") == 1
+    start = html.index("<h2>Klatka</h2>")
+    end = html.find("<h2>", start + 1)  # the rooms follow the order they were entered (UX walk): Klatka may be the last one
+    assert html[start:end if end != -1 else len(html)].count("Podłoga: ") == 1
 
 
 async def test_the_photos_of_another_object_and_owner_never_get_in(db_session):

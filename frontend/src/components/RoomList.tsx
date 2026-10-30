@@ -111,6 +111,16 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
     setShowForm(true);
   };
 
+  // "Pokój" when there is none yet, then "Pokój 2", "Pokój 3"...
+  const [optionsOpen, setOptionsOpen] = useState<string | null>(null);
+  const nextFreeName = (name: string): string => {
+    const taken = new Set(rooms.map((room) => room.name.trim().toLowerCase()));
+    if (!taken.has(name.toLowerCase())) return name;
+    let n = 2;
+    while (taken.has(`${name} ${n}`.toLowerCase())) n += 1;
+    return `${name} ${n}`;
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
@@ -249,6 +259,23 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
             className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
+          {/* UX walk: the usual names in one tap (Polish, like the documents of the client); a name already used gets the next number */}
+          {!editingId && (
+            <div aria-label="room-quick-names" className="flex flex-wrap gap-2">
+              {t.rooms.quick_names.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  aria-label={`room-quick-name-${name}`}
+                  aria-pressed={form.name === nextFreeName(name)}
+                  onClick={() => setForm((current) => ({ ...current, name: nextFreeName(name) }))}
+                  className="min-h-11 px-3 rounded-full border border-slate-300 text-sm text-slate-800 pe-pill"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div
             aria-label="room-shape"
@@ -452,35 +479,46 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
 
                 {room.description && <p className="text-xs text-slate-500">{room.description}</p>}
 
-                <div
-                  aria-label={`room-actions-${room.id}`}
-                  className="mt-auto grid grid-cols-2 gap-1.5 min-h-11 sm:flex sm:flex-wrap sm:justify-end sm:gap-2"
-                >
+                {/* UX walk: one big action (open) and the rest under "Opcje" -- three big buttons on every card made the list long */}
+                <div aria-label={`room-actions-${room.id}`} className="mt-auto flex gap-1.5 min-h-11">
                   <button
                     type="button"
                     aria-label={`open-room-${room.id}`}
                     onClick={() => onOpenRoom(room)}
-                    className="col-span-2 min-h-11 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition sm:col-auto"
+                    className="flex-1 min-h-11 min-w-0 break-words text-sm px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
                   >
                     <Ico>📂</Ico>{t.common.open}
                   </button>
                   <button
                     type="button"
-                    aria-label={`edit-room-${room.id}`}
-                    onClick={() => startEdit(room)}
-                    className="min-h-11 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                    aria-label={`room-options-${room.id}`}
+                    aria-expanded={optionsOpen === room.id}
+                    onClick={() => setOptionsOpen((current) => (current === room.id ? null : room.id))}
+                    className="shrink-0 max-w-[45%] min-h-11 break-words text-xs px-3 py-1 rounded-lg bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
                   >
-                    <Ico>✏️</Ico>{t.common.edit}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`${room.is_archived ? 'restore' : 'archive'}-room-${room.id}`}
-                    onClick={() => void changeArchiveState(room)}
-                    className="min-h-11 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
-                  >
-                    <Ico>{room.is_archived ? '♻️' : '🗃️'}</Ico>{room.is_archived ? t.common.restore : t.common.archive}
+                    <Ico>{optionsOpen === room.id ? '🔼' : '⚙️'}</Ico>{t.surfaces.options}
                   </button>
                 </div>
+                {optionsOpen === room.id && (
+                  <div aria-label={`room-options-panel-${room.id}`} className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      aria-label={`edit-room-${room.id}`}
+                      onClick={() => startEdit(room)}
+                      className="min-h-11 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                    >
+                      <Ico>✏️</Ico>{t.common.edit}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`${room.is_archived ? 'restore' : 'archive'}-room-${room.id}`}
+                      onClick={() => void changeArchiveState(room)}
+                      className="min-h-11 min-w-0 break-words text-xs px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 font-medium hover:bg-slate-100 transition"
+                    >
+                      <Ico>{room.is_archived ? '♻️' : '🗃️'}</Ico>{room.is_archived ? t.common.restore : t.common.archive}
+                    </button>
+                  </div>
+                )}
               </li>
             );
           })}

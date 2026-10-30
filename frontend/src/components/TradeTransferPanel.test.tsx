@@ -12,6 +12,7 @@ vi.mock('../api/roomPoints', () => ({ makePointsPack: vi.fn() }));
 vi.mock('../api/tradeLinks', () => ({
   previewTradeTransfer: vi.fn(),
   runTradeTransfer: vi.fn(),
+  createTradeOwnItems: vi.fn(),
 }));
 
 const CAND = (id: string, name: string, unit: 'PCS' | 'LM' = 'PCS'): TransferCandidate => ({
@@ -64,6 +65,15 @@ beforeEach(() => {
 });
 
 describe('the preview', () => {
+  it('makes items of the price book from the own positions of the craftsman and asks the preview again (UX walk)', async () => {
+    vi.mocked(api.createTradeOwnItems).mockResolvedValue({ created: 2 });
+    show();
+    fireEvent.click(await screen.findByLabelText('trade-transfer-own-items-ELECTRIC'));
+    expect(await screen.findByText(/Dodano do cennika: 2/)).toBeInTheDocument();
+    expect(api.createTradeOwnItems).toHaveBeenCalledWith('proj1', 'ELECTRIC');
+    expect(api.previewTradeTransfer).toHaveBeenCalledTimes(2);
+  });
+
   it('asks the server first with no choice of the owner and writes nothing', async () => {
     show();
     expect(await screen.findByLabelText('trade-transfer-rooms-ELECTRIC')).toBeInTheDocument();

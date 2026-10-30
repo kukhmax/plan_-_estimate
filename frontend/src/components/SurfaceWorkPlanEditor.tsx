@@ -125,7 +125,9 @@ function qualityLevelsForSubstrate(substrate: SubstrateValue | ''): readonly Qua
   ) {
     return S_QUALITY_LEVELS;
   }
-  if (substrate === 'PAINTED' || substrate === 'OTHER') return ALL_QUALITY_LEVELS;
+  // UX walk: old paint is skim-coated like the plaster under it (S1-S4); Q1-Q4 are the gypsum boards'
+  if (substrate === 'PAINTED') return S_QUALITY_LEVELS;
+  if (substrate === 'OTHER') return ALL_QUALITY_LEVELS;
   return [];
 }
 
@@ -230,7 +232,9 @@ export function SurfaceWorkPlanEditor({
   const loadGeneration = useRef(0);
 
   const editorId = `work-plan-editor-${surfaceId}`;
-  const qualityLevels = qualityLevelsForSubstrate(substrate);
+  // a level saved earlier outside the offered scale (Q on old paint) stays shown, so opening the plan never drops it
+  const offeredLevels = qualityLevelsForSubstrate(substrate);
+  const qualityLevels = qualityTarget && !offeredLevels.includes(qualityTarget) && substrate === 'PAINTED' ? [...offeredLevels, qualityTarget] : offeredLevels;
 
   const identityOf = (o: DraftOccurrence): string => o.occurrenceKey ?? o.draftKey;
   const currentOccurrenceIdentities = draftOccurrences.map(identityOf);

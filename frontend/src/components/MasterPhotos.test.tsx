@@ -63,6 +63,17 @@ describe('the photos of a room', () => {
   });
 });
 
+describe('the name of the place', () => {
+  it('shows a wall stored as "Wall 1" in the language of the page, an own name as it is (UX walk)', () => {
+    show([], [PHOTO('w1', { place: 'Wall 1', markers: MAPPED.markers }), PHOTO('w2', { place: 'Ceiling', markers: MAPPED.markers }), MAPPED]);
+    const map = screen.getByLabelText('master-route-map-Salon');
+    expect(within(map).getByText('Ściana 1')).toBeInTheDocument();
+    expect(within(map).getByText('Sufit')).toBeInTheDocument();
+    expect(within(map).getByText('Ściana A')).toBeInTheDocument();
+    expect(within(map).queryByText('Wall 1')).toBeNull();
+  });
+});
+
 describe('the full picture', () => {
   it('opens the picture of a grid photo over the page and closes it', () => {
     show([PHOTO('a')], []);

@@ -337,7 +337,8 @@ describe('SurfaceWorkPlanEditor', () => {
     fireEvent.change(substrate, { target: { value: 'PAINTED' } });
     expect(quality).toHaveValue('');
     expect(within(quality).getByRole('option', { name: 'Klasa S1' })).toBeInTheDocument();
-    expect(within(quality).getByRole('option', { name: 'Klasa Q1' })).toBeInTheDocument();
+    // UX walk: old paint is offered the S scale only
+    expect(within(quality).queryByRole('option', { name: 'Klasa Q1' })).not.toBeInTheDocument();
   });
 
   it('saves the header while preserving work occurrence order and duplicate IDs exactly', async () => {
@@ -779,7 +780,7 @@ describe('SurfaceWorkPlanEditor', () => {
     vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(makePlan({ planned_works: [] }));
     renderEditor();
     await screen.findByLabelText(`work-plan-form-${surfaceId}`);
-    expect(screen.getByLabelText(`open-picker-${surfaceId}`)).toHaveTextContent('+ Dodaj pracę');
+    expect(screen.getByLabelText(`open-picker-${surfaceId}`)).toHaveTextContent('Dodaj pracę');
   });
 
   it('picker shows empty state when no active items at all', async () => {
@@ -1133,7 +1134,7 @@ describe('SurfaceWorkPlanEditor', () => {
       return screen.findByLabelText(`picker-panel-${surfaceId}`);
     }
 
-    it('shows "+ Dodaj nową pracę do cennika" at the bottom of the picker', async () => {
+    it('shows "Dodaj nową pracę do cennika" at the bottom of the picker', async () => {
       const panel = await openPickerPanel();
       expect(within(panel).getByLabelText(`create-price-item-${surfaceId}`)).toHaveTextContent(
         'Dodaj nową pracę do cennika',

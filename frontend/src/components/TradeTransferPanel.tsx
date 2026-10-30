@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../api/http';
 import { makePointsPack } from '../api/roomPoints';
-import { previewTradeTransfer, runTradeTransfer } from '../api/tradeLinks';
+import { createTradeOwnItems, previewTradeTransfer, runTradeTransfer } from '../api/tradeLinks';
 import { useI18n } from '../hooks/useI18n';
 import type { LinkTrade, TransferCandidate, TransferKind, TransferMapping, TransferMaterialKind, TransferOwnMode, TransferPreview, TransferRow } from '../types/tradeLink';
 import { formatQuantity } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
+import { withPackHint, type NameHintTexts } from '../utils/nameHints';
 import { Ico } from './Ico';
 
 interface TradeTransferPanelProps {
@@ -19,8 +20,9 @@ const SECONDARY = 'w-full min-h-11 px-3 py-1 text-sm rounded-xl border border-sl
 const FIELD = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-base text-slate-900 pe-surface min-h-11';
 
 /** The name of a price item as the owner reads it: the own name, else the built-in name of its key, else the code. */
-function itemName(item: { display_name: string | null; name_key: string | null; code: string }, t: unknown): string {
-  return item.display_name ?? (item.name_key ? resolveKey(t, item.name_key) : item.code);
+function itemName(item: { display_name: string | null; name_key: string | null; code: string }, t: NameHintTexts): string {
+  // UX walk: a Polish name of a typical item shows its meaning in the language of the screen
+  return withPackHint(t, item.display_name ?? (item.name_key ? resolveKey(t, item.name_key) : item.code));
 }
 
 /** The number of a calculation of materials -> the typical position that fills it (to name it in the owner's language). */
@@ -118,6 +120,21 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
     try {
       const made = await makePointsPack();
       setMessage({ kind: 'ok', text: made.created > 0 ? text.pack_done.replace('{n}', String(made.created)) : text.pack_none });
+      await load(mapping, own);
+    } catch (err) {
+      setMessage({ kind: 'error', text: errorText(err) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const makeOwnItems = async () => {
+    if (busy) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const made = await createTradeOwnItems(projectId, trade);
+      setMessage({ kind: 'ok', text: made.created > 0 ? text.own_items_done.replace('{n}', String(made.created)) : text.pack_none });
       await load(mapping, own);
     } catch (err) {
       setMessage({ kind: 'error', text: errorText(err) });
@@ -293,7 +310,12 @@ export function TradeTransferPanel({ projectId, trade, onClose }: TradeTransferP
           )}
 
           {preview.own_not_carried > 0 && (
-            <p aria-label={`trade-transfer-own-${trade}`} className="text-xs text-slate-600 break-words">{text.own_note.replace('{count}', String(preview.own_not_carried))}</p>
+            <div className="space-y-2">
+              <p aria-label={`trade-transfer-own-${trade}`} className="text-xs text-slate-600 break-words">{text.own_note.replace('{count}', String(preview.own_not_carried))}</p>
+              <button type="button" aria-label={`trade-transfer-own-items-${trade}`} disabled={busy} onClick={() => void makeOwnItems()} className={SECONDARY}>
+                <Ico>{busy ? '⏳' : '➕'}</Ico>{text.own_items_button}
+              </button>
+            </div>
           )}
           {materials && hasInvalid && <p role="alert" className="text-sm text-red-600 break-words">{text.invalid_hint}</p>}
         </>

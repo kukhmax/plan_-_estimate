@@ -15,9 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.exceptions import ProjectNotFoundError
 from app.domain.rules import trade_checklist as checklist
 from app.domain.rules import trade_transfer as rules
+from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.room_service import RoomService
 from app.models.material import MaterialCalc
-from app.models.price_item import PriceItem, PriceUnit
+from app.models.price_item import PriceCategory, PriceItem, PriceScope, PriceUnit
 from app.models.project import Project
 from app.models.room_point import RoomPoint
 from app.models.trade_link import TradeAnswer
@@ -43,6 +44,27 @@ class _Plan:
         self.preview: TransferPreview | None = None
         self.rows: dict[uuid.UUID, list[rules.RowAction]] = {}
         self.material: dict[uuid.UUID, tuple[str, dict | None, MaterialCalc | None, list[MaterialCalc]]] = {}
+
+
+def _own_item(items: list[PriceItem], row: TradeAnswer) -> PriceItem | None:
+    """The live own item of the price book with the name and the unit of a position the craftsman wrote himself (the names compared without case)."""
+    name = (row.custom_name or "").strip().casefold()
+    if not name:
+        return None
+    return next((i for i in items if i.unit.value == row.unit and (i.display_name or "").strip().casefold() == name), None)
+
+
+def _merge_wanted(typical: list[rules.Wanted], own: list[rules.Wanted]) -> list[rules.Wanted]:
+    """The rows of a room from the typical positions and from the craftsman's own ones: one row per item, the quantities added up."""
+    merged: dict[uuid.UUID, rules.Wanted] = {}
+    for want in [*typical, *own]:
+        was = merged.get(want.item_id)
+        if was is None:
+            merged[want.item_id] = want
+            continue
+        notes = " · ".join(n for n in (was.note, want.note) if n)
+        merged[want.item_id] = rules.Wanted(want.item_id, (was.quantity + want.quantity).quantize(Decimal("0.01")), notes[: rules.NOTE_LIMIT] or None)
+    return list(merged.values())
 
 
 class TradeTransferService:
@@ -103,9 +125,15 @@ class TradeTransferService:
         )
         typical: dict[uuid.UUID, dict[str, rules.Answer]] = {}
         own = 0
+        # UX walk: a position the craftsman wrote himself goes over as well once the price book has an item of its name and unit
+        own_wanted: dict[uuid.UUID, list[rules.Wanted]] = {}
         for row in rows:
             if row.position_key is None:
-                own += 1
+                item = _own_item(items, row)
+                if item is None:
+                    own += 1
+                elif row.quantity is not None and row.quantity > 0:
+                    own_wanted.setdefault(row.room_id, []).append(rules.Wanted(item.id, Decimal(row.quantity), row.note))
             else:
                 typical.setdefault(row.room_id, {})[row.position_key] = rules.Answer(row.quantity, row.note)
 
@@ -143,14 +171,14 @@ class TradeTransferService:
                 )
             ).scalars()
         )
-        scope = {i for i in chosen.values() if i is not None}
+        scope = {i for i in chosen.values() if i is not None} | {w.item_id for wanted in own_wanted.values() for w in wanted}
         conflicts = 0
         plan = _Plan()
         room_plans: list[RoomPlan] = []
         package = rules.package_of(trade)
         for room in rooms:
             answers = typical.get(room.id, {})
-            wanted = rules.wanted_rows(answers, chosen, keys)
+            wanted = _merge_wanted(rules.wanted_rows(answers, chosen, keys), own_wanted.get(room.id, []))
             existing = [rules.ExistingRow(r.id, r.price_item_id, Decimal(r.quantity), r.note) for r in ours if r.room_id == room.id]
             own_rows = [rules.ExistingRow(r.id, r.price_item_id, Decimal(r.quantity), r.note) for r in owners if r.room_id == room.id]
             actions = rules.plan_rows(wanted, existing, scope, own_rows, own_mode)
@@ -205,7 +233,7 @@ class TradeTransferService:
             for pos in positions
         ]
         idle = all(a.kind in (rules.SAME, rules.SKIP) for acts in plan.rows.values() for a in acts) and all(k in ("NONE", "SAME", "SKIP") for k, *_ in plan.material.values())
-        no_answers = not any(answered.values())
+        no_answers = not any(answered.values()) and not own_wanted
         plan.preview = TransferPreview(
             trade=trade,  # type: ignore[arg-type]
             positions=position_plans,
@@ -217,6 +245,38 @@ class TradeTransferService:
             own_conflicts=conflicts,
         )
         return plan
+
+    async def create_own_items(self, owner_id: uuid.UUID, project_id: uuid.UUID, trade: str) -> int:
+        """UX walk: the positions the craftsman wrote himself become items of the owner's price book (no price, the category of the trade), so the next
+        carrying over takes them into the rooms. One item per name and unit; a name the price book already has in that unit is not made again."""
+        trade = checklist.clean_trade(trade)
+        await self._ensure_project(owner_id, project_id)
+        items = await self._items(owner_id)
+        rows = (
+            await self.db.execute(
+                select(TradeAnswer).where(
+                    TradeAnswer.project_id == project_id, TradeAnswer.owner_id == owner_id, TradeAnswer.trade == trade, TradeAnswer.position_key.is_(None)
+                )
+            )
+        ).scalars()
+        made: list[PriceItem] = []
+        for row in rows:
+            name = (row.custom_name or "").strip()
+            if not name or row.unit not in (u.value for u in POINT_UNITS) or _own_item([*items, *made], row) is not None:
+                continue
+            item = PriceItem(
+                owner_id=owner_id,
+                code=await PriceBookService(self.db).generate_custom_code(owner_id),
+                category=PriceCategory.PLUMBING if trade == "PLUMBING" else PriceCategory.ELECTRICAL,
+                unit=PriceUnit(row.unit),
+                price=None,
+                price_scope=PriceScope.LABOR,
+                display_name=name[:255],
+            )
+            self.db.add(item)
+            made.append(item)
+        await self.db.commit()
+        return len(made)
 
     async def preview(self, owner_id: uuid.UUID, project_id: uuid.UUID, trade: str, mapping: dict[str, uuid.UUID | None], own: str = rules.REPLACE) -> TransferPreview:
         plan = await self._plan(owner_id, project_id, trade, mapping, own)

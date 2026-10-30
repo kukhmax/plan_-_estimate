@@ -386,7 +386,7 @@ describe('Stage 10G.4 — empty DRAFT reaches the shared regeneration/manual/fin
     expect(screen.getByLabelText('estimate-shell-total').textContent).toBe('4375,00 PLN');
   });
 
-  it('"+ Dodaj pozycję" remains reachable on an empty DRAFT', async () => {
+  it('"Dodaj pozycję" remains reachable on an empty DRAFT', async () => {
     vi.mocked(estimatesApi.getEstimate).mockResolvedValue(makeDetail([]));
     renderShell(makeSummary(), null);
     await waitFor(() => screen.getByLabelText('estimate-lines-empty'));
@@ -744,7 +744,7 @@ describe('provenance classification', () => {
 
   it('shows "Pozycja ręczna" for MANUAL origin', async () => {
     vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
-      makeDetail([makeLine({ origin: 'MANUAL', opening_id: null })]),
+      makeDetail([makeLine({ origin: 'MANUAL', opening_id: null, room_name: null })]),
     );
     renderShell(makeSummary(), MANUAL_KEY);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
@@ -888,7 +888,7 @@ describe('Russian localization', () => {
 
   it('shows "Ручная позиция" for manual line (RU)', async () => {
     vi.mocked(estimatesApi.getEstimate).mockResolvedValue(
-      makeDetail([makeLine({ origin: 'MANUAL' })]),
+      makeDetail([makeLine({ origin: 'MANUAL', room_name: null })]),
     );
     renderShellRu(makeSummary(), MANUAL_KEY);
     await waitFor(() => screen.getByLabelText('estimate-lines'));
@@ -971,15 +971,16 @@ describe('grouped view (selectedGroupKey === null)', () => {
     expect(screen.getByLabelText('group-scope-1')).toBeInTheDocument();
   });
 
-  it('U-9: one main action on the grouped screen -- the PDF -- before the secondary row, and Finalizuj after the groups', async () => {
+  it('U-9 / UX walk: the lines first, then the PDF, then Finalizuj (the PDF is no longer the first button, before the prices)', async () => {
     renderGrouped();
     await waitFor(() => screen.getByLabelText('estimate-groups'));
     const pdf = screen.getByLabelText('estimate-preview-pdf');
     expect(pdf.className).toContain('--tg-theme-button-color');
     expect(pdf.className).not.toContain('bg-sky-700');
     const row = screen.getByLabelText('estimate-secondary-actions');
-    expect(pdf.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(row.compareDocumentPosition(pdf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const groups = screen.getByLabelText('estimate-groups');
+    expect(groups.compareDocumentPosition(pdf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const finalize = screen.getByLabelText('estimate-finalize-action');
     expect(groups.compareDocumentPosition(finalize) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -1063,9 +1064,16 @@ describe('grouped view (selectedGroupKey === null)', () => {
   });
 
   it('group shows origin badge: manual line', async () => {
-    renderGrouped([makeLine({ origin: 'MANUAL', price_item_id: null })]);
+    renderGrouped([makeLine({ origin: 'MANUAL', price_item_id: null, room_name: null })]);
     await waitFor(() => screen.getByLabelText('estimate-groups'));
     expect(screen.getByLabelText('group-origin-0').textContent).toBe('Pozycja ręczna');
+  });
+
+  it('a line of a room (its points) says the room and is not flagged as changed by hand (UX walk)', async () => {
+    renderGrouped([makeLine({ origin: 'MANUAL', room_name: 'Łazienka', price_override: true, quantity_overridden: false })]);
+    await waitFor(() => screen.getByLabelText('estimate-groups'));
+    expect(screen.getByLabelText('group-origin-0').textContent).toBe('Z pomieszczenia: Łazienka');
+    expect(screen.queryByLabelText('group-has-overrides-0')).toBeNull();
   });
 
   it('group shows line count badge when lineCount > 1', async () => {

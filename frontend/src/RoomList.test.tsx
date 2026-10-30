@@ -82,6 +82,17 @@ describe('RoomList', () => {
     expect(await screen.findByText('Pomieszczenie zostało utworzone')).toBeInTheDocument();
   });
 
+  it('fills the name by one tap on a usual name, with the next number when the name is taken (UX walk)', async () => {
+    renderRooms();
+    await screen.findByText('Salon');
+    fireEvent.click(screen.getByLabelText('add-room'));
+    fireEvent.click(screen.getByLabelText('room-quick-name-Kuchnia'));
+    expect(screen.getByLabelText('room-name')).toHaveValue('Kuchnia');
+    fireEvent.click(screen.getByLabelText('room-quick-name-Salon'));
+    expect(screen.getByLabelText('room-name')).toHaveValue('Salon 2'); // "Salon" exists already
+    expect(screen.getByLabelText('room-quick-name-Salon')).toHaveClass('min-h-11');
+  });
+
   it('creates a room with metric dimensions', async () => {
     const roomWithDims: RoomType = {
       ...room,
@@ -303,7 +314,7 @@ describe('RoomList', () => {
     vi.mocked(roomsApi.archiveRoom).mockResolvedValue({ ...room, is_archived: true });
     renderRooms();
 
-    await waitFor(() => expect(screen.getByLabelText(`archive-room-${room.id}`)).toBeInTheDocument());
+    fireEvent.click(await screen.findByLabelText(`room-options-${room.id}`));
     fireEvent.click(screen.getByLabelText(`archive-room-${room.id}`));
 
     await waitFor(() => expect(roomsApi.archiveRoom).toHaveBeenCalledWith(projectId, room.id));
@@ -339,17 +350,10 @@ describe('RoomList', () => {
     // The name owns a wrapping row of its own — it can never crowd the action buttons.
     expect(screen.getByText(/Salon z bardzo długą nazwą/)).toHaveClass('break-words');
 
-    // Actions live in a dedicated container: "open" on its own full-width row, "edit" / "archive" sharing the next one
-    // (three equal columns clipped the long Russian labels at 320-390 px, 14E.12)…
-    const actions = screen.getByLabelText(`room-actions-${room.id}`);
-    expect(actions).toHaveClass('grid');
-    expect(actions).toHaveClass('grid-cols-2');
-    expect(screen.getByLabelText(`open-room-${room.id}`)).toHaveClass('col-span-2');
-    // …and an inline flex row from the sm breakpoint up.
-    expect(actions).toHaveClass('sm:flex');
-
-    // Every action keeps a practical ~44px touch target.
+    // UX walk: one big "open" and the secondary actions under "Opcje"
+    expect(screen.getByLabelText(`room-actions-${room.id}`)).toBeInTheDocument();
     expect(screen.getByLabelText(`open-room-${room.id}`)).toHaveClass('min-h-11');
+    fireEvent.click(screen.getByLabelText(`room-options-${room.id}`));
     expect(screen.getByLabelText(`edit-room-${room.id}`)).toHaveClass('min-h-11');
     expect(screen.getByLabelText(`archive-room-${room.id}`)).toHaveClass('min-h-11');
 
@@ -453,7 +457,7 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [customRoom], total: 1 });
     renderRooms();
 
-    await waitFor(() => expect(screen.getByLabelText(`edit-room-${customRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(await screen.findByLabelText(`room-options-${customRoom.id}`));
     fireEvent.click(screen.getByLabelText(`edit-room-${customRoom.id}`));
 
     expect(screen.getByLabelText('room-custom-height')).toHaveValue('270');
@@ -473,7 +477,7 @@ describe('RoomList shape selector (Stage 5D.1A.1)', () => {
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [measuredRoom], total: 1 });
     renderRooms();
 
-    await waitFor(() => expect(screen.getByLabelText(`edit-room-${measuredRoom.id}`)).toBeInTheDocument());
+    fireEvent.click(await screen.findByLabelText(`room-options-${measuredRoom.id}`));
     fireEvent.click(screen.getByLabelText(`edit-room-${measuredRoom.id}`));
 
     expect(screen.getByLabelText('room-length')).toHaveValue('500');

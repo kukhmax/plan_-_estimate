@@ -35,7 +35,7 @@ def test_a_tile_of_30_by_60_on_ten_metres():
     assert found["TILE_TILES"].quantity == D("11.00") and found["TILE_TILES"].pieces == 62  # 10 m2 and 10 % waste; 11 / 0.18 = 61.1 -> 62 tiles
     assert found["TILE_ADHESIVE"].quantity == D(50) and m.packs(found["TILE_ADHESIVE"].quantity, found["TILE_ADHESIVE"].pack_size) == 2  # the long side 60 cm: 5 kg/m2; 25 kg bags
     assert found["TILE_GROUT"].quantity == D("2.208") and found["TILE_GROUT"].pack_size == D(5)  # (300 + 600) / (300 * 600) * 3 * 8 * 1.6 * 1.15 per m2
-    assert found["TILE_SPACERS"].quantity == D(62) and found["TILE_SPACERS"].pack_size == D(200)
+    assert found["TILE_SPACERS"].quantity == D(186) and found["TILE_SPACERS"].pack_size == D(200)  # UX walk: 3 per tile (62 tiles)
     assert found["TILE_WATERPROOF"].quantity == D(30) and found["TILE_WATERPROOF"].pack_size == D(15)  # 10 m2 * 1.5 kg * 2 layers
     assert found["TILE_WATERPROOF_TAPE"].quantity == D(12) and found["TILE_WATERPROOF_TAPE"].pack_size == D(10)
 

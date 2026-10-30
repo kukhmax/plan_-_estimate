@@ -244,8 +244,12 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
         {report ? (
           <div aria-label="room-plan-report" className="space-y-2">
             <p className="text-sm font-semibold text-slate-900 break-words">{text.report_title}</p>
-            {count('CREATED') > 0 && <p className="text-sm text-slate-700 break-words">{text.report_created.replace('{n}', String(count('CREATED')))}</p>}
-            {count('UPDATED') > 0 && <p className="text-sm text-slate-700 break-words">{text.report_updated.replace('{n}', String(count('UPDATED')))}</p>}
+            {/* UX walk: "Utworzono plany: 5" said nothing of where -- the report names the walls and the ceiling the plan went to */}
+            {count('CREATED', 'UPDATED') > 0 && (
+              <p aria-label="room-plan-report-applied" className="text-sm text-slate-700 break-words">
+                {text.report_applied.replace('{names}', [...names('CREATED'), ...names('UPDATED')].join(', '))}
+              </p>
+            )}
             {count('SKIPPED_OWN') > 0 && <p className="text-sm text-amber-700 break-words">{text.report_skipped_own.replace('{names}', names('SKIPPED_OWN').join(', '))}</p>}
             {count('SKIPPED_STARTED') > 0 && <p className="text-sm text-amber-700 break-words">{text.report_skipped_started.replace('{names}', names('SKIPPED_STARTED').join(', '))}</p>}
             <button type="button" aria-label="room-plan-close" onClick={finish} className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700">

@@ -81,3 +81,7 @@ class TransferResult(BaseModel):
     materials_added: int
     materials_changed: int
     materials_removed: int
+
+
+class OwnItemsCreated(BaseModel):
+    created: int  # UX walk: the items of the price book made from the positions the craftsman wrote himself (0 when the book has them all)

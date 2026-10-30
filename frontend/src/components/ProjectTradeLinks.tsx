@@ -97,7 +97,8 @@ function TradeCard(props: { projectId: string; trade: LinkTrade; link: TradeLink
   const { projectId, trade, link, onChange } = props;
   const { t, locale } = useI18n();
   const text = t.trade_links;
-  const [language, setLanguage] = useState<Locale>(link?.language ?? locale);
+  // UX walk: a craftsman in Poland gets the Polish page unless the owner picks another language (it was the owner's own language)
+  const [language, setLanguage] = useState<Locale>(link?.language ?? 'pl');
   const [note, setNote] = useState(link?.owner_note ?? '');
   const [token, setToken] = useState<string | null>(null);
   const [answers, setAnswers] = useState<TradeAnswersResponse | null>(null);
@@ -186,7 +187,7 @@ function TradeCard(props: { projectId: string; trade: LinkTrade; link: TradeLink
         aria-label={`trade-link-note-${trade}`}
         value={note}
         maxLength={TRADE_LINK_LIMITS.comment}
-        placeholder={text.note_placeholder}
+        placeholder={trade === 'PLUMBING' ? text.note_placeholder_PLUMBING : text.note_placeholder}
         onChange={(e) => setNote(e.target.value)}
         className={`${FIELD} mt-1 min-h-24`}
       />

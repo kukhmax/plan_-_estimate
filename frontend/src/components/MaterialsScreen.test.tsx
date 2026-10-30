@@ -19,6 +19,8 @@ vi.mock('../api/materials', () => ({
   addMaterialsToEstimate: vi.fn(),
 }));
 vi.mock('../api/priceItems', () => ({ fetchPriceItems: vi.fn() }));
+vi.mock('../utils/clipboard', () => ({ copyTextToClipboard: vi.fn(async () => true) }));
+import * as clipboard from '../utils/clipboard';
 
 // V2-11 — the statement of the materials of an object and the owner's norms: the screen shows what the server sent and counts nothing.
 
@@ -83,6 +85,25 @@ describe('the statement of the materials of an object', () => {
     expect(amount).toHaveTextContent('Bez ceny: 1');
     expect(screen.getByLabelText('materials-calcs')).toHaveTextContent('Łazienka · Podłoga');
     expect(screen.getByLabelText('materials-calcs')).toHaveTextContent('Płytki · 10 m² · 30×60 cm');
+  });
+
+  it('ticks off what is bought and copies only what is still to buy (UX walk)', async () => {
+    renderScreen();
+    fireEvent.click(await screen.findByLabelText('material-bought-TILE_TILES'));
+    expect(screen.getByLabelText('material-bought-TILE_TILES')).toBeChecked();
+    expect(localStorage.getItem(`pe.materials.bought.${projectId}`)).toBe('["TILE_TILES"]');
+    fireEvent.click(screen.getByLabelText('materials-copy-list'));
+    await waitFor(() => expect(clipboard.copyTextToClipboard).toHaveBeenCalled());
+    const copied = vi.mocked(clipboard.copyTextToClipboard).mock.calls[0][0];
+    expect(copied).toContain('Klej do płytek');
+    expect(copied).not.toContain('Płytki —');
+    expect(await screen.findByText(/Lista skopiowana/)).toBeInTheDocument();
+  });
+
+  it('shows the meaning of a Polish material name on a Russian screen (UX walk)', async () => {
+    localStorage.setItem('locale', 'ru');
+    renderScreen();
+    expect(await screen.findByLabelText('material-total-TILE_ADHESIVE')).toHaveTextContent('Плиточный клей (мешок)');
   });
 
   it('says there is nothing yet, and a failed read can be read again', async () => {

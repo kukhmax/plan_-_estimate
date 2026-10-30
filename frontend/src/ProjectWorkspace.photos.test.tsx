@@ -55,6 +55,8 @@ vi.mock('./api/representatives', () => ({
 }));
 vi.mock('./api/clients', () => ({ fetchClients: vi.fn() }));
 vi.mock('./api/estimates', () => ({ listEstimates: vi.fn(), generateEstimate: vi.fn(), getEstimate: vi.fn() }));
+// the hub reads the state of the client's link (UX walk); no real request in a test
+vi.mock('./api/clientLink', () => ({ fetchClientLink: vi.fn(async () => ({ link: null })) }));
 vi.mock('./api/projects', () => ({
   fetchProjects: vi.fn(),
   createProject: vi.fn(),
@@ -422,6 +424,7 @@ describe('ProjectWorkspace photos — rooms show everything in the room (view an
     const card = await screen.findByLabelText(`room-item-${salon.id}`);
     expect(within(card).getByText('Salon')).toBeInTheDocument();
     expect(within(card).getByLabelText(`open-room-${salon.id}`)).toBeInTheDocument();
+    fireEvent.click(within(card).getByLabelText(`room-options-${salon.id}`));
     expect(within(card).getByLabelText(`edit-room-${salon.id}`)).toBeInTheDocument();
     expect(within(card).getByLabelText(`archive-room-${salon.id}`)).toBeInTheDocument();
   });

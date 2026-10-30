@@ -47,3 +47,8 @@ export function runTradeTransfer(
 ): Promise<TransferResult> {
   return apiRequest(`${base(projectId)}/${trade}/transfer`, { method: 'POST', body: JSON.stringify({ mapping, points, materials, own }) });
 }
+
+/** UX walk: the positions the craftsman wrote himself become items of the price book (no price), so the next carrying over takes them. */
+export function createTradeOwnItems(projectId: string, trade: LinkTrade): Promise<{ created: number }> {
+  return apiRequest(`${base(projectId)}/${trade}/transfer/own-items`, { method: 'POST' });
+}

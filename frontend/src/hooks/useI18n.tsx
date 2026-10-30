@@ -17,8 +17,10 @@ function firstLocale(): Locale {
     stored = null;
   }
   if (isLocale(stored)) return stored;
-  // V2-7: a new user starts in the language of Telegram; the choice made by hand is kept afterwards
-  return localeFromTelegramCode(window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code ?? null);
+  // V2-7: a new user starts in the language of Telegram; the choice made by hand is kept afterwards. Outside Telegram (the sign-in page in a
+  // browser) the language of the phone is taken (UX walk: a Russian phone got the Polish sign-in screen)
+  const telegram = window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code ?? null;
+  return localeFromTelegramCode(telegram ?? (typeof navigator === 'undefined' ? null : navigator.language));
 }
 
 function browserLocale(): Locale {

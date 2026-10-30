@@ -21,8 +21,10 @@ from app.domain.rules.room_geometry import (
 from app.domain.services.canonical_planes import find_active_plane_surface
 from app.domain.services.client_ids import find_repeat
 from app.domain.services.wall_parts import decorate
+from app.models.inspection import Inspection
 from app.models.opening import Opening
 from app.models.project import Project
+from app.models.risk import Risk, RiskSeverity
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
 from app.models.work_plan import SurfacePlannedWork, SurfaceWorkPlan
@@ -119,8 +121,25 @@ class SurfaceService:
                     )
                 ).all()
             )
+            # UX walk B6: how many high / critical risks of the inspections of each surface are active (the "⚠ N" of the wall row)
+            risks = dict(
+                (
+                    await self.db.execute(
+                        select(Inspection.surface_id, func.count(Risk.id))
+                        .join(Risk, Risk.inspection_id == Inspection.id)
+                        .where(
+                            Inspection.surface_id.in_([surface.id for surface in items]),
+                            Inspection.is_archived.is_(False),
+                            Risk.is_active.is_(True),
+                            Risk.severity.in_([RiskSeverity.HIGH, RiskSeverity.CRITICAL]),
+                        )
+                        .group_by(Inspection.surface_id)
+                    )
+                ).all()
+            )
             for surface in items:
                 surface.planned_work_count = int(counts.get(surface.id, 0))
+                surface.high_risk_count = int(risks.get(surface.id, 0))
             await decorate(self.db, items)
 
         return items, total

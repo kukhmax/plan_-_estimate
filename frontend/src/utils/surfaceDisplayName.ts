@@ -41,3 +41,15 @@ export function getSurfaceDisplayName(
 
   return rawName;
 }
+
+/**
+ * A place known only by its stored name (the photos of the craftsman's page, UX walk: "Wall 1" was shown untranslated): the canonical names
+ * of the walls, the floor and the ceiling in the language of the screen, any other name as it is.
+ */
+export function getPlaceDisplayName(name: string | null | undefined, labels: SurfaceDisplayLabels): string {
+  const trimmed = (name ?? '').trim();
+  if (GENERATED_WALL_NAME.test(trimmed)) return getSurfaceDisplayName({ name: trimmed, surface_type: 'WALL' }, labels);
+  if (CANONICAL_FLOOR_NAMES.has(trimmed)) return labels.floor;
+  if (CANONICAL_CEILING_NAMES.has(trimmed)) return labels.ceiling;
+  return name ?? '';
+}

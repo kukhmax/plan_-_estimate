@@ -126,6 +126,8 @@ class SurfaceRead(BaseModel):
     net_area: Decimal | None = None
     # Usability U-7: how many works the saved plan of the surface holds (filled by the list; 0 elsewhere and for a surface with no plan).
     planned_work_count: int = 0
+    # UX walk B6: active high / critical risks of the surface's inspections (filled by the list; 0 elsewhere).
+    high_risk_count: int = 0
     # Merged walls: the parts of a merged wall (empty for an ordinary wall; its `gross_area` is their sum) and, for a wall that was joined
     # into another one, that merged wall.
     parts: list[SurfacePartRead] = []

@@ -488,7 +488,8 @@ export function OpeningList({
               <DimensionInput
                 aria-label="opening-width"
                 required
-                placeholder="90"
+                // UX walk: a window showed the sizes of a door; the placeholder follows the kind of the opening
+                placeholder={form.opening_type === 'WINDOW' ? '120' : '90'}
                 value={form.width}
                 onValueChange={(meters) => setForm((cur) => ({ ...cur, width: meters }))}
                 className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs pe-surface"
@@ -499,7 +500,7 @@ export function OpeningList({
               <DimensionInput
                 aria-label="opening-height"
                 required
-                placeholder="200"
+                placeholder={form.opening_type === 'WINDOW' ? '150' : '200'}
                 value={form.height}
                 onValueChange={(meters) => setForm((cur) => ({ ...cur, height: meters }))}
                 className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs pe-surface"

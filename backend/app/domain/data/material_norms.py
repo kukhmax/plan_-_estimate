@@ -49,7 +49,7 @@ NORMS: tuple[NormDef, ...] = (
     _p("TILE_WATERPROOF_LAYERS", TILE, "pcs", "2", "1", "10"),
     _p("TILE_WATERPROOF_PACK_KG", TILE, "kg", "15", "0.1", "1000"),
     _p("TILE_TAPE_ROLL_M", TILE, "m", "10", "0.1", "1000"),
-    _p("TILE_SPACERS_PER_TILE", TILE, "pcs", "1", "0", "100"),
+    _p("TILE_SPACERS_PER_TILE", TILE, "pcs", "3", "0", "100"),  # UX walk: 2-4 crosses / wedges per tile in practice, not 1
     _p("TILE_SPACERS_PACK", TILE, "pcs", "200", "1", "100000"),
     _m("TILE_TILES", TILE, "Płytki", "m²", "M2"),
     _m("TILE_ADHESIVE", TILE, "Klej do płytek (worek)", "bag", "PCS"),

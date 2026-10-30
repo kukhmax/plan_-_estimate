@@ -144,6 +144,34 @@ async def test_the_preview_counts_the_own_positions_of_the_craftsman_that_cannot
     assert (await post(async_client, w, "/preview")).json()["own_not_carried"] == 1
 
 
+async def test_the_own_positions_become_items_of_the_price_book_and_are_then_carried_over(async_client, db_session):
+    # UX walk: "the own items of the craftsman are not carried: they are not in the price book" -- one button makes them (no price)
+    w = await electric_world(async_client, db_session)
+    await own_answer(db_session, w, w.salon, "Gniazdo siłowe")
+    await own_answer(db_session, w, w.kuchnia, "gniazdo SIŁOWE ")  # the same name in another room: one item
+    made = await post(async_client, w, "/own-items")
+    assert made.status_code == 200 and made.json() == {"created": 1}
+    assert (await post(async_client, w, "/own-items")).json() == {"created": 0}  # nothing twice
+    created = (await db_session.execute(select(PriceItem).where(PriceItem.display_name == "Gniazdo siłowe"))).scalar_one()
+    assert created.price is None and created.category == PriceCategory.ELECTRICAL and created.unit == PriceUnit.PCS and created.owner_id == w.owner.id
+    preview = (await post(async_client, w, "/preview")).json()
+    assert preview["own_not_carried"] == 0
+    salon = next(room for room in preview["rooms"] if room["room_id"] == str(w.salon.id))
+    assert any(row["item_id"] == str(created.id) and row["kind"] == "NEW" and row["quantity"] == "1.00" for row in salon["rows"])
+    await post(async_client, w, "", {"own": "ADD"})
+    rows = [p for p in await points(db_session) if p.price_item_id == created.id]
+    assert sorted(str(p.room_id) for p in rows) == sorted([str(w.salon.id), str(w.kuchnia.id)])
+
+
+async def test_only_the_owner_makes_items_from_the_own_positions(async_client, db_session):
+    w = await electric_world(async_client, db_session)
+    await own_answer(db_session, w, w.salon, "Gniazdo siłowe")
+    assert (await async_client.post(w.url + "/own-items", json={})).status_code == 401
+    stranger = await login(async_client, OTHER_USER)
+    assert (await async_client.post(w.url + "/own-items", json={}, headers=stranger)).status_code == 404
+    assert (await db_session.execute(select(PriceItem).where(PriceItem.display_name == "Gniazdo siłowe"))).scalar_one_or_none() is None
+
+
 async def test_the_owner_may_choose_another_item_or_none_and_a_wrong_choice_is_refused(async_client, db_session):
     w = await electric_world(async_client, db_session)
     other = await item(db_session, w.owner.id, "Gniazdo w wersji premium")

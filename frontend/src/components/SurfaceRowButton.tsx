@@ -17,6 +17,8 @@ interface SurfaceRowButtonProps {
   archivedLabel?: string | null;
   /** How many works its plan holds; shown only when there are some (usability U-7). */
   workCount?: number;
+  /** UX walk B6: active high / critical risks of its inspections; a "⚠ N" badge when there are some. */
+  riskCount?: number;
   /** The wall exists only on the phone (Stage 19E). */
   pending?: boolean;
   /** A merged wall: how many parts it has (a badge); a wall that was joined into another one shows `mergedLabel`. */
@@ -46,7 +48,7 @@ const LONG_PRESS_MS = 500;
  * so the owner finds a wall at a glance and opens only the one being worked on).
  */
 export function SurfaceRowButton({
-  surfaceId, rowKey, name, typeLabel, area, archivedLabel, workCount, pending, partsLabel, planLabel, mergedLabel, selecting = false, selectedOrder = null,
+  surfaceId, rowKey, name, typeLabel, area, archivedLabel, workCount, riskCount, pending, partsLabel, planLabel, mergedLabel, selecting = false, selectedOrder = null,
   disabled = false, stayLabel, className, onOpen, onLongPress, onEdit, editLabel,
 }: SurfaceRowButtonProps) {
   const { t } = useI18n();
@@ -121,6 +123,16 @@ export function SurfaceRowButton({
         {mergedLabel && <span aria-label={`surface-row-merged-${key}`} className="text-xs px-2 py-0.5 rounded-full pe-pill font-medium">{mergedLabel}</span>}
         {selecting && selectedOrder === 1 && stayLabel && <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">{stayLabel}</span>}
       </span>
+      {riskCount !== undefined && riskCount > 0 && (
+        <span
+          aria-label={`surface-row-risks-${key}`}
+          title={t.surfaces.high_risks.replace('{count}', String(riskCount))}
+          className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300 font-semibold"
+        >
+          <span aria-hidden="true">⚠ </span>
+          {riskCount}
+        </span>
+      )}
       {workCount !== undefined && workCount > 0 && (
         <span aria-label={`surface-row-works-${key}`} title={t.surfaces.works_in_plan} className="shrink-0 text-xs px-2 py-0.5 rounded-full pe-pill font-semibold">
           <span aria-hidden="true">🛠️ </span>

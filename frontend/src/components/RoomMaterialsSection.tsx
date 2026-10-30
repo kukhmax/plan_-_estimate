@@ -10,6 +10,7 @@ import { formatPlain, toInput } from '../utils/paymentFormat';
 import { Ico } from './Ico';
 import { fieldClass, labelClass, primaryButton, secondaryButton, segmentClass } from './paymentUi';
 import { VoiceInput } from './VoiceInput';
+import { materialNameHint } from '../utils/nameHints';
 
 /** The areas of the room that the server already counted (the card of the room shows them): the form offers them with one tap; nothing is counted here. */
 export interface RoomAreas {
@@ -176,6 +177,7 @@ export function RoomMaterialsSection({ projectId, roomId, areas }: RoomMaterials
                           <li key={line.code} className="py-1.5 flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                               <p className="text-sm text-slate-900 break-words">{line.name}</p>
+                              {materialNameHint(t, line.code, line.name) && <p className="text-xs text-slate-500 break-words">{materialNameHint(t, line.code, line.name)}</p>}
                               <p className="text-xs text-slate-500 break-words">{needWord(line, text)}</p>
                             </div>
                             <p className="shrink-0 text-sm font-bold text-slate-900 whitespace-nowrap">{buyWord(line, text)}</p>

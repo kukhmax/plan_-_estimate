@@ -27,7 +27,6 @@ import {
 } from '../types/surface';
 import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatMetric } from '../utils/format';
-import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { surfaceTypeTint } from '../utils/surfaceTypeTint';
@@ -1129,10 +1128,9 @@ export function SurfaceList({
             const isWorkPlanOpen = activeWorkPlanSurfaceId === surface.id;
             const isExecutionOpen = activeExecutionSurfaceId === surface.id;
             const displayName = getSurfaceDisplayName(surface, surfaceDisplayLabels);
-            // WALL: deterministic per-surface-id hash tint (Stage 10G.2 helper,
-            // extracted/reused — every wall gets its own stable color, never
-            // shared across walls). Non-WALL (OTHER): stable type-only tint.
-            const tint = isWall ? surfaceCardTint(surface.id) : surfaceTypeTint(surface.surface_type);
+            // UX walk: the pink / green of each wall came from its id and meant nothing -- every wall card has the one tint of a wall
+            // (the estimate keeps its per-wall tints to group the lines of one wall)
+            const tint = surfaceTypeTint(surface.surface_type);
             const wallOpenings = wallOpeningsById[surface.id];
             const deductionContext = isWall ? describeDeductionContext(wallOpenings) : null;
             const revealAggregate = isWall ? describeRevealAggregate(wallOpenings) : null;
@@ -1218,6 +1216,7 @@ export function SurfaceList({
                     area={waitingArea ? `~${waitingArea} ${t.common.unit_m2}` : hasDimensions ? `${formatMetric(surface.net_area ?? surface.gross_area)} ${t.common.unit_m2}` : '—'}
                     archivedLabel={surface.is_archived ? t.common.archived_badge : null}
                     workCount={surface.planned_work_count}
+                    riskCount={surface.high_risk_count}
                     pending={surface._pending}
                     className={`${tint.bg} border ${tint.border} ${tint.extra} rounded-xl px-3 py-1.5 min-h-11 w-full flex items-center gap-2 shadow-sm`}
                     onOpen={() => (selecting ? toggleSelected(surface.id) : toggleCard(surface.id))}
@@ -1309,7 +1308,36 @@ export function SurfaceList({
                   >
                     <span className="min-w-0 break-words"><Ico>🔬</Ico>{t.inspections.inspect_wall}</span>
                     <InspectionPhotoBadge surfaceId={surface.id} />
+                    {(surface.high_risk_count ?? 0) > 0 && (
+                      <span
+                        aria-label={`surface-risks-${surface.id}`}
+                        title={t.surfaces.high_risks.replace('{count}', String(surface.high_risk_count))}
+                        className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300 font-semibold"
+                      >
+                        <span aria-hidden="true">⚠ </span>{surface.high_risk_count}
+                      </span>
+                    )}
                   </button>
+                )}
+
+                {/* UX walk: the doors and windows were hidden under "Otwory i opcje" -- the two most common ones are one tap away on the card */}
+                {isWall && hasDimensions && !isOptionsOpen && !surface.is_archived && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['DOOR', 'WINDOW'] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        aria-label={`quick-opening-${surface.id}-${type}`}
+                        onClick={() => {
+                          setExpandedOptions((current) => ({ ...current, [surface.id]: true }));
+                          quickAddOpening(surface.id, type);
+                        }}
+                        className={`min-h-11 w-full text-sm px-2 py-1 rounded-xl font-semibold transition break-words ${type === 'DOOR' ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'bg-sky-50 text-sky-800 hover:bg-sky-100'}`}
+                      >
+                        <Ico>{type === 'DOOR' ? '🚪' : '🪟'}</Ico>＋ {type === 'DOOR' ? t.openings.door : t.openings.window}
+                      </button>
+                    ))}
+                  </div>
                 )}
 
                 {isWall && hasRoomPlan && planStates[surface.id] && planStates[surface.id].state !== 'NONE' && (

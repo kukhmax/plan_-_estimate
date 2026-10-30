@@ -92,7 +92,7 @@ describe('CoefficientCatalogManager', () => {
     renderManager();
     await screen.findByText('Wysokość');
     expand('grp-height');
-    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj opcję' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dodaj opcję' }));
     fireEvent.change(screen.getByPlaceholderText('np. Prace na wysokości > 3m'), {
       target: { value: 'bardzo wysoka' },
     });
@@ -139,7 +139,7 @@ describe('CoefficientCatalogManager', () => {
       vi.mocked(coefficientsApi.createCoefficientGroup).mockResolvedValue(described);
       renderManager();
       await screen.findByText('Wysokość');
-      fireEvent.click(screen.getByRole('button', { name: '+ Dodaj grupę' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Dodaj grupę' }));
       fireEvent.change(screen.getByPlaceholderText('np. Wysokość pracy, Dostęp do powierzchni'), {
         target: { value: 'Nowa grupa' },
       });
@@ -179,7 +179,7 @@ describe('CoefficientCatalogManager', () => {
       renderManager();
       await screen.findByText('Wysokość');
       expand('grp-height');
-      fireEvent.click(screen.getByRole('button', { name: '+ Dodaj opcję' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Dodaj opcję' }));
       fireEvent.change(screen.getByPlaceholderText('np. Prace na wysokości > 3m'), {
         target: { value: 'Opcja' },
       });
@@ -225,7 +225,7 @@ describe('CoefficientCatalogManager', () => {
       localStorage.setItem('locale', 'ru');
       renderManager();
       await screen.findByText('Wysokość');
-      fireEvent.click(screen.getByRole('button', { name: '+ Добавить группу' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Добавить группу' }));
       expect(screen.getByText('Описание (необязательно)')).toBeInTheDocument();
       expect(screen.getByLabelText('coefficient-group-description-input')).toHaveAttribute(
         'placeholder',
@@ -319,7 +319,7 @@ describe('CoefficientCatalogManager', () => {
       renderManager();
       await screen.findByText('Wysokość');
       expand('grp-height');
-      fireEvent.click(screen.getByRole('button', { name: '+ Добавить опцию' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Добавить опцию' }));
       expect(document.querySelector('input[inputmode="decimal"]')).toHaveAttribute(
         'placeholder',
         'напр. 20 или -10',
@@ -372,8 +372,8 @@ describe('CoefficientCatalogManager', () => {
       expect(summary('g-height')).toHaveTextContent('3 opcje · Baza: Standardowa 0%');
       expect(summary('g-access')).toHaveTextContent('2 opcje · Baza: Swobodny 0%');
       expect(screen.queryByRole('button', { name: 'Edytuj' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: '+ Dodaj opcję' })).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: '+ Dodaj grupę' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Dodaj opcję' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Dodaj grupę' })).toBeInTheDocument();
     });
 
     it('shows a localized no-base summary without inventing a base', async () => {
@@ -436,7 +436,7 @@ describe('CoefficientCatalogManager', () => {
       expect(toggle('g-height')).toHaveAttribute('aria-expanded', 'true');
       fireEvent.click(screen.getByRole('button', { name: 'Anuluj' }));
 
-      fireEvent.click(screen.getByRole('button', { name: '+ Dodaj opcję' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Dodaj opcję' }));
       expect(screen.getByPlaceholderText('np. Prace na wysokości > 3m')).toBeInTheDocument();
       expect(toggle('g-height')).toHaveAttribute('aria-expanded', 'true');
     });
@@ -478,7 +478,7 @@ describe('CoefficientCatalogManager', () => {
       expect(screen.queryByTestId('coefficient-catalog-group-toggle-g-height')).not.toBeInTheDocument();
 
       fireEvent.click(toggle('g-old'));
-      expect(screen.queryByRole('button', { name: '+ Dodaj opcję' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Dodaj opcję' })).not.toBeInTheDocument();
       vi.mocked(coefficientsApi.fetchCoefficientGroups).mockResolvedValue({ items: [], total: 0 });
       fireEvent.click(screen.getAllByRole('button', { name: 'Przywróć' })[0]);
       await waitFor(() => expect(coefficientsApi.restoreCoefficientGroup).toHaveBeenCalledWith('g-old'));

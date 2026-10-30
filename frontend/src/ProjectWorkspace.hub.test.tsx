@@ -1,6 +1,9 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as clientLinkApi from './api/clientLink';
 import * as clientsApi from './api/clients';
+import * as estimatesApi from './api/estimates';
+import * as roomsApi from './api/rooms';
 import * as photosApi from './api/photos';
 import * as projectsApi from './api/projects';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
@@ -126,6 +129,34 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     vi.mocked(photosApi.fetchPhotos).mockResolvedValue({ items: [], total: 0, limit: 30, offset: 0 } as never);
   });
 
+  it('says on the tiles where the object stands: the rooms, the latest estimate and whether the client opened the link (UX walk)', async () => {
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({
+      items: [{ id: 'r1', is_archived: false }, { id: 'r2', is_archived: false }, { id: 'r3', is_archived: true }],
+      total: 3,
+    } as never);
+    vi.mocked(estimatesApi.listEstimates).mockResolvedValue({
+      items: [
+        { id: 'e1', version: 1, status: 'ARCHIVED', total: '100.00', gross_total: null, currency: 'PLN' },
+        { id: 'e2', version: 2, status: 'ACCEPTED', total: '14581.02', gross_total: null, currency: 'PLN' },
+      ],
+      total: 2,
+    } as never);
+    vi.mocked(clientLinkApi.fetchClientLink).mockResolvedValue({
+      link: { id: 'l1', language: 'pl', created_at: '', expires_at: '', last_viewed_at: '2026-10-29T10:00:00Z', view_count: 1, expired: false },
+    });
+    renderWorkspace();
+    await openHub();
+    expect(await screen.findByLabelText('object-tile-rooms-detail')).toHaveTextContent('Pomieszczenia: 2');
+    const estimate = await screen.findByLabelText('open-estimates-detail');
+    expect(estimate).toHaveTextContent('Wersja 2');
+    expect(estimate).toHaveTextContent('Zaakceptowany');
+    expect(estimate).toHaveTextContent('14');
+    expect(await screen.findByLabelText('object-tile-client-detail')).toHaveTextContent('Klient otworzył link');
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(estimatesApi.listEstimates).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(clientLinkApi.fetchClientLink).mockResolvedValue({ link: null });
+  });
+
   it('is ten large tiles after the card of the object: the rooms first, then the estimate, the link for the client, the links for the craftsmen, photos, documents, agreement and protocols, invoices and advances, materials, the summary last', async () => {
     renderWorkspace();
     await openHub();
@@ -135,7 +166,13 @@ describe('ProjectWorkspace — the hub of an object (Stage 16K.3)', () => {
     expect(tiles.map((tile) => tile.getAttribute('aria-label'))).toEqual([
       'object-tile-rooms', 'open-estimates', 'object-tile-client', 'object-tile-masters', 'object-tile-photos', 'object-tile-documents', 'object-tile-legal', 'object-tile-payments', 'object-tile-materials', 'object-tile-summary',
     ]);
-    expect(tiles.map((tile) => tile.textContent?.replace(/[›\d]/g, '').replace(/\p{Extended_Pictographic}️?/gu, '').trim())).toEqual([
+    // the names of the tiles (UX walk: a tile may carry a line of its state under the name -- it is left out here)
+    const nameOf = (tile: HTMLElement) => {
+      const copy = tile.cloneNode(true) as HTMLElement;
+      copy.querySelectorAll('[aria-label$="-detail"]').forEach((detail) => detail.remove());
+      return copy.textContent?.replace(/[›\d]/g, '').replace(/\p{Extended_Pictographic}️?/gu, '').trim();
+    };
+    expect(tiles.map(nameOf)).toEqual([
       'Pomieszczenia', 'Kosztorys', 'Link dla klienta', 'Linki dla majstrów', 'Zdjęcia obiektu', 'Dokumenty PDF', 'Umowa i protokoły', 'Faktury i zaliczki', 'Materiały', 'Podsumowanie obiektu',
     ]);
     for (const tile of tiles) expect(tile.className).toContain('min-h-14');

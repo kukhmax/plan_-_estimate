@@ -16,6 +16,7 @@ import {
   InspectionTarget,
 } from '../types/inspection';
 import { InspectionFlow } from './InspectionFlow';
+import pl from '../locales/pl.json';
 
 vi.mock('../api/checklists', () => ({
   fetchChecklistTemplates: vi.fn(),
@@ -274,7 +275,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     fireEvent.click(await screen.findByLabelText('Przejrzyj i zakończ'));
     await screen.findByText('Podsumowanie odpowiedzi');
     expect(screen.queryByLabelText('Oceń ryzyka')).not.toBeInTheDocument();
@@ -282,6 +283,39 @@ describe('InspectionFlow substrate step', () => {
     // the inspection is a DRAFT.
     expect(screen.queryByText('Zalecane prace')).not.toBeInTheDocument();
     expect(screen.queryByText('Co powiedzieć klientowi')).not.toBeInTheDocument();
+  });
+
+  it('evaluates the risks, the recommendations and the phrases right after "Zakończ" (UX walk B6)', async () => {
+    const order: string[] = [];
+    vi.mocked(risksApi.evaluateRisks).mockImplementation(async () => { order.push('risks'); return { items: [], total: 0 }; });
+    vi.mocked(workRecommendationsApi.evaluateWorkRecommendations).mockImplementation(async () => { order.push('recommendations'); return { created: 0, reactivated: 0, unchanged: 0, resolved: 0, items: [], total: 0 }; });
+    vi.mocked(communicationsApi.evaluateCommunications).mockImplementation(async () => { order.push('phrases'); return { items: [], total: 0 }; });
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
+    fireEvent.click(await screen.findByLabelText('Przejrzyj i zakończ'));
+    fireEvent.click(await screen.findByLabelText('Zakończ badanie'));
+    expect(await screen.findByLabelText('Oceń ryzyka')).toBeInTheDocument();
+    expect(order).toEqual(['risks', 'recommendations', 'phrases']);
+    expect(risksApi.evaluateRisks).toHaveBeenCalledWith('proj-1', 'room-1', draftInspection.id);
+    // the empty recommendation list says that the evaluation found nothing, not that it never ran
+    expect(await screen.findByText(pl.recommendations.no_recommendations_after_evaluate)).toBeInTheDocument();
+  });
+
+  it('keeps the panels and says so when the evaluation after "Zakończ" fails (UX walk B6)', async () => {
+    vi.mocked(risksApi.evaluateRisks).mockRejectedValueOnce(new Error('offline'));
+    renderFlow();
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
+    fireEvent.click(await screen.findByLabelText('Przejrzyj i zakończ'));
+    fireEvent.click(await screen.findByLabelText('Zakończ badanie'));
+    expect(await screen.findByText(pl.inspections.analysis_failed)).toBeInTheDocument();
+    expect(screen.getByLabelText('Oceń ryzyka')).toBeInTheDocument();
+    expect(workRecommendationsApi.evaluateWorkRecommendations).not.toHaveBeenCalled();
   });
 
   it('renders all six substrate options (ENTRY/SUBSTRATE)', async () => {
@@ -316,7 +350,7 @@ describe('InspectionFlow substrate step', () => {
     }
     expect(screen.queryByLabelText('S1')).not.toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Q2'));
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await waitFor(() =>
       expect(inspectionsApi.createInspection).toHaveBeenCalledWith('proj-1', 'room-1', {
         template_id: template.id,
@@ -338,7 +372,7 @@ describe('InspectionFlow substrate step', () => {
     }
     expect(screen.queryByLabelText('Q1')).not.toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('S3'));
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await waitFor(() =>
       expect(inspectionsApi.createInspection).toHaveBeenCalledWith('proj-1', 'room-1', {
         template_id: template.id,
@@ -357,9 +391,12 @@ describe('InspectionFlow substrate step', () => {
     await screen.findByText('Klasa jakości');
     // Optional nature is made explicit for PAINTED/OTHER
     expect(screen.getByText(/jest opcjonalna/)).toBeInTheDocument();
+    // UX walk: old paint is offered the S scale only (Q1-Q4 are the gypsum boards')
+    expect(screen.getByLabelText('S2')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Q2')).toBeNull();
     expect(screen.getByLabelText('Pomiń')).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Pomiń'));
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await waitFor(() =>
       expect(inspectionsApi.createInspection).toHaveBeenCalledWith('proj-1', 'room-1', {
         template_id: template.id,
@@ -387,7 +424,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await waitFor(() =>
       expect(inspectionsApi.createInspection).toHaveBeenCalledWith('proj-1', 'room-1', {
         template_id: template.id,
@@ -404,7 +441,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
     // BOOLEAN
     expect(screen.getByLabelText('Tak')).toBeInTheDocument();
@@ -429,7 +466,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
     fireEvent.click(screen.getByLabelText('Tak'));
@@ -467,7 +504,7 @@ describe('InspectionFlow substrate step', () => {
       fireEvent.click(await screen.findByLabelText('Beton'));
       fireEvent.click(screen.getByLabelText('Dalej'));
       await screen.findByText('Klasa jakości');
-      fireEvent.click(screen.getByLabelText('Nowe badanie'));
+      fireEvent.click(screen.getByLabelText('Dalej: pytania'));
       await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
       const number = screen.getByLabelText('Nierówności podłoża');
@@ -491,7 +528,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
     const number = screen.getByLabelText('Nierówności podłoża');
@@ -516,7 +553,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
     const number = screen.getByLabelText('Nierówności podłoża');
@@ -553,7 +590,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
     fireEvent.change(screen.getByLabelText('Nierówności podłoża'), {
@@ -578,7 +615,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
     fireEvent.change(screen.getByLabelText('Nierówności podłoża'), {
@@ -599,7 +636,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
     const number = screen.getByLabelText('Nierówności podłoża');
@@ -629,7 +666,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
     fireEvent.click(screen.getByLabelText('Tak'));
@@ -749,7 +786,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
     fireEvent.click(screen.getByLabelText('Tak'));
@@ -779,7 +816,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
     fireEvent.click(screen.getByLabelText('Tak'));
@@ -802,7 +839,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
     fireEvent.click(screen.getByLabelText('Tak'));
     fireEvent.click(screen.getByLabelText('Przejrzyj i zakończ'));
@@ -1047,7 +1084,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await screen.findByText(/Odpowiedzi: 0 \/ 5/);
 
     const delam = screen.getByLabelText('Odpryski');
@@ -1156,7 +1193,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
 
     // Questions appear immediately (0/0 with the empty note must never show): the flow
     // fetched the exact template by id and rendered it without leaving or re-entering.
@@ -1251,7 +1288,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
     fireEvent.click(screen.getByLabelText('Q2'));
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
 
     // Both board questions are present right after Start — not "0 / 0".
     await screen.findByText(/Odpowiedzi: 0 \/ 2/);
@@ -1288,7 +1325,7 @@ describe('InspectionFlow substrate step', () => {
     fireEvent.click(concrete);
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    expect(screen.getByLabelText('Nowe badanie')).toHaveClass('min-h-11');
+    expect(screen.getByLabelText('Dalej: pytania')).toHaveClass('min-h-11');
   });
 });
 
@@ -1367,7 +1404,7 @@ describe('InspectionFlow WorkPlan prefill (11D.2 manual UX defect #1)', () => {
     await screen.findByText('Klasa jakości');
     expect(screen.queryByText('Wybierz podłoże')).not.toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Pomiń'));
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await waitFor(() =>
       expect(inspectionsApi.createInspection).toHaveBeenCalledWith('proj-1', 'room-1', {
         template_id: template.id,

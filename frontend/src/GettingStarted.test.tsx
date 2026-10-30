@@ -156,7 +156,7 @@ describe('"Od czego zacząć" on the empty list of clients (usability U-3)', () 
     vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [], total: 0 });
     renderList();
     expect(await screen.findByLabelText('getting-started')).toHaveTextContent('С чего начать');
-    expect(screen.getByLabelText('start-step-client')).toHaveTextContent('1. Добавь клиента и объект');
+    expect(screen.getByLabelText('start-step-client')).toHaveTextContent('1. Добавьте клиента и объект');
     expect(screen.getByLabelText('start-step-room')).toHaveTextContent('3. Замерь первое помещение');
   });
 

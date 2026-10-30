@@ -29,7 +29,11 @@ export function priceItemMatches(item: PriceItem, query: string, dictionaries: R
   const words = foldForSearch(query).split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
   const names = dictionaries.map((dictionary) => resolveDisplayName(item, dictionary));
-  const haystack = foldForSearch([...names, item.display_name ?? '', item.code, ...extra].join(' '));
+  // UX walk: a typical item named in Polish is found by its meaning as well ("точка" finds "Punkt wodny")
+  const hints = item.display_name
+    ? dictionaries.map((dictionary) => ((dictionary as { name_hints?: { pack?: Record<string, string> } }).name_hints?.pack ?? {})[item.display_name as string] ?? '')
+    : [];
+  const haystack = foldForSearch([...names, ...hints, item.display_name ?? '', item.code, ...extra].join(' '));
   return words.every((word) => haystack.includes(word));
 }
 

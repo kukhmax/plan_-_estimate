@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useI18n } from '../hooks/useI18n';
 import type { PortalMarker, PortalPhoto } from '../types/tradeLink';
 import { cmText, isPhotoUtility, markerColor } from '../utils/photoUtilities';
+import { getPlaceDisplayName } from '../utils/surfaceDisplayName';
 
 interface MasterPhotosProps {
   photos: PortalPhoto[];
@@ -78,7 +79,7 @@ function Lightbox({ photo, onClose, onExpired }: { photo: PortalPhoto; onClose: 
   return (
     <div role="dialog" aria-modal="true" aria-label="master-photo-viewer" className="fixed inset-0 z-50 flex flex-col text-white" style={{ backgroundColor: 'rgba(0, 0, 0, 0.96)' }}>
       <div className="flex items-center justify-between gap-3 px-4 py-2">
-        <p className="min-w-0 text-sm break-words">{photo.place ?? ''}</p>
+        <p className="min-w-0 text-sm break-words">{getPlaceDisplayName(photo.place, { wall: t.surfaces.wall, floor: t.surfaces.floor, ceiling: t.surfaces.ceiling })}</p>
         <button type="button" aria-label="master-photo-close" onClick={onClose} className="shrink-0 min-h-12 min-w-12 rounded-xl border border-white/40 text-xl">
           <span aria-hidden="true">✕</span>
           <span className="sr-only">{text.photo_close}</span>
@@ -122,7 +123,7 @@ export function MasterPhotos({ photos, routeMap, roomName, onExpired }: MasterPh
           <ul className="space-y-3">
             {routeMap.map((photo) => (
               <li key={photo.id} className="space-y-2">
-                {photo.place && <p className="text-xs font-semibold text-slate-500 break-words">{photo.place}</p>}
+                {photo.place && <p className="text-xs font-semibold text-slate-500 break-words">{getPlaceDisplayName(photo.place, { wall: t.surfaces.wall, floor: t.surfaces.floor, ceiling: t.surfaces.ceiling })}</p>}
                 <button type="button" aria-label={`master-map-photo-${photo.id}`} onClick={() => setOpen(photo)} className="relative block w-full rounded-xl overflow-hidden border border-slate-200">
                   <span className="relative block w-full">
                     <img src={photo.thumb_url} alt="" loading="lazy" className="block w-full h-auto" />

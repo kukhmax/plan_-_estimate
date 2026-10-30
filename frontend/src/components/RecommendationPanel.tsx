@@ -24,6 +24,8 @@ export interface RecommendationPanelProps {
   projectId: string;
   roomId: string;
   inspectionId: string;
+  /** UX walk B6: the inspection flow evaluated the recommendations right after "Zakończ" (an empty list then says "none found"). */
+  evaluated?: boolean;
 }
 
 const ACTIVITY_VALUES: WorkRecommendationActivityValue[] = ['active', 'resolved', 'all'];
@@ -99,7 +101,7 @@ function recommendationTitle(
   return recommendation.recommended_work_code;
 }
 
-export function RecommendationPanel({ projectId, roomId, inspectionId }: RecommendationPanelProps) {
+export function RecommendationPanel({ projectId, roomId, inspectionId, evaluated = false }: RecommendationPanelProps) {
   const { t } = useI18n();
   const [activity, setActivity] = useState<WorkRecommendationActivityValue>('active');
   const [items, setItems] = useState<WorkRecommendationRead[]>([]);
@@ -119,7 +121,7 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
   // yet" from "evaluated successfully and found zero" so the primary action
   // doesn't look like it silently did nothing. Reset on remount (a fresh
   // inspection panel), not carried across inspections.
-  const [hasEvaluated, setHasEvaluated] = useState(false);
+  const [hasEvaluated, setHasEvaluated] = useState(evaluated);
 
   function forThisInspection(all: WorkRecommendationRead[]): WorkRecommendationRead[] {
     return all.filter((item) => item.inspection_id === inspectionId);

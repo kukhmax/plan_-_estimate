@@ -28,6 +28,7 @@ from app.models.client_link import (
     ConsentKind,
     ProposalStatus,
 )
+from app.models.client import Client, ClientType
 from app.models.estimate import Estimate, EstimateStatus
 from app.models.executor_profile import ExecutorProfile
 from app.models.project import Project
@@ -85,6 +86,16 @@ class ClientPortalService:
         user = (await self.db.execute(select(User).where(User.id == owner_id))).scalar_one_or_none()
         name = " ".join(part for part in (user.first_name, user.last_name) if part) if user is not None else ""
         return PortalContractor(name=name or None)
+
+    async def _client_name(self, project: Project) -> str | None:
+        """The first and last name of the private client of the object (UX walk: the approval form offers it instead of an example name)."""
+        if project.client_id is None:
+            return None
+        client = (await self.db.execute(select(Client).where(Client.id == project.client_id, Client.owner_user_id == project.owner_id))).scalar_one_or_none()
+        if client is None or client.client_type != ClientType.PRIVATE_PERSON:
+            return None
+        name = " ".join(part.strip() for part in (client.first_name, client.last_name) if part and part.strip())
+        return name[:80] or None
 
     async def _latest_estimate_id(self, link: ClientLink) -> uuid.UUID | None:
         return (
@@ -148,6 +159,7 @@ class ClientPortalService:
                         quantity=ln.quantity,
                         unit_price=ln.unit_price,
                         amount=ln.amount,
+                        scope=ln.scope.value if hasattr(ln.scope, "value") else str(ln.scope),
                     )
                     for ln in read.lines
                 ],
@@ -211,7 +223,10 @@ class ClientPortalService:
             link=PortalLinkInfo(expires_at=link.expires_at, language=link.language),
             lang=lang,
             contractor=contractor,
-            project=PortalProject(name=project.name, address=project.address, city=project.city, postal_code=project.postal_code),
+            project=PortalProject(
+                name=project.name, address=project.address, city=project.city, postal_code=project.postal_code,
+                client_name=await self._client_name(project),
+            ),
             estimate=estimate,
             proposals=proposals,
         )

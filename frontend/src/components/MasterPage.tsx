@@ -375,7 +375,7 @@ export function MasterPage({ token }: { token: string }) {
                     aria-label={`master-own-name-${room.id}-${index}`}
                     value={row.name}
                     maxLength={TRADE_LINK_LIMITS.name}
-                    placeholder={text.own_name_placeholder}
+                    placeholder={page.trade === 'PLUMBING' ? text.own_name_placeholder_PLUMBING : text.own_name_placeholder}
                     onChange={(e) => edit(room.id, (d) => ({ ...d, own: d.own.map((o) => (o.id === row.id ? { ...o, name: e.target.value } : o)) }))}
                     className={FIELD}
                   />

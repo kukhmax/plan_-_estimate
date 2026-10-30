@@ -70,6 +70,18 @@ describe('ClientList component', () => {
     });
   });
 
+  it('starts a new object of the client from its card, with archiving a quiet action at the end (UX walk)', async () => {
+    vi.mocked(clientsApi.fetchClients).mockResolvedValue({ items: [mockClient()], total: 1 });
+    const onStartObject = vi.fn();
+    renderWithI18n(<ClientList onStartObject={onStartObject} />);
+    await openCard();
+    fireEvent.click(await screen.findByLabelText(`client-new-object-${CARD_ID}`));
+    expect(onStartObject).toHaveBeenCalledWith(CARD_ID);
+    const archive = screen.getByLabelText(`archive-${CARD_ID}`);
+    expect(archive).toHaveClass('min-h-11');
+    expect(screen.getByLabelText('client-objects').compareDocumentPosition(archive) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('renders a list of clients', async () => {
     vi.mocked(clientsApi.fetchClients).mockResolvedValueOnce({
       items: [mockClient()],

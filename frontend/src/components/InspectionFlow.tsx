@@ -35,6 +35,9 @@ import { formatMetric } from '../utils/format';
 import { buildLocationPath } from '../utils/photoCaption';
 import { PhotoAttachmentRead } from '../types/photo';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
+import { evaluateRisks } from '../api/risks';
+import { evaluateWorkRecommendations } from '../api/workRecommendations';
+import { evaluateCommunications } from '../api/communications';
 import { RiskPanel } from './RiskPanel';
 import { RecommendationPanel } from './RecommendationPanel';
 import { CommunicationPanel } from './CommunicationPanel';
@@ -159,6 +162,11 @@ export function InspectionFlow({
   const [findings, setFindings] = useState<InspectionFinding[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // UX walk B6: after "Zakończ" the risks, the recommended works and the phrases are evaluated at once (no three taps);
+  // the panels mount when it is done and list what was found. `analysisFailed` keeps their own buttons as the way to retry.
+  const [analysing, setAnalysing] = useState(false);
+  const [analysed, setAnalysed] = useState(false);
+  const [analysisFailed, setAnalysisFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [numberErrors, setNumberErrors] = useState<Record<string, string>>({});
@@ -283,8 +291,12 @@ export function InspectionFlow({
   );
 
   const qualityLevels = substrate ? qualityLevelsForSubstrate(substrate) : undefined;
+  // UX walk: old paint is skim-coated like the plaster under it -- Q1-Q4 belong to the gypsum boards and are not offered for it
   const shownQualityLevels =
-    qualityLevels ?? (['Q1', 'Q2', 'Q3', 'Q4', 'S1', 'S2', 'S3', 'S4'] as QualityLevelValue[]);
+    qualityLevels ??
+    (substrate === 'PAINTED'
+      ? (['S1', 'S2', 'S3', 'S4'] as QualityLevelValue[])
+      : (['Q1', 'Q2', 'Q3', 'Q4', 'S1', 'S2', 'S3', 'S4'] as QualityLevelValue[]));
 
   function setAnswer(
     questionId: string,
@@ -507,6 +519,20 @@ export function InspectionFlow({
     }
   }
 
+  async function runAnalysis(inspectionId: string): Promise<void> {
+    try {
+      // the order matters: the recommendations and the phrases come from the risks
+      await evaluateRisks(projectId, roomId, inspectionId);
+      await evaluateWorkRecommendations(projectId, roomId);
+      await evaluateCommunications(projectId, roomId, inspectionId);
+      setAnalysed(true);
+    } catch {
+      setAnalysisFailed(true); // each panel still has its own button to try again
+    } finally {
+      setAnalysing(false);
+    }
+  }
+
   async function handleComplete(): Promise<void> {
     if (!inspection) return;
     setError(null);
@@ -530,9 +556,12 @@ export function InspectionFlow({
         inspection.id,
         true,
       );
+      setAnalysing(true);
+      setAnalysisFailed(false);
       setInspection(completed);
       setFindings(findingsResult.items);
       setStep('review');
+      void runAnalysis(completed.id);
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 422
@@ -609,7 +638,7 @@ export function InspectionFlow({
             : step === 'quality'
               ? t.inspections.select_quality
               : step === 'active'
-                ? t.inspections.review
+                ? t.inspections.questions_title // UX walk: "Przejrzyj i zakończ…" stood over the questions while they were answered
                 : isCompleted
                   ? t.inspections.findings_title
                   : t.inspections.review_summary}
@@ -741,12 +770,12 @@ export function InspectionFlow({
             </button>
             <button
               type="button"
-              aria-label={t.inspections.start}
+              aria-label={t.inspections.to_questions}
               className="min-h-11 flex-1 rounded-lg bg-blue-600 px-3 font-medium text-white disabled:opacity-50"
               disabled={saving}
               onClick={() => void beginInspection()}
             >
-              <Ico>▶️</Ico>{t.inspections.start}
+              <Ico>▶️</Ico>{t.inspections.to_questions}
             </button>
           </div>
         </div>
@@ -868,7 +897,15 @@ export function InspectionFlow({
               </button>
             </div>
           ) : (
+            analysing ? (
+              <p role="status" aria-label="inspection-analysing" className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700">
+                <Ico>⏳</Ico>{t.inspections.analysing}
+              </p>
+            ) : (
             <>
+              {analysisFailed && (
+                <p role="alert" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{t.inspections.analysis_failed}</p>
+              )}
               <RiskPanel
                 projectId={projectId}
                 roomId={roomId}
@@ -878,6 +915,7 @@ export function InspectionFlow({
                 projectId={projectId}
                 roomId={roomId}
                 inspectionId={inspection.id}
+                evaluated={analysed}
               />
               <CommunicationPanel
                 projectId={projectId}
@@ -894,6 +932,7 @@ export function InspectionFlow({
                 <Ico>🔁</Ico>{t.inspections.reopen}
               </button>
             </>
+            )
           )}
         </div>
       ) : null}

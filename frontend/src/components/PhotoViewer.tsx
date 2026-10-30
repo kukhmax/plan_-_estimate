@@ -588,24 +588,30 @@ export function PhotoViewer({
               <ExpandIcon />
             </button>
           )}
-          <button
-            type="button"
-            aria-label={t.photos.viewer.previous}
-            className={`${iconButton} absolute left-2 top-1/2 -translate-y-1/2`}
-            disabled={disabled || index === 0}
-            onClick={() => void go(-1)}
-          >
-            <ChevronLeftIcon />
-          </button>
-          <button
-            type="button"
-            aria-label={t.photos.viewer.next}
-            className={`${iconButton} absolute right-2 top-1/2 -translate-y-1/2`}
-            disabled={disabled || index >= items.length - 1}
-            onClick={() => void go(1)}
-          >
-            <ChevronRightIcon />
-          </button>
+          {/* UX walk: with one photo the arrows lead nowhere and covered a marker at the edge -- they are shown only for two or more,
+              and an arrow that cannot move (the first / the last photo) is hidden instead of greyed */}
+          {items.length > 1 && index > 0 && (
+            <button
+              type="button"
+              aria-label={t.photos.viewer.previous}
+              className={`${iconButton} absolute left-2 top-1/2 -translate-y-1/2`}
+              disabled={disabled}
+              onClick={() => void go(-1)}
+            >
+              <ChevronLeftIcon />
+            </button>
+          )}
+          {items.length > 1 && index < items.length - 1 && (
+            <button
+              type="button"
+              aria-label={t.photos.viewer.next}
+              className={`${iconButton} absolute right-2 top-1/2 -translate-y-1/2`}
+              disabled={disabled}
+              onClick={() => void go(1)}
+            >
+              <ChevronRightIcon />
+            </button>
+          )}
         </div>
 
         <div className="space-y-3 p-4">

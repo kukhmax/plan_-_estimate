@@ -191,8 +191,7 @@ describe('the sheet "Plan pomieszczenia" (V2-5)', () => {
     await screen.findByLabelText('room-plan-walls');
     fireEvent.click(screen.getByLabelText('room-plan-save'));
     const report = await screen.findByLabelText('room-plan-report');
-    expect(report).toHaveTextContent('Utworzono plany: 1');
-    expect(report).toHaveTextContent('Zaktualizowano plany: 1');
+    expect(report).toHaveTextContent('Plan zastosowany do: Ściana 1, Ściana 2'); // UX walk: the walls are named, not counted
     expect(report).toHaveTextContent('Pominięto (własny plan): Ściana 3, Sufit'); // the stored "Wall 3" / "Ceiling" are shown in the language of the application
     expect(report).not.toHaveTextContent('Wall');
     expect(report).toHaveTextContent('Pominięto (prace rozpoczęte): Ściana 4');

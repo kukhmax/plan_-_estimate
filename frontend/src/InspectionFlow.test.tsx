@@ -98,7 +98,7 @@ describe('InspectionFlow target rules (13F-PRE FIX.2)', () => {
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
     fireEvent.click(screen.getByLabelText('S2'));
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await waitFor(() => expect(checklistsApi.fetchChecklistTemplates).toHaveBeenCalledWith('CONCRETE', undefined));
   });
 
@@ -146,7 +146,7 @@ describe('InspectionFlow target rules (13F-PRE FIX.2)', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     fireEvent.click(await screen.findByLabelText('S3'));
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await waitFor(() => expect(vi.mocked(inspectionsApi.createInspection).mock.calls[0][2]).toMatchObject({ quality_target: 'S3' }));
     expect(await screen.findByText('Odpowiedzi: 0 / 2')).toBeInTheDocument();
   });

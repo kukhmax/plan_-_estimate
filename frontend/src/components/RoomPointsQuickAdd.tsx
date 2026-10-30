@@ -5,6 +5,7 @@ import { useI18n } from '../hooks/useI18n';
 import type { PriceItem } from '../types/priceItem';
 import type { RoomPoint } from '../types/roomPoints';
 import { resolveKey } from '../utils/i18nKeys';
+import { withPackHint, type NameHintTexts } from '../utils/nameHints';
 import { formatPlain, positiveAmount } from '../utils/paymentFormat';
 import { Ico } from './Ico';
 import { primaryButton, secondaryButton } from './paymentUi';
@@ -26,8 +27,9 @@ interface RoomPointsQuickAddProps {
   onCancel: () => void;
 }
 
-function nameOf(item: Eligible, t: unknown): string {
-  return item.display_name ?? (item.name_key ? resolveKey(t, item.name_key) : item.code);
+function nameOf(item: Eligible, t: NameHintTexts): string {
+  // UX walk: a Polish name of a typical item shows its meaning in the language of the screen
+  return withPackHint(t, item.display_name ?? (item.name_key ? resolveKey(t, item.name_key) : item.code));
 }
 
 /**

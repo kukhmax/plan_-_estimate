@@ -935,7 +935,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                     (Stage 10H.2). The `dt` labels already had an explicit
                     color and were never affected. */}
                 <dl className="space-y-1 text-sm min-w-0">
-                  <div><dt className="inline text-slate-500">{t.projects.address}: </dt><dd className="inline font-medium text-slate-900">{selectedProject.address}, {selectedProject.postal_code} {selectedProject.city}</dd></div>
+                  <div><dt className="inline text-slate-500">{t.projects.address}: </dt><dd className="inline font-medium text-slate-900">{selectedProject.address}, <span className="whitespace-nowrap">{selectedProject.postal_code}</span> {selectedProject.city}</dd></div>
                   <div><dt className="inline text-slate-500">{t.projects.status}: </dt><dd className="inline font-medium text-slate-900">{statusLabel(selectedProject.status)}</dd></div>
                   <div><dt className="inline text-slate-500">{t.projects.client}: </dt><dd className="inline font-medium text-slate-900">{assignedClientName(selectedProject)}</dd></div>
                 </dl>
@@ -959,6 +959,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
             </article>
 
               <ProjectHub
+                projectId={selectedProject.id}
                 onOpenEstimates={() => {
                   setShowEstimates(true);
                   setSelectedEstimate(null);

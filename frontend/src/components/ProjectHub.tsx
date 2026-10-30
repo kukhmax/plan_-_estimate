@@ -1,4 +1,9 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
+import { fetchClientLink } from '../api/clientLink';
+import { listEstimates } from '../api/estimates';
+import { fetchRooms } from '../api/rooms';
+import { formatDecimalMoney } from '../utils/format';
+import { formatNoteTime } from '../utils/noteFormat';
 import { photoKey, useProjectPhotos } from '../hooks/ProjectPhotosContext';
 import { totalPhotoCount } from '../hooks/usePhotoCounts';
 import { useI18n } from '../hooks/useI18n';
@@ -41,17 +46,68 @@ export type LegalSection =
 interface ProjectHubProps {
   onOpenEstimates: () => void;
   onOpenSection: (section: ObjectSection) => void;
+  /** UX walk: with the object known the tiles say where it stands (rooms, the estimate, the client's link). */
+  projectId?: string;
+}
+
+interface HubState {
+  rooms: number | null;
+  estimate: string | null;
+  client: string | null;
 }
 
 /** The tiles of an open object: the rooms first (the work starts with measuring them; the owner's choice of 2026-10-19), then the estimate, then the other work places. */
-export function ProjectHub({ onOpenEstimates, onOpenSection }: ProjectHubProps) {
-  const { t } = useI18n();
+export function ProjectHub({ onOpenEstimates, onOpenSection, projectId }: ProjectHubProps) {
+  const { t, locale } = useI18n();
   const photos = useProjectPhotos();
+  const [state, setState] = useState<HubState>({ rooms: null, estimate: null, client: null });
+
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    const words = t.objectHub;
+    const statusWord = (status: string) =>
+      ({ DRAFT: t.estimates.status_draft, FINAL: t.estimates.status_final, ACCEPTED: t.estimates.status_accepted, ARCHIVED: t.estimates.status_archived })[status] ?? status;
+    // each line of the state is read on its own: a failed read only leaves its tile without the line (the tile itself works as before)
+    void fetchRooms(projectId)
+      .then((rooms) => !cancelled && setState((s) => ({ ...s, rooms: rooms.items.filter((room) => !room.is_archived).length })))
+      .catch(() => undefined);
+    void listEstimates(projectId)
+      .then((list) => {
+        const live = list.items.filter((estimate) => estimate.status !== 'ARCHIVED').sort((a, b) => b.version - a.version)[0];
+        if (cancelled || !live) return;
+        const amount = live.gross_total ?? live.total;
+        const parts = [words.estimate_version.replace('{n}', String(live.version)), amount !== null ? `${formatDecimalMoney(amount)} ${live.currency}` : null, statusWord(live.status)];
+        setState((s) => ({ ...s, estimate: parts.filter(Boolean).join(' · ') }));
+      })
+      .catch(() => undefined);
+    void fetchClientLink(projectId)
+      .then(({ link }) => {
+        if (cancelled || !link || link.expired) return;
+        setState((s) => ({
+          ...s,
+          client: link.last_viewed_at ? words.client_viewed.replace('{date}', formatNoteTime(link.last_viewed_at, locale)) : words.client_not_viewed,
+        }));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, locale]);
+
   return (
     <nav aria-label="object-hub" className="grid grid-cols-1 gap-3">
-      <HubTile tone="green" icon="🚪" ariaLabel="object-tile-rooms" label={t.rooms.title} onOpen={() => onOpenSection('rooms')} />
-      <HubTile accent icon="🧮" ariaLabel="open-estimates" label={t.estimates.title} onOpen={onOpenEstimates} />
-      <HubTile tone="sky" icon="🔗" ariaLabel="object-tile-client" label={t.client_link.title} onOpen={() => onOpenSection('client')} />
+      <HubTile
+        tone="green"
+        icon="🚪"
+        ariaLabel="object-tile-rooms"
+        label={t.rooms.title}
+        detail={state.rooms === null ? null : state.rooms === 0 ? t.objectHub.rooms_none : t.objectHub.rooms_count.replace('{count}', String(state.rooms))}
+        onOpen={() => onOpenSection('rooms')}
+      />
+      <HubTile accent icon="🧮" ariaLabel="open-estimates" label={t.estimates.title} detail={state.estimate} onOpen={onOpenEstimates} />
+      <HubTile tone="sky" icon="🔗" ariaLabel="object-tile-client" label={t.client_link.title} detail={state.client} onOpen={() => onOpenSection('client')} />
       <HubTile tone="sky" icon="🔌" ariaLabel="object-tile-masters" label={t.trade_links.title} onOpen={() => onOpenSection('masters')} />
       <HubTile
         tone="sky"

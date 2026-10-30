@@ -9,6 +9,7 @@ import type { PriceItem } from '../types/priceItem';
 import type { PointItem, RoomPoint } from '../types/roomPoints';
 import { MAX_POINT_NOTE_LENGTH } from '../types/roomPoints';
 import { resolveKey } from '../utils/i18nKeys';
+import { withPackHint, type NameHintTexts } from '../utils/nameHints';
 import { formatPlain, positiveAmount, toInput } from '../utils/paymentFormat';
 import { Ico } from './Ico';
 import { RoomPointsQuickAdd } from './RoomPointsQuickAdd';
@@ -30,8 +31,9 @@ const compactButton = 'w-full min-h-11 px-2 py-2 text-sm leading-tight rounded-x
 const compactDanger = 'w-full min-h-11 px-2 py-2 text-sm leading-tight rounded-xl border border-red-200 bg-red-50 text-red-800 font-semibold break-words hover:bg-red-100 disabled:opacity-50';
 
 /** The name of a price item as the owner reads it: the own name, else the built-in name of its key, else the code. */
-function itemName(item: { display_name: string | null; name_key: string | null; code: string }, t: unknown): string {
-  return item.display_name ?? (item.name_key ? resolveKey(t, item.name_key) : item.code);
+function itemName(item: { display_name: string | null; name_key: string | null; code: string }, t: NameHintTexts): string {
+  // UX walk: a Polish name of a typical item shows its meaning in the language of the screen
+  return withPackHint(t, item.display_name ?? (item.name_key ? resolveKey(t, item.name_key) : item.code));
 }
 
 /**

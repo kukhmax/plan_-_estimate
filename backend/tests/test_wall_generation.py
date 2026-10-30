@@ -813,7 +813,8 @@ async def test_generate_endpoint_response_shape(
         "gross_area",
         "deduction_area",
         "net_area",
-        "planned_work_count",  # usability U-7: an added, read-only field
+        "planned_work_count",
+        "high_risk_count",  # usability U-7: an added, read-only field
         "parts",  # merged walls: added, read-only fields
         "merged_into_id",
         "is_archived",

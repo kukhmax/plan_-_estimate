@@ -7,6 +7,8 @@ import { formatMoney } from '../utils/paymentFormat';
 import { Ico } from './Ico';
 import { MaterialNormsEditor } from './MaterialNormsEditor';
 import { primaryButton } from './paymentUi';
+import { materialNameHint } from '../utils/nameHints';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 /**
  * V2-11 — the statement of the materials of an object: what to buy over all its calculations (the packs counted once over the sum, the price of the price-book item a material is tied
@@ -34,6 +36,35 @@ export function MaterialsScreen({ projectId }: { projectId: string }) {
     void load();
   }, [load]);
 
+  // UX walk: "Do zakupu" can be ticked off in the shop and copied (to a message to the shop or a list); the ticks are this phone's own
+  const boughtKey = `pe.materials.bought.${projectId}`;
+  const [bought, setBought] = useState<string[]>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(boughtKey) ?? '[]');
+      return Array.isArray(stored) ? stored.filter((code): code is string => typeof code === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const [copyNote, setCopyNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const toggleBought = (code: string) => {
+    setBought((current) => {
+      const next = current.includes(code) ? current.filter((c) => c !== code) : [...current, code];
+      try {
+        localStorage.setItem(boughtKey, JSON.stringify(next));
+      } catch {
+        // the ticks are a convenience of this phone; without the storage they last until the screen is closed
+      }
+      return next;
+    });
+  };
+  const copyList = async () => {
+    if (!statement) return;
+    const rows = statement.totals.filter((line) => !bought.includes(line.code)).map((line) => `• ${line.name} — ${buyWord(line, text)}`);
+    const done = await copyTextToClipboard([text.totals_title, ...rows].join('\n'));
+    setCopyNote({ ok: done, text: done ? text.list_copied : text.list_copy_failed });
+  };
+
   return (
     <div aria-label="materials-screen" className="w-full min-w-0 mt-4 space-y-4">
       <p className="text-xs text-[var(--tg-theme-hint-color)] break-words">{text.statement_intro}</p>
@@ -51,11 +82,20 @@ export function MaterialsScreen({ projectId }: { projectId: string }) {
           ) : (
             <section aria-label="materials-totals" className="space-y-2">
               <h2 className="text-base font-bold text-slate-900">{text.totals_title}</h2>
+              <p className="text-xs text-slate-500 break-words">{text.bought_hint}</p>
               <ul className="space-y-2 min-w-0">
                 {statement.totals.map((line) => (
-                  <li key={line.code} aria-label={`material-total-${line.code}`} className="pe-card rounded-2xl p-3 shadow-sm space-y-1">
+                  <li key={line.code} aria-label={`material-total-${line.code}`} className={`pe-card rounded-2xl p-3 shadow-sm space-y-1 ${bought.includes(line.code) ? 'opacity-60' : ''}`}>
                     <div className="flex items-start justify-between gap-3">
-                      <p className="min-w-0 flex-1 text-sm font-semibold text-slate-900 break-words">{line.name}</p>
+                      <input
+                        type="checkbox"
+                        aria-label={`material-bought-${line.code}`}
+                        title={text.bought}
+                        checked={bought.includes(line.code)}
+                        onChange={() => toggleBought(line.code)}
+                        className="mt-0.5 h-6 w-6 shrink-0"
+                      />
+                      <p className={`min-w-0 flex-1 text-sm font-semibold text-slate-900 break-words ${bought.includes(line.code) ? 'line-through' : ''}`}>{line.name}{materialNameHint(t, line.code, line.name) && <span className="block text-xs font-normal text-slate-500">{materialNameHint(t, line.code, line.name)}</span>}</p>
                       <p className="shrink-0 text-base font-bold text-slate-900 whitespace-nowrap">{buyWord(line, text)}</p>
                     </div>
                     <p className="text-xs text-slate-500 break-words">{needWord(line, text)}</p>
@@ -72,6 +112,12 @@ export function MaterialsScreen({ projectId }: { projectId: string }) {
                 </div>
                 {statement.unpriced > 0 && <p className="text-xs text-slate-500">{text.unpriced.replace('{n}', String(statement.unpriced))}</p>}
               </div>
+              <button type="button" aria-label="materials-copy-list" onClick={() => void copyList()} className={primaryButton}>
+                <Ico>📋</Ico>{text.copy_list}
+              </button>
+              {copyNote && (
+                <p role={copyNote.ok ? 'status' : 'alert'} className={`text-sm break-words ${copyNote.ok ? 'text-emerald-700' : 'text-red-600'}`}>{copyNote.text}</p>
+              )}
             </section>
           )}
           {statement.calcs.length > 0 && (

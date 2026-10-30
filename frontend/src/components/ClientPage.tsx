@@ -3,6 +3,7 @@ import { decidePortalEstimate, decidePortalProposal, fetchPortalPage } from '../
 import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import type { PortalConsent, PortalEstimate, PortalLine, PortalPage, PortalProposal, PortalStatement } from '../types/clientLink';
+import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatDecimalMoney, formatQuantity } from '../utils/format';
 import { isLocale, LOCALES, LOCALE_NAMES, type Locale } from '../utils/locale';
 import { formatNoteTime } from '../utils/noteFormat';
@@ -151,15 +152,74 @@ function Totals({ estimate }: { estimate: PortalEstimate }) {
 }
 
 /** The lines of one room together (a room's walls are interleaved with the other rooms' in the estimate), the rooms in the order they first appear. */
-function groupByRoom(lines: PortalLine[], other: string): { room: string; lines: PortalLine[] }[] {
+/** UX walk: after the approval the client learns what comes next and how to reach the contractor. */
+function WhatNext({ contractor }: { contractor: PortalPage['contractor'] }) {
+  const { t } = useI18n();
+  const text = t.client_page;
+  return (
+    <div aria-label="client-what-next" className="mt-3 space-y-2 border-t border-emerald-200 pt-3">
+      <p className="text-sm font-semibold text-emerald-900 break-words">{text.next_title}</p>
+      <p className="text-xs text-emerald-900 break-words">{text.next_text}</p>
+      {contractor.phone && (
+        <a aria-label="client-next-call" href={`tel:${contractor.phone}`} className={`${SECONDARY} flex items-center justify-center text-center`}>
+          {text.call}: {contractor.phone}
+        </a>
+      )}
+      {contractor.email && (
+        <a aria-label="client-next-mail" href={`mailto:${contractor.email}`} className={`${SECONDARY} flex items-center justify-center text-center break-all`}>
+          {text.write}: {contractor.email}
+        </a>
+      )}
+    </div>
+  );
+}
+
+function groupByRoom(lines: PortalLine[], other: string, materials: string): { room: string; lines: PortalLine[] }[] {
   const groups: { room: string; lines: PortalLine[] }[] = [];
+  const bought: PortalLine[] = [];
   for (const line of lines) {
+    // UX walk: the materials of the object (no room) are not "other works" -- they close the list in a group of their own
+    if (line.room_name == null && line.scope === 'MATERIAL') {
+      bought.push(line);
+      continue;
+    }
     const room = line.room_name ?? other;
     const found = groups.find((group) => group.room === room);
     if (found) found.lines.push(line);
     else groups.push({ room, lines: [line] });
   }
-  return groups;
+  if (bought.length > 0) groups.push({ room: materials, lines: bought });
+  return groups.map((group) => ({ ...group, lines: mergeSameWork(group.lines) }));
+}
+
+/**
+ * UX walk: the client reads "room -> work -> total", not every wall -- the lines of a room with the same work, unit and price become one
+ * (the quantities and the amounts added up; the name of the wall is left out then).
+ */
+function mergeSameWork(lines: PortalLine[]): PortalLine[] {
+  const merged: PortalLine[] = [];
+  const parts = new Map<string, PortalLine[]>();
+  for (const line of lines) {
+    const key = `${line.description}|${line.unit}|${line.unit_price ?? ''}|${line.scope ?? ''}`;
+    const same = parts.get(key);
+    if (same) {
+      same.push(line);
+      continue;
+    }
+    parts.set(key, [line]);
+    merged.push(line);
+  }
+  return merged.map((first) => {
+    const same = parts.get(`${first.description}|${first.unit}|${first.unit_price ?? ''}|${first.scope ?? ''}`) ?? [first];
+    if (same.length === 1) return first;
+    const amounts = same.map((line) => line.amount);
+    return {
+      ...first,
+      surface_name: null,
+      quantity: sumDecimalStrings(same.map((line) => line.quantity)),
+      amount: amounts.some((amount) => amount === null) ? null : sumDecimalStrings(amounts as string[]),
+    };
+  });
 }
 
 /**
@@ -204,6 +264,8 @@ export function ClientPage({ token }: { token: string }) {
       try {
         const loaded = await fetchPortalPage(token, lang);
         setPage(loaded);
+        // UX walk: the approval form offers the name of the client instead of an example name (the client may change it)
+        if (first && loaded.project.client_name) setName((current) => current || (loaded.project.client_name ?? ''));
         setFailure(null);
         if (first && isLocale(loaded.lang)) setLocale(loaded.lang);
       } catch (err) {
@@ -351,7 +413,7 @@ export function ClientPage({ token }: { token: string }) {
         <p className="text-sm text-slate-900 break-words">
           {project.name}
           <br />
-          {project.address}, {project.postal_code} {project.city}
+          {project.address}, <span className="whitespace-nowrap">{project.postal_code}</span> {project.city}
         </p>
       </section>
 
@@ -360,7 +422,7 @@ export function ClientPage({ token }: { token: string }) {
       ) : (
         <section aria-label="client-estimate" className={CARD}>
           <h1 className="text-lg font-semibold text-slate-900 break-words">{text.estimate_title.replace('{version}', String(estimate.version))}</h1>
-          {groupByRoom(estimate.lines, text.room_other).map((group, index) => (
+          {groupByRoom(estimate.lines, text.room_other, text.room_materials).map((group, index) => (
             <div key={`${group.room}-${index}`} className="space-y-2">
               <h2 className="text-sm font-semibold text-slate-700 break-words">{group.room}</h2>
               <ul className="space-y-2">
@@ -398,6 +460,7 @@ export function ClientPage({ token }: { token: string }) {
               <div aria-label="client-estimate-accepted" className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
                 <p className="text-sm font-semibold text-emerald-800 break-words">{text.accepted_title}</p>
                 <p className="text-xs text-emerald-800 break-words">{consentLine(estimate.consent)}</p>
+                <WhatNext contractor={contractor} />
               </div>
             )
           ) : estimate.status === 'ACCEPTED' ? (

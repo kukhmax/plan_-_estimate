@@ -164,7 +164,8 @@ function buildGroups(lines: EstimateLineRead[]): EstimateGroup[] {
       amount: aggregateAmount,
       currency: first.currency,
       lineCount: gLines.length,
-      hasOverrides: gLines.some((l) => l.quantity_overridden || l.price_override),
+      // a hand-made line always carries its own quantity and price: only a change of a computed line is a "manual change" (UX walk)
+      hasOverrides: gLines.some((l) => l.origin !== 'MANUAL' && (l.quantity_overridden || l.price_override)),
       hasUnresolvedQuantity: gLines.some(isUnresolvedQuantity),
       lines: gLines,
     };
@@ -706,13 +707,15 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   };
 
   const originLabel = (line: EstimateLineRead): string => {
+    // the points and the materials of a room come as hand-made lines tied to the room: say where they come from (UX walk)
+    if (line.origin === 'MANUAL' && line.room_name) return t.estimates.origin_room.replace('{room}', line.room_name);
     if (line.origin === 'MANUAL') return t.estimates.origin_manual;
     if (line.opening_id !== null) return t.estimates.origin_reveal_work;
     return t.estimates.origin_planned_work;
   };
 
   const originLabelFromGroup = (group: EstimateGroup): string => {
-    if (group.origin === 'MANUAL') return t.estimates.origin_manual;
+    if (group.origin === 'MANUAL') return originLabel(group.lines[0]);
     if (group.isReveal) return t.estimates.origin_reveal_work;
     return t.estimates.origin_planned_work;
   };
@@ -1889,7 +1892,6 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   return (
     <article aria-label="estimate-shell" className="space-y-3">
       {header}
-      <EstimateDocumentActions projectId={estimate.project_id} estimateId={estimate.id} status={detail.status} />
       {secondaryActions}
 
       <div aria-label="estimate-groups" className="space-y-2">
@@ -2125,6 +2127,8 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
         })}
       </div>
 
+      {/* UX walk: the PDF comes after the lines and their prices, not as the first and loudest button of the estimate */}
+      <EstimateDocumentActions projectId={estimate.project_id} estimateId={estimate.id} status={detail.status} />
       {finalizeSection}
     </article>
   );

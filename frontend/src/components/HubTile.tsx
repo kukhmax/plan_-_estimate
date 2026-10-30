@@ -20,10 +20,12 @@ interface HubTileProps {
   tone?: HubTileTone;
   /** A decorative emoji before the label. */
   icon?: string;
+  /** UX walk: the state of the place under its name ("Wersja 2 · 14 581,02 zł · Zaakceptowany"); nothing while it is not known. */
+  detail?: string | null;
 }
 
 /** One large full-width tile of a hub (the object, the price, the documents, the agreement and protocols): 56 px, wraps long names. */
-export function HubTile({ label, ariaLabel, onOpen, count, accent = false, tone, icon }: HubTileProps) {
+export function HubTile({ label, ariaLabel, onOpen, count, accent = false, tone, icon, detail }: HubTileProps) {
   return (
     <button
       type="button"
@@ -40,7 +42,14 @@ export function HubTile({ label, ariaLabel, onOpen, count, accent = false, tone,
     >
       <span className={`font-bold text-sm break-words min-w-0 flex items-center gap-2.5 ${accent ? 'text-slate-950' : 'text-slate-900'}`}>
         {icon && <span aria-hidden="true" className="text-xl leading-none shrink-0 select-none">{icon}</span>}
-        <span className="min-w-0">{label}</span>
+        <span className="min-w-0">
+          {label}
+          {detail && (
+            <span aria-label={`${ariaLabel}-detail`} className={`block text-xs font-medium break-words ${accent ? 'text-slate-900' : 'text-slate-700'}`}>
+              {detail}
+            </span>
+          )}
+        </span>
       </span>
       <span className="flex items-center gap-2 shrink-0">
         {count !== undefined && (

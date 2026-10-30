@@ -474,7 +474,12 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, onStartO
             {(c.street || c.postal_code || c.city) && (
               <p aria-label={`client-address-${c.id}`} className="text-sm text-slate-600 break-words min-w-0">
                 <span className="text-slate-400">{t.clients.card_address_label}</span>{' '}
-                {[c.street, [c.postal_code, c.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
+                {c.street}
+                {c.street && (c.postal_code || c.city) ? ', ' : ''}
+                {/* a postal code ("31-147") never breaks at its hyphen (UX walk) */}
+                {c.postal_code && <span className="whitespace-nowrap">{c.postal_code}</span>}
+                {c.postal_code && c.city ? ' ' : ''}
+                {c.city}
               </p>
             )}
             {c.phone && (
@@ -586,31 +591,23 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, onStartO
             >
               <Ico>✏️</Ico>{t.clients.edit}
             </button>
-            {selected.is_archived ? (
-              <button
-                type="button"
-                aria-label={`restore-${selected.id}`}
-                onClick={() => handleRestore(selected.id)}
-                className="min-h-11 px-3 text-sm rounded-xl bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 transition"
-              >
-                <Ico>♻️</Ico>{t.clients.restore}
-              </button>
-            ) : (
-              <button
-                type="button"
-                aria-label={`archive-${selected.id}`}
-                onClick={() => handleArchive(selected.id)}
-                className="min-h-11 px-3 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-600 font-semibold hover:bg-slate-100 transition"
-              >
-                <Ico>🗃️</Ico>{t.clients.archive}
-              </button>
-            )}
           </div>
         </>
       )}
 
       <section aria-label="client-objects" className="pt-1">
         <h3 className="text-base font-bold text-[var(--tg-theme-text-color)] mb-2">{t.clients.objects_title}</h3>
+        {/* UX walk: a new object of this client from its own card (it was reachable only when the client was created) */}
+        {!selected.is_archived && onStartObject && (
+          <button
+            type="button"
+            aria-label={`client-new-object-${selected.id}`}
+            onClick={() => onStartObject(selected.id)}
+            className="mb-2 w-full min-h-11 px-3 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition break-words"
+          >
+            <Ico>➕</Ico>{t.clients.new_object}
+          </button>
+        )}
         {objectsError && <p role="alert" className="text-sm text-red-600">{t.clients.objects_error}</p>}
         {!objectsError && objects === null && <p className="text-sm text-slate-500">{t.clients.loading}</p>}
         {!objectsError && objects !== null && objects.length === 0 && (
@@ -639,6 +636,31 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, onStartO
           </ul>
         )}
       </section>
+
+      {/* UX walk: archiving is not a twin of "Edytuj" any more -- a quiet action at the end of the card */}
+      {!showForm && (
+        <div className="pt-2">
+            {selected.is_archived ? (
+            <button
+              type="button"
+              aria-label={`restore-${selected.id}`}
+              onClick={() => handleRestore(selected.id)}
+              className="w-full min-h-11 px-3 text-sm rounded-xl bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 transition"
+            >
+              <Ico>♻️</Ico>{t.clients.restore}
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label={`archive-${selected.id}`}
+              onClick={() => handleArchive(selected.id)}
+              className="w-full min-h-11 px-3 text-xs rounded-xl text-slate-500 underline underline-offset-2 hover:bg-slate-50 transition"
+            >
+              <Ico>🗃️</Ico>{t.clients.archive}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 

@@ -44,6 +44,13 @@ beforeEach(() => {
 });
 
 describe('the cards', () => {
+  it('offers the Polish page to a new craftsman whatever the language of the owner (UX walk)', async () => {
+    localStorage.setItem('locale', 'ru');
+    show();
+    expect(await screen.findByLabelText('trade-link-language-PLUMBING')).toHaveValue('pl');
+    localStorage.removeItem('locale');
+  });
+
   it('shows one card for the electrician and one for the plumber, each with its own button', async () => {
     show();
     const electric = await screen.findByLabelText('trade-card-ELECTRIC');

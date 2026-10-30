@@ -19,6 +19,9 @@ class PortalProject(BaseModel):
     address: str
     city: str
     postal_code: str
+    # UX walk: the name of the client of the object (a private person's first and last name), offered in the approval form; null for a company
+    # or an object with no client
+    client_name: str | None = None
 
 
 class PortalLine(BaseModel):
@@ -30,6 +33,8 @@ class PortalLine(BaseModel):
     quantity: Decimal
     unit_price: Decimal | None = None
     amount: Decimal | None = None
+    # UX walk: LABOR / MATERIAL / LABOR_AND_MATERIAL -- the materials of the object are shown under "Materiały", not "Pozostałe prace"
+    scope: str | None = None
 
 
 class PortalStatement(BaseModel):

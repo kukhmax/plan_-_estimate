@@ -83,6 +83,8 @@ export interface PortalProject {
   address: string;
   city: string;
   postal_code: string;
+  /** UX walk: the name of the private client of the object, offered in the approval form. */
+  client_name?: string | null;
 }
 
 export interface PortalLine {
@@ -94,6 +96,8 @@ export interface PortalLine {
   quantity: string;
   unit_price: string | null;
   amount: string | null;
+  /** LABOR / MATERIAL / LABOR_AND_MATERIAL (UX walk: the materials get their own group). */
+  scope?: string | null;
 }
 
 export interface PortalStatement {

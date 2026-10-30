@@ -24,6 +24,7 @@ from app.schemas.trade_link import (
     TradeLinksResponse,
 )
 from app.schemas.trade_transfer import (
+    OwnItemsCreated,
     TransferPreview,
     TransferPreviewRequest,
     TransferRequest,
@@ -145,5 +146,18 @@ async def transfer(
 ) -> TransferResult:
     try:
         return await service.apply(current_user.id, project_id, trade, payload.mapping, points=payload.points, materials=payload.materials, own=payload.own)
+    except FAILURES as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post(BASE + "/{trade}/transfer/own-items", response_model=OwnItemsCreated, summary="Make items of the price book (no price) from the positions the craftsman wrote himself")
+async def create_own_items(
+    project_id: uuid.UUID,
+    trade: str,
+    current_user: User = Depends(get_current_user),
+    service: TradeTransferService = Depends(get_trade_transfer_service),
+) -> OwnItemsCreated:
+    try:
+        return OwnItemsCreated(created=await service.create_own_items(current_user.id, project_id, trade))
     except FAILURES as exc:
         raise _http_error(exc) from exc

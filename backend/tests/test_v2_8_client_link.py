@@ -245,7 +245,9 @@ async def test_the_page_shows_the_estimate_with_its_sums_and_nothing_else(async_
     assert est["status"] == "FINAL" and est["consent"] is None and est["version"] == 1
     assert set(est) == {"id", "version", "status", "name", "currency", "total", "vat_mode", "vat_rate_percent", "vat_included", "net_total", "vat_amount", "gross_total", "hash", "lines", "consent", "accept_statement", "decline_statement"}
     assert Decimal(est["total"]) == Decimal("2837.12") and Decimal(est["gross_total"]) == Decimal("3489.66") and Decimal(est["vat_amount"]) == Decimal("652.54")
-    assert est["lines"] and set(est["lines"][0]) == {"position", "room_name", "surface_name", "description", "unit", "quantity", "unit_price", "amount"}
+    assert est["lines"] and set(est["lines"][0]) == {"position", "room_name", "surface_name", "description", "unit", "quantity", "unit_price", "amount", "scope"}
+    assert {ln["scope"] for ln in est["lines"]} <= {"LABOR", "MATERIAL", "LABOR_AND_MATERIAL"}  # UX walk: the materials get their own group
+    assert "client_name" in page["project"]
     assert sum(Decimal(ln["amount"]) for ln in est["lines"]) == Decimal(est["total"])
     assert "3489,66" in est["accept_statement"]["pl"] and "wyceną nr 1" in est["accept_statement"]["pl"]
     assert est["accept_statement"]["text"] == est["accept_statement"]["pl"]
@@ -857,3 +859,25 @@ async def test_with_the_encryption_on_the_reason_is_ciphertext_too(async_client,
     assert raw.startswith("enc1:") and "Sekretny" not in raw
     journal = (await async_client.get(world["base"] + "/client-journal", headers=world["headers"])).json()["items"]
     assert journal[0]["comment"] == "Sekretny powód"
+
+
+async def test_the_approval_form_is_offered_the_name_of_the_private_client(async_client, db_session, web):
+    # UX walk: the example name of the form ("np. Jan Kowalski") was the contractor's own; the page now offers the client's name
+    from app.models.client import Client, ClientType
+
+    world = await make_world(async_client, db_session)
+    token = await issue(async_client, world)
+    project = (await db_session.execute(select(Project).where(Project.id == uuid.UUID(world["project"])))).scalar_one()
+    client = Client(owner_user_id=project.owner_id, client_type=ClientType.PRIVATE_PERSON, first_name="Anna", last_name="Nowak")
+    db_session.add(client)
+    await db_session.flush()
+    project.client_id = client.id
+    await db_session.commit()
+    assert (await open_page(async_client, token)).json()["project"]["client_name"] == "Anna Nowak"
+    client.client_type = ClientType.COMPANY
+    client.company_name = "Firma"
+    await db_session.commit()
+    assert (await open_page(async_client, token)).json()["project"]["client_name"] is None
+    project.client_id = None
+    await db_session.commit()
+    assert (await open_page(async_client, token)).json()["project"]["client_name"] is None

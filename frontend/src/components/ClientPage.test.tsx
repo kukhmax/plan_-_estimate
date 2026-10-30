@@ -194,6 +194,51 @@ describe('approving the estimate', () => {
     expect(screen.queryByLabelText('client-estimate-submit')).toBeNull();
   });
 
+  it('says what comes next after the approval and how to reach the contractor (UX walk)', async () => {
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(
+      PAGE({ estimate: ESTIMATE({ status: 'ACCEPTED', accept_statement: null, consent: { kind: 'ESTIMATE_ACCEPTED', signer_name: 'Ewa Nowak', comment: null, created_at: '2026-10-26T11:00:00Z' } }) }),
+    );
+    show();
+    const next = await screen.findByLabelText('client-what-next');
+    expect(next).toHaveTextContent('Co dalej?');
+    expect(screen.getByLabelText('client-next-call')).toHaveAttribute('href', 'tel:+48600100200');
+    expect(screen.getByLabelText('client-next-mail')).toHaveAttribute('href', 'mailto:biuro@vvv.pl');
+  });
+
+  it('shows one line per work in a room with the walls added up (UX walk)', async () => {
+    const lines = [
+      { position: 1, room_name: 'Salon', surface_name: 'Ściana 1', description: 'Malowanie', unit: 'M2', quantity: '10.500', unit_price: '20.00', amount: '210.00' },
+      { position: 2, room_name: 'Salon', surface_name: 'Ściana 2', description: 'Malowanie', unit: 'M2', quantity: '12.250', unit_price: '20.00', amount: '245.00' },
+      { position: 3, room_name: 'Kuchnia', surface_name: 'Ściana 1', description: 'Malowanie', unit: 'M2', quantity: '8.000', unit_price: '20.00', amount: '160.00' },
+    ];
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE({ estimate: ESTIMATE({ lines }) }));
+    show();
+    await screen.findByLabelText('client-estimate');
+    const items = screen.getAllByRole('listitem').filter((li) => li.textContent?.includes('Malowanie'));
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent('22,75');
+    expect(items[0]).toHaveTextContent('455,00');
+    expect(items[0]).not.toHaveTextContent('Ściana 1');
+    expect(items[1]).toHaveTextContent('Ściana 1');
+  });
+
+  it('offers the name of the client in the form and puts the materials in a group of their own (UX walk)', async () => {
+    const lines = [
+      ...ESTIMATE().lines,
+      { position: 4, room_name: null, surface_name: null, description: 'Klej do płytek', unit: 'PCS', quantity: '3.000', unit_price: '40.00', amount: '120.00', scope: 'MATERIAL' },
+      { position: 5, room_name: null, surface_name: null, description: 'Sprzątanie', unit: 'FLAT', quantity: '1.000', unit_price: '50.00', amount: '50.00', scope: 'LABOR' },
+    ];
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(
+      PAGE({ project: { ...PAGE().project, client_name: 'Anna Nowak' }, estimate: ESTIMATE({ lines }) }),
+    );
+    show();
+    const headings = (await screen.findAllByRole('heading', { level: 2 })).map((h) => h.textContent);
+    expect(headings).toEqual(expect.arrayContaining(['Pozostałe prace', 'Materiały']));
+    expect(headings.indexOf('Materiały')).toBeGreaterThan(headings.indexOf('Pozostałe prace'));
+    await choose();
+    expect(screen.getByLabelText('client-estimate-name')).toHaveValue('Anna Nowak');
+  });
+
   it('says that an estimate approved in the contract needs no approval, and shows no form', async () => {
     vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE({ estimate: ESTIMATE({ status: 'ACCEPTED', accept_statement: null, consent: null }) }));
     show();

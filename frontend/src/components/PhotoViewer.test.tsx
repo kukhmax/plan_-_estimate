@@ -123,17 +123,23 @@ describe('PhotoViewer — display and navigation', () => {
     await waitFor(() => expect(onIndexChange).toHaveBeenCalledWith(0));
   });
 
-  it('disables previous on the first and next on the last photo', async () => {
+  it('hides previous on the first and next on the last photo, and both with one photo (UX walk)', async () => {
     const items = [makeItem(), makeItem()];
     vi.mocked(fetchPhoto).mockImplementation(async (_p, id) => detailFor(items.find((i) => i.asset.id === id)!));
     const first = setup({ items, index: 0 });
     await ready();
-    expect(screen.getByRole('button', { name: 'Poprzednie zdjęcie' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Poprzednie zdjęcie' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Następne zdjęcie' })).toBeEnabled();
     first.unmount();
-    setup({ items, index: 1 });
+    const last = setup({ items, index: 1 });
     await ready();
-    expect(screen.getByRole('button', { name: 'Następne zdjęcie' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Następne zdjęcie' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Poprzednie zdjęcie' })).toBeEnabled();
+    last.unmount();
+    setup({ items: [items[0]], index: 0 });
+    await ready();
+    expect(screen.queryByRole('button', { name: 'Poprzednie zdjęcie' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Następne zdjęcie' })).toBeNull();
   });
 
   it('fetches each photo once and reuses fresh links when going back', async () => {

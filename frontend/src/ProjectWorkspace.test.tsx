@@ -1566,7 +1566,7 @@ describe('Inspection entry points and navigation (Stage 6C)', () => {
     fireEvent.click(await screen.findByLabelText('Beton'));
     fireEvent.click(screen.getByLabelText('Dalej'));
     await screen.findByText('Klasa jakości');
-    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    fireEvent.click(screen.getByLabelText('Dalej: pytania'));
     await waitFor(() =>
       expect(inspectionsApi.createInspection).toHaveBeenCalledWith(
         project.id,

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, useI18n } from '../hooks/useI18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -80,6 +80,13 @@ describe('the first language (V2-7)', () => {
       expect(screen.getByLabelText('probe').textContent?.startsWith(`${expected}:`)).toBe(true);
     },
   );
+
+  it('outside Telegram the sign-in page speaks the language of the phone (UX walk)', () => {
+    const spy = vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('ru-RU');
+    renderSwitcher();
+    expect(screen.getByLabelText('probe').textContent?.startsWith('ru:')).toBe(true);
+    spy.mockRestore();
+  });
 
   it('the choice made by hand wins over the language of Telegram', () => {
     withTelegram('uk');

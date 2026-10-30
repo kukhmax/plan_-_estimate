@@ -33,6 +33,7 @@ import { HubTile } from './HubTile';
 import { PriceBookMarket } from './PriceBookMarket';
 import { PriceItemForm } from './PriceItemForm';
 import { Ico } from './Ico';
+import { packNameHint } from '../utils/nameHints';
 import { VoiceInput } from './VoiceInput';
 
 // Secondary screen, only shown on the "Współczynniki" tab — kept out of the
@@ -449,6 +450,10 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="font-semibold text-slate-900 text-sm break-words">
                   {resolveDisplayName(item, t)}
+                  {/* UX walk: the Polish name of a typical item with its meaning in the language of the screen */}
+                  {packNameHint(t, item.display_name) && (
+                    <span className="block text-xs font-normal text-slate-500">{packNameHint(t, item.display_name)}</span>
+                  )}
                 </h4>
                 {item.is_archived && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">

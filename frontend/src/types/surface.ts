@@ -14,6 +14,8 @@ export interface SurfaceType {
   net_area?: string | number | null;
   /** How many works the saved plan of the surface holds (usability U-7; the list fills it). */
   planned_work_count?: number;
+  /** UX walk B6: active high / critical risks of the inspections of the surface (the list fills it). */
+  high_risk_count?: number;
   /** Merged walls: the parts of a merged wall (the area is their sum); empty for an ordinary wall. */
   parts?: SurfacePart[];
   /** A wall that was joined into another one: that merged wall. */

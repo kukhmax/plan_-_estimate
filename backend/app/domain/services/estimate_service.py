@@ -346,6 +346,10 @@ def _resolve_reveal_quantity(
     return None, QuantitySource.MANUAL
 
 
+# Works measured by the floor of the room wherever they are planned (UX walk: the protection of the floors was counted by the walls).
+FLOOR_MEASURED_CODES = frozenset({"CENNIK_PREP_PROT-01"})
+
+
 def _resolve_surface_quantity(
     item: "PriceItem", net_area: Decimal | None, planned_quantity: Decimal | None = None
 ) -> tuple[Decimal | None, "QuantitySource"]:
@@ -655,6 +659,34 @@ class EstimateService:
         )
         max_v = (await self.db.execute(stmt)).scalar_one_or_none()
         return (max_v or 0) + 1
+
+    async def _work_areas(
+        self, surface_works: list[tuple[SurfacePlannedWork, SurfaceWorkPlan, Surface, Room]]
+    ) -> dict[uuid.UUID, Decimal | None]:
+        """The area each planned work is measured by: the net area of its surface, except a work measured by the floor
+        (`FLOOR_MEASURED_CODES`, the protection of the floors) planned on a wall or the ceiling -- the floor area of its room,
+        taken once per room and work (the first such occurrence in the plan order; the others 0), not the sum of the walls (UX walk)."""
+        surface_area: dict[uuid.UUID, Decimal | None] = {}
+        floor_area: dict[uuid.UUID, Decimal | None] = {}
+        claimed: set[tuple[uuid.UUID, uuid.UUID]] = set()
+        areas: dict[uuid.UUID, Decimal | None] = {}
+        for work, _plan, surface, room in surface_works:
+            item = work.price_item
+            if item.code in FLOOR_MEASURED_CODES and item.unit == PriceUnit.M2 and surface.surface_type != SurfaceType.FLOOR:
+                if room.id not in floor_area:
+                    floor_area[room.id] = await self._plane_net_area(room.id, SurfaceType.FLOOR)
+                key = (room.id, item.id)
+                if key in claimed:
+                    areas[work.id] = Decimal("0.000")
+                    continue
+                if floor_area[room.id] is not None:
+                    claimed.add(key)
+                    areas[work.id] = floor_area[room.id]
+                    continue
+            if surface.id not in surface_area:
+                surface_area[surface.id] = await self._surface_net_area(surface)
+            areas[work.id] = surface_area[surface.id]
+        return areas
 
     async def _surface_net_area(self, surface: Surface) -> Decimal | None:
         """Compute a surface's authoritative M2 area, source depending on type.
@@ -1010,13 +1042,11 @@ class EstimateService:
         acc: list[EstimateLine] = []
         position = 0
         surface_works = await self._load_surface_planned_works(project_id)
-        net_area_cache: dict[uuid.UUID, Decimal | None] = {}
+        work_areas = await self._work_areas(surface_works)
         for work, plan, surface, room in surface_works:
-            if surface.id not in net_area_cache:
-                net_area_cache[surface.id] = await self._surface_net_area(surface)
             line = self._make_surface_line(
                 estimate.id, position, work, plan, surface, room,
-                net_area_cache[surface.id],
+                work_areas[work.id],
             )
             self.db.add(line)
             acc.append(line)
@@ -1065,17 +1095,14 @@ class EstimateService:
         surface_works = await self._load_surface_planned_works(project_id)
         reveal_works = await self._load_reveal_planned_works(project_id)
         matched = await self._match_all_lines(existing_by_pwid, surface_works, reveal_works)
-        net_area_cache: dict[uuid.UUID, Decimal | None] = {}
+        work_areas = await self._work_areas(surface_works)
         new_lines: list[EstimateLine] = []
         position = 0
 
         for work, plan, surface, room in surface_works:
-            if surface.id not in net_area_cache:
-                net_area_cache[surface.id] = await self._surface_net_area(surface)
-
             item = work.price_item
             source_qty, qty_source = _resolve_surface_quantity(
-                item, net_area_cache[surface.id], work.quantity
+                item, work_areas[work.id], work.quantity
             )
 
             base_price, effective_price, snapshot = _resolve_occurrence_pricing(
@@ -1533,7 +1560,6 @@ class EstimateService:
             elif line.planned_work_id is not None:
                 existing_by_pwid[line.planned_work_id] = line
 
-        net_area_cache: dict[uuid.UUID, Decimal | None] = {}
         # Usability U-8: the amounts of the lines as a regeneration would leave them -- the manual lines as they are, a matched line with its
         # overrides kept, a new line from the plan; a line no work matches is gone. The same formulas as `_do_regenerate`, nothing is written.
         projected_amounts: list[Decimal | None] = [line.amount for line in estimate.lines if line.origin == LineOrigin.MANUAL]
@@ -1549,12 +1575,11 @@ class EstimateService:
         reveal_works = await self._load_reveal_planned_works(estimate.project_id)
         # Same pairing as regeneration; preview never mutates any line.
         matched = await self._match_all_lines(existing_by_pwid, surface_works, reveal_works)
+        work_areas = await self._work_areas(surface_works)
         for work, _plan, surface, _room in surface_works:
-            if surface.id not in net_area_cache:
-                net_area_cache[surface.id] = await self._surface_net_area(surface)
             item = work.price_item
             source_qty, qty_source = _resolve_surface_quantity(
-                item, net_area_cache[surface.id], work.quantity
+                item, work_areas[work.id], work.quantity
             )
 
             base_price, effective_price, snapshot = _resolve_occurrence_pricing(
