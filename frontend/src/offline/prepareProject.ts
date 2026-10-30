@@ -82,9 +82,17 @@ export async function prepareProjectOffline(
     if (shouldStop()) break;
     await step(() => fetchChecklistTemplates(substrate));
   }
-  for (const template of templates?.items ?? []) {
+  // the floor is inspected with its own templates (the floor variants of concrete / other)
+  const floorTemplates = await step(() => fetchChecklistTemplates(undefined, { forFloor: true }));
+  for (const substrate of SUBSTRATE_ORDER) {
     if (shouldStop()) break;
-    await step(() => fetchChecklistTemplate(template.id));
+    await step(() => fetchChecklistTemplates(substrate, { forFloor: true }));
+  }
+  // the substrates of the floor only are in both lists: each template is asked for once
+  const templateIds = new Set([...(templates?.items ?? []), ...(floorTemplates?.items ?? [])].map((template) => template.id));
+  for (const id of templateIds) {
+    if (shouldStop()) break;
+    await step(() => fetchChecklistTemplate(id));
   }
 
   const rooms = await step(() => fetchRooms(projectId));

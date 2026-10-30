@@ -10,16 +10,17 @@ from decimal import ROUND_HALF_UP, Decimal
 EXEMPT = "EXEMPT"
 RATE = "RATE"
 MODES = (EXEMPT, RATE)
-RATES = (8, 23)
+RATES = (8, 23)  # the two standard rates the screens offer first
+MAX_RATE = 100  # an own rate (owner 2026-10-30, "свой вариант VAT"): a whole percent from 0 to 100
 CENT = Decimal("0.01")
 
 
 class VatError(ValueError):
-    """The mode and the rate do not belong together (a rate without the mode RATE, the mode RATE without an allowed rate, an unknown mode)."""
+    """The mode and the rate do not belong together (a rate without the mode RATE, the mode RATE without a rate from 0 to 100, an unknown mode)."""
 
 
 def validate_vat(mode: str | None, rate: int | None) -> tuple[str | None, int | None]:
-    """The canonical pair: (None, None) = not set, (EXEMPT, None), or (RATE, 8 | 23)."""
+    """The canonical pair: (None, None) = not set, (EXEMPT, None), or (RATE, a whole percent 0..100: 8 and 23 are the usual ones, any other is the owner's own)."""
     if mode is None:
         if rate is not None:
             raise VatError("a rate needs the mode RATE")
@@ -29,8 +30,8 @@ def validate_vat(mode: str | None, rate: int | None) -> tuple[str | None, int | 
             raise VatError("an exempt sale has no rate")
         return EXEMPT, None
     if mode == RATE:
-        if rate not in RATES:
-            raise VatError(f"the rate must be one of {RATES}")
+        if isinstance(rate, bool) or not isinstance(rate, int) or not 0 <= rate <= MAX_RATE:
+            raise VatError(f"the rate must be a whole percent from 0 to {MAX_RATE}")
         return RATE, rate
     raise VatError(f"unknown VAT mode: {mode}")
 

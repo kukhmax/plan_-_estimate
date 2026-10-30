@@ -51,7 +51,7 @@ class ExecutorProfile(Base):
         CheckConstraint("hourly_rate IS NULL OR hourly_rate > 0", name="ck_executor_profiles_hourly_rate"),
         CheckConstraint(
             "(vat_mode IS NULL AND vat_rate_percent IS NULL) OR (vat_mode = 'EXEMPT' AND vat_rate_percent IS NULL) "
-            "OR (vat_mode = 'RATE' AND vat_rate_percent IN (8, 23))",
+            "OR (vat_mode = 'RATE' AND vat_rate_percent BETWEEN 0 AND 100)",
             name="ck_executor_profiles_vat",
         ),
     )

@@ -121,6 +121,25 @@ describe('ExecutorProfileModal (Stage 15C)', () => {
     expect(await screen.findByLabelText('Stawka za godzinę, zł (opcjonalnie)')).toHaveValue('');
   });
 
+  it('takes an own VAT rate with the form and shows a stored one as "Inna stawka" (owner 2026-10-30)', async () => {
+    vi.mocked(profileApi.fetchExecutorProfile).mockResolvedValue({ ...SAVED, vat_mode: 'RATE', vat_rate_percent: 23 });
+    vi.mocked(profileApi.saveExecutorProfile).mockResolvedValue({ ...SAVED, vat_mode: 'RATE', vat_rate_percent: 5 });
+    renderModal();
+    const select = await screen.findByLabelText('Stawka VAT w kosztorysach');
+    fireEvent.change(select, { target: { value: 'CUSTOM' } });
+    const field = await screen.findByLabelText('executor-profile-vat-custom-input');
+    fireEvent.change(field, { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz' }));
+    await waitFor(() => expect(profileApi.saveExecutorProfile).toHaveBeenCalledWith(expect.objectContaining({ vat_mode: 'RATE', vat_rate_percent: 5 })));
+  });
+
+  it('shows a stored own VAT rate in the field', async () => {
+    vi.mocked(profileApi.fetchExecutorProfile).mockResolvedValue({ ...SAVED, vat_mode: 'RATE', vat_rate_percent: 7 });
+    renderModal();
+    expect(await screen.findByLabelText('Stawka VAT w kosztorysach')).toHaveValue('CUSTOM');
+    expect(screen.getByLabelText('executor-profile-vat-custom-input')).toHaveValue('7');
+  });
+
   it('shows the stored VAT and sends the chosen one with the whole form (V2-6)', async () => {
     vi.mocked(profileApi.fetchExecutorProfile).mockResolvedValue({ ...SAVED, vat_mode: 'RATE', vat_rate_percent: 23 });
     vi.mocked(profileApi.saveExecutorProfile).mockResolvedValue({ ...SAVED, vat_mode: 'EXEMPT', vat_rate_percent: null });

@@ -8,7 +8,8 @@ import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatPercentageDisplay, sumPercentages } from '../utils/coefficientCalculations';
 import { commaDecimal, dotDecimal, formatDecimalMoney, formatQuantity, signedMoneyDifference } from '../utils/format';
 import { resolveKey } from '../utils/i18nKeys';
-import { VAT_CHOICES, type VatChoice, vatChoiceOf, vatSettingOf } from '../utils/vat';
+import { VAT_CHOICES, type VatChoice, type VatSetting, customVatSetting, vatChoiceOf, vatSettingOf } from '../utils/vat';
+import { VatCustomRate } from './VatCustomRate';
 import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { EstimateMaterialsAction, type MaterialsMessage } from './EstimateMaterialsAction';
@@ -223,12 +224,13 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   // V2-6 — the VAT of a DRAFT estimate. The answer is the summary of the estimate; the lines stay as they are.
   const [vatBusy, setVatBusy] = useState(false);
   const [vatError, setVatError] = useState<string | null>(null);
-  const changeVat = async (choice: VatChoice, included = false) => {
+  const [vatCustomOpen, setVatCustomOpen] = useState(false); // "Inna stawka": the field of an own rate is open
+  const changeVat = async (setting: VatSetting) => {
     if (vatBusy) return;
     setVatBusy(true);
     setVatError(null);
     try {
-      const summary = await setEstimateVat(estimate.project_id, estimate.id, vatSettingOf(choice, included));
+      const summary = await setEstimateVat(estimate.project_id, estimate.id, setting);
       setDetail((current) => (current ? { ...current, ...summary, lines: current.lines } : current));
     } catch {
       setVatError(t.vat.save_failed);
@@ -866,15 +868,28 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
           <select
             id="estimate-vat-select"
             aria-label="estimate-vat-select"
-            value={vatChoiceOf(headerSource)}
+            value={vatCustomOpen ? 'CUSTOM' : vatChoiceOf(headerSource)}
             disabled={vatBusy}
-            onChange={(event) => void changeVat(event.target.value as VatChoice, !!headerSource.vat_included)}
+            onChange={(event) => {
+              const choice = event.target.value as VatChoice;
+              setVatCustomOpen(choice === 'CUSTOM');
+              if (choice !== 'CUSTOM') void changeVat(vatSettingOf(choice, !!headerSource.vat_included));
+            }}
             className="min-h-11 w-full px-3 text-sm rounded-xl border border-[var(--tg-control-border-color)] bg-[var(--tg-control-bg-color)] text-[var(--tg-control-text-color)]"
           >
             {VAT_CHOICES.map((choice) => (
               <option key={choice || 'none'} value={choice}>{t.vat.choices[choice || 'none']}</option>
             ))}
           </select>
+          {(vatCustomOpen || vatChoiceOf(headerSource) === 'CUSTOM') && (
+            <VatCustomRate
+              key={headerSource.vat_rate_percent ?? 'none'}
+              idPrefix="estimate-vat"
+              value={headerSource.vat_mode === 'RATE' ? headerSource.vat_rate_percent : null}
+              disabled={vatBusy}
+              onApply={(rate) => void changeVat(customVatSetting(rate, !!headerSource.vat_included))}
+            />
+          )}
           {headerSource.vat_mode === 'RATE' && (
             <label className="flex items-start gap-2 min-h-11 py-1 text-sm text-slate-700 cursor-pointer">
               <input
@@ -884,7 +899,7 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                 className="mt-1 h-5 w-5 shrink-0"
                 checked={!!headerSource.vat_included}
                 disabled={vatBusy}
-                onChange={(event) => void changeVat(vatChoiceOf(headerSource), event.target.checked)}
+                onChange={(event) => void changeVat({ vat_mode: 'RATE', vat_rate_percent: headerSource.vat_rate_percent, vat_included: event.target.checked })}
               />
               <span className="min-w-0 break-words">
                 <span className="font-medium">{t.vat.included}</span>

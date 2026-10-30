@@ -287,4 +287,43 @@ describe('useTelegramBackButton', () => {
     expect(backButton.offClick).toHaveBeenCalledTimes(1);
     expect(backButton.hide).toHaveBeenCalledTimes(1);
   });
+
+  it('one component that does not need the button does not hide it for the others; a press goes to the layer on top (owner 2026-10-30: the phone Back key minimized the app in a room)', () => {
+    let shown = false;
+    let listeners: Array<() => void> = [];
+    const backButton: TelegramBackButton = {
+      isVisible: false,
+      show: vi.fn(() => { shown = true; }),
+      hide: vi.fn(() => { shown = false; }),
+      onClick: vi.fn((cb) => { listeners.push(cb); }),
+      offClick: vi.fn((cb) => { listeners = listeners.filter((l) => l !== cb); }),
+    };
+    window.Telegram = {
+      WebApp: {
+        initData: '', initDataUnsafe: {}, version: '8.0', platform: 'android', colorScheme: 'light', themeParams: {}, isExpanded: false,
+        viewportHeight: 800, viewportStableHeight: 800, ready: vi.fn(), expand: vi.fn(), close: vi.fn(), BackButton: backButton,
+      },
+    };
+    const workspace = vi.fn();
+    const sheet = vi.fn();
+    const screen = renderHook(() => useTelegramBackButton(true, workspace));
+    expect(shown).toBe(true);
+    // a component mounted later that has no use for the button (a closed sheet) must leave it as it is
+    const closedSheet = renderHook(() => useTelegramBackButton(false, sheet));
+    expect(shown).toBe(true);
+    // a sheet that opens takes the press first; closing it gives the press back to the screen
+    const openSheet = renderHook(() => useTelegramBackButton(true, sheet));
+    act(() => listeners.forEach((l) => l()));
+    expect(sheet).toHaveBeenCalledTimes(1);
+    expect(workspace).not.toHaveBeenCalled();
+    openSheet.unmount();
+    expect(shown).toBe(true);
+    act(() => listeners.forEach((l) => l()));
+    expect(workspace).toHaveBeenCalledTimes(1);
+    closedSheet.unmount();
+    expect(shown).toBe(true);
+    screen.unmount();
+    expect(shown).toBe(false);
+    expect(listeners).toHaveLength(0);
+  });
 });

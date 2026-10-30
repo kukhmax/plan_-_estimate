@@ -435,4 +435,20 @@ def build_baseline_templates() -> list[ChecklistTemplateData]:
             title_key="checklist.template.wood_boards.title",
             sections=(_FLOOR_SECTION, _WOOD_BOARDS_SECTION),
         ),
+        # A floor on a substrate the walls know as well (concrete, other) asks the floor questions, not the wall ones.
+        # The code prefix `floor-` is the contract: a floor inspection takes the template that has it, a wall / ceiling one the other.
+        ChecklistTemplateData(
+            code="floor-concrete",
+            version=1,
+            substrate=Substrate.CONCRETE,
+            title_key="checklist.template.floor_concrete.title",
+            sections=(_FLOOR_SECTION,),
+        ),
+        ChecklistTemplateData(
+            code="floor-other",
+            version=1,
+            substrate=Substrate.OTHER,
+            title_key="checklist.template.floor_other.title",
+            sections=(_FLOOR_SECTION,),
+        ),
     ]

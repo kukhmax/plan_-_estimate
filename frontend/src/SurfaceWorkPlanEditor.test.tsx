@@ -1592,7 +1592,7 @@ describe('UX walk B4: the work plan of a floor', () => {
     renderFloor();
     const substrate = await screen.findByLabelText(`work-plan-substrate-${surfaceId}`);
     const names = within(substrate).getAllByRole('option').map((o) => o.textContent);
-    expect(names).toEqual(['Wybierz podłoże', 'Jastrych', 'Beton', 'Stara płytka', 'Podłoga z desek', 'Stara farba', 'Inne']);
+    expect(names).toEqual(['Wybierz podłoże', 'Jastrych', 'Beton', 'Stara płytka', 'Podłoga z desek', 'Inne']);
     expect(screen.getByLabelText(`work-plan-quality-${surfaceId}`)).toBeDisabled(); // no substrate yet
     fireEvent.change(substrate, { target: { value: 'SCREED' } });
     expect(screen.queryByLabelText(`work-plan-quality-${surfaceId}`)).toBeNull();

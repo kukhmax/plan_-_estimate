@@ -1,5 +1,5 @@
 """V2-6 -- the VAT of an estimate (docs/V2_6_PLAN_RU.md)."""
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -11,6 +11,7 @@ from app.domain.services.password_login_service import PasswordLoginService
 from app.models.estimate import Estimate
 from app.models.executor_profile import ExecutorProfile
 from tests.test_stage15d_estimate_document import STANDARD, build, estimate, html_of
+from tests.test_stage16e2_contract import load_migration, run
 
 PASSWORD = "correct horse battery"
 PRICES = {"CENNIK_PRIM_STD-01": "7.00", "CENNIK_SKIM_2L-01": "35.00", "CENNIK_SKIM_SAND-01": "10.00", "CENNIK_PAINT_2K-01": "10.00"}
@@ -29,7 +30,7 @@ def test_the_allowed_pairs(mode, rate, expected):
     assert validate_vat(mode, rate) == expected
 
 
-@pytest.mark.parametrize("mode,rate", [(None, 23), ("EXEMPT", 8), ("RATE", None), ("RATE", 5), ("RATE", 0), ("RATE", 24), ("zw", None), ("rate", 23)])
+@pytest.mark.parametrize("mode,rate", [(None, 23), ("EXEMPT", 8), ("RATE", None), ("RATE", -1), ("RATE", 101), ("zw", None), ("rate", 23)])
 def test_the_wrong_pairs_are_refused(mode, rate):
     with pytest.raises(VatError):
         validate_vat(mode, rate)
@@ -140,7 +141,7 @@ async def test_the_profile_keeps_a_vat_and_an_older_screen_never_clears_it(async
     assert (exempt.json()["vat_mode"], exempt.json()["vat_rate_percent"]) == ("EXEMPT", None)
 
 
-@pytest.mark.parametrize("vat", [{"vat_mode": "RATE"}, {"vat_mode": "RATE", "vat_rate_percent": 5}, {"vat_mode": "EXEMPT", "vat_rate_percent": 8}, {"vat_rate_percent": 23}])
+@pytest.mark.parametrize("vat", [{"vat_mode": "RATE"}, {"vat_mode": "RATE", "vat_rate_percent": -1}, {"vat_mode": "RATE", "vat_rate_percent": 101}, {"vat_mode": "EXEMPT", "vat_rate_percent": 8}, {"vat_rate_percent": 23}])
 async def test_a_wrong_vat_in_the_profile_is_refused_with_a_code_and_nothing_is_saved(async_client: AsyncClient, db_session, web, vat):
     headers = await _signed_in(async_client, db_session)
     response = await _profile(async_client, headers, **vat)
@@ -204,7 +205,7 @@ async def test_a_new_version_after_a_finished_one_takes_the_current_vat_of_the_p
     assert (versions[2].vat_mode, versions[2].vat_rate_percent) == ("EXEMPT", None)
 
 
-@pytest.mark.parametrize("body", [{"vat_mode": "RATE"}, {"vat_mode": "RATE", "vat_rate_percent": 5}, {"vat_mode": "EXEMPT", "vat_rate_percent": 8}, {"vat_rate_percent": 23}])
+@pytest.mark.parametrize("body", [{"vat_mode": "RATE"}, {"vat_mode": "RATE", "vat_rate_percent": -1}, {"vat_mode": "RATE", "vat_rate_percent": 101}, {"vat_mode": "EXEMPT", "vat_rate_percent": 8}, {"vat_rate_percent": 23}])
 async def test_a_wrong_vat_of_an_estimate_is_refused_and_nothing_changes(async_client: AsyncClient, db_session, web, body):
     headers = await _signed_in(async_client, db_session)
     await _price(async_client, headers)
@@ -226,3 +227,47 @@ async def test_another_owners_estimate_is_not_found(async_client: AsyncClient, d
 
 async def test_the_vat_route_needs_a_token(async_client: AsyncClient):
     assert (await async_client.put("/api/projects/00000000-0000-0000-0000-000000000000/estimates/00000000-0000-0000-0000-000000000000/vat", json={})).status_code == 401
+
+
+# --- an own rate (owner 2026-10-30: "свой вариант VAT") --------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("rate", [0, 5, 7, 100])
+async def test_an_own_rate_is_kept_in_the_profile_and_on_an_estimate(async_client: AsyncClient, db_session, web, rate):
+    headers = await _signed_in(async_client, db_session)
+    await _price(async_client, headers)
+    saved = await _profile(async_client, headers, vat_mode="RATE", vat_rate_percent=rate)
+    assert saved.status_code == 200 and saved.json()["vat_rate_percent"] == rate
+    made = await _quick(async_client, headers)
+    url = f"/api/projects/{made['project_id']}/estimates/{made['estimate_id']}"
+    body = (await async_client.get(url, headers=headers)).json()
+    assert (body["vat_mode"], body["vat_rate_percent"]) == ("RATE", rate)
+    net = Decimal(body["total"])
+    assert Decimal(body["gross_total"]) == net + (net * rate / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    other = await async_client.put(f"{url}/vat", json={"vat_mode": "RATE", "vat_rate_percent": 12}, headers=headers)
+    assert other.status_code == 200 and other.json()["vat_rate_percent"] == 12
+
+
+def test_the_rule_takes_a_whole_percent_from_0_to_100_only():
+    from app.domain.rules.vat import VatError, validate_vat
+
+    for rate in (0, 5, 8, 23, 100):
+        assert validate_vat("RATE", rate) == ("RATE", rate)
+    for rate in (-1, 101, True, 7.5, None, "8"):
+        with pytest.raises(VatError):
+            validate_vat("RATE", rate)  # type: ignore[arg-type]
+
+
+def test_the_own_rate_migration_chain_and_the_downgrade_refuses_an_own_rate():
+    module = load_migration("0090_vat_own_rate")
+    assert module.down_revision == "0089_floor_substrates" and len(module.revision) <= 32
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        for table in ("executor_profiles", "estimates"):
+            conn.execute(text(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY, vat_mode VARCHAR(8), vat_rate_percent INTEGER)"))
+        conn.execute(text("INSERT INTO estimates VALUES (1, 'RATE', 23), (2, 'EXEMPT', NULL)"))
+        conn.execute(text("INSERT INTO executor_profiles VALUES (1, 'RATE', 5)"))
+    with pytest.raises(RuntimeError, match="own VAT rate"):
+        run(engine, "0090_vat_own_rate", "downgrade")

@@ -4,7 +4,8 @@ import { ApiError } from '../api/http';
 import { useI18n } from '../hooks/useI18n';
 import { ExecutorProfile, ExecutorProfileField, ExecutorProfilePayload } from '../types/executorProfile';
 import { positiveAmount, toInput } from '../utils/paymentFormat';
-import { VAT_CHOICES, VatChoice, vatChoiceOf, vatSettingOf } from '../utils/vat';
+import { VAT_CHOICES, VatChoice, customVatSetting, vatChoiceOf, vatSettingOf } from '../utils/vat';
+import { VatCustomRate } from './VatCustomRate';
 import { Ico } from './Ico';
 import { TradesPicker } from './TradesPicker';
 import { VoiceInput } from './VoiceInput';
@@ -86,8 +87,10 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
     void load();
   }, [load]);
 
+  const [vatCustomOpen, setVatCustomOpen] = useState(false); // "Inna stawka": the field of an own rate is open
   const changeVat = (choice: VatChoice) => {
-    setForm((current) => ({ ...current, ...vatSettingOf(choice) }));
+    setVatCustomOpen(choice === 'CUSTOM');
+    if (choice !== 'CUSTOM') setForm((current) => ({ ...current, ...vatSettingOf(choice) }));
     setSaved(false);
     setFieldErrors((current) => {
       if (!('vat' in current)) return current;
@@ -261,7 +264,7 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
               <select
                 id="executor-profile-vat"
                 name="vat"
-                value={vatChoiceOf(form)}
+                value={vatCustomOpen ? 'CUSTOM' : vatChoiceOf(form)}
                 onChange={(event) => changeVat(event.target.value as VatChoice)}
                 aria-invalid={errorText('vat') ? true : undefined}
                 className="min-h-11 w-full rounded-lg border border-slate-200 px-3 text-base"
@@ -274,6 +277,17 @@ export function ExecutorProfileModal({ onClose }: ExecutorProfileModalProps) {
                   <option key={choice || 'none'} value={choice}>{t.vat.choices[choice || 'none']}</option>
                 ))}
               </select>
+              {(vatCustomOpen || vatChoiceOf(form) === 'CUSTOM') && (
+                <VatCustomRate
+                  idPrefix="executor-profile-vat"
+                  live
+                  value={form.vat_mode === 'RATE' ? form.vat_rate_percent : null}
+                  onApply={(rate) => {
+                    setForm((current) => ({ ...current, ...customVatSetting(rate) }));
+                    setSaved(false);
+                  }}
+                />
+              )}
               <p className="text-xs break-words" style={{ color: 'var(--tg-theme-hint-color)' }}>{text.vat_hint}</p>
               {errorText('vat') && <p className="text-xs font-medium text-red-700 break-words">{errorText('vat')}</p>}
             </div>

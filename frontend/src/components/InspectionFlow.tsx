@@ -400,7 +400,7 @@ export function InspectionFlow({
     setSaving(true);
     setError(null);
     try {
-      const list = await fetchChecklistTemplates(chosenSubstrate);
+      const list = await fetchChecklistTemplates(chosenSubstrate, isFloorTarget ? { forFloor: true } : undefined);
       const tpl = list.items.find((candidate) => candidate.active) ?? list.items[0];
       if (!tpl) {
         setError(t.inspections.error_start);

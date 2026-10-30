@@ -1935,7 +1935,7 @@
   },
   "vat": {
     "label": "VAT",
-    "choices": { "none": "Nie ustawiono (bez VAT)", "EXEMPT": "Zwolniony z VAT (zw.)", "8": "8 %", "23": "23 %" },
+    "choices": { "none": "Nie ustawiono (bez VAT)", "EXEMPT": "Zwolniony z VAT (zw.)", "8": "8 %", "23": "23 %", "CUSTOM": "Inna stawka…" },
     "net": "Razem netto",
     "vat": "VAT",
     "gross": "Razem brutto",
@@ -1944,7 +1944,10 @@
     "save_failed": "Nie udało się zmienić stawki VAT.",
     "included": "Ceny zawierają VAT",
     "included_on": "VAT jest wyodrębniany z sumy: brutto = suma pozycji, netto i VAT liczone z niej.",
-    "included_off": "VAT jest doliczany do sumy: suma pozycji to netto."
+    "included_off": "VAT jest doliczany do sumy: suma pozycji to netto.",
+    "custom_label": "Własna stawka VAT, %",
+    "custom_apply": "Ustaw",
+    "custom_invalid": "Wpisz całą liczbę od 0 do 100."
   },
   "estimates": {
     "unpriced": "Bez ceny: {n} poz. — nie są wliczone do sumy.",

@@ -172,5 +172,37 @@ describe('EstimateShell VAT (V2-6)', () => {
       expect(screen.queryByLabelText('estimate-fill-prices')).toBeNull();
     });
   });
-});
 
+  it('takes an own rate: the field opens, a bad value is refused without a request, a good one is sent (owner 2026-10-30)', async () => {
+    show(summary());
+    const select = await screen.findByLabelText('estimate-vat-select');
+    expect(Array.from((select as HTMLSelectElement).options).map((o) => o.textContent)).toContain('Inna stawka…');
+    expect(screen.queryByLabelText('estimate-vat-custom')).toBeNull();
+    fireEvent.change(select, { target: { value: 'CUSTOM' } });
+    expect(estimatesApi.setEstimateVat).not.toHaveBeenCalled(); // choosing "Inna stawka" only opens the field
+    const field = await screen.findByLabelText('estimate-vat-custom-input');
+    expect(field).toHaveAttribute('inputmode', 'numeric');
+    for (const bad of ['', 'abc', '101', '7,5', '-1']) {
+      fireEvent.change(field, { target: { value: bad } });
+      fireEvent.click(screen.getByLabelText('estimate-vat-custom-apply'));
+    }
+    expect(estimatesApi.setEstimateVat).not.toHaveBeenCalled();
+    expect(await screen.findByText('Wpisz całą liczbę od 0 do 100.')).toBeInTheDocument();
+    vi.mocked(estimatesApi.setEstimateVat).mockResolvedValue(summary({ vat_mode: 'RATE', vat_rate_percent: 5, vat_amount: '141.86', gross_total: '2978.98' }));
+    fireEvent.change(field, { target: { value: '5' } });
+    fireEvent.click(screen.getByLabelText('estimate-vat-custom-apply'));
+    await waitFor(() => expect(estimatesApi.setEstimateVat).toHaveBeenCalledWith(PROJECT_ID, 'est-1', { vat_mode: 'RATE', vat_rate_percent: 5, vat_included: false }));
+    await waitFor(() => expect(screen.getByLabelText('estimate-shell-gross').textContent).toBe('2978,98 PLN'));
+    expect(screen.getByLabelText('estimate-vat-select')).toHaveValue('CUSTOM');
+  });
+
+  it('shows an estimate with an own rate as "Inna stawka" with its value, and keeps the rate when the "prices include VAT" box is ticked', async () => {
+    show(summary({ vat_mode: 'RATE', vat_rate_percent: 5, vat_amount: '141.86', gross_total: '2978.98' }));
+    const select = await screen.findByLabelText('estimate-vat-select');
+    expect(select).toHaveValue('CUSTOM');
+    expect(screen.getByLabelText('estimate-vat-custom-input')).toHaveValue('5');
+    vi.mocked(estimatesApi.setEstimateVat).mockResolvedValue(summary({ vat_mode: 'RATE', vat_rate_percent: 5, vat_included: true }));
+    fireEvent.click(screen.getByLabelText('estimate-vat-included'));
+    await waitFor(() => expect(estimatesApi.setEstimateVat).toHaveBeenCalledWith(PROJECT_ID, 'est-1', { vat_mode: 'RATE', vat_rate_percent: 5, vat_included: true }));
+  });
+});

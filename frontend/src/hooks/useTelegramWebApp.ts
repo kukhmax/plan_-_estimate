@@ -193,6 +193,42 @@ export function useTelegramWebApp(): TelegramWebAppState {
   };
 }
 
+/**
+ * The Telegram BackButton is ONE button for the whole screen, but many components ask for it. Each hook instance used to show / hide / listen on its own, so a component
+ * that did not need the button (`visible` false) hid it again after another one had shown it -- on a room screen the button was off and the phone's own Back key (which
+ * Telegram turns into this button while it is visible) minimized the app instead of going back (owner 2026-10-30).
+ *
+ * Now the instances register: the button is visible while at least one is registered, and a press goes to the one registered last (the layer on top).
+ */
+interface BackRegistration {
+  handler: () => void;
+}
+const backRegistrations: BackRegistration[] = [];
+let backClickBound: { button: TelegramBackButton; listener: () => void } | null = null;
+
+function syncBackButton(): void {
+  const button: TelegramBackButton | undefined = window.Telegram?.WebApp?.BackButton;
+  if (backClickBound && backClickBound.button !== button) {
+    backClickBound.button.offClick?.(backClickBound.listener);
+    backClickBound = null;
+  }
+  if (!button) return;
+  if (backRegistrations.length === 0) {
+    if (backClickBound) {
+      button.offClick?.(backClickBound.listener);
+      backClickBound = null;
+    }
+    button.hide?.();
+    return;
+  }
+  if (!backClickBound) {
+    const listener = () => backRegistrations[backRegistrations.length - 1]?.handler();
+    button.onClick?.(listener);
+    backClickBound = { button, listener };
+  }
+  button.show?.();
+}
+
 export function useTelegramBackButton(visible: boolean, onBack?: () => void): void {
   const onBackRef = useRef(onBack);
 
@@ -201,25 +237,17 @@ export function useTelegramBackButton(visible: boolean, onBack?: () => void): vo
   }, [onBack]);
 
   useEffect(() => {
-    const webApp: TelegramWebApp | undefined = window.Telegram?.WebApp;
-    const backButton: TelegramBackButton | undefined = webApp?.BackButton;
-    if (!backButton) return;
-
     if (!visible || !onBack) {
-      backButton.hide?.();
-      return;
+      syncBackButton(); // not asking for the button: it stays as the others want it (hidden only when nobody does)
+      return undefined;
     }
-
-    const handleClick = () => {
-      onBackRef.current?.();
-    };
-
-    backButton.show?.();
-    backButton.onClick?.(handleClick);
-
+    const registration: BackRegistration = { handler: () => onBackRef.current?.() };
+    backRegistrations.push(registration);
+    syncBackButton();
     return () => {
-      backButton.offClick?.(handleClick);
-      backButton.hide?.();
+      const at = backRegistrations.indexOf(registration);
+      if (at >= 0) backRegistrations.splice(at, 1);
+      syncBackButton();
     };
   }, [visible, Boolean(onBack)]);
 }

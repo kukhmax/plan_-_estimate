@@ -212,3 +212,41 @@ def test_every_substrate_has_its_name_in_the_documents():
     for substrate in Substrate:
         assert f"'{substrate.value}': t('photo_report.substrate_name.{substrate.value.lower()}')" in template, substrate
         assert labels[f"photo_report.substrate_name.{substrate.value.lower()}"].strip(), substrate
+
+
+# --- a floor on a substrate the walls know as well asks the floor questions (owner 2026-10-30) ---------------------------------------
+
+
+async def test_a_floor_on_concrete_old_paint_or_other_gets_the_floor_checklist_and_the_walls_keep_theirs(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    walls = (await async_client.get("/api/checklist-templates", headers=auth_header(token))).json()
+    assert walls["total"] == 9 and not any(i["code"].startswith("floor-") for i in walls["items"])  # the list of the walls is as it was
+
+    floor = (await async_client.get("/api/checklist-templates?for_floor=true", headers=auth_header(token))).json()
+    assert floor["total"] == 5
+    assert {i["substrate"] for i in floor["items"]} == {"CONCRETE", "OTHER", "SCREED", "OLD_TILE", "WOOD_BOARDS"}  # one per substrate, no old paint on a floor
+    for substrate in ("CONCRETE", "OTHER"):
+        only = (await async_client.get(f"/api/checklist-templates?for_floor=true&substrate={substrate}", headers=auth_header(token))).json()
+        assert only["total"] == 1 and only["items"][0]["code"] == f"floor-{substrate.lower()}"
+        template = (await async_client.get(f"/api/checklist-templates/{only['items'][0]['id']}", headers=auth_header(token))).json()
+        keys = {q["key"] for s in template["sections"] for q in s["questions"]}
+        assert [s["key"] for s in template["sections"]] == ["floor_conditions"]
+        assert {"floor_moisture_measured", "expansion_joints_missing", "floor_flatness_mm", "floor_level_deviation_mm"} <= keys
+        assert "oil_paint_present" not in keys and "efflorescence" not in keys  # nothing of the wall list
+
+    wall_concrete = (await async_client.get("/api/checklist-templates?substrate=CONCRETE", headers=auth_header(token))).json()
+    assert wall_concrete["total"] == 1 and wall_concrete["items"][0]["code"] == "substrate-concrete"
+
+
+async def test_a_floor_inspection_can_start_from_the_floor_variant_of_concrete(async_client: AsyncClient):
+    token = await get_token(async_client, VALID_USER)
+    project = await create_project(async_client, token)
+    room = await create_room(async_client, token, project["id"])
+    template = (await async_client.get("/api/checklist-templates?for_floor=true&substrate=CONCRETE", headers=auth_header(token))).json()["items"][0]
+    created = await async_client.post(
+        f"/api/projects/{project['id']}/rooms/{room['id']}/inspections",
+        json={"template_id": template["id"], "substrate": "CONCRETE", "quality_target": None, "plane": "FLOOR"},
+        headers=auth_header(token),
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["template_id"] == template["id"]

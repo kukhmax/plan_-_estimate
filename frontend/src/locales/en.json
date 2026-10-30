@@ -1939,7 +1939,8 @@
       "none": "Not set (no VAT)",
       "EXEMPT": "Exempt from VAT (zw.)",
       "8": "8 %",
-      "23": "23 %"
+      "23": "23 %",
+      "CUSTOM": "Other rate…"
     },
     "net": "Total net",
     "vat": "VAT",
@@ -1949,7 +1950,10 @@
     "save_failed": "Could not change the VAT rate.",
     "included": "Prices include VAT",
     "included_on": "VAT is taken out of the sum: gross = the sum of the lines, net and VAT are counted from it.",
-    "included_off": "VAT is added to the sum: the sum of the lines is the net."
+    "included_off": "VAT is added to the sum: the sum of the lines is the net.",
+    "custom_label": "Own VAT rate, %",
+    "custom_apply": "Set",
+    "custom_invalid": "Enter a whole number from 0 to 100."
   },
   "estimates": {
     "unpriced": "No price: {n} lines — not in the total.",

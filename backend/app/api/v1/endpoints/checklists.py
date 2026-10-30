@@ -24,12 +24,14 @@ router = APIRouter()
 async def list_checklist_templates(
     substrate: Substrate | None = Query(default=None),
     include_inactive: bool = Query(default=False),
+    for_floor: bool = Query(default=False, description="The templates a floor is inspected with (floor variants and the floor-only substrates)"),
     current_user: User = Depends(get_current_user),
     checklist_service: ChecklistService = Depends(get_checklist_service),
 ) -> ChecklistTemplateListResponse:
     items, total = await checklist_service.list_templates(
         substrate=substrate,
         include_inactive=include_inactive,
+        for_floor=for_floor,
     )
     return ChecklistTemplateListResponse(
         items=[ChecklistTemplateRead.model_validate(item) for item in items],

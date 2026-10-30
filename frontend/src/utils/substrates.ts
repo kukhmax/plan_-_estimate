@@ -11,8 +11,8 @@ export const WALL_SUBSTRATES: readonly SubstrateValue[] = [
   'OTHER',
 ];
 
-/** The substrates of a floor (UX walk B4): screed, old tile and wooden boards are floor-only and take no quality target. */
-export const FLOOR_SUBSTRATES: readonly SubstrateValue[] = ['SCREED', 'CONCRETE', 'OLD_TILE', 'WOOD_BOARDS', 'PAINTED', 'OTHER'];
+/** The substrates of a floor (UX walk B4): screed, old tile and wooden boards are floor-only and take no quality target; no old paint on a floor (owner 2026-10-30). */
+export const FLOOR_SUBSTRATES: readonly SubstrateValue[] = ['SCREED', 'CONCRETE', 'OLD_TILE', 'WOOD_BOARDS', 'OTHER'];
 
 /** Every substrate, for the places that list them all (an inspection of any kind, in the order of the lists). */
 export const ALL_SUBSTRATES: readonly SubstrateValue[] = [...WALL_SUBSTRATES, 'SCREED', 'OLD_TILE', 'WOOD_BOARDS'];

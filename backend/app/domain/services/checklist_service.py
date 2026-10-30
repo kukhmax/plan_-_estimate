@@ -1,11 +1,12 @@
 import asyncio
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.data.checklist_templates import build_baseline_templates
 from app.domain.exceptions import ChecklistTemplateNotFoundError
+from app.domain.rules.inspection_rules import NO_SCALE_SUBSTRATES as FLOOR_ONLY_SUBSTRATES
 from app.models.checklist import (
     ChecklistOption,
     ChecklistQuestion,
@@ -13,6 +14,9 @@ from app.models.checklist import (
     ChecklistTemplate,
     Substrate,
 )
+
+# A template with this code prefix is the floor variant of a substrate the walls know as well (see `build_baseline_templates`).
+FLOOR_TEMPLATE_PREFIX = "floor-"
 
 # Serializes concurrent first-call bootstraps within the process. Correctness
 # (never double-insert) is additionally guaranteed by the (code, version)
@@ -140,10 +144,18 @@ class ChecklistService:
         *,
         substrate: Substrate | None = None,
         include_inactive: bool = False,
+        for_floor: bool = False,
     ) -> tuple[list[ChecklistTemplate], int]:
+        """The active templates, one per substrate. `for_floor` lists the ones a floor is inspected with instead: the floor variants
+        (`floor-*`, for the substrates the walls know as well) and the substrates of the floor only; the default list is the one of the walls and ceilings."""
         await self._ensure_bootstrapped()
 
         stmt = select(ChecklistTemplate)
+        floor_variant = ChecklistTemplate.code.like(FLOOR_TEMPLATE_PREFIX + "%")
+        if for_floor:
+            stmt = stmt.where(or_(floor_variant, ChecklistTemplate.substrate.in_(FLOOR_ONLY_SUBSTRATES)))
+        else:
+            stmt = stmt.where(~floor_variant)
         if substrate is not None:
             stmt = stmt.where(ChecklistTemplate.substrate == substrate)
         if not include_inactive:

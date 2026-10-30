@@ -5,7 +5,7 @@
  *   inspection without a class and shows the checklist (never a dead click,
  *   never a 0/0 screen).
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as checklistsApi from './api/checklists';
 import * as inspectionsApi from './api/inspections';
@@ -82,6 +82,24 @@ describe('InspectionFlow target rules (13F-PRE FIX.2)', () => {
     expect(screen.queryByText('Klasa jakości')).not.toBeInTheDocument();
     for (const level of QUALITY) expect(screen.queryByLabelText(level)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Pomiń')).not.toBeInTheDocument();
+  });
+
+  it('a floor takes the floor templates, a wall and a ceiling the ones of the walls (owner 2026-10-30: a floor on concrete asked the wall questions)', async () => {
+    const floor: InspectionTarget = { kind: 'plane', plane: 'FLOOR' };
+    vi.mocked(inspectionsApi.createInspection).mockResolvedValue(created(floor, 'CONCRETE'));
+    renderFlow(floor);
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await waitFor(() => expect(checklistsApi.fetchChecklistTemplates).toHaveBeenCalledWith('CONCRETE', { forFloor: true }));
+    cleanup();
+    vi.mocked(checklistsApi.fetchChecklistTemplates).mockClear();
+    renderFlow({ kind: 'plane', plane: 'CEILING' });
+    fireEvent.click(await screen.findByLabelText('Beton'));
+    fireEvent.click(screen.getByLabelText('Dalej'));
+    await screen.findByText('Klasa jakości');
+    fireEvent.click(screen.getByLabelText('S2'));
+    fireEvent.click(screen.getByLabelText('Nowe badanie'));
+    await waitFor(() => expect(checklistsApi.fetchChecklistTemplates).toHaveBeenCalledWith('CONCRETE', undefined));
   });
 
   it('CEILING keeps the substrate-scoped quality step (S-scale for concrete, Q-scale for GK)', async () => {

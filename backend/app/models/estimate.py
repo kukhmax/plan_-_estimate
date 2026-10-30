@@ -146,7 +146,7 @@ class Estimate(Base):
         Index("ix_estimates_owner_status", "owner_id", "status"),
         CheckConstraint(
             "(vat_mode IS NULL AND vat_rate_percent IS NULL) OR (vat_mode = 'EXEMPT' AND vat_rate_percent IS NULL) "
-            "OR (vat_mode = 'RATE' AND vat_rate_percent IN (8, 23))",
+            "OR (vat_mode = 'RATE' AND vat_rate_percent BETWEEN 0 AND 100)",
             name="ck_estimates_vat",
         ),
         CheckConstraint("vat_included = false OR vat_mode = 'RATE'", name="ck_estimates_vat_included"),
