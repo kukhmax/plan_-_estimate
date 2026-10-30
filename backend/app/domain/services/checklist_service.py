@@ -3,6 +3,7 @@ import uuid
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.domain.data.checklist_templates import build_baseline_templates
 from app.domain.exceptions import ChecklistTemplateNotFoundError
@@ -150,6 +151,7 @@ class ChecklistService:
         (`floor-*`, for the substrates the walls know as well) and the substrates of the floor only; the default list is the one of the walls and ceilings."""
         await self._ensure_bootstrapped()
 
+        latest = aliased(ChecklistTemplate)
         stmt = select(ChecklistTemplate)
         floor_variant = ChecklistTemplate.code.like(FLOOR_TEMPLATE_PREFIX + "%")
         if for_floor:
@@ -160,6 +162,13 @@ class ChecklistService:
             stmt = stmt.where(ChecklistTemplate.substrate == substrate)
         if not include_inactive:
             stmt = stmt.where(ChecklistTemplate.active.is_(True))
+            # a new inspection starts from the newest version of a template; an older version stays for the inspections made with it
+            newest = (
+                select(func.max(latest.version))
+                .where(latest.code == ChecklistTemplate.code, latest.active.is_(True))
+                .scalar_subquery()
+            )
+            stmt = stmt.where(ChecklistTemplate.version == newest)
 
         total = (
             await self.db.execute(select(func.count()).select_from(stmt.subquery()))

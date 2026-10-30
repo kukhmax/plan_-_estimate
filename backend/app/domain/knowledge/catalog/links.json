@@ -403,5 +403,650 @@
       "KC.639",
       "KC.640"
     ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_MOISTURE_CEMENT",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-CM",
+      "TECH.FLOOR-MOISTURE-PSP",
+      "TECH.FLOOR-SCREED"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_MOISTURE_CEMENT",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_MOISTURE_CEMENT_HEATED",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-CM",
+      "TECH.FLOOR-MOISTURE-PSP",
+      "TECH.FLOOR-SCREED"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_MOISTURE_CEMENT_HEATED",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_MOISTURE_ANHYDRITE",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-WOOD-SUBSTRATE",
+      "TECH.FLOOR-SCREED"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_MOISTURE_ANHYDRITE",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_MOISTURE_ANHYDRITE_HEATED",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-WOOD-SUBSTRATE",
+      "TECH.FLOOR-SCREED"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_MOISTURE_ANHYDRITE_HEATED",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_MOISTURE_SUSPECTED",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-CM"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_MOISTURE_SUSPECTED",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_WOOD_MOISTURE",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-WOOD-SUBSTRATE",
+      "TECH.FLOOR-WOOD-BOARDS"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_WOOD_MOISTURE",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_FLATNESS_TILES",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-TILES-FLATNESS"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_FLATNESS_TILES",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_FLATNESS_LARGE_TILES",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-LARGE-TILES"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_FLATNESS_LARGE_TILES",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_FLATNESS_MICROCEMENT",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-MICROCEMENT-ODBIOR"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_FLATNESS_MICROCEMENT",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_FLATNESS_LAMINATE",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-LAMINATE",
+      "TECH.FLOOR-WOOD-SUBSTRATE"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_FLATNESS_LAMINATE",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_FLATNESS_WOOD",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-WOOD-SUBSTRATE"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_FLATNESS_WOOD",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_FLATNESS_VINYL",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-VINYL"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_FLATNESS_VINYL",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_FLATNESS_GENERAL",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-TILES-FLATNESS",
+      "TECH.FLOOR-LEVEL"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_FLATNESS_GENERAL",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_LEVEL_OUT",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-LEVEL"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_LEVEL_OUT",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_CRACK_REPAIR",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-EXPANSION"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_CRACK_REPAIR",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_CRACK_MICROCEMENT",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-MICROCEMENT"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_CRACK_MICROCEMENT",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_SCREED_HOLLOW",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-SCREED"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_SCREED_HOLLOW",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_SURFACE_WEAK",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-MICROCEMENT"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_SURFACE_WEAK",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_SURFACE_LOOSE",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-TILE-ON-TILE"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_SURFACE_LOOSE",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_SURFACE_DUSTY",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-VINYL"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_SURFACE_DUSTY",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_SURFACE_OILY",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-TILE-ON-TILE"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_SURFACE_OILY",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_EXPANSION_JOINTS",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-EXPANSION"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_EXPANSION_JOINTS",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_EXPANSION_JOINTS_HEATED",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-EXPANSION",
+      "TECH.FLOOR-SCREED"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_EXPANSION_JOINTS_HEATED",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_OLD_TILES_HOLLOW",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-TILE-ON-TILE",
+      "TECH.FLOOR-OLD-TILE"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_OLD_TILES_HOLLOW",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_OLD_TILES_BOND",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-TILE-ON-TILE",
+      "TECH.FLOOR-OLD-TILE"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_OLD_TILES_BOND",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_OLD_TILES_LAYERS",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-OLD-TILE"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_OLD_TILES_LAYERS",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_BOARDS_FLEX",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-WOOD-BOARDS",
+      "TECH.FLOOR-BOARDS-OSB"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_BOARDS_FLEX",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_WOOD_DECAY",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-WOOD-BOARDS"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_WOOD_DECAY",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_BOARDS_UNDER_TILES",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-BOARDS-OSB"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_BOARDS_UNDER_TILES",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_BOARDS_UNDER_LARGE_TILES",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-BOARDS-OSB",
+      "TECH.FLOOR-LARGE-TILES"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_BOARDS_UNDER_LARGE_TILES",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_BOARDS_UNDER_MICROCEMENT",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-BOARDS-OSB",
+      "TECH.FLOOR-MICROCEMENT"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_BOARDS_UNDER_MICROCEMENT",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_WET_ZONE_TILES",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-WATERPROOF"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_WET_ZONE_TILES",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_WET_ZONE_LARGE_TILES",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-WATERPROOF"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_WET_ZONE_LARGE_TILES",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_WET_ZONE_MICROCEMENT",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-WATERPROOF",
+      "TECH.FLOOR-MICROCEMENT"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_WET_ZONE_MICROCEMENT",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_WET_ZONE_LAMINATE",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-LAMINATE"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_WET_ZONE_LAMINATE",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_WET_ZONE_WOOD",
+    "entries": [
+      "KC.634",
+      "KC.557",
+      "TECH.FLOOR-WOOD-SUBSTRATE"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_WET_ZONE_WOOD",
+    "entries": [
+      "KC.634",
+      "KC.557"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_LAMINATE_VAPOUR",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-LAMINATE-PE",
+      "TECH.FLOOR-LAMINATE"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_LAMINATE_VAPOUR",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_MICROCEMENT_PREP",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-MICROCEMENT",
+      "TECH.FLOOR-MICROCEMENT-ODBIOR"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_MICROCEMENT_PREP",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_LARGE_TILES_BED",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-LARGE-TILES"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_LARGE_TILES_BED",
+    "entries": [
+      "KC.634"
+    ]
+  },
+  {
+    "target_kind": "RISK",
+    "target": "FLOOR_VINYL_SMOOTHING",
+    "entries": [
+      "KC.634",
+      "TECH.FLOOR-VINYL",
+      "TECH.FLOOR-MOISTURE-PSP"
+    ]
+  },
+  {
+    "target_kind": "PHRASE",
+    "target": "COMM_RISK_FLOOR_VINYL_SMOOTHING",
+    "entries": [
+      "KC.634"
+    ]
   }
 ]

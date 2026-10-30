@@ -1339,7 +1339,32 @@
       "fastener_corrosion": "Corrosion of fasteners",
       "joint_gap": "Gaps on the joints",
       "efflorescence": "Efflorescence",
-      "blow_holes": "Blow holes / bubbles"
+      "blow_holes": "Blow holes / bubbles",
+      "floor_moisture_cm": "Moisture (measured)",
+      "floor_moisture_suspected": "Signs of moisture, not measured",
+      "floor_crack": "Floor cracks",
+      "expansion_joint_missing": "No expansion joints",
+      "floor_flatness_mm": "Gap under a 2 m straightedge",
+      "floor_level_deviation": "Deviation from level",
+      "floor_surface_weak": "Weak surface layer",
+      "floor_surface_loose": "Loose parts",
+      "floor_surface_dusty": "Dusty substrate",
+      "floor_surface_oily": "Oil / adhesive contamination",
+      "floor_screed_anhydrite": "Anhydrite screed",
+      "floor_screed_hollow": "Hollow-sounding screed",
+      "floor_heating": "Underfloor heating",
+      "floor_wet_zone": "Wet zone",
+      "floor_finish_tiles": "Covering: tiles",
+      "floor_finish_large_tiles": "Covering: large-format tiles",
+      "floor_finish_microcement": "Covering: microcement",
+      "floor_finish_laminate": "Covering: laminate",
+      "floor_finish_wood": "Covering: parquet / boards",
+      "floor_finish_vinyl": "Covering: vinyl / LVT",
+      "floor_tiles_hollow": "Debonded old tiles",
+      "floor_tiles_glazed": "Glazed old tiles",
+      "floor_tiles_two_layers": "Two layers of tiles",
+      "boards_flex": "Boards deflect",
+      "wood_decay": "Fungus / wood pests"
     },
     "crack_recurrence": {
       "title": "Cracks in the substrate",
@@ -1445,6 +1470,286 @@
       "consequence": "Blow holes may be visible under new coatings, especially paint.",
       "mitigation": "Fill the blow holes with skim coat and sand before painting.",
       "communication": "Small blow holes will be filled before painting so the surface is smooth."
+    },
+    "floor_moisture_cement": {
+      "title": "Screed too moist (cement / concrete)",
+      "explanation": "The moisture measured by the CM method is above 2.0 % — the value covering manufacturers usually require for a cement / concrete substrate.",
+      "consequence": "A covering laid on a moist substrate debonds, the adhesive does not cure, laminate and wood swell, tiles and grout show efflorescence and stains.",
+      "mitigation": "Stop laying the covering. The substrate has to dry (ventilation, heating-up protocol); then repeat the CM measurement at several points. The data sheet of the chosen covering and adhesive decides.",
+      "communication": "The floor is still too moist — the measurement shows more than the covering manufacturer allows. We wait with laying until it has dried and been measured again, so the floor does not debond or swell."
+    },
+    "floor_moisture_cement_heated": {
+      "title": "Screed too moist (cement / concrete with underfloor heating)",
+      "explanation": "The moisture measured by the CM method is above 1.8 % — the value covering manufacturers usually require for a cement / concrete substrate with underfloor heating.",
+      "consequence": "A covering laid on a moist substrate debonds, the adhesive does not cure, laminate and wood swell, tiles and grout show efflorescence and stains.",
+      "mitigation": "Stop laying the covering. The substrate has to dry (ventilation, heating-up protocol); then repeat the CM measurement at several points. The data sheet of the chosen covering and adhesive decides.",
+      "communication": "The floor is still too moist — the measurement shows more than the covering manufacturer allows. We wait with laying until it has dried and been measured again, so the floor does not debond or swell."
+    },
+    "floor_moisture_anhydrite": {
+      "title": "Screed too moist (anhydrite)",
+      "explanation": "The moisture measured by the CM method is above 0.5 % — the value covering manufacturers usually require for a anhydrite substrate.",
+      "consequence": "A covering laid on a moist substrate debonds, the adhesive does not cure, laminate and wood swell, tiles and grout show efflorescence and stains.",
+      "mitigation": "Stop laying the covering. The substrate has to dry (ventilation, heating-up protocol); then repeat the CM measurement at several points. The data sheet of the chosen covering and adhesive decides.",
+      "communication": "The floor is still too moist — the measurement shows more than the covering manufacturer allows. We wait with laying until it has dried and been measured again, so the floor does not debond or swell."
+    },
+    "floor_moisture_anhydrite_heated": {
+      "title": "Screed too moist (anhydrite with underfloor heating)",
+      "explanation": "The moisture measured by the CM method is above 0.3 % — the value covering manufacturers usually require for a anhydrite substrate with underfloor heating.",
+      "consequence": "A covering laid on a moist substrate debonds, the adhesive does not cure, laminate and wood swell, tiles and grout show efflorescence and stains.",
+      "mitigation": "Stop laying the covering. The substrate has to dry (ventilation, heating-up protocol); then repeat the CM measurement at several points. The data sheet of the chosen covering and adhesive decides.",
+      "communication": "The floor is still too moist — the measurement shows more than the covering manufacturer allows. We wait with laying until it has dried and been measured again, so the floor does not debond or swell."
+    },
+    "floor_moisture_suspected": {
+      "title": "Suspected moist substrate — no CM measurement",
+      "explanation": "There are signs of moisture (fresh screed, dark patches, condensation under foil) and the moisture has not been measured by the CM method.",
+      "consequence": "Without a measurement nobody knows whether the substrate meets the covering's requirements; laying on a moist substrate risks debonding, swelling and mould.",
+      "mitigation": "Measure the moisture by the CM (carbide) method at several points through the full screed depth and compare with the covering's data sheet. Do not lay the covering before that.",
+      "communication": "The floor looks moist. Before laying the covering we will measure its moisture by the CM method — a short test that protects the floor from debonding and swelling."
+    },
+    "floor_wood_moisture": {
+      "title": "Wooden substrate too moist",
+      "explanation": "The measured moisture of the boards / wood-based panels is above 12 % — the upper limit floor manufacturers give for a wooden substrate.",
+      "consequence": "Moist wood moves and may rot; a new floor laid on it swells, squeaks and deforms.",
+      "mitigation": "Stop the work. Find the cause of the moisture (ventilation under the floor, leaks, ground), dry the substrate and measure again with a wood moisture meter.",
+      "communication": "The boards under the new floor are too moist. We first remove the cause and wait for the wood to dry — otherwise the new floor would swell or start to squeak."
+    },
+    "floor_flatness_tiles": {
+      "title": "Substrate too uneven for: ceramic tiles",
+      "explanation": "The gap under a 2 m straightedge exceeds 3 mm — the substrate unevenness manufacturers usually allow for ceramic tiles.",
+      "consequence": "On an uneven substrate the covering does not bear on its full surface: voids remain under tiles and they crack, laminate deflects and its joints open, thin layers (microcement, vinyl) mirror the unevenness.",
+      "mitigation": "Level the substrate before laying: grind the humps, fill hollows with a repair mortar or pour a self-levelling compound (after priming). Check again with the 2 m straightedge.",
+      "communication": "The floor is more uneven than the covering manufacturer allows (ceramic tiles). We will level it before laying — an extra step, but without it the covering may crack or move."
+    },
+    "floor_flatness_large_tiles": {
+      "title": "Substrate too uneven for: large-format tiles",
+      "explanation": "The gap under a 2 m straightedge exceeds 2 mm — the substrate unevenness manufacturers usually allow for large-format tiles.",
+      "consequence": "On an uneven substrate the covering does not bear on its full surface: voids remain under tiles and they crack, laminate deflects and its joints open, thin layers (microcement, vinyl) mirror the unevenness.",
+      "mitigation": "Level the substrate before laying: grind the humps, fill hollows with a repair mortar or pour a self-levelling compound (after priming). Check again with the 2 m straightedge.",
+      "communication": "The floor is more uneven than the covering manufacturer allows (large-format tiles). We will level it before laying — an extra step, but without it the covering may crack or move."
+    },
+    "floor_flatness_microcement": {
+      "title": "Substrate too uneven for: microcement",
+      "explanation": "The gap under a 2 m straightedge exceeds 3 mm — the substrate unevenness manufacturers usually allow for microcement.",
+      "consequence": "On an uneven substrate the covering does not bear on its full surface: voids remain under tiles and they crack, laminate deflects and its joints open, thin layers (microcement, vinyl) mirror the unevenness.",
+      "mitigation": "Level the substrate before laying: grind the humps, fill hollows with a repair mortar or pour a self-levelling compound (after priming). Check again with the 2 m straightedge.",
+      "communication": "The floor is more uneven than the covering manufacturer allows (microcement). We will level it before laying — an extra step, but without it the covering may crack or move."
+    },
+    "floor_flatness_laminate": {
+      "title": "Substrate too uneven for: laminate panels",
+      "explanation": "The gap under a 2 m straightedge exceeds 3 mm — the substrate unevenness manufacturers usually allow for laminate panels.",
+      "consequence": "On an uneven substrate the covering does not bear on its full surface: voids remain under tiles and they crack, laminate deflects and its joints open, thin layers (microcement, vinyl) mirror the unevenness.",
+      "mitigation": "Level the substrate before laying: grind the humps, fill hollows with a repair mortar or pour a self-levelling compound (after priming). Check again with the 2 m straightedge.",
+      "communication": "The floor is more uneven than the covering manufacturer allows (laminate panels). We will level it before laying — an extra step, but without it the covering may crack or move."
+    },
+    "floor_flatness_wood": {
+      "title": "Substrate too uneven for: parquet / wooden boards",
+      "explanation": "The gap under a 2 m straightedge exceeds 3 mm — the substrate unevenness manufacturers usually allow for parquet / wooden boards.",
+      "consequence": "On an uneven substrate the covering does not bear on its full surface: voids remain under tiles and they crack, laminate deflects and its joints open, thin layers (microcement, vinyl) mirror the unevenness.",
+      "mitigation": "Level the substrate before laying: grind the humps, fill hollows with a repair mortar or pour a self-levelling compound (after priming). Check again with the 2 m straightedge.",
+      "communication": "The floor is more uneven than the covering manufacturer allows (parquet / wooden boards). We will level it before laying — an extra step, but without it the covering may crack or move."
+    },
+    "floor_flatness_vinyl": {
+      "title": "Substrate too uneven for: glued vinyl / LVT",
+      "explanation": "The gap under a 2 m straightedge exceeds 2 mm — the substrate unevenness manufacturers usually allow for glued vinyl / LVT.",
+      "consequence": "On an uneven substrate the covering does not bear on its full surface: voids remain under tiles and they crack, laminate deflects and its joints open, thin layers (microcement, vinyl) mirror the unevenness.",
+      "mitigation": "Level the substrate before laying: grind the humps, fill hollows with a repair mortar or pour a self-levelling compound (after priming). Check again with the 2 m straightedge.",
+      "communication": "The floor is more uneven than the covering manufacturer allows (glued vinyl / LVT). We will level it before laying — an extra step, but without it the covering may crack or move."
+    },
+    "floor_flatness_general": {
+      "title": "Large substrate unevenness",
+      "explanation": "The gap under a 2 m straightedge exceeds 5 mm — more than the guidance for a floor screed allows, and the covering has not been chosen yet.",
+      "consequence": "No usual covering goes on such a substrate without levelling; the scope depends on the covering (tiles, laminate and wood about 3 mm, large-format tiles and vinyl about 2 mm over 2 m).",
+      "mitigation": "Agree the covering with the client and level the substrate for it (grinding, self-levelling compound or a new screed layer).",
+      "communication": "The floor is clearly uneven. Before any covering it has to be levelled; how much depends on what you choose (tiles, laminate, wood, vinyl)."
+    },
+    "floor_level_out": {
+      "title": "Floor out of level",
+      "explanation": "The deviation from level over the length or width of the room exceeds 5 mm.",
+      "consequence": "The slope shows at thresholds, doors and fitted furniture; tiles and laminate may need a thick levelling layer, and level differences between rooms grow.",
+      "mitigation": "Agree the target level with the client (thresholds, doors, linear drain) and level the substrate with self-levelling compound or a new screed; plan the layer thickness.",
+      "communication": "The floor is not level — the difference exceeds 5 mm. We will agree the target level together (thresholds, doors) and level the floor so furniture and doors fit."
+    },
+    "floor_crack_repair": {
+      "title": "Cracks in the screed",
+      "explanation": "The floor substrate has cracks.",
+      "consequence": "An unrepaired crack passes into the covering: tiles and grout crack, the adhesive debonds; when the screed moves the crack widens.",
+      "mitigation": "Find out whether the crack moves. Stitch shrinkage cracks with resin and staples across the crack; structural or moving cracks need a structural engineer, and the joint is carried through the covering.",
+      "communication": "The floor has cracks. Before laying the covering we will stitch them with resin so they do not pass into the tiles or grout."
+    },
+    "floor_crack_microcement": {
+      "title": "Cracks in the substrate under microcement",
+      "explanation": "The substrate the microcement floor is to be made on has cracks.",
+      "consequence": "Microcement is a thin, rigid layer — it mirrors every crack of the substrate, and a repair after it is done stays visible.",
+      "mitigation": "Stitch the cracks with epoxy resin and staples and reinforce the substrate as the microcement system requires (glass mat or mesh laminated in resin). Moving cracks rule out microcement without a joint.",
+      "communication": "Under microcement every crack of the substrate would show. Before the floor is made we will repair and reinforce the substrate as the manufacturer's system requires."
+    },
+    "floor_screed_hollow": {
+      "title": "Hollow sound — debonded screed",
+      "explanation": "When tapped, part of the screed sounds hollow: the layer is not bonded to the base or is cracked inside.",
+      "consequence": "A debonded area deflects and cracks under load; the covering on it cracks or comes off.",
+      "mitigation": "Mark the area by tapping. Cut out the debonded part and refill it with repair mortar, or bond it to the base by resin injection (per the system data sheet). Only then lay the covering.",
+      "communication": "Part of the screed has come loose (it sounds hollow). We will repair that area before laying, otherwise the covering on it would crack."
+    },
+    "floor_surface_weak": {
+      "title": "Weak surface layer (cement laitance)",
+      "explanation": "The top layer of the substrate is weak: it scratches with a nail, crumbles or carries cement laitance.",
+      "consequence": "Tile, parquet or vinyl adhesive and microcement layers only hold on to this weak layer — the covering comes off together with it.",
+      "mitigation": "Grind (mill) the weak layer down to the sound substrate, vacuum and apply a consolidating primer; for glued coverings and microcement check the pull-off strength per the system data sheet.",
+      "communication": "The top layer of the floor is weak. We will grind it off and prime it so the adhesive and the new covering hold on to a sound base."
+    },
+    "floor_surface_loose": {
+      "title": "Loose, flaking parts of the substrate",
+      "explanation": "The floor has loose or flaking parts (old toppings, adhesive residue, spalls).",
+      "consequence": "A covering laid on loose parts comes off together with them.",
+      "mitigation": "Remove all loose parts and old adhesive residue mechanically, fill the hollows with repair mortar, vacuum and prime.",
+      "communication": "The floor has loose parts. We will remove them and fill the hollows so the new covering has a stable base."
+    },
+    "floor_surface_dusty": {
+      "title": "Dusty substrate",
+      "explanation": "The floor surface is dusty — dust stays on the palm.",
+      "consequence": "Dust weakens the bond of adhesive, self-levelling compound and primer.",
+      "mitigation": "Vacuum the substrate with an industrial vacuum and prime it with the primer the next layer requires (per the adhesive / compound data sheet).",
+      "communication": "The floor is dusty. We will vacuum and prime it so the next layers hold well."
+    },
+    "floor_surface_oily": {
+      "title": "Oil, grease or old adhesive contamination",
+      "explanation": "The floor has stains of oil, grease, paint or old adhesive residue.",
+      "consequence": "Contamination prevents adhesive and compound from bonding — the covering debonds in those places.",
+      "mitigation": "Remove the contamination mechanically (grinding, milling) down to a clean substrate; washing alone is usually not enough. Then vacuum and prime.",
+      "communication": "The floor has greasy stains or adhesive residue. We will grind them down to a clean base, otherwise the adhesive would not bond there."
+    },
+    "floor_expansion_joints": {
+      "title": "No expansion joints",
+      "explanation": "There is no perimeter gap (edge strip) at the walls and no joints dividing the screed into bays.",
+      "consequence": "Screed and covering move (shrinkage, temperature); without joints tiles, grout and screed crack, laminate buckles at the walls.",
+      "mitigation": "Make a perimeter gap at walls and columns; divide large or irregular areas (usually above about 30–40 m² or a side above about 7–8 m, L shapes, door openings) with joints and carry them through the covering, filled with a permanently elastic material.",
+      "communication": "The floor has no expansion joints. We will make them and carry them through the covering — elastic gaps that keep tiles and grout from cracking when the floor moves."
+    },
+    "floor_expansion_joints_heated": {
+      "title": "No expansion joints with underfloor heating",
+      "explanation": "There is no perimeter gap (edge strip) at the walls and no joints dividing the screed into bays — with underfloor heating the screed also moves thermally.",
+      "consequence": "Screed and covering move (shrinkage, temperature); without joints tiles, grout and screed crack, laminate buckles at the walls.",
+      "mitigation": "Make a perimeter gap at walls and columns; divide large or irregular areas (usually above about 30–40 m² or a side above about 7–8 m, L shapes, door openings) with joints and carry them through the covering, filled with a permanently elastic material. With underfloor heating plan the joints along the heating circuits.",
+      "communication": "The floor has no expansion joints. We will make them and carry them through the covering — elastic gaps that keep tiles and grout from cracking when the floor moves with the heating."
+    },
+    "floor_old_tiles_hollow": {
+      "title": "Debonded old tiles",
+      "explanation": "Some of the old tiles sound hollow when tapped or move.",
+      "consequence": "A new layer (tiles, microcement, vinyl) on debonded tiles cracks and comes off with them.",
+      "mitigation": "Tap the whole area. Remove the debonded tiles and fill the gaps with mortar; if many are debonded, remove the whole covering down to a sound base.",
+      "communication": "Some old tiles are poorly bonded. We will remove them and restore the base — on loose tiles the new covering would crack."
+    },
+    "floor_old_tiles_bond": {
+      "title": "Smooth glazed tiles — bonding primer needed",
+      "explanation": "The old tiles are glazed / smooth and non-absorbent.",
+      "consequence": "Ordinary adhesive and compound do not bond to smooth glaze — the new layer may debond.",
+      "mitigation": "Wash and degrease the tiles, dull the glaze, apply a bonding (contact) primer for non-absorbent substrates, also on the grout; tile adhesive at least C2 (preferably deformable S1) per the manufacturer's sheet.",
+      "communication": "The old tiles are smooth and slippery for adhesive. We will degrease them and apply a special bonding primer so the new layer holds for good."
+    },
+    "floor_old_tiles_layers": {
+      "title": "Two layers of old tiles",
+      "explanation": "The floor already has two layers of tiles.",
+      "consequence": "Another layer raises the level (thresholds, doors), loads the slab and increases the risk of the whole build-up debonding.",
+      "mitigation": "Removing the tiles down to a sound base and levelling is recommended; lay a third layer only after a bond check and agreeing the level with the client.",
+      "communication": "The floor already has two layers of tiles. We recommend removing them — another layer would raise the floor at the doors and increase the risk of debonding."
+    },
+    "floor_boards_flex": {
+      "title": "Boards deflect or squeak",
+      "explanation": "The floorboards deflect underfoot or squeak.",
+      "consequence": "On a deflecting substrate tiles and grout crack, laminate joints open, and the squeak passes into the new floor.",
+      "mitigation": "Screw the boards to the joists, level the bowed ones (sanding / planing); with large deflection check the joists. Under rigid coverings lay OSB / plywood boards.",
+      "communication": "The boards deflect and squeak. We will screw them to the joists and stiffen them so the new floor does not crack or squeak."
+    },
+    "floor_wood_decay": {
+      "title": "Fungus or wood pests",
+      "explanation": "The boards or joists show fungus, rot or traces of insects.",
+      "consequence": "Affected wood loses its load capacity and destroys the new floor; the fungus spreads further.",
+      "mitigation": "Stop the work. Replace the affected elements, find and remove the cause of moisture, treat the remaining wood; have the joists assessed by a specialist.",
+      "communication": "The floor timber has fungus or pests. Before a new floor the affected parts must be replaced and the cause removed — a decision about extra scope."
+    },
+    "floor_boards_under_tiles": {
+      "title": "Boards under a rigid covering: ceramic tiles",
+      "explanation": "A rigid covering (ceramic tiles) is planned on a board floor.",
+      "consequence": "Wood moves (moisture, deflection) — a rigid covering on boards cracks and the adhesive debonds.",
+      "mitigation": "Stiffen the substrate: screw the boards to the joists, lay OSB / plywood (usually about 18–25 mm depending on stiffness) screwed down, sand and vacuum; use a deformable adhesive (S1/S2) and a system the manufacturer allows on timber substrates.",
+      "communication": "For ceramic tiles the boards are not stiff enough. We will lay boards over them so the new covering does not crack — an extra layer and an extra cost."
+    },
+    "floor_boards_under_large_tiles": {
+      "title": "Boards under a rigid covering: large-format tiles",
+      "explanation": "A rigid covering (large-format tiles) is planned on a board floor.",
+      "consequence": "Wood moves (moisture, deflection) — a rigid covering on boards cracks and the adhesive debonds.",
+      "mitigation": "Stiffen the substrate: screw the boards to the joists, lay OSB / plywood (usually about 18–25 mm depending on stiffness) screwed down, sand and vacuum; use a deformable adhesive (S1/S2) and a system the manufacturer allows on timber substrates.",
+      "communication": "For large-format tiles the boards are not stiff enough. We will lay boards over them so the new covering does not crack — an extra layer and an extra cost."
+    },
+    "floor_boards_under_microcement": {
+      "title": "Boards under a rigid covering: microcement",
+      "explanation": "A rigid covering (microcement) is planned on a board floor.",
+      "consequence": "Wood moves (moisture, deflection) — a rigid covering on boards cracks and the adhesive debonds.",
+      "mitigation": "Stiffen the substrate: screw the boards to the joists, lay OSB / plywood (usually about 18–25 mm depending on stiffness) screwed down, sand and vacuum; use a deformable adhesive (S1/S2) and a system the manufacturer allows on timber substrates.",
+      "communication": "For microcement the boards are not stiff enough. We will lay boards over them so the new covering does not crack — an extra layer and an extra cost."
+    },
+    "floor_wet_zone_tiles": {
+      "title": "Wet zone — waterproofing under ceramic tiles",
+      "explanation": "The floor is in a wet zone (bathroom, shower, laundry) and the covering will be ceramic tiles.",
+      "consequence": "Neither tiles with grout nor microcement are watertight — water passes into the substrate and the slab, destroying the screed and the rooms nearby.",
+      "mitigation": "Apply an under-tile waterproofing (liquid membrane / sealing slurry) in two coats over the whole wet-zone floor and the wall skirting, with sealing tape in corners, over joints and at the drain, per the system data sheet; lay the covering after the membrane has dried.",
+      "communication": "This is a wet zone, so under the covering we will apply waterproofing with tapes in the corners — it protects the floor and the neighbours from leaks."
+    },
+    "floor_wet_zone_large_tiles": {
+      "title": "Wet zone — waterproofing under large-format tiles",
+      "explanation": "The floor is in a wet zone (bathroom, shower, laundry) and the covering will be large-format tiles.",
+      "consequence": "Neither tiles with grout nor microcement are watertight — water passes into the substrate and the slab, destroying the screed and the rooms nearby.",
+      "mitigation": "Apply an under-tile waterproofing (liquid membrane / sealing slurry) in two coats over the whole wet-zone floor and the wall skirting, with sealing tape in corners, over joints and at the drain, per the system data sheet; lay the covering after the membrane has dried.",
+      "communication": "This is a wet zone, so under the covering we will apply waterproofing with tapes in the corners — it protects the floor and the neighbours from leaks."
+    },
+    "floor_wet_zone_microcement": {
+      "title": "Wet zone — waterproofing under microcement",
+      "explanation": "The floor is in a wet zone (bathroom, shower, laundry) and the covering will be microcement.",
+      "consequence": "Neither tiles with grout nor microcement are watertight — water passes into the substrate and the slab, destroying the screed and the rooms nearby.",
+      "mitigation": "Apply an under-tile waterproofing (liquid membrane / sealing slurry) in two coats over the whole wet-zone floor and the wall skirting, with sealing tape in corners, over joints and at the drain, per the system data sheet; lay the covering after the membrane has dried.",
+      "communication": "This is a wet zone, so under the covering we will apply waterproofing with tapes in the corners — it protects the floor and the neighbours from leaks."
+    },
+    "floor_wet_zone_laminate": {
+      "title": "Laminate panels in a wet zone",
+      "explanation": "A covering of laminate panels is planned in a wet zone (bathroom, shower, laundry).",
+      "consequence": "Water at the joints and edges causes swelling, deformation and mould; manufacturers usually exclude the warranty in wet zones unless the product is made for them.",
+      "mitigation": "Agree a water-resistant covering with the client (tiles, vinyl made for bathrooms) or a product whose sheet explicitly allows wet zones; if the client keeps the choice, record it in the protocol.",
+      "communication": "Laminate panels does not like water. In a bathroom we recommend a water-resistant covering — if you choose laminate panels, we will note that it is your decision, as the manufacturer usually gives no warranty for it."
+    },
+    "floor_wet_zone_wood": {
+      "title": "Parquet / wooden boards in a wet zone",
+      "explanation": "A covering of parquet / wooden boards is planned in a wet zone (bathroom, shower, laundry).",
+      "consequence": "Water at the joints and edges causes swelling, deformation and mould; manufacturers usually exclude the warranty in wet zones unless the product is made for them.",
+      "mitigation": "Agree a water-resistant covering with the client (tiles, vinyl made for bathrooms) or a product whose sheet explicitly allows wet zones; if the client keeps the choice, record it in the protocol.",
+      "communication": "Parquet / wooden boards does not like water. In a bathroom we recommend a water-resistant covering — if you choose parquet / wooden boards, we will note that it is your decision, as the manufacturer usually gives no warranty for it."
+    },
+    "floor_laminate_vapour": {
+      "title": "Laminate on a mineral substrate — vapour barrier and gap",
+      "explanation": "Laminate (a floating floor) is to lie on screed, concrete or tiles.",
+      "consequence": "Moisture from a mineral substrate passes into the laminate from below — it swells; without a gap at the walls the floor buckles.",
+      "mitigation": "Under the underlay lay a PE vapour barrier (usually at least 0.2 mm) with overlaps of about 15–20 cm taped and turned up the walls; leave an expansion gap at the walls per the manufacturer's instructions (usually 8–15 mm) and do not fill it.",
+      "communication": "Under the laminate we will lay a foil against moisture from the substrate and leave a gap at the walls (the skirting covers it) — the laminate manufacturer requires it."
+    },
+    "floor_microcement_prep": {
+      "title": "Microcement — substrate preparation per the system",
+      "explanation": "A microcement floor is planned.",
+      "consequence": "A thin microcement layer needs a strong, dry and stable substrate; without the system primer it may debond or crack.",
+      "mitigation": "Prepare the substrate per the system data sheet: clean it mechanically, check the pull-off strength (manufacturers usually require at least 1.0–1.5 N/mm²), apply an epoxy primer broadcast with quartz sand or the system primer; embed mesh / mat over cracks and doubtful substrates.",
+      "communication": "Microcement needs careful substrate preparation. We will check its strength and apply the system primer (resin with sand) so the floor does not crack or debond."
+    },
+    "floor_large_tiles_bed": {
+      "title": "Large-format tiles — full support",
+      "explanation": "Large-format tiles are planned on the floor.",
+      "consequence": "A large, rigid tile without full support cracks under a point load; voids under the tile are the most common defect.",
+      "mitigation": "Apply a deformable adhesive (at least C2 S1, S2 for the largest formats) by the combined method (on the substrate and the tile) with full coverage; use a levelling system and the tile manufacturer's instructions; substrate up to about 2 mm over 2 m.",
+      "communication": "Large tiles need full support. We will lay them on a deformable adhesive spread on the floor and on the tile, so no voids remain under them and they do not crack."
+    },
+    "floor_vinyl_smoothing": {
+      "title": "Glued vinyl — smooth substrate of levelling compound",
+      "explanation": "Glued vinyl / LVT is planned on the floor.",
+      "consequence": "A thin flexible covering mirrors every unevenness, crack and grain of the substrate; on a dusty or rough substrate the adhesive does not hold.",
+      "mitigation": "Prime the substrate and pour a thin layer of levelling compound (usually 2–3 mm) over the whole area per the adhesive data sheet; the substrate dry (cement screed usually up to 2 % CM), smooth and flat (usually up to 2 mm over 2 m).",
+      "communication": "Under glued vinyl the floor must be perfectly smooth. We will prime it and pour a thin levelling layer — otherwise every unevenness would show through the vinyl."
     }
   },
   "recommendations": {
@@ -1668,7 +1973,9 @@
       "old_tile_specific": "Old tiles",
       "old_tile_specific_desc": "Bond, glaze and number of layers",
       "wood_boards_specific": "Wooden boards",
-      "wood_boards_specific_desc": "Stiffness, the wood and the present coating"
+      "wood_boards_specific_desc": "Stiffness, the wood and the present coating",
+      "floor_target": "For which covering",
+      "floor_target_desc": "The covering, the wet zone and underfloor heating decide the substrate requirements"
     },
     "question": {
       "cracks_present": "Are there cracks?",
@@ -1698,7 +2005,11 @@
       "tiles_layers": "Number of tile layers",
       "boards_flex": "Do the boards flex or squeak?",
       "wood_decay": "Is there rot, fungus or insect damage?",
-      "boards_coating": "Present coating of the boards"
+      "boards_coating": "Present coating of the boards",
+      "planned_finish": "What covering will the floor get?",
+      "wet_zone": "Is it a wet zone (bathroom, shower, laundry)?",
+      "floor_moisture_suspected": "Are there signs of moisture but no measurement?",
+      "floor_weak_surface": "Is the surface layer weak?"
     },
     "hint": {
       "cracks_present": "Cracks and micro-cracks on the surface",
@@ -1719,7 +2030,12 @@
       "tiles_glazed": "Glaze and polished porcelain need a special primer or roughening",
       "tiles_layers": "Check at an edge or a threshold",
       "boards_flex": "Deflection, squeaking, loose boards or joists",
-      "wood_decay": "Rot, fungus, signs of woodworm — check by the walls and under the windows"
+      "wood_decay": "Rot, fungus, signs of woodworm — check by the walls and under the windows",
+      "planned_finish": "The covering sets the requirements: moisture, flatness, primer, waterproofing",
+      "wet_zone": "In a wet zone tiles and microcement need waterproofing underneath",
+      "floor_moisture_measured_v2": "Screed / concrete: CM (carbide) method, in %; boards: wood moisture meter, in %. Empty if not measured",
+      "floor_moisture_suspected": "Fresh screed, dark patches, condensation under foil left overnight",
+      "floor_weak_surface": "Scratches with a nail, crumbles, cement laitance"
     },
     "option": {
       "substrate_solid": "Solid",
@@ -1737,7 +2053,14 @@
       "tiles_two_layers": "Two layers",
       "coating_none": "Bare wood",
       "coating_varnish_oil": "Varnish or oil",
-      "coating_paint": "Paint"
+      "coating_paint": "Paint",
+      "finish_tiles": "Ceramic / porcelain tiles",
+      "finish_large_tiles": "Large-format tiles (side from about 100–120 cm)",
+      "finish_microcement": "Microcement",
+      "finish_laminate": "Laminate panels (floating)",
+      "finish_wood": "Parquet / wooden boards",
+      "finish_vinyl": "Glued vinyl / LVT, PVC, linoleum",
+      "finish_unknown": "Not decided yet"
     },
     "unit": {
       "mm": "mm",
@@ -1898,7 +2221,21 @@
       "gk_joint_q1": "Structural filling of plasterboard joints with tape (Q1)",
       "gk_joint_q2": "Filling of plasterboard joints — finishing layer (Q2)",
       "prep_conc": "Removal of fins and sanding of concrete joints",
-      "skim_level": "Levelling skim coat — correction of the plane"
+      "skim_level": "Levelling skim coat — correction of the plane",
+      "floor_cm": "Substrate moisture test, CM method (per test point)",
+      "floor_prim": "Floor substrate priming (penetrating / consolidating primer)",
+      "floor_prim_epoxy": "Epoxy primer broadcast with quartz sand (under microcement / on a damp substrate)",
+      "floor_contact": "Bonding primer on old tiles / non-absorbent substrates",
+      "floor_level": "Self-levelling compound (levelling the substrate up to about 10 mm)",
+      "floor_grind": "Screed grinding / milling (laitance, contamination, humps)",
+      "floor_crack": "Stitching screed cracks with resin and staples",
+      "floor_hollow": "Repair of debonded screed (cut out and refill / injection)",
+      "floor_joint": "Floor expansion joint (cut / edge strip and elastic filling)",
+      "floor_waterproof": "Under-tile floor waterproofing in a wet zone (2 coats, corner tapes)",
+      "floor_tile_remove": "Removing old floor tiles incl. disposal",
+      "floor_board_fix": "Screwing boards to the joists (stopping squeaks)",
+      "floor_osb": "Laying OSB / plywood over boards (stiffening under a covering)",
+      "floor_vapour": "PE vapour barrier under laminate (overlapped, taped)"
     }
   },
   "reveals": {

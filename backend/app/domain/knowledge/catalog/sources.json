@@ -130,5 +130,125 @@
     "designation": "artykuł branżowy",
     "url": "https://kb.pl/aktualnosci/budowa-domu/legary-drewniane-rodzaje-i-zastoswanie-_z/",
     "status": "DRAFT"
+  },
+  {
+    "code": "PSP.IT-1-1-2015",
+    "kind": "OTHER",
+    "title_pl": "Stowarzyszenie posadzkarzy — Informacja techniczna IT 1/1/2015: Wymagania dla podkładów (jastrychów) cementowych (aktualizacja 06/2023)",
+    "designation": "informacja techniczna stowarzyszenia branżowego",
+    "url": "https://www.posadzkarze.com.pl/files/Informacje_Techniczne_pdf/156918541/lib/IT_1_1_2015_Wymagania_dla_podk%C5%82adow_(jastrychow)_cementowych_zaktualizowana_06_2023.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "JANSER.POMIAR-CM",
+    "kind": "OTHER",
+    "title_pl": "Janser — pomiar wilgotności podkładu (jastrychu): metoda CM i dopuszczalne wartości",
+    "designation": "poradnik techniczny dostawcy narzędzi posadzkarskich",
+    "url": "https://janser.pl/porady-techniczne/pomiar-wilgotnosci-podkladu/",
+    "status": "DRAFT"
+  },
+  {
+    "code": "TDS.BARLINEK-HYBRYDA",
+    "kind": "OTHER",
+    "title_pl": "Barlinek — warunki użytkowania i pielęgnacji podłogi hybrydowej (wymagania dla podłoża)",
+    "designation": "wytyczne producenta podłóg",
+    "url": "https://www.barlinek.com.pl/wp-content/uploads/2025/02/warunki-uzytkowania-i-pielegnacji-podlogi-hybrydowej.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "TDS.QUICKSTEP-LAMINAT",
+    "kind": "OTHER",
+    "title_pl": "Quick-Step — instrukcja montażu podłogi laminowanej",
+    "designation": "instrukcja producenta",
+    "url": "https://api-bw.vox.pl/file/product/instruction/Instrukcja-monta%C5%BCu-Quick-Step-laminat---LMP.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "TDS.SWISSKRONO-PANELE",
+    "kind": "OTHER",
+    "title_pl": "SWISSKRONO — zasady montażu i użytkowania paneli podłogowych",
+    "designation": "instrukcja producenta",
+    "url": "https://static01.leroymerlin.pl/files/product/attachment/389/14389/SWISSKRONO_Zasady%20monta%C5%BCu%20i%20u%C5%BCytkowania%20paneli%20pod%C5%82ogowych%20oraz%20gwarancja.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "TDS.VITERRA-WINYL",
+    "kind": "OTHER",
+    "title_pl": "Viterra — instrukcja montażu podłóg winylowych",
+    "designation": "instrukcja producenta",
+    "url": "https://api-bw.vox.pl/file/product/instruction/2019.06.14-Viterra-Instrukcja-montazu-PL.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "SST.ST-2.6",
+    "kind": "OTHER",
+    "title_pl": "Specyfikacja techniczna wykonania i odbioru robót ST-2.6 (posadzki z płytek, podkłady) — Urząd Marszałkowski Województwa Małopolskiego",
+    "designation": "specyfikacja techniczna przetargowa",
+    "url": "https://bip.malopolska.pl/pobierz/420147.html",
+    "status": "DRAFT"
+  },
+  {
+    "code": "SST.PG-POSADZKI",
+    "kind": "OTHER",
+    "title_pl": "Szczegółowe specyfikacje techniczne — posadzki (Politechnika Gdańska, dokumentacja przetargowa)",
+    "designation": "specyfikacja techniczna przetargowa",
+    "url": "https://dzp.pg.edu.pl/data/005741216817039.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "TDS.PARADYZ-WIELKOFORMAT",
+    "kind": "OTHER",
+    "title_pl": "Ceramika Paradyż — instrukcja montażu płyt wielkoformatowych (21.04.2021)",
+    "designation": "instrukcja producenta",
+    "url": "https://www.paradyz.com/Pliki_do_pobrania/Instrukcje/Instrukcja-montazu-plyt-wielkoformatowych-21-04-2021.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "TDS.CERESIT-CL51",
+    "kind": "OTHER",
+    "title_pl": "Ceresit CL 51 — karta techniczna jednoskładnikowej folii uszczelniającej",
+    "designation": "karta techniczna",
+    "url": "https://datasheets.tdx.henkel.com/CERESIT-CL-51-pl_PL.pdf",
+    "status": "DRAFT"
+  },
+  {
+    "code": "CERESIT.PLYTKI-NA-PLYTKI",
+    "kind": "OTHER",
+    "title_pl": "Ceresit — klejenie nowych płytek na stare płytki (poradnik wykonawczy)",
+    "designation": "poradnik producenta",
+    "url": "https://www.ceresit.pl/pl/practices/tiling/nowe-p_ytki-na-stare-pytki.html",
+    "status": "DRAFT"
+  },
+  {
+    "code": "WEBER.MIKROCEMENT",
+    "kind": "OTHER",
+    "title_pl": "Weber — mikrocement na podłodze: jak wykonać posadzkę z mikrocementu",
+    "designation": "poradnik producenta",
+    "url": "https://www.pl.weber/systemy-podlogowe/posadzki-i-powloki-dekoracyjne/mikrocement-na-podlodze-jak-wykonac-posadzka-z-mikrocementu",
+    "status": "DRAFT"
+  },
+  {
+    "code": "IZOLACJE.MIKROCEMENT",
+    "kind": "OTHER",
+    "title_pl": "Izolacje.com.pl — kryteria odbiorowe posadzek z mikrocementu",
+    "designation": "artykuł branżowy",
+    "url": "https://www.izolacje.com.pl/artykul/posadzki-podlogi/287606,kryteria-odbiorowe-posadzek-z-mikrocementu",
+    "status": "DRAFT"
+  },
+  {
+    "code": "MURATOR.DYLATACJA",
+    "kind": "OTHER",
+    "title_pl": "Murator — dylatacja posadzki: jak zrobić szczeliny dylatacyjne",
+    "designation": "artykuł branżowy",
+    "url": "https://muratordom.pl/wnetrza/prace-wykonczeniowe/dylatacja-posadzki-jak-zrobic-szczeliny-dylatacyjne-aa-v6co-rcUg-imyQ.html",
+    "status": "DRAFT"
+  },
+  {
+    "code": "MURATOR.PARKIET-NA-PLYTKI",
+    "kind": "OTHER",
+    "title_pl": "Murator — wymiana parkietu na płytki gresowe: jak to prawidłowo zrobić (płyty OSB na deskach)",
+    "designation": "artykuł branżowy",
+    "url": "https://muratordom.pl/remont-domu/odnawianie-wnetrz/wymiana-parkietu-na-plytki-gresowe-jak-to-prawidlowo-zrobic-aa-WyX8-8G8Q-2Fh6.html",
+    "status": "DRAFT"
   }
 ]

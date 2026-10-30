@@ -87,13 +87,13 @@ def _utc(value: datetime) -> datetime:
 
 class TestCatalogSeed:
     def test_catalog_has_exactly_49_rows(self):
-        assert len(ITEMS) == 49
+        assert len(ITEMS) == 63
 
     def test_market_supported_count_is_28(self):
         assert len(MS_CODES) == 28
 
     def test_own_price_count_is_21(self):
-        assert len(OP_CODES) == 21  # 16 9E.5 + 5 Stage 13D (no market evidence)
+        assert len(OP_CODES) == 35  # 16 9E.5 + 5 Stage 13D + 14 floor works (no market evidence)
         assert len(MS_CODES) + len(OP_CODES) == len(ITEMS)
 
     def test_dropped_rows_absent(self):
@@ -170,9 +170,9 @@ class TestBootstrap:
     async def test_second_bootstrap_is_idempotent(self, db_session):
         owner = await _make_user(db_session, 7002)
         service, created = await _bootstrap(db_session, owner.id)
-        assert len(created) == 49
+        assert len(created) == 63
         assert await service.ensure_owner_catalog(owner.id) == []
-        assert len(await service.list_owner_items(owner.id)) == 49
+        assert len(await service.list_owner_items(owner.id)) == 63
 
     async def test_custom_items_untouched_by_bootstrap(self, db_session):
         owner = await _make_user(db_session, 7003)
@@ -235,10 +235,10 @@ class TestBootstrap:
         await db_session.commit()
 
         service, created = await _bootstrap(db_session, owner.id)
-        assert len(created) == 49  # canonical catalog added alongside the legacy rows
+        assert len(created) == 63  # canonical catalog added alongside the legacy rows
 
         active = await service.list_owner_items(owner.id)
-        assert len(active) == 49  # legacy rows are archived, not active
+        assert len(active) == 63  # legacy rows are archived, not active
         archived = await service.list_owner_items(owner.id, archived="archived")
         assert {i.code for i in archived} == set(LEGACY_GENERIC_CODES)
         for row in archived:
@@ -263,14 +263,14 @@ class TestBootstrap:
         service = PriceBookService(db_session)
         await service.ensure_owner_catalog(owner.id)
         await service.ensure_owner_catalog(owner.id)
-        assert len(await service.list_owner_items(owner.id)) == 49
+        assert len(await service.list_owner_items(owner.id)) == 63
         assert len(await service.list_owner_items(owner.id, archived="archived")) == 4
 
     async def test_fresh_owner_has_no_archived_rows(self, db_session):
         owner = await _make_user(db_session, 7007)
         service, _ = await _bootstrap(db_session, owner.id)
         assert await service.list_owner_items(owner.id, archived="archived") == []
-        assert len(await service.list_owner_items(owner.id)) == 49
+        assert len(await service.list_owner_items(owner.id)) == 63
 
 
 # ---------------------------------------------------------------------------
@@ -529,7 +529,7 @@ class TestOwnerIsolation:
         await service.ensure_owner_catalog(owner_b.id)
         a = await _own_items(service, owner_a.id)
         b = await _own_items(service, owner_b.id)
-        assert len(a) == len(b) == 49
+        assert len(a) == len(b) == 63
         assert {i.id for i in a.values()}.isdisjoint({i.id for i in b.values()})
 
     async def test_independent_evidence(self, db_session):

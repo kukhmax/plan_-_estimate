@@ -108,7 +108,7 @@ class TestPriceBookDefaults:
         user = await _user(db_session, 1304001)
         await PriceBookService(db_session).ensure_owner_catalog(user.id)
         items = await _items(db_session, user.id)
-        assert len(items) == 49
+        assert len(items) == 63
         codes = [s.code for s in build_approved_price_book_items()]
         for code, (category, unit, name_key) in NEW_ITEMS.items():
             assert codes.count(code) == 1
@@ -130,7 +130,8 @@ class TestPriceBookDefaults:
     async def test_existing_44_owner_gains_exactly_five_and_nothing_else_changes(self, db_session, monkeypatch):
         user = await _user(db_session, 1304003)
         uid = user.id  # objects expire on expire_all()
-        old_catalog = [s for s in build_approved_price_book_items() if s.code not in NEW_ITEMS]
+        # the 44-row catalogue before Stage 13D (and before the floor works of 2026-10-30, which are not part of this test)
+        old_catalog = [s for s in build_approved_price_book_items() if s.code not in NEW_ITEMS and not s.code.startswith("CENNIK_FLOOR_")]
         assert len(old_catalog) == 44
         monkeypatch.setattr(
             "app.domain.services.price_book_service.build_approved_price_book_items", lambda: old_catalog
@@ -146,10 +147,10 @@ class TestPriceBookDefaults:
 
         monkeypatch.undo()
         created = await service.ensure_owner_catalog(uid)
-        assert sorted(i.code for i in created) == sorted(NEW_ITEMS)
+        assert sorted(i.code for i in created if not i.code.startswith("CENNIK_FLOOR_")) == sorted(NEW_ITEMS)
         db_session.expire_all()
         after = await _items(db_session, uid)
-        assert len(after) == 49
+        assert len(after) == 63
         assert {c: (i.id, i.price, i.display_name, i.is_archived, i.name_key) for c, i in after.items() if c in before} == before
 
     async def test_repeated_bootstrap_does_not_duplicate_or_overwrite(self, db_session):
@@ -165,7 +166,7 @@ class TestPriceBookDefaults:
         assert await service.ensure_owner_catalog(uid) == []
         db_session.expire_all()
         items = await _items(db_session, uid)
-        assert len(items) == 49
+        assert len(items) == 63
         assert items["CENNIK_SKIM_ADD-01"].price == Decimal("12.50")
         assert items["CENNIK_SKIM_LEVEL-01"].is_archived is True
 
@@ -187,7 +188,7 @@ class TestWorkflowDefaults:
         templates = await _templates(db_session, user.id)
         assert sorted(templates) == sorted(EXPECTED)
         assert await _count(db_session, WorkflowTemplate, user.id) == 16
-        assert len(await _items(db_session, user.id)) == 49  # Price Book bootstrapped first
+        assert len(await _items(db_session, user.id)) == 63  # Price Book bootstrapped first
 
     async def test_recipe_content_matches_owner_specification(self, db_session):
         user, _ = await self._fresh(db_session, 1304102)

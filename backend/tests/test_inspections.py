@@ -161,7 +161,9 @@ class TestTemplateCatalog:
             "OLD_TILE",
             "WOOD_BOARDS",
         }
-        assert all(item["version"] == 1 for item in templates)
+        # walls and ceilings at version 1; the floor-only substrates at version 2 (the covering decides the floor limits, owner 2026-10-30)
+        assert {item["substrate"]: item["version"] for item in templates if item["substrate"] in ("SCREED", "OLD_TILE", "WOOD_BOARDS")} == {"SCREED": 2, "OLD_TILE": 2, "WOOD_BOARDS": 2}
+        assert all(item["version"] == 1 for item in templates if item["substrate"] not in ("SCREED", "OLD_TILE", "WOOD_BOARDS"))
         assert all(item["active"] is True for item in templates)
 
     async def test_bootstrap_is_idempotent(self, async_client: AsyncClient) -> None:

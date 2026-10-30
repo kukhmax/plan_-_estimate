@@ -1025,5 +1025,436 @@
     "substrates": [
       "WOOD_BOARDS"
     ]
+  },
+  {
+    "code": "TECH.FLOOR-CM",
+    "source": "JANSER.POMIAR-CM",
+    "locator": "pomiar wilgotności metodą CM",
+    "title_pl": "Pomiar wilgotności jastrychu metodą CM",
+    "title_ru": "Замер влажности стяжки CM-методом",
+    "summary_pl": "Wilgotność jastrychu przed ułożeniem okładziny mierzy się metodą CM (karbidową) na próbce pobranej z dolnej części jastrychu, w kilku punktach; mierniki elektroniczne są tylko orientacyjne. Źródło podaje za wytycznymi ITB: jastrych cementowy bez ogrzewania do 2 % CM (pod drewno, PVC, panele, linoleum, płytki), z ogrzewaniem podłogowym do 1,8 % CM dla wszystkich okładzin.",
+    "explanation_ru": "Влажность стяжки перед укладкой покрытия меряют CM-методом (карбидным) по пробе из нижней части стяжки, в нескольких точках; электронные влагомеры — только ориентир. Источник со ссылкой на ITB: цементная стяжка без подогрева — до 2 % CM (дерево, ПВХ, ламинат, линолеум, плитка), с тёплым полом — до 1,8 % CM для всех покрытий.",
+    "tags": [
+      "wilgotnosc",
+      "cm",
+      "jastrych",
+      "podloga"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-ITB",
+        "text": "Wartości przypisane ITB podane za poradnikiem dostawcy — sprawdzić z tekstem wytycznych ITB.",
+        "status": "OPEN"
+      }
+    ],
+    "substrates": [
+      "SCREED",
+      "CONCRETE"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-MOISTURE-PSP",
+    "source": "PSP.IT-1-1-2015",
+    "locator": "wilgotność podkładu cementowego",
+    "title_pl": "Wilgotność podkładu cementowego pod okładziny elastyczne",
+    "title_ru": "Влажность цементной стяжки под эластичные покрытия",
+    "summary_pl": "Podkład cementowy pod okładziny elastyczne (PVC, LVT, linoleum) powinien być suchy: wilgotność poniżej 2 % CM; podkład z ogrzewaniem podłogowym poniżej 1,8 % CM, mierzona po procesie wygrzewania.",
+    "explanation_ru": "Цементная стяжка под эластичные покрытия (ПВХ, LVT, линолеум) должна быть сухой: влажность ниже 2 % CM; стяжка с тёплым полом — ниже 1,8 % CM, замер после протокола прогрева.",
+    "tags": [
+      "wilgotnosc",
+      "cm",
+      "jastrych",
+      "winyl"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ],
+    "substrates": [
+      "SCREED"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-WOOD-SUBSTRATE",
+    "source": "TDS.BARLINEK-HYBRYDA",
+    "locator": "wymagania dla podłoża",
+    "title_pl": "Podłoże pod podłogę drewnianą / hybrydową: wilgotność i równość",
+    "title_ru": "Основание под деревянный / гибридный пол: влажность и ровность",
+    "summary_pl": "Producent podaje dla podłoża: beton / jastrych cementowy do 2 % CM (z ogrzewaniem 1,8 %), anhydryt do 0,5 % CM (z ogrzewaniem 0,3 %), podłoże drewniane i płyty drewnopochodne do 12 % wilgotności; pomiar metodą CM lub wagowo-suszarkową. Nierówności do 3 mm na długości 2 m (lub 2 mm na 1 m).",
+    "explanation_ru": "Производитель указывает для основания: бетон / цементная стяжка до 2 % CM (с подогревом 1,8 %), ангидрит до 0,5 % CM (с подогревом 0,3 %), деревянное основание и древесные плиты — до 12 % влажности; замер CM или весовым методом. Неровности до 3 мм на 2 м (или 2 мм на 1 м).",
+    "tags": [
+      "wilgotnosc",
+      "rownosc",
+      "drewno",
+      "podloga"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ],
+    "substrates": [
+      "SCREED",
+      "CONCRETE",
+      "WOOD_BOARDS"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-LAMINATE",
+    "source": "TDS.QUICKSTEP-LAMINAT",
+    "locator": "przygotowanie podłoża",
+    "title_pl": "Panele laminowane: równość, wilgotność i szczelina dylatacyjna",
+    "title_ru": "Ламинат: ровность, влажность и компенсационный зазор",
+    "summary_pl": "Nierówności podłoża ponad 2 mm na 1 m oraz ponad 1 mm na 20 cm trzeba usunąć. Wilgotność: jastrych cementowy poniżej 2,5 % CM, anhydrytowy poniżej 0,5 % CM. Przy ścianach zostawia się szczelinę dylatacyjną (zwykle 8–10 mm), której nie wypełnia się masą.",
+    "explanation_ru": "Неровности основания больше 2 мм на 1 м и больше 1 мм на 20 см нужно устранить. Влажность: цементная стяжка ниже 2,5 % CM, ангидритовая ниже 0,5 % CM. У стен оставляют компенсационный зазор (обычно 8–10 мм) и не заполняют его.",
+    "tags": [
+      "panele",
+      "rownosc",
+      "wilgotnosc",
+      "dylatacje"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-ROZNICE",
+        "text": "Inni producenci paneli podają 2,0 % CM i 2–3 mm/1 m — rozstrzyga instrukcja wybranego produktu.",
+        "status": "OPEN"
+      }
+    ],
+    "substrates": [
+      "SCREED",
+      "CONCRETE",
+      "OLD_TILE"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-LAMINATE-PE",
+    "source": "TDS.SWISSKRONO-PANELE",
+    "locator": "podłoże mineralne",
+    "title_pl": "Panele: folia paroizolacyjna na podłożu mineralnym",
+    "title_ru": "Ламинат: пароизоляционная плёнка на минеральном основании",
+    "summary_pl": "Na podłożu mineralnym pod panele układa się atestowaną folię paroizolacyjną PE o grubości min. 0,2 mm na zakład (ok. 15 cm), sklejoną taśmą odporną na wilgoć. Nierówności podłoża nie mogą przekraczać 2 mm na 1 mb.",
+    "explanation_ru": "На минеральном основании под ламинат укладывают пароизоляционную плёнку PE толщиной не менее 0,2 мм внахлёст (~15 см), проклеенную влагостойкой лентой. Неровности основания — не более 2 мм на 1 м.",
+    "tags": [
+      "panele",
+      "paroizolacja",
+      "podloga"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ],
+    "substrates": [
+      "SCREED",
+      "CONCRETE",
+      "OLD_TILE"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-VINYL",
+    "source": "TDS.VITERRA-WINYL",
+    "locator": "przygotowanie podłoża",
+    "title_pl": "Winyl: wymagania dla podłoża",
+    "title_ru": "Винил: требования к основанию",
+    "summary_pl": "Podłoże pod podłogę winylową musi być równe (dopuszczalna płaskość maks. 2 mm na odcinku 1 m), suche, czyste i nośne; nierówności usuwa się szlifowaniem lub masą wyrównującą uzgodnioną z dostawcą kleju. Producenci podają wilgotność jastrychu cementowego zwykle 2–2,5 % CM, anhydrytowego 0,5 % CM.",
+    "explanation_ru": "Основание под виниловый пол должно быть ровным (не более 2 мм на 1 м), сухим, чистым и прочным; неровности убирают шлифовкой или выравнивающей смесью, согласованной с поставщиком клея. Влажность цементной стяжки у производителей обычно 2–2,5 % CM, ангидритовой — 0,5 % CM.",
+    "tags": [
+      "winyl",
+      "rownosc",
+      "masa-wyrownujaca"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ],
+    "substrates": [
+      "SCREED",
+      "CONCRETE"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-TILES-FLATNESS",
+    "source": "SST.ST-2.6",
+    "locator": "podkład pod płytki — równość",
+    "title_pl": "Podkład pod płytki: równość i poziom",
+    "title_ru": "Основание под плитку: ровность и уровень",
+    "summary_pl": "Specyfikacja wymaga, by łata 2 m przyłożona do podkładu pod płytki nie wykazywała prześwitu większego niż 5 mm, a odchylenie od pionu, poziomu lub ustalonych spadków nie przekraczało 5 mm. Poradniki i karty klejów cienkowarstwowych podają zwykle ostrzej: 2–3 mm na 2 m dla pomieszczeń mieszkalnych.",
+    "explanation_ru": "Спецификация требует, чтобы под 2-метровым правилом на основании под плитку просвет был не больше 5 мм, а отклонение от вертикали, горизонтали или уклона — не больше 5 мм. Руководства и карты тонкослойных клеев обычно строже: 2–3 мм на 2 м для жилых помещений.",
+    "tags": [
+      "plytki",
+      "rownosc",
+      "podloga"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-PROG",
+        "text": "W aplikacji przyjęto 3 mm/2 m dla płytek układanych cienkowarstwowo i 5 mm/2 m, gdy okładzina nie jest znana — do decyzji właściciela.",
+        "status": "OPEN"
+      }
+    ],
+    "substrates": [
+      "SCREED",
+      "CONCRETE"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-LEVEL",
+    "source": "SST.PG-POSADZKI",
+    "locator": "dopuszczalne odchylenia posadzek",
+    "title_pl": "Posadzka: odchylenia od płaszczyzny i poziomu",
+    "title_ru": "Пол: отклонения от плоскости и уровня",
+    "summary_pl": "Dopuszczalne odchylenie posadzki od płaszczyzny nie powinno przekraczać 2 mm na łacie 2 m, a od poziomu — 5 mm na całej długości lub szerokości posadzki.",
+    "explanation_ru": "Допустимое отклонение пола от плоскости — не более 2 мм на 2-метровом правиле, от горизонтали — не более 5 мм по всей длине или ширине помещения.",
+    "tags": [
+      "rownosc",
+      "poziom",
+      "podloga"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-LARGE-TILES",
+    "source": "TDS.PARADYZ-WIELKOFORMAT",
+    "locator": "przygotowanie podłoża i klejenie",
+    "title_pl": "Płyty wielkoformatowe: podłoże i klejenie",
+    "title_ru": "Крупноформатная плитка: основание и приклеивание",
+    "summary_pl": "Płyty wielkoformatowe wymagają bardzo równego, nośnego podłoża i pełnego podparcia: klej odkształcalny (C2 S1, dla największych formatów S2) nakłada się metodą kombinowaną — na podłoże i na płytę — tak, by nie zostały pustki. Poradniki podają równość podłoża zwykle do 2 mm na 2 m.",
+    "explanation_ru": "Крупноформатная плитка требует очень ровного прочного основания и полного опирания: деформируемый клей (C2 S1, для самых больших форматов S2) наносят комбинированным методом — на основание и на плиту, — чтобы не осталось пустот. Ровность основания в руководствах — обычно до 2 мм на 2 м.",
+    "tags": [
+      "plytki",
+      "wielkoformatowe",
+      "klej"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-2MM",
+        "text": "Wartość 2 mm/2 m pochodzi z poradników (wyniki wyszukiwania), nie z karty — sprawdzić w instrukcji producenta płytek.",
+        "status": "OPEN"
+      }
+    ],
+    "substrates": [
+      "SCREED",
+      "CONCRETE"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-WATERPROOF",
+    "source": "TDS.CERESIT-CL51",
+    "locator": "zastosowanie i wykonanie",
+    "title_pl": "Hydroizolacja podpłytkowa w strefie mokrej",
+    "title_ru": "Гидроизоляция под плитку в мокрой зоне",
+    "summary_pl": "Folię uszczelniającą nakłada się w dwóch warstwach; w narożnikach, na styku ściany z podłogą, na dylatacjach i przy przejściach rur wtapia się w pierwszą świeżą warstwę taśmę uszczelniającą i przykrywa drugą. Wg karty wyrób nie jest przeznaczony m.in. na stare płytki ceramiczne i podłoża stale zanurzone — wtedy stosuje się masę przewidzianą przez producenta do takich podłoży.",
+    "explanation_ru": "Гидроизоляционную плёнку наносят в два слоя; в углах, на стыке стены и пола, на швах и вокруг труб в первый свежий слой утапливают герметизирующую ленту и перекрывают вторым. По карте продукт не предназначен, в частности, для старой плитки и постоянно погружённых оснований — тогда применяют массу, допущенную производителем для таких оснований.",
+    "tags": [
+      "hydroizolacja",
+      "lazienka",
+      "plytki"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-STREFA",
+        "text": "Zakres strefy mokrej (cała podłoga, cokół ściany min. 10–15 cm, strefa prysznica) — z poradników; sprawdzić w wytycznych producenta systemu.",
+        "status": "OPEN"
+      }
+    ],
+    "works": [
+      "TILE"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-TILE-ON-TILE",
+    "source": "CERESIT.PLYTKI-NA-PLYTKI",
+    "locator": "przygotowanie starych płytek",
+    "title_pl": "Nowe płytki na starych płytkach",
+    "title_ru": "Новая плитка на старую",
+    "summary_pl": "Stare płytki muszą być nośne — opukuje się je, a luźne usuwa i uzupełnia ubytki. Powierzchnię dokładnie myje się i odtłuszcza, gruntuje preparatem sczepnym do podłoży nienasiąkliwych (także fugi) i układa płytki na klej o podwyższonej przyczepności i odkształcalności (zwykle C2, S1).",
+    "explanation_ru": "Старая плитка должна быть прочной: её простукивают, слабую снимают и заделывают выбоины. Поверхность тщательно моют и обезжиривают, грунтуют адгезионным составом для невпитывающих оснований (включая швы) и кладут плитку на клей повышенной адгезии и деформативности (обычно C2, S1).",
+    "tags": [
+      "plytki",
+      "grunt-sczepny",
+      "remont"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ],
+    "substrates": [
+      "OLD_TILE"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-MICROCEMENT",
+    "source": "WEBER.MIKROCEMENT",
+    "locator": "przygotowanie podłoża",
+    "title_pl": "Mikrocement na podłodze: przygotowanie podłoża",
+    "title_ru": "Микроцемент на полу: подготовка основания",
+    "summary_pl": "Podłoże oczyszcza się mechanicznie, gruntuje żywicą epoksydową i przesypuje z nadmiarem suchym piaskiem kwarcowym (0,1–0,5 mm). Jastrych powinien mieć wytrzymałość na odrywanie min. 1,5 N/mm². Pęknięcia naprawia się laminatem z maty szklanej i żywicy epoksydowej. Ogrzewanie podłogowe wyłącza się ok. 48 h przed pracami.",
+    "explanation_ru": "Основание механически очищают, грунтуют эпоксидной смолой и с избытком присыпают сухим кварцевым песком (0,1–0,5 мм). Прочность стяжки на отрыв — не менее 1,5 Н/мм². Трещины ремонтируют ламинатом из стекломата и эпоксидной смолы. Тёплый пол выключают примерно за 48 часов до работ.",
+    "tags": [
+      "mikrocement",
+      "grunt-epoksydowy",
+      "odrywanie"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ],
+    "substrates": [
+      "SCREED",
+      "CONCRETE",
+      "OLD_TILE"
+    ],
+    "works": [
+      "MICROCEMENT"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-MICROCEMENT-ODBIOR",
+    "source": "IZOLACJE.MIKROCEMENT",
+    "locator": "kryteria podłoża",
+    "title_pl": "Mikrocement: wymagania dla podłoża w kryteriach odbioru",
+    "title_ru": "Микроцемент: требования к основанию",
+    "summary_pl": "Zalecane podkłady pod posadzki dekoracyjne co najmniej klasy C25; nierówności pod łatą 2 m nie powinny przekraczać 3 mm. Karty systemów podają dopuszczalną wilgotność jastrychu cementowego zwykle 3–4,5 %, anhydrytowego 0,5 %, oraz wytrzymałość na odrywanie min. 1,0–1,5 N/mm².",
+    "explanation_ru": "Стяжки под декоративные полы — рекомендуемо не ниже C25; неровности под 2-метровым правилом не больше 3 мм. Карты систем указывают допустимую влажность цементной стяжки обычно 3–4,5 %, ангидритовой 0,5 %, и прочность на отрыв не ниже 1,0–1,5 Н/мм².",
+    "tags": [
+      "mikrocement",
+      "rownosc",
+      "wilgotnosc"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-WILG",
+        "text": "Aplikacja stosuje ogólny próg 2,0 % CM także pod mikrocement (ostrzej niż część kart systemów) — właściciel może go złagodzić dla konkretnego systemu.",
+        "status": "OPEN"
+      }
+    ],
+    "substrates": [
+      "SCREED",
+      "CONCRETE"
+    ],
+    "works": [
+      "MICROCEMENT"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-EXPANSION",
+    "source": "MURATOR.DYLATACJA",
+    "locator": "dylatacje obwodowe i pola",
+    "title_pl": "Dylatacje jastrychu i posadzki",
+    "title_ru": "Деформационные швы стяжки и пола",
+    "summary_pl": "Przy ścianach i słupach wykonuje się dylatację obwodową (taśma brzegowa, zwykle ok. 1 cm). Jastrych dzieli się na pola: dla jastrychów betonowych zwykle do ok. 30 m², cementowych do ok. 40 m²; dylatacje wykonuje się też w przejściach drzwiowych i w pomieszczeniach o nieregularnym kształcie (np. L). Przy ogrzewaniu podłogowym dylatacje są konieczne przy powierzchni ponad 40 m² lub boku ponad 8 m; dylatacje jastrychu przenosi się w okładzinę i wypełnia materiałem trwale elastycznym.",
+    "explanation_ru": "У стен и колонн делают периметральный шов (демпферная лента, обычно ~1 см). Стяжку делят на поля: для бетонных обычно до ~30 м², цементных до ~40 м²; швы делают и в дверных проёмах, и в помещениях сложной формы (например, Г-образных). При тёплом поле швы обязательны при площади больше 40 м² или стороне больше 8 м; швы стяжки переносят в покрытие и заполняют постоянно эластичным материалом.",
+    "tags": [
+      "dylatacje",
+      "jastrych",
+      "ogrzewanie-podlogowe"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      },
+      {
+        "ref": "L-ROZNE",
+        "text": "Progi 30/40 m² i 7–8 m różnią się między źródłami — dopisać kartę jastrychu / projekt ogrzewania.",
+        "status": "OPEN"
+      }
+    ],
+    "substrates": [
+      "SCREED",
+      "CONCRETE"
+    ]
+  },
+  {
+    "code": "TECH.FLOOR-BOARDS-OSB",
+    "source": "MURATOR.PARKIET-NA-PLYTKI",
+    "locator": "przygotowanie podłoża z desek",
+    "title_pl": "Deski pod płytki: usztywnienie płytami",
+    "title_ru": "Доски под плитку: усиление плитами",
+    "summary_pl": "Obluzowane deski przykręca się do legarów wkrętami, wygiętych nie dociska się, tylko szlifuje lub struga. Na sztywnych deskach układa się płyty OSB/3 grubości ok. 18 mm, na mniej sztywnym podłożu grubsze (ok. 25 mm); przed klejeniem płytek płyty przeciera się papierem ściernym i odpyla.",
+    "explanation_ru": "Расшатанные доски притягивают саморезами к лагам, выгнутые не прижимают, а шлифуют или строгают. На жёсткие доски кладут OSB/3 толщиной ~18 мм, на менее жёсткое основание — толще (~25 мм); перед приклеиванием плитки плиты зашкуривают и обеспыливают.",
+    "tags": [
+      "deski",
+      "osb",
+      "plytki"
+    ],
+    "status": "DRAFT",
+    "review_notes": [
+      {
+        "ref": "UNVERIFIED",
+        "status": "OPEN",
+        "text": "Treść przygotowana przez AI na podstawie wyników wyszukiwania (strona źródła nie została otwarta, bez dostępu do pełnych tekstów norm i kart): sprawdzić z aktualną kartą techniczną użytego wyrobu / tekstem normy i zatwierdzić."
+      }
+    ],
+    "substrates": [
+      "WOOD_BOARDS"
+    ]
   }
 ]

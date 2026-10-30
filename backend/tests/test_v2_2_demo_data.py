@@ -55,7 +55,7 @@ async def _price_of(db, owner_id, code):
 
 def test_every_row_has_a_demo_price_the_minimum_of_its_window_or_an_invented_one():
     prices = demo_prices()
-    assert set(prices) == {seed.code for seed in build_approved_price_book_items()} and len(prices) == 49
+    assert set(prices) == {seed.code for seed in build_approved_price_book_items()} and len(prices) == 63
     assert all(price > 0 and price == price.quantize(Decimal("0.01")) for price in prices.values())
     references = build_approved_market_references()
     assert prices["CENNIK_SKIM_2L-01"] == Decimal("35.00")  # the window 35-75: its minimum, not the reference 55
@@ -63,7 +63,7 @@ def test_every_row_has_a_demo_price_the_minimum_of_its_window_or_an_invented_one
     assert prices["CENNIK_PREP_PROT-01"] == Decimal("3.00")  # no window: invented
     for code, reference in references.items():
         assert prices[code] == Decimal(reference.market_min).quantize(Decimal("0.01"))
-    assert set(INVENTED_PRICES) == {seed.code for seed in build_approved_price_book_items()} - set(references) and len(INVENTED_PRICES) == 21
+    assert set(INVENTED_PRICES) == {seed.code for seed in build_approved_price_book_items()} - set(references) and len(INVENTED_PRICES) == 35
 
 
 # --- seed ----------------------------------------------------------------------------------------------------------------------------------
@@ -72,7 +72,7 @@ def test_every_row_has_a_demo_price_the_minimum_of_its_window_or_an_invented_one
 async def test_seed_makes_the_client_the_object_the_rooms_with_walls_and_the_prices(db_session):
     owner = await _owner(db_session)
     result = await _service(db_session).seed(owner.id)
-    assert result.created_objects and result.rooms == 5 and result.priced_items == 49
+    assert result.created_objects and result.rooms == 5 and result.priced_items == 63
 
     project = (await db_session.execute(select(Project).where(Project.owner_id == owner.id))).scalar_one()
     assert project.name == DEMO_PROJECT_NAME and project.client_id is not None
@@ -114,7 +114,7 @@ async def test_a_price_the_owner_has_set_is_never_overwritten(db_session):
     item.price = Decimal("99.00")
     await db_session.commit()
     result = await _service(db_session).seed(owner.id)
-    assert result.priced_items == 48
+    assert result.priced_items == 62
     assert await _price_of(db_session, owner.id, "CENNIK_SKIM_2L-01") == Decimal("99.00")
 
 
@@ -140,7 +140,7 @@ async def test_remove_takes_the_demo_away_and_nothing_else(db_session):
     await _service(db_session).seed(owner.id)
 
     result = await _service(db_session).remove(owner.id)
-    assert result.removed_project and result.removed_client and result.client_kept_reason is None and result.prices_reset == 48
+    assert result.removed_project and result.removed_client and result.client_kept_reason is None and result.prices_reset == 62
     assert [p.id for p in (await db_session.execute(select(Project).where(Project.owner_id == owner.id))).scalars()] == [real.id]
     assert await _count(db_session, Client, Client.owner_user_id == owner.id) == 0
     assert await _count(db_session, Room, Room.project_id.not_in(select(Project.id))) == 0
@@ -181,7 +181,7 @@ async def test_status_counts_the_demo_prices(db_session):
     assert (await _service(db_session).status(owner.id)).rooms == 0
     await _service(db_session).seed(owner.id)
     status = await _service(db_session).status(owner.id)
-    assert status.project_id and status.client_id and status.rooms == 5 and status.demo_priced_items == 49
+    assert status.project_id and status.client_id and status.rooms == 5 and status.demo_priced_items == 63
 
 
 # --- the command line ----------------------------------------------------------------------------------------------------------------------
@@ -199,13 +199,13 @@ async def test_the_command_line_seeds_shows_and_removes(db_session, monkeypatch)
         return code, out.getvalue()
 
     code, text = await run("seed", "--email", "Jan@Example.pl")
-    assert code == 0 and "created (5 rooms made)" in text and "prices set: 49" in text
+    assert code == 0 and "created (5 rooms made)" in text and "prices set: 63" in text
     code, text = await run("seed", "--email", "jan@example.pl")
     assert code == 0 and "already there" in text and "prices set: 0" in text
     code, text = await run("status", "--telegram-id", str(owner.telegram_user_id))
-    assert code == 0 and "rooms: 5" in text and "prices equal to the demo values: 49" in text
+    assert code == 0 and "rooms: 5" in text and "prices equal to the demo values: 63" in text
     code, text = await run("remove", "--email", "jan@example.pl")
-    assert code == 0 and "demo object removed: True" in text and "prices reset: 49" in text
+    assert code == 0 and "demo object removed: True" in text and "prices reset: 63" in text
 
 
 async def test_the_command_line_refuses_an_unknown_account(db_session, monkeypatch):
@@ -241,7 +241,7 @@ async def test_the_demo_is_written_as_ciphertext_found_again_and_removed(db_sess
     assert status.project_id and status.client_id and status.rooms == 5
 
     removed = await _service(db_session).remove(owner.id)
-    assert removed.removed_project and removed.removed_client and removed.prices_reset == 49
+    assert removed.removed_project and removed.removed_client and removed.prices_reset == 63
     assert await _count(db_session, Project, Project.owner_id == owner.id) == 0
 
 

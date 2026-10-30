@@ -234,9 +234,13 @@ class TestProjectSummary:
 
 class TestRecommendationTargetCompatibility:
     def test_every_baseline_work_is_declared_and_none_is_a_floor_work(self):
+        # the wall / ceiling works never go to a floor; the floor works (2026-10-30, `CENNIK_FLOOR_*`) go to a floor only
         for rule in build_baseline_work_recommendation_rules():
             allowed = RECOMMENDED_WORK_TARGET_KINDS[rule.recommended_work_code]
-            assert {K.WALL, K.CEILING} <= allowed and K.FLOOR not in allowed
+            if rule.recommended_work_code.startswith("CENNIK_FLOOR_"):
+                assert allowed == {K.FLOOR}
+            else:
+                assert {K.WALL, K.CEILING} <= allowed and K.FLOOR not in allowed
 
     def test_undeclared_code_never_reaches_floor(self):
         assert recommended_work_allows_target("SOMETHING_NEW", K.WALL)

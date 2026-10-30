@@ -74,7 +74,7 @@ FRONTEND_PL = Path(__file__).resolve().parents[2] / "frontend" / "src" / "locale
 
 def test_every_built_in_risk_has_its_client_texts_and_nothing_else_is_there():
     keys = {f"risk.{rule.code.lower()}.{part}" for rule in build_baseline_risk_rules() for part in ("title", "explanation", "consequence", "communication")}
-    assert len(keys) == 60 and set(risk_texts()) == keys
+    assert len(keys) == 220 and set(risk_texts()) == keys
 
 
 def test_the_risk_texts_are_the_ones_the_app_shows():

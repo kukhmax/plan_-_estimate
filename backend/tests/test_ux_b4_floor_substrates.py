@@ -38,7 +38,8 @@ def test_the_walls_substrates_keep_their_scales():
 
 
 def test_each_floor_substrate_has_a_checklist_with_the_common_floor_checks_and_its_own():
-    templates = {t.substrate: t for t in build_baseline_templates()}
+    # version 1 (UX walk B4); version 2 is checked in test_floor_rules_v2.py
+    templates = {t.substrate: t for t in build_baseline_templates() if t.version == 1}
     common = {"floor_moisture_measured", "floor_moisture_high", "cracks_present", "expansion_joints_missing", "floor_flatness_mm",
               "floor_level_deviation_mm", "substrate_condition", "notes"}
     own = {Substrate.SCREED: {"screed_type", "underfloor_heating", "screed_hollow", "screed_weak_surface"},
@@ -56,9 +57,9 @@ def test_the_floor_findings_reuse_the_keys_the_risk_engine_knows():
     from app.domain.data.risk_rules import build_baseline_risk_rules
 
     known = {c.finding_key for r in build_baseline_risk_rules() for c in r.conditions if c.finding_key}
-    used = {q.finding_key for t in build_baseline_templates() if t.substrate in FLOOR for s in t.sections for q in s.questions if q.finding_key}
+    used = {q.finding_key for t in build_baseline_templates() if t.substrate in FLOOR and t.version == 1 for s in t.sections for q in s.questions if q.finding_key}
     assert {"CRACK", "HIGH_MOISTURE", "UNEVENNESS", "DELAMINATION", "WEAK_ADHESION"} <= known & used
-    assert used - known == {"EXPANSION_JOINT_MISSING", "FLOOR_LEVEL_DEVIATION", "BOARDS_FLEX", "WOOD_DECAY"}  # facts only: no risk rule yet
+    assert used - known == set()  # the floor-only facts of version 1 have floor rules now (2026-10-30)
 
 
 # --- through the API ----------------------------------------------------------------------------------------------------------------
@@ -71,7 +72,8 @@ async def test_the_catalogue_serves_the_floor_checklists(async_client: AsyncClie
         assert listed.status_code == 200 and listed.json()["total"] == 1, listed.text
         template = (await async_client.get(f"/api/checklist-templates/{listed.json()['items'][0]['id']}", headers=auth_header(token))).json()
         assert template["substrate"] == substrate.value
-        assert [s["key"] for s in template["sections"]][0] == "floor_conditions"
+        assert template["version"] == 2  # a new inspection starts from version 2 (owner 2026-10-30)
+        assert [s["key"] for s in template["sections"]][:2] == ["floor_target", "floor_conditions"]
 
 
 async def test_a_screed_inspection_records_the_floor_facts_and_the_known_risk_fires(async_client: AsyncClient):
@@ -90,9 +92,12 @@ async def test_a_screed_inspection_records_the_floor_facts_and_the_known_risk_fi
     findings = (await async_client.get(
         f"/api/projects/{project['id']}/rooms/{room['id']}/inspections/{inspection['id']}/findings", headers=auth_header(token))).json()
     keys = {f["finding_key"] for f in findings["items"]}
-    assert keys == {"HIGH_MOISTURE", "EXPANSION_JOINT_MISSING", "FLOOR_LEVEL_DEVIATION", "UNEVENNESS", "DELAMINATION"}
+    # version 2: floor-only findings, the measured numbers included, and the floor risks (never the wall ones)
+    assert keys == {"FLOOR_MOISTURE_CM", "FLOOR_MOISTURE_SUSPECTED", "EXPANSION_JOINT_MISSING", "FLOOR_LEVEL_DEVIATION", "FLOOR_FLATNESS_MM",
+                    "FLOOR_SCREED_HOLLOW"}
     risks = await _evaluate_risks(async_client, token, project, room, inspection)
-    assert {r["rule_code"] for r in risks["items"]} >= {"MOISTURE_BLOCK_FINISHING", "UNEVENNESS_PREP_INCREASED", "DELAMINATION_REPAIR"}
+    assert {r["rule_code"] for r in risks["items"]} == {"FLOOR_MOISTURE_CEMENT", "FLOOR_MOISTURE_SUSPECTED", "FLOOR_EXPANSION_JOINTS",
+                                                         "FLOOR_LEVEL_OUT", "FLOOR_SCREED_HOLLOW"}
 
 
 async def test_an_inspection_with_a_quality_target_on_a_floor_substrate_is_refused(async_client: AsyncClient):
@@ -230,7 +235,7 @@ async def test_a_floor_on_concrete_old_paint_or_other_gets_the_floor_checklist_a
         assert only["total"] == 1 and only["items"][0]["code"] == f"floor-{substrate.lower()}"
         template = (await async_client.get(f"/api/checklist-templates/{only['items'][0]['id']}", headers=auth_header(token))).json()
         keys = {q["key"] for s in template["sections"] for q in s["questions"]}
-        assert [s["key"] for s in template["sections"]] == ["floor_conditions"]
+        assert [s["key"] for s in template["sections"]] == ["floor_target", "floor_conditions"]  # version 2 (2026-10-30)
         assert {"floor_moisture_measured", "expansion_joints_missing", "floor_flatness_mm", "floor_level_deviation_mm"} <= keys
         assert "oil_paint_present" not in keys and "efflorescence" not in keys  # nothing of the wall list
 

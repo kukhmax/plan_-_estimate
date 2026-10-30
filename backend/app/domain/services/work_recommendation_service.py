@@ -369,9 +369,9 @@ class WorkRecommendationService:
         active_risks = list(
             (
                 await self.db.execute(
-                    select(Risk).where(
-                        Risk.room_id == room_id, Risk.is_active.is_(True)
-                    )
+                    select(Risk)
+                    .where(Risk.room_id == room_id, Risk.is_active.is_(True))
+                    .order_by(Risk.inspection_id, Risk.position, Risk.rule_code)
                 )
             ).scalars().all()
         )
@@ -404,6 +404,10 @@ class WorkRecommendationService:
             }
 
         desired_by_identity: dict[Identity, _Desired] = {}
+        # Several floor risks may name the same work (e.g. flatness for the covering and the vinyl preparation both level the floor,
+        # owner 2026-10-30): one inspection gets each work once, from its first risk, so the owner never accepts the same work twice.
+        # The walls' works are unique per risk, so this changes nothing for them.
+        recommended_works: set[tuple[uuid.UUID, str]] = set()
 
         for risk in active_risks:
             inspection = inspections_by_id.get(risk.inspection_id)
@@ -418,6 +422,9 @@ class WorkRecommendationService:
             ):
                 if not recommended_work_allows_target(rule.recommended_work_code, target_kind):
                     continue  # 13F-PRE: e.g. a wall/ceiling work is never a FLOOR recommendation
+                if (inspection.id, rule.recommended_work_code) in recommended_works:
+                    continue
+                recommended_works.add((inspection.id, rule.recommended_work_code))
                 desired = _Desired(
                     inspection_id=inspection.id,
                     trigger_type=WorkRecommendationTriggerType.RISK_RULE,

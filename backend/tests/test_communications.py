@@ -337,7 +337,7 @@ class TestCommunicationReferenceData:
         await _evaluate_communications(async_client, token, project, room, inspection)
 
         rules = [rule for rule in build_baseline_risk_rules() if rule.version == 1]
-        assert len(rules) == 15
+        assert len(rules) == 55  # 15 of walls and ceilings + 40 of the floor (2026-10-30)
         for rule in rules:
             expected_key = risk_phrase_key(rule.code)
             phrase = (

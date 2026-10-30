@@ -210,4 +210,8 @@ def build_baseline_risk_rules() -> list[RiskRuleData]:
             ),
         ),
     ]
+    # the rules of a floor read floor-only findings (owner 2026-10-30): `floor_rules.py`
+    from app.domain.data.floor_rules import build_floor_rules
+
+    rules.extend(floor.rule for floor in build_floor_rules())
     return rules

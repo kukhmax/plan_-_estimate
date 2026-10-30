@@ -103,7 +103,7 @@ def html_of(doc):
 
 def test_every_seeded_price_item_has_a_polish_name_and_nothing_else_is_there():
     seed_keys = {item.name_key for item in build_approved_price_book_items()}
-    assert len(seed_keys) == 49
+    assert len(seed_keys) == 63
     assert set(price_names()) == seed_keys
 
 

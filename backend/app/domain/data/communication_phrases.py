@@ -192,4 +192,8 @@ def build_baseline_communication_phrases() -> list[CommunicationPhraseData]:
         _quality(Substrate.GYPSUM_BOARD, QualityLevel.Q4),
         _quality(Substrate.PAINTED, QualityLevel.S2),
     ]
+    # one phrase for the client per floor risk (owner 2026-10-30), in the category its rule names
+    from app.domain.data.floor_rules import build_floor_rules
+
+    phrases.extend(_risk(floor.rule.code, floor.category) for floor in build_floor_rules())
     return phrases

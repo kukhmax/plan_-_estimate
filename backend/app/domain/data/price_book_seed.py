@@ -106,8 +106,9 @@ def _item(
 
 
 def build_approved_price_book_items() -> list[PriceItemSeed]:
-    """Return the owner-approved 49-row catalog (28 MS / 21 OWN_PRICE):
-    the 44-row 9E.5 catalog plus the five Stage 13D atomic rows.
+    """Return the 63-row catalog (28 MS / 35 OWN_PRICE): the owner-approved
+    44-row 9E.5 catalog, the five Stage 13D atomic rows and the 14 floor works
+    (2026-10-30, OWN_PRICE, no market evidence).
 
     Every row seeds with ``price=None``; category/unit/scope come from the
     catalog §16.3 as amended by the 9E.5 decisions (§17.1–17.3). Quality is
@@ -252,6 +253,22 @@ def build_approved_price_book_items() -> list[PriceItemSeed]:
         _item("CENNIK_PREP_CONC-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.prep_conc"),
         # Geometry/plane correction: seeded, never part of a default workflow.
         _item("CENNIK_SKIM_LEVEL-01", PriceCategory.SKIM_COAT, PriceUnit.M2, "pricebook.seed.skim_level"),
+        # ---- Floor works (14, OWN_PRICE, owner 2026-10-30: "works for the floor differ from walls and ceilings") ----
+        # The works a floor risk recommends (`floor_rules.py`); no price and no market evidence yet: the owner sets them.
+        _item("CENNIK_FLOOR_CM-01", PriceCategory.PREPARATION, PriceUnit.PCS, "pricebook.seed.floor_cm"),
+        _item("CENNIK_FLOOR_PRIM-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.floor_prim", price_scope=PriceScope.LABOR_AND_MATERIAL),
+        _item("CENNIK_FLOOR_PRIM_EPOXY-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.floor_prim_epoxy", price_scope=PriceScope.LABOR_AND_MATERIAL),
+        _item("CENNIK_FLOOR_CONTACT-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.floor_contact", price_scope=PriceScope.LABOR_AND_MATERIAL),
+        _item("CENNIK_FLOOR_LEVEL-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.floor_level"),
+        _item("CENNIK_FLOOR_GRIND-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.floor_grind"),
+        _item("CENNIK_FLOOR_CRACK-01", PriceCategory.PREPARATION, PriceUnit.LM, "pricebook.seed.floor_crack", price_scope=PriceScope.LABOR_AND_MATERIAL),
+        _item("CENNIK_FLOOR_HOLLOW-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.floor_hollow"),
+        _item("CENNIK_FLOOR_JOINT-01", PriceCategory.PREPARATION, PriceUnit.LM, "pricebook.seed.floor_joint"),
+        _item("CENNIK_FLOOR_WATERPROOF-01", PriceCategory.TILE, PriceUnit.M2, "pricebook.seed.floor_waterproof", price_scope=PriceScope.LABOR_AND_MATERIAL),
+        _item("CENNIK_FLOOR_TILE_REMOVE-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.floor_tile_remove"),
+        _item("CENNIK_FLOOR_BOARD_FIX-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.floor_board_fix"),
+        _item("CENNIK_FLOOR_OSB-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.floor_osb"),
+        _item("CENNIK_FLOOR_VAPOUR-01", PriceCategory.PREPARATION, PriceUnit.M2, "pricebook.seed.floor_vapour"),
     ]
 
 

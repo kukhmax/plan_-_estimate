@@ -56,6 +56,21 @@ INVENTED_PRICES: dict[str, str] = {
     "CENNIK_GK_JOINT_Q2-01": "12",
     "CENNIK_PREP_CONC-01": "12",
     "CENNIK_SKIM_LEVEL-01": "20",
+    # the floor works (2026-10-30): invented round demo values, like the rows above
+    "CENNIK_FLOOR_CM-01": "50",
+    "CENNIK_FLOOR_PRIM-01": "5",
+    "CENNIK_FLOOR_PRIM_EPOXY-01": "35",
+    "CENNIK_FLOOR_CONTACT-01": "8",
+    "CENNIK_FLOOR_LEVEL-01": "25",
+    "CENNIK_FLOOR_GRIND-01": "15",
+    "CENNIK_FLOOR_CRACK-01": "30",
+    "CENNIK_FLOOR_HOLLOW-01": "60",
+    "CENNIK_FLOOR_JOINT-01": "15",
+    "CENNIK_FLOOR_WATERPROOF-01": "30",
+    "CENNIK_FLOOR_TILE_REMOVE-01": "25",
+    "CENNIK_FLOOR_BOARD_FIX-01": "15",
+    "CENNIK_FLOOR_OSB-01": "45",
+    "CENNIK_FLOOR_VAPOUR-01": "3",
 }
 
 

@@ -41,6 +41,13 @@ APPROVED_MAPPINGS = {
     "UNEVENNESS_PREP_INCREASED": "CENNIK_SKIM_LOCAL-01",
     "CRACK_RECURRENCE": "CENNIK_SKIM_CRACK-01",
 }
+# the floor (owner 2026-10-30): each floor risk recommends the floor works its rule names (`floor_rules.py`)
+from app.domain.data.floor_rules import build_floor_rules  # noqa: E402
+
+FLOOR_MAPPINGS = {
+    (WorkRecommendationTriggerType.RISK_RULE, floor.rule.code, work) for floor in build_floor_rules() for work in floor.works
+}
+EXPECTED = {(WorkRecommendationTriggerType.RISK_RULE, code, work) for code, work in APPROVED_MAPPINGS.items()} | FLOOR_MAPPINGS
 
 
 async def _make_user(db, telegram_id: int) -> User:
@@ -76,11 +83,7 @@ class TestBaselineCatalogData:
             (entry.trigger_type, entry.trigger_code, entry.recommended_work_code)
             for entry in entries
         }
-        expected = {
-            (WorkRecommendationTriggerType.RISK_RULE, code, work_code)
-            for code, work_code in APPROVED_MAPPINGS.items()
-        }
-        assert actual == expected
+        assert actual == EXPECTED
 
     def test_all_entries_are_risk_rule_triggered_not_finding(self):
         entries = build_baseline_work_recommendation_rules()
@@ -114,7 +117,8 @@ class TestBaselineCatalogData:
             assert entry.recommended_work_code in catalog_codes
 
     def test_no_two_baseline_entries_recommend_the_same_work_code(self):
-        entries = build_baseline_work_recommendation_rules()
+        # the walls: one work per risk; the floor may name one work from several risks (evaluation gives it once per inspection)
+        entries = [e for e in build_baseline_work_recommendation_rules() if not e.trigger_code.startswith("FLOOR_")]
         codes = [entry.recommended_work_code for entry in entries]
         assert len(codes) == len(set(codes))
 
@@ -134,11 +138,7 @@ class TestBaselineCatalogBootstrap:
             await db_session.execute(select(WorkRecommendationRule))
         ).scalars().all()
         actual = {(row.trigger_type, row.trigger_code, row.recommended_work_code) for row in rows}
-        expected = {
-            (WorkRecommendationTriggerType.RISK_RULE, code, work_code)
-            for code, work_code in APPROVED_MAPPINGS.items()
-        }
-        assert actual == expected
+        assert actual == EXPECTED
         assert all(row.active is True for row in rows)
         # Keep unused fixtures referenced (room/project exist for future
         # room-scoped bootstrap variants without unused-arg lint noise).
@@ -153,7 +153,7 @@ class TestBaselineCatalogBootstrap:
         rows = (
             await db_session.execute(select(WorkRecommendationRule))
         ).scalars().all()
-        assert len(rows) == len(APPROVED_MAPPINGS)
+        assert len(rows) == len(EXPECTED)
 
     async def test_bootstrap_never_duplicates_a_preexisting_row(self, db_session):
         """A rule already present (e.g. from a prior process run) is left
@@ -192,7 +192,7 @@ class TestBaselineCatalogBootstrap:
         rows = (
             await db_session.execute(select(WorkRecommendationRule))
         ).scalars().all()
-        assert len(rows) == len(APPROVED_MAPPINGS)
+        assert len(rows) == len(EXPECTED)
 
     async def test_list_recommendations_triggers_bootstrap(self, db_session):
         user = await _make_user(db_session, 411003)
@@ -205,7 +205,7 @@ class TestBaselineCatalogBootstrap:
         rows = (
             await db_session.execute(select(WorkRecommendationRule))
         ).scalars().all()
-        assert len(rows) == len(APPROVED_MAPPINGS)
+        assert len(rows) == len(EXPECTED)
 
 
 class TestBaselineCatalogIntegration:

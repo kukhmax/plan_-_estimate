@@ -57,6 +57,10 @@ RECOMMENDED_WORK_TARGET_KINDS: dict[str, frozenset[WorkRecommendationTargetKind]
     "CENNIK_SKIM_LOCAL-01": _WALL_CEILING,
     "CENNIK_SKIM_CRACK-01": _WALL_CEILING,
 }
+# The floor works of the catalogue (owner 2026-10-30) are recommended for a floor only.
+from app.domain.data.floor_rules import FLOOR_WORK_CODES, build_floor_rules  # noqa: E402
+
+RECOMMENDED_WORK_TARGET_KINDS.update({code: frozenset({_T.FLOOR}) for code in FLOOR_WORK_CODES})
 
 
 def recommended_work_allows_target(
@@ -112,4 +116,13 @@ def build_baseline_work_recommendation_rules() -> list[WorkRecommendationRuleDat
             trigger_code="CRACK_RECURRENCE",
             recommended_work_code="CENNIK_SKIM_CRACK-01",
         ),
+    ] + [
+        # a floor risk recommends the floor works its rule names (owner 2026-10-30)
+        WorkRecommendationRuleData(
+            trigger_type=WorkRecommendationTriggerType.RISK_RULE,
+            trigger_code=floor.rule.code,
+            recommended_work_code=work,
+        )
+        for floor in build_floor_rules()
+        for work in floor.works
     ]

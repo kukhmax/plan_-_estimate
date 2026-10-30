@@ -46,9 +46,9 @@ async def test_the_real_catalogue_is_served_as_it_is_in_the_files(async_client):
 
     headers = auth_header(await get_token(async_client, VALID_USER))
     meta = (await async_client.get("/api/knowledge/meta", headers=headers)).json()
-    assert meta["entries"] == 39 and meta["sources"] == 17 and meta["situations"] == 8
+    assert meta["entries"] == 54 and meta["sources"] == 32 and meta["situations"] == 8
     entries = (await async_client.get("/api/knowledge/entries", params={"limit": 200}, headers=headers)).json()
-    assert entries["total"] == 39 and all(item["status"] == "DRAFT" for item in entries["items"])
+    assert entries["total"] == 54 and all(item["status"] == "DRAFT" for item in entries["items"])
     found = (await async_client.get("/api/knowledge/entries", params={"q": "rekoj"}, headers=headers)).json()
     assert {"KC.556", "KC.558", "KC.638"} <= {item["code"] for item in found["items"]}  # letters without marks, the start of a word
     card = (await async_client.get("/api/knowledge/entries/KC.640", headers=headers)).json()
@@ -63,4 +63,4 @@ async def test_the_real_catalogue_is_served_as_it_is_in_the_files(async_client):
     one = (await async_client.get("/api/knowledge/situations/SIT.MOISTURE_HIGH", headers=headers)).json()
     assert one["start"] == "method" and {o["id"] for o in one["outcomes"]} == {"electronic", "ok", "drying", "source"}
     index = (await async_client.get("/api/knowledge/links/index", headers=headers)).json()["items"]
-    assert len(index) == 51 and all(row["entries"] for row in index)
+    assert len(index) == 131 and all(row["entries"] for row in index)

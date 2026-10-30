@@ -1339,7 +1339,32 @@
       "fastener_corrosion": "Korozja łączników",
       "joint_gap": "Szczeliny na łączeniach",
       "efflorescence": "Wykwity",
-      "blow_holes": "Raki / pęcherze"
+      "blow_holes": "Raki / pęcherze",
+      "floor_moisture_cm": "Wilgotność (pomiar)",
+      "floor_moisture_suspected": "Oznaki wilgoci bez pomiaru",
+      "floor_crack": "Rysy w podłodze",
+      "expansion_joint_missing": "Brak dylatacji",
+      "floor_flatness_mm": "Nierówność pod łatą 2 m",
+      "floor_level_deviation": "Odchylenie od poziomu",
+      "floor_surface_weak": "Słaba warstwa wierzchnia",
+      "floor_surface_loose": "Luźne fragmenty",
+      "floor_surface_dusty": "Pylące podłoże",
+      "floor_surface_oily": "Zabrudzenia olejem / klejem",
+      "floor_screed_anhydrite": "Jastrych anhydrytowy",
+      "floor_screed_hollow": "Głuchy odgłos jastrychu",
+      "floor_heating": "Ogrzewanie podłogowe",
+      "floor_wet_zone": "Strefa mokra",
+      "floor_finish_tiles": "Okładzina: płytki",
+      "floor_finish_large_tiles": "Okładzina: płytki wielkoformatowe",
+      "floor_finish_microcement": "Okładzina: mikrocement",
+      "floor_finish_laminate": "Okładzina: panele laminowane",
+      "floor_finish_wood": "Okładzina: parkiet / deska",
+      "floor_finish_vinyl": "Okładzina: winyl / LVT",
+      "floor_tiles_hollow": "Odspojone stare płytki",
+      "floor_tiles_glazed": "Szkliwione stare płytki",
+      "floor_tiles_two_layers": "Dwie warstwy płytek",
+      "boards_flex": "Deski uginają się",
+      "wood_decay": "Grzyb / szkodniki drewna"
     },
     "crack_recurrence": {
       "title": "Pęknięcia podłoża",
@@ -1445,6 +1470,286 @@
       "consequence": "Raki mogą być widoczne pod nowymi powłokami, zwłaszcza malarskimi.",
       "mitigation": "Wypełnij raki gładzią i przeszlifuj przed malowaniem.",
       "communication": "Drobne raki zostaną wypełnione przed malowaniem, aby powierzchnia była gładka."
+    },
+    "floor_moisture_cement": {
+      "title": "Za wysoka wilgotność jastrychu (cementowy / beton)",
+      "explanation": "Zmierzona wilgotność metodą CM przekracza 2,0 % — wartość, której zwykle wymagają producenci okładzin dla podłoża cementowy / beton.",
+      "consequence": "Okładzina na zbyt wilgotnym podłożu odspaja się, klej nie wiąże, panele i drewno pęcznieją, na płytkach i fugach pojawiają się wykwity i przebarwienia.",
+      "mitigation": "Wstrzymaj układanie okładziny. Podłoże musi wyschnąć (wietrzenie, ogrzewanie wg protokołu wygrzewania); potem powtórz pomiar CM w kilku punktach. Rozstrzyga karta techniczna wybranej okładziny i kleju.",
+      "communication": "Podłoga jest jeszcze za wilgotna — pomiar wykazał więcej niż dopuszcza producent okładziny. Układanie wstrzymujemy do wyschnięcia i ponownego pomiaru, żeby podłoga nie odspoiła się ani nie spuchła."
+    },
+    "floor_moisture_cement_heated": {
+      "title": "Za wysoka wilgotność jastrychu (cementowy / beton z ogrzewaniem podłogowym)",
+      "explanation": "Zmierzona wilgotność metodą CM przekracza 1,8 % — wartość, której zwykle wymagają producenci okładzin dla podłoża cementowy / beton z ogrzewaniem podłogowym.",
+      "consequence": "Okładzina na zbyt wilgotnym podłożu odspaja się, klej nie wiąże, panele i drewno pęcznieją, na płytkach i fugach pojawiają się wykwity i przebarwienia.",
+      "mitigation": "Wstrzymaj układanie okładziny. Podłoże musi wyschnąć (wietrzenie, ogrzewanie wg protokołu wygrzewania); potem powtórz pomiar CM w kilku punktach. Rozstrzyga karta techniczna wybranej okładziny i kleju.",
+      "communication": "Podłoga jest jeszcze za wilgotna — pomiar wykazał więcej niż dopuszcza producent okładziny. Układanie wstrzymujemy do wyschnięcia i ponownego pomiaru, żeby podłoga nie odspoiła się ani nie spuchła."
+    },
+    "floor_moisture_anhydrite": {
+      "title": "Za wysoka wilgotność jastrychu (anhydrytowy)",
+      "explanation": "Zmierzona wilgotność metodą CM przekracza 0,5 % — wartość, której zwykle wymagają producenci okładzin dla podłoża anhydrytowy.",
+      "consequence": "Okładzina na zbyt wilgotnym podłożu odspaja się, klej nie wiąże, panele i drewno pęcznieją, na płytkach i fugach pojawiają się wykwity i przebarwienia.",
+      "mitigation": "Wstrzymaj układanie okładziny. Podłoże musi wyschnąć (wietrzenie, ogrzewanie wg protokołu wygrzewania); potem powtórz pomiar CM w kilku punktach. Rozstrzyga karta techniczna wybranej okładziny i kleju.",
+      "communication": "Podłoga jest jeszcze za wilgotna — pomiar wykazał więcej niż dopuszcza producent okładziny. Układanie wstrzymujemy do wyschnięcia i ponownego pomiaru, żeby podłoga nie odspoiła się ani nie spuchła."
+    },
+    "floor_moisture_anhydrite_heated": {
+      "title": "Za wysoka wilgotność jastrychu (anhydrytowy z ogrzewaniem podłogowym)",
+      "explanation": "Zmierzona wilgotność metodą CM przekracza 0,3 % — wartość, której zwykle wymagają producenci okładzin dla podłoża anhydrytowy z ogrzewaniem podłogowym.",
+      "consequence": "Okładzina na zbyt wilgotnym podłożu odspaja się, klej nie wiąże, panele i drewno pęcznieją, na płytkach i fugach pojawiają się wykwity i przebarwienia.",
+      "mitigation": "Wstrzymaj układanie okładziny. Podłoże musi wyschnąć (wietrzenie, ogrzewanie wg protokołu wygrzewania); potem powtórz pomiar CM w kilku punktach. Rozstrzyga karta techniczna wybranej okładziny i kleju.",
+      "communication": "Podłoga jest jeszcze za wilgotna — pomiar wykazał więcej niż dopuszcza producent okładziny. Układanie wstrzymujemy do wyschnięcia i ponownego pomiaru, żeby podłoga nie odspoiła się ani nie spuchła."
+    },
+    "floor_moisture_suspected": {
+      "title": "Podejrzenie zawilgocenia podłoża — brak pomiaru CM",
+      "explanation": "Są oznaki wilgoci (świeży jastrych, ciemne plamy, skropliny pod folią), a wilgotność nie została zmierzona metodą CM.",
+      "consequence": "Bez pomiaru nie wiadomo, czy podłoże spełnia wymagania okładziny; ułożenie na wilgotnym podłożu grozi odspojeniem, pęcznieniem i pleśnią.",
+      "mitigation": "Wykonaj pomiar wilgotności metodą CM (karbidową) w kilku punktach, na pełnej grubości jastrychu, i porównaj z kartą okładziny. Do tego czasu nie układaj okładziny.",
+      "communication": "Podłoga wygląda na wilgotną. Zanim położymy okładzinę, zmierzymy jej wilgotność metodą CM — to krótki pomiar, który chroni przed odklejeniem i pęcznieniem podłogi."
+    },
+    "floor_wood_moisture": {
+      "title": "Za wysoka wilgotność podłoża drewnianego",
+      "explanation": "Zmierzona wilgotność desek / płyt drewnopochodnych przekracza 12 % — wartość, którą producenci podłóg podają jako górną granicę dla podłoża drewnianego.",
+      "consequence": "Wilgotne drewno pracuje i może gnić; nowa podłoga na nim pęcznieje, skrzypi i odkształca się.",
+      "mitigation": "Wstrzymaj prace. Ustal przyczynę wilgoci (wentylacja pod podłogą, przecieki, grunt), wysusz podłoże i powtórz pomiar wilgotnościomierzem do drewna.",
+      "communication": "Deski pod nową podłogą są za wilgotne. Najpierw usuniemy przyczynę wilgoci i poczekamy, aż drewno wyschnie — inaczej nowa podłoga spuchnie lub zacznie skrzypieć."
+    },
+    "floor_flatness_tiles": {
+      "title": "Podłoże zbyt nierówne pod: płytki ceramiczne",
+      "explanation": "Prześwit pod łatą 2 m przekracza 3 mm — dopuszczalną nierówność podłoża, którą zwykle podają producenci dla okładziny: płytki ceramiczne.",
+      "consequence": "Na nierównym podłożu okładzina nie przylega całą powierzchnią: pod płytkami zostają pustki i płytki pękają, panele uginają się i rozchodzą na zamkach, cienkie warstwy (mikrocement, winyl) odwzorowują nierówności.",
+      "mitigation": "Wyrównaj podłoże przed układaniem: zeszlifuj garby, ubytki i zagłębienia wypełnij masą naprawczą albo wylej masę samopoziomującą (po gruntowaniu). Sprawdź ponownie łatą 2 m.",
+      "communication": "Podłoga ma większe nierówności, niż dopuszcza producent okładziny (płytki ceramiczne). Przed układaniem ją wyrównamy — to dodatkowy etap, ale bez niego okładzina może pękać lub się ruszać."
+    },
+    "floor_flatness_large_tiles": {
+      "title": "Podłoże zbyt nierówne pod: płytki wielkoformatowe",
+      "explanation": "Prześwit pod łatą 2 m przekracza 2 mm — dopuszczalną nierówność podłoża, którą zwykle podają producenci dla okładziny: płytki wielkoformatowe.",
+      "consequence": "Na nierównym podłożu okładzina nie przylega całą powierzchnią: pod płytkami zostają pustki i płytki pękają, panele uginają się i rozchodzą na zamkach, cienkie warstwy (mikrocement, winyl) odwzorowują nierówności.",
+      "mitigation": "Wyrównaj podłoże przed układaniem: zeszlifuj garby, ubytki i zagłębienia wypełnij masą naprawczą albo wylej masę samopoziomującą (po gruntowaniu). Sprawdź ponownie łatą 2 m.",
+      "communication": "Podłoga ma większe nierówności, niż dopuszcza producent okładziny (płytki wielkoformatowe). Przed układaniem ją wyrównamy — to dodatkowy etap, ale bez niego okładzina może pękać lub się ruszać."
+    },
+    "floor_flatness_microcement": {
+      "title": "Podłoże zbyt nierówne pod: mikrocement",
+      "explanation": "Prześwit pod łatą 2 m przekracza 3 mm — dopuszczalną nierówność podłoża, którą zwykle podają producenci dla okładziny: mikrocement.",
+      "consequence": "Na nierównym podłożu okładzina nie przylega całą powierzchnią: pod płytkami zostają pustki i płytki pękają, panele uginają się i rozchodzą na zamkach, cienkie warstwy (mikrocement, winyl) odwzorowują nierówności.",
+      "mitigation": "Wyrównaj podłoże przed układaniem: zeszlifuj garby, ubytki i zagłębienia wypełnij masą naprawczą albo wylej masę samopoziomującą (po gruntowaniu). Sprawdź ponownie łatą 2 m.",
+      "communication": "Podłoga ma większe nierówności, niż dopuszcza producent okładziny (mikrocement). Przed układaniem ją wyrównamy — to dodatkowy etap, ale bez niego okładzina może pękać lub się ruszać."
+    },
+    "floor_flatness_laminate": {
+      "title": "Podłoże zbyt nierówne pod: panele laminowane",
+      "explanation": "Prześwit pod łatą 2 m przekracza 3 mm — dopuszczalną nierówność podłoża, którą zwykle podają producenci dla okładziny: panele laminowane.",
+      "consequence": "Na nierównym podłożu okładzina nie przylega całą powierzchnią: pod płytkami zostają pustki i płytki pękają, panele uginają się i rozchodzą na zamkach, cienkie warstwy (mikrocement, winyl) odwzorowują nierówności.",
+      "mitigation": "Wyrównaj podłoże przed układaniem: zeszlifuj garby, ubytki i zagłębienia wypełnij masą naprawczą albo wylej masę samopoziomującą (po gruntowaniu). Sprawdź ponownie łatą 2 m.",
+      "communication": "Podłoga ma większe nierówności, niż dopuszcza producent okładziny (panele laminowane). Przed układaniem ją wyrównamy — to dodatkowy etap, ale bez niego okładzina może pękać lub się ruszać."
+    },
+    "floor_flatness_wood": {
+      "title": "Podłoże zbyt nierówne pod: parkiet / deska drewniana",
+      "explanation": "Prześwit pod łatą 2 m przekracza 3 mm — dopuszczalną nierówność podłoża, którą zwykle podają producenci dla okładziny: parkiet / deska drewniana.",
+      "consequence": "Na nierównym podłożu okładzina nie przylega całą powierzchnią: pod płytkami zostają pustki i płytki pękają, panele uginają się i rozchodzą na zamkach, cienkie warstwy (mikrocement, winyl) odwzorowują nierówności.",
+      "mitigation": "Wyrównaj podłoże przed układaniem: zeszlifuj garby, ubytki i zagłębienia wypełnij masą naprawczą albo wylej masę samopoziomującą (po gruntowaniu). Sprawdź ponownie łatą 2 m.",
+      "communication": "Podłoga ma większe nierówności, niż dopuszcza producent okładziny (parkiet / deska drewniana). Przed układaniem ją wyrównamy — to dodatkowy etap, ale bez niego okładzina może pękać lub się ruszać."
+    },
+    "floor_flatness_vinyl": {
+      "title": "Podłoże zbyt nierówne pod: winyl / LVT klejony",
+      "explanation": "Prześwit pod łatą 2 m przekracza 2 mm — dopuszczalną nierówność podłoża, którą zwykle podają producenci dla okładziny: winyl / LVT klejony.",
+      "consequence": "Na nierównym podłożu okładzina nie przylega całą powierzchnią: pod płytkami zostają pustki i płytki pękają, panele uginają się i rozchodzą na zamkach, cienkie warstwy (mikrocement, winyl) odwzorowują nierówności.",
+      "mitigation": "Wyrównaj podłoże przed układaniem: zeszlifuj garby, ubytki i zagłębienia wypełnij masą naprawczą albo wylej masę samopoziomującą (po gruntowaniu). Sprawdź ponownie łatą 2 m.",
+      "communication": "Podłoga ma większe nierówności, niż dopuszcza producent okładziny (winyl / LVT klejony). Przed układaniem ją wyrównamy — to dodatkowy etap, ale bez niego okładzina może pękać lub się ruszać."
+    },
+    "floor_flatness_general": {
+      "title": "Duże nierówności podłoża",
+      "explanation": "Prześwit pod łatą 2 m przekracza 5 mm — więcej niż dopuszczają wytyczne dla podkładu podłogowego, a okładzina nie została jeszcze wybrana.",
+      "consequence": "Pod żadną typową okładziną takie podłoże nie zostanie bez wyrównania; wymagany zakres prac zależy od wybranej okładziny (płytki, panele i drewno do ok. 3 mm, płytki wielkoformatowe i winyl do ok. 2 mm na 2 m).",
+      "mitigation": "Ustal z klientem okładzinę, a podłoże przed nią wyrównaj (szlifowanie, masa samopoziomująca lub nowa warstwa jastrychu).",
+      "communication": "Podłoga jest wyraźnie nierówna. Zanim położymy jakąkolwiek okładzinę, trzeba ją wyrównać; zakres zależy od tego, co wybierzecie (płytki, panele, drewno, winyl)."
+    },
+    "floor_level_out": {
+      "title": "Podłoga odbiega od poziomu",
+      "explanation": "Odchylenie od poziomu na długości lub szerokości pomieszczenia przekracza 5 mm.",
+      "consequence": "Spadek widać przy progach, drzwiach i meblach na wymiar; pod płytkami i panelami może być potrzebna gruba warstwa wyrównująca, a różnice poziomów między pomieszczeniami rosną.",
+      "mitigation": "Ustal z klientem docelowy poziom (progi, drzwi, odpływ liniowy) i wyrównaj podłoże masą samopoziomującą lub nowym jastrychem; zaplanuj grubość warstwy.",
+      "communication": "Podłoga nie jest w poziomie — różnica przekracza 5 mm. Ustalimy wspólnie docelowy poziom (progi, drzwi) i podłogę wyrównamy, żeby meble i drzwi pasowały."
+    },
+    "floor_crack_repair": {
+      "title": "Rysy w jastrychu",
+      "explanation": "W podłożu podłogi występują rysy lub pęknięcia.",
+      "consequence": "Nienaprawiona rysa przenosi się na okładzinę: pękają płytki i fugi, odspaja się klej; przy ruchu jastrychu rysa się poszerza.",
+      "mitigation": "Ustal, czy rysa pracuje. Rysy skurczowe zszyj żywicą z klamrami (spinkami) w poprzek rysy; rysy konstrukcyjne lub pracujące — konsultacja z konstruktorem, dylatacja przeniesiona do okładziny.",
+      "communication": "W podłodze są rysy. Przed ułożeniem okładziny zszyjemy je żywicą, żeby nie przeszły na płytki ani fugi."
+    },
+    "floor_crack_microcement": {
+      "title": "Rysy w podłożu pod mikrocement",
+      "explanation": "W podłożu, na którym ma powstać posadzka z mikrocementu, występują rysy.",
+      "consequence": "Mikrocement to cienka, sztywna warstwa — odwzorowuje każdą rysę podłoża, a naprawa po wykonaniu jest widoczna.",
+      "mitigation": "Rysy zszyj żywicą epoksydową z klamrami i wzmocnij podłoże zgodnie z systemem mikrocementu (laminat z maty szklanej lub siatki na żywicy). Rysy pracujące wykluczają mikrocement bez dylatacji.",
+      "communication": "Pod mikrocementem każda rysa podłoża będzie widoczna. Przed wykonaniem posadzki naprawimy i wzmocnimy podłoże zgodnie z systemem producenta."
+    },
+    "floor_screed_hollow": {
+      "title": "Głuchy odgłos — odspojony jastrych",
+      "explanation": "Przy opukiwaniu jastrych w części powierzchni brzmi głucho: warstwa nie jest związana z podłożem lub jest spękana wewnątrz.",
+      "consequence": "Odspojony fragment ugina się i pęka pod obciążeniem; okładzina na nim pęka lub odpada.",
+      "mitigation": "Wyznacz obszar opukiwaniem. Odspojony fragment wytnij i uzupełnij zaprawą naprawczą albo zespól z podłożem iniekcją żywicy (wg karty systemu). Dopiero potem układaj okładzinę.",
+      "communication": "Część jastrychu jest odspojona (brzmi głucho). Ten fragment naprawimy przed układaniem, bo inaczej okładzina na nim popęka."
+    },
+    "floor_surface_weak": {
+      "title": "Słaba warstwa wierzchnia (mleczko cementowe)",
+      "explanation": "Wierzchnia warstwa podłoża jest słaba: rysuje się gwoździem, kruszy lub ma mleczko cementowe.",
+      "consequence": "Klej do płytek, parkietu lub winylu i warstwy mikrocementu trzymają się tylko tej słabej warstwy — okładzina odspaja się razem z nią.",
+      "mitigation": "Zeszlifuj (sfrezuj) słabą warstwę do nośnego podłoża, odkurz i zagruntuj gruntem wzmacniającym; przy klejonych okładzinach i mikrocemencie sprawdź wytrzymałość na odrywanie wg karty systemu.",
+      "communication": "Wierzchnia warstwa podłogi jest słaba. Zeszlifujemy ją i zagruntujemy, żeby klej i nowa okładzina trzymały się mocnego podłoża."
+    },
+    "floor_surface_loose": {
+      "title": "Luźne, odspajające się fragmenty podłoża",
+      "explanation": "Na podłodze są luźne lub odspajające się fragmenty (stare wylewki, resztki kleju, odpryski).",
+      "consequence": "Okładzina ułożona na luźnych fragmentach odspaja się razem z nimi.",
+      "mitigation": "Usuń mechanicznie wszystkie luźne fragmenty i resztki starych klejów, ubytki uzupełnij zaprawą naprawczą, odkurz i zagruntuj.",
+      "communication": "Na podłodze są luźne fragmenty. Usuniemy je i uzupełnimy ubytki, żeby nowa okładzina miała stabilne podłoże."
+    },
+    "floor_surface_dusty": {
+      "title": "Pylące podłoże",
+      "explanation": "Powierzchnia podłogi pyli — kurz zostaje na dłoni.",
+      "consequence": "Pył osłabia przyczepność kleju, masy samopoziomującej i gruntu.",
+      "mitigation": "Odkurz podłoże odkurzaczem przemysłowym i zagruntuj gruntem właściwym dla następnej warstwy (wg karty kleju / masy).",
+      "communication": "Podłoga pyli. Odkurzymy ją i zagruntujemy, żeby kolejne warstwy dobrze się trzymały."
+    },
+    "floor_surface_oily": {
+      "title": "Zabrudzenia olejem, smarem lub starym klejem",
+      "explanation": "Na podłodze są plamy oleju, smaru, farby lub resztki starego kleju.",
+      "consequence": "Zanieczyszczenia uniemożliwiają związanie kleju i masy — okładzina odspaja się w tych miejscach.",
+      "mitigation": "Usuń zanieczyszczenia mechanicznie (szlifowanie, frezowanie) do czystego podłoża; samo zmycie zwykle nie wystarcza. Potem odkurz i zagruntuj.",
+      "communication": "Na podłodze są tłuste plamy lub resztki kleju. Zeszlifujemy je do czystego podłoża, bo inaczej klej w tych miejscach nie złapie."
+    },
+    "floor_expansion_joints": {
+      "title": "Brak dylatacji",
+      "explanation": "Brak szczeliny obwodowej (taśmy brzegowej) przy ścianach lub dylatacji dzielących jastrych na pola.",
+      "consequence": "Jastrych i okładzina pracują (skurcz, temperatura); bez dylatacji pękają płytki, fugi i jastrych, panele wybrzuszają się przy ścianach.",
+      "mitigation": "Wykonaj szczelinę obwodową przy ścianach i słupach; duże lub nieregularne powierzchnie (zwykle ponad ok. 30–40 m² lub bok ponad ok. 7–8 m, kształt L, przejścia w drzwiach) podziel dylatacjami i przenieś je w okładzinę, wypełniając materiałem trwale elastycznym.",
+      "communication": "W podłodze brakuje dylatacji. Wykonamy je i przeniesiemy w okładzinę — to elastyczne szczeliny, dzięki którym płytki i fugi nie pękają, gdy podłoga pracuje."
+    },
+    "floor_expansion_joints_heated": {
+      "title": "Brak dylatacji przy ogrzewaniu podłogowym",
+      "explanation": "Brak szczeliny obwodowej (taśmy brzegowej) przy ścianach lub dylatacji dzielących jastrych na pola — przy ogrzewaniu podłogowym jastrych dodatkowo pracuje termicznie.",
+      "consequence": "Jastrych i okładzina pracują (skurcz, temperatura); bez dylatacji pękają płytki, fugi i jastrych, panele wybrzuszają się przy ścianach.",
+      "mitigation": "Wykonaj szczelinę obwodową przy ścianach i słupach; duże lub nieregularne powierzchnie (zwykle ponad ok. 30–40 m² lub bok ponad ok. 7–8 m, kształt L, przejścia w drzwiach) podziel dylatacjami i przenieś je w okładzinę, wypełniając materiałem trwale elastycznym. Przy ogrzewaniu podłogowym rozplanuj dylatacje zgodnie z polami grzewczymi.",
+      "communication": "W podłodze brakuje dylatacji. Wykonamy je i przeniesiemy w okładzinę — to elastyczne szczeliny, dzięki którym płytki i fugi nie pękają, gdy podłoga pracuje przy ogrzewaniu."
+    },
+    "floor_old_tiles_hollow": {
+      "title": "Odspojone stare płytki",
+      "explanation": "Część starych płytek brzmi głucho przy opukiwaniu lub się rusza.",
+      "consequence": "Nowa warstwa (płytki, mikrocement, winyl) na odspojonych płytkach pęka i odpada razem z nimi.",
+      "mitigation": "Opukaj całą powierzchnię. Odspojone płytki skuj, ubytki wypełnij zaprawą; jeśli odspojonych jest dużo, skuj całą okładzinę do nośnego podłoża.",
+      "communication": "Część starych płytek trzyma się słabo. Skujemy je i uzupełnimy podłoże — na luźnych płytkach nowa okładzina by popękała."
+    },
+    "floor_old_tiles_bond": {
+      "title": "Gładkie, szkliwione płytki — potrzebny grunt sczepny",
+      "explanation": "Stare płytki są szkliwione / gładkie i nienasiąkliwe.",
+      "consequence": "Zwykły klej i masa nie wiążą z gładką glazurą — nowa warstwa może się odspoić.",
+      "mitigation": "Umyj i odtłuść płytki, zmatowij szkliwo, nałóż grunt sczepny (kontaktowy) do podłoży nienasiąkliwych, także na fugi; klej do płytek co najmniej C2 (najlepiej odkształcalny S1) wg karty producenta.",
+      "communication": "Stare płytki są gładkie i śliskie dla kleju. Odtłuścimy je i nałożymy specjalny grunt sczepny, żeby nowa warstwa trzymała się na stałe."
+    },
+    "floor_old_tiles_layers": {
+      "title": "Dwie warstwy starych płytek",
+      "explanation": "Na podłodze leżą już dwie warstwy płytek.",
+      "consequence": "Kolejna warstwa podnosi poziom (progi, drzwi), dociąża strop i zwiększa ryzyko odspojenia całego pakietu.",
+      "mitigation": "Zalecane skucie płytek do nośnego podłoża i wyrównanie; trzecią warstwę układaj tylko po sprawdzeniu przyczepności i uzgodnieniu poziomu z klientem.",
+      "communication": "Na podłodze są już dwie warstwy płytek. Zalecamy je skuć — kolejna warstwa podniosłaby podłogę przy drzwiach i zwiększyła ryzyko odspojenia."
+    },
+    "floor_boards_flex": {
+      "title": "Deski uginają się lub skrzypią",
+      "explanation": "Deski podłogi uginają się pod nogą lub skrzypią.",
+      "consequence": "Na uginającym się podłożu pękają płytki i fugi, panele rozchodzą się na zamkach, a skrzypienie przenosi się na nową podłogę.",
+      "mitigation": "Przykręć deski wkrętami do legarów, wyrównaj wygięte (szlifowanie / strugane); przy dużym ugięciu sprawdź legary. Pod sztywne okładziny ułóż płyty OSB / sklejkę.",
+      "communication": "Deski się uginają i skrzypią. Przykręcimy je do legarów i usztywnimy, żeby nowa podłoga nie pękała ani nie skrzypiała."
+    },
+    "floor_wood_decay": {
+      "title": "Zagrzybienie lub szkodniki drewna",
+      "explanation": "W deskach lub legarach jest grzyb, zgnilizna albo ślady owadów.",
+      "consequence": "Porażone drewno traci nośność i niszczy nową podłogę; grzyb rozprzestrzenia się dalej.",
+      "mitigation": "Wstrzymaj prace. Porażone elementy wymień, ustal i usuń przyczynę wilgoci, pozostałe drewno zabezpiecz preparatem; ocenę nośności legarów zleć fachowcowi.",
+      "communication": "W drewnie podłogi jest grzyb lub szkodniki. Zanim położymy nową podłogę, trzeba wymienić porażone elementy i usunąć przyczynę — to decyzja o dodatkowym zakresie prac."
+    },
+    "floor_boards_under_tiles": {
+      "title": "Deski pod sztywną okładzinę: płytki ceramiczne",
+      "explanation": "Na podłodze z desek ma powstać sztywna okładzina (płytki ceramiczne).",
+      "consequence": "Drewno pracuje (wilgoć, ugięcie) — sztywna okładzina na deskach pęka, a klej się odspaja.",
+      "mitigation": "Usztywnij podłoże: deski przykręć do legarów, ułóż płyty OSB / sklejkę (zwykle ok. 18–25 mm zależnie od sztywności) na wkręty, przeszlifuj i odpyl; klej odkształcalny (S1/S2) i system przewidziany przez producenta do podłoży drewnianych.",
+      "communication": "Pod płytki ceramiczne deski są za mało sztywne. Ułożymy na nich płyty, żeby nowa okładzina nie pękała — to dodatkowa warstwa i dodatkowy koszt."
+    },
+    "floor_boards_under_large_tiles": {
+      "title": "Deski pod sztywną okładzinę: płytki wielkoformatowe",
+      "explanation": "Na podłodze z desek ma powstać sztywna okładzina (płytki wielkoformatowe).",
+      "consequence": "Drewno pracuje (wilgoć, ugięcie) — sztywna okładzina na deskach pęka, a klej się odspaja.",
+      "mitigation": "Usztywnij podłoże: deski przykręć do legarów, ułóż płyty OSB / sklejkę (zwykle ok. 18–25 mm zależnie od sztywności) na wkręty, przeszlifuj i odpyl; klej odkształcalny (S1/S2) i system przewidziany przez producenta do podłoży drewnianych.",
+      "communication": "Pod płytki wielkoformatowe deski są za mało sztywne. Ułożymy na nich płyty, żeby nowa okładzina nie pękała — to dodatkowa warstwa i dodatkowy koszt."
+    },
+    "floor_boards_under_microcement": {
+      "title": "Deski pod sztywną okładzinę: mikrocement",
+      "explanation": "Na podłodze z desek ma powstać sztywna okładzina (mikrocement).",
+      "consequence": "Drewno pracuje (wilgoć, ugięcie) — sztywna okładzina na deskach pęka, a klej się odspaja.",
+      "mitigation": "Usztywnij podłoże: deski przykręć do legarów, ułóż płyty OSB / sklejkę (zwykle ok. 18–25 mm zależnie od sztywności) na wkręty, przeszlifuj i odpyl; klej odkształcalny (S1/S2) i system przewidziany przez producenta do podłoży drewnianych.",
+      "communication": "Pod mikrocement deski są za mało sztywne. Ułożymy na nich płyty, żeby nowa okładzina nie pękała — to dodatkowa warstwa i dodatkowy koszt."
+    },
+    "floor_wet_zone_tiles": {
+      "title": "Strefa mokra — hydroizolacja pod płytki ceramiczne",
+      "explanation": "Podłoga jest w strefie mokrej (łazienka, prysznic, pralnia), a okładziną będzie płytki ceramiczne.",
+      "consequence": "Ani płytki z fugą, ani mikrocement nie są szczelne — woda przenika do podłoża i stropu, niszczy jastrych i sąsiednie pomieszczenia.",
+      "mitigation": "Wykonaj hydroizolację podpłytkową (folia w płynie / masa uszczelniająca) w dwóch warstwach na całej podłodze strefy mokrej i na cokole ścian, z taśmą uszczelniającą w narożnikach, na dylatacjach i przy odpływie, wg karty systemu; okładzinę układaj po wyschnięciu izolacji.",
+      "communication": "To strefa mokra, więc pod okładziną wykonamy hydroizolację z taśmami w narożnikach — chroni podłogę i sąsiadów przed przeciekami."
+    },
+    "floor_wet_zone_large_tiles": {
+      "title": "Strefa mokra — hydroizolacja pod płytki wielkoformatowe",
+      "explanation": "Podłoga jest w strefie mokrej (łazienka, prysznic, pralnia), a okładziną będzie płytki wielkoformatowe.",
+      "consequence": "Ani płytki z fugą, ani mikrocement nie są szczelne — woda przenika do podłoża i stropu, niszczy jastrych i sąsiednie pomieszczenia.",
+      "mitigation": "Wykonaj hydroizolację podpłytkową (folia w płynie / masa uszczelniająca) w dwóch warstwach na całej podłodze strefy mokrej i na cokole ścian, z taśmą uszczelniającą w narożnikach, na dylatacjach i przy odpływie, wg karty systemu; okładzinę układaj po wyschnięciu izolacji.",
+      "communication": "To strefa mokra, więc pod okładziną wykonamy hydroizolację z taśmami w narożnikach — chroni podłogę i sąsiadów przed przeciekami."
+    },
+    "floor_wet_zone_microcement": {
+      "title": "Strefa mokra — hydroizolacja pod mikrocement",
+      "explanation": "Podłoga jest w strefie mokrej (łazienka, prysznic, pralnia), a okładziną będzie mikrocement.",
+      "consequence": "Ani płytki z fugą, ani mikrocement nie są szczelne — woda przenika do podłoża i stropu, niszczy jastrych i sąsiednie pomieszczenia.",
+      "mitigation": "Wykonaj hydroizolację podpłytkową (folia w płynie / masa uszczelniająca) w dwóch warstwach na całej podłodze strefy mokrej i na cokole ścian, z taśmą uszczelniającą w narożnikach, na dylatacjach i przy odpływie, wg karty systemu; okładzinę układaj po wyschnięciu izolacji.",
+      "communication": "To strefa mokra, więc pod okładziną wykonamy hydroizolację z taśmami w narożnikach — chroni podłogę i sąsiadów przed przeciekami."
+    },
+    "floor_wet_zone_laminate": {
+      "title": "Panele laminowane w strefie mokrej",
+      "explanation": "W strefie mokrej (łazienka, prysznic, pralnia) planowana jest okładzina: panele laminowane.",
+      "consequence": "Woda na zamkach i krawędziach powoduje pęcznienie, odkształcenia i pleśń; producenci zwykle wyłączają gwarancję w strefach mokrych, chyba że produkt jest do nich przeznaczony.",
+      "mitigation": "Ustal z klientem okładzinę odporną na wodę (płytki, winyl przeznaczony do łazienek) albo produkt, którego karta wprost dopuszcza strefę mokrą; jeśli klient zostaje przy swoim wyborze, odnotuj to w protokole.",
+      "communication": "Panele laminowane nie lubi wody. W łazience zalecamy okładzinę odporną na wodę — jeśli wybierzecie panele laminowane, zapiszemy, że to Wasza decyzja, bo producent zwykle nie daje na to gwarancji."
+    },
+    "floor_wet_zone_wood": {
+      "title": "Parkiet / deska drewniana w strefie mokrej",
+      "explanation": "W strefie mokrej (łazienka, prysznic, pralnia) planowana jest okładzina: parkiet / deska drewniana.",
+      "consequence": "Woda na zamkach i krawędziach powoduje pęcznienie, odkształcenia i pleśń; producenci zwykle wyłączają gwarancję w strefach mokrych, chyba że produkt jest do nich przeznaczony.",
+      "mitigation": "Ustal z klientem okładzinę odporną na wodę (płytki, winyl przeznaczony do łazienek) albo produkt, którego karta wprost dopuszcza strefę mokrą; jeśli klient zostaje przy swoim wyborze, odnotuj to w protokole.",
+      "communication": "Parkiet / deska drewniana nie lubi wody. W łazience zalecamy okładzinę odporną na wodę — jeśli wybierzecie parkiet / deska drewniana, zapiszemy, że to Wasza decyzja, bo producent zwykle nie daje na to gwarancji."
+    },
+    "floor_laminate_vapour": {
+      "title": "Panele na podłożu mineralnym — paroizolacja i dylatacja",
+      "explanation": "Panele (podłoga pływająca) mają leżeć na jastrychu, betonie lub płytkach.",
+      "consequence": "Wilgoć z podłoża mineralnego przenika w panele od spodu — pęcznieją; bez szczeliny przy ścianach podłoga wybrzusza się.",
+      "mitigation": "Pod podkładem ułóż folię paroizolacyjną PE (zwykle min. 0,2 mm) na zakład ok. 15–20 cm, sklejony taśmą, wywiniętą na ściany; zostaw szczelinę dylatacyjną przy ścianach wg instrukcji producenta (zwykle 8–15 mm), nie wypełniaj jej.",
+      "communication": "Pod panele położymy folię chroniącą przed wilgocią z podłoża i zostawimy szczelinę przy ścianach (zakryje ją listwa) — tego wymaga producent paneli."
+    },
+    "floor_microcement_prep": {
+      "title": "Mikrocement — przygotowanie podłoża wg systemu",
+      "explanation": "Na podłodze ma powstać posadzka z mikrocementu.",
+      "consequence": "Cienka warstwa mikrocementu wymaga mocnego, suchego i stabilnego podłoża; bez systemowego gruntu może się odspoić lub pękać.",
+      "mitigation": "Przygotuj podłoże wg karty systemu: oczyść mechanicznie, sprawdź wytrzymałość na odrywanie (producenci podają zwykle min. 1,0–1,5 N/mm²), nałóż grunt epoksydowy z posypką piaskiem kwarcowym lub grunt systemowy; na rysach i podłożach wątpliwych zatop siatkę / matę.",
+      "communication": "Mikrocement wymaga starannego przygotowania podłoża. Sprawdzimy jego wytrzymałość i nałożymy grunt systemowy (żywica z piaskiem), żeby posadzka nie pękała ani się nie odspoiła."
+    },
+    "floor_large_tiles_bed": {
+      "title": "Płytki wielkoformatowe — pełne podparcie",
+      "explanation": "Na podłodze planowane są płytki wielkoformatowe.",
+      "consequence": "Duża, sztywna płytka na niepełnym podparciu pęka pod obciążeniem punktowym; pustki pod płytką to najczęstsza wada.",
+      "mitigation": "Klej odkształcalny (co najmniej C2 S1, dla największych formatów S2) nakładaj metodą kombinowaną (na podłoże i płytkę), z pełnym wypełnieniem; stosuj system poziomowania i instrukcję producenta płytek; podłoże do ok. 2 mm na 2 m.",
+      "communication": "Duże płytki wymagają pełnego podparcia. Położymy je na klej odkształcalny nakładany na podłoże i płytkę, żeby pod płytką nie zostały pustki i żeby nie pękała."
+    },
+    "floor_vinyl_smoothing": {
+      "title": "Winyl klejony — gładkie podłoże z masy wyrównującej",
+      "explanation": "Na podłodze ma być klejony winyl / LVT.",
+      "consequence": "Cienka elastyczna okładzina odwzorowuje każdą nierówność, rysę i ziarno podłoża; na pylącym lub chropowatym podłożu klej nie trzyma.",
+      "mitigation": "Zagruntuj podłoże i wylej cienką warstwę masy wyrównującej (zwykle 2–3 mm) na całej powierzchni, wg karty kleju; podłoże suche (jastrych cementowy zwykle do 2 % CM), gładkie i równe (zwykle do 2 mm na 2 m).",
+      "communication": "Pod klejony winyl podłoga musi być idealnie gładka. Zagruntujemy ją i wylejemy cienką warstwę masy wyrównującej — inaczej każda nierówność będzie widoczna na winylu."
     }
   },
   "recommendations": {
@@ -1668,7 +1973,9 @@
       "old_tile_specific": "Stare płytki",
       "old_tile_specific_desc": "Przyczepność, szkliwo i liczba warstw",
       "wood_boards_specific": "Podłoga z desek",
-      "wood_boards_specific_desc": "Sztywność, stan drewna i dotychczasowe pokrycie"
+      "wood_boards_specific_desc": "Sztywność, stan drewna i dotychczasowe pokrycie",
+      "floor_target": "Pod jaką okładzinę",
+      "floor_target_desc": "Okładzina, strefa mokra i ogrzewanie podłogowe decydują o wymaganiach dla podłoża"
     },
     "question": {
       "cracks_present": "Czy występują pęknięcia?",
@@ -1698,7 +2005,11 @@
       "tiles_layers": "Liczba warstw płytek",
       "boards_flex": "Czy deski uginają się lub skrzypią?",
       "wood_decay": "Czy widać zgniliznę, grzyb lub owady?",
-      "boards_coating": "Dotychczasowe pokrycie desek"
+      "boards_coating": "Dotychczasowe pokrycie desek",
+      "planned_finish": "Jaka okładzina będzie na podłodze?",
+      "wet_zone": "Czy to strefa mokra (łazienka, prysznic, pralnia)?",
+      "floor_moisture_suspected": "Czy są oznaki wilgoci, a nie było pomiaru?",
+      "floor_weak_surface": "Czy warstwa wierzchnia jest słaba?"
     },
     "hint": {
       "cracks_present": "Pęknięcia, rysy, mikropęknięcia powierzchni",
@@ -1719,7 +2030,12 @@
       "tiles_glazed": "Szkliwo i gres polerowany wymagają specjalnego gruntu lub zmatowienia",
       "tiles_layers": "Sprawdź na krawędzi lub w progu",
       "boards_flex": "Ugięcie, skrzypienie, luźne deski lub legary",
-      "wood_decay": "Zgnilizna, grzyb, ślady korników — sprawdź przy ścianach i pod oknami"
+      "wood_decay": "Zgnilizna, grzyb, ślady korników — sprawdź przy ścianach i pod oknami",
+      "planned_finish": "Od okładziny zależą wymagania: wilgotność, równość, gruntowanie, hydroizolacja",
+      "wet_zone": "W strefie mokrej pod płytki i mikrocement potrzebna jest hydroizolacja",
+      "floor_moisture_measured_v2": "Jastrych / beton: metoda CM (karbidowa), w %; deski: wilgotnościomierz do drewna, w %. Puste, jeśli nie mierzono",
+      "floor_moisture_suspected": "Świeży jastrych, ciemne plamy, skropliny pod folią położoną na noc",
+      "floor_weak_surface": "Rysuje się gwoździem, kruszy, jest mleczko cementowe"
     },
     "option": {
       "substrate_solid": "Zwarte",
@@ -1737,7 +2053,14 @@
       "tiles_two_layers": "Dwie warstwy",
       "coating_none": "Surowe drewno",
       "coating_varnish_oil": "Lakier lub olej",
-      "coating_paint": "Farba"
+      "coating_paint": "Farba",
+      "finish_tiles": "Płytki ceramiczne / gres",
+      "finish_large_tiles": "Płytki wielkoformatowe (bok od ok. 100–120 cm)",
+      "finish_microcement": "Mikrocement",
+      "finish_laminate": "Panele laminowane (pływające)",
+      "finish_wood": "Parkiet / deska drewniana",
+      "finish_vinyl": "Winyl / LVT klejony, PVC, linoleum",
+      "finish_unknown": "Jeszcze nie wiadomo"
     },
     "unit": {
       "mm": "mm",
@@ -1898,7 +2221,21 @@
       "gk_joint_q1": "Szpachlowanie konstrukcyjne spoin g-k z taśmą (Q1)",
       "gk_joint_q2": "Szpachlowanie spoin g-k — warstwa wykończeniowa (Q2)",
       "prep_conc": "Usuwanie nadlewek i szlifowanie styków betonu",
-      "skim_level": "Szpachlowanie wyrównawcze — korekta płaszczyzny"
+      "skim_level": "Szpachlowanie wyrównawcze — korekta płaszczyzny",
+      "floor_cm": "Pomiar wilgotności podłoża metodą CM (punkt pomiarowy)",
+      "floor_prim": "Gruntowanie podłoża podłogi (grunt głęboko penetrujący / wzmacniający)",
+      "floor_prim_epoxy": "Grunt epoksydowy z posypką piaskiem kwarcowym (pod mikrocement / na wilgotne podłoże)",
+      "floor_contact": "Grunt sczepny na stare płytki / podłoża nienasiąkliwe",
+      "floor_level": "Wylewka masy samopoziomującej (wyrównanie podłoża do ok. 10 mm)",
+      "floor_grind": "Szlifowanie / frezowanie jastrychu (mleczko, zabrudzenia, garby)",
+      "floor_crack": "Zszywanie rys jastrychu żywicą z klamrami",
+      "floor_hollow": "Naprawa odspojonego jastrychu (wycięcie i uzupełnienie / iniekcja)",
+      "floor_joint": "Dylatacja podłogi (nacięcie / taśma brzegowa i wypełnienie elastyczne)",
+      "floor_waterproof": "Hydroizolacja podpłytkowa podłogi w strefie mokrej (2 warstwy, taśmy w narożnikach)",
+      "floor_tile_remove": "Skucie starych płytek podłogowych z wywozem gruzu",
+      "floor_board_fix": "Mocowanie desek do legarów wkrętami (likwidacja skrzypienia)",
+      "floor_osb": "Ułożenie płyt OSB / sklejki na deskach (usztywnienie pod okładzinę)",
+      "floor_vapour": "Folia paroizolacyjna PE pod panele (na zakład, klejona taśmą)"
     }
   },
   "reveals": {
