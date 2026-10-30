@@ -25,6 +25,7 @@ coefficient selection.
 import hashlib
 import json
 import uuid
+from decimal import Decimal
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -90,6 +91,7 @@ class ResolvedOccurrence:
     options: list[CoefficientOption] = field(default_factory=list)
     occurrence_key: uuid.UUID | None = None
     wait_after_hours: int | None = None
+    quantity: Decimal | None = None  # the owner's metres / pieces of this occurrence (owner 2026-10-30)
 
 
 def _application_fingerprint(plan_id: uuid.UUID, request: ApplyTemplateRequest) -> str:
@@ -228,6 +230,7 @@ class SurfaceWorkPlanService:
                     options=options,
                     occurrence_key=row.occurrence_key,
                     wait_after_hours=row.wait_after_hours,
+                    quantity=row.quantity,
                 )
             )
         return validated
@@ -418,6 +421,7 @@ class SurfaceWorkPlanService:
                 # were deleted above, in this same transaction.
                 occurrence_key=occurrence.occurrence_key or uuid.uuid4(),
                 wait_after_hours=occurrence.wait_after_hours,
+                quantity=occurrence.quantity,
             )
             for option in occurrence.options:
                 work.coefficient_assignments.append(
@@ -528,6 +532,7 @@ class SurfaceWorkPlanService:
         self,
         plan: SurfaceWorkPlan,
         price_item: PriceItem,
+        quantity: Decimal | None = None,
     ) -> SurfacePlannedWork:
         """Append exactly one new occurrence, additive-only, never committing.
 
@@ -562,6 +567,7 @@ class SurfaceWorkPlanService:
             price_item_id=price_item.id,
             position=next_position,
             occurrence_key=uuid.uuid4(),
+            quantity=quantity,
         )
         plan.follows_room_plan = False  # V2-5: a work added by hand makes it a plan of its own
         self.db.add(work)

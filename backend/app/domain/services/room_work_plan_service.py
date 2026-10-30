@@ -5,6 +5,7 @@ has no plan, or whose plan follows the room's, to the same works; a surface with
 they are, and the answer says which. Nothing that was done is ever erased. The estimate and everything else read the ordinary plans of the surfaces.
 """
 import uuid
+from decimal import Decimal
 from collections import defaultdict
 
 from sqlalchemy import delete, select
@@ -147,11 +148,15 @@ class RoomWorkPlanService:
         if existing is None and not items:
             return "SKIPPED_EMPTY"
         # the keys of the works that stay are kept: the same price row in the same turn is the same occurrence
-        spare: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+        # (and its quantity of metres / pieces, owner 2026-10-30)
+        spare: dict[uuid.UUID, list[tuple[uuid.UUID, Decimal | None]]] = defaultdict(list)
         if existing is not None:
             for work in sorted(existing.planned_works, key=lambda w: w.position):
-                spare[work.price_item_id].append(work.occurrence_key)
-        selection = [OrderedPriceItemSelection(price_item_id=item, occurrence_key=(spare[item].pop(0) if spare[item] else None)) for item in items]
+                spare[work.price_item_id].append((work.occurrence_key, work.quantity))
+        selection = []
+        for item in items:
+            key, quantity = spare[item].pop(0) if spare[item] else (None, None)
+            selection.append(OrderedPriceItemSelection(price_item_id=item, occurrence_key=key, quantity=quantity))
         await SurfaceWorkPlanService(self.db).set_plan(
             project_id, room_id, surface.id, owner_id,
             substrate=plan.substrate, quality_target=plan.quality_target, planned_works=selection, follows_room_plan=True,

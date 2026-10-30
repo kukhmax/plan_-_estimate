@@ -13,6 +13,7 @@ is the stable logical identity of that occurrence and survives such saves
 """
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
@@ -22,6 +23,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     UniqueConstraint,
     Uuid,
 )
@@ -127,6 +129,9 @@ class SurfacePlannedWork(Base):
     # hours (D9): NULL = none. Plan configuration only -- not billable, not a
     # PriceItem property, ignored by the Estimate, not a reminder.
     wait_after_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The owner's quantity of a work the surface area does not measure (metres of cracks, pieces), typed when the work is added
+    # (owner 2026-10-30): the estimate takes it instead of "Ilość do ustalenia". NULL = not given; an area work ignores it.
+    quantity: Mapped[Decimal | None] = mapped_column(Numeric(10, 3), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -166,6 +171,7 @@ class SurfacePlannedWork(Base):
             "wait_after_hours IS NULL OR wait_after_hours >= 1",
             name="ck_surface_planned_works_wait_after_hours",
         ),
+        CheckConstraint("quantity IS NULL OR quantity > 0", name="ck_surface_planned_works_quantity"),
     )
 
     @property

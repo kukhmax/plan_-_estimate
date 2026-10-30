@@ -20,6 +20,8 @@ export function dropIndex(pointerY: number, middles: readonly number[], held: nu
   return index;
 }
 
+/** A press on a control of the row (a button, a field) is that control's, never the start of a drag. */
+const INTERACTIVE = 'button, input, textarea, select, a, label';
 const HOLD_MS = 350; // press and hold a row this long to pick it up
 const SLOP_PX = 8; // a finger that moves more before that is scrolling the page
 const EDGE_PX = 90; // near the top / bottom edge the page scrolls by itself
@@ -150,13 +152,13 @@ export function useDragReorder({ ids, onDrop, disabled = false }: Options) {
       else rows.current.delete(id);
     },
     onTouchStart: (event: ReactTouchEvent) => {
-      if (disabled || live.current || (event.target as HTMLElement).closest('button')) return;
+      if (disabled || live.current || (event.target as HTMLElement).closest(INTERACTIVE)) return;
       const touch = event.touches[0];
       cancelPending();
       pending.current = { id, x: touch.clientX, y: touch.clientY, timer: window.setTimeout(() => begin(id, touch.clientY), HOLD_MS) };
     },
     onMouseDown: (event: ReactMouseEvent) => {
-      if (disabled || live.current || event.button !== 0 || (event.target as HTMLElement).closest('button')) return;
+      if (disabled || live.current || event.button !== 0 || (event.target as HTMLElement).closest(INTERACTIVE)) return;
       const y = event.clientY;
       cancelPending();
       pending.current = { id, x: event.clientX, y, timer: window.setTimeout(() => begin(id, y), HOLD_MS) };

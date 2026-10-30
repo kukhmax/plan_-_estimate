@@ -347,7 +347,7 @@ def _resolve_reveal_quantity(
 
 
 def _resolve_surface_quantity(
-    item: "PriceItem", net_area: Decimal | None
+    item: "PriceItem", net_area: Decimal | None, planned_quantity: Decimal | None = None
 ) -> tuple[Decimal | None, "QuantitySource"]:
     """Quantity source for one Surface planned-work occurrence.
 
@@ -362,6 +362,11 @@ def _resolve_surface_quantity(
     """
     if item.category == PriceCategory.REVEAL:
         return None, QuantitySource.MANUAL
+    if item.unit == PriceUnit.M2 and net_area is not None:
+        return net_area, QuantitySource.SURFACE_NET_AREA
+    # owner 2026-10-30: the metres / pieces typed for this occurrence on "Dodaj do prac" or in the plan
+    if planned_quantity is not None:
+        return planned_quantity, QuantitySource.MANUAL
     if item.unit == PriceUnit.M2:
         return net_area, QuantitySource.SURFACE_NET_AREA
     return None, QuantitySource.MANUAL
@@ -842,7 +847,7 @@ class EstimateService:
         net_area: Decimal | None,
     ) -> EstimateLine:
         item = work.price_item
-        source_qty, qty_source = _resolve_surface_quantity(item, net_area)
+        source_qty, qty_source = _resolve_surface_quantity(item, net_area, work.quantity)
 
         if source_qty is None:
             quantity = Decimal("0.000")
@@ -1070,7 +1075,7 @@ class EstimateService:
 
             item = work.price_item
             source_qty, qty_source = _resolve_surface_quantity(
-                item, net_area_cache[surface.id]
+                item, net_area_cache[surface.id], work.quantity
             )
 
             base_price, effective_price, snapshot = _resolve_occurrence_pricing(
@@ -1549,7 +1554,7 @@ class EstimateService:
                 net_area_cache[surface.id] = await self._surface_net_area(surface)
             item = work.price_item
             source_qty, qty_source = _resolve_surface_quantity(
-                item, net_area_cache[surface.id]
+                item, net_area_cache[surface.id], work.quantity
             )
 
             base_price, effective_price, snapshot = _resolve_occurrence_pricing(

@@ -56,7 +56,7 @@ import { PrepareOfflineButton } from './PrepareOfflineButton';
 import { ProjectTradeLinks } from './ProjectTradeLinks';
 import { ProjectClientLink } from './ProjectClientLink';
 import { ProjectNotes } from './ProjectNotes';
-import { SurfaceList } from './SurfaceList';
+import { OPEN_WALL_ENTRY_EVENT, SurfaceList } from './SurfaceList';
 import { KnowledgeBasis, KnowledgeBasisTarget } from './KnowledgeBasis';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
@@ -1254,12 +1254,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                   aria-label="measure-room-action"
                   onClick={
                     roomMeasurementMode === 'CUSTOM'
-                      ? () => {
-                          const target = document.getElementById('custom-wall-entry');
-                          if (target && typeof target.scrollIntoView === 'function') {
-                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          }
-                        }
+                      ? () => window.dispatchEvent(new Event(OPEN_WALL_ENTRY_EVENT))
                       : () => startEditRoom(selectedRoom)
                   }
                   className="inline-flex items-center gap-1.5 min-h-11 px-3 py-1.5 bg-blue-50 text-blue-700 font-semibold rounded-xl hover:bg-blue-100 transition"

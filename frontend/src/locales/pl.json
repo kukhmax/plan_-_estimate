@@ -1160,7 +1160,12 @@
       "few": "{count} dni",
       "many": "{count} dni",
       "other": "{count} dnia"
-    }
+    },
+    "quantity_label": "Ilość:",
+    "quantity_placeholder": "wpisz",
+    "save_needs_quantity": "Ilość pracy musi być liczbą większą od zera.",
+    "drag_hint": "Przytrzymaj pracę i przeciągnij ją w nowe miejsce (albo chwyć ⠿).",
+    "drag": "Przeciągnij, aby zmienić kolejność"
   },
   "openings": {
     "title": "Otwory w ścianie",
@@ -1808,7 +1813,11 @@
     "picker_empty": "Brak wyników",
     "picker_list": "Lista pozycji cennika",
     "picker_item_prefix": "Wybierz pozycję",
-    "picker_confirm": "Potwierdź wybór"
+    "picker_confirm": "Potwierdź wybór",
+    "quantity_label": "Ilość",
+    "quantity_hint": "Wpisz ilość — trafi do kosztorysu. Puste pole: wpiszesz później w kosztorysie.",
+    "quantity_invalid": "Wpisz liczbę większą od zera (najwyżej 3 miejsca po przecinku).",
+    "quantity_all_title": "Te prace nie liczą się z powierzchni — wpisz ich ilość:"
   },
   "communication": {
     "section_title": "Co powiedzieć klientowi",

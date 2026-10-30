@@ -4,6 +4,13 @@ export function commaDecimal(text: string): string {
 }
 
 /** What a person typed ("12,5", " 12.5 ") as the dot text the API takes ("12.5"). */
+/** A quantity typed by the owner ("6,5"): a number above zero with at most 3 places, as the API takes it ("6.5"); null when it is not one, '' when empty. */
+export function quantityOf(text: string): string | '' | null {
+  const raw = text.trim().replace(',', '.');
+  if (raw === '') return '';
+  return /^\d{1,7}(\.\d{1,3})?$/.test(raw) && Number(raw) > 0 ? raw : null;
+}
+
 export function dotDecimal(text: string): string {
   return text.trim().replace(',', '.');
 }

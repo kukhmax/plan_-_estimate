@@ -64,4 +64,6 @@ export interface WorkRecommendationEvaluateResponse {
  * fallback and may legitimately carry a different `code`. */
 export interface WorkRecommendationAcceptRequest {
   price_item_id?: string | null;
+  /** The metres / pieces of a work the area does not measure (owner 2026-10-30); omitted = to be set later. */
+  quantity?: string;
 }

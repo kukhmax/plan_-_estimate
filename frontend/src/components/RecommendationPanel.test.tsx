@@ -1042,3 +1042,51 @@ describe('"Dodaj wszystkie do prac" (UX walk A5)', () => {
     expect(screen.queryByLabelText('recommendations-accept-all')).toBeNull();
   });
 });
+
+describe('the quantity of a work in metres / pieces (owner 2026-10-30)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(workRecommendationsApi.acceptWorkRecommendation).mockImplementation(async (_p, id) =>
+      recommendation({ id: String(id), status: 'ACCEPTED', accepted_at: '2026-10-30T09:00:00Z' }));
+  });
+  const crack = recommendation({ id: 'lm', recommended_work_code: 'CRACK_LM', current_price_item: priceItem({ unit: 'LM' }) });
+
+  it('asks for the metres before the work goes into the plan and sends them', async () => {
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: [crack], total: 1 });
+    renderPanel();
+    fireEvent.click(await screen.findByRole('button', { name: /Dodaj do prac$/ }));
+    expect(workRecommendationsApi.acceptWorkRecommendation).not.toHaveBeenCalled();
+    const input = screen.getByLabelText('recommendation-quantity-input-lm');
+    expect(input).toHaveAttribute('inputmode', 'decimal');
+    expect(input).toHaveValue('');
+    fireEvent.change(input, { target: { value: 'abc' } });
+    expect(screen.getByLabelText('recommendation-quantity-confirm-lm')).toBeDisabled();
+    fireEvent.change(input, { target: { value: '6,5' } });
+    fireEvent.click(screen.getByLabelText('recommendation-quantity-confirm-lm'));
+    await waitFor(() => expect(workRecommendationsApi.acceptWorkRecommendation).toHaveBeenCalledWith('proj-1', 'lm', { quantity: '6.5' }));
+  });
+
+  it('lets the quantity wait (empty) and never asks for an area work', async () => {
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: [crack], total: 1 });
+    renderPanel();
+    fireEvent.click(await screen.findByRole('button', { name: /Dodaj do prac$/ }));
+    fireEvent.click(screen.getByLabelText('recommendation-quantity-confirm-lm'));
+    await waitFor(() => expect(workRecommendationsApi.acceptWorkRecommendation).toHaveBeenCalledWith('proj-1', 'lm', {}));
+  });
+
+  it('"Dodaj wszystkie" first asks the quantities of the works in metres / pieces', async () => {
+    const list = [recommendation({ id: 'm2', surface_id: 'w1' }), { ...crack, surface_id: 'w1' }];
+    vi.mocked(workRecommendationsApi.fetchWorkRecommendations).mockResolvedValue({ items: list, total: 2 });
+    renderPanel();
+    fireEvent.click(await screen.findByLabelText('recommendations-accept-all'));
+    expect(workRecommendationsApi.acceptWorkRecommendation).not.toHaveBeenCalled();
+    const panel = screen.getByLabelText('recommendations-accept-all-quantities');
+    expect(within(panel).queryByLabelText('recommendation-all-quantity-m2')).toBeNull();
+    fireEvent.change(within(panel).getByLabelText('recommendation-all-quantity-lm'), { target: { value: '4' } });
+    fireEvent.click(screen.getByLabelText('recommendations-accept-all-confirm'));
+    expect(await screen.findByText('Dodano do planów prac: 2.')).toBeInTheDocument();
+    const calls = vi.mocked(workRecommendationsApi.acceptWorkRecommendation).mock.calls.map((call) => [call[1], call[2]]);
+    expect(calls).toEqual([['m2', {}], ['lm', { quantity: '4' }]]);
+  });
+});

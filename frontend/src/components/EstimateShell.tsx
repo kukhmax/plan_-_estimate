@@ -251,7 +251,8 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
 
   const beginEdit = (line: EstimateLineRead) => {
     setEditingLineId(line.id);
-    setEditQuantity(commaDecimal(line.quantity));
+    // a quantity still to be set (0) opens empty, so the number is typed at once (owner 2026-10-30: "0,000" had to be deleted first)
+    setEditQuantity(Number(line.quantity) === 0 ? '' : commaDecimal(line.quantity));
     setEditPriceMode(line.unit_price === null ? 'unresolved' : 'value');
     setEditUnitPrice(commaDecimal(line.unit_price ?? ''));
     setActionError(null);
@@ -268,7 +269,8 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
   const submitEdit = async (line: EstimateLineRead) => {
     const payload: EstimateLineUpdatePayload = {};
 
-    if (dotDecimal(editQuantity) !== line.quantity) {
+    const quantityUntouched = editQuantity.trim() === '' && Number(line.quantity) === 0;
+    if (!quantityUntouched && dotDecimal(editQuantity) !== line.quantity) {
       if (!isValidDecimalString(editQuantity)) {
         setActionError({ lineId: line.id, message: t.estimates.line_edit_invalid_number });
         return;
@@ -1709,6 +1711,8 @@ export function EstimateShell({ estimate, selectedGroupKey, onGroupKeyChange }: 
                               inputMode="decimal"
                               aria-label={`line-edit-quantity-${line.position}`}
                               value={editQuantity}
+                              placeholder="0"
+                              autoFocus={Number(line.quantity) === 0}
                               onChange={(e) => setEditQuantity(e.target.value)}
                               className="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 min-h-[44px] text-sm pe-surface"
                             />

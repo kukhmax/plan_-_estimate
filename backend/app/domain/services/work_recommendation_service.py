@@ -13,6 +13,7 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -816,8 +817,12 @@ class WorkRecommendationService:
         owner_id: uuid.UUID,
         *,
         price_item_id: uuid.UUID | None = None,
+        quantity: Decimal | None = None,
     ) -> WorkRecommendation:
         """Explicit, atomic acceptance.
+
+        `quantity` (owner 2026-10-30): the metres / pieces of a work the area does not measure, typed on "Dodaj do prac"; it is kept on
+        the new occurrence and the estimate takes it instead of "Ilość do ustalenia".
 
         append exactly one SurfacePlannedWork occurrence + recommendation
         PENDING -> ACCEPTED + resolved_price_item_id + accepted_at, all in
@@ -883,7 +888,7 @@ class WorkRecommendationService:
         # in docs/stage-11-architecture.md Sec 6) -- acceptance never
         # touches is_active/resolved_at; only evaluation does.
         await work_plan_service.append_one_planned_work_no_commit(
-            plan, selected_item
+            plan, selected_item, quantity
         )
 
         recommendation.status = WorkRecommendationStatus.ACCEPTED

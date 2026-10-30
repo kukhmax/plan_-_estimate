@@ -175,6 +175,7 @@ async def accept_work_recommendation(
             recommendation_id,
             owner_id=current_user.id,
             price_item_id=price_item_id,
+            quantity=payload.quantity if payload is not None else None,
         )
     except (ProjectNotFoundError, WorkRecommendationNotFoundError):
         raise HTTPException(

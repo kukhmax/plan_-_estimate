@@ -1397,7 +1397,15 @@ describe('Room measurement CTA routing (Stage 5D.1A.2)', () => {
     const measureBtn = screen.getByLabelText('measure-room-action');
     expect(measureBtn).toHaveTextContent('Rozpocznij pomiar ścian');
 
+    // owner 2026-10-30: the button did nothing on the phone (it looked for an element id the wall entry did not have)
+    const scrolled: Element[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
+      scrolled.push(this);
+    };
     fireEvent.click(measureBtn);
+    Element.prototype.scrollIntoView = original;
+    expect(scrolled).toEqual([screen.getByLabelText('custom-wall-entry')]);
     // The rectangular Room editor must never appear; Room.length/width stay null.
     expect(screen.queryByLabelText('room-edit-form')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('room-edit-length')).not.toBeInTheDocument();

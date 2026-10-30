@@ -1616,3 +1616,47 @@ describe('UX walk B4: the work plan of a floor', () => {
     expect(within(substrate).getAllByRole('option')).toHaveLength(7);
   });
 });
+
+describe('the quantity of a work in metres / pieces and the drag of the works (owner 2026-10-30)', () => {
+  const crackWork: SurfaceWorkPlanRead['planned_works'][number] = {
+    id: 'occurrence-lm',
+    work_plan_id: 'plan-1',
+    occurrence_key: 'key-lm',
+    wait_after_hours: null,
+    quantity: '4.500',
+    price_item_id: 'price-lm',
+    position: 1,
+    price_item: {
+      id: 'price-lm', code: 'CRACK', name_key: null, display_name: 'Naprawa rys', category: 'SKIM_COAT', unit: 'LM', price_scope: 'LABOR',
+      price: '50.00', currency: 'PLN', is_archived: false, quality_level: null,
+    },
+  };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan).mockResolvedValue(makePlan({ planned_works: [plannedWorks[0], crackWork] }));
+    vi.mocked(workPlansApi.putSurfaceWorkPlan).mockImplementation(async () => makePlan({ planned_works: [plannedWorks[0], crackWork] }) as never);
+  });
+
+  it('shows a quantity field only for a work the area does not measure, and sends the typed quantity', async () => {
+    renderEditor();
+    const field = await screen.findByLabelText(/^occurrence-quantity-/);
+    expect(screen.getAllByLabelText(/^occurrence-quantity-/)).toHaveLength(1); // the m² work has none
+    expect(field).toHaveValue('4,5');
+    expect(field).toHaveAttribute('inputmode', 'decimal');
+    fireEvent.change(field, { target: { value: 'x' } });
+    expect(screen.getByLabelText(`save-work-plan-${surfaceId}`)).toBeDisabled();
+    expect(screen.getByLabelText(`save-blocked-${surfaceId}`)).toHaveTextContent('Ilość pracy musi być liczbą większą od zera.');
+    fireEvent.change(field, { target: { value: '7,25' } });
+    fireEvent.click(screen.getByLabelText(`save-work-plan-${surfaceId}`));
+    await waitFor(() => expect(workPlansApi.putSurfaceWorkPlan).toHaveBeenCalled());
+    const payload = vi.mocked(workPlansApi.putSurfaceWorkPlan).mock.calls[0][3];
+    expect(payload.planned_works?.[1]).toMatchObject({ price_item_id: 'price-lm', occurrence_key: 'key-lm', quantity: '7.25' });
+    expect(payload.planned_works?.[0]).not.toHaveProperty('quantity');
+  });
+
+  it('every work has a drag handle and the hint, besides the arrows of its menu', async () => {
+    renderEditor();
+    expect(await screen.findAllByLabelText(/^occurrence-drag-/)).toHaveLength(2);
+    expect(screen.getByLabelText(`planned-works-drag-hint-${surfaceId}`)).toHaveTextContent('Przytrzymaj pracę');
+  });
+});

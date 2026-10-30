@@ -33,6 +33,8 @@ export interface OrderedPriceItemSelection {
   occurrence_key?: string;
   /** Technological break after this occurrence (whole hours >= 1) or null. */
   wait_after_hours?: number | null;
+  /** The owner's metres / pieces of a work the area does not measure (owner 2026-10-30); omitted = none. */
+  quantity?: string;
 }
 
 /** Stage 13H: execution status of one CURRENT planned-work occurrence. */
@@ -83,6 +85,8 @@ export interface SurfacePlannedWorkRead {
   /** Stable logical identity of this occurrence (Stage 13 D13). */
   occurrence_key: string;
   wait_after_hours: number | null;
+  /** The owner's metres / pieces (a decimal string), null when not given. */
+  quantity?: string | null;
   price_item: SurfacePriceItemSummaryRead | null;
   coefficient_options?: PlannedWorkCoefficientOptionRead[];
   /** Stage 13H.3: read-only; never sent back in a save. */

@@ -1160,7 +1160,12 @@
       "few": "{count} days",
       "many": "{count} days",
       "other": "{count} days"
-    }
+    },
+    "quantity_label": "Quantity:",
+    "quantity_placeholder": "type",
+    "save_needs_quantity": "The quantity of a work must be a number above zero.",
+    "drag_hint": "Press and hold a work and drag it to a new place (or grab ⠿).",
+    "drag": "Drag to change the order"
   },
   "openings": {
     "title": "Openings in the wall",
@@ -1808,7 +1813,11 @@
     "picker_empty": "No results",
     "picker_list": "List of price list items",
     "picker_item_prefix": "Pick the item",
-    "picker_confirm": "Confirm the choice"
+    "picker_confirm": "Confirm the choice",
+    "quantity_label": "Quantity",
+    "quantity_hint": "Type the quantity — it goes to the estimate. Empty: you can type it later in the estimate.",
+    "quantity_invalid": "Enter a number above zero (at most 3 decimal places).",
+    "quantity_all_title": "These works are not counted from the area — type their quantity:"
   },
   "communication": {
     "section_title": "What to tell the client",

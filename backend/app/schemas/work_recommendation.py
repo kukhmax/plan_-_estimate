@@ -11,6 +11,7 @@ currently resolve to any owner PriceItem; a non-null value with
 substituted here or anywhere else.
 """
 import uuid
+from decimal import Decimal
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -62,6 +63,8 @@ class WorkRecommendationAcceptRequest(BaseModel):
     """
 
     price_item_id: uuid.UUID | None = Field(default=None)
+    # the metres / pieces of a work the area does not measure, typed on "Dodaj do prac" (owner 2026-10-30); omitted = later
+    quantity: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=3)
 
     model_config = ConfigDict(extra="forbid")
 

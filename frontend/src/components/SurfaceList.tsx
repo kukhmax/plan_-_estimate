@@ -52,6 +52,9 @@ import { moveItem, useDragReorder } from '../hooks/useDragReorder';
  * (WALL cards no longer share one fixed background — see surfaceColorTint). */
 const TYPE_BADGE_CLASS = 'pe-surface text-slate-700';
 
+/** Asked by the room card ("+ Rozpocznij pomiar ścian"): bring the wall entry of an irregular room into view, or open it as the sheet. */
+export const OPEN_WALL_ENTRY_EVENT = 'pe:open-wall-entry';
+
 interface SurfaceListProps {
   projectId: string;
   roomId: string;
@@ -777,8 +780,30 @@ export function SurfaceList({
 
   /** Irregular room: the add-wall card stays inline while the room has no walls; with walls it is a sheet opened by "+ Dodaj ścianę" at the heading (owner 2026-10-27: the card pushed a long list of walls down). */
   const wallAdderInline = activeWalls.length === 0;
+  // "+ Rozpocznij pomiar ścian" on the room card (owner 2026-10-30: the button did nothing): it asks for the wall entry, which is
+  // brought into view with the first field focused, or opened as the sheet when the room already has walls
+  const wallEntryRef = useRef<HTMLDivElement | null>(null);
+  const wallAdderInlineRef = useRef(wallAdderInline);
+  wallAdderInlineRef.current = wallAdderInline;
+  useEffect(() => {
+    const onAsk = () => {
+      if (!wallAdderInlineRef.current) {
+        openWallAdder();
+        return;
+      }
+      const card = wallEntryRef.current;
+      if (!card) return;
+      if (typeof card.scrollIntoView === 'function') card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      card.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+    };
+    window.addEventListener(OPEN_WALL_ENTRY_EVENT, onAsk);
+    return () => window.removeEventListener(OPEN_WALL_ENTRY_EVENT, onAsk);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const customWallCard = (
     <div
+      ref={wallEntryRef}
+      id="custom-wall-entry"
       aria-label="custom-wall-entry"
       className={`pe-card rounded-2xl p-4 shadow-sm ${wallAdderInline ? 'mb-3' : 'pb-[calc(1rem+env(safe-area-inset-bottom))]'}`}
     >

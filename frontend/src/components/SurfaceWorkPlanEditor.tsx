@@ -24,6 +24,8 @@ import {
 import { localizeApiError } from '../utils/apiErrors';
 import { resolveKey } from '../utils/i18nKeys';
 import { formatPrice } from '../utils/priceFormat';
+import { commaDecimal, quantityOf } from '../utils/format';
+import { useDragReorder } from '../hooks/useDragReorder';
 import {
   calculateEffectivePrice,
   formatCoefficientSummary,
@@ -77,6 +79,8 @@ interface WorkPlanBaseline {
   coefficientOptionIdLists: string[][];
   /** Stage 13G: loaded breaks per occurrence, same ordering. */
   waitList: (number | null)[];
+  /** Loaded quantities per occurrence ('' = none), same ordering (owner 2026-10-30). */
+  quantityList: string[];
 }
 
 /** A draft occurrence: may be persisted (has work_plan_id) or local-only. */
@@ -91,6 +95,8 @@ interface DraftOccurrence {
   waitAfterHours: number | null;
   /** Stage 13G: editable hours input for this occurrence ('' = no break). */
   waitInput: string;
+  /** The metres / pieces of a work the area does not measure, as typed ('' = none; owner 2026-10-30). */
+  quantityInput: string;
   /** price_item_id sent in PUT */
   priceItemId: string;
   /** Full summary snapshot for display — may be null for unavailable items. */
@@ -136,6 +142,7 @@ function workToDraft(work: SurfacePlannedWorkRead): DraftOccurrence {
     occurrenceKey: work.occurrence_key,
     waitAfterHours: work.wait_after_hours ?? null,
     waitInput: work.wait_after_hours == null ? '' : String(work.wait_after_hours),
+    quantityInput: work.quantity == null ? '' : commaDecimal(String(Number(work.quantity))),
     priceItemId: work.price_item_id,
     summary: work.price_item,
     coefficientOptions: work.coefficient_options ?? [],
@@ -180,6 +187,7 @@ export function SurfaceWorkPlanEditor({
     occurrenceIdentities: [],
     coefficientOptionIdLists: [],
     waitList: [],
+    quantityList: [],
   });
 
   // Apply-to-all-walls state (WALL surfaces only)
@@ -204,6 +212,11 @@ export function SurfaceWorkPlanEditor({
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({}); // usability U-4: the menus of the work rows that are open
   const toggleMenu = (key: string) => setOpenMenus((current) => ({ ...current, [key]: !current[key] }));
   const closeMenu = (key: string) => setOpenMenus((current) => ({ ...current, [key]: false }));
+  const setQuantityInput = (draftKey: string, value: string) => {
+    setDraftOccurrences((prev) => prev.map((o) => (o.draftKey === draftKey ? { ...o, quantityInput: value } : o)));
+    setSaved(false);
+    setSaveError(null);
+  };
   const setWaitInput = (draftKey: string, value: string) => {
     setDraftOccurrences((prev) => prev.map((o) => (o.draftKey === draftKey ? { ...o, waitInput: value } : o)));
     setSaved(false);
@@ -228,7 +241,11 @@ export function SurfaceWorkPlanEditor({
   // change (it can never be saved) so the owner is not silently reset.
   const currentWaits = draftOccurrences.map((o) => parseWaitInput(o.waitInput));
   const invalidWait = currentWaits.some((w) => w === 'invalid');
+  // owner 2026-10-30: the metres / pieces of a work; a quantity that is not a number blocks the save like a bad break
+  const currentQuantities = draftOccurrences.map((o) => quantityOf(o.quantityInput));
+  const invalidQuantity = currentQuantities.some((q) => q === null);
   const dirty =
+    JSON.stringify(currentQuantities) !== JSON.stringify(baseline.quantityList) ||
     substrate !== baseline.substrate ||
     qualityTarget !== baseline.qualityTarget ||
     JSON.stringify(currentOccurrenceIdentities) !== JSON.stringify(baseline.occurrenceIdentities) ||
@@ -258,6 +275,7 @@ export function SurfaceWorkPlanEditor({
       occurrenceIdentities: nextIdentities,
       coefficientOptionIdLists: nextCoefficientLists,
       waitList: nextOccurrences.map((o) => o.waitAfterHours),
+      quantityList: nextOccurrences.map((o) => quantityOf(o.quantityInput) ?? ''),
     });
   };
 
@@ -361,7 +379,7 @@ export function SurfaceWorkPlanEditor({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (loadState !== 'ready' || !substrate || !dirty || saving || invalidWait) return;
+    if (loadState !== 'ready' || !substrate || !dirty || saving || invalidWait || invalidQuantity) return;
 
     // Stage 13E.2C: every ordinary save uses planned_works[] and carries each
     // occurrence's identity and configuration -- an existing occurrence
@@ -375,6 +393,7 @@ export function SurfaceWorkPlanEditor({
         price_item_id: o.priceItemId,
         ...(o.occurrenceKey !== null ? { occurrence_key: o.occurrenceKey } : {}),
         wait_after_hours: parseWaitInput(o.waitInput) as number | null,
+        ...(quantityOf(o.quantityInput) ? { quantity: quantityOf(o.quantityInput) as string } : {}),
         coefficient_option_ids: o.coefficientOptions.map((c) => c.id),
       })),
     };
@@ -433,6 +452,7 @@ export function SurfaceWorkPlanEditor({
       occurrenceKey: null,
       waitAfterHours: null,
       waitInput: '',
+      quantityInput: '',
       priceItemId: item.id,
       summary: {
         id: item.id,
@@ -489,6 +509,17 @@ export function SurfaceWorkPlanEditor({
     setSaveError(null);
     setSaved(false);
   };
+
+  // owner 2026-10-30: the works are reordered by press-and-hold (or the ⠿ handle), like the walls; the arrows stay in the menu
+  const planDrag = useDragReorder({
+    ids: draftOccurrences.map((o) => o.draftKey),
+    onDrop: (next) => {
+      setDraftOccurrences((prev) => next.map((key) => prev.find((o) => o.draftKey === key)).filter((o): o is DraftOccurrence => !!o));
+      setSaveError(null);
+      setSaved(false);
+    },
+    disabled: saving || draftOccurrences.length < 2,
+  });
 
   const handleMoveOccurrenceDown = (index: number) => {
     if (index < 0 || index >= draftOccurrences.length - 1) return;
@@ -811,8 +842,15 @@ export function SurfaceWorkPlanEditor({
                 )}
               </>
             ) : (
+              <>
+              {draftOccurrences.length >= 2 && (
+                <p aria-label={`planned-works-drag-hint-${surfaceId}`} className="text-xs text-[var(--tg-theme-hint-color)] break-words">{t.work_plan.drag_hint}</p>
+              )}
               <ol aria-label={`planned-works-${surfaceId}`} className="space-y-2">
-                {draftOccurrences.map((occurrence, index) => {
+                {planDrag.order
+                  .map((key) => draftOccurrences.find((o) => o.draftKey === key))
+                  .filter((o): o is DraftOccurrence => !!o)
+                  .map((occurrence, index) => {
                   const item = occurrence.summary;
                   const isLabor = item?.price_scope === 'LABOR';
                   const coefSummary = formatCoefficientSummary(occurrence.coefficientOptions);
@@ -825,13 +863,31 @@ export function SurfaceWorkPlanEditor({
                     occurrence.coefficientOptions.length > 0
                       ? calculateEffectivePrice(basePrice, totalPercentage)
                       : basePrice;
+                  const held = planDrag.heldId === occurrence.draftKey;
+                  const { ref: rowRef, ...holdProps } = planDrag.rowProps(occurrence.draftKey);
+                  const quantityShown = !!item && item.unit !== 'M2' && item.category !== 'REVEAL';
                   return (
                     <li
                       key={occurrence.draftKey}
+                      ref={rowRef}
+                      {...holdProps}
+                      data-held={held ? 'true' : undefined}
                       aria-label={`draft-occurrence-${occurrence.draftKey}`}
-                      className="min-w-0 rounded-lg border border-[var(--tg-control-border-color)] p-2"
+                      className={`min-w-0 rounded-lg border p-2 select-none transition-shadow ${held ? 'border-blue-500 shadow-xl ring-2 ring-blue-500 relative z-10' : 'border-[var(--tg-control-border-color)]'}`}
+                      style={{ WebkitTouchCallout: 'none' }}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
+                        {draftOccurrences.length >= 2 && (
+                          <span
+                            aria-label={`occurrence-drag-${occurrence.draftKey}`}
+                            title={t.work_plan.drag}
+                            {...planDrag.handleProps(occurrence.draftKey)}
+                            className="shrink-0 min-h-11 min-w-8 -ml-1 flex items-center justify-center text-xl text-[var(--tg-theme-hint-color)] cursor-grab"
+                            style={{ touchAction: 'none' }}
+                          >
+                            <span aria-hidden="true">⠿</span>
+                          </span>
+                        )}
                         <div className="min-w-0 flex-1">
                           <span className="min-w-0 text-sm font-semibold text-[var(--tg-theme-text-color)] break-words block">
                             <span aria-hidden="true" className="text-[var(--tg-theme-hint-color)]">{index + 1}. </span>
@@ -991,6 +1047,26 @@ export function SurfaceWorkPlanEditor({
                       ) : (
                         <p className="mt-1 text-xs text-[var(--tg-theme-hint-color)]">{t.work_plan.unavailable_item}</p>
                       )}
+                      {quantityShown && item && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <label htmlFor={`occurrence-quantity-${occurrence.draftKey}`} className="text-xs text-[var(--tg-theme-hint-color)]">
+                            {t.work_plan.quantity_label}
+                          </label>
+                          <input
+                            id={`occurrence-quantity-${occurrence.draftKey}`}
+                            aria-label={`occurrence-quantity-${occurrence.draftKey}`}
+                            inputMode="decimal"
+                            autoComplete="off"
+                            placeholder={t.work_plan.quantity_placeholder}
+                            value={occurrence.quantityInput}
+                            disabled={saving}
+                            onChange={(event) => setQuantityInput(occurrence.draftKey, event.target.value)}
+                            aria-invalid={quantityOf(occurrence.quantityInput) === null ? true : undefined}
+                            className="min-h-11 w-28 rounded-lg border border-[var(--tg-control-border-color)] bg-[var(--tg-control-bg-color)] px-3 text-base text-[var(--tg-control-text-color)]"
+                          />
+                          <span className="text-xs text-[var(--tg-theme-hint-color)]">{t.pricebook.units[item.unit]}</span>
+                        </div>
+                      )}
                       {(() => {
                         // Stage 13G: minimum technological break AFTER this work (not its duration).
                         const wait = parseWaitInput(occurrence.waitInput);
@@ -1029,6 +1105,7 @@ export function SurfaceWorkPlanEditor({
                   );
                 })}
               </ol>
+              </>
             )}
 
             {/* Add work button — always visible when ready */}
@@ -1116,15 +1193,15 @@ export function SurfaceWorkPlanEditor({
           <button
             type="submit"
             aria-label={`save-work-plan-${surfaceId}`}
-            disabled={!substrate || !dirty || saving || invalidWait}
+            disabled={!substrate || !dirty || saving || invalidWait || invalidQuantity}
             className="w-full min-h-11 px-3 rounded-xl bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] font-semibold disabled:opacity-60"
           >
             <Ico>💾</Ico>{saving ? t.common.saving : t.common.save}
           </button>
           {/* B4: a greyed "Zapisz" says why (the substrate first, then a technological break that is not a number) */}
-          {!saving && (!substrate || invalidWait) && (
+          {!saving && (!substrate || invalidWait || invalidQuantity) && (
             <p aria-label={`save-blocked-${surfaceId}`} className="text-xs text-amber-700 break-words">
-              {!substrate ? t.work_plan.save_needs_substrate : t.work_plan.save_needs_wait}
+              {!substrate ? t.work_plan.save_needs_substrate : invalidWait ? t.work_plan.save_needs_wait : t.work_plan.save_needs_quantity}
             </p>
           )}
         </form>

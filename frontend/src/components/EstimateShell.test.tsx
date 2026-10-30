@@ -4393,9 +4393,10 @@ describe('Stage 10H.1 — unresolved MANUAL quantity display', () => {
     const input = (await waitFor(
       () => screen.getByLabelText('line-edit-quantity-1'),
     )) as HTMLInputElement;
-    // Prefilled with the stored 0.000, exactly like any other line — the
-    // owner is expected to type over it, nothing new here.
-    expect(input.value).toBe('0,000');
+    // owner 2026-10-30: a quantity still to be set opens EMPTY (placeholder 0) and focused, so the number is typed at once
+    expect(input.value).toBe('');
+    expect(input.getAttribute('placeholder')).toBe('0');
+    expect(document.activeElement).toBe(input);
   });
 
   it('entering 4.5 and saving shows 4.500 mb, no longer unresolved, after the authoritative refetch', async () => {

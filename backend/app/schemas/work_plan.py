@@ -49,6 +49,8 @@ class OrderedPriceItemSelection(BaseModel):
     coefficient_option_ids: list[uuid.UUID] = Field(default_factory=list)
     occurrence_key: uuid.UUID | None = None
     wait_after_hours: int | None = Field(default=None, ge=1)
+    # the owner's quantity of a work in metres / pieces (owner 2026-10-30); omitted = none
+    quantity: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=3)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -145,6 +147,7 @@ class SurfacePlannedWorkRead(BaseModel):
     position: int
     occurrence_key: uuid.UUID
     wait_after_hours: int | None = None
+    quantity: Decimal | None = None
     price_item: SurfacePriceItemSummaryRead | None = None
     coefficient_options: list[PlannedWorkCoefficientOptionRead] = Field(
         default_factory=list

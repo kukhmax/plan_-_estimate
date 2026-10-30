@@ -3,6 +3,7 @@ import { useI18n } from '../hooks/useI18n';
 import { resolveKey } from '../utils/i18nKeys';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { formatPrice } from '../utils/priceFormat';
+import { quantityOf } from '../utils/format';
 import { ApiError } from '../api/http';
 import {
   acceptWorkRecommendation,
@@ -212,7 +213,7 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
     }
   }
 
-  async function handleAccept(id: string, priceItemId?: string): Promise<void> {
+  async function handleAccept(id: string, priceItemId?: string, quantity?: string): Promise<void> {
     setPending((prev) => [...prev, id]);
     setAccepting((prev) => [...prev, id]);
     setError(null);
@@ -220,11 +221,10 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
       // Backend owns the atomic WorkPlan append; the frontend never fetches
       // or mutates the SurfaceWorkPlan itself, only submits the recommendation
       // id and (optionally) the owner's manual PriceItem selection.
-      const updated = await acceptWorkRecommendation(
-        projectId,
-        id,
-        priceItemId ? { price_item_id: priceItemId } : {},
-      );
+      const updated = await acceptWorkRecommendation(projectId, id, {
+        ...(priceItemId ? { price_item_id: priceItemId } : {}),
+        ...(quantity ? { quantity } : {}),
+      });
       setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
       setJustAccepted((prev) => [...prev, id]);
       setFallbackOpen((prev) => prev.filter((entry) => entry !== id));
@@ -279,8 +279,20 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
     });
   })();
 
+  // owner 2026-10-30: the works the area does not measure (metres, pieces) ask for their quantity before "Dodaj wszystkie"
+  const needingQuantity = addable.filter((item) => needsQuantity(item));
+  const [allAsk, setAllAsk] = useState(false);
+  const [allQuantities, setAllQuantities] = useState<Record<string, string>>({});
+  const allQuantityInvalid = needingQuantity.some((item) => quantityOf(allQuantities[item.id] ?? '') === null);
+
   async function handleAcceptAll(): Promise<void> {
     if (allBusy || addable.length === 0) return;
+    if (needingQuantity.length > 0 && !allAsk) {
+      setAllAsk(true);
+      return;
+    }
+    if (allQuantityInvalid) return;
+    setAllAsk(false);
     const ids = addable.map((item) => item.id);
     setAllBusy(true);
     setAllDone(null);
@@ -289,7 +301,8 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
     let done = 0;
     try {
       for (const id of ids) {
-        const updated = await acceptWorkRecommendation(projectId, id, {});
+        const quantity = quantityOf(allQuantities[id] ?? '');
+        const updated = await acceptWorkRecommendation(projectId, id, quantity ? { quantity } : {});
         setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
         setJustAccepted((prev) => [...prev, id]);
         done += 1;
@@ -374,11 +387,46 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
             type="button"
             aria-label="recommendations-accept-all"
             className="min-h-11 rounded-lg bg-emerald-600 px-3 font-medium text-white disabled:opacity-50"
-            disabled={allBusy}
+            disabled={allBusy || allAsk}
             onClick={() => void handleAcceptAll()}
           >
             {allBusy ? t.common.saving : t.recommendations.accept_all.replace('{n}', String(addable.length))}
           </button>
+        )}
+        {allAsk && needingQuantity.length > 0 && (
+          <div aria-label="recommendations-accept-all-quantities" className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+            <p className="text-sm text-neutral-800 break-words">{t.recommendations.quantity_all_title}</p>
+            {needingQuantity.map((item) => (
+              <QuantityField
+                key={item.id}
+                id={`recommendation-all-quantity-${item.id}`}
+                label={`${recommendationTitle(t, item)}${item.surface_name ? ` — ${item.surface_name}` : ''}`}
+                unit={item.current_price_item?.unit ?? null}
+                value={allQuantities[item.id] ?? ''}
+                onChange={(value) => setAllQuantities((current) => ({ ...current, [item.id]: value }))}
+                t={t}
+              />
+            ))}
+            <p className="text-xs text-neutral-600 break-words">{t.recommendations.quantity_hint}</p>
+            {allQuantityInvalid && <p role="alert" className="text-xs text-red-600 break-words">{t.recommendations.quantity_invalid}</p>}
+            <button
+              type="button"
+              aria-label="recommendations-accept-all-confirm"
+              className="min-h-11 rounded-lg bg-emerald-600 px-3 font-medium text-white disabled:opacity-50"
+              disabled={allBusy || allQuantityInvalid}
+              onClick={() => void handleAcceptAll()}
+            >
+              {t.recommendations.accept_all.replace('{n}', String(addable.length))}
+            </button>
+            <button
+              type="button"
+              aria-label="recommendations-accept-all-cancel"
+              className="min-h-11 rounded-lg border border-neutral-300 pe-surface px-3 font-medium text-neutral-700"
+              onClick={() => setAllAsk(false)}
+            >
+              {t.common.cancel}
+            </button>
+          </div>
         )}
         {allDone && <p role="status" className="text-sm text-emerald-700 break-words">{allDone}</p>}
         <ul className="flex flex-col gap-2">
@@ -407,6 +455,42 @@ export function RecommendationPanel({ projectId, roomId, inspectionId }: Recomme
         </>
       )}
     </div>
+  );
+}
+
+/** A work the area of the surface does not measure (metres, pieces): its quantity is asked when it is added (owner 2026-10-30). */
+function needsQuantity(recommendation: WorkRecommendationRead): boolean {
+  const unit = recommendation.current_price_item?.unit;
+  return unit !== undefined && unit !== 'M2';
+}
+
+function QuantityField({ id, label, unit, value, onChange, autoFocus, t }: {
+  id: string;
+  label: string;
+  unit: string | null;
+  value: string;
+  onChange: (value: string) => void;
+  autoFocus?: boolean;
+  t: ReturnType<typeof useI18n>['t'];
+}) {
+  return (
+    <label htmlFor={id} className="flex flex-col gap-1 text-sm text-neutral-800">
+      <span className="break-words">{label}</span>
+      <span className="flex items-center gap-2">
+        <input
+          id={id}
+          aria-label={id}
+          inputMode="decimal"
+          autoComplete="off"
+          autoFocus={autoFocus}
+          value={value}
+          placeholder="0"
+          onChange={(event) => onChange(event.target.value)}
+          className="min-h-11 w-28 shrink-0 rounded-lg border border-neutral-300 pe-surface px-3 text-base"
+        />
+        <span className="text-sm text-neutral-600">{unit ? (t.pricebook.units as Record<string, string>)[unit] ?? unit : ''}</span>
+      </span>
+    </label>
   );
 }
 
@@ -440,7 +524,7 @@ function RecommendationCard({
   onToggleOptions: (id: string) => void;
   onDismiss: (id: string) => void;
   onReconsider: (id: string) => void;
-  onAccept: (id: string, priceItemId?: string) => void;
+  onAccept: (id: string, priceItemId?: string, quantity?: string) => void;
   onOpenFallback: (id: string) => void;
   onCloseFallback: (id: string) => void;
   t: ReturnType<typeof useI18n>['t'];
@@ -448,6 +532,11 @@ function RecommendationCard({
   const isRoomAdvisory = recommendation.target_kind === 'ROOM';
   const title = recommendationTitle(t, recommendation);
   const summary = recommendation.current_price_item;
+  // owner 2026-10-30: a work in metres / pieces asks for its quantity before it goes to the plan (empty = to be set later)
+  const askQuantity = needsQuantity(recommendation);
+  const [quantityOpen, setQuantityOpen] = useState(false);
+  const [quantity, setQuantity] = useState('');
+  const quantityInvalid = quantityOf(quantity) === null;
   const statusLabel = t.recommendations[STATUS_LABEL_KEY[recommendation.status]];
   const inactiveSince = recommendation.resolved_at
     ? t.recommendations.inactive_since.replace('{date}', recommendation.resolved_at.slice(0, 10))
@@ -563,7 +652,7 @@ function RecommendationCard({
             aria-label={`${title} — ${t.recommendations.confirm_again_yes}`}
             className="min-h-11 rounded-lg bg-blue-600 px-3 font-medium text-white disabled:opacity-50"
             disabled={pending}
-            onClick={() => onAccept(recommendation.id)}
+            onClick={() => (askQuantity ? setQuantityOpen(true) : onAccept(recommendation.id))}
           >
             {accepting ? t.recommendations.accepting : t.recommendations.confirm_again_yes}
           </button>
@@ -579,13 +668,53 @@ function RecommendationCard({
         </div>
       ) : null}
 
-      {canAcceptNormally && !confirmAgain ? (
+      {canAcceptNormally && quantityOpen ? (
+        <div aria-label={`recommendation-quantity-${recommendation.id}`} className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <QuantityField
+            id={`recommendation-quantity-input-${recommendation.id}`}
+            label={t.recommendations.quantity_label}
+            unit={summary?.unit ?? null}
+            value={quantity}
+            onChange={setQuantity}
+            autoFocus
+            t={t}
+          />
+          <p className="text-xs text-neutral-600 break-words">{t.recommendations.quantity_hint}</p>
+          {quantityInvalid && <p role="alert" className="text-xs text-red-600 break-words">{t.recommendations.quantity_invalid}</p>}
+          <button
+            type="button"
+            aria-label={`recommendation-quantity-confirm-${recommendation.id}`}
+            className="min-h-11 rounded-lg bg-blue-600 px-3 font-medium text-white disabled:opacity-50"
+            disabled={pending || quantityInvalid}
+            onClick={() => onAccept(recommendation.id, undefined, quantityOf(quantity) || undefined)}
+          >
+            {accepting ? t.recommendations.accepting : t.recommendations.accept}
+          </button>
+          <button
+            type="button"
+            aria-label={`recommendation-quantity-cancel-${recommendation.id}`}
+            className="min-h-11 rounded-lg border border-neutral-300 pe-surface px-3 font-medium text-neutral-700"
+            disabled={pending}
+            onClick={() => setQuantityOpen(false)}
+          >
+            {t.common.cancel}
+          </button>
+        </div>
+      ) : null}
+
+      {canAcceptNormally && !confirmAgain && !quantityOpen ? (
         <button
           type="button"
           aria-label={`${title} — ${t.recommendations.accept}`}
           className="min-h-11 rounded-lg bg-blue-600 px-3 font-medium text-white disabled:opacity-50"
           disabled={pending}
-          onClick={() => (recommendation.in_plan_count > 0 ? onAskConfirmAgain(recommendation.id) : onAccept(recommendation.id))}
+          onClick={() =>
+            recommendation.in_plan_count > 0
+              ? onAskConfirmAgain(recommendation.id)
+              : askQuantity
+                ? setQuantityOpen(true)
+                : onAccept(recommendation.id)
+          }
         >
           {accepting ? t.recommendations.accepting : t.recommendations.accept}
         </button>
