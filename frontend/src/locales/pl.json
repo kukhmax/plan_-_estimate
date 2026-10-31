@@ -3020,6 +3020,8 @@
     "preview_pdf": "Podgląd PDF (wersja robocza)",
     "sending": "Przygotowuję dokument…",
     "chat_hint": "Plik PDF trafi do czatu z botem.",
+    "share_pdf": "Udostępnij / pobierz PDF",
+    "share_failed": "Nie udało się otworzyć pliku PDF. Spróbuj ponownie.",
     "sent_ok": "Wysłano do czatu z botem: {number}",
     "preview_ok": "Podgląd wysłany do czatu z botem.",
     "working": "Dokument {number} jest przygotowywany i wysyłany do czatu z botem…",

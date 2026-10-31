@@ -157,3 +157,18 @@ export function previewDowntimeNoticePdf(projectId: string): Promise<DocumentPre
 export function previewDowntimeProtocolPdf(projectId: string): Promise<DocumentPreviewResult> {
   return apiRequest(`${base(projectId)}/documents/downtime-protocol/preview`, { method: 'POST' });
 }
+
+export interface FileLink {
+  url: string;
+  file_name: string;
+}
+
+/** Owner 2026-10-31: a five-minute link to the PDF of an issued document (Udostępnij / Pobierz). */
+export function documentFileLink(projectId: string, documentId: string): Promise<FileLink> {
+  return apiRequest(`/api/projects/${projectId}/documents/${documentId}/file-link`, { method: 'POST' });
+}
+
+/** Owner 2026-10-31: a five-minute link to the working version of an unfinished estimate. */
+export function estimateDraftFileLink(projectId: string, estimateId: string): Promise<FileLink> {
+  return apiRequest(`/api/projects/${projectId}/estimates/${estimateId}/draft-file-link`, { method: 'POST' });
+}

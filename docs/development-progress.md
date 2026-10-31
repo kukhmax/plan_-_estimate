@@ -6264,3 +6264,8 @@ Owner after the deploy: "bring back the different colours of the walls, they are
 * Also: the dark-theme file regenerated and one `bg-white` replaced (item 1's new classes; the audit test was red after that commit).
 * Tests: backend `test_client_why.py`, `test_v2_8_client_link.py` (+1); vitest `ClientPage.test.tsx` (+1), the dark-theme audit.
 
+### Owner decisions 2026-10-31, item 7: the PDF in the application -- share / download (branch `ver-2`; NO MIGRATION)
+* Backend: `domain/documents/file_links.py` (HMAC-SHA256 ticket with the JWT secret: kind, owner, project, target, five minutes; nothing stored); `POST /projects/{p}/documents/{d}/file-link`, `POST /projects/{p}/estimates/{e}/draft-file-link` (owner's token) and `GET /api/public/files/{ticket}` (no token: the ticket; the owner's data key put in force; the PDF rendered again from what was frozen -- `DocumentIssuer.document_file` / `estimate_draft_file`; `Content-Disposition: attachment`, `no-store`).
+* Frontend: `utils/pdfShare.ts` (Telegram `WebApp.downloadFile` → Web Share with the file → a new tab), `PdfShareButton` in `EstimateDocumentActions` (a draft; an issued estimate once SENT) and in each SENT row of the journal.
+* Tests: backend `test_document_file_links.py` (3), vitest `pdfShare.test.ts` (3), `EstimateDocumentActions.test.tsx` (+1).
+

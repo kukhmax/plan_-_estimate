@@ -3026,6 +3026,8 @@
     "preview_pdf": "PDF preview (draft)",
     "sending": "Preparing the document…",
     "chat_hint": "The PDF file will arrive in the chat with the bot.",
+    "share_pdf": "Share / download PDF",
+    "share_failed": "The PDF could not be opened. Try again.",
     "sent_ok": "Sent to the chat with the bot: {number}",
     "preview_ok": "The preview was sent to the chat with the bot.",
     "working": "Document {number} is being prepared and sent to the chat with the bot…",

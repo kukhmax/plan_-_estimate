@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as documentsApi from '../api/documents';
 import { ApiError } from '../api/http';
@@ -10,7 +10,11 @@ vi.mock('../api/documents', () => ({
   issueEstimateDocument: vi.fn(),
   getDocument: vi.fn(),
   previewEstimatePdf: vi.fn(),
+  estimateDraftFileLink: vi.fn(),
+  documentFileLink: vi.fn(),
 }));
+vi.mock('../utils/pdfShare', () => ({ shareOrDownloadPdf: vi.fn(async () => 'telegram') }));
+import * as pdfShare from '../utils/pdfShare';
 
 function document(over: Partial<IssuedDocument> = {}): IssuedDocument {
   return {
@@ -124,5 +128,17 @@ describe('EstimateDocumentActions (Stage 15F.3)', () => {
     renderActions('FINAL');
     expect(screen.getByRole('button', { name: 'estimate-send-pdf' })).toHaveTextContent('Отправить PDF');
     expect(screen.getByText('PDF-файл придёт в чат с ботом.')).toBeInTheDocument();
+  });
+});
+
+describe('the PDF in the application (owner 2026-10-31)', () => {
+  it('shares the working version of a draft through a five-minute link', async () => {
+    vi.mocked(documentsApi.estimateDraftFileLink).mockResolvedValue({ url: '/api/public/files/t', file_name: 'Kosztorys-wersja-robocza-1.pdf' });
+    render(<I18nProvider><EstimateDocumentActions projectId="p1" estimateId="e1" status="DRAFT" /></I18nProvider>);
+    const button = screen.getByLabelText('estimate-share-pdf');
+    expect(button).toHaveClass('min-h-11');
+    fireEvent.click(button);
+    await waitFor(() => expect(pdfShare.shareOrDownloadPdf).toHaveBeenCalledWith({ url: '/api/public/files/t', file_name: 'Kosztorys-wersja-robocza-1.pdf' }));
+    expect(documentsApi.estimateDraftFileLink).toHaveBeenCalledWith('p1', 'e1');
   });
 });

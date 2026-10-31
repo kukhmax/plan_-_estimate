@@ -7,11 +7,17 @@ screen follows with `GET`. Ownership always comes from the authenticated user.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_document_issuer
 from app.core.database import get_db
-from app.domain.documents.issuer import DocumentIssuer
+from app.core.config import settings
+from app.domain.documents import file_links
+from app.domain.documents.issuer import DocumentIssuer, pdf_filename
+from app.domain.services.data_key_service import DataKeyService
+from app.models.estimate import Estimate, EstimateStatus
 from app.domain.documents.photo_report_document import PhotoReportDocumentService
 from app.domain.exceptions import (
     DocumentDataError,
@@ -481,3 +487,75 @@ async def preview_contract_pdf(
     except (ProjectNotFoundError, DocumentDataError, DocumentRenderError, DocumentDeliveryError) as exc:
         raise _http_error(exc) from exc
     return PreviewResponse(sent=True, pages=result.pages, byte_size=result.byte_size)
+
+
+# -- owner 2026-10-31: "Udostępnij / Pobierz PDF" in the application ---------------------------------------------------------------------
+
+
+class FileLinkResponse(BaseModel):
+    url: str  # relative to the API: the address of the PDF for five minutes, without the owner's token (Telegram downloads it itself)
+    file_name: str
+
+
+@router.post("/projects/{project_id}/documents/{document_id}/file-link", response_model=FileLinkResponse, summary="A five-minute link to the PDF of an issued document")
+async def document_file_link(
+    project_id: uuid.UUID,
+    document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> FileLinkResponse:
+    try:
+        document = await IssuedDocumentService(db).get(current_user.id, project_id, document_id)
+    except (ProjectNotFoundError, IssuedDocumentNotFoundError) as exc:
+        raise _http_error(exc) from exc
+    if not document.number:
+        raise _error("DOCUMENT_NOT_READY", "the document has no number yet", status.HTTP_409_CONFLICT)
+    token = file_links.make(file_links.DOCUMENT, current_user.id, project_id, document_id, settings.JWT_SECRET_KEY)
+    return FileLinkResponse(url=f"/api/public/files/{token}", file_name=pdf_filename(document.number))
+
+
+@router.post(
+    "/projects/{project_id}/estimates/{estimate_id}/draft-file-link",
+    response_model=FileLinkResponse,
+    summary="A five-minute link to the working version (watermark, no number) of an unfinished estimate",
+)
+async def estimate_draft_file_link(
+    project_id: uuid.UUID,
+    estimate_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> FileLinkResponse:
+    estimate = (
+        await db.execute(select(Estimate).where(Estimate.id == estimate_id, Estimate.project_id == project_id, Estimate.owner_id == current_user.id))
+    ).scalar_one_or_none()
+    if estimate is None:
+        raise _http_error(EstimateNotFoundError(f"Estimate {estimate_id} not found"))
+    if estimate.status != EstimateStatus.DRAFT:
+        raise _error("PREVIEW_ONLY_FOR_DRAFT", "a finished estimate is issued, not previewed", status.HTTP_422_UNPROCESSABLE_ENTITY)
+    token = file_links.make(file_links.ESTIMATE_DRAFT, current_user.id, project_id, estimate_id, settings.JWT_SECRET_KEY)
+    return FileLinkResponse(url=f"/api/public/files/{token}", file_name=f"Kosztorys-wersja-robocza-{estimate.version}.pdf")
+
+
+@router.get("/public/files/{token}", summary="The PDF a five-minute link opens (no login: the link is the ticket)")
+async def public_file(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+    issuer: DocumentIssuer = Depends(get_document_issuer),
+) -> Response:
+    try:
+        ticket = file_links.read(token, settings.JWT_SECRET_KEY)
+    except file_links.FileLinkError:
+        raise _error("LINK_INVALID", "the link is not valid or has expired", status.HTTP_404_NOT_FOUND) from None
+    await DataKeyService(db).put_in_force(ticket.owner_id)  # the content of the documents is ciphertext: the key of their owner
+    try:
+        if ticket.kind == file_links.DOCUMENT:
+            name, pdf = await issuer.document_file(db, ticket.owner_id, ticket.project_id, ticket.target_id)
+        else:
+            name, pdf = await issuer.estimate_draft_file(db, ticket.owner_id, ticket.project_id, ticket.target_id)
+    except (ProjectNotFoundError, EstimateNotFoundError, IssuedDocumentNotFoundError, DocumentDataError, DocumentRenderError) as exc:
+        raise _http_error(exc) from exc
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+    )

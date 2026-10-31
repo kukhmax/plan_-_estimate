@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDocument, issueEstimateDocument, previewEstimatePdf } from '../api/documents';
+import { documentFileLink, estimateDraftFileLink, getDocument, issueEstimateDocument, previewEstimatePdf } from '../api/documents';
 import { useI18n } from '../hooks/useI18n';
 import type { EstimateStatusValue } from '../types/estimate';
 import type { IssuedDocument } from '../types/document';
 import { documentErrorText } from '../utils/documentErrors';
+import { PdfShareButton } from './PdfShareButton';
 
 const POLL_MS = 2000;
 const MAX_POLLS = 90; // three minutes: the server gives up on a document long before that
@@ -92,6 +93,10 @@ export function EstimateDocumentActions({ projectId, estimateId, status }: Estim
         {busy ? text.sending : isDraft ? text.preview_pdf : text.send_pdf}
       </button>
       <p className="text-xs text-slate-600 break-words">{text.chat_hint}</p>
+      {isDraft && <PdfShareButton label="estimate-share-pdf" link={() => estimateDraftFileLink(projectId, estimateId)} />}
+      {!isDraft && issued?.status === 'SENT' && (
+        <PdfShareButton label="estimate-share-pdf" link={() => documentFileLink(projectId, issued.id)} />
+      )}
 
       {issued?.status === 'PENDING' && (
         <p role="status" aria-label="estimate-document-working" className="text-xs text-slate-700 break-words">

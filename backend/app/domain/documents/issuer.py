@@ -985,6 +985,23 @@ class DocumentIssuer:
         )
         return PreviewResult(rendered.pages, rendered.byte_size)
 
+    async def document_file(self, db: AsyncSession, owner_id: uuid.UUID, project_id: uuid.UUID, document_id: uuid.UUID) -> tuple[str, bytes]:
+        """Owner 2026-10-31: the PDF of an issued document of the journal, for "Udostępnij / Pobierz" in the application (rendered again from what
+        was frozen, exactly as the chat got it)."""
+        document = await IssuedDocumentService(db, clock=self.clock).get(owner_id, project_id, document_id)
+        if not document.number:
+            raise DocumentDataError("DOCUMENT_NOT_READY", "the document has no number yet")
+        rendered = await self._render(db, document)
+        return pdf_filename(document.number), rendered.pdf
+
+    async def estimate_draft_file(self, db: AsyncSession, owner_id: uuid.UUID, project_id: uuid.UUID, estimate_id: uuid.UUID) -> tuple[str, bytes]:
+        """Owner 2026-10-31: the working version of an unfinished estimate as a file (the same page as "Podgląd PDF")."""
+        document = await EstimateDocumentService(db).build(project_id, estimate_id, owner_id, issued_on=self._today())
+        if not document.layout.draft:
+            raise DocumentDataError("PREVIEW_ONLY_FOR_DRAFT", "a finished estimate is issued, not previewed")
+        rendered = await self.renderer.render(EstimateDocumentService.html(document))
+        return f"Kosztorys-wersja-robocza-{document.version}.pdf", rendered.pdf
+
     # -- the slow part ---------------------------------------------------------------------------------------------------------------
 
     def _launch(self, reservation: Reservation) -> Reservation:

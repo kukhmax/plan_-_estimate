@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { deleteDocument, fetchPhotoReportSummary, issuePhotoReport, listDocuments } from '../api/documents';
+import { deleteDocument, documentFileLink, fetchPhotoReportSummary, issuePhotoReport, listDocuments } from '../api/documents';
 import { useI18n } from '../hooks/useI18n';
 import { InstallationMapSection, MeasurementsSection, PaymentScheduleSection, ProductionPlanSection, SettlementSection, TechCardSection } from './TechCardSection';
 import type { IssuedDocument, PhotoReportSummary, UnpricedWork } from '../types/document';
@@ -8,6 +8,7 @@ import { documentKindLabel, formatIssued, formatSize } from '../utils/documentFo
 import { priceItemLabel } from '../utils/executionFormat';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { Ico } from './Ico';
+import { PdfShareButton } from './PdfShareButton';
 import { JournalRowDelete } from './JournalRowDelete';
 
 const POLL_MS = 2500;
@@ -369,6 +370,9 @@ export function ProjectDocuments({ projectId, part, onOpenInspection, onOpenEsti
                   </p>
                   {document.status === 'FAILED' && (
                     <p className="text-xs text-red-700 break-words">{documentErrorText(text.errors, document.error_code ?? undefined)}</p>
+                  )}
+                  {document.status === 'SENT' && (
+                    <PdfShareButton label={`journal-share-${document.number}`} link={() => documentFileLink(projectId, document.id)} />
                   )}
                   {document.status !== 'PENDING' &&
                     (deletingId === document.id ? (

@@ -87,6 +87,8 @@ export interface TelegramWebApp {
   viewportHeight: number;
   viewportStableHeight: number;
   BackButton?: TelegramBackButton;
+  /** Bot API 8.0: the native "download a file" sheet; the client downloads the address itself (owner 2026-10-31: PDF in the application). */
+  downloadFile?: (params: { url: string; file_name: string }, callback?: (accepted: boolean) => void) => void;
   CloudStorage?: TelegramCloudStorage;
   DeviceStorage?: TelegramKeyStorage;
   SecureStorage?: TelegramKeyStorage;
