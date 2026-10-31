@@ -105,6 +105,13 @@ function renderBook() {
   return view;
 }
 
+/** Owner 2026-10-31: a row of the price is one line; its market evidence is in the details a tap opens. */
+async function openDetails() {
+  for (const toggle of await screen.findAllByLabelText(/^price-item-toggle-/)) {
+    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle);
+  }
+}
+
 describe('PriceBook — market evidence (Stage 9E.6B)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -120,10 +127,10 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
-    expect(screen.getByText('70,00 zł')).toBeInTheDocument();
-    expect(screen.getByText('Moja cena')).toBeInTheDocument();
+    expect(screen.getByLabelText('price-item-price-item-1')).toHaveTextContent('70,00 zł'); // owner 2026-10-31: the price on the line itself
     const market = await screen.findByLabelText('price-item-market-item-1');
     expect(market).toHaveTextContent('Rynek:');
     expect(market).toHaveTextContent('55,00–75,00 zł / m²');
@@ -136,6 +143,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     const market = await screen.findByLabelText('price-item-market-item-1');
     expect(market).toHaveTextContent('55,00–75,00');
@@ -149,6 +157,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     const market = await screen.findByLabelText('price-item-market-item-1');
     expect(market).toHaveTextContent('Sprawdzono: 13.09.2026');
@@ -166,6 +175,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     const toggle = await screen.findByLabelText('price-item-sources-toggle-item-1');
     expect(toggle).toHaveTextContent('Źródła (3)');
@@ -178,6 +188,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     expect(screen.queryByText('Firma Wykończeniowa sp. z o.o.')).not.toBeInTheDocument();
@@ -198,6 +209,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
@@ -217,6 +229,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
@@ -231,6 +244,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
@@ -246,6 +260,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
@@ -261,6 +276,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
@@ -278,6 +294,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
@@ -294,6 +311,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     const market = await screen.findByLabelText('price-item-market-item-1');
@@ -312,6 +330,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 0,
     });
     renderBook();
+    await openDetails();
 
     const empty = await screen.findByLabelText('price-item-market-empty-item-1');
     expect(empty).toHaveTextContent('Brak danych rynkowych');
@@ -324,6 +343,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     const market = await screen.findByLabelText('price-item-market-item-1');
     expect(market).toHaveTextContent('Punkt odniesienia: 60,00 zł');
@@ -340,6 +360,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
     renderBook();
 
     fireEvent.click(await screen.findByLabelText('pricebook-tab-archived'));
+    await openDetails();
     const market = await screen.findByLabelText('price-item-market-item-4');
     expect(market).toHaveTextContent('55,00–75,00 zł / m²');
   });
@@ -353,6 +374,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       }),
     );
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     const loading = await screen.findByLabelText('price-item-market-loading-item-1');
@@ -369,6 +391,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       new Error('Failed to fetch market evidence: 500'),
     );
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     await waitFor(() => {
@@ -385,6 +408,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     const first = renderBook();
+    await openDetails();
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
     const plSource = await screen.findByLabelText('price-item-source-item-1-0');
@@ -398,6 +422,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
@@ -410,6 +435,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({ items: [item], total: 1 });
     vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValueOnce({ items: [], total: 0 });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
 
@@ -432,6 +458,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
     });
     vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValueOnce({ ...item, price: '3.33' });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
@@ -453,6 +480,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     expect(screen.queryByLabelText('price-sources-viewer-item-1')).not.toBeInTheDocument();
@@ -475,6 +503,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
@@ -497,6 +526,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
@@ -515,6 +545,7 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       total: 1,
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Szpachlowanie 2 warstwy');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-1'));
@@ -537,30 +568,34 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       price: '65.00',
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
     const market = await screen.findByLabelText('price-item-market-item-9');
     expect(market).toHaveTextContent('55,00–75,00 zł / m²');
 
+    // owner 2026-10-31: the price list reads the saved row again after the form
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [{ ...nullCatalog, price: '65.00' }], total: 1 });
     fireEvent.click(screen.getByLabelText('edit-price-item-item-9'));
 
-    // The inline editor opens straight on the card; the evidence block stays put.
-    const editor = screen.getByLabelText('inline-price-edit-item-9');
-    expect(screen.getByLabelText('inline-price-input-item-9')).toHaveValue('');
-    expect(editor).toHaveTextContent('m²');
+    // The one form of every item opens under its line; the evidence block stays put.
+    const form = screen.getByLabelText('price-item-form');
+    expect(within(form).getByLabelText('price-item-price-unresolved')).not.toBeChecked(); // a catalogue row opens to type its price
+    expect(within(form).getByLabelText('price-item-price')).toHaveValue('');
+    expect(within(form).getByLabelText('price-item-unit')).toHaveTextContent('m²');
     expect(screen.getByLabelText('price-item-market-item-9')).toHaveTextContent(
       '55,00–75,00 zł / m²',
     );
 
-    fireEvent.change(screen.getByLabelText('inline-price-input-item-9'), {
+    fireEvent.change(screen.getByLabelText('price-item-price'), {
       target: { value: '65.00' },
     });
-    fireEvent.click(screen.getByLabelText('inline-price-save-item-9'));
+    fireEvent.submit(form);
 
     await waitFor(() =>
-      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-9', { price: '65.00' }),
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-9', expect.objectContaining({ price: '65.00', display_name: '' })),
     );
-    expect(await screen.findByText('65,00 zł')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('price-item-price-item-9')).toHaveTextContent('65,00 zł'));
 
     // Owner-price PATCHes never touch market evidence: range, checked date and sources remain.
     const marketAfter = screen.getByLabelText('price-item-market-item-9');
@@ -589,24 +624,27 @@ describe('PriceBook — market evidence (Stage 9E.6B)', () => {
       price: '65.00',
     });
     renderBook();
+    await openDetails();
 
     await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
     fireEvent.click(await screen.findByLabelText('price-item-sources-toggle-item-9'));
     await screen.findByLabelText('price-sources-viewer-item-9');
 
     // A previously expanded sources sheet must not leave Edit unreachable.
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [{ ...nullCatalog, price: '65.00' }], total: 1 });
     fireEvent.click(screen.getByLabelText('edit-price-item-item-9'));
-    expect(screen.getByLabelText('inline-price-edit-item-9')).toBeInTheDocument();
+    expect(screen.getByLabelText('price-item-form')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('close-price-sources-item-9'));
-    fireEvent.change(screen.getByLabelText('inline-price-input-item-9'), {
+    fireEvent.change(screen.getByLabelText('price-item-price'), {
       target: { value: '65.00' },
     });
-    fireEvent.click(screen.getByLabelText('inline-price-save-item-9'));
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
 
     await waitFor(() =>
-      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-9', { price: '65.00' }),
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-9', expect.objectContaining({ price: '65.00' })),
     );
+    await waitFor(() => expect(screen.queryByLabelText('price-item-form')).toBeNull());
     // Sources remain available after the owner-price edit.
     fireEvent.click(screen.getByLabelText('price-item-sources-toggle-item-9'));
     expect(await screen.findByLabelText('price-sources-viewer-item-9')).toBeInTheDocument();
@@ -627,6 +665,7 @@ describe('UX walk B7: the market reference becomes the owner price by one tap', 
     vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValue({ items: [makeReference({ reference_price: '65.00' })], total: 1 });
     vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValue({ ...unpriced, price: '65.00' });
     renderBook();
+    await openDetails();
     const take = await screen.findByLabelText('price-item-use-reference-item-1');
     expect(take).toHaveTextContent('Ustaw jako moją cenę: 65,00 zł');
     expect(take.className).toContain('min-h-11');
@@ -639,6 +678,7 @@ describe('UX walk B7: the market reference becomes the owner price by one tap', 
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [item], total: 1 });
     vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValue({ items: [makeReference({ reference_price: '65.00' })], total: 1 });
     const view = renderBook();
+    await openDetails();
     await screen.findByLabelText('price-item-market-item-1');
     expect(screen.queryByLabelText('price-item-use-reference-item-1')).toBeNull();
     view.unmount();
@@ -646,6 +686,7 @@ describe('UX walk B7: the market reference becomes the owner price by one tap', 
     vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [{ ...item, id: 'item-2', price: null }], total: 1 });
     vi.mocked(marketEvidenceApi.fetchMarketEvidence).mockResolvedValue({ items: [makeReference({ reference_price: '65.00', unit: 'MB' as never })], total: 1 });
     renderBook();
+    await openDetails();
     await screen.findByLabelText('price-item-market-item-2');
     expect(screen.queryByLabelText('price-item-use-reference-item-2')).toBeNull();
     expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();

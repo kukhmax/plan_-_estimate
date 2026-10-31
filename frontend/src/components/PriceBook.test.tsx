@@ -223,6 +223,7 @@ describe('PriceBook — list and cards', () => {
     renderBook();
 
     await screen.findByText('Malowanie lateksowe dwukrotnie');
+    fireEvent.click(screen.getByLabelText(`price-item-toggle-${custom.id}`)); // owner 2026-10-31: in the details of the line
     expect(screen.getByText('Klasa Q3')).toBeInTheDocument();
     expect(screen.getByText(/Robocizna i materiał/)).toBeInTheDocument();
   });
@@ -331,6 +332,7 @@ describe('PriceBook — filters', () => {
       expect.objectContaining({ archived: 'archived' }),
     );
     expect(screen.getByText('Zarchiwizowana')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(`price-item-toggle-${archived.id}`));
     expect(screen.getByLabelText(`restore-price-item-${archived.id}`)).toBeInTheDocument();
   });
 });
@@ -482,7 +484,7 @@ describe('PriceBook — edit', () => {
   });
 });
 
-describe('PriceBook — inline catalog price edit (Stage 9E.8)', () => {
+describe('PriceBook — a catalogue row in the one form of every item (owner 2026-10-31)', () => {
   const zeroCatalog: PriceItem = {
     id: 'item-6',
     code: 'CENNIK_PRIM_STD-01',
@@ -506,209 +508,75 @@ describe('PriceBook — inline catalog price edit (Stage 9E.8)', () => {
     vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValue(seedPrep);
   });
 
-  function stubScrollIntoView() {
-    const spy = vi.fn();
-    const original = Element.prototype.scrollIntoView;
-    Element.prototype.scrollIntoView = spy;
-    return {
-      spy,
-      restore: () => {
-        Element.prototype.scrollIntoView = original;
-      },
-    };
-  }
-
-  it('opens the inline editor on a catalog row instead of the global form', async () => {
-    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-      items: [seedPrep],
-      total: 1,
-    });
+  it('opens the same form as an own row, right under the line, with the catalogue name kept by an empty field', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [seedPrep, custom], total: 2 });
     renderBook();
     await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
 
     fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
 
-    expect(screen.getByLabelText('inline-price-edit-item-1')).toBeInTheDocument();
-    expect(screen.queryByLabelText('price-item-form')).not.toBeInTheDocument();
+    const form = screen.getByLabelText('price-item-form');
+    expect(within(screen.getByLabelText('price-item-item-1')).getByLabelText('price-item-form')).toBe(form); // under its own line
+    expect(within(form).getByLabelText('price-item-display-name')).toHaveValue('');
+    expect(within(form).getByLabelText('price-item-display-name')).toHaveAttribute('placeholder', 'Usuwanie tapet (zdzieranie, utylizacja)');
+    expect(within(form).getByText('Puste pole = nazwa z katalogu.')).toBeInTheDocument();
+    // the category and the unit of a catalogue row are fixed
+    expect(within(form).getByLabelText('price-item-unit').tagName).toBe('P');
+    expect(within(form).getByLabelText('price-item-category').tagName).toBe('P');
+    expect(within(form).getByLabelText('price-item-price')).toHaveValue('1.11');
   });
 
-  it('does not scroll the page when a catalog row is opened for editing', async () => {
-    const { spy, restore } = stubScrollIntoView();
-    try {
-      vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-        items: [seedPrep],
-        total: 1,
-      });
-      renderBook();
-      await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
-
-      fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
-
-      expect(spy).not.toHaveBeenCalled();
-      expect(screen.getByLabelText('inline-price-edit-item-1')).toBeInTheDocument();
-    } finally {
-      restore();
-    }
-  });
-
-  it('pre-fills the inline input with the current catalog price', async () => {
-    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-      items: [seedPrep],
-      total: 1,
-    });
+  it('saves the price with the catalogue name kept (an empty name) and keeps an explicit 0.00 a payable zero', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [zeroCatalog], total: 1 });
+    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValue(zeroCatalog);
     renderBook();
-    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
-
-    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
-    expect(screen.getByLabelText('inline-price-input-item-1')).toHaveValue('1.11');
-  });
-
-  it('keeps an explicit 0.00 catalog price as 0.00 in the inline input', async () => {
-    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-      items: [zeroCatalog],
-      total: 1,
-    });
-    renderBook();
-    await screen.findByText('Gruntowanie gruntem penetrującym (pod szpachlowanie)');
-
-    fireEvent.click(screen.getByLabelText('edit-price-item-item-6'));
-    expect(screen.getByLabelText('inline-price-input-item-6')).toHaveValue('0.00');
-  });
-
-  it('keeps an explicit 0.00 catalog price as a payable zero through save — never null', async () => {
-    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-      items: [zeroCatalog],
-      total: 1,
-    });
-    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValueOnce({
-      ...zeroCatalog,
-      price: '0.00',
-    });
-    renderBook();
-    await screen.findByText('Gruntowanie gruntem penetrującym (pod szpachlowanie)');
-
-    expect(screen.getByText('0,00 zł')).toBeInTheDocument();
-    expect(screen.queryByText('Do ustalenia')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByLabelText('edit-price-item-item-6'));
-    expect(screen.getByLabelText('inline-price-input-item-6')).toHaveValue('0.00');
-
-    fireEvent.click(screen.getByLabelText('inline-price-save-item-6'));
-
+    fireEvent.click(await screen.findByLabelText('edit-price-item-item-6'));
+    expect(screen.getByLabelText('price-item-price')).toHaveValue('0.00');
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
     await waitFor(() =>
-      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-6', { price: '0.00' }),
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-6', expect.objectContaining({ price: '0.00', display_name: '', unit: 'M2', category: 'PREPARATION' })),
     );
-    await waitFor(() =>
-      expect(screen.queryByLabelText('inline-price-edit-item-6')).not.toBeInTheDocument(),
-    );
-    expect(screen.getByText('0,00 zł')).toBeInTheDocument();
-    expect(screen.queryByText('Do ustalenia')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByLabelText('price-item-form')).toBeNull());
   });
 
-  it('shows the canonical unit read-only and hides the canonical metadata fields', async () => {
-    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-      items: [seedPrep],
-      total: 1,
-    });
+  it('cancels without any API call', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [seedPrep], total: 1 });
     renderBook();
-    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
-
-    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
-    const editor = screen.getByLabelText('inline-price-edit-item-1');
-
-    expect(editor).toHaveTextContent('m²');
-    expect(screen.queryByLabelText('price-item-unit')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('price-item-category')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('price-item-scope')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('price-item-quality')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('price-item-display-name')).not.toBeInTheDocument();
-  });
-
-  it('PATCHes only the owner price and closes the editor on success', async () => {
-    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-      items: [seedPrep],
-      total: 1,
-    });
-    vi.mocked(priceItemsApi.updatePriceItem).mockResolvedValueOnce({
-      ...seedPrep,
-      price: '65.00',
-    });
-    renderBook();
-    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
-
-    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
-    fireEvent.change(screen.getByLabelText('inline-price-input-item-1'), {
-      target: { value: '65,00' },
-    });
-    fireEvent.click(screen.getByLabelText('inline-price-save-item-1'));
-
-    await waitFor(() =>
-      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-1', { price: '65.00' }),
-    );
-    await waitFor(() =>
-      expect(screen.queryByLabelText('inline-price-edit-item-1')).not.toBeInTheDocument(),
-    );
-    expect(screen.getByText('65,00 zł')).toBeInTheDocument();
-  });
-
-  it('cancels without any API call and restores the card', async () => {
-    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-      items: [seedPrep],
-      total: 1,
-    });
-    renderBook();
-    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
-
-    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
-    fireEvent.change(screen.getByLabelText('inline-price-input-item-1'), {
-      target: { value: '99' },
-    });
-    fireEvent.click(screen.getByLabelText('inline-price-cancel-item-1'));
-
-    expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText('inline-price-edit-item-1')).not.toBeInTheDocument();
-    expect(screen.getByText('1,11 zł')).toBeInTheDocument();
-  });
-
-  it('keeps the validation error inside the inline editor and blocks a malformed price', async () => {
-    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValueOnce({
-      items: [seedPrep],
-      total: 1,
-    });
-    renderBook();
-    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
-
-    fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
-    const input = screen.getByLabelText('inline-price-input-item-1');
-
-    fireEvent.change(input, { target: { value: '1,11,11' } });
-    expect(screen.getByLabelText('inline-price-save-item-1')).toBeDisabled();
-    expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
-
-    fireEvent.change(input, { target: { value: '' } });
-    fireEvent.click(screen.getByLabelText('inline-price-save-item-1'));
-
-    expect(screen.getByLabelText('inline-price-edit-item-1')).toHaveTextContent('Podaj cenę.');
+    fireEvent.click(await screen.findByLabelText('edit-price-item-item-1'));
+    fireEvent.click(within(screen.getByLabelText('price-item-form')).getByRole('button', { name: /Anuluj/ }));
+    expect(screen.queryByLabelText('price-item-form')).toBeNull();
     expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
   });
 
-  it('offers restore only (no price editor) on an archived catalog row', async () => {
-    const archivedCatalog: PriceItem = {
-      ...seedPrep,
-      id: 'item-7',
-      is_archived: true,
-    };
-    vi.mocked(priceItemsApi.fetchPriceItems)
-      .mockResolvedValueOnce({ items: [], total: 0 })
-      .mockResolvedValueOnce({ items: [archivedCatalog], total: 1 });
+  it('blocks a malformed price', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [seedPrep], total: 1 });
     renderBook();
+    fireEvent.click(await screen.findByLabelText('edit-price-item-item-1'));
+    fireEvent.change(screen.getByLabelText('price-item-price'), { target: { value: '12,345' } });
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
+    expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
+  });
 
-    fireEvent.click(await screen.findByLabelText('pricebook-tab-archived'));
-    await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
+  it('offers restore only (no edit) on an archived catalogue row, in its details', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [{ ...seedPrep, is_archived: true }], total: 1 });
+    renderBook();
+    fireEvent.click(await screen.findByLabelText('price-item-toggle-item-1'));
+    expect(screen.getByLabelText('restore-price-item-item-1')).toBeInTheDocument();
+    expect(screen.queryByLabelText('edit-price-item-item-1')).toBeNull();
+  });
 
-    expect(screen.getByLabelText('restore-price-item-item-7')).toBeInTheDocument();
-    expect(screen.queryByLabelText('edit-price-item-item-7')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('inline-price-edit-item-7')).not.toBeInTheDocument();
+  it('is one line per item -- name, price, ✏️ -- and a tap opens the details (owner 2026-10-31)', async () => {
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [seedPrep], total: 1 });
+    renderBook();
+    const toggle = await screen.findByLabelText('price-item-toggle-item-1');
+    expect(toggle).toHaveClass('min-h-11');
+    expect(screen.getByLabelText('price-item-price-item-1')).toHaveTextContent('1,11 zł');
+    expect(screen.queryByLabelText('price-item-details-item-1')).toBeNull();
+    expect(screen.queryByLabelText('archive-price-item-item-1')).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getByLabelText('price-item-details-item-1')).toBeInTheDocument();
+    expect(screen.getByLabelText('archive-price-item-item-1')).toBeInTheDocument();
+    expect(screen.getByLabelText('edit-price-item-item-1')).toHaveClass('min-h-11', 'min-w-11');
   });
 });
 
@@ -928,7 +796,8 @@ describe('PriceBook — archive / restore lifecycle', () => {
       .mockResolvedValueOnce({ items: [seedPrep], total: 1 });
     renderBook();
 
-    fireEvent.click(await screen.findByLabelText(`archive-price-item-${custom.id}`));
+    fireEvent.click(await screen.findByLabelText(`price-item-toggle-${custom.id}`));
+    fireEvent.click(screen.getByLabelText(`archive-price-item-${custom.id}`));
 
     await waitFor(() =>
       expect(priceItemsApi.archivePriceItem).toHaveBeenCalledWith(custom.id),
@@ -947,6 +816,7 @@ describe('PriceBook — archive / restore lifecycle', () => {
     renderBook();
 
     fireEvent.click(await screen.findByLabelText('pricebook-tab-archived'));
+    fireEvent.click(await screen.findByLabelText(`price-item-toggle-${archived.id}`));
     const restore = await screen.findByLabelText(`restore-price-item-${archived.id}`);
     fireEvent.click(restore);
 
@@ -1002,7 +872,8 @@ describe('PriceBook — localized error states', () => {
     );
     renderBook();
 
-    fireEvent.click(await screen.findByLabelText(`archive-price-item-${custom.id}`));
+    fireEvent.click(await screen.findByLabelText(`price-item-toggle-${custom.id}`));
+    fireEvent.click(screen.getByLabelText(`archive-price-item-${custom.id}`));
 
     expect(await screen.findByText('Nie udało się zarchiwizować pozycji.')).toBeInTheDocument();
     expect(screen.queryByText(/500/)).not.toBeInTheDocument();

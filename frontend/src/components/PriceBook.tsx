@@ -28,13 +28,12 @@ import {
 import { priceItemMatches, priceItemRank, resolveDisplayName } from '../utils/priceItemName';
 import plDictionary from '../locales/pl.json';
 import { StarterPricesSheet } from './StarterPricesSheet';
-import { formatPrice, normalizePriceInput } from '../utils/priceFormat';
+import { formatPrice } from '../utils/priceFormat';
 import { HubTile } from './HubTile';
 import { PriceBookMarket } from './PriceBookMarket';
 import { PriceItemForm } from './PriceItemForm';
 import { Ico } from './Ico';
 import { packNameHint } from '../utils/nameHints';
-import { VoiceInput } from './VoiceInput';
 
 // Secondary screen, only shown on the "Współczynniki" tab — kept out of the
 // main bundle.
@@ -48,11 +47,6 @@ const WorkflowTemplateManager = lazy(() =>
 
 type Tab = 'active' | 'archived';
 type MainTab = 'items' | 'coefficients' | 'processes';
-
-/** Seeded catalog rows carry a name_key; owner-created rows never do. */
-function isCatalogItem(item: PriceItem): boolean {
-  return item.name_key !== null;
-}
 
 interface PriceBookProps {
   resetSignal?: number;
@@ -80,13 +74,9 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<PriceItem | null>(null);
 
-  // Inline owner-price editor for catalog rows (Stage 9E.8). Catalog rows carry
-  // canonical metadata (name, unit, category, quality), so only the commercial
-  // price is editable — and it is edited in place instead of via the global form.
-  const [inlineId, setInlineId] = useState<string | null>(null);
-  const [inlinePrice, setInlinePrice] = useState('');
-  const [inlineError, setInlineError] = useState<string | null>(null);
-  const [inlineSaving, setInlineSaving] = useState(false);
+  // owner 2026-10-31: the list is one line per item ("name — price ✏️"); a tap opens its details (the market, archiving), ✏️ opens the
+  // one form of every item (catalogue or own) right under its line
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const formRef = useRef<HTMLFormElement | null>(null);
 
@@ -100,8 +90,10 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
     }
   }, [showForm]);
 
-  // Per-item market evidence (read-only; cached, never re-fetched per render).
-  const evidence = useMarketEvidence(items.map((item) => item.id));
+  // Per-item market evidence (read-only; cached, never re-fetched per render) -- read for a row when its details are first opened
+  // (owner 2026-10-31: the list is one line per item; it no longer asks the market of every item at once)
+  const [opened, setOpened] = useState<string[]>([]);
+  const evidence = useMarketEvidence(opened);
   const query = search.trim();
   const found = query
     ? items
@@ -147,8 +139,8 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
     if (resetSignal) {
       setMainTab(null);
       setShowForm(false);
-      setInlineId(null);
-      setInlineError(null);
+      setEditing(null);
+      setOpenId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetSignal]);
@@ -158,56 +150,11 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
   const scopeLabel = (value: PriceScopeValue) => t.pricebook.scopes[value];
   const qualityLabel = (value: QualityLevelValue) => t.pricebook.quality[value];
 
-  const closeInline = () => {
-    setInlineId(null);
-    setInlineError(null);
-  };
-
-  const openInlineEdit = (item: PriceItem) => {
-    setShowForm(false);
-    setInlineId(item.id);
-    setInlinePrice(item.price ?? '');
-    setInlineError(null);
-  };
-
-  const handleInlinePriceChange = (value: string) => {
-    setInlinePrice(value);
-    setInlineError(null);
-  };
-
-  const handleInlineSubmit = async (item: PriceItem) => {
-    const priceState = normalizePriceInput(inlinePrice);
-    if (!priceState.ok) {
-      setInlineError(
-        priceState.reason === 'empty'
-          ? t.pricebook.validation_price_required
-          : priceState.reason === 'precision'
-            ? t.pricebook.validation_price_precision
-            : priceState.reason === 'negative'
-              ? t.pricebook.validation_price_negative
-              : t.pricebook.validation_price_format,
-      );
-      return;
-    }
-    setInlineSaving(true);
-    setInlineError(null);
-    try {
-      const updated = await updatePriceItem(item.id, { price: priceState.value ?? '' });
-      setItems((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
-      closeInline();
-    } catch {
-      setInlineError(t.pricebook.error_save);
-    } finally {
-      setInlineSaving(false);
-    }
-  };
-
   // UX walk B7: the market reference becomes the owner's price by one tap of his, only for a row that has no price yet
   const [referenceBusy, setReferenceBusy] = useState<string | null>(null);
   const takeReference = async (item: PriceItem, price: string) => {
     if (referenceBusy) return;
     setReferenceBusy(item.id);
-    setInlineError(null);
     try {
       const updated = await updatePriceItem(item.id, { price });
       setItems((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
@@ -219,13 +166,11 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
   };
 
   const openCreate = () => {
-    closeInline();
     setEditing(null);
     setShowForm(true);
   };
 
   const openEdit = (item: PriceItem) => {
-    closeInline();
     setEditing(item);
     setShowForm(true);
   };
@@ -241,7 +186,6 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
   };
 
   const handleArchive = async (item: PriceItem) => {
-    closeInline();
     try {
       await archivePriceItem(item.id);
       setActionError(null);
@@ -265,8 +209,6 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
     }
   };
 
-  const inlineState = normalizePriceInput(inlinePrice);
-  const invalidInlinePrice = !inlineState.ok && inlineState.reason !== 'empty';
   const emptyMessage = search.trim()
     ? t.pricebook.empty_search
     : tab === 'archived'
@@ -414,10 +356,10 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
         <Ico>➕</Ico>{t.pricebook.add_item}
       </button>
 
-      {showForm && (
+      {showForm && editing === null && (
         <PriceItemForm
           ref={formRef}
-          initialItem={editing}
+          initialItem={null}
           onCancel={closeForm}
           onSaved={handleFormSaved}
         />
@@ -440,158 +382,104 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
         </p>
       )}
       {!loading && !error && shownItems.length > 0 && (
-        <ul aria-label="pricebook-list" className="space-y-2">
-          {shownItems.map((item) => (
-            <li
-              key={item.id}
-              aria-label={`price-item-${item.id}`}
-              className="pe-card rounded-2xl p-4 shadow-sm"
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="font-semibold text-slate-900 text-sm break-words">
-                  {resolveDisplayName(item, t)}
-                  {/* UX walk: the Polish name of a typical item with its meaning in the language of the screen */}
-                  {packNameHint(t, item.display_name) && (
-                    <span className="block text-xs font-normal text-slate-500">{packNameHint(t, item.display_name)}</span>
-                  )}
-                </h4>
-                {item.is_archived && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                    {t.pricebook.archived_badge}
-                  </span>
-                )}
-              </div>
-              {item.quality_level && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-800 font-medium mt-0.5 inline-block">
-                  {qualityLabel(item.quality_level)}
-                </span>
-              )}
-              <p className="text-xs text-slate-500 mt-0.5">
-                {categoryLabel(item.category)}
-                {item.price_scope !== 'LABOR' && (
-                  <> · {scopeLabel(item.price_scope)}</>
-                )}
-              </p>
-
-              {inlineId === item.id ? (
-                <div aria-label={`inline-price-edit-${item.id}`} className="mt-2 space-y-2">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">
-                    {t.pricebook.market.my_price}
-                  </p>
-                  <div>
-                    <label
-                      className="block text-xs text-slate-500 mb-1"
-                      htmlFor={`inline-price-input-${item.id}`}
-                    >
-                      {t.pricebook.price}
-                    </label>
-                    <VoiceInput name={`inline-price-${item.id}`} mode="plain" onValue={(value) => handleInlinePriceChange(value.replace('.', ','))}>
-                      <input
-                        id={`inline-price-input-${item.id}`}
-                        aria-label={`inline-price-input-${item.id}`}
-                        type="text"
-                        inputMode="decimal"
-                        placeholder={t.pricebook.price_placeholder}
-                        value={inlinePrice}
-                        onChange={(e) => handleInlinePriceChange(e.target.value)}
-                        className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-0 flex-1"
-                      />
-                    </VoiceInput>
-                    {inlineError && (
-                      <p role="alert" className="text-sm text-red-600 font-medium mt-1">
-                        {inlineError}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">{t.pricebook.unit}</p>
-                    <p className="text-sm font-semibold text-slate-900">{unitLabel(item.unit)}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{t.pricebook.unit_fixed_hint}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      aria-label={`inline-price-cancel-${item.id}`}
-                      onClick={closeInline}
-                      className="min-h-11 flex-1 px-3 py-2 text-sm rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
-                    >
-                      <Ico>✖️</Ico>{t.common.cancel}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`inline-price-save-${item.id}`}
-                      onClick={() => void handleInlineSubmit(item)}
-                      disabled={inlineSaving || invalidInlinePrice}
-                      className="min-h-11 flex-1 px-3 py-2 text-sm bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
-                    >
-                      <Ico>💾</Ico>{inlineSaving ? t.common.saving : t.common.save}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mt-1">
-                    {t.pricebook.market.my_price}
-                  </p>
-                  <p className="text-base font-extrabold text-slate-900 mt-1">
-                    {item.price === null ? (
-                      <span className="text-slate-500">
-                        {t.pricebook.price_not_set}
-                      </span>
-                    ) : (
-                      <span className="text-emerald-700">
-                        {formatPrice(item.price)} {t.pricebook.currency_symbol}
-                      </span>
-                    )}
-                    <span className="text-slate-500 text-sm"> / {unitLabel(item.unit)}</span>
-                  </p>
-                </>
-              )}
-
-              {item.is_archived ? (
-                <button
-                  type="button"
-                  aria-label={`restore-price-item-${item.id}`}
-                  onClick={() => void handleRestore(item)}
-                  className="mt-2 min-h-11 w-full px-3 py-2 text-xs rounded-lg bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition"
-                >
-                  <Ico>♻️</Ico>{t.common.restore}
-                </button>
-              ) : (
-                inlineId !== item.id && (
-                  <div className="mt-2 flex gap-2">
+        <ul aria-label="pricebook-list" className="space-y-1.5">
+          {shownItems.map((item) => {
+            const open = openId === item.id;
+            const hint = packNameHint(t, item.display_name);
+            return (
+              <li key={item.id} aria-label={`price-item-${item.id}`} className="pe-card rounded-xl shadow-sm">
+                <div className="flex items-center gap-1.5 pl-3 pr-1.5 py-1">
+                  <button
+                    type="button"
+                    aria-label={`price-item-toggle-${item.id}`}
+                    aria-expanded={open}
+                    onClick={() => {
+                      setOpenId(open ? null : item.id);
+                      if (!open && !opened.includes(item.id)) setOpened((current) => [...current, item.id]);
+                    }}
+                    className="min-w-0 flex-1 min-h-11 flex items-center gap-2 text-left"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-slate-900 text-sm break-words">{resolveDisplayName(item, t)}</span>
+                      {/* UX walk: the Polish name of a typical item with its meaning in the language of the screen */}
+                      {hint && <span className="block text-xs font-normal text-slate-500 break-words">{hint}</span>}
+                      {item.is_archived && (
+                        <span className="mt-0.5 inline-block text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                          {t.pricebook.archived_badge}
+                        </span>
+                      )}
+                    </span>
+                    <span aria-label={`price-item-price-${item.id}`} className="shrink-0 text-right text-sm font-bold whitespace-nowrap">
+                      {item.price === null ? (
+                        <span className="text-slate-500 font-semibold">{t.pricebook.price_not_set}</span>
+                      ) : (
+                        <span className="text-emerald-700">{formatPrice(item.price)} {t.pricebook.currency_symbol}</span>
+                      )}
+                      <span className="block text-xs font-normal text-slate-500">/ {unitLabel(item.unit)}</span>
+                    </span>
+                  </button>
+                  {!item.is_archived && (
                     <button
                       type="button"
                       aria-label={`edit-price-item-${item.id}`}
-                      onClick={() =>
-                        isCatalogItem(item) ? openInlineEdit(item) : openEdit(item)
-                      }
-                      className="min-h-11 flex-1 px-3 py-2 text-xs rounded-lg bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition"
+                      title={t.common.edit}
+                      onClick={() => (editing?.id === item.id && showForm ? closeForm() : openEdit(item))}
+                      className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition"
                     >
-                      <Ico>✏️</Ico>{t.common.edit}
+                      <span aria-hidden="true">✏️</span>
                     </button>
-                    <button
-                      type="button"
-                      aria-label={`archive-price-item-${item.id}`}
-                      onClick={() => void handleArchive(item)}
-                      className="min-h-11 flex-1 px-3 py-2 text-xs rounded-lg bg-orange-50 text-orange-700 font-medium hover:bg-orange-100 transition"
-                    >
-                      <Ico>🗃️</Ico>{t.common.archive}
-                    </button>
-                  </div>
-                )
-              )}
+                  )}
+                </div>
 
-              <PriceBookMarket
-                itemId={item.id}
-                entry={evidence[item.id]}
-                unitLabel={unitLabel}
-                itemUnit={item.unit}
-                onUseReference={item.price === null && !item.is_archived ? (price) => void takeReference(item, price) : undefined}
-                useBusy={referenceBusy === item.id}
-              />
-            </li>
-          ))}
+                {showForm && editing?.id === item.id && (
+                  <div className="px-2 pb-2">
+                    <PriceItemForm ref={formRef} initialItem={item} onCancel={closeForm} onSaved={handleFormSaved} />
+                  </div>
+                )}
+
+                {open && (
+                  <div aria-label={`price-item-details-${item.id}`} className="px-3 pb-3 space-y-2 border-t border-slate-100 pt-2">
+                    {item.quality_level && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-800 font-medium inline-block">
+                        {qualityLabel(item.quality_level)}
+                      </span>
+                    )}
+                    <p className="text-xs text-slate-500">
+                      {categoryLabel(item.category)}
+                      {item.price_scope !== 'LABOR' && <> · {scopeLabel(item.price_scope)}</>}
+                    </p>
+                    {item.is_archived ? (
+                      <button
+                        type="button"
+                        aria-label={`restore-price-item-${item.id}`}
+                        onClick={() => void handleRestore(item)}
+                        className="min-h-11 w-full px-3 py-2 text-xs rounded-lg bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition"
+                      >
+                        <Ico>♻️</Ico>{t.common.restore}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label={`archive-price-item-${item.id}`}
+                        onClick={() => void handleArchive(item)}
+                        className="min-h-11 w-full px-3 py-2 text-xs rounded-lg bg-orange-50 text-orange-700 font-medium hover:bg-orange-100 transition"
+                      >
+                        <Ico>🗃️</Ico>{t.common.archive}
+                      </button>
+                    )}
+                    <PriceBookMarket
+                      itemId={item.id}
+                      entry={evidence[item.id]}
+                      unitLabel={unitLabel}
+                      itemUnit={item.unit}
+                      onUseReference={item.price === null && !item.is_archived ? (price) => void takeReference(item, price) : undefined}
+                      useBusy={referenceBusy === item.id}
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
         </>

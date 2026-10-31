@@ -2122,6 +2122,7 @@
     "price_not_set": "Do ustalenia",
     "seed_identity": "Nazwa bazowa",
     "name_required_hint": "Pozycja własna wymaga nazwy",
+    "catalog_name_hint": "Puste pole = nazwa z katalogu.",
     "archived_badge": "Zarchiwizowana",
     "loading": "Ładowanie cennika...",
     "empty": "Brak pozycji",

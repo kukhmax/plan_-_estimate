@@ -114,13 +114,13 @@ describe('PriceBook — nullable owner price (Stage 9E.7)', () => {
 
     fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
 
-    const priceInput = screen.getByLabelText('inline-price-input-item-1');
+    const priceInput = screen.getByLabelText('price-item-price');
     expect(priceInput).toHaveValue('');
     fireEvent.change(priceInput, { target: { value: '20' } });
-    fireEvent.click(screen.getByLabelText('inline-price-save-item-1'));
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
 
     await waitFor(() =>
-      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-1', { price: '20' }),
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-1', expect.objectContaining({ price: '20' })),
     );
   });
 
@@ -133,10 +133,10 @@ describe('PriceBook — nullable owner price (Stage 9E.7)', () => {
     await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
 
     fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
-    fireEvent.click(screen.getByLabelText('inline-price-save-item-1'));
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
 
     expect(
-      await within(screen.getByLabelText('inline-price-edit-item-1')).findByText('Podaj cenę.'),
+      await within(screen.getByLabelText('price-item-form')).findByText('Podaj cenę.'),
     ).toBeInTheDocument();
     expect(priceItemsApi.updatePriceItem).not.toHaveBeenCalled();
   });
@@ -164,25 +164,26 @@ describe('PriceBook — nullable owner price (Stage 9E.7)', () => {
       ...seedWallp,
       price: '65.00',
     });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [{ ...seedWallp, price: '65.00' }], total: 1 });
     renderBook();
     await screen.findByText('Usuwanie tapet (zdzieranie, utylizacja)');
 
     fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
 
-    expect(screen.getByLabelText('inline-price-edit-item-1')).toBeInTheDocument();
-    const priceInput = screen.getByLabelText('inline-price-input-item-1');
+    expect(screen.getByLabelText('price-item-form')).toBeInTheDocument();
+    const priceInput = screen.getByLabelText('price-item-price');
     expect(priceInput).toHaveValue('');
 
     fireEvent.change(priceInput, { target: { value: '65.00' } });
-    fireEvent.click(screen.getByLabelText('inline-price-save-item-1'));
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
 
     await waitFor(() =>
-      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-1', { price: '65.00' }),
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-1', expect.objectContaining({ price: '65.00' })),
     );
     await waitFor(() =>
-      expect(screen.queryByLabelText('inline-price-edit-item-1')).not.toBeInTheDocument(),
+      expect(screen.queryByLabelText('price-item-form')).not.toBeInTheDocument(),
     );
-    expect(screen.getByText('65,00 zł')).toBeInTheDocument();
+    expect(await screen.findByText('65,00 zł')).toBeInTheDocument();
     expect(screen.getByText(/ m²/)).toBeInTheDocument();
     expect(screen.queryByText('Do ustalenia')).not.toBeInTheDocument();
   });
@@ -197,20 +198,21 @@ describe('PriceBook — nullable owner price (Stage 9E.7)', () => {
       ...seedWallp,
       price: '65.00',
     });
+    vi.mocked(priceItemsApi.fetchPriceItems).mockResolvedValue({ items: [{ ...seedWallp, price: '65.00' }], total: 1 });
     renderBook();
 
     await screen.findByText('Снятие обоев (сдирание, утилизация)');
     expect(screen.getByText('Уточняется')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('edit-price-item-item-1'));
-    const priceInput = screen.getByLabelText('inline-price-input-item-1');
+    const priceInput = screen.getByLabelText('price-item-price');
     expect(priceInput).toHaveValue('');
 
     fireEvent.change(priceInput, { target: { value: '65.00' } });
-    fireEvent.click(screen.getByLabelText('inline-price-save-item-1'));
+    fireEvent.submit(screen.getByLabelText('price-item-form'));
 
     await waitFor(() =>
-      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-1', { price: '65.00' }),
+      expect(priceItemsApi.updatePriceItem).toHaveBeenCalledWith('item-1', expect.objectContaining({ price: '65.00' })),
     );
     expect(await screen.findByText('65,00 zł')).toBeInTheDocument();
     expect(screen.queryByText('Уточняется')).not.toBeInTheDocument();

@@ -14,6 +14,7 @@ import {
   PriceUnitValue,
 } from '../types/priceItem';
 import { normalizePriceInput } from '../utils/priceFormat';
+import { resolveKey } from '../utils/i18nKeys';
 import { Ico } from './Ico';
 import { VoiceInput } from './VoiceInput';
 
@@ -43,7 +44,9 @@ interface PriceFormState {
 type PriceEditMode = 'value' | 'unresolved';
 
 function priceModeFor(item: PriceItem | null): PriceEditMode {
-  return item !== null && item.price === null ? 'unresolved' : 'value';
+  // a catalogue row without a price is opened to type the price (owner 2026-10-31: the one form of every item); an own row without a price
+  // was set "do ustalenia" on purpose and opens so
+  return item !== null && item.price === null && item.name_key === null ? 'unresolved' : 'value';
 }
 
 function formFromItem(item: PriceItem): PriceFormState {
@@ -112,6 +115,10 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
     const [formError, setFormError] = useState<string | null>(null);
     const [formPriceError, setFormPriceError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    // owner 2026-10-31: a catalogue row is edited in this same form -- its name may stay the catalogue's (empty field), its category and
+    // unit are the catalogue's and fixed (the processes and the estimate rely on them)
+    const catalog = initialItem !== null && initialItem.name_key !== null;
+    const catalogName = catalog && initialItem?.name_key ? resolveKey(t, initialItem.name_key) : '';
     const initialKeyRef = useRef<string | null>(initialItem?.id ?? null);
 
     // Re-seed the draft if the target row's identity changes while this form
@@ -161,8 +168,8 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
         }
         priceValue = priceState.value;
       }
-      // This form only creates or edits owner rows, which always need a name.
-      if (form.display_name.trim() === '') {
+      // An owner row always needs a name; a catalogue row keeps the catalogue's name when the field is empty.
+      if (!catalog && form.display_name.trim() === '') {
         setFormError(t.pricebook.validation_name_required);
         return;
       }
@@ -212,23 +219,23 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
             id={`${idPrefix}-display-name`}
             aria-label={`${idPrefix}-display-name`}
             maxLength={255}
-            placeholder={t.pricebook.display_name}
+            placeholder={catalog ? catalogName : t.pricebook.display_name}
             value={form.display_name}
             onChange={(e) => handleFormChange('display_name', e.target.value)}
             className="w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-sm"
           />
-          <p className="text-xs text-slate-400 mt-1">{t.pricebook.name_required_hint}</p>
+          <p className="text-xs text-slate-400 mt-1">{catalog ? t.pricebook.catalog_name_hint : t.pricebook.name_required_hint}</p>
         </div>
         <div>
           <label className="block text-xs text-slate-500 mb-1" htmlFor={`${idPrefix}-category`}>
             {t.pricebook.category}
           </label>
-          {lockedCategory ? (
+          {lockedCategory || catalog ? (
             <p
               aria-label={`${idPrefix}-category`}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700"
             >
-              {lockedCategoryLabel ?? categoryLabel(lockedCategory)}
+              {lockedCategory ? (lockedCategoryLabel ?? categoryLabel(lockedCategory)) : categoryLabel(form.category)}
             </p>
           ) : (
             <select
@@ -251,17 +258,26 @@ export const PriceItemForm = forwardRef<HTMLFormElement, PriceItemFormProps>(
             <label className="block text-xs text-slate-500 mb-1" htmlFor={`${idPrefix}-unit`}>
               {t.pricebook.unit}
             </label>
-            <select
-              id={`${idPrefix}-unit`}
-              aria-label={`${idPrefix}-unit`}
-              value={form.unit}
-              onChange={(e) => handleFormChange('unit', e.target.value)}
-              className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-2 text-sm"
-            >
-              {PRICE_UNITS.map((value) => (
-                <option key={value} value={value}>{unitLabel(value)}</option>
-              ))}
-            </select>
+            {catalog ? (
+              <>
+                <p aria-label={`${idPrefix}-unit`} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+                  {unitLabel(form.unit)}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">{t.pricebook.unit_fixed_hint}</p>
+              </>
+            ) : (
+              <select
+                id={`${idPrefix}-unit`}
+                aria-label={`${idPrefix}-unit`}
+                value={form.unit}
+                onChange={(e) => handleFormChange('unit', e.target.value)}
+                className="w-full min-h-11 border border-slate-200 rounded-lg px-2.5 py-2 text-sm"
+              >
+                {PRICE_UNITS.map((value) => (
+                  <option key={value} value={value}>{unitLabel(value)}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1" htmlFor={`${idPrefix}-scope`}>

@@ -2122,6 +2122,7 @@
     "price_not_set": "To be agreed",
     "seed_identity": "Base item",
     "name_required_hint": "A name is required for your own item",
+    "catalog_name_hint": "Empty = the name from the catalogue.",
     "archived_badge": "Archived",
     "loading": "Loading the price list...",
     "empty": "No items",
