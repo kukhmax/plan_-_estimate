@@ -3088,6 +3088,8 @@
       "PROJECT_NOT_FOUND": "The object was not found.",
       "ESTIMATE_NOT_FOUND": "The estimate was not found.",
       "DOCUMENT_NOT_FOUND": "The document was not found.",
+      "DOCUMENT_NOT_READY": "The document has no number yet — issue it first.",
+      "LINK_INVALID": "The file link has expired. Press the button again.",
       "DOCUMENT_IN_PROGRESS": "The document is still being prepared. Wait until it is sent or reports an error, and try again.",
       "DOCUMENT_TEMPLATE_INVALID": "Error in the document template. Report it to the developer of the app.",
       "DOCUMENT_DELIVERY_FAILED": "Could not send the document to the chat. Try again.",

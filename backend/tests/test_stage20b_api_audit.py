@@ -21,6 +21,10 @@ OPEN_OPERATIONS = {
     ("GET", "/api/public/client"),
     ("POST", "/api/public/client/estimate/decide"),
     ("POST", "/api/public/client/proposals/{proposal_id}/decide"),
+    # owner 2026-10-31: "why these works" on the client's page -- the same secret of the link (tests/test_client_why.py)
+    ("GET", "/api/public/client/why"),
+    # owner 2026-10-31: the PDF of a share / download -- a signed five-minute ticket in the path (tests/test_document_file_links.py)
+    ("GET", "/api/public/files/{token}"),
     # V2-14: the page of the electrician and the plumber, built the same way (tests/test_v2_14_trade_links.py)
     ("GET", "/api/public/trade"),
     ("PUT", "/api/public/trade/rooms/{room_id}"),

@@ -206,7 +206,7 @@ class TestProjectSummary:
         s = (await async_client.get(f"/api/projects/{p}/summary", headers=auth_header(token))).json()
         assert s == {"room_count": 0, "floor_area": None, "ceiling_area": None, "total_wall_area": None,
                      "total_deduction_area": None, "net_wall_area": None, "reveal_total_length": None,
-                     "reveal_total_area": None, "opening_groups": []}
+                     "reveal_total_area": None, "opening_groups": [], "high_risks": []}
         await create_room(async_client, token, p)  # 5 x 4 x 2.7, no walls, no reveals
         s = (await async_client.get(f"/api/projects/{p}/summary", headers=auth_header(token))).json()
         assert (s["room_count"], s["floor_area"], s["reveal_total_length"]) == (1, "20.000", None)

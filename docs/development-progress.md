@@ -6279,3 +6279,8 @@ Owner after the deploy: "bring back the different colours of the walls, they are
 * Backend `GET …/surfaces/{s}/work-plan?missing=null`: `200 null` for a surface without a plan (a missing or foreign surface is still 404; without the parameter the answer is the old 404, so an open old client keeps working). Frontend `fetchSurfaceWorkPlan` asks with `?missing=null` and turns `null` into the same "missing" error (`isSurfaceWorkPlanMissing`) -- the screens are unchanged; the offline copy of a plan is matched by its path without the query (`optimisticExecution`).
 * Tests: backend `test_surface_work_plan_api.py` (+1, one extended); vitest `components/A11yName.test.tsx` (2), `api/workPlans.test.ts` (+1, one updated), `offline/flow.statuses.test.ts` (the fake server's path).
 
+### Owner decisions 2026-10-31: the full run after items 1-9 (branch `ver-2`; NO MIGRATION)
+* The full backend run found what the focused runs of items 4, 6 and 7 missed: the two new open operations (`GET /api/public/client/why`, `GET /api/public/files/{token}`) entered into the audit's list of open operations and the client page's list; the empty object summary pin carries `high_risks: []`; the two new document codes (`DOCUMENT_NOT_READY`, `LINK_INVALID`) have their sentences in the 4 locales.
+* The deploy script's bundle marker `public/files` (only the server builds that address) replaced by `draft-file-link`; all 236 markers checked against the local bundle.
+* Result: backend all PASS except the two known environment-only tests (`test_stage14d2c_preflight`, `test_stage14d2i3_smoke`; two more failed only under the load of four parallel runs and pass alone); vitest 4422/4422 (four timeouts under the same load pass alone); tsc and the build PASS.
+

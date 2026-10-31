@@ -522,7 +522,7 @@ def test_the_journal_has_no_door_that_changes_it():
     assert {m for m in paths["/api/projects/{project_id}/client-journal"]} == {"get"}
 
 
-def test_exactly_three_open_operations_belong_to_the_client():  # the page of the craftsman (V2-14) has its own three, see test_v2_14_trade_links.py
+def test_exactly_four_open_operations_belong_to_the_client():  # the page of the craftsman (V2-14) has its own three, see test_v2_14_trade_links.py
     from app.main import app
 
     opened = {
@@ -531,7 +531,8 @@ def test_exactly_three_open_operations_belong_to_the_client():  # the page of th
         for method, op in ops.items()
         if path.startswith("/api/public/client") and not op.get("security")
     }
-    assert opened == {("GET", PUBLIC), ("POST", PUBLIC + "/estimate/decide"), ("POST", PUBLIC + "/proposals/{proposal_id}/decide")}
+    # owner 2026-10-31: + "why these works" (read only, the same secret of the link)
+    assert opened == {("GET", PUBLIC), ("POST", PUBLIC + "/estimate/decide"), ("POST", PUBLIC + "/proposals/{proposal_id}/decide"), ("GET", PUBLIC + "/why")}
 
 
 async def test_too_many_wrong_secrets_from_one_address_close_the_door_for_a_while(async_client, db_session, web):
