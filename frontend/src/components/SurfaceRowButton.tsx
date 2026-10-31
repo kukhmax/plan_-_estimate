@@ -3,6 +3,7 @@ import { photoCountFor } from '../hooks/usePhotoCounts';
 import { useProjectPhotos } from '../hooks/ProjectPhotosContext';
 import { useI18n } from '../hooks/useI18n';
 import { PendingMark } from './PendingMark';
+import { A11yName, a11yId } from './A11yName';
 
 interface SurfaceRowButtonProps {
   /** The surface whose photos are counted; null when it is not known (the count is then left out). */
@@ -92,10 +93,19 @@ export function SurfaceRowButton({
     if (disabled) return;
     onOpen();
   };
+  const nameId = a11yId('surface-row', key);
+  const readable = [
+    name, typeLabel, archivedLabel, planLabel, partsLabel, mergedLabel,
+    riskCount ? t.surfaces.high_risks.replace('{count}', String(riskCount)) : null,
+    workCount ? `${t.surfaces.works_in_plan}: ${workCount}` : null,
+    count ? t.surfaces.photos_count.replace('{count}', String(count)) : null,
+    area,
+  ].filter(Boolean).join(', ');
   const row = (
     <button
       type="button"
       aria-label={`surface-row-${key}`}
+      aria-labelledby={nameId}
       aria-expanded={selecting ? undefined : false}
       aria-pressed={selecting ? selectedOrder !== null : undefined}
       aria-disabled={disabled || undefined}
@@ -103,6 +113,7 @@ export function SurfaceRowButton({
       className={`${className} select-none touch-manipulation ${disabled ? 'opacity-50' : ''} ${selectedOrder !== null ? 'ring-2 ring-blue-500' : ''}`}
       {...press}
     >
+      <A11yName id={nameId} text={readable} />
       {selecting && (
         <span
           aria-label={`surface-row-mark-${key}`}
@@ -156,11 +167,13 @@ export function SurfaceRowButton({
       <button
         type="button"
         aria-label={`edit-surface-${key}`}
+        aria-labelledby={editLabel ? a11yId('edit-surface', key) : undefined}
         title={editLabel}
         onClick={onEdit}
         className="shrink-0 min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-slate-200 pe-pill text-base"
       >
         <span aria-hidden="true">✏️</span>
+        {editLabel && <A11yName id={a11yId('edit-surface', key)} text={`${editLabel}: ${name}`} />}
       </button>
     </div>
   );

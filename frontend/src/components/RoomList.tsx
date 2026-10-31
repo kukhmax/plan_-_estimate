@@ -14,6 +14,7 @@ import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
 import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
 import { PendingMark } from './PendingMark';
+import { A11yName, a11yId } from './A11yName';
 
 interface RoomListProps {
   projectId: string;
@@ -489,19 +490,23 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
                   <button
                     type="button"
                     aria-label={`open-room-${room.id}`}
+                    aria-labelledby={a11yId('open-room', room.id)}
                     onClick={() => onOpenRoom(room)}
                     className="flex-1 min-h-11 min-w-0 break-words text-sm px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
                   >
                     <Ico>📂</Ico>{t.common.open}
+                    <A11yName id={a11yId('open-room', room.id)} text={`${t.common.open}: ${room.name}`} />
                   </button>
                   <button
                     type="button"
                     aria-label={`room-options-${room.id}`}
+                    aria-labelledby={a11yId('room-options', room.id)}
                     aria-expanded={optionsOpen === room.id}
                     onClick={() => setOptionsOpen((current) => (current === room.id ? null : room.id))}
                     className="shrink-0 max-w-[45%] min-h-11 break-words text-xs px-3 py-1 rounded-lg bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition"
                   >
                     <Ico>{optionsOpen === room.id ? '🔼' : '⚙️'}</Ico>{t.surfaces.options}
+                    <A11yName id={a11yId('room-options', room.id)} text={`${t.surfaces.options}: ${room.name}`} />
                   </button>
                 </div>
                 {optionsOpen === room.id && (

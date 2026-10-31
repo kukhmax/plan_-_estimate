@@ -34,6 +34,7 @@ import { PriceBookMarket } from './PriceBookMarket';
 import { PriceItemForm } from './PriceItemForm';
 import { Ico } from './Ico';
 import { packNameHint } from '../utils/nameHints';
+import { A11yName, a11yId } from './A11yName';
 
 // Secondary screen, only shown on the "Współczynniki" tab — kept out of the
 // main bundle.
@@ -392,6 +393,7 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
                   <button
                     type="button"
                     aria-label={`price-item-toggle-${item.id}`}
+                    aria-labelledby={a11yId('price-item', item.id)}
                     aria-expanded={open}
                     onClick={() => {
                       setOpenId(open ? null : item.id);
@@ -399,6 +401,10 @@ export function PriceBook({ resetSignal, backSuspended = false }: PriceBookProps
                     }}
                     className="min-w-0 flex-1 min-h-11 flex items-center gap-2 text-left"
                   >
+                    <A11yName
+                      id={a11yId('price-item', item.id)}
+                      text={`${resolveDisplayName(item, t)}, ${item.price === null ? t.pricebook.price_not_set : `${formatPrice(item.price)} ${t.pricebook.currency_symbol}`} / ${unitLabel(item.unit)}`}
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-slate-900 text-sm break-words">{resolveDisplayName(item, t)}</span>
                       {/* UX walk: the Polish name of a typical item with its meaning in the language of the screen */}

@@ -7,8 +7,9 @@ maps domain exceptions to the established HTTP error shapes (404 for
 missing/foreign rows, 422 for domain validation failures).
 """
 import uuid
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import (
     get_current_user,
@@ -74,7 +75,7 @@ def _detach_confirmation_required(e: ExecutionDetachConfirmationRequiredError) -
 
 @router.get(
     "/projects/{project_id}/rooms/{room_id}/surfaces/{surface_id}/work-plan",
-    response_model=SurfaceWorkPlanRead,
+    response_model=SurfaceWorkPlanRead | None,
     status_code=status.HTTP_200_OK,
     summary="Get one surface's work plan",
 )
@@ -82,9 +83,16 @@ async def get_work_plan(
     project_id: uuid.UUID,
     room_id: uuid.UUID,
     surface_id: uuid.UUID,
+    missing: Literal["error", "null"] = Query(
+        "error",
+        description=(
+            "owner 2026-10-31: `null` answers 200 with `null` for a surface that "
+            "has no plan yet (it is not an error); `error` keeps the 404"
+        ),
+    ),
     current_user: User = Depends(get_current_user),
     work_plan_service: SurfaceWorkPlanService = Depends(get_work_plan_service),
-) -> SurfaceWorkPlanRead:
+) -> SurfaceWorkPlanRead | None:
     try:
         plan = await work_plan_service.get_work_plan(
             project_id, room_id, surface_id, current_user.id
@@ -102,6 +110,8 @@ async def get_work_plan(
             status_code=status.HTTP_404_NOT_FOUND, detail="Surface not found"
         )
     if plan is None:
+        if missing == "null":
+            return None
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Surface work plan not found",

@@ -1032,6 +1032,7 @@
     "hide_options": "Скрыть опции",
     "work_types_quality": "Виды работ и качество",
     "works_in_plan": "Работ в плане",
+    "photos_count": "Фото: {count}",
     "high_risks": "Высоких рисков: {count}",
     "requires_dimensions": "Укажите размеры стены для добавления проемов",
     "created": "Поверхность создана",

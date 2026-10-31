@@ -24,6 +24,7 @@ export function BottomNav({ active, hidden = false, onSelect, onMore }: BottomNa
       key={id}
       type="button"
       aria-label={`bottom-nav-${id}`}
+      aria-labelledby={`pe-name-bottom-nav-${id}`}
       aria-current={active === id ? 'page' : undefined}
       onClick={() => onSelect(id)}
       className={`min-h-14 min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-semibold break-words text-center ${
@@ -31,7 +32,7 @@ export function BottomNav({ active, hidden = false, onSelect, onMore }: BottomNa
       }`}
     >
       <span aria-hidden="true" className="text-lg leading-none select-none">{icon}</span>
-      <span className="min-w-0 leading-tight">{label}</span>
+      <span id={`pe-name-bottom-nav-${id}`} className="min-w-0 leading-tight">{label}</span>
     </button>
   );
   return (
@@ -47,11 +48,12 @@ export function BottomNav({ active, hidden = false, onSelect, onMore }: BottomNa
         <button
           type="button"
           aria-label="bottom-nav-more"
+          aria-labelledby="pe-name-bottom-nav-more"
           onClick={onMore}
           className="min-h-14 min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-semibold text-center text-[var(--tg-theme-hint-color)]"
         >
           <span aria-hidden="true" className="text-lg leading-none">☰</span>
-          <span className="min-w-0 leading-tight">{t.navigation.more}</span>
+          <span id="pe-name-bottom-nav-more" className="min-w-0 leading-tight">{t.navigation.more}</span>
         </button>
       </div>
     </nav>

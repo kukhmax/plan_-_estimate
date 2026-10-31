@@ -289,6 +289,45 @@ async def test_get_no_plan_returns_404(async_client: AsyncClient, db_session):
     surface = await _make_surface(db_session, room.id)
     resp = await async_client.get(_wp(project.id, room.id, surface.id), headers=headers)
     assert resp.status_code == 404
+    # owner 2026-10-31: "no plan yet" asked with ?missing=null is an empty answer, not an error
+    empty = await async_client.get(
+        _wp(project.id, room.id, surface.id), params={"missing": "null"}, headers=headers
+    )
+    assert empty.status_code == 200
+    assert empty.json() is None
+    # a surface that does not exist (or is someone else's) stays a 404 either way
+    gone = await async_client.get(
+        _wp(project.id, room.id, uuid.uuid4()), params={"missing": "null"}, headers=headers
+    )
+    assert gone.status_code == 404
+    bad = await async_client.get(
+        _wp(project.id, room.id, surface.id), params={"missing": "maybe"}, headers=headers
+    )
+    assert bad.status_code == 422
+
+
+async def test_get_plan_with_missing_null_is_the_plan(async_client: AsyncClient, db_session):
+    token = await get_token(async_client, VALID_USER)
+    headers = auth_header(token)
+    owner = (
+        await db_session.execute(
+            select(User).where(User.telegram_user_id == VALID_USER["id"])
+        )
+    ).scalar_one()
+    project = await _make_project(db_session, owner.id)
+    room = await _make_room(db_session, project.id)
+    surface = await _make_surface(db_session, room.id)
+    item = await _make_price_item(db_session, owner.id)
+    await SurfaceWorkPlanService(db_session).set_plan(
+        project.id, room.id, surface.id, owner.id,
+        substrate=Substrate.CONCRETE,
+        planned_works=_selection(item.id),
+    )
+    resp = await async_client.get(
+        _wp(project.id, room.id, surface.id), params={"missing": "null"}, headers=headers
+    )
+    assert resp.status_code == 200
+    assert resp.json()["surface_id"] == str(surface.id)
 
 
 async def test_get_foreign_surface_hidden(async_client: AsyncClient, db_session):

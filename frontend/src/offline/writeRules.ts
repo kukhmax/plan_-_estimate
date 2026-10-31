@@ -437,7 +437,7 @@ function optimisticExecution(op: OutboxOp, ids: Ids, saved: ReadonlyArray<{ path
   const before = ops.filter((candidate) => candidate.seq === undefined || op.seq === undefined || candidate.seq < op.seq);
   let current: Json | undefined;
   for (const candidate of saved) {
-    if (candidate.path !== planPath) continue;
+    if (candidate.path.split('?')[0] !== planPath) continue; // the plan is read with `?missing=null` (owner 2026-10-31)
     const laid = overlayRead(candidate.path, candidate.data, before);
     const work = isObject(laid) && Array.isArray(laid.planned_works) ? (laid.planned_works as unknown[]).find((w) => isObject(w) && w.occurrence_key === ids.occurrence) : undefined;
     if (isObject(work) && isObject(work.execution)) current = work.execution;

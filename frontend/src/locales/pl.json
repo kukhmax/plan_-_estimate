@@ -1032,6 +1032,7 @@
     "hide_options": "Ukryj opcje",
     "work_types_quality": "Rodzaje prac i jakość",
     "works_in_plan": "Prace w planie",
+    "photos_count": "Zdjęcia: {count}",
     "high_risks": "Wysokie ryzyka: {count}",
     "requires_dimensions": "Wprowadź wymiary ściany, aby zarządzać otworami",
     "created": "Powierzchnia została utworzona",

@@ -62,6 +62,7 @@ import { DimensionInput } from './DimensionInput';
 import { Ico } from './Ico';
 import { ExampleBanner } from './ExampleBanner';
 import { GettingStarted, useStartProgress } from './GettingStarted';
+import { A11yName, a11yId } from './A11yName';
 
 /** Which document of the knowledge base's links stands behind each screen of the section "Umowa i protokoły" (Stage 17E). */
 const LEGAL_BASIS: Partial<Record<LegalSection, KnowledgeBasisTarget[]>> = {
@@ -646,16 +647,18 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
           <button
             type="button"
             aria-label="back-to-projects"
+            aria-labelledby="pe-name-back-to-projects"
             onClick={backToProjects}
             className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
           >
-            {t.projects.title}
+            <span id="pe-name-back-to-projects">{t.projects.title}</span>
           </button>
           <span>/</span>
           {showEstimates || selectedRoom || objectSection ? (
             <button
               type="button"
               aria-label="back-to-project"
+              aria-labelledby="pe-name-back-to-project"
               onClick={() => {
                 setShowEstimates(false);
                 setSelectedEstimate(null);
@@ -668,7 +671,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               }}
               className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
             >
-              {selectedProject.name}
+              <span id="pe-name-back-to-project">{selectedProject.name}</span>
             </button>
           ) : (
             <span className="font-medium text-[var(--tg-theme-text-color)]">{selectedProject.name}</span>
@@ -679,10 +682,11 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               <button
                 type="button"
                 aria-label="back-to-estimates"
+                aria-labelledby="pe-name-back-to-estimates"
                 onClick={() => { setSelectedEstimate(null); setSelectedEstimateGroupKey(null); }}
                 className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
               >
-                <Ico>⬅️</Ico>{t.estimates.back_to_list}
+                <Ico>⬅️</Ico><span id="pe-name-back-to-estimates">{t.estimates.back_to_list}</span>
               </button>
               <span>/</span>
               <span className="font-medium text-[var(--tg-theme-text-color)]">
@@ -696,6 +700,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               <button
                 type="button"
                 aria-label="back-to-rooms"
+                aria-labelledby="pe-name-back-to-rooms"
                 onClick={() => {
                   setShowRoomForm(false);
                   closeInspections();
@@ -703,7 +708,7 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                 }}
                 className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
               >
-                {t.rooms.title}
+                <span id="pe-name-back-to-rooms">{t.rooms.title}</span>
               </button>
               <span>/</span>
               <span className="font-medium text-[var(--tg-theme-text-color)]">{selectedRoom.name}</span>
@@ -715,10 +720,11 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               <button
                 type="button"
                 aria-label="back-to-legal"
+                aria-labelledby="pe-name-back-to-legal"
                 onClick={() => setLegalSection(null)}
                 className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
               >
-                {t.objectHub.legal}
+                <span id="pe-name-back-to-legal">{t.objectHub.legal}</span>
               </button>
               <span>/</span>
               <span className="font-medium text-[var(--tg-theme-text-color)]">{legalTitle(legalSection)}</span>
@@ -728,10 +734,11 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
               <button
                 type="button"
                 aria-label="back-to-documents"
+                aria-labelledby="pe-name-back-to-documents"
                 onClick={() => setDocumentsSection(null)}
                 className="inline-flex items-center min-h-11 pr-1 text-left break-words font-semibold text-blue-700 hover:underline"
               >
-                {t.documents.title}
+                <span id="pe-name-back-to-documents">{t.documents.title}</span>
               </button>
               <span>/</span>
               <span className="font-medium text-[var(--tg-theme-text-color)]">{documentsTitle(documentsSection)}</span>
@@ -1452,10 +1459,12 @@ export function ProjectWorkspace({ resetSignal, backSuspended = false, openReque
                   <button
                     type="button"
                     aria-label={`open-project-${project.id}`}
+                    aria-labelledby={a11yId('open-project', project.id)}
                     onClick={() => openProject(project)}
                     className="min-h-11 px-3 py-1 text-sm rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
                   >
                     <Ico>📂</Ico>{t.common.open}
+                    <A11yName id={a11yId('open-project', project.id)} text={`${t.common.open}: ${project.name}`} />
                   </button>
                   <button
                     type="button"

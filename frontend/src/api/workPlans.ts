@@ -19,7 +19,12 @@ export function fetchSurfaceWorkPlan(
   roomId: string,
   surfaceId: string,
 ): Promise<SurfaceWorkPlanRead> {
-  return apiRequest(workPlanPath(projectId, roomId, surfaceId));
+  // owner 2026-10-31: "no plan yet" is not an error of the server (no 404 in the logs and the console): the server answers `null`, and
+  // the callers still get the "missing" error they know (`isSurfaceWorkPlanMissing`)
+  return apiRequest<SurfaceWorkPlanRead | null>(`${workPlanPath(projectId, roomId, surfaceId)}?missing=null`).then((plan) => {
+    if (plan === null) throw new ApiError(SURFACE_WORK_PLAN_MISSING, 404);
+    return plan;
+  });
 }
 
 export function putSurfaceWorkPlan(
@@ -94,10 +99,12 @@ export function isStaleWorkPlanError(error: unknown): boolean {
     error.message.includes('is not a current occurrence of this work plan');
 }
 
+const SURFACE_WORK_PLAN_MISSING = 'Surface work plan not found';
+
 export function isSurfaceWorkPlanMissing(error: unknown): boolean {
   return error instanceof ApiError &&
     error.status === 404 &&
-    error.message === 'Surface work plan not found';
+    error.message === SURFACE_WORK_PLAN_MISSING;
 }
 
 /** Stage 13H.5B: read-only preview of carrying this wall's execution

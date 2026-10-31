@@ -37,8 +37,14 @@ describe('workPlans API client', () => {
     await fetchSurfaceWorkPlan(projectId, roomId, surfaceId);
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe(`${base}${path}`);
+    expect(calls[0].url).toBe(`${base}${path}?missing=null`);
     expect(calls[0].init?.method ?? 'GET').toBe('GET');
+  });
+
+  it('asks for "no plan yet" as an empty answer (no 404 in the logs) and still reports it as missing (owner 2026-10-31)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('null', { status: 200 })));
+    const error = await fetchSurfaceWorkPlan(projectId, roomId, surfaceId).catch((caught: unknown) => caught);
+    expect(isSurfaceWorkPlanMissing(error)).toBe(true);
   });
 
   it('fully replaces the exact WorkPlan endpoint with the ordered payload', async () => {

@@ -14,6 +14,7 @@ import { useTelegramBackButton } from '../hooks/useTelegramWebApp';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { Ico } from './Ico';
 import { GettingStarted, useStartProgress } from './GettingStarted';
+import { a11yId } from './A11yName';
 
 /** Digits and a single leading '+' only — a safe `tel:` href from a
  * human-readable stored phone value (spaces/dashes/parens stripped). */
@@ -732,6 +733,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, onStartO
               <button
                 type="button"
                 aria-label={`client-open-${c.id}`}
+                aria-labelledby={a11yId('client-open', c.id)}
                 onClick={() => {
                   closeForm();
                   setNotice(null);
@@ -740,7 +742,7 @@ export const ClientList: React.FC<ClientListProps> = ({ onOpenEstimate, onStartO
                 }}
                 className="w-full min-h-12 pe-card rounded-2xl px-4 py-2 shadow-sm flex items-center justify-between gap-3 text-left"
               >
-                <span className="font-semibold text-slate-900 text-sm break-words min-w-0">{displayName(c)}</span>
+                <span id={a11yId('client-open', c.id)} className="font-semibold text-slate-900 text-sm break-words min-w-0">{displayName(c)}</span>
                 <span className="flex items-center gap-2 shrink-0">
                   {c.is_archived && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">

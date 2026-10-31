@@ -34,7 +34,7 @@ function server() {
     const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null;
     if (method !== 'GET') received.push({ method, path, body });
     const base = `/api/projects/${P}/rooms/${R}`;
-    if (method === 'GET' && path === `${base}/surfaces/${S}/work-plan`) return json(plan(execution));
+    if (method === 'GET' && path === `${base}/surfaces/${S}/work-plan?missing=null`) return json(plan(execution));
     if (method === 'GET' && path === `${base}/inspections`) return json({ items: [...inspections.values()], total: inspections.size });
     if (method === 'POST' && path === `${base}/inspections`) {
       const id = body?.id as string;

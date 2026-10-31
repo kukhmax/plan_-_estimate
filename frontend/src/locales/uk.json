@@ -1032,6 +1032,7 @@
     "hide_options": "Сховати опції",
     "work_types_quality": "Види робіт і якість",
     "works_in_plan": "Робіт у плані",
+    "photos_count": "Фото: {count}",
     "high_risks": "Високих ризиків: {count}",
     "requires_dimensions": "Вкажіть розміри стіни, щоб додавати прорізи",
     "created": "Поверхню створено",

@@ -1032,6 +1032,7 @@
     "hide_options": "Hide options",
     "work_types_quality": "Types of work and quality",
     "works_in_plan": "Works in the plan",
+    "photos_count": "Photos: {count}",
     "high_risks": "High risks: {count}",
     "requires_dimensions": "Enter the wall dimensions to add openings",
     "created": "The surface was created",
