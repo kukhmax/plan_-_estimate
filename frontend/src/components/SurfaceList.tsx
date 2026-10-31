@@ -780,6 +780,12 @@ export function SurfaceList({
 
   /** Irregular room: the add-wall card stays inline while the room has no walls; with walls it is a sheet opened by "+ Dodaj ścianę" at the heading (owner 2026-10-27: the card pushed a long list of walls down). */
   const wallAdderInline = activeWalls.length === 0;
+  // owner 2026-10-31: a room without walls opens with "Wygeneruj ściany" in view -- the next step of a room just made
+  const generateRef = useRef<HTMLDivElement | null>(null);
+  const showsGenerate = effectiveWallMode === 'RECTANGLE' && hasRoomDimensions && roomHasWalls === false;
+  useEffect(() => {
+    if (showsGenerate) generateRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  }, [showsGenerate]);
   // "+ Rozpocznij pomiar ścian" on the room card (owner 2026-10-30: the button did nothing): it asks for the wall entry, which is
   // brought into view with the first field focused, or opened as the sheet when the room already has walls
   const wallEntryRef = useRef<HTMLDivElement | null>(null);
@@ -912,7 +918,7 @@ export function SurfaceList({
       </div>
 
       {effectiveWallMode === 'RECTANGLE' && hasRoomDimensions && roomHasWalls === false && (
-        <div className="mb-3">
+        <div className="mb-3" ref={generateRef}>
           <button
             type="button"
             aria-label="generate-walls"

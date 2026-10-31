@@ -6269,3 +6269,7 @@ Owner after the deploy: "bring back the different colours of the walls, they are
 * Frontend: `utils/pdfShare.ts` (Telegram `WebApp.downloadFile` → Web Share with the file → a new tab), `PdfShareButton` in `EstimateDocumentActions` (a draft; an issued estimate once SENT) and in each SENT row of the journal.
 * Tests: backend `test_document_file_links.py` (3), vitest `pdfShare.test.ts` (3), `EstimateDocumentActions.test.tsx` (+1).
 
+### Owner decisions 2026-10-31, item 8: a new room opens at once (variant B; branch `ver-2`; NO MIGRATION)
+* `RoomList`: after a successful create, `onOpenRoom(created)` -- the owner lands in the new room instead of the list; walls are NOT created automatically.
+* `SurfaceList`: when the "Wygeneruj ściany" step is shown (RECTANGLE, dimensions, no walls), it is scrolled to the centre of the screen.
+* Tests: vitest `components/RoomList.test.tsx` (+1), `SurfaceList.test.tsx` (+1); `ProjectWorkspace.test.tsx` 7D.1 D3 / 7D.2 follow the new flow (no extra tap on "Otwórz").

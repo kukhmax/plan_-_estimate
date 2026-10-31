@@ -1179,10 +1179,8 @@ describe('ProjectWorkspace', () => {
     fireEvent.change(screen.getByLabelText('room-height'), { target: { value: '270' } });
     fireEvent.submit(screen.getByLabelText('room-form'));
 
-    // New room appears in the list; open it.
+    // owner 2026-10-31 (variant B): the created room opens at once -- no extra tap on the list.
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [rectRoom], total: 1 });
-    await waitFor(() => expect(screen.getByLabelText(`open-room-${rectRoom.id}`)).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText(`open-room-${rectRoom.id}`));
 
     // Measured state: summary with dims + floor/ceiling/perimeter, never the unmeasured notice.
     const summary = await screen.findByLabelText('room-calculations-summary');
@@ -1262,7 +1260,7 @@ describe('ProjectWorkspace', () => {
 
     // The created response keeps all three dimensions.
     vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [pokojRoom], total: 1 });
-    await waitFor(() => expect(screen.getByLabelText(`open-room-${pokojRoom.id}`)).toBeInTheDocument());
+    await waitFor(() => expect(roomsApi.createRoom).toHaveBeenCalled());
     expect(roomsApi.createRoom).toHaveBeenCalledWith(project.id, {
       name: 'Pokoj',
       description: null,
@@ -1271,9 +1269,7 @@ describe('ProjectWorkspace', () => {
       height: 2.7,
     });
 
-    // Open the room WITHOUT browser reload.
-    fireEvent.click(screen.getByLabelText(`open-room-${pokojRoom.id}`));
-
+    // owner 2026-10-31 (variant B): the room opens by itself, WITHOUT browser reload.
     // Measured immediately: no "dimensions not specified", no "+ Enter dimensions" CTA.
     await screen.findByLabelText('room-calculations-summary');
     expect(screen.queryByLabelText('room-unmeasured-notice')).not.toBeInTheDocument();

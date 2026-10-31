@@ -79,6 +79,27 @@ describe('RoomList measurement inputs', () => {
     );
   });
 });
+describe('RoomList opens the room it has just created', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(roomsApi.fetchRooms).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(roomsApi.createRoom).mockResolvedValue(room);
+  });
+
+  it('calls onOpenRoom with the created room, so its next step (generate walls) is shown at once (owner 2026-10-31, variant B)', async () => {
+    const onOpenRoom = vi.fn();
+    render(
+      <I18nProvider>
+        <RoomList projectId="proj-1" onOpenRoom={onOpenRoom} />
+      </I18nProvider>,
+    );
+    fireEvent.click(await screen.findByLabelText('add-room'));
+    fireEvent.change(screen.getByLabelText('room-name'), { target: { value: 'Salon' } });
+    fireEvent.submit(screen.getByLabelText('room-form'));
+    await waitFor(() => expect(onOpenRoom).toHaveBeenCalledWith(room));
+    expect(onOpenRoom).toHaveBeenCalledTimes(1);
+  });
+});
 describe('RoomList action row on a narrow phone', () => {
   beforeEach(() => {
     vi.clearAllMocks();

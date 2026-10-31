@@ -317,6 +317,20 @@ describe('SurfaceList wall generation (Stage 5D.1A)', () => {
     localStorage.clear();
   });
 
+  it('scrolls the "Wygeneruj ściany" step into view in a fresh dimensioned room (owner 2026-10-31, variant B)', async () => {
+    const scroll = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scroll;
+    try {
+      vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [], total: 0 });
+      renderSurfaces({ hasRoomDimensions: true });
+      await waitFor(() => expect(screen.getByLabelText('generate-walls')).toBeInTheDocument());
+      await waitFor(() => expect(scroll).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' }));
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
   it('generates exactly 4 canonical walls from room dimensions and reloads without duplication', async () => {
     const generated: SurfaceType[] = [0, 1, 2, 3].map((position, index) => ({
       ...surface,

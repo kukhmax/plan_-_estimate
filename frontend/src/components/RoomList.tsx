@@ -188,6 +188,11 @@ export function RoomList({ projectId, onOpenRoom, onRoomChanged }: RoomListProps
         const created = await createRoom(projectId, payload);
         saveRoomMeasurementMode(created.id, roomShape);
         setSuccess(t.rooms.created);
+        closeForm();
+        onRoomChanged?.();
+        // owner 2026-10-31: a new room opens at once -- its next step ("Wygeneruj ściany" or the first wall) is on top of it
+        onOpenRoom(created);
+        return;
       }
       closeForm();
       await load();
