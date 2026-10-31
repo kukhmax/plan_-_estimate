@@ -17,8 +17,9 @@ from app.domain.contracts.catalog import load_contract_catalog
 from app.domain.exceptions import AcceptanceNotEditableError, AcceptanceNotFoundError, ProjectNotFoundError
 from app.domain.protocols import acceptance as A
 from app.domain.protocols.sources import AcceptanceSources, load_acceptance_sources
+from app.domain.services.project_status import advance_project_status
 from app.models.acceptance_protocol import AcceptanceProtocol, AcceptanceStatus
-from app.models.project import Project
+from app.models.project import Project, ProjectStatus
 from app.models.project_representative import ProjectRepresentative
 from app.schemas.acceptance import (
     AcceptanceBlockerRead, AcceptanceConditionRead, AcceptanceContractRead, AcceptancePhotoRead, AcceptanceRead, AcceptanceRemarkRead,
@@ -177,6 +178,13 @@ class AcceptanceService:
         row.status = AcceptanceStatus.ISSUED.value
         row.issued_at, row.snapshot, row.document_html = issued_at, snapshot, document_html
         row.contract_id, row.contract_version = contract_id, contract_version
+        # owner 2026-10-31: a final protocol (every room with works) that is not a refusal completes the object
+        data = data_of(row)
+        sources = await load_acceptance_sources(self.db, owner_id, project_id)
+        if A.scope_kind(data, sources.facts) == "FINAL":
+            results = [A.surface_result(f, data["surfaces"].get(f.id) or {}) for f in A.surfaces_in_scope(data, sources.facts)]
+            if A.overall_result(results) not in (None, A.NOT_ACCEPTED):
+                await advance_project_status(self.db, project_id, ProjectStatus.COMPLETED)
         await self.db.commit()
         await self.db.refresh(row)
         return row

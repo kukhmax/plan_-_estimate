@@ -21,6 +21,7 @@ from app.domain.services.calendar_service import CalendarService
 from app.domain.services.client_link_service import aware
 from app.domain.services.data_key_service import DataKeyService
 from app.domain.services.estimate_service import EstimateService
+from app.domain.services.project_status import advance_project_status
 from app.models.client_link import (
     ClientConsent,
     ClientLink,
@@ -31,7 +32,7 @@ from app.models.client_link import (
 from app.models.client import Client, ClientType
 from app.models.estimate import Estimate, EstimateStatus
 from app.models.executor_profile import ExecutorProfile
-from app.models.project import Project
+from app.models.project import Project, ProjectStatus
 from app.models.user import User
 from app.schemas.client_portal import (
     PortalConsent,
@@ -319,6 +320,7 @@ class ClientPortalService:
         self.db.add(consent)
         if accepted:
             estimate.status = EstimateStatus.ACCEPTED
+            await advance_project_status(self.db, estimate.project_id, ProjectStatus.IN_PROGRESS)  # owner 2026-10-31
         await self._commit_once()
         return consent
 

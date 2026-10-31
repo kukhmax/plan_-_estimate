@@ -881,3 +881,38 @@ async def test_the_approval_form_is_offered_the_name_of_the_private_client(async
     project.client_id = None
     await db_session.commit()
     assert (await open_page(async_client, token)).json()["project"]["client_name"] is None
+
+
+async def test_the_clients_approval_starts_the_work_of_the_object(async_client, db_session, web):
+    # owner 2026-10-31: an accepted estimate moves the object from "Planowanie" to "W realizacji" (never back, never over "Zakończony")
+    from app.models.project import ProjectStatus
+
+    world = await make_world(async_client, db_session)
+    token = await issue(async_client, world)
+    project = (await db_session.execute(select(Project).where(Project.id == uuid.UUID(world["project"])))).scalar_one()
+    assert project.status == ProjectStatus.PLANNING
+    page = (await open_page(async_client, token)).json()
+    done = await approve(async_client, token, page)
+    assert done.status_code == 200, done.text
+    await db_session.refresh(project)
+    assert project.status == ProjectStatus.IN_PROGRESS
+
+
+async def test_the_status_of_an_object_only_moves_forward():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.domain.services.project_status import advance_project_status
+    from app.models.project import ProjectStatus
+
+    for start, target, moved in (
+        (ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS, True),
+        (ProjectStatus.IN_PROGRESS, ProjectStatus.COMPLETED, True),
+        (ProjectStatus.COMPLETED, ProjectStatus.IN_PROGRESS, False),
+        (ProjectStatus.IN_PROGRESS, ProjectStatus.IN_PROGRESS, False),
+    ):
+        project = MagicMock(status=start)
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = project
+        db = MagicMock(execute=AsyncMock(return_value=result))
+        assert await advance_project_status(db, uuid.uuid4(), target) is moved
+        assert project.status == (target if moved else start)

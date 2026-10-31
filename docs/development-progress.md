@@ -6254,3 +6254,7 @@ Owner after the deploy: "bring back the different colours of the walls, they are
 * Backend: `ProjectSummaryRead.high_risks` (active HIGH / CRITICAL risks of the non-archived inspections, per active room, rooms with any only; one query). Frontend `ProjectSummaryMore`: under the areas, "Dodatkowo" reads (only when opened) the estimates, the payment schedule and the work schedule: the latest live estimate (version · amount · status), agreed / received / to receive (the server's sums), the first and last planned day, the next payment stage not paid, the risks by room.
 * Tests: backend `test_ux_b6_wall_risk_badge.py` (+1), vitest `ProjectSummaryMore.test.tsx` (2).
 
+### Owner decisions 2026-10-31, item 5: the status of an object follows its work (branch `ver-2`; NO MIGRATION)
+* `domain/services/project_status.advance_project_status` (forward only: PLANNING → IN_PROGRESS → COMPLETED, in the caller's transaction): the client's approval on the link and a signed contract move the object to IN_PROGRESS; issuing an acceptance protocol whose scope is FINAL and whose result is not NOT_ACCEPTED moves it to COMPLETED. The manual change stays.
+* Tests: `test_v2_8_client_link.py` (+2: the approval, forward only), `test_stage16h2_acceptance_document.py` (the final protocol completes the object).
+

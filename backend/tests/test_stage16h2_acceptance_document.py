@@ -215,6 +215,10 @@ async def test_issuing_freezes_the_protocol_numbers_it_sends_the_pdf_and_records
     snap = row.snapshot
     assert (snap["scope_kind"], snap["result"], snap["held_on"], snap["customer_absent"], snap["amount_due"], snap["amount_retained"]) == (
         "FINAL", "ACCEPTED_WITH_REMARKS", "2026-10-20", False, "2000.00", "300.50")
+    # owner 2026-10-31: a final protocol that is not a refusal completes the object
+    from app.models.project import Project, ProjectStatus
+
+    assert (await db_session.get(Project, project_id)).status == ProjectStatus.COMPLETED
     [surface] = snap["surfaces"]
     assert surface["name"] == "Ściana A" and surface["room_name"] == "Salon" and surface["quality_target"] == "S2" and surface["result"] == "ACCEPTED_WITH_REMARKS"
     assert {x["status"] for x in surface["works"]} == {"COMPLETED"}

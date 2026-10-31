@@ -17,6 +17,7 @@ from app.domain.contracts.gate import Blocker, GateData, evaluate_gate, load_gat
 from app.domain.contracts.catalog import load_contract_catalog
 from app.domain.contracts.prefill import STANDARD_TERM_KEYS, PrefillFacts, prefill_changes
 from app.domain.services.contract_terms_service import ContractTermsService
+from app.domain.services.project_status import advance_project_status
 from app.domain.documents.formatting import local_datetime
 from app.domain.exceptions import (
     ContractAnswerInvalidError,
@@ -28,7 +29,7 @@ from app.domain.exceptions import (
 from app.models.client import Client, ClientType
 from app.models.estimate import Estimate, EstimateStatus
 from app.models.contract import Contract, ContractStatus
-from app.models.project import Project
+from app.models.project import Project, ProjectStatus
 from app.models.project_representative import ProjectRepresentative, RepresentativeSide
 from app.schemas.contract import ContractRead
 
@@ -327,6 +328,7 @@ class ContractService:
         estimate.status = EstimateStatus.ACCEPTED
         row.status = ContractStatus.SIGNED.value
         row.signed_on = signed_on
+        await advance_project_status(self.db, project_id, ProjectStatus.IN_PROGRESS)  # owner 2026-10-31: the signed contract starts the work
         try:
             await self.db.commit()
         except IntegrityError:  # two requests signed at once: the unique index let one through
