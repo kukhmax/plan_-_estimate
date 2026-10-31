@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { fetchSchedule as fetchWorkSchedule } from '../api/calendar';
 import { listEstimates } from '../api/estimates';
 import { fetchSchedule as fetchPaymentSchedule } from '../api/paymentSchedule';
+import { fetchPayments } from '../api/payments';
 import { useI18n } from '../hooks/useI18n';
 import type { EstimateSummaryRead } from '../types/estimate';
+import type { PaymentSummary } from '../types/payment';
 import type { Schedule as PaymentSchedule } from '../types/paymentSchedule';
 import { formatDay, formatMoney } from '../utils/paymentFormat';
 import { Ico } from './Ico';
@@ -11,6 +13,8 @@ import { Ico } from './Ico';
 interface MoreState {
   estimate: EstimateSummaryRead | null;
   payments: PaymentSchedule | null;
+  /** The settlement of the object ("Faktury i zaliczki"): what came in and the agreed amount less it -- the stages may not be set at all. */
+  money: PaymentSummary | null;
   first: string | null;
   last: string | null;
 }
@@ -30,12 +34,13 @@ export function ProjectSummaryMore({ projectId, risks }: { projectId: string; ri
   const load = async () => {
     setFailed(false);
     // each part is read on its own: a part that cannot be read is shown as "—", the others stay
-    const [estimates, payments, works] = await Promise.all([
+    const [estimates, payments, works, money] = await Promise.all([
       listEstimates(projectId).catch(() => null),
       fetchPaymentSchedule(projectId).catch(() => null),
       fetchWorkSchedule(projectId).catch(() => null),
+      fetchPayments(projectId).then((list) => list.summary).catch(() => null),
     ]);
-    if (estimates === null && payments === null && works === null) {
+    if (estimates === null && payments === null && works === null && money === null) {
       setFailed(true);
       return;
     }
@@ -43,6 +48,7 @@ export function ProjectSummaryMore({ projectId, risks }: { projectId: string; ri
     setData({
       estimate: (estimates?.items ?? []).filter((e) => e.status !== 'ARCHIVED').sort((a, b) => b.version - a.version)[0] ?? null,
       payments,
+      money,
       first: days[0] ?? null,
       last: days[days.length - 1] ?? null,
     });
@@ -90,8 +96,9 @@ export function ProjectSummaryMore({ projectId, risks }: { projectId: string; ri
                   : '—',
               )}
               {row('agreed', text.agreed, formatMoney(data.payments?.summary.agreed ?? null))}
-              {row('received', text.received, formatMoney(data.payments?.summary.received ?? null))}
-              {row('to-receive', text.to_receive, formatMoney(data.payments?.summary.to_receive ?? null))}
+              {/* live check 2026-10-31: the stages' "still due" was 0 for an object without stages -- the settlement says agreed less received */}
+              {row('received', text.received, formatMoney(data.money?.received ?? data.payments?.summary.received ?? null))}
+              {row('to-receive', text.to_receive, formatMoney(data.money ? data.money.to_receive : (data.payments?.summary.to_receive ?? null)))}
             </dl>
           </div>
           <div className="space-y-1">
