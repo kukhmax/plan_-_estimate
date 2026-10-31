@@ -29,6 +29,7 @@ import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatMetric } from '../utils/format';
 import { getSurfaceDisplayName } from '../utils/surfaceDisplayName';
 import { PhotoCardButton, PhotoCardPanel } from './PhotoCard';
+import { surfaceCardTint } from '../utils/surfaceColorTint';
 import { surfaceTypeTint } from '../utils/surfaceTypeTint';
 import { formatOpeningDimension, summarizeOpenings } from '../utils/openingSummary';
 import { OpeningList } from './OpeningList';
@@ -1128,9 +1129,10 @@ export function SurfaceList({
             const isWorkPlanOpen = activeWorkPlanSurfaceId === surface.id;
             const isExecutionOpen = activeExecutionSurfaceId === surface.id;
             const displayName = getSurfaceDisplayName(surface, surfaceDisplayLabels);
-            // UX walk: the pink / green of each wall came from its id and meant nothing -- every wall card has the one tint of a wall
-            // (the estimate keeps its per-wall tints to group the lines of one wall)
-            const tint = surfaceTypeTint(surface.surface_type);
+            // WALL: deterministic per-surface-id hash tint (Stage 10G.2 helper,
+            // extracted/reused — every wall gets its own stable color, never
+            // shared across walls; the owner keeps the colours, 2026-10-31). Non-WALL (OTHER): stable type-only tint.
+            const tint = isWall ? surfaceCardTint(surface.id) : surfaceTypeTint(surface.surface_type);
             const wallOpenings = wallOpeningsById[surface.id];
             const deductionContext = isWall ? describeDeductionContext(wallOpenings) : null;
             const revealAggregate = isWall ? describeRevealAggregate(wallOpenings) : null;

@@ -28,7 +28,8 @@ export interface SurfaceTypeTint {
 const NEUTRAL_BADGE = 'pe-pill';
 
 const SURFACE_TYPE_TINT: Record<SurfaceTypeValue, SurfaceTypeTint> = {
-  // The one tint of every wall card (UX walk: the per-id colours meant nothing).
+  // Unused for card backgrounds now (WALL uses the per-id hash tint) but
+  // kept as a sane fallback in case this helper is ever reused for WALL.
   WALL: { bg: 'bg-blue-50', border: 'border-blue-100', badge: NEUTRAL_BADGE, extra: 'pe-tinted pe-accent-blue' },
   // Warm/sand tint.
   FLOOR: { bg: 'bg-orange-50', border: 'border-orange-100', badge: NEUTRAL_BADGE, extra: 'pe-tinted pe-accent-orange' },

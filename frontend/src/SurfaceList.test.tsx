@@ -10,7 +10,7 @@ import { ProjectPhotosContext } from './hooks/ProjectPhotosContext';
 import { EMPTY_PHOTO_COUNTS } from './hooks/usePhotoCounts';
 import { OpeningType } from './types/opening';
 import { SurfaceType } from './types/surface';
-import { surfaceTypeTint } from './utils/surfaceTypeTint';
+import { surfaceCardTint } from './utils/surfaceColorTint';
 import { installAutoOpenAreaDetails } from './test/autoOpenWalls';
 
 vi.mock('./api/surfaces', () => ({
@@ -1032,19 +1032,50 @@ describe('SurfaceList — surface type card tints (Stage 10G.4)', () => {
     localStorage.clear();
   });
 
-  it('gives every WALL card the one tint of a wall, not a colour from its id (UX walk)', async () => {
+  it('renders each WALL card with the tint the shared deterministic per-id helper computes', async () => {
     const wallA: SurfaceType = { ...surface, id: 'wall-a', name: 'Ściana A' };
     const wallB: SurfaceType = { ...surface, id: 'wall-b', name: 'Ściana B' };
     vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({ items: [wallA, wallB], total: 2 });
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByText('Ściana A')).toBeInTheDocument());
-    const wallTint = surfaceTypeTint('WALL');
-    for (const id of ['wall-a', 'wall-b']) {
-      const card = screen.getByLabelText(`surface-item-${id}`);
-      expect(card.className).toContain(wallTint.bg);
-      expect(card.className).toContain(wallTint.border);
-    }
+    const cardA = screen.getByLabelText('surface-item-wall-a');
+    const cardB = screen.getByLabelText('surface-item-wall-b');
+    const tintA = surfaceCardTint('wall-a');
+    const tintB = surfaceCardTint('wall-b');
+    expect(cardA.className).toContain(tintA.bg);
+    expect(cardA.className).toContain(tintA.border);
+    expect(cardB.className).toContain(tintB.bg);
+    expect(cardB.className).toContain(tintB.border);
+  });
+
+  it('two different surface IDs can receive different palette tints, independent of array order', async () => {
+    const idOne = 'wall-a';
+    const idTwo = 'wall-b';
+    const tintOne = surfaceCardTint(idOne);
+    const tintTwo = surfaceCardTint(idTwo);
+    // Self-check: these two fixture ids must actually hash to different tints,
+    // otherwise this test would pass for the wrong reason.
+    expect(tintOne.bg).not.toBe(tintTwo.bg);
+
+    // Reversed array order vs. the id order itself — tint must depend only on id.
+    const wallReversedFirst: SurfaceType = { ...surface, id: idTwo, name: 'Ściana Two' };
+    const wallReversedSecond: SurfaceType = { ...surface, id: idOne, name: 'Ściana One' };
+    vi.mocked(surfacesApi.fetchSurfaces).mockResolvedValue({
+      items: [wallReversedFirst, wallReversedSecond],
+      total: 2,
+    });
+    renderSurfaces();
+
+    await waitFor(() => expect(screen.getByText('Ściana Two')).toBeInTheDocument());
+    expect(screen.getByLabelText(`surface-item-${idOne}`).className).toContain(tintOne.bg);
+    expect(screen.getByLabelText(`surface-item-${idTwo}`).className).toContain(tintTwo.bg);
+  });
+
+  it('the same surface_id always maps to the same tint result', () => {
+    const first = surfaceCardTint(surface.id);
+    const second = surfaceCardTint(surface.id);
+    expect(second).toEqual(first);
   });
 
   it('preserves existing card actions (Opcje, Rodzaje prac i jakość, archive) alongside the tint', async () => {
@@ -1053,7 +1084,7 @@ describe('SurfaceList — surface type card tints (Stage 10G.4)', () => {
     renderSurfaces();
 
     await waitFor(() => expect(screen.getByText('Ściana północna')).toBeInTheDocument());
-    const tint = surfaceTypeTint('WALL');
+    const tint = surfaceCardTint(wall.id);
     const card = screen.getByLabelText(`surface-item-${wall.id}`);
     expect(card.className).toContain(tint.bg);
     expect(screen.getByLabelText(`options-toggle-${wall.id}`)).toBeInTheDocument();
