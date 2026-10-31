@@ -7,6 +7,7 @@ import { sumDecimalStrings } from '../utils/decimalArithmetic';
 import { formatDecimalMoney, formatQuantity } from '../utils/format';
 import { isLocale, LOCALES, LOCALE_NAMES, type Locale } from '../utils/locale';
 import { formatNoteTime } from '../utils/noteFormat';
+import { ClientWhy } from './ClientWhy';
 
 /** The secret of the link is what follows the `#` of the address: a browser never sends it to a server. */
 export function tokenFromHash(hash: string): string {
@@ -445,6 +446,7 @@ export function ClientPage({ token }: { token: string }) {
             </div>
           ))}
           <Totals estimate={estimate} />
+          <ClientWhy token={token} />
 
           {estimate.consent ? (
             estimate.consent.kind === 'ESTIMATE_DECLINED' ? (

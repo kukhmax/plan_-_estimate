@@ -6258,3 +6258,9 @@ Owner after the deploy: "bring back the different colours of the walls, they are
 * `domain/services/project_status.advance_project_status` (forward only: PLANNING → IN_PROGRESS → COMPLETED, in the caller's transaction): the client's approval on the link and a signed contract move the object to IN_PROGRESS; issuing an acceptance protocol whose scope is FINAL and whose result is not NOT_ACCEPTED moves it to COMPLETED. The manual change stays.
 * Tests: `test_v2_8_client_link.py` (+2: the approval, forward only), `test_stage16h2_acceptance_document.py` (the final protocol completes the object).
 
+### Owner decisions 2026-10-31, item 6: "why these works" with the photos on the client's page, behind a button (branch `ver-2`; NO MIGRATION)
+* Backend: `ClientWhyService` + `GET /api/public/client/why` (the link's door and rate limit): per active room the quality target most of its surface plans name, and for each ACCEPTED recommendation its risk title (or finding label) key, the surface, the work (catalogue key or own name), the day the inspection was completed and up to 4 photos of that inspection signed for 30 minutes (display copy and thumbnail; none without storage). Nothing about the owner, the project ids or storage keys leaves.
+* Frontend: `ClientWhy` under the totals: "Dlaczego te prace? Standard i zdjęcia z oględzin", read on a tap; the standard with the words of S1-S4 / Q1-Q4, the reasons translated by the page, thumbnails opening the photo. PL / RU / UK / EN.
+* Also: the dark-theme file regenerated and one `bg-white` replaced (item 1's new classes; the audit test was red after that commit).
+* Tests: backend `test_client_why.py`, `test_v2_8_client_link.py` (+1); vitest `ClientPage.test.tsx` (+1), the dark-theme audit.
+

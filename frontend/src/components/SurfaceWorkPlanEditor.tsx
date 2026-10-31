@@ -1084,7 +1084,7 @@ export function SurfaceWorkPlanEditor({
                               aria-label={`floor-work-move-${occurrence.draftKey}`}
                               disabled={saving || movingFloor}
                               onClick={() => void moveToFloor()}
-                              className="min-h-11 w-full rounded-lg border border-sky-400 bg-white px-3 text-sm font-semibold text-sky-800 disabled:opacity-50"
+                              className="min-h-11 w-full rounded-lg border border-sky-400 pe-surface px-3 text-sm font-semibold text-sky-800 disabled:opacity-50"
                             >
                               <Ico>📐</Ico>{t.work_plan.floor_work_move}
                             </button>

@@ -11,6 +11,7 @@ vi.mock('../api/clientPortal', () => ({
   fetchPortalPage: vi.fn(),
   decidePortalEstimate: vi.fn(),
   decidePortalProposal: vi.fn(),
+  fetchPortalWhy: vi.fn(),
 }));
 
 const TOKEN = 'T'.repeat(43);
@@ -220,6 +221,31 @@ describe('approving the estimate', () => {
     expect(items[0]).toHaveTextContent('455,00');
     expect(items[0]).not.toHaveTextContent('Ściana 1');
     expect(items[1]).toHaveTextContent('Ściana 1');
+  });
+
+  it('reads "why these works" only on a tap and shows the standard, the reasons and the photos (owner 2026-10-31)', async () => {
+    vi.mocked(api.fetchPortalPage).mockResolvedValue(PAGE());
+    vi.mocked(api.fetchPortalWhy).mockResolvedValue({
+      rooms: [{
+        room_name: 'Salon',
+        quality_target: 'S2',
+        reasons: [{
+          surface_name: 'Ściana 1', work_name_key: null, work_name: 'Naprawa rys', reason_key: 'risk.crack_risk_basic.title', inspected_on: '2026-10-30',
+          photos: [{ thumb_url: 'https://files.example/t1', url: 'https://files.example/d1', width: 800, height: 600 }],
+        }],
+      }],
+    });
+    show();
+    const button = await screen.findByLabelText('client-why');
+    expect(api.fetchPortalWhy).not.toHaveBeenCalled();
+    fireEvent.click(button);
+    const panel = await screen.findByLabelText('client-why-panel');
+    expect(api.fetchPortalWhy).toHaveBeenCalledWith(TOKEN);
+    expect(panel).toHaveTextContent('Standard wykończenia: S2 — Standard malarski');
+    expect(panel).toHaveTextContent('Ściana 1: Naprawa rys');
+    expect(panel).toHaveTextContent('oględziny 30.10.2026');
+    expect(screen.getByLabelText('client-why-photo-0-0-0')).toHaveAttribute('href', 'https://files.example/d1');
+    expect(screen.getByLabelText('client-why-photo-0-0-0')).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   it('offers the name of the client in the form and puts the materials in a group of their own (UX walk)', async () => {

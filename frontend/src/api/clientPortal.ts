@@ -1,4 +1,4 @@
-import type { PortalDecideInput, PortalEstimateDecision, PortalPage } from '../types/clientLink';
+import type { PortalDecideInput, PortalEstimateDecision, PortalPage, PortalWhy } from '../types/clientLink';
 import { API_BASE, ApiError } from './http';
 
 /**
@@ -45,4 +45,9 @@ export function decidePortalEstimate(token: string, lang: string | null, input: 
 
 export function decidePortalProposal(token: string, proposalId: string, lang: string | null, input: PortalDecideInput): Promise<PortalPage> {
   return request(token, `/proposals/${encodeURIComponent(proposalId)}/decide`, lang, { method: 'POST', body: JSON.stringify(input) });
+}
+
+/** Owner 2026-10-31: "Dlaczego te prace?" -- read only when the client asks (the photos come with links signed for half an hour). */
+export function fetchPortalWhy(token: string): Promise<PortalWhy> {
+  return request(token, '/why', null);
 }

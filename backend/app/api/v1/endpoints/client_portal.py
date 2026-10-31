@@ -18,13 +18,18 @@ from fastapi import (
     Response,
 )
 
-from app.api.deps import get_client_portal_service, get_message_sender
+from app.api.deps import get_client_portal_service, get_message_sender, get_photo_runtime
 from app.core.rate_limit import SlidingWindowLimiter
 from app.domain import client_link as rules
 from app.domain.exceptions import MessageDeliveryDisabledError, MessageDeliveryError
 from app.domain.services.client_portal_service import ClientPortalService
+from app.domain.services.client_why_service import ClientWhyService
 from app.models.client_link import ClientLink
 from app.schemas.client_portal import (
+    PortalWhy,
+    PortalWhyPhoto,
+    PortalWhyReason,
+    PortalWhyRoom,
     PortalDecideEstimate,
     PortalDecideProposal,
     PortalPage,
@@ -139,6 +144,33 @@ async def read_page(
     link = await _door(request, service, x_client_link, page_limiter)
     page = await service.page(link, lang, touch=True)
     return page
+
+
+@router.get("/why", response_model=PortalWhy, summary="Why these works: the standard of each room and the reasons from the inspections, with photos")
+async def read_why(
+    request: Request,
+    x_client_link: str | None = Header(default=None, max_length=100),
+    service: ClientPortalService = Depends(get_client_portal_service),
+    runtime=Depends(get_photo_runtime),
+) -> PortalWhy:
+    link = await _door(request, service, x_client_link, page_limiter)
+    rooms = await ClientWhyService(service.db, runtime.storage).why(link.owner_id, link.project_id)
+    return PortalWhy(
+        rooms=[
+            PortalWhyRoom(
+                room_name=room.room_name,
+                quality_target=room.quality_target,
+                reasons=[
+                    PortalWhyReason(
+                        surface_name=r.surface_name, work_name_key=r.work_name_key, work_name=r.work_name, reason_key=r.reason_key, inspected_on=r.inspected_on,
+                        photos=[PortalWhyPhoto(thumb_url=p.thumb_url, url=p.url, width=p.width, height=p.height) for p in r.photos],
+                    )
+                    for r in room.reasons
+                ],
+            )
+            for room in rooms
+        ]
+    )
 
 
 @router.post("/estimate/decide", response_model=PortalPage, summary="The client approves or declines the estimate")

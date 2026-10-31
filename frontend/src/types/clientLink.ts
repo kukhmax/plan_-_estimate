@@ -179,3 +179,30 @@ export interface PortalDecideInput {
 export function clientLinkUrl(origin: string, token: string): string {
   return `${origin.replace(/\/$/, '')}/c#${token}`;
 }
+
+export interface PortalWhyPhoto {
+  thumb_url: string;
+  url: string;
+  width: number;
+  height: number;
+}
+
+export interface PortalWhyReason {
+  surface_name: string | null;
+  work_name_key: string | null;
+  work_name: string | null;
+  reason_key: string;
+  inspected_on: string | null;
+  photos: PortalWhyPhoto[];
+}
+
+export interface PortalWhyRoom {
+  room_name: string;
+  quality_target: string | null;
+  reasons: PortalWhyReason[];
+}
+
+/** Owner 2026-10-31: the standard of each room and the reasons from the inspections ("Dlaczego te prace?"). */
+export interface PortalWhy {
+  rooms: PortalWhyRoom[];
+}

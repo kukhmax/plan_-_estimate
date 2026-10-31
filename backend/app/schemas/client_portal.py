@@ -1,6 +1,6 @@
 """The open page for the client (V2-8): a white list of what the client sees, and the two things the client may do."""
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -119,3 +119,32 @@ class PortalDecideProposal(BaseModel):
     signer_name: str = Field(max_length=200)
     agree: bool
     comment: str | None = Field(default=None, max_length=2000)
+
+
+class PortalWhyPhoto(BaseModel):
+    thumb_url: str
+    url: str
+    width: int
+    height: int
+
+
+class PortalWhyReason(BaseModel):
+    surface_name: str | None = None
+    work_name_key: str | None = None  # the catalogue name of the work (translated by the page) ...
+    work_name: str | None = None  # ... or the owner's own name
+    reason_key: str  # the risk or the finding the work answers (translated by the page)
+    inspected_on: date | None = None
+    photos: list[PortalWhyPhoto] = []
+
+
+class PortalWhyRoom(BaseModel):
+    room_name: str
+    quality_target: str | None = None  # S1-S4 / Q1-Q4 most of its surfaces are planned to
+    reasons: list[PortalWhyReason] = []
+
+
+class PortalWhy(BaseModel):
+    """Owner 2026-10-31: "Dlaczego te prace?" of the client's page -- the agreed standard of each room and the reasons from the inspections."""
+
+    rooms: list[PortalWhyRoom]
+

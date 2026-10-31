@@ -916,3 +916,18 @@ async def test_the_status_of_an_object_only_moves_forward():
         db = MagicMock(execute=AsyncMock(return_value=result))
         assert await advance_project_status(db, uuid.uuid4(), target) is moved
         assert project.status == (target if moved else start)
+
+
+async def test_why_these_works_is_read_through_the_link_only(async_client, db_session, web):
+    # owner 2026-10-31: "Dlaczego te prace?" -- the standard of the rooms (S2 from the quick estimate) and the reasons from the inspections
+    world = await make_world(async_client, db_session)
+    token = await issue(async_client, world)
+    response = await async_client.get(f"{PUBLIC}/why", headers=door(token))
+    assert response.status_code == 200, response.text
+    rooms = response.json()["rooms"]
+    assert rooms and all(set(room) == {"room_name", "quality_target", "reasons"} for room in rooms)
+    assert all(room["reasons"] == [] for room in rooms)  # nothing was taken from an inspection
+    assert (await async_client.get(f"{PUBLIC}/why", headers=door("x" * 43))).status_code == 404
+    raw = response.text
+    for forbidden in ("owner_id", "project_id", "price_item", "storage_key"):
+        assert forbidden not in raw
