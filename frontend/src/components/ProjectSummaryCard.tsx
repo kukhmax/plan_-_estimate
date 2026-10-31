@@ -4,6 +4,7 @@ import { useI18n } from '../hooks/useI18n';
 import { ProjectSummary } from '../types/room';
 import { formatMetric } from '../utils/format';
 import { OpeningGroupList } from './OpeningGroupList';
+import { ProjectSummaryMore } from './ProjectSummaryMore';
 
 interface ProjectSummaryCardProps {
   projectId: string;
@@ -97,6 +98,7 @@ export function ProjectSummaryCard({ projectId, refreshToken = 0 }: ProjectSumma
               <OpeningGroupList groups={summary.opening_groups} label="object-summary-openings" />
             </div>
           )}
+          <ProjectSummaryMore projectId={projectId} risks={summary.high_risks ?? []} />
         </>
       )}
     </section>

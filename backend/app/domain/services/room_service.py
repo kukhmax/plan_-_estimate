@@ -22,14 +22,17 @@ from app.domain.rules.room_geometry import (
     resolve_room_totals,
 )
 from app.models.area_segment import AreaOperation, AreaPlane, AreaSegment
+from app.models.inspection import Inspection
 from app.models.opening import Opening, OpeningType
 from app.models.project import Project
+from app.models.risk import Risk, RiskSeverity
 from app.models.room import Room
 from app.models.surface import Surface, SurfaceType
 from app.domain.services.canonical_planes import ensure_canonical_plane_surfaces
 from app.domain.services.client_ids import find_repeat
 from app.domain.services.wall_parts import load_parts, wall_size_pairs
 from app.schemas.room import (
+    RoomRiskCountRead,
     OpeningGroupRead,
     ProjectSummaryRead,
     RoomCalculations,
@@ -543,7 +546,29 @@ class RoomService:
             opening_groups=self._opening_group_reads(
                 await self._load_opening_rows(project_id=project_id)
             ),
+            high_risks=await self._high_risks(rooms),
         )
+
+    async def _high_risks(self, rooms: list[Room]) -> list[RoomRiskCountRead]:
+        """The active high / critical risks of the non-archived inspections of each room (rooms with none are left out), in the order of the rooms."""
+        if not rooms:
+            return []
+        counts = dict(
+            (
+                await self.db.execute(
+                    select(Inspection.room_id, func.count(Risk.id))
+                    .join(Risk, Risk.inspection_id == Inspection.id)
+                    .where(
+                        Inspection.room_id.in_([room.id for room in rooms]),
+                        Inspection.is_archived.is_(False),
+                        Risk.is_active.is_(True),
+                        Risk.severity.in_([RiskSeverity.HIGH, RiskSeverity.CRITICAL]),
+                    )
+                    .group_by(Inspection.room_id)
+                )
+            ).all()
+        )
+        return [RoomRiskCountRead(room_id=room.id, room_name=room.name, count=int(counts[room.id])) for room in rooms if counts.get(room.id)]
 
     async def create_room(
         self,

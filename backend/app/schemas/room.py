@@ -143,6 +143,12 @@ class RoomListResponse(BaseModel):
     total: int
 
 
+class RoomRiskCountRead(BaseModel):
+    room_id: uuid.UUID
+    room_name: str
+    count: int
+
+
 class ProjectSummaryRead(BaseModel):
     """Object-level aggregate (Stage 13F-PRE) over ACTIVE rooms only.
 
@@ -162,3 +168,5 @@ class ProjectSummaryRead(BaseModel):
     reveal_total_length: Decimal | None = None
     reveal_total_area: Decimal | None = None
     opening_groups: list[OpeningGroupRead] = Field(default_factory=list)
+    # owner 2026-10-31 ("Dodatkowo" of the summary): the active high / critical risks of each active room's inspections, rooms with any only
+    high_risks: list[RoomRiskCountRead] = Field(default_factory=list)

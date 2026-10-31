@@ -20,6 +20,8 @@ export interface ProjectSummary {
   reveal_total_length: string | null;
   reveal_total_area: string | null;
   opening_groups: OpeningGroup[];
+  /** Owner 2026-10-31: the active high / critical risks by room (rooms with any only). */
+  high_risks?: { room_id: string; room_name: string; count: number }[];
 }
 
 export interface RoomCalculations {

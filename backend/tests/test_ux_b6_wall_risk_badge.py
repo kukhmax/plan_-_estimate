@@ -40,3 +40,20 @@ async def test_the_wall_list_counts_the_active_high_and_critical_risks_of_each_w
     items, _ = await SurfaceService(db_session).list_surfaces(project.id, room.id, user.id)
     counts = {item.id: item.high_risk_count for item in items}
     assert counts[wall.id] == 2 and counts[other.id] == 0
+
+
+async def test_the_summary_of_the_object_lists_the_high_risks_by_room(db_session):
+    # owner 2026-10-31: "Dodatkowo" of the summary of the object shows where the open high risks are
+    from app.domain.services.room_service import RoomService
+
+    user = await _make_user(db_session, 1306002)
+    project = await _make_project(db_session, user.id)
+    room = await _make_room(db_session, project.id)
+    calm = await _make_room(db_session, project.id)
+    template = await _make_template(db_session)
+    inspection = await _make_inspection(db_session, room.id, template.id)
+    db_session.add_all([_risk(room.id, inspection.id, RiskSeverity.CRITICAL), _risk(room.id, inspection.id, RiskSeverity.LOW)])
+    await db_session.commit()
+    summary = await RoomService(db_session).get_project_summary(project.id, user.id)
+    assert [(r.room_id, r.count) for r in summary.high_risks] == [(room.id, 1)]
+    assert calm.id not in {r.room_id for r in summary.high_risks}
