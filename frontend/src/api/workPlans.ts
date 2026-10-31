@@ -132,3 +132,8 @@ export function applyExecutionToRoomWalls(
 export function isWorkExecutionSourceChanged(error: unknown): boolean {
   return error instanceof ApiError && error.status === 409 && error.code === 'WORK_EXECUTION_SOURCE_CHANGED';
 }
+
+/** Owner 2026-10-31: the works measured by the floor (the protection of the floors) go once into the plan of the floor, off the walls and the ceiling. */
+export function moveFloorWorks(projectId: string, roomId: string): Promise<{ moved: number; added: number; floor_surface_id: string }> {
+  return apiRequest(`/api/projects/${projectId}/rooms/${roomId}/floor-works/move`, { method: 'POST' });
+}

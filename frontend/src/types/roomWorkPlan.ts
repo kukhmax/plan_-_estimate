@@ -33,6 +33,8 @@ export interface RoomWorkPlanResponse {
   plan: RoomWorkPlan | null;
   surfaces: SurfacePlanState[];
   results: SurfacePlanOutcome[];
+  /** Owner 2026-10-31: the protection of the floors named for the walls / the ceiling went once into the plan of the floor. */
+  floor_works_on_floor?: boolean;
 }
 
 export interface RoomWorkPlanWritePayload {

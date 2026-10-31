@@ -346,8 +346,8 @@ def _resolve_reveal_quantity(
     return None, QuantitySource.MANUAL
 
 
-# Works measured by the floor of the room wherever they are planned (UX walk: the protection of the floors was counted by the walls).
-FLOOR_MEASURED_CODES = frozenset({"CENNIK_PREP_PROT-01"})
+# Works measured by the floor of the room wherever they are planned (UX walk); an occurrence left on a wall / the ceiling is counted once per room.
+from app.domain.rules.floor_works import FLOOR_MEASURED_CODES  # noqa: E402
 
 
 def _resolve_surface_quantity(

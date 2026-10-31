@@ -5,6 +5,7 @@ import {
   fetchSurfaceWorkPlan,
   isStaleWorkPlanError,
   isSurfaceWorkPlanMissing,
+  moveFloorWorks,
   parseExecutionDetachConfirmation,
   putSurfaceWorkPlan,
 } from '../api/workPlans';
@@ -169,6 +170,9 @@ export function SurfaceWorkPlanEditor({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // owner 2026-10-31: the protection of the floors went into the plan of the floor (after a save or by its button)
+  const [floorMoved, setFloorMoved] = useState(false);
+  const [movingFloor, setMovingFloor] = useState(false);
   const [saving, setSaving] = useState(false);
   // The last save echoed an occurrence_key that is no longer current: the plan
   // changed elsewhere and must be reloaded (never retried without keys).
@@ -357,8 +361,14 @@ export function SurfaceWorkPlanEditor({
     setTemplateApplied(false);
     setSaved(false);
     try {
-      const plan = await putSurfaceWorkPlan(projectId, roomId, surfaceId, payload);
+      let plan = await putSurfaceWorkPlan(projectId, roomId, surfaceId, payload);
       setDetachPrompt(null);
+      // owner 2026-10-31: the protection of the floors lives in the plan of the floor -- once per room, measured by the floor
+      if (surfaceType !== 'FLOOR' && plan.planned_works.some((work) => work.price_item?.measured_by_floor)) {
+        await moveFloorWorks(projectId, roomId);
+        plan = await fetchSurfaceWorkPlan(projectId, roomId, surfaceId);
+        setFloorMoved(true);
+      }
       // Re-hydrate from the server so new rows now carry their server keys.
       hydrate(plan);
       setSaved(true);
@@ -378,6 +388,20 @@ export function SurfaceWorkPlanEditor({
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const moveToFloor = async () => {
+    setMovingFloor(true);
+    setSaveError(null);
+    try {
+      await moveFloorWorks(projectId, roomId);
+      hydrate(await fetchSurfaceWorkPlan(projectId, roomId, surfaceId));
+      setFloorMoved(true);
+    } catch (error) {
+      setSaveError(describeError(error, t.work_plan.error_save));
+    } finally {
+      setMovingFloor(false);
     }
   };
 
@@ -1051,6 +1075,22 @@ export function SurfaceWorkPlanEditor({
                       ) : (
                         <p className="mt-1 text-xs text-[var(--tg-theme-hint-color)]">{t.work_plan.unavailable_item}</p>
                       )}
+                      {item?.measured_by_floor && surfaceType !== 'FLOOR' && (
+                        <div aria-label={`floor-work-note-${occurrence.draftKey}`} className="mt-1.5 rounded-lg border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs text-sky-900 space-y-1.5">
+                          <p className="break-words">{occurrence.occurrenceKey === null ? t.work_plan.floor_work_new : t.work_plan.floor_work_saved}</p>
+                          {occurrence.occurrenceKey !== null && !dirty && (
+                            <button
+                              type="button"
+                              aria-label={`floor-work-move-${occurrence.draftKey}`}
+                              disabled={saving || movingFloor}
+                              onClick={() => void moveToFloor()}
+                              className="min-h-11 w-full rounded-lg border border-sky-400 bg-white px-3 text-sm font-semibold text-sky-800 disabled:opacity-50"
+                            >
+                              <Ico>📐</Ico>{t.work_plan.floor_work_move}
+                            </button>
+                          )}
+                        </div>
+                      )}
                       {quantityShown && item && (
                         <div className="mt-1.5 flex flex-wrap items-center gap-2">
                           <label htmlFor={`occurrence-quantity-${occurrence.draftKey}`} className="text-xs text-[var(--tg-theme-hint-color)]">
@@ -1191,6 +1231,11 @@ export function SurfaceWorkPlanEditor({
           {saved && (
             <p role="status" className="text-sm text-[var(--tg-theme-text-color)]">
               {t.work_plan.saved}
+            </p>
+          )}
+          {floorMoved && (
+            <p role="status" aria-label={`floor-work-moved-${surfaceId}`} className="text-sm text-sky-800 break-words">
+              {t.work_plan.floor_work_moved}
             </p>
           )}
 

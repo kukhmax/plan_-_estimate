@@ -15,6 +15,7 @@ from app.domain.rules.inspection_rules import assert_quality_scale_valid
 from app.domain.services.canonical_planes import find_active_plane_surface
 from app.domain.services.client_service import ClientService
 from app.domain.services.estimate_service import EstimateService
+from app.domain.services.floor_works_service import FloorWorksService
 from app.domain.services.price_book_service import PriceBookService
 from app.domain.services.project_service import ProjectService
 from app.domain.services.room_service import RoomService
@@ -126,6 +127,8 @@ class QuickEstimateService:
                         project.id, room.id, ceiling.id, owner_id,
                         substrate=payload.substrate, quality_target=payload.quality_target, planned_works=ceiling_works,
                     )
+            # owner 2026-10-31: the protection of the floors goes once into the plan of the floor
+            await FloorWorksService(self.db).place_on_floor(project.id, room.id, owner_id)
 
         estimate = await EstimateService(self.db).generate_estimate(project.id, owner_id)
         lines = int((await self.db.execute(select(func.count()).select_from(EstimateLine).where(EstimateLine.estimate_id == estimate.id))).scalar_one())

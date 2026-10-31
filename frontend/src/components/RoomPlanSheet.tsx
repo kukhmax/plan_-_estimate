@@ -250,6 +250,9 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
                 {text.report_applied.replace('{names}', [...names('CREATED'), ...names('UPDATED')].join(', '))}
               </p>
             )}
+            {report.floor_works_on_floor && (
+              <p aria-label="room-plan-report-floor" className="text-sm text-sky-800 break-words">{text.report_floor_works}</p>
+            )}
             {count('SKIPPED_OWN') > 0 && <p className="text-sm text-amber-700 break-words">{text.report_skipped_own.replace('{names}', names('SKIPPED_OWN').join(', '))}</p>}
             {count('SKIPPED_STARTED') > 0 && <p className="text-sm text-amber-700 break-words">{text.report_skipped_started.replace('{names}', names('SKIPPED_STARTED').join(', '))}</p>}
             <button type="button" aria-label="room-plan-close" onClick={finish} className="w-full min-h-11 px-3 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700">
@@ -322,7 +325,13 @@ export function RoomPlanSheet({ projectId, roomId, onClose, onSaved }: RoomPlanS
                     {lists[target].length === 0 && <p className="text-xs text-slate-500">{text.no_works}</p>}
                     {lists[target].map((id, index) => (
                       <div key={`${id}-${index}`} aria-label={`room-plan-${target}-work-${index}`} className="flex items-center gap-1.5">
-                        <span className="min-w-0 flex-1 text-sm text-slate-900 break-words">{index + 1}. {nameOf(id)}</span>
+                        <span className="min-w-0 flex-1 text-sm text-slate-900 break-words">
+                          {index + 1}. {nameOf(id)}
+                          {/* owner 2026-10-31: it is saved once into the plan of the floor, not onto every wall */}
+                          {byId.get(id)?.measured_by_floor && (
+                            <span aria-label={`room-plan-${target}-floor-${index}`} className="block text-xs text-sky-800">{t.work_plan.floor_work_new}</span>
+                          )}
+                        </span>
                         <button type="button" aria-label={`room-plan-${target}-up-${index}`} title={text.move_up} disabled={index === 0} onClick={() => move(target, index, -1)} className={iconButton}>↑</button>
                         <button type="button" aria-label={`room-plan-${target}-down-${index}`} title={text.move_down} disabled={index === lists[target].length - 1} onClick={() => move(target, index, 1)} className={iconButton}>↓</button>
                         <button type="button" aria-label={`room-plan-${target}-remove-${index}`} title={text.remove_work} onClick={() => remove(target, index)} className={iconButton}>✕</button>

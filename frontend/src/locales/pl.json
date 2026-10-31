@@ -220,6 +220,7 @@
     "load_surface_failed": "Nie udało się wczytać planu tej powierzchni.",
     "report_title": "Plan zapisany",
     "report_applied": "Plan zastosowany do: {names}",
+    "report_floor_works": "„Zabezpieczenie podłóg” trafiło do planu podłogi (raz, z powierzchnią podłogi).",
     "report_created": "Utworzono plany: {n}",
     "report_updated": "Zaktualizowano plany: {n}",
     "report_skipped_own": "Pominięto (własny plan): {names}",
@@ -1173,6 +1174,10 @@
     "quantity_label": "Ilość:",
     "quantity_placeholder": "wpisz",
     "save_needs_quantity": "Ilość pracy musi być liczbą większą od zera.",
+    "floor_work_new": "Ta praca liczy się z podłogi: po zapisaniu trafi raz do planu podłogi tego pomieszczenia (z jej powierzchnią).",
+    "floor_work_saved": "Ta praca liczy się z podłogi — w kosztorysie raz na pomieszczenie. Przenieś ją do planu podłogi, żeby nie stała przy każdej ścianie.",
+    "floor_work_move": "Przenieś do planu podłogi",
+    "floor_work_moved": "Zabezpieczenie podłóg jest teraz w planie podłogi (liczone z jej powierzchni, raz na pomieszczenie).",
     "drag_hint": "Przytrzymaj pracę i przeciągnij ją w nowe miejsce (albo chwyć ⠿).",
     "drag": "Przeciągnij, aby zmienić kolejność"
   },

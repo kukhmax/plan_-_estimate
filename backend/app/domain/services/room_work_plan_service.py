@@ -21,6 +21,8 @@ from app.domain.exceptions import (
 from app.domain.rules.inspection_rules import assert_quality_scale_valid
 from app.domain.rules.work_execution_rules import PROTECTED_STATUSES
 from app.domain.services.canonical_planes import find_active_plane_surface
+from app.domain.rules.floor_works import is_floor_measured
+from app.domain.services.floor_works_service import FloorWorksService
 from app.domain.services.work_plan_service import SurfaceWorkPlanService
 from app.models.price_item import PriceItem
 from app.models.project import Project
@@ -167,6 +169,14 @@ class RoomWorkPlanService:
         await self._room(project_id, room_id, owner_id)
         assert_quality_scale_valid(payload.substrate, payload.quality_target)
         await self._check_items(owner_id, [*payload.walls, *payload.ceiling])
+        # owner 2026-10-31: a work measured by the floor (the protection of the floors) goes once into the plan of the floor, not onto every wall
+        named = {
+            row.id: row
+            for row in (await self.db.execute(select(PriceItem).where(PriceItem.owner_id == owner_id, PriceItem.id.in_([*payload.walls, *payload.ceiling])))).scalars()
+        }
+        floor_items = [row for row in named.values() if is_floor_measured(row.code, row.unit)]
+        floor_ids = {row.id for row in floor_items}
+        payload = payload.model_copy(update={"walls": [i for i in payload.walls if i not in floor_ids], "ceiling": [i for i in payload.ceiling if i not in floor_ids]})
         plan = await self._plan(room_id)
         if plan is None:
             plan = RoomWorkPlan(room_id=room_id, substrate=payload.substrate, quality_target=payload.quality_target, works=[])
@@ -190,7 +200,12 @@ class RoomWorkPlanService:
         for surface in targets:
             outcome = await self._bring(project_id, room_id, owner_id, surface, plan, existing.get(surface.id))
             results.append(SurfaceOutcome(surface_id=surface.id, name=surface.name, surface_type=surface.surface_type, outcome=outcome))
-        return RoomWorkPlanResponse(plan=self._read(plan), surfaces=await self._states(room_id), results=results)
+        floor = await FloorWorksService(self.db).place_on_floor(project_id, room_id, owner_id, floor_items)
+        plan = await self._plan(room_id)
+        assert plan is not None
+        return RoomWorkPlanResponse(
+            plan=self._read(plan), surfaces=await self._states(room_id), results=results, floor_works_on_floor=bool(floor_items or floor.moved),
+        )
 
     async def follow(self, project_id: uuid.UUID, room_id: uuid.UUID, surface_id: uuid.UUID, owner_id: uuid.UUID) -> SurfaceOutcome:
         """"Back to the plan of the room" for one surface (a plan of its own is replaced). Refused for a surface that has started."""

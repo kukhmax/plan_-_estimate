@@ -5,8 +5,10 @@ Thin owner-scoped controller: the plan of a whole room and the "back to the plan
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_room_work_plan_service
+from app.api.deps import get_current_user, get_db, get_room_work_plan_service
 from app.domain.exceptions import (
     PriceItemNotFoundError,
     ProjectNotFoundError,
@@ -15,6 +17,7 @@ from app.domain.exceptions import (
     RoomPlanError,
     SurfaceWorkPlanValidationError,
 )
+from app.domain.services.floor_works_service import FloorWorksService
 from app.domain.services.room_work_plan_service import RoomWorkPlanService
 from app.models.user import User
 from app.schemas.room_work_plan import RoomWorkPlanResponse, RoomWorkPlanWrite, SurfaceOutcome
@@ -89,3 +92,28 @@ async def follow_room_work_plan(
     except RoomPlanError as error:
         code = status.HTTP_409_CONFLICT if error.code == "ROOM_PLAN_STARTED" else status.HTTP_422_UNPROCESSABLE_ENTITY
         raise HTTPException(status_code=code, detail=_detail(error.code, error.message)) from error
+
+
+class FloorWorksMoved(BaseModel):
+    moved: int  # occurrences taken off the walls and the ceiling
+    added: int  # works added to the plan of the floor
+    floor_surface_id: uuid.UUID
+
+
+@router.post(
+    "/projects/{project_id}/rooms/{room_id}/floor-works/move",
+    response_model=FloorWorksMoved,
+    status_code=status.HTTP_200_OK,
+    summary="Put the works measured by the floor (the protection of the floors) once into the plan of the floor, off the walls and the ceiling",
+)
+async def move_floor_works(
+    project_id: uuid.UUID,
+    room_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> FloorWorksMoved:
+    try:
+        result = await FloorWorksService(db).place_on_floor(project_id, room_id, current_user.id)
+    except (ProjectNotFoundError, RoomNotFoundError) as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found") from error
+    return FloorWorksMoved(moved=result.moved, added=result.added, floor_surface_id=result.floor_surface_id)

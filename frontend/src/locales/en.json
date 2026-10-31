@@ -220,6 +220,7 @@
     "load_surface_failed": "Could not load the plan of this surface.",
     "report_title": "Plan saved",
     "report_applied": "The plan was applied to: {names}",
+    "report_floor_works": "“Protection of the floors” went into the plan of the floor (once, by the floor area).",
     "report_created": "Plans created: {n}",
     "report_updated": "Plans updated: {n}",
     "report_skipped_own": "Skipped (own plan): {names}",
@@ -1173,6 +1174,10 @@
     "quantity_label": "Quantity:",
     "quantity_placeholder": "type",
     "save_needs_quantity": "The quantity of a work must be a number above zero.",
+    "floor_work_new": "This work is measured by the floor: after saving it goes once into the plan of the floor of this room (with its area).",
+    "floor_work_saved": "This work is measured by the floor — once per room in the estimate. Move it to the plan of the floor so that it does not stand at every wall.",
+    "floor_work_move": "Move to the plan of the floor",
+    "floor_work_moved": "The protection of the floors is now in the plan of the floor (by its area, once per room).",
     "drag_hint": "Press and hold a work and drag it to a new place (or grab ⠿).",
     "drag": "Drag to change the order"
   },

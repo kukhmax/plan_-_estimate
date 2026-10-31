@@ -10,7 +10,8 @@ from datetime import datetime
 from decimal import Decimal
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field
+from app.domain.rules.floor_works import is_floor_measured
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models.checklist import QualityLevel
 from app.models.market_evidence import SourceType
@@ -68,6 +69,12 @@ class PriceItemRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def measured_by_floor(self) -> bool:
+        """Owner 2026-10-31: a work measured by the floor of the room (the protection of the floors): it belongs to the plan of the floor."""
+        return is_floor_measured(self.code, self.unit)
 
 
 class PriceItemListResponse(BaseModel):

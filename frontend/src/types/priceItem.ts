@@ -82,6 +82,8 @@ export interface PriceItem {
   is_archived: boolean;
   created_at: string;
   updated_at: string;
+  /** Owner 2026-10-31: measured by the floor of the room (the protection of the floors). */
+  measured_by_floor?: boolean;
 }
 
 export interface PriceItemListResponse {

@@ -55,3 +55,5 @@ class RoomWorkPlanResponse(BaseModel):
     plan: RoomWorkPlanRead | None
     surfaces: list[SurfacePlanState]
     results: list[SurfaceOutcome] = Field(default_factory=list)
+    # owner 2026-10-31: the works measured by the floor named for the walls / the ceiling went into the plan of the floor (once)
+    floor_works_on_floor: bool = False

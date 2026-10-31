@@ -13,6 +13,8 @@ export interface SurfacePriceItemSummaryRead {
   currency: string;
   is_archived: boolean;
   quality_level: QualityLevelValue | null;
+  /** Owner 2026-10-31: a work measured by the floor of the room (the protection of the floors): it lives in the plan of the floor. */
+  measured_by_floor?: boolean;
 }
 
 export interface PlannedWorkCoefficientOptionRead {

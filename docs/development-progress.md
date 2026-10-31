@@ -6241,3 +6241,8 @@ Owner 2026-10-30: "check that all the points are done (critical A1-A5, B1-B8); f
 
 ### UX walk follow-up (owner 2026-10-31): the walls keep their own colours (branch `ver-2`; NO MIGRATION)
 Owner after the deploy: "bring back the different colours of the walls, they are easier to tell apart". `SurfaceList` takes the per-id wall tint again (`surfaceCardTint`), the tests of the tints are back as they were; README and step 6za of the deploy script follow.
+
+### Owner decisions 2026-10-31, item 1: "Zabezpieczenie podłóg" lives in the plan of the floor (branch `ver-2`; NO MIGRATION)
+* `domain/rules/floor_works.py` (`FLOOR_MEASURED_CODES`, `is_floor_measured`), `FloorWorksService.place_on_floor`: the floor-measured works of the walls and the ceiling of a room (not started) are taken off them (the gap of positions closed) and off the plan of the room, and put once into the plan of the floor (a floor with no plan gets one on "Inne"). Called by the plan of a room (`floor_works_on_floor` in the answer), the quick estimate and `POST /projects/{p}/rooms/{r}/floor-works/move`; `measured_by_floor` is a computed field of the price item (book and plan). The wall editor shows "liczy się z podłogi", moves after "Zapisz" by itself and has "Przenieś do planu podłogi" for old plans; the room-plan sheet marks such a work and reports where it went. The estimate rule of the earlier change stays for what is left on walls.
+* Tests: backend `test_floor_works.py` (3), vitest `SurfaceWorkPlanEditor` (+1), `RoomPlan` (+1).
+

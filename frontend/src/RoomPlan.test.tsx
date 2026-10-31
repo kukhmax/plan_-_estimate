@@ -175,6 +175,14 @@ describe('the sheet "Plan pomieszczenia" (V2-5)', () => {
     expect(screen.getByLabelText('room-plan-quality')).toHaveValue('Q2');
   });
 
+  it('says that the protection of the floors went into the plan of the floor (owner 2026-10-31)', async () => {
+    vi.mocked(roomPlansApi.saveRoomWorkPlan).mockResolvedValue({ ...planResponse({ results: [] }), floor_works_on_floor: true });
+    open();
+    await screen.findByLabelText('room-plan-walls');
+    fireEvent.click(screen.getByLabelText('room-plan-save'));
+    expect(await screen.findByLabelText('room-plan-report-floor')).toHaveTextContent('trafiło do planu podłogi');
+  });
+
   it('reports what was made and what was left alone, and closing it reads the surfaces again', async () => {
     const onSaved = vi.fn();
     const onClose = vi.fn();

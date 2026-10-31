@@ -25,6 +25,7 @@ vi.mock('./api/workPlans', async (importOriginal) => {
     fetchSurfaceWorkPlan: vi.fn(),
     putSurfaceWorkPlan: vi.fn(),
     applyWorkPlanToRoomWalls: vi.fn(),
+    moveFloorWorks: vi.fn(),
   };
 });
 
@@ -339,6 +340,25 @@ describe('SurfaceWorkPlanEditor', () => {
     expect(within(quality).getByRole('option', { name: 'Klasa S1' })).toBeInTheDocument();
     // UX walk: old paint is offered the S scale only
     expect(within(quality).queryByRole('option', { name: 'Klasa Q1' })).not.toBeInTheDocument();
+  });
+
+  it('says that the protection of the floors belongs to the floor and moves it there by one button (owner 2026-10-31)', async () => {
+    const protection = {
+      ...plannedWorks[1], id: 'occurrence-prot', occurrence_key: 'key-prot', price_item_id: 'price-prot',
+      price_item: { ...plannedWorks[1].price_item!, id: 'price-prot', code: 'CENNIK_PREP_PROT-01', name_key: null, display_name: 'Zabezpieczenie podłóg', measured_by_floor: true },
+    };
+    vi.mocked(workPlansApi.fetchSurfaceWorkPlan)
+      .mockResolvedValueOnce(makePlan({ substrate: 'GYPSUM_PLASTER', quality_target: 'S2', planned_works: [plannedWorks[1], protection] }))
+      .mockResolvedValueOnce(makePlan({ substrate: 'GYPSUM_PLASTER', quality_target: 'S2', planned_works: [plannedWorks[1]] }));
+    vi.mocked(workPlansApi.moveFloorWorks).mockResolvedValue({ moved: 1, added: 1, floor_surface_id: 'floor-1' });
+    renderEditor();
+    const notes = await screen.findAllByLabelText(/^floor-work-note-/);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toHaveTextContent('liczy się z podłogi');
+    fireEvent.click(screen.getByLabelText(/^floor-work-move-/));
+    expect(await screen.findByLabelText(`floor-work-moved-${surfaceId}`)).toBeInTheDocument();
+    expect(workPlansApi.moveFloorWorks).toHaveBeenCalledWith(projectId, roomId);
+    expect(screen.queryAllByLabelText(/^floor-work-note-/)).toHaveLength(0);
   });
 
   it('saves the header while preserving work occurrence order and duplicate IDs exactly', async () => {
